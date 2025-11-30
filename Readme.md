@@ -43,4 +43,4 @@ at the same place where your mod folder is.
 * [EnhancedVehicle](https://github.com/ZhooL/FS25_EnhancedVehicle)
     * Differential
     * AWD
-    * Parking Prake
+    * Parking Brake
