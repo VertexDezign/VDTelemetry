@@ -6,7 +6,7 @@
         <time>10:12</time>
     </environment>
     <vehicle name="John Deere S7.800" type="combineDrivable">
-        <speed unit="km/h" direction="STOPPED">0</speed>
+        <speed unit="km/h" direction="STOPPED">10</speed>
         <operatingTime unit="h">0.01</operatingTime>
         <motor state="ON">
             <temperatur min="20" max="120" unit="°C">23</temperatur>

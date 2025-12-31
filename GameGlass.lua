@@ -9,8 +9,19 @@
 local modDirectory = g_currentModDirectory
 local modName = g_currentModName
 
-source(Utils.getFilename("Set.lua", modDirectory .. "util/"))
-source(Utils.getFilename("ValueMapper.lua", modDirectory))
+---Source files to load, there are loaded in order, so if there is a dependency to another file, at it after the file it requires
+---@type table<string> files to source.
+local sourceFiles = {
+  -- Utils
+  "src/utils/Set.lua",
+  "src/utils/MapUtil.lua",
+  -- Mappers
+  "src/mapper/ValueMapper.lua"
+}
+
+for _, file in ipairs(sourceFiles) do
+  source(modDirectory .. file)
+end
 
 ---@class CombinedInfo
 ---@field fillUnits table<string, CombinedFillUnit> @key is type
@@ -41,6 +52,7 @@ source(Utils.getFilename("ValueMapper.lua", modDirectory))
 ---@field updateTimer number
 ---@field settingsXmlFile string
 ---@field combinedInfo CombinedInfo
+---@field pda PDA | nil
 GameGlass = {}
 GameGlass.STATE_FILE_NAME = "gameGlassInterface.xml"
 GameGlass.XML_VERSION = 1
@@ -109,7 +121,8 @@ function GameGlass:loadMap(filename)
     self.xmlFileLocation = appPath .. GameGlass.STATE_FILE_NAME
   end
 
-  --self.debugger:tPrint("Vehicle",Vehicle)
+  self.pda = MapUtil.getMapPDAFile()
+
   self.debugger:info("GameGlass loaded")
 end
 
@@ -198,7 +211,29 @@ function GameGlass:populateXMLFromEnvironment(xml)
   -- export current time (fixed 24h format)
   xml:setString("GGI.environment.time", string.format("%02d:%02d", environment.currentHour, environment.currentMinute))
 
-  -- TODO add other stuff like day / wheater
+  -- weather
+  local weather = environment.weather
+  local minTemperatureInC, maxTemperatureInC = weather:getCurrentMinMaxTemperatures()
+  local currentTemperatureInC = weather.forecast:getCurrentWeather()
+
+  local minTemperatureExpanded = MathUtil.round(g_i18n:getTemperature(minTemperatureInC), 0)
+  local maxTemperatureExpanded = MathUtil.round(g_i18n:getTemperature(maxTemperatureInC), 0)
+  local currentTemperatureExpanded = MathUtil.round(g_i18n:getTemperature(currentTemperatureInC.temperature), 0)
+
+  xml:setInt("GGI.environment.weather.temperature#min", minTemperatureExpanded)
+  xml:setInt("GGI.environment.weather.temperature#max", maxTemperatureExpanded)
+  xml:setInt("GGI.environment.weather.temperature#current", currentTemperatureExpanded)
+  xml:setString("GGI.environment.weather.temperature#unit", "°C")
+
+  -- player position
+  local ingameMap = g_currentMission.hud.ingameMap
+  if self.pda ~= nil then
+    xml:setString("GGI.environment.pda#filename", self.pda.filename)
+    xml:setInt("GGI.environment.pda#width", self.pda.width)
+    xml:setInt("GGI.environment.pda#height", self.pda.height)
+  end
+  xml:setFloat("GGI.environment.pda.player#posX", ingameMap.normalizedPlayerPosX)
+  xml:setFloat("GGI.environment.pda.player#posZ", ingameMap.normalizedPlayerPosZ)
 end
 
 ---@param xml XMLFile
@@ -209,9 +244,12 @@ function GameGlass:populateXMLFromVehicle(xml)
     return
   end
 
-  xml:setInt("GGI.vehicle.speed", vehicle:getLastSpeed())
+  xml:setString("GGI.vehicle.speed", ValueMapper.mapFloat(vehicle:getLastSpeed()))
   xml:setString("GGI.vehicle#name", vehicle:getFullName())
   xml:setString("GGI.vehicle#type", vehicle.typeName)
+  local brand = ValueMapper.resolveBrand(vehicle)
+  xml:setString("GGI.vehicle.brand#name", brand.name)
+  xml:setString("GGI.vehicle.brand#title", brand.title)
   if vehicle.getDrivingDirection ~= nil then
     xml:setString("GGI.vehicle.speed#unit", "km/h")
     xml:setString("GGI.vehicle.speed#direction", ValueMapper.mapDirection(vehicle:getDrivingDirection()))
@@ -265,12 +303,22 @@ function GameGlass:populateXMLFromMotorized(xml)
   xml:setString("GGI.vehicle.motor.gear#group", motor:getGearGroupToDisplay())
   xml:setString("GGI.vehicle.motor.gear", motor:getGearToDisplay())
 
+  -- max speed
+  xml:setInt("GGI.vehicle.motor.maxSpeed#forward", ValueMapper.convertFromMsToKMH(motor:getMaximumForwardSpeed()))
+  xml:setInt("GGI.vehicle.motor.maxSpeed#backward", ValueMapper.convertFromMsToKMH(motor:getMaximumBackwardSpeed()))
+
   for fillTypeIndex, v in pairs(mSpec.consumersByFillType) do
     local fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
     if GameGlass.mainFuelTypes:contains(fillType.name) then
-      self:writeFuelFillUnitToXML(xml, "GGI.vehicle.motor.fillUnits", fillType, v.fillUnitIndex)
+      self:writeFuelFillUnitToXML(xml, "GGI.vehicle.motor.fillUnits", fillType, v.fillUnitIndex, mSpec.lastFuelUsage)
     else
-      self:writeSecondaryMotorFillUnitToXML(xml, "GGI.vehicle.motor.fillUnits", fillType, v.fillUnitIndex)
+      local usage = nil
+      if fillType.name == FillType.DEF then
+        usage = mSpec.lastDefUsage
+      elseif fillType.name == FillType.AIR then
+        usage = mSpec.lastAirUsage
+      end
+      self:writeSecondaryMotorFillUnitToXML(xml, "GGI.vehicle.motor.fillUnits", fillType, v.fillUnitIndex, usage)
     end
   end
 
@@ -297,7 +345,8 @@ end
 ---@param path string
 ---@param fillType table The fill type table
 ---@param fillUnitIndex number The index of the fillUnit
-function GameGlass:writeFuelFillUnitToXML(xml, path, fillType, fillUnitIndex)
+---@param usage number The current usage of the fillUnit
+function GameGlass:writeFuelFillUnitToXML(xml, path, fillType, fillUnitIndex, usage)
   local capacity = self.currentVehicle:getFillUnitCapacity(fillUnitIndex)
   local fillLevel = self.currentVehicle:getFillUnitFillLevel(fillUnitIndex)
   local fillLevelPercentage = self.currentVehicle:getFillUnitFillLevelPercentage(fillUnitIndex)
@@ -312,13 +361,15 @@ function GameGlass:writeFuelFillUnitToXML(xml, path, fillType, fillUnitIndex)
   xml:setString(string.format("%s.fuel#unit", path), unit)
   xml:setInt(string.format("%s.fuel#capacity", path), capacity)
   xml:setString(string.format("%s.fuel#fillLevelPercentage", path), ValueMapper.mapPercentage(fillLevelPercentage, 0))
+  xml:setString(string.format("%s.fuel#usage", path), ValueMapper.mapFloat(usage))
 end
 
 ---@param xml XMLFile
 ---@param path string
 ---@param fillType table The fill type table
 ---@param fillUnitIndex number The index of the fillUnit
-function GameGlass:writeSecondaryMotorFillUnitToXML(xml, path, fillType, fillUnitIndex)
+---@param usage number The current usage of the fillUnit
+function GameGlass:writeSecondaryMotorFillUnitToXML(xml, path, fillType, fillUnitIndex, usage)
   local capacity = self.currentVehicle:getFillUnitCapacity(fillUnitIndex)
   local fillLevel = self.currentVehicle:getFillUnitFillLevel(fillUnitIndex)
   local fillLevelPercentage = self.currentVehicle:getFillUnitFillLevelPercentage(fillUnitIndex)
@@ -332,6 +383,9 @@ function GameGlass:writeSecondaryMotorFillUnitToXML(xml, path, fillType, fillUni
   xml:setString(string.format("%s.%s#unit", path, pathType), unit)
   xml:setInt(string.format("%s.%s#capacity", path, pathType), capacity)
   xml:setString(string.format("%s.%s#fillLevelPercentage", path, pathType), ValueMapper.mapPercentage(fillLevelPercentage, 0))
+  if usage ~= nil then
+    xml:setString(string.format("%s.%s#usage", path, pathType), ValueMapper.mapFloat(usage))
+  end
 end
 
 ---@param xml XMLFile
@@ -423,6 +477,9 @@ function GameGlass:populateXMLFromAttacherJoints(xml, path, rootObject)
     if object ~= nil then
       xml:setString(string.format("%s#name", xmlBasePath), object:getFullName())
       xml:setString(string.format("%s#type", xmlBasePath), object.typeName)
+      local brand = ValueMapper.resolveBrand(object)
+      xml:setString(string.format("%s.brand#name", xmlBasePath), brand.name)
+      xml:setString(string.format("%s.brand#title", xmlBasePath), brand.title)
     end
 
     self:populateXMLFromTurnOnVehicle(xml, xmlBasePath, object, combinedState)
