@@ -1,8 +1,8 @@
--- GameGlass
+-- VDTelemetry
 --
 -- @author  Grisu118 - VertexDezign.net
 -- @history     v1.0.0.0 - 2024-11-18 - Initial implementation
--- @Descripion: Exports game state into an xml for gameglass
+-- @Descripion: Exports game state into an xml for telemetry consumers (e.g. GameGlass)
 -- @web: https://grisu118.ch or https://vertexdezign.net
 -- Copyright (C) Grisu118, All Rights Reserved.
 
@@ -46,35 +46,35 @@ end
 ---@field lowered boolean?
 ---@field isTurnedOn boolean?
 
----@class GameGlass
+---@class VDTelemetry
 ---@field debugger GrisuDebug
 ---@field exportEnabled boolean
 ---@field updateTimer number
 ---@field settingsXmlFile string
 ---@field combinedInfo CombinedInfo
 ---@field pda PDA | nil
-GameGlass = {}
-GameGlass.STATE_FILE_NAME = "gameGlassInterface.xml"
-GameGlass.XML_VERSION = 1
-GameGlass.SETTINGS_XML = "gameGlassInterfaceSettings.xml"
-GameGlass.SETTINGS_XML_VERSION = 1
-GameGlass.VD_AI = {
+VDTelemetry = {}
+VDTelemetry.STATE_FILE_NAME = "vdTelemetry.xml"
+VDTelemetry.XML_VERSION = 1
+VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
+VDTelemetry.SETTINGS_XML_VERSION = 1
+VDTelemetry.VD_AI = {
   REQUIRED_MAJOR_VERSION = 1,
   REQUIRED_MIN_MINOR_VERSION = 0
 }
 
-GameGlass.mainFuelTypes = Set:new({ "DIESEL", "ELECTRICCHARGE", "METHANE" })
+VDTelemetry.mainFuelTypes = Set:new({ "DIESEL", "ELECTRICCHARGE", "METHANE" })
 
-local GameGlass_mt = Class(GameGlass)
+local VDTelemetry_mt = Class(VDTelemetry)
 
----@return GameGlass
-function GameGlass.init()
-  ---@type GameGlass
+---@return VDTelemetry
+function VDTelemetry.init()
+  ---@type VDTelemetry
   local self = {}
 
-  setmetatable(self, GameGlass_mt)
+  setmetatable(self, VDTelemetry_mt)
 
-  self.debugger = GrisuDebug:create("GameGlass")
+  self.debugger = GrisuDebug:create("VDTelemetry")
   self.debugger:setLogLvl(GrisuDebug.TRACE)
 
   self.exportEnabled = false
@@ -88,71 +88,71 @@ function GameGlass.init()
   }
 
   local modSettingsDir = getUserProfileAppPath() .. "modSettings/"
-  self.settingsXmlFile = modSettingsDir .. GameGlass.SETTINGS_XML
+  self.settingsXmlFile = modSettingsDir .. VDTelemetry.SETTINGS_XML
 
   if not fileExists(self.settingsXmlFile) then
     self:writeDefaultSettings()
   end
   self:loadSettingsFromFile()
 
-  self.debugger:info("GameGlass initialized")
+  self.debugger:info("VDTelemetry initialized")
   return self
 end
 
-function GameGlass:loadMap(filename)
-  self.debugger:debug("GameGlass loading")
+function VDTelemetry:loadMap(filename)
+  self.debugger:debug("VDTelemetry loading")
   -- check if FS25_additionalInputs is present in correct version
   -- TODO display warning in ui
   if FS25_additionalInputs == nil or g_vdAdditionalInputs == nil then
     self.debugger:error("FS25_additionalInputs is required but not present")
     self.exportEnabled = false
   else
-    if GameGlass.VD_AI.REQUIRED_MAJOR_VERSION ~= g_vdAdditionalInputs.MAJOR_VERSION then
-      self.debugger:error(string.format("FS25_additionalInputs with major version %s is required, but was %s", GameGlass.VD_AI.REQUIRED_MAJOR_VERSION, g_vdAdditionalInputs.MAJOR_VERSION))
+    if VDTelemetry.VD_AI.REQUIRED_MAJOR_VERSION ~= g_vdAdditionalInputs.MAJOR_VERSION then
+      self.debugger:error(string.format("FS25_additionalInputs with major version %s is required, but was %s", VDTelemetry.VD_AI.REQUIRED_MAJOR_VERSION, g_vdAdditionalInputs.MAJOR_VERSION))
       self.exportEnabled = false
-    elseif GameGlass.VD_AI.REQUIRED_MIN_MINOR_VERSION < g_vdAdditionalInputs.MINOR_VERSION then
-      self.debugger:error(string.format("FS25_additionalInputs with minimum minor version %s is required, but was %s", GameGlass.VD_AI.REQUIRED_MIN_MINOR_VERSION, g_vdAdditionalInputs.MINOR_VERSION))
+    elseif VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION < g_vdAdditionalInputs.MINOR_VERSION then
+      self.debugger:error(string.format("FS25_additionalInputs with minimum minor version %s is required, but was %s", VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION, g_vdAdditionalInputs.MINOR_VERSION))
       self.exportEnabled = false
     end
   end
 
   if g_dedicatedServerInfo == nil then
     local appPath = getUserProfileAppPath()
-    self.xmlFileLocation = appPath .. GameGlass.STATE_FILE_NAME
+    self.xmlFileLocation = appPath .. VDTelemetry.STATE_FILE_NAME
   end
 
   self.pda = MapUtil.getMapPDAFile()
 
-  self.debugger:info("GameGlass loaded")
+  self.debugger:info("VDTelemetry loaded")
 end
 
-function GameGlass:writeDefaultSettings()
+function VDTelemetry:writeDefaultSettings()
   self.debugger:trace("writeDefaultSettings")
-  local xml = XMLFile.create("GGS", self.settingsXmlFile, "GGS")
+  local xml = XMLFile.create("VDTS", self.settingsXmlFile, "VDTS")
 
-  xml:setInt("GGS#version", 1)
-  xml:setBool("GGS.exportEnabled", g_dedicatedServerInfo == nil)
-  xml:setString("GGS.logging.level", "INFO")
-  xml:setString("GGS.logging.specLevel", "INFO")
+  xml:setInt("VDTS#version", 1)
+  xml:setBool("VDTS.exportEnabled", g_dedicatedServerInfo == nil)
+  xml:setString("VDTS.logging.level", "INFO")
+  xml:setString("VDTS.logging.specLevel", "INFO")
 
   xml:save()
   xml:delete()
 end
 
-function GameGlass:loadSettingsFromFile()
+function VDTelemetry:loadSettingsFromFile()
   self.debugger:trace("loadSettingsFromFile")
-  local xml = XMLFile.load("GGS", self.settingsXmlFile)
+  local xml = XMLFile.load("VDTS", self.settingsXmlFile)
 
-  local version = xml:getInt("GGS#version", 0)
-  if version ~= GameGlass.SETTINGS_XML_VERSION then
+  local version = xml:getInt("VDTS#version", 0)
+  if version ~= VDTelemetry.SETTINGS_XML_VERSION then
     --TODO proper handling?
     self.debugger:error("Unknown settings xml version, setting defaults values")
     self:writeDefaultSettings()
   end
 
-  self.exportEnabled = xml:getBool("GGS.exportEnabled", true)
-  local logLevel = xml:getString("GGS.logging.level", "INFO")
-  local specLogLevel = xml:getString("GGS.logging.specLevel", "INFO")
+  self.exportEnabled = xml:getBool("VDTS.exportEnabled", true)
+  local logLevel = xml:getString("VDTS.logging.level", "INFO")
+  local specLogLevel = xml:getString("VDTS.logging.specLevel", "INFO")
 
   local parseLogLevel = GrisuDebug.parseLogLevel(logLevel)
   self.debugger:setLogLvl(parseLogLevel)
@@ -161,7 +161,7 @@ function GameGlass:loadSettingsFromFile()
   xml:delete()
 end
 
-function GameGlass:update(dt)
+function VDTelemetry:update(dt)
   if self.exportEnabled == false then
     return
   end
@@ -182,7 +182,7 @@ function GameGlass:update(dt)
 
 end
 
-function GameGlass:writeXMLFile()
+function VDTelemetry:writeXMLFile()
   self.debugger:trace("Write xml file")
   -- reset combined info
   self.combinedInfo = {
@@ -192,10 +192,10 @@ function GameGlass:writeXMLFile()
     backState = nil
   }
 
-  local xml = XMLFile.create("GameGlass", self.xmlFileLocation, "GGI")
-  xml:setInt("GGI#version", GameGlass.XML_VERSION)
-  xml:setString("GGI#xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
-  xml:setString("GGI#xsi:noNamespaceSchemaLocation", "https://raw.githubusercontent.com/VertexDezign/GameGlassInterface/refs/heads/main/gameGlassInterfaceSchema.xsd")
+  local xml = XMLFile.create("VDTelemetry", self.xmlFileLocation, "VDT")
+  xml:setInt("VDT#version", VDTelemetry.XML_VERSION)
+  xml:setString("VDT#xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+  xml:setString("VDT#xsi:noNamespaceSchemaLocation", "https://raw.githubusercontent.com/VertexDezign/VDTelemetry/refs/heads/main/vdTelemetrySchema.xsd")
   self:populateXMLFromEnvironment(xml)
   self:populateXMLFromVehicle(xml)
   xml:save()
@@ -203,13 +203,13 @@ function GameGlass:writeXMLFile()
 end
 
 ---@param xml XMLFile
-function GameGlass:populateXMLFromEnvironment(xml)
+function VDTelemetry:populateXMLFromEnvironment(xml)
   local environment = g_currentMission.environment
 
   -- set initial year to 2024, when the game was released
-  xml:setString("GGI.environment.date", string.format("%02d.%02d.%04d", environment.currentDayInPeriod, ValueMapper.mapPeriodToMonth(environment.currentPeriod), 2023 + environment.currentYear))
+  xml:setString("VDT.environment.date", string.format("%02d.%02d.%04d", environment.currentDayInPeriod, ValueMapper.mapPeriodToMonth(environment.currentPeriod), 2023 + environment.currentYear))
   -- export current time (fixed 24h format)
-  xml:setString("GGI.environment.time", string.format("%02d:%02d", environment.currentHour, environment.currentMinute))
+  xml:setString("VDT.environment.time", string.format("%02d:%02d", environment.currentHour, environment.currentMinute))
 
   -- weather
   local weather = environment.weather
@@ -220,97 +220,97 @@ function GameGlass:populateXMLFromEnvironment(xml)
   local maxTemperatureExpanded = MathUtil.round(g_i18n:getTemperature(maxTemperatureInC), 0)
   local currentTemperatureExpanded = MathUtil.round(g_i18n:getTemperature(currentTemperatureInC.temperature), 0)
 
-  xml:setInt("GGI.environment.weather.temperature#min", minTemperatureExpanded)
-  xml:setInt("GGI.environment.weather.temperature#max", maxTemperatureExpanded)
-  xml:setInt("GGI.environment.weather.temperature#current", currentTemperatureExpanded)
-  xml:setString("GGI.environment.weather.temperature#unit", "°C")
+  xml:setInt("VDT.environment.weather.temperature#min", minTemperatureExpanded)
+  xml:setInt("VDT.environment.weather.temperature#max", maxTemperatureExpanded)
+  xml:setInt("VDT.environment.weather.temperature#current", currentTemperatureExpanded)
+  xml:setString("VDT.environment.weather.temperature#unit", "°C")
 
   -- player position
   local ingameMap = g_currentMission.hud.ingameMap
   if self.pda ~= nil then
-    xml:setString("GGI.environment.pda#filename", self.pda.filename)
-    xml:setInt("GGI.environment.pda#width", self.pda.width)
-    xml:setInt("GGI.environment.pda#height", self.pda.height)
+    xml:setString("VDT.environment.pda#filename", self.pda.filename)
+    xml:setInt("VDT.environment.pda#width", self.pda.width)
+    xml:setInt("VDT.environment.pda#height", self.pda.height)
   end
-  xml:setFloat("GGI.environment.pda.player#posX", ingameMap.normalizedPlayerPosX)
-  xml:setFloat("GGI.environment.pda.player#posZ", ingameMap.normalizedPlayerPosZ)
+  xml:setFloat("VDT.environment.pda.player#posX", ingameMap.normalizedPlayerPosX)
+  xml:setFloat("VDT.environment.pda.player#posZ", ingameMap.normalizedPlayerPosZ)
 end
 
 ---@param xml XMLFile
-function GameGlass:populateXMLFromVehicle(xml)
+function VDTelemetry:populateXMLFromVehicle(xml)
   local vehicle = self.currentVehicle
   if vehicle == nil then
     -- no vehicle -> nothing to do
     return
   end
 
-  xml:setString("GGI.vehicle.speed", ValueMapper.mapFloat(vehicle:getLastSpeed()))
-  xml:setString("GGI.vehicle#name", vehicle:getFullName())
-  xml:setString("GGI.vehicle#type", vehicle.typeName)
+  xml:setString("VDT.vehicle.speed", ValueMapper.mapFloat(vehicle:getLastSpeed()))
+  xml:setString("VDT.vehicle#name", vehicle:getFullName())
+  xml:setString("VDT.vehicle#type", vehicle.typeName)
   local brand = ValueMapper.resolveBrand(vehicle)
-  xml:setString("GGI.vehicle.brand#name", brand.name)
-  xml:setString("GGI.vehicle.brand#title", brand.title)
+  xml:setString("VDT.vehicle.brand#name", brand.name)
+  xml:setString("VDT.vehicle.brand#title", brand.title)
   if vehicle.getDrivingDirection ~= nil then
-    xml:setString("GGI.vehicle.speed#unit", "km/h")
-    xml:setString("GGI.vehicle.speed#direction", ValueMapper.mapDirection(vehicle:getDrivingDirection()))
+    xml:setString("VDT.vehicle.speed#unit", "km/h")
+    xml:setString("VDT.vehicle.speed#direction", ValueMapper.mapDirection(vehicle:getDrivingDirection()))
   end
   if vehicle.operatingTime ~= nil then
-    xml:setString("GGI.vehicle.operatingTime", ValueMapper.formatOperatingTime(vehicle.operatingTime))
-    xml:setString("GGI.vehicle.operatingTime#unit", "h")
+    xml:setString("VDT.vehicle.operatingTime", ValueMapper.formatOperatingTime(vehicle.operatingTime))
+    xml:setString("VDT.vehicle.operatingTime#unit", "h")
   end
   self:populateXMLFromMotorized(xml)
   self:populateXMLFromLights(xml)
   self:populateXMLWithSupportSystems(xml)
-  self:populateXMLFromTurnOnVehicle(xml, "GGI.vehicle", self.currentVehicle)
-  self:populateXMLFromFoldable(xml, "GGI.vehicle", self.currentVehicle)
-  self:populateXMLFromLowered(xml, "GGI.vehicle", self.currentVehicle)
-  self:populateXMLFromFillUnit(xml, "GGI.vehicle", self.currentVehicle)
-  self:populateXMLFromPipe(xml, "GGI.vehicle", self.currentVehicle)
-  self:populateXMLFromCover(xml, "GGI.vehicle", self.currentVehicle)
-  self:populateXMLFromWearAndWashable(xml, "GGI.vehicle", self.currentVehicle)
-  self:populateXMLFromAttacherJoints(xml, "GGI.vehicle", self.currentVehicle)
+  self:populateXMLFromTurnOnVehicle(xml, "VDT.vehicle", self.currentVehicle)
+  self:populateXMLFromFoldable(xml, "VDT.vehicle", self.currentVehicle)
+  self:populateXMLFromLowered(xml, "VDT.vehicle", self.currentVehicle)
+  self:populateXMLFromFillUnit(xml, "VDT.vehicle", self.currentVehicle)
+  self:populateXMLFromPipe(xml, "VDT.vehicle", self.currentVehicle)
+  self:populateXMLFromCover(xml, "VDT.vehicle", self.currentVehicle)
+  self:populateXMLFromWearAndWashable(xml, "VDT.vehicle", self.currentVehicle)
+  self:populateXMLFromAttacherJoints(xml, "VDT.vehicle", self.currentVehicle)
 
   self:populateXMLFromCombinedInfo(xml)
 end
 
 ---@param xml XMLFile
-function GameGlass:populateXMLFromMotorized(xml)
+function VDTelemetry:populateXMLFromMotorized(xml)
   local mSpec = self.currentVehicle.spec_motorized
   if mSpec == nil then
     return
   end
   -- ignition state
-  xml:setString("GGI.vehicle.motor#state", ValueMapper.mapMotorState(mSpec:getMotorState()))
+  xml:setString("VDT.vehicle.motor#state", ValueMapper.mapMotorState(mSpec:getMotorState()))
 
   -- motor temp
-  xml:setInt("GGI.vehicle.motor.temperatur", mSpec.motorTemperature.value)
-  xml:setInt("GGI.vehicle.motor.temperatur#min", mSpec.motorTemperature.valueMin)
-  xml:setInt("GGI.vehicle.motor.temperatur#max", mSpec.motorTemperature.valueMax)
-  xml:setString("GGI.vehicle.motor.temperatur#unit", "°C")
+  xml:setInt("VDT.vehicle.motor.temperatur", mSpec.motorTemperature.value)
+  xml:setInt("VDT.vehicle.motor.temperatur#min", mSpec.motorTemperature.valueMin)
+  xml:setInt("VDT.vehicle.motor.temperatur#max", mSpec.motorTemperature.valueMax)
+  xml:setString("VDT.vehicle.motor.temperatur#unit", "°C")
 
   -- rpm
   local motor = mSpec:getMotor()
-  xml:setInt("GGI.vehicle.motor.rpm", motor:getLastMotorRpm())
-  xml:setInt("GGI.vehicle.motor.rpm#min", 0)
-  xml:setInt("GGI.vehicle.motor.rpm#max", motor:getMaxRpm())
+  xml:setInt("VDT.vehicle.motor.rpm", motor:getLastMotorRpm())
+  xml:setInt("VDT.vehicle.motor.rpm#min", 0)
+  xml:setInt("VDT.vehicle.motor.rpm#max", motor:getMaxRpm())
   -- motor load
-  xml:setString("GGI.vehicle.motor.load", ValueMapper.mapMotorLoad(motor:getSmoothLoadPercentage()))
-  xml:setInt("GGI.vehicle.motor.load#min", 0)
-  xml:setInt("GGI.vehicle.motor.load#max", 100)
-  xml:setString("GGI.vehicle.motor.load#unit", "%")
+  xml:setString("VDT.vehicle.motor.load", ValueMapper.mapMotorLoad(motor:getSmoothLoadPercentage()))
+  xml:setInt("VDT.vehicle.motor.load#min", 0)
+  xml:setInt("VDT.vehicle.motor.load#max", 100)
+  xml:setString("VDT.vehicle.motor.load#unit", "%")
   -- gear
-  xml:setBool("GGI.vehicle.motor.gear#isNeutral", motor:getIsInNeutral())
-  xml:setString("GGI.vehicle.motor.gear#group", motor:getGearGroupToDisplay())
-  xml:setString("GGI.vehicle.motor.gear", motor:getGearToDisplay())
+  xml:setBool("VDT.vehicle.motor.gear#isNeutral", motor:getIsInNeutral())
+  xml:setString("VDT.vehicle.motor.gear#group", motor:getGearGroupToDisplay())
+  xml:setString("VDT.vehicle.motor.gear", motor:getGearToDisplay())
 
   -- max speed
-  xml:setInt("GGI.vehicle.motor.maxSpeed#forward", ValueMapper.convertFromMsToKMH(motor:getMaximumForwardSpeed()))
-  xml:setInt("GGI.vehicle.motor.maxSpeed#backward", ValueMapper.convertFromMsToKMH(motor:getMaximumBackwardSpeed()))
+  xml:setInt("VDT.vehicle.motor.maxSpeed#forward", ValueMapper.convertFromMsToKMH(motor:getMaximumForwardSpeed()))
+  xml:setInt("VDT.vehicle.motor.maxSpeed#backward", ValueMapper.convertFromMsToKMH(motor:getMaximumBackwardSpeed()))
 
   for fillTypeIndex, v in pairs(mSpec.consumersByFillType) do
     local fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
-    if GameGlass.mainFuelTypes:contains(fillType.name) then
-      self:writeFuelFillUnitToXML(xml, "GGI.vehicle.motor.fillUnits", fillType, v.fillUnitIndex, mSpec.lastFuelUsage)
+    if VDTelemetry.mainFuelTypes:contains(fillType.name) then
+      self:writeFuelFillUnitToXML(xml, "VDT.vehicle.motor.fillUnits", fillType, v.fillUnitIndex, mSpec.lastFuelUsage)
     else
       local usage = nil
       if fillType.name == FillType.DEF then
@@ -318,7 +318,7 @@ function GameGlass:populateXMLFromMotorized(xml)
       elseif fillType.name == FillType.AIR then
         usage = mSpec.lastAirUsage
       end
-      self:writeSecondaryMotorFillUnitToXML(xml, "GGI.vehicle.motor.fillUnits", fillType, v.fillUnitIndex, usage)
+      self:writeSecondaryMotorFillUnitToXML(xml, "VDT.vehicle.motor.fillUnits", fillType, v.fillUnitIndex, usage)
     end
   end
 
@@ -327,16 +327,16 @@ function GameGlass:populateXMLFromMotorized(xml)
   -- we access internal state here, so defensive coding to reduce fatal errors
   if vData ~= nil then
     if vData.is[1] ~= nil and type(vData.is[1]) == "boolean" then
-      xml:setBool("GGI.vehicle.motor.diffLock#front", vData.is[1])
+      xml:setBool("VDT.vehicle.motor.diffLock#front", vData.is[1])
     end
     if vData.is[2] ~= nil and type(vData.is[2]) == "boolean" then
-      xml:setBool("GGI.vehicle.motor.diffLock#back", vData.is[2])
+      xml:setBool("VDT.vehicle.motor.diffLock#back", vData.is[2])
     end
     if vData.is[3] ~= nil then
-      xml:setBool("GGI.vehicle.motor.awd", vData.is[3] == 1)
+      xml:setBool("VDT.vehicle.motor.awd", vData.is[3] == 1)
     end
     if vData.is[13] ~= nil and type(vData.is[13]) == "boolean" then
-      xml:setBool("GGI.vehicle.motor.parkingBrake", vData.is[13])
+      xml:setBool("VDT.vehicle.motor.parkingBrake", vData.is[13])
     end
   end
 end
@@ -346,7 +346,7 @@ end
 ---@param fillType table The fill type table
 ---@param fillUnitIndex number The index of the fillUnit
 ---@param usage number The current usage of the fillUnit
-function GameGlass:writeFuelFillUnitToXML(xml, path, fillType, fillUnitIndex, usage)
+function VDTelemetry:writeFuelFillUnitToXML(xml, path, fillType, fillUnitIndex, usage)
   local capacity = self.currentVehicle:getFillUnitCapacity(fillUnitIndex)
   local fillLevel = self.currentVehicle:getFillUnitFillLevel(fillUnitIndex)
   local fillLevelPercentage = self.currentVehicle:getFillUnitFillLevelPercentage(fillUnitIndex)
@@ -369,7 +369,7 @@ end
 ---@param fillType table The fill type table
 ---@param fillUnitIndex number The index of the fillUnit
 ---@param usage number The current usage of the fillUnit
-function GameGlass:writeSecondaryMotorFillUnitToXML(xml, path, fillType, fillUnitIndex, usage)
+function VDTelemetry:writeSecondaryMotorFillUnitToXML(xml, path, fillType, fillUnitIndex, usage)
   local capacity = self.currentVehicle:getFillUnitCapacity(fillUnitIndex)
   local fillLevel = self.currentVehicle:getFillUnitFillLevel(fillUnitIndex)
   local fillLevelPercentage = self.currentVehicle:getFillUnitFillLevelPercentage(fillUnitIndex)
@@ -389,31 +389,31 @@ function GameGlass:writeSecondaryMotorFillUnitToXML(xml, path, fillType, fillUni
 end
 
 ---@param xml XMLFile
-function GameGlass:populateXMLFromLights(xml)
+function VDTelemetry:populateXMLFromLights(xml)
   local spec = self.currentVehicle.spec_lights
   if spec == nil then
     return
   end
 
   -- indicators
-  xml:setBool("GGI.vehicle.lights.indicator#left", spec.turnLightState == Lights.TURNLIGHT_LEFT or spec.turnLightState == Lights.TURNLIGHT_HAZARD)
-  xml:setBool("GGI.vehicle.lights.indicator#right", spec.turnLightState == Lights.TURNLIGHT_RIGHT or spec.turnLightState == Lights.TURNLIGHT_HAZARD)
-  xml:setBool("GGI.vehicle.lights.indicator#hazard", spec.turnLightState == Lights.TURNLIGHT_HAZARD)
+  xml:setBool("VDT.vehicle.lights.indicator#left", spec.turnLightState == Lights.TURNLIGHT_LEFT or spec.turnLightState == Lights.TURNLIGHT_HAZARD)
+  xml:setBool("VDT.vehicle.lights.indicator#right", spec.turnLightState == Lights.TURNLIGHT_RIGHT or spec.turnLightState == Lights.TURNLIGHT_HAZARD)
+  xml:setBool("VDT.vehicle.lights.indicator#hazard", spec.turnLightState == Lights.TURNLIGHT_HAZARD)
 
   -- beacon beacon light
-  xml:setBool("GGI.vehicle.lights.beaconLight", next(spec.beaconLights) ~= nil and spec.beaconLightsActive)
+  xml:setBool("VDT.vehicle.lights.beaconLight", next(spec.beaconLights) ~= nil and spec.beaconLightsActive)
 
   -- normal lights
-  xml:setBool("GGI.vehicle.lights.light#lowBeam", bitAND(spec.lightsTypesMask, 2 ^ Lights.LIGHT_TYPE_DEFAULT) ~= 0)
-  xml:setBool("GGI.vehicle.lights.light#highBeam", bitAND(spec.lightsTypesMask, 2 ^ Lights.LIGHT_TYPE_HIGHBEAM) ~= 0)
+  xml:setBool("VDT.vehicle.lights.light#lowBeam", bitAND(spec.lightsTypesMask, 2 ^ Lights.LIGHT_TYPE_DEFAULT) ~= 0)
+  xml:setBool("VDT.vehicle.lights.light#highBeam", bitAND(spec.lightsTypesMask, 2 ^ Lights.LIGHT_TYPE_HIGHBEAM) ~= 0)
 
   --work lights
-  xml:setBool("GGI.vehicle.lights.workLight#front", bitAND(spec.lightsTypesMask, 2 ^ Lights.LIGHT_TYPE_WORK_FRONT) ~= 0)
-  xml:setBool("GGI.vehicle.lights.workLight#back", bitAND(spec.lightsTypesMask, 2 ^ Lights.LIGHT_TYPE_WORK_BACK) ~= 0)
+  xml:setBool("VDT.vehicle.lights.workLight#front", bitAND(spec.lightsTypesMask, 2 ^ Lights.LIGHT_TYPE_WORK_FRONT) ~= 0)
+  xml:setBool("VDT.vehicle.lights.workLight#back", bitAND(spec.lightsTypesMask, 2 ^ Lights.LIGHT_TYPE_WORK_BACK) ~= 0)
 end
 
 ---@param xml XMLFile
-function GameGlass:populateXMLWithSupportSystems(xml)
+function VDTelemetry:populateXMLWithSupportSystems(xml)
   local vehicle = self.currentVehicle
   local dSpec = vehicle.spec_drivable
   local aiDSpec = vehicle.spec_aiDrivable
@@ -422,27 +422,27 @@ function GameGlass:populateXMLWithSupportSystems(xml)
 
   --gps
   if aiMSpec ~= nil and aiSSpec ~= nil then
-    xml:setBool("GGI.vehicle.gps#enabled", vehicle:getAIModeSelection() == AIModeSelection.MODE.STEERING_ASSIST)
-    xml:setBool("GGI.vehicle.gps#active", aiSSpec.steeringEnabled)
-    xml:setInt("GGI.vehicle.gps#heading", ValueMapper.calculateHeading(vehicle))
-    xml:setString("GGI.vehicle.gps#headingUnit", "°")
+    xml:setBool("VDT.vehicle.gps#enabled", vehicle:getAIModeSelection() == AIModeSelection.MODE.STEERING_ASSIST)
+    xml:setBool("VDT.vehicle.gps#active", aiSSpec.steeringEnabled)
+    xml:setInt("VDT.vehicle.gps#heading", ValueMapper.calculateHeading(vehicle))
+    xml:setString("VDT.vehicle.gps#headingUnit", "°")
   end
   --ai
   if self.currentVehicle.getIsFieldWorkActive ~= nil then
-    xml:setBool("GGI.vehicle.ai#active", self.currentVehicle:getIsFieldWorkActive() or (aiDSpec ~= nil and aiDSpec.isRunning))
+    xml:setBool("VDT.vehicle.ai#active", self.currentVehicle:getIsFieldWorkActive() or (aiDSpec ~= nil and aiDSpec.isRunning))
   end
 
   -- cruise control
   if dSpec ~= nil then
     local cruiseControl = dSpec.cruiseControl
-    xml:setInt("GGI.vehicle.cruiseControl#targetSpeed", cruiseControl.speed)
-    xml:setBool("GGI.vehicle.cruiseControl#active", cruiseControl.state ~= Drivable.CRUISECONTROL_STATE_OFF)
+    xml:setInt("VDT.vehicle.cruiseControl#targetSpeed", cruiseControl.speed)
+    xml:setBool("VDT.vehicle.cruiseControl#active", cruiseControl.state ~= Drivable.CRUISECONTROL_STATE_OFF)
   end
 end
 
 ---@param xml XMLFile
 ---@param object table
-function GameGlass:populateXMLFromAttacherJoints(xml, path, rootObject)
+function VDTelemetry:populateXMLFromAttacherJoints(xml, path, rootObject)
   local ajSpec = rootObject.spec_attacherJoints
 
   -- check if the current vehicle has attacher joins
@@ -497,7 +497,7 @@ end
 ---@param path string
 ---@param object table
 ---@param combinedState ImplementState|nil
-function GameGlass:populateXMLFromTurnOnVehicle(xml, path, object, combinedState)
+function VDTelemetry:populateXMLFromTurnOnVehicle(xml, path, object, combinedState)
   local spec = object.spec_turnOnVehicle
   if spec == nil then
     return
@@ -514,7 +514,7 @@ end
 ---@param path string
 ---@param object table
 ---@param combinedState ImplementState|nil
-function GameGlass:populateXMLFromFoldable(xml, path, object, combinedState)
+function VDTelemetry:populateXMLFromFoldable(xml, path, object, combinedState)
   local spec = object.spec_foldable
   if spec == nil or #spec.foldingParts <= 0 then
     return
@@ -542,7 +542,7 @@ end
 ---@param path string
 ---@param object table
 ---@param combinedState ImplementState?
-function GameGlass:populateXMLFromLowered(xml, path, object, combinedState)
+function VDTelemetry:populateXMLFromLowered(xml, path, object, combinedState)
   if object.getIsLowered == nil or object:getIsLowered() == nil then
     return
   end
@@ -558,7 +558,7 @@ end
 ---@param xml XMLFile
 ---@param path string
 ---@param fillUnit CombinedFillUnit
-function GameGlass:writeFillUnit(xml, path, fillUnit)
+function VDTelemetry:writeFillUnit(xml, path, fillUnit)
   xml:setInt(string.format("%s", path), fillUnit.fillLevel)
   xml:setString(string.format("%s#type", path), fillUnit.type)
   xml:setString(string.format("%s#title", path), fillUnit.title)
@@ -575,7 +575,7 @@ end
 ---@param xml XMLFile
 ---@param path string
 ---@param object table
-function GameGlass:populateXMLFromFillUnit(xml, path, object)
+function VDTelemetry:populateXMLFromFillUnit(xml, path, object)
   local spec = object.spec_fillUnit
   if spec == nil or #spec.fillUnits <= 0 then
     return
@@ -632,7 +632,7 @@ end
 ---@param xml XMLFile
 ---@param path string
 ---@param object table
-function GameGlass:populateXMLFromPipe(xml, path, object)
+function VDTelemetry:populateXMLFromPipe(xml, path, object)
   if object.getCurrentPipeState == nil or object:getCurrentPipeState() == nil then
     return
   end
@@ -645,7 +645,7 @@ end
 ---@param xml XMLFile
 ---@param path string
 ---@param object table
-function GameGlass:populateXMLFromCover(xml, path, object)
+function VDTelemetry:populateXMLFromCover(xml, path, object)
   local spec = object.spec_cover
   if spec == nil or not spec.hasCovers then
     return
@@ -657,7 +657,7 @@ end
 ---@param xml XMLFile
 ---@param path string
 ---@param object table
-function GameGlass:populateXMLFromWearAndWashable(xml, path, object)
+function VDTelemetry:populateXMLFromWearAndWashable(xml, path, object)
   local wearable = object.spec_wearable
   local washable = object.spec_washable
   if wearable ~= nil then
@@ -679,8 +679,8 @@ function GameGlass:populateXMLFromWearAndWashable(xml, path, object)
 end
 
 ---@param xml XMLFile
-function GameGlass:populateXMLFromCombinedInfo(xml)
-  local path = "GGI.vehicle.combined"
+function VDTelemetry:populateXMLFromCombinedInfo(xml)
+  local path = "VDT.vehicle.combined"
 
   -- fillUnits
   local index = 0
@@ -720,7 +720,7 @@ end
 ---@param xml XMLFile
 ---@param basePath string
 ---@param implementState ImplementState
-function GameGlass:populateXMLFromCombinedImplementState(xml, basePath, implementState)
+function VDTelemetry:populateXMLFromCombinedImplementState(xml, basePath, implementState)
   xml:setBool(string.format("%s.isTurnedOn", basePath), implementState.isTurnedOn or false)
   if implementState.foldable ~= nil then
     xml:setString(string.format("%s.foldable", basePath), implementState.foldable)
@@ -728,23 +728,23 @@ function GameGlass:populateXMLFromCombinedImplementState(xml, basePath, implemen
   xml:setBool(string.format("%s.lowered", basePath), implementState.lowered or false)
 end
 
----@param vehicle GameGlassSpec
-function GameGlass:setCurrentVehicle(vehicle)
+---@param vehicle VDTelemetrySpec
+function VDTelemetry:setCurrentVehicle(vehicle)
   self.currentVehicle = vehicle
 end
 
-function GameGlass:clearCurrentVehicle()
+function VDTelemetry:clearCurrentVehicle()
   self.currentVehicle = nil
 end
 
 local function init()
-  g_gameGlass = GameGlass.init()
+  g_vdTelemetry = VDTelemetry.init()
 
-  -- make gameGlass globally available
-  getmetatable(_G).__index.g_gameGlass = g_gameGlass
+  -- make vdTelemetry globally available
+  getmetatable(_G).__index.g_vdTelemetry = g_vdTelemetry
 
   -- add event listener
-  addModEventListener(g_gameGlass)
+  addModEventListener(g_vdTelemetry)
 end
 
 init()

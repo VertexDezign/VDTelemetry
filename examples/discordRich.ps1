@@ -4,7 +4,7 @@
 function global:Get-CurrentlyPlaying
 {
     # Load XML content from a file
-    $xmlPath = "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\gameGlassInterface.xml"
+    $xmlPath = "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\vdTelemetry.xml"
     $xmlContent = [xml](Get-Content -Path $xmlPath)
 
     # Initialize variable for speed output
@@ -12,10 +12,10 @@ function global:Get-CurrentlyPlaying
     $details = $null
 
     # Check if the <vehicle> node exists
-    if ($xmlContent.GGI.vehicle)
+    if ($xmlContent.VDT.vehicle)
     {
         # Navigate to the <speed> node and check if it exists
-        $speedNode = $xmlContent.GGI.vehicle.speed
+        $speedNode = $xmlContent.VDT.vehicle.speed
         # Extract the speed value and the unit attribute
         $speedValue = $speedNode.'#text'  # Get text value of the <speed> node
         $speedUnit = $speedNode.unit      # Get the unit attribute value of <speed>
@@ -23,7 +23,7 @@ function global:Get-CurrentlyPlaying
         # Combine them into the desired format
         $speedOutput = "$speedValue $speedUnit"
 
-        $name = $xmlContent.GGI.vehicle.name
+        $name = $xmlContent.VDT.vehicle.name
         $details = "Driving $name"
     }
     else

@@ -3,8 +3,8 @@
     <author>VertexDezign</author>
     <version>0.1.0.0</version>
     <title>
-        <en>GameGlass</en>
-        <de>GameGlass</de>
+        <en>VDTelemetry</en>
+        <de>VDTelemetry</de>
     </title>
     <description>
         <en>
@@ -14,11 +14,11 @@
             <![CDATA[TODO]]>
         </de>
     </description>
-    <iconFilename>icon_gameGlass.png</iconFilename>
+    <iconFilename>icon_vdTelemetry.png</iconFilename>
     <multiplayer supported="true"/>
     <extraSourceFiles>
         <sourceFile filename="GrisuDebug.lua"/>
-        <sourceFile filename="GameGlass.lua"/>
+        <sourceFile filename="VDTelemetry.lua"/>
     </extraSourceFiles>
 
     <dependencies>

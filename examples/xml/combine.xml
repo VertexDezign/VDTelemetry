@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
-<GGI version="1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-     xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/VertexDezign/GameGlassInterface/refs/heads/main/gameGlassInterfaceSchema.xsd">
+<VDT version="1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/VertexDezign/VDTelemetry/refs/heads/main/vdTelemetrySchema.xsd">
     <environment>
         <date>01.08.2024</date>
         <time>10:12</time>
@@ -53,4 +53,4 @@
             </implement>
         </combined>
     </vehicle>
-</GGI>
+</VDT>
