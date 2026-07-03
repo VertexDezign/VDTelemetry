@@ -10,6 +10,20 @@
                         <xs:sequence>
                             <xs:element name="date" type="xs:string"/>
                             <xs:element name="time" type="xs:string"/>
+                            <xs:element name="weather" minOccurs="1">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="temperature">
+                                            <xs:complexType>
+                                                <xs:attribute name="min" type="xs:integer" use="required"/>
+                                                <xs:attribute name="max" type="xs:integer" use="required"/>
+                                                <xs:attribute name="current" type="xs:integer" use="required"/>
+                                                <xs:attribute name="unit" type="xs:string" use="required"/>
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
                         </xs:sequence>
                     </xs:complexType>
                 </xs:element>
@@ -19,11 +33,17 @@
                             <xs:element name="speed">
                                 <xs:complexType>
                                     <xs:simpleContent>
-                                        <xs:extension base="xs:integer">
+                                        <xs:extension base="xs:float">
                                             <xs:attribute name="unit" type="xs:string" use="required"/>
                                             <xs:attribute name="direction" type="DriveDirection" use="required"/>
                                         </xs:extension>
                                     </xs:simpleContent>
+                                </xs:complexType>
+                            </xs:element>
+                            <xs:element name="brand">
+                                <xs:complexType>
+                                    <xs:attribute name="name" type="xs:string"/>
+                                    <xs:attribute name="title" type="xs:string"/>
                                 </xs:complexType>
                             </xs:element>
                             <xs:element name="operatingTime">
@@ -81,6 +101,12 @@
                                                 </xs:simpleContent>
                                             </xs:complexType>
                                         </xs:element>
+                                        <xs:element name="maxSpeed">
+                                            <xs:complexType>
+                                                <xs:attribute name="forward" type="xs:integer"/>
+                                                <xs:attribute name="backward" type="xs:integer"/>
+                                            </xs:complexType>
+                                        </xs:element>
                                         <xs:element name="fillUnits">
                                             <xs:complexType>
                                                 <xs:all>
@@ -98,6 +124,7 @@
                                                                                   use="required"/>
                                                                     <xs:attribute name="fillLevelPercentage"
                                                                                   type="xs:integer" use="required"/>
+                                                                    <xs:attribute name="usage" type="xs:float"/>
                                                                 </xs:extension>
                                                             </xs:simpleContent>
                                                         </xs:complexType>
@@ -114,6 +141,7 @@
                                                                                   use="required"/>
                                                                     <xs:attribute name="fillLevelPercentage"
                                                                                   type="xs:integer" use="required"/>
+                                                                    <xs:attribute name="usage" type="xs:float"/>
                                                                 </xs:extension>
                                                             </xs:simpleContent>
                                                         </xs:complexType>
@@ -130,6 +158,7 @@
                                                                                   use="required"/>
                                                                     <xs:attribute name="fillLevelPercentage"
                                                                                   type="xs:integer" use="required"/>
+                                                                    <xs:attribute name="usage" type="xs:float"/>
                                                                 </xs:extension>
                                                             </xs:simpleContent>
                                                         </xs:complexType>
