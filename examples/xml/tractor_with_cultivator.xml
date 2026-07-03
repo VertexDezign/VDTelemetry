@@ -4,6 +4,12 @@
     <environment>
         <date>01.08.2024</date>
         <time>10:10</time>
+        <weather>
+            <temperature min="12" max="24" current="19" unit="°C"/>
+        </weather>
+        <pda filename="data/maps/mapUS/pda_map.dds" width="2048" height="2048">
+            <player posX="0.53" posZ="0.41"/>
+        </pda>
     </environment>
     <vehicle name="STEYR Absolut 6200 CVT" type="tractor">
         <speed unit="km/h" direction="STOPPED">0</speed>
