@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -133,11 +134,19 @@ private fun column(
             Text(label.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
             Icon(Icons.Filled.Link, null, tint = if (attached) Green600 else Gray400, modifier = Modifier.height(16.dp))
         }
-        Box(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(4.dp)).background(VdtColors.White).border(1.dp, Gray300, RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
+        // heightIn(min) — not a fixed height — so two lines can never be clipped by the box on
+        // devices whose font metrics make the name+type stack taller than the minimum. Line heights
+        // are tightened (the old React panel used `leading-tight`) so it normally fits at 34dp.
+        Box(Modifier.fillMaxWidth().heightIn(min = 34.dp).clip(RoundedCornerShape(4.dp)).background(VdtColors.White).border(1.dp, Gray300, RoundedCornerShape(4.dp)).padding(vertical = 2.dp), contentAlignment = Alignment.Center) {
             if (attached) {
+                // Name plus (optional) type. The type is only rendered when present, so an implement
+                // without a type shows a single, vertically-centred name instead of a name with an
+                // empty line reserved below it.
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(imp!!.name, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(imp.type, fontSize = 8.sp, color = Gray400, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(imp!!.name, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (imp.type.isNotBlank()) {
+                        Text(imp.type, fontSize = 8.sp, lineHeight = 10.sp, color = Gray400, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             } else {
                 Text("No Implement", fontSize = 10.sp, color = Gray300)
