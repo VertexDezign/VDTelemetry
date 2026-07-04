@@ -35,13 +35,14 @@ fun App(
     connection: ConnectionState,
     mapUrl: String,
     settings: Settings,
-    onMenuClick: () -> Unit = {},
+    wakeLock: WakeLockStatus = WakeLockStatus.Unsupported,
+    onToggleWakeLock: () -> Unit = {},
 ) {
     MaterialTheme {
         Box(Modifier.fillMaxSize().background(VdtColors.Light)) {
             when {
                 telemetry == null -> LoadingScreen()
-                else -> Dashboard(telemetry, mapUrl, settings, onMenuClick)
+                else -> Dashboard(telemetry, mapUrl, settings, wakeLock, onToggleWakeLock)
             }
 
             if (connection != ConnectionState.Connected) {
@@ -69,10 +70,16 @@ private fun LoadingScreen() {
 }
 
 @Composable
-private fun Dashboard(data: VdtData, mapUrl: String, settings: Settings, onMenuClick: () -> Unit) {
+private fun Dashboard(
+    data: VdtData,
+    mapUrl: String,
+    settings: Settings,
+    wakeLock: WakeLockStatus,
+    onToggleWakeLock: () -> Unit,
+) {
     val vehicle = data.vehicle
     Column(Modifier.fillMaxSize()) {
-        Header(data.environment, vehicle, onMenuClick)
+        Header(data.environment, vehicle, wakeLock, onToggleWakeLock)
 
         if (vehicle == null) {
             Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
