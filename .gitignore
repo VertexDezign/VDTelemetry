@@ -1,3 +1,5 @@
 *.zip
-/.idea/
+.idea/
 *.iml
+
+VDTerminal_old

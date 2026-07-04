@@ -60,7 +60,7 @@ VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 1
 VDTelemetry.VD_AI = {
   REQUIRED_MAJOR_VERSION = 1,
-  REQUIRED_MIN_MINOR_VERSION = 0
+  REQUIRED_MIN_MINOR_VERSION = 1
 }
 
 VDTelemetry.mainFuelTypes = Set:new({ "DIESEL", "ELECTRICCHARGE", "METHANE" })

@@ -10,7 +10,7 @@
                         <xs:sequence>
                             <xs:element name="date" type="xs:string"/>
                             <xs:element name="time" type="xs:string"/>
-                            <xs:element name="weather" minOccurs="1">
+                            <xs:element name="weather" minOccurs="0">
                                 <xs:complexType>
                                     <xs:sequence>
                                         <xs:element name="temperature">
@@ -22,6 +22,24 @@
                                             </xs:complexType>
                                         </xs:element>
                                     </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                            <!-- PDA / map data (emitted by the mod, VDTelemetry.lua). Additive & optional:
+                                 filename/width/height are absent when the mod has no PDA reference,
+                                 and <player> is written even then. -->
+                            <xs:element name="pda" minOccurs="0">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="player" minOccurs="0">
+                                            <xs:complexType>
+                                                <xs:attribute name="posX" type="xs:float"/>
+                                                <xs:attribute name="posZ" type="xs:float"/>
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                    <xs:attribute name="filename" type="xs:string"/>
+                                    <xs:attribute name="width" type="xs:integer"/>
+                                    <xs:attribute name="height" type="xs:integer"/>
                                 </xs:complexType>
                             </xs:element>
                         </xs:sequence>
@@ -40,7 +58,7 @@
                                     </xs:simpleContent>
                                 </xs:complexType>
                             </xs:element>
-                            <xs:element name="brand">
+                            <xs:element name="brand" minOccurs="0">
                                 <xs:complexType>
                                     <xs:attribute name="name" type="xs:string"/>
                                     <xs:attribute name="title" type="xs:string"/>
@@ -101,7 +119,7 @@
                                                 </xs:simpleContent>
                                             </xs:complexType>
                                         </xs:element>
-                                        <xs:element name="maxSpeed">
+                                        <xs:element name="maxSpeed" minOccurs="0">
                                             <xs:complexType>
                                                 <xs:attribute name="forward" type="xs:integer"/>
                                                 <xs:attribute name="backward" type="xs:integer"/>
@@ -221,8 +239,8 @@
                                     <xs:attribute name="active" type="xs:boolean"/>
                                 </xs:complexType>
                             </xs:element>
-                            <xs:element name="foldable" type="FoldableStateType" minOccurs="0"/>
                             <xs:element name="isTurnedOn" type="xs:boolean" minOccurs="0"/>
+                            <xs:element name="foldable" type="FoldableStateType" minOccurs="0"/>
                             <xs:element name="lowered" type="xs:boolean" minOccurs="0"/>
                             <xs:element name="fillUnits" type="FillUnitsType" minOccurs="0"/>
                             <xs:element name="pipe" type="PipeStateType" minOccurs="0"/>
@@ -329,20 +347,20 @@
     <!-- Define the type for implement front section -->
     <xs:complexType name="CombinedImplementState">
         <xs:sequence>
-            <xs:element name="foldable" type="FoldableStateType" minOccurs="0"/>
             <xs:element name="isTurnedOn" type="xs:boolean" minOccurs="0"/>
             <xs:element name="lowered" type="xs:boolean" minOccurs="0"/>
+            <xs:element name="foldable" type="FoldableStateType" minOccurs="0"/>
         </xs:sequence>
     </xs:complexType>
 
     <xs:complexType name="ImplementType">
         <xs:sequence>
-            <xs:element name="foldable" type="FoldableStateType" minOccurs="0"/>
             <xs:element name="isTurnedOn" type="xs:boolean" minOccurs="0"/>
+            <xs:element name="foldable" type="FoldableStateType" minOccurs="0"/>
             <xs:element name="lowered" type="xs:boolean" minOccurs="0"/>
             <xs:element name="fillUnits" type="FillUnitsType" minOccurs="0"/>
             <xs:element name="pipe" type="PipeStateType" minOccurs="0"/>
-            <xs:element name="cover" type="xs:boolean" minOccurs="0"/>
+            <xs:element name="cover" type="CoverType" minOccurs="0"/>
             <xs:element name="wearable" type="WearableType" minOccurs="0"/>
             <!-- Self-reference - implements can contain other implements -->
             <xs:element name="implement" type="ImplementType" minOccurs="0" maxOccurs="unbounded"/>
