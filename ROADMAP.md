@@ -14,6 +14,39 @@ no rhythmic stutter in the F8 script profiler). The items below build on that.
 
 ---
 
+## Status / next session (updated 2026-07-04)
+
+**Decision:** do the **JSON migration (item 5) BEFORE the mod restructure**
+(`vdTelemetry/restructure-design.md`). JSON has no element-ordering requirement, so it sidesteps
+the XSD `xs:sequence` problem that would otherwise force ordered emission; the restructure then
+lands on a format that doesn't fight it.
+
+**Done so far (on branch `restructure`):**
+- Confirmed the `shared` model is already `@Serializable` — JSON reuses the *identical* model and
+  drops xmlutil. `shared/.../JsonContractTest.kt` generates `examples/json/*` (the exact shape the
+  mod must emit) and proves lenient decode (`ignoreUnknownKeys`, omitted keys → defaults). Green.
+- **Lua → JSON spike succeeded in-game.** `vdTelemetry/src/utils/Json.lua` (pure-Lua encoder,
+  minified default + `pretty` mode that also sorts keys for diff-stable live-watching). `io.open`
+  writing works inside the Proton prefix on Linux. Validated with real, fast-changing motor values.
+- Added `VDTS.json.pretty` setting (default `false`, no `SETTINGS_XML_VERSION` bump — additive).
+
+**Scaffolding to remove/clean before merge:**
+- `VDTelemetry:writeJsonSpike()` + its `pcall` in `update()` — throwaway; the real emitter replaces it.
+- `JsonContractTest` writes fixtures as a side-effect — split into a generator + a plain decode test.
+
+**Next session:**
+1. Grow the mod emitter to the **full contract-shaped JSON** — reuse `ValueMapper` (rpm/temp→int,
+   speed→km/h, load→%) and the nested `{value,min,max,unit}` objects so it matches `examples/json/*`.
+   This *is* the `serialize` step of the restructure (collect→model→serialize).
+2. Server: switch the file read from xmlutil to `Json.decodeFromString<VdtData>` (lenient config).
+   We decided a separate server-side spike is unnecessary — kotlinx JSON decode is already trusted.
+3. Then proceed with the restructure per `restructure-design.md`, Environment slice first.
+
+Note: `raw values vs presentation values` stays a *separate* decision — keep presentation values
+(via `ValueMapper`) for now so output matches the contract.
+
+---
+
 ## Near-term
 
 ### 1. Configurable write interval (mod)
