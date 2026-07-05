@@ -39,4 +39,13 @@ object Config {
         System.getenv("VDT_FILE")?.takeIf { it.isNotBlank() }?.let { return Path(it) }
         return gameDir().resolve("modSettings").resolve(MOD_DIR).resolve("telemetry").resolve("vdTelemetry.json")
     }
+
+    /**
+     * Debounce window (ms) coalescing the burst of filesystem events from a single mod write. Kept a
+     * small constant — it only needs to cover one file save, not the write interval — so it stays
+     * below the mod's interval (default 100 ms) and doesn't throttle the stream. Override with
+     * `VDT_DEBOUNCE_MS`.
+     */
+    fun debounceMs(): Long =
+        System.getenv("VDT_DEBOUNCE_MS")?.toLongOrNull()?.takeIf { it >= 0 } ?: 40L
 }

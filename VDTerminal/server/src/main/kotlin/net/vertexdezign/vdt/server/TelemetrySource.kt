@@ -32,7 +32,7 @@ import kotlin.io.path.readText
  *
  * Ports `watcher.go` + `parser.go`.
  */
-class TelemetrySource(private val path: Path) {
+class TelemetrySource(private val path: Path, private val debounceMs: Long = 40L) {
     private val log = LoggerFactory.getLogger(TelemetrySource::class.java)
 
     private val _state = MutableStateFlow<VdtData?>(null)
@@ -75,14 +75,10 @@ class TelemetrySource(private val path: Path) {
                 }
                 key.reset()
                 if (relevant) {
-                    delay(DEBOUNCE_MS) // debounce burst of writes
+                    delay(debounceMs) // coalesce the burst of events from one write
                     reparse()
                 }
             }
         }
-    }
-
-    private companion object {
-        const val DEBOUNCE_MS = 150L
     }
 }

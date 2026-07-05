@@ -128,18 +128,18 @@ Note: `raw values vs presentation values` stays a *separate* decision — keep p
   name via `GENERAL_LAYOUT_CANDIDATES`, with a one-time layout-field dump if none match). Missing
   templates/layout → a logged warning and no controls, never a broken menu.
 
-### 2. Reduce server debounce
+### 2. Reduce server debounce — ✅ done
 
-- **What:** drop `XmlSource.DEBOUNCE_MS` from **150 ms** to **~40 ms** (constant), or expose
-  it as a `VDT_DEBOUNCE_MS` env var to match the existing config style (`VDT_PORT`, …).
-- **Why:** the 150 ms `delay()` is a flat latency floor now *larger* than the mod's write
-  interval, and it coalesces the 10 Hz stream down to ~6–7 Hz. It re-adds most of the
-  latency the mod-side change removed.
+- **What:** `TelemetrySource`'s debounce dropped from **150 ms** to a **40 ms** default, and
+  exposed as `VDT_DEBOUNCE_MS` (via `Config.debounceMs()`, matching `VDT_PORT`/`VDT_GAME_DIR`/
+  `VDT_FILE`). Passed as a `TelemetrySource(path, debounceMs)` constructor arg (default 40, testable).
+- **Why:** the 150 ms `delay()` was a flat latency floor *larger* than the mod's write interval,
+  coalescing the 10 Hz stream down to ~6–7 Hz. 40 ms restores the full rate.
 - **Why a constant (not derived from the interval):** the debounce only needs to cover the
-  event burst + write time of a **single** `XMLFile.save`, which is ~constant regardless of
-  how far apart saves are. A torn read already self-heals via the `try/catch` +
-  last-good-state in `reparse()`. The only real constraint is `debounce < interval`, which
-  ~40 ms satisfies for any realistic interval.
+  event burst + write time of a **single** file write, which is ~constant regardless of how far
+  apart writes are. A torn read already self-heals via the `try/catch` + last-good-state in
+  `reparse()`. The only real constraint is `debounce < interval`, which 40 ms satisfies for every
+  interval preset (min 100 ms).
 
 ### 3. Client-side interpolation (app)
 
