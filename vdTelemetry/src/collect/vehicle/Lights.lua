@@ -1,4 +1,4 @@
--- Collects the lights subtree of a vehicle. Vehicle-only. Mirrors VDTelemetry:populateXMLFromLights.
+-- Collects the lights subtree of a vehicle. Vehicle-only.
 -- Namespaced under VDT.* — critically here, since the module reads the FS25 engine global `Lights`
 -- (Lights.TURNLIGHT_LEFT, Lights.LIGHT_TYPE_*); a bare `Lights = {}` module would clobber it.
 

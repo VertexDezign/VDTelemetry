@@ -1,7 +1,7 @@
 -- Orchestrates collection of a vehicle into a VehicleModel: assembles the header fields, delegates
 -- to per-aspect collectors, walks the recursive implement tree, then lets optional integrations
--- decorate each object. Mirrors VDTelemetry:populateXMLFromVehicle + populateXMLFromAttacherJoints.
--- Namespaced under VDT.* (see aspects/TurnOn.lua). Grows as slices land (combined is out of scope).
+-- decorate each object.
+-- Namespaced under VDT.* (see aspects/TurnOn.lua). Combined aggregation is deferred (see ROADMAP).
 
 VDT = VDT or {}
 VDT.VehicleExporter = {}
@@ -65,7 +65,7 @@ function VDT.VehicleExporter.collect(vehicle)
     speed = { value = tonumber(ValueMapper.mapFloat(vehicle:getLastSpeed())) },
   }
 
-  -- unit/direction only when the vehicle reports a driving direction (matches the XML guard)
+  -- unit/direction only when the vehicle reports a driving direction
   if vehicle.getDrivingDirection ~= nil then
     model.speed.unit = "km/h"
     model.speed.direction = ValueMapper.mapDirection(vehicle:getDrivingDirection())

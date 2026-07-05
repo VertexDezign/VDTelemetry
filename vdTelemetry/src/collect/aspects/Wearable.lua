@@ -1,5 +1,4 @@
 -- Aspect collector: wear & wash state. Applies to any object (vehicle or implement).
--- Mirrors VDTelemetry:populateXMLFromWearAndWashable (the combinedInfo feed is out of scope).
 -- Namespaced under VDT.* (see TurnOn.lua).
 --
 -- damage/wear come from the wearable spec, dirt from the washable spec; an object may have either or

@@ -1,6 +1,5 @@
 -- Collects the environment subtree of the telemetry model. Namespaced under VDT.* (see
 -- aspects/TurnOn.lua). Pure extraction: reads game state and returns a plain EnvironmentModel table.
--- Behaviour mirrors the original VDTelemetry:populateXMLFromEnvironment.
 
 VDT = VDT or {}
 VDT.EnvironmentExporter = {}

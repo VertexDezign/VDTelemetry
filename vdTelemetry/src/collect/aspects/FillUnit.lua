@@ -1,6 +1,5 @@
 -- Aspect collector: fill units (the repeated <fillUnit> form, used by vehicle and implements).
 -- Distinct from the motor's fixed fuel/def/air fill units (see collect/vehicle/Motor.lua).
--- Mirrors VDTelemetry:populateXMLFromFillUnit (the combinedInfo feed is out of scope).
 -- Namespaced under VDT.* (see TurnOn.lua).
 --
 -- Skips a vehicle's propellant (fuel) fill units — those belong to the motor block — and AIR.

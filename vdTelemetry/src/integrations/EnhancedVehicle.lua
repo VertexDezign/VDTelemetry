@@ -8,7 +8,7 @@
 -- Fields this integration adds are declared here, next to the code that sets them. LuaLS merges
 -- @field lines across files, so this extends MotorModel without model/ knowing Enhanced Vehicle
 -- exists. These fields are not (yet) in the shared Kotlin model, so the server ignores them via
--- ignoreUnknownKeys — same as the XML writer's behaviour today.
+-- ignoreUnknownKeys.
 ---@class DiffLockModel
 ---@field front boolean?
 ---@field back boolean?

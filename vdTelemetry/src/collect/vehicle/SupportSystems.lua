@@ -1,5 +1,5 @@
 -- Collects the driver-assist subtrees of a vehicle: gps (auto steering), ai (field work), and
--- cruise control. Vehicle-only. Mirrors VDTelemetry:populateXMLWithSupportSystems.
+-- cruise control. Vehicle-only.
 -- Namespaced under VDT.* (see aspects/TurnOn.lua). Each is an independent model key, so they are
 -- separate collectors the orchestrator maps to model.gps / model.ai / model.cruiseControl.
 

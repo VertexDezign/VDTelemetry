@@ -1,7 +1,5 @@
--- Minimal JSON encoder (pure Lua, no engine dependency).
---
--- Seeded during the JSON spike (see ROADMAP / restructure-design.md). Intended to grow into the
--- serialize step once the mod switches its on-disk format from XML to JSON.
+-- Minimal JSON encoder (pure Lua, no engine dependency). The serialize step of the mod's
+-- collect -> model -> Json.encode pipeline: a model table goes straight to a JSON string.
 --
 -- Encoding rules (kept deliberately small):
 --   * string  -> quoted, with control chars / " / \ escaped (others as \uXXXX)

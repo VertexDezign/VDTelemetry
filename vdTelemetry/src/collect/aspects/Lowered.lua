@@ -1,5 +1,5 @@
 -- Aspect collector: lowered state. Applies to any object (vehicle or implement).
--- Mirrors VDTelemetry:populateXMLFromLowered. Namespaced under VDT.* (see TurnOn.lua).
+-- Namespaced under VDT.* (see TurnOn.lua).
 
 VDT = VDT or {}
 VDT.Lowered = {}

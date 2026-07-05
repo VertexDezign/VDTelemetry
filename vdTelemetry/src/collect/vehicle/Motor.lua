@@ -1,9 +1,8 @@
 -- Collects the motor subtree of a vehicle. Pure extraction: reads spec_motorized and returns a
--- plain MotorModel table (or nil when the vehicle has no motor). Mirrors the value logic of the
--- original VDTelemetry:populateXMLFromMotorized so emitted values stay identical.
+-- plain MotorModel table (or nil when the vehicle has no motor).
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 --
--- ValueMapper returns preformatted strings (for XML text); JSON needs real numbers, so numeric
+-- ValueMapper returns preformatted strings; JSON needs real numbers, so numeric
 -- fields run the mapper through tonumber() to keep the presentation rounding while emitting a number.
 
 VDT = VDT or {}

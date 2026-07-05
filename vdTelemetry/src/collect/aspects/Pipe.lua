@@ -1,5 +1,5 @@
 -- Aspect collector: pipe state. Applies to any object (vehicle or implement).
--- Mirrors VDTelemetry:populateXMLFromPipe. Namespaced under VDT.* (see TurnOn.lua).
+-- Namespaced under VDT.* (see TurnOn.lua).
 
 VDT = VDT or {}
 VDT.Pipe = {}

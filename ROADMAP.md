@@ -16,10 +16,9 @@ no rhythmic stutter in the F8 script profiler). The items below build on that.
 
 ## Status / next session (updated 2026-07-05)
 
-**Decision:** do the **JSON migration (item 5) BEFORE the mod restructure**
-(`vdTelemetry/restructure-design.md`). JSON has no element-ordering requirement, so it sidesteps
-the XSD `xs:sequence` problem that would otherwise force ordered emission; the restructure then
-lands on a format that doesn't fight it.
+**Decision:** do the **JSON migration (item 5) BEFORE the mod restructure**. JSON has no
+element-ordering requirement, so it sidesteps the XSD `xs:sequence` problem that would otherwise
+force ordered emission; the restructure then lands on a format that doesn't fight it.
 
 **Decision (2026-07-05): the restructure and the JSON migration are one and the same pass.** Each
 vertical slice becomes a `collect → model → Json.encode` pipeline. Because JSON is the only target,

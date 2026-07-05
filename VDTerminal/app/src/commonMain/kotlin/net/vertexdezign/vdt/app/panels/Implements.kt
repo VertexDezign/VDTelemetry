@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Anchor
@@ -22,7 +23,6 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -92,7 +92,7 @@ fun Implements(vehicle: Vehicle) {
         icon = Icons.Filled.Anchor,
         headerActions = {
             Icon(
-                if (merged) Icons.Filled.ViewList else Icons.Filled.Layers,
+                if (merged) Icons.AutoMirrored.Filled.ViewList else Icons.Filled.Layers,
                 contentDescription = "toggle merge",
                 tint = VdtColors.DarkGray,
                 modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { merged = !merged }.padding(2.dp),
@@ -142,7 +142,7 @@ private fun column(
                 // without a type shows a single, vertically-centred name instead of a name with an
                 // empty line reserved below it.
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(imp!!.name, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(imp.name, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (imp.type.isNotBlank()) {
                         Text(imp.type, fontSize = 8.sp, lineHeight = 10.sp, color = Gray400, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }

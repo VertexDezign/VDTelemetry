@@ -1,5 +1,5 @@
 -- Model definitions for the vehicle subtree. Annotation-only (see EnvironmentModel.lua).
--- Grows as slices land (lights, gps, ai, cruiseControl, combined are TODO).
+-- (`combined` aggregation is intentionally not emitted — deferred, see ROADMAP.)
 
 ---@class SpeedModel
 ---@field value number
