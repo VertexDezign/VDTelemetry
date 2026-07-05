@@ -262,7 +262,7 @@ data class Ai(
 
 @Serializable
 data class CruiseControl(
-    val targetSpeed: Int? = null,
+    val targetSpeed: Float? = null,
     val active: Boolean? = null,
 )
 

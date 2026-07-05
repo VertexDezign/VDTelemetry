@@ -65,7 +65,7 @@ fun SimpleGauge(
     }
 }
 
-private fun format2(v: Float): String {
+internal fun format2(v: Float): String {
     val scaled = (v * 100f).roundToInt()
     val whole = scaled / 100
     val frac = abs(scaled % 100)

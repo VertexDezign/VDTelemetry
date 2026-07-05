@@ -44,7 +44,8 @@ function VDT.SupportSystems.collectCruiseControl(vehicle)
   end
   local cruiseControl = dSpec.cruiseControl
   return {
-    targetSpeed = cruiseControl.speed,
+    -- cruiseControl.speed is km/h; keep 2-decimal precision like speed (mods allow sub-1 steps).
+    targetSpeed = tonumber(ValueMapper.mapFloat(cruiseControl.speed)),
     active = cruiseControl.state ~= Drivable.CRUISECONTROL_STATE_OFF,
   }
 end

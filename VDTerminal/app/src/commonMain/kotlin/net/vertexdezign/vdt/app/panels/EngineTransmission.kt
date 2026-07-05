@@ -26,6 +26,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SimpleGauge
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
+import net.vertexdezign.vdt.app.components.format2
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /** Engine / transmission panel: speed gauge, RPM, temps, cruise, and vehicle fill units. */
@@ -59,7 +60,7 @@ fun EngineTransmission(vehicle: Vehicle) {
                     )
                     if (cruise != null) {
                         Text(
-                            "${cruise.targetSpeed ?: 0}",
+                            format2(cruise.targetSpeed ?: 0f),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (cruise.active == true) VdtColors.Green else VdtColors.DarkGray,
