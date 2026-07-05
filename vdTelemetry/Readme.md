@@ -16,8 +16,12 @@ Link to Discord Post: [GameGlass Discord](https://discord.com/channels/522506741
 
 ## Output
 
-The json is written directly into the farming simulator directory in the user folder, right besides your mod folder.
-Windows: `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\vdTelemetry.json`
+The json is written into the mod's own settings folder, in a `telemetry/` subfolder
+(`modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`). It lives there — rather than the user
+directory root — because the engine only lets a mod delete files inside its own
+`modSettings/<modName>/` folder, and disabling export removes the file.
+
+Windows: `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\modSettings\FS25_vdTelemetry\telemetry\vdTelemetry.json`
 
 The shape of the written json is defined by the shared Kotlin model
 (`VDTerminal/shared/.../Model.kt`); see `examples/json/` for sample outputs.
@@ -28,8 +32,8 @@ Export can be toggled and the write interval chosen directly in-game: **General 
 Both apply immediately and are saved back to the configuration file — disabling export also
 removes the stale `vdTelemetry.json` so consumers can tell it stopped.
 
-The mod has a configuration file named `vdTelemetrySettings.xml` in the modSettings folder. The folder is located
-at the same place where your mod folder is.
+The mod keeps its files under `modSettings/FS25_vdTelemetry/` (next to your `mods` folder): the
+configuration file `vdTelemetrySettings.xml` at its root, and the telemetry json under `telemetry/`.
 
 ````xml
 <?xml version="1.0" encoding="utf-8" standalone="no"?>

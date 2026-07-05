@@ -56,11 +56,16 @@ end
 ---@field prettyJson boolean
 ---@field logLevelString string
 ---@field specLevelString string
+---@field baseDir string modSettings/<modName>/ — holds the settings XML + the telemetry/ subfolder
 VDTelemetry = {}
 VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 VDTelemetry.VERSION = 1
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 2
+-- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
+-- JSON in a telemetry/ subfolder (a future command channel gets its own sibling folder). The
+-- subfolder matters because the engine only permits deleteFile() inside modSettings/<modName>/.
+VDTelemetry.TELEMETRY_SUBDIR = "telemetry/"
 -- Write interval (ms) between telemetry samples. Configurable via the in-game General Settings
 -- page; clamped to MIN_INTERVAL_MS since sub-frame intervals are pointless (a game frame is ~16-33 ms).
 VDTelemetry.DEFAULT_INTERVAL_MS = 100
@@ -91,8 +96,9 @@ function VDTelemetry.init()
   self.specLogLevel = GrisuDebug.INFO
   self.updateTimer = 0
 
-  local modSettingsDir = getUserProfileAppPath() .. "modSettings/"
-  self.settingsXmlFile = modSettingsDir .. VDTelemetry.SETTINGS_XML
+  self.baseDir = getUserProfileAppPath() .. "modSettings/" .. modName .. "/"
+  createFolder(self.baseDir)
+  self.settingsXmlFile = self.baseDir .. VDTelemetry.SETTINGS_XML
 
   if not fileExists(self.settingsXmlFile) then
     self:writeDefaultSettings()
@@ -122,7 +128,9 @@ function VDTelemetry:loadMap(filename)
 
   -- telemetry is client-side only: the file lives on the client's machine, not the dedicated server
   if self:isTelemetryAvailable() then
-    self.jsonFileLocation = getUserProfileAppPath() .. VDTelemetry.STATE_FILE_NAME
+    local telemetryDir = self.baseDir .. VDTelemetry.TELEMETRY_SUBDIR
+    createFolder(telemetryDir)
+    self.jsonFileLocation = telemetryDir .. VDTelemetry.STATE_FILE_NAME
   end
 
   self.pda = MapUtil.getMapPDAFile()

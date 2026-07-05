@@ -160,8 +160,11 @@ Note: `raw values vs presentation values` stays a *separate* decision — keep p
 
 Let the app send commands to the mod (toggle lights, set cruise speed, …).
 
-- **Transport: a file, not a pipe.** Server writes `commands.xml` (or `.json`) into the same
-  user dir; the mod polls it in `update()`. See "Rejected approaches" for why not pipes.
+- **Transport: a file, not a pipe.** Server writes `commands.json` (or `.xml`) into a `commands/`
+  subfolder of `modSettings/<modName>/` (sibling to the existing `telemetry/` folder); the mod
+  polls it in `update()`. See "Rejected approaches" for why not pipes. Note the mod can only
+  *delete* files under `modSettings/<modName>/`, but the server (native Linux) writes the command
+  file, so that constraint doesn't bite here.
 - **No duplicate execution:** each command carries a monotonic `id`; the mod tracks
   `lastCommandId` and executes only ids greater than it. Tolerant of the server rewriting
   the whole file; keep a small ring of recent commands so a missed poll doesn't drop
