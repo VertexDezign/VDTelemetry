@@ -91,11 +91,16 @@ telemetry keeps working; at the end we flip the server to JSON and delete the XM
   Deleted `examples/xml/` and `vdTelemetrySchema.xsd`. Docs updated (CLAUDE.md, both READMEs, mod
   Readme). `:shared:jvmTest` + wasm + `:server:compileKotlin` green on the host.
 
-**Migration done.** Remaining work is the independent near-term items below (configurable interval,
-reduce debounce, client interpolation), plus the deferred `combined` derive (when a consumer needs
-it) and the command back-channel. One loose end: `examples/json/*` are still the *old* XML-derived
-fixtures (missing `maxSpeed`/`brand`/`usage`) — refresh them from real `vdTelemetry.json` captures
-when convenient.
+- **App decoupled from `combined` (2026-07-05).** The Implements panel used to drive its Front/Rear
+  fold/power/lowered icons from `vehicle.combined`; since the mod no longer emits it, `Implements.kt`
+  now reads those straight off each front/back implement (the old `combined.implement.front/back` was
+  only ever the *first* front/back implement's own state anyway, so this is behaviour-equivalent and
+  keeps name+status consistent). `:app:compileKotlinWasmJs` green; no app code references `combined`.
+
+**Migration done.** `examples/json/*` were refreshed to real captures. Remaining work is the
+independent near-term items below (configurable interval, reduce debounce, client interpolation),
+plus the deferred `combined` derive (only if a future consumer like GameGlass needs it) and the
+command back-channel.
 
 Note: `raw values vs presentation values` stays a *separate* decision — keep presentation values
 (via `ValueMapper`) for now so output matches the contract.

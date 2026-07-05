@@ -106,6 +106,31 @@ class VdtModelTest {
     }
 
     @Test
+    fun parsesNestedTrailersAndAggregatesFillUnits() {
+        val data = model("nested_trailers.json")
+        val v = assertNotNull(data.vehicle)
+
+        // BACK is a trailer that itself pulls a nested trailer; both carry wheat.
+        val back = assertNotNull(v.implement.firstOrNull { it.position == "BACK" })
+        assertEquals("trailer", back.type)
+        assertEquals(18500, back.fillUnits?.fillUnit?.singleOrNull()?.value)
+
+        // the nested trailer is reachable and carries its own fill unit
+        val nested = assertNotNull(back.implement.singleOrNull())
+        assertEquals("Rudolph DK 280 RP", nested.name)
+        assertEquals("WHEAT", nested.fillUnits?.fillUnit?.singleOrNull()?.type)
+        assertEquals(18500, nested.fillUnits?.fillUnit?.singleOrNull()?.value)
+
+        // the whole BACK chain exposes both fill units — this recursive walk mirrors what the
+        // Implements panel's collectFillUnits does (and what its "merged" toggle then sums).
+        fun totalFill(imp: Implement): Int =
+            (imp.fillUnits?.fillUnit?.sumOf { it.value } ?: 0) + imp.implement.sumOf { totalFill(it) }
+        assertEquals(37000, totalFill(back))
+
+        assertJsonRoundTrips(data)
+    }
+
+    @Test
     fun serverMessageUsesTypeDiscriminator() {
         val msg: ServerMessage = ServerMessage.Telemetry(model("combine.json"))
         val encoded = json.encodeToString(ServerMessage.serializer(), msg)

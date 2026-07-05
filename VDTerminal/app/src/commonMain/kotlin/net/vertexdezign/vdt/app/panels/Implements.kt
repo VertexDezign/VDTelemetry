@@ -38,7 +38,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.vertexdezign.vdt.CombinedImplementState
 import net.vertexdezign.vdt.FillUnit
 import net.vertexdezign.vdt.Implement
 import net.vertexdezign.vdt.Vehicle
@@ -87,7 +86,6 @@ fun Implements(vehicle: Vehicle) {
     var merged by remember { mutableStateOf(false) }
     val front = findImplement(vehicle.implement, "FRONT")
     val back = findImplement(vehicle.implement, "BACK")
-    val combined = vehicle.combined
 
     Panel(
         title = "Implements",
@@ -102,8 +100,8 @@ fun Implements(vehicle: Vehicle) {
         },
     ) {
         Row(Modifier.fillMaxHeight().fillMaxWidth()) {
-            column("Front", front, combined?.implement?.front, front?.wearable?.damage ?: combined?.wearable?.damage ?: 0, merged, left = true, modifier = Modifier.weight(1f))
-            column("Rear", back, combined?.implement?.back, back?.wearable?.damage ?: combined?.wearable?.damage ?: 0, merged, left = false, modifier = Modifier.weight(1f))
+            column("Front", front, merged, left = true, modifier = Modifier.weight(1f))
+            column("Rear", back, merged, left = false, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -112,13 +110,14 @@ fun Implements(vehicle: Vehicle) {
 private fun column(
     label: String,
     imp: Implement?,
-    state: CombinedImplementState?,
-    damage: Int,
     merged: Boolean,
     left: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val attached = imp != null
+    // The mod's old `combined.implement.front/back` was just the first front/back implement's own
+    // aspect state — which is exactly `imp` here — so read status/damage straight off it.
+    val damage = imp?.wearable?.damage ?: 0
     val fillUnits = collectFillUnits(imp).let { if (merged) mergeFillUnits(it) else it }
     val align = if (left) Alignment.Start else Alignment.End
 
@@ -156,10 +155,10 @@ private fun column(
             Icon(Icons.Filled.Build, null, tint = VdtColors.DarkGray, modifier = Modifier.height(14.dp))
             Text("${100 - damage}%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
         }
-        val foldable = state?.foldable
+        val foldable = imp?.foldable
         StatusIconButton(Icons.Filled.UnfoldMore, active = foldable == "FOLDED" || foldable == "EXTENDED", color = if (foldable == "EXTENDED") StatusColor.Green else StatusColor.White)
-        StatusIconButton(Icons.Filled.PowerSettingsNew, active = state?.isTurnedOn == true, color = StatusColor.Green)
-        StatusIconButton(if (state?.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward, active = state?.lowered == true, color = StatusColor.Green)
+        StatusIconButton(Icons.Filled.PowerSettingsNew, active = imp?.isTurnedOn == true, color = StatusColor.Green)
+        StatusIconButton(if (imp?.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward, active = imp?.lowered == true, color = StatusColor.Green)
         if (attached) FillUnitsDisplay(fillUnits, Modifier.fillMaxWidth(), spacing = 4)
     }
 }
