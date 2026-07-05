@@ -42,3 +42,25 @@ jobs:
           name: test-reports
           path: VDTerminal/*/build/reports/tests/
           if-no-files-found: ignore
+
+  mod-test:
+    name: Mod (Lua) tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # FS25 / the GIANTS engine runs Lua 5.1; test the mod's pure-Lua code on the same version.
+      - name: Set up Lua 5.1
+        uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: "5.1"
+
+      - name: Set up LuaRocks
+        uses: leafo/gh-actions-luarocks@v6
+
+      - name: Install busted
+        run: luarocks install busted
+
+      - name: Run mod unit tests (spec/*_spec.lua)
+        working-directory: vdTelemetry
+        run: busted --verbose

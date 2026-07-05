@@ -51,3 +51,16 @@ at the same place where your mod folder is.
     * Differential
     * AWD
     * Parking Brake
+
+## Tests
+
+The pure-Lua utility code (e.g. the JSON encoder in `src/utils/Json.lua`) is unit-tested with
+[busted](https://lunarmodules.github.io/busted/). Tests live in `spec/` (excluded from the packaged
+mod via `.fsignore`) and run in CI on Lua 5.1 — the version the GIANTS engine uses.
+
+Run them locally from this directory:
+
+```bash
+luarocks install busted   # once
+busted                    # discovers and runs spec/*_spec.lua
+```
