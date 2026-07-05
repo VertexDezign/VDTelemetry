@@ -36,7 +36,9 @@ local sourceFiles = {
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",
   -- Orchestrators depend on the collectors + aspects + integrations above
-  "src/collect/VehicleExporter.lua"
+  "src/collect/VehicleExporter.lua",
+  -- GUI: injects settings controls into the in-game menu
+  "src/gui/SettingsFrame.lua"
 }
 
 for _, file in ipairs(sourceFiles) do
@@ -46,16 +48,23 @@ end
 ---@class VDTelemetry
 ---@field debugger GrisuDebug
 ---@field exportEnabled boolean
+---@field writeIntervalMs number
 ---@field updateTimer number
 ---@field settingsXmlFile string
 ---@field jsonFileLocation string
 ---@field pda PDA | nil
 ---@field prettyJson boolean
+---@field logLevelString string
+---@field specLevelString string
 VDTelemetry = {}
 VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 VDTelemetry.VERSION = 1
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
-VDTelemetry.SETTINGS_XML_VERSION = 1
+VDTelemetry.SETTINGS_XML_VERSION = 2
+-- Write interval (ms) between telemetry samples. Configurable via the in-game General Settings
+-- page; clamped to MIN_INTERVAL_MS since sub-frame intervals are pointless (a game frame is ~16-33 ms).
+VDTelemetry.DEFAULT_INTERVAL_MS = 100
+VDTelemetry.MIN_INTERVAL_MS = 16
 VDTelemetry.VD_AI = {
   REQUIRED_MAJOR_VERSION = 1,
   REQUIRED_MIN_MINOR_VERSION = 1
@@ -76,6 +85,9 @@ function VDTelemetry.init()
   self.debugger:setLogLvl(GrisuDebug.TRACE)
 
   self.exportEnabled = false
+  self.writeIntervalMs = VDTelemetry.DEFAULT_INTERVAL_MS
+  self.logLevelString = "INFO"
+  self.specLevelString = "INFO"
   self.specLogLevel = GrisuDebug.INFO
   self.updateTimer = 0
 
@@ -109,24 +121,45 @@ function VDTelemetry:loadMap(filename)
   end
 
   -- telemetry is client-side only: the file lives on the client's machine, not the dedicated server
-  if g_dedicatedServerInfo == nil then
+  if self:isTelemetryAvailable() then
     self.jsonFileLocation = getUserProfileAppPath() .. VDTelemetry.STATE_FILE_NAME
   end
 
   self.pda = MapUtil.getMapPDAFile()
+
+  -- add the export toggle + write-interval selector to the in-game General Settings page
+  VDT.SettingsFrame.install()
 
   self.debugger:info("VDTelemetry loaded")
 end
 
 function VDTelemetry:writeDefaultSettings()
   self.debugger:trace("writeDefaultSettings")
-  local xml = XMLFile.create("VDTS", self.settingsXmlFile, "VDTS")
+  self.exportEnabled = g_dedicatedServerInfo == nil
+  self.writeIntervalMs = VDTelemetry.DEFAULT_INTERVAL_MS
+  self.logLevelString = "INFO"
+  self.specLevelString = "INFO"
+  self.prettyJson = false
+  self:saveSettingsToFile()
+end
 
-  xml:setInt("VDTS#version", 1)
-  xml:setBool("VDTS.exportEnabled", g_dedicatedServerInfo == nil)
-  xml:setString("VDTS.logging.level", "INFO")
-  xml:setString("VDTS.logging.specLevel", "INFO")
-  xml:setBool("VDTS.json.pretty", false)
+-- Persist the current in-memory settings back to vdTelemetrySettings.xml. Writes the whole
+-- document (values, not defaults) so the settings UI can flip a single field without dropping
+-- the others.
+function VDTelemetry:saveSettingsToFile()
+  self.debugger:trace("saveSettingsToFile")
+  local xml = XMLFile.create("VDTS", self.settingsXmlFile, "VDTS")
+  if xml == nil then
+    self.debugger:error("could not create settings xml %s", tostring(self.settingsXmlFile))
+    return
+  end
+
+  xml:setInt("VDTS#version", VDTelemetry.SETTINGS_XML_VERSION)
+  xml:setBool("VDTS.export.enabled", self.exportEnabled)
+  xml:setInt("VDTS.export.intervalMs", self.writeIntervalMs)
+  xml:setString("VDTS.logging.level", self.logLevelString)
+  xml:setString("VDTS.logging.specLevel", self.specLevelString)
+  xml:setBool("VDTS.json.pretty", self.prettyJson)
 
   xml:save()
   xml:delete()
@@ -135,24 +168,74 @@ end
 function VDTelemetry:loadSettingsFromFile()
   self.debugger:trace("loadSettingsFromFile")
   local xml = XMLFile.load("VDTS", self.settingsXmlFile)
+  if xml == nil then
+    self.debugger:error("could not load settings xml, writing defaults")
+    self:writeDefaultSettings()
+    return
+  end
 
   local version = xml:getInt("VDTS#version", 0)
   if version ~= VDTelemetry.SETTINGS_XML_VERSION then
-    --TODO proper handling?
-    self.debugger:error("Unknown settings xml version, setting defaults values")
+    -- schema changed (or corrupt) -> regenerate from defaults. writeDefaultSettings also
+    -- populates the in-memory fields, so there's nothing more to read here.
+    self.debugger:error("Unknown settings xml version %d, resetting to defaults", version)
+    xml:delete()
     self:writeDefaultSettings()
+    return
   end
 
-  self.exportEnabled = xml:getBool("VDTS.exportEnabled", true)
-  local logLevel = xml:getString("VDTS.logging.level", "INFO")
-  local specLogLevel = xml:getString("VDTS.logging.specLevel", "INFO")
+  self.exportEnabled = xml:getBool("VDTS.export.enabled", g_dedicatedServerInfo == nil)
+  self.writeIntervalMs = math.max(xml:getInt("VDTS.export.intervalMs", VDTelemetry.DEFAULT_INTERVAL_MS), VDTelemetry.MIN_INTERVAL_MS)
+  self.logLevelString = xml:getString("VDTS.logging.level", "INFO")
+  self.specLevelString = xml:getString("VDTS.logging.specLevel", "INFO")
   self.prettyJson = xml:getBool("VDTS.json.pretty", false)
 
-  local parseLogLevel = GrisuDebug.parseLogLevel(logLevel)
-  self.debugger:setLogLvl(parseLogLevel)
-  self.specLogLevel = GrisuDebug.parseLogLevel(specLogLevel)
+  self.debugger:setLogLvl(GrisuDebug.parseLogLevel(self.logLevelString))
+  self.specLogLevel = GrisuDebug.parseLogLevel(self.specLevelString)
 
   xml:delete()
+end
+
+-- Telemetry is client-side only: the file lives on the client's machine, not the dedicated
+-- server box. The settings UI is gated on this too.
+function VDTelemetry:isTelemetryAvailable()
+  return g_dedicatedServerInfo == nil
+end
+
+---Live-apply an export enabled/disabled change from the settings UI and persist it.
+---@param enabled boolean
+function VDTelemetry:setExportEnabled(enabled)
+  if self.exportEnabled == enabled then
+    return
+  end
+  self.exportEnabled = enabled
+  self.updateTimer = 0
+  if not enabled then
+    -- drop the stale file so the terminal's file-watch sees export stop
+    self:deleteJsonFile()
+  end
+  self:saveSettingsToFile()
+  self.debugger:info("Export %s", enabled and "enabled" or "disabled")
+end
+
+---Live-apply a write-interval change from the settings UI and persist it.
+---@param intervalMs number
+function VDTelemetry:setWriteIntervalMs(intervalMs)
+  intervalMs = math.max(intervalMs, VDTelemetry.MIN_INTERVAL_MS)
+  if self.writeIntervalMs == intervalMs then
+    return
+  end
+  self.writeIntervalMs = intervalMs
+  self.updateTimer = 0
+  self:saveSettingsToFile()
+  self.debugger:info("Write interval set to %d ms", intervalMs)
+end
+
+function VDTelemetry:deleteJsonFile()
+  if self.jsonFileLocation ~= nil and fileExists(self.jsonFileLocation) then
+    deleteFile(self.jsonFileLocation)
+    self.debugger:debug("Deleted json file %s", self.jsonFileLocation)
+  end
 end
 
 function VDTelemetry:update(dt)
@@ -161,8 +244,7 @@ function VDTelemetry:update(dt)
   end
 
   self.updateTimer = self.updateTimer + dt
-  -- only update every 500ms
-  if self.updateTimer < 500 then
+  if self.updateTimer < self.writeIntervalMs then
     return
   end
 

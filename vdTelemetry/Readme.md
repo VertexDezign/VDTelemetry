@@ -24,14 +24,22 @@ The shape of the written json is defined by the shared Kotlin model
 
 ## Configuration
 
+Export can be toggled and the write interval chosen directly in-game: **General Settings**.
+Both apply immediately and are saved back to the configuration file — disabling export also
+removes the stale `vdTelemetry.json` so consumers can tell it stopped.
+
 The mod has a configuration file named `vdTelemetrySettings.xml` in the modSettings folder. The folder is located
 at the same place where your mod folder is.
 
 ````xml
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
-<VDTS version="1">
-    <!-- Disable the telemetry export, useful for multiplayer where only one person has GameGlass to reduce load on the client -->
-    <exportEnabled>true</exportEnabled>
+<VDTS version="2">
+    <export>
+        <!-- Disable the telemetry export, useful for multiplayer where only one person has GameGlass to reduce load on the client -->
+        <enabled>true</enabled>
+        <!-- Milliseconds between telemetry samples (clamped to a sub-frame floor). The in-game selector offers 100/250/500/1000. -->
+        <intervalMs>100</intervalMs>
+    </export>
     <logging>
         <!-- Configure log levels for debugging purposes -->
         <level>INFO</level>

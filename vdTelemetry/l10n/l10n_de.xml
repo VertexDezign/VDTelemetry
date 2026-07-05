@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<l10n>
+    <texts>
+        <text name="vdt_settings_title" text="VDTelemetry"/>
+        <text name="vdt_setting_exportEnabled" text="Export aktiviert"/>
+        <text name="vdt_setting_exportEnabled_tooltip" text="Schreiben der Telemetrie nach vdTelemetry.json aktivieren oder deaktivieren. Beim Deaktivieren wird die Datei entfernt."/>
+        <text name="vdt_setting_writeInterval" text="Schreibintervall"/>
+        <text name="vdt_setting_writeInterval_tooltip" text="Wie oft die Telemetrie geschrieben wird. Kürzere Intervalle sind flüssiger, schreiben aber häufiger."/>
+        <text name="vdt_ui_on" text="An"/>
+        <text name="vdt_ui_off" text="Aus"/>
+    </texts>
+</l10n>
