@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -60,7 +61,7 @@ private const val MAX_ZOOM = 16f
  * are persisted. Port of the React `MapPanel` (no map library — a single custom composable).
  */
 @Composable
-fun MapPanel(mapUrl: String, pda: Pda?, heading: Int, settings: Settings) {
+fun MapPanel(mapUrl: String, pda: Pda?, heading: Int, sampleIntervalMs: Int, settings: Settings) {
     var scale by remember { mutableStateOf(settings.getFloat("zoom", 1f)) }
     var autoCenter by remember { mutableStateOf(settings.getBoolean("autoCenter", true)) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
@@ -68,6 +69,22 @@ fun MapPanel(mapUrl: String, pda: Pda?, heading: Int, settings: Settings) {
     var bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     val client = remember { HttpClient() }
     val player = pda?.player
+
+    // Smooth the compass heading toward each new value along the *shortest* arc: accumulate an
+    // unwrapped angle so e.g. 350°→10° rotates +20°, not -340° the long way round. rotate() takes
+    // any float, so the running total never needs re-wrapping.
+    var targetHeading by remember { mutableStateOf(heading.toFloat()) }
+    var lastHeading by remember { mutableStateOf(heading) }
+    LaunchedEffect(heading) {
+        val delta = ((heading - lastHeading + 540) % 360) - 180 // shortest signed step in (-180, 180]
+        targetHeading += delta
+        lastHeading = heading
+    }
+    val animHeading by animateFloatAsState(
+        targetValue = targetHeading,
+        animationSpec = tween(durationMillis = sampleIntervalMs, easing = LinearEasing),
+        label = "heading",
+    )
 
     // Zoom by [factor] while keeping the given focal point (screen coords relative to the map's
     // top-left) pinned on screen. Used by the header +/- buttons with focal = viewport centre.
@@ -104,11 +121,11 @@ fun MapPanel(mapUrl: String, pda: Pda?, heading: Int, settings: Settings) {
             val side = with(density) { minOf(maxWidth, maxHeight).toPx() }
             LaunchedEffect(side) { sidePx = side }
 
-            // Smoothly interpolate the player's normalized position between the ~500ms telemetry
-            // updates. Only the position is animated (not the scale), so zooming stays wobble-free.
+            // Smoothly interpolate the player's normalized position over one telemetry sample
+            // interval. Only the position is animated (not the scale), so zooming stays wobble-free.
             val animNorm by animateOffsetAsState(
                 targetValue = if (player != null) Offset(player.posX, player.posZ) else Offset.Zero,
-                animationSpec = tween(durationMillis = 500, easing = LinearEasing),
+                animationSpec = tween(durationMillis = sampleIntervalMs, easing = LinearEasing),
                 label = "playerNorm",
             )
             // Current translation: while auto-centering it tracks the (smoothed) player at the live
@@ -190,7 +207,7 @@ fun MapPanel(mapUrl: String, pda: Pda?, heading: Int, settings: Settings) {
                                     (animNorm.y * side * scale + applied.y - 12.dp.toPx()).roundToInt(),
                                 )
                             }
-                            .rotate(heading.toFloat()),
+                            .rotate(animHeading),
                     )
                 }
             }
