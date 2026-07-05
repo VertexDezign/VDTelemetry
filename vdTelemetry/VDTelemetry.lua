@@ -19,7 +19,24 @@ local sourceFiles = {
   -- Mappers
   "src/mapper/ValueMapper.lua",
   -- Collectors (model/ holds annotation-only @class defs and is not sourced)
-  "src/collect/EnvironmentExporter.lua"
+  "src/collect/EnvironmentExporter.lua",
+  "src/collect/vehicle/Motor.lua",
+  "src/collect/vehicle/Lights.lua",
+  "src/collect/vehicle/SupportSystems.lua",
+  -- Shared aspects (any vehicle or implement); Aspects.lua depends on the individual collectors
+  "src/collect/aspects/TurnOn.lua",
+  "src/collect/aspects/Foldable.lua",
+  "src/collect/aspects/Lowered.lua",
+  "src/collect/aspects/FillUnit.lua",
+  "src/collect/aspects/Pipe.lua",
+  "src/collect/aspects/Cover.lua",
+  "src/collect/aspects/Wearable.lua",
+  "src/collect/aspects/Aspects.lua",
+  -- Integrations (optional third-party mods) — registry depends on the integration files
+  "src/integrations/EnhancedVehicle.lua",
+  "src/integrations/registry.lua",
+  -- Orchestrators depend on the collectors + aspects + integrations above
+  "src/collect/VehicleExporter.lua"
 }
 
 for _, file in ipairs(sourceFiles) do
@@ -230,7 +247,8 @@ function VDTelemetry:writeJsonFile()
 
   local model = {
     version = tostring(VDTelemetry.XML_VERSION),
-    environment = EnvironmentExporter.collect(self.pda),
+    environment = VDT.EnvironmentExporter.collect(self.pda),
+    vehicle = VDT.VehicleExporter.collect(self.currentVehicle),
   }
 
   local file = io.open(self.jsonFileLocation, "w")

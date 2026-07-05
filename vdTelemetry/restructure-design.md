@@ -127,7 +127,7 @@ exactly as `populateXMLFromAttacherJoints` recurses today (`:492`).
 ---@field awd boolean?
 ---@field parkingBrake boolean?
 
-function EnhancedVehicle.contribute(object, model)
+function EnhancedVehicle.contributeObject(object, model)
   local vData = object.vData
   if vData == nil then return end          -- the "am I present?" check lives here, once
   model.motor.diffLock = { front = vData.is[1], back = vData.is[2] }
@@ -136,14 +136,27 @@ function EnhancedVehicle.contribute(object, model)
 end
 ```
 
+**Integrations extend the model at named *stages*, not only the object walk.** An integration opts
+into a stage by defining a function of that name and omits the ones it doesn't care about — so
+environment/weather mods, whole-document mods, etc. all have a seam without the object walk being
+the only extension point. Current stages: `contributeObject(object, model)` (per vehicle/implement)
+and `contributeEnvironment(environment, model)`.
+
 ```lua
 -- integrations/registry.lua
-Integrations = { EnhancedVehicle }
--- run per object during the walk, after core collectors have produced its model:
-for _, i in ipairs(Integrations) do i.contribute(object, objectModel) end
+Integrations.all = { EnhancedVehicle }
+-- dispatch a stage to every integration that implements it:
+function Integrations.run(stage, subject, model)
+  for _, i in ipairs(Integrations.all) do
+    local hook = i[stage]
+    if hook ~= nil then hook(subject, model) end
+  end
+end
 ```
 
-Asymmetry is deliberate: **core collectors define the model shape; integrations decorate it.**
+Each collector site calls the stage it owns: `VehicleExporter` runs `"contributeObject"` per object,
+`EnvironmentExporter` runs `"contributeEnvironment"`. Asymmetry is deliberate: **core collectors
+define the model shape; integrations decorate it.**
 
 ### Where contributed fields are declared
 
@@ -188,6 +201,12 @@ direction = "STOPPED" }` goes straight to `Json.encode`.
 
 ## Combined info (`derive/CombinedInfo.lua`)
 
+> **Deferred (2026-07-05).** VDTerminal doesn't consume `combined`, and there's no GameGlass
+> integration yet — so there's no consumer to validate the shape against. Rather than port logic we
+> can't exercise, the JSON emitter simply omits `combined` for now. The collectors were already kept
+> pure (no in-walk accumulation), so this drops in later as a clean model→model pass with no
+> refactor debt. The old XML writer keeps emitting `combined` until the XML path is deleted.
+
 A pure function `model -> model` that replaces the in-walk accumulation:
 
 - **fill units:** group implement + vehicle fill units by type, sum capacity and fill level
@@ -217,6 +236,15 @@ A pure function `model -> model` that replaces the in-walk accumulation:
   to `Json.encode` instead of doing the walk itself.
 - Keep `sourceFiles` load order correct (dependencies first) as new files are added. `model/`
   files are annotation-only (`---@class`) and are **not** source()'d.
+- **All runtime modules live under a single `VDT.*` namespace table** (`VDT.Motor`, `VDT.Lights`,
+  `VDT.FillUnit`, …), each file guarded with `VDT = VDT or {}`. This is mandatory, not cosmetic:
+  FS25 exposes vehicle specializations as **bare Lua globals** (`Lights`, `FillUnit`, `Foldable`,
+  `Cover`, `Pipe`, `Wearable`), and mods `source()` into the shared global env — a bare
+  `Lights = {}` module would clobber the engine class the collectors (and the game) read from.
+  `Lights.collect` even reads `Lights.TURNLIGHT_LEFT`, so the collision is self-inflicting.
+  Pre-existing bare globals (`ValueMapper`, `Set`, `MapUtil`, `Json`) are left as-is — they don't
+  collide and are referenced by the not-yet-deleted XML code. `@class` type names (`MotorModel`, …)
+  are not runtime globals and stay unprefixed.
 
 ## Migration order (vertical slices, each ending byte-identical)
 

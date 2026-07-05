@@ -1,14 +1,13 @@
--- Collects the environment subtree of the telemetry model.
---
--- Pure extraction: reads game state and returns a plain EnvironmentModel table. It never touches a
--- serializer, so the same fragment feeds JSON today and could feed anything later. Behaviour mirrors
--- the original VDTelemetry:populateXMLFromEnvironment so the emitted values stay identical.
+-- Collects the environment subtree of the telemetry model. Namespaced under VDT.* (see
+-- aspects/TurnOn.lua). Pure extraction: reads game state and returns a plain EnvironmentModel table.
+-- Behaviour mirrors the original VDTelemetry:populateXMLFromEnvironment.
 
-EnvironmentExporter = {}
+VDT = VDT or {}
+VDT.EnvironmentExporter = {}
 
 ---@param pda PDA|nil the resolved map PDA file, or nil when the map has none
 ---@return EnvironmentModel
-function EnvironmentExporter.collect(pda)
+function VDT.EnvironmentExporter.collect(pda)
   local environment = g_currentMission.environment
 
   ---@type EnvironmentModel
@@ -49,6 +48,10 @@ function EnvironmentExporter.collect(pda)
     pdaModel.height = pda.height
   end
   model.pda = pdaModel
+
+  -- extension point for optional environment integrations (e.g. a weather/seasons mod). None today;
+  -- the seam exists so environment extensions don't require touching this collector later.
+  VDT.Integrations.run("contributeEnvironment", environment, model)
 
   return model
 end

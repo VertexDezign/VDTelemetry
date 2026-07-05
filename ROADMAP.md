@@ -36,26 +36,58 @@ telemetry keeps working; at the end we flip the server to JSON and delete the XM
   minified default + `pretty` mode that also sorts keys for diff-stable live-watching). `io.open`
   writing works inside the Proton prefix on Linux. Validated with real, fast-changing motor values.
 - Added `VDTS.json.pretty` setting (default `false`, no `SETTINGS_XML_VERSION` bump — additive).
-- **Environment slice migrated (first real slice).** New `src/model/EnvironmentModel.lua`
-  (annotation-only) + `src/collect/EnvironmentExporter.lua` (pure `collect(pda)` returning the
-  fragment). The spike is gone: `update()` now calls `VDTelemetry:writeJsonFile()`, which builds
-  `{ version, environment }` and writes `vdTelemetry.json`. Still `pcall`-guarded while partial.
-  **Needs in-game verification** (no local Lua to run it).
+- **Environment slice migrated** and **verified in-game (2026-07-05).** `src/model/EnvironmentModel.lua`
+  (annotation-only) + `src/collect/EnvironmentExporter.lua`. `update()` calls
+  `VDTelemetry:writeJsonFile()`, writing `vdTelemetry.json`. Still `pcall`-guarded while partial.
+- **Motor slice migrated (2026-07-05), incl. the first optional integration.** New
+  `src/collect/VehicleExporter.lua` (vehicle header: name/type/speed/brand/operatingTime + motor,
+  then runs integrations), `src/collect/vehicle/Motor.lua` (`Motor.collect`), `src/model/{VehicleModel,MotorModel}.lua`,
+  and `src/integrations/{EnhancedVehicle,registry}.lua` (Enhanced Vehicle contributes
+  diffLock/awd/parkingBrake; those aren't in `Model.kt` so the server drops them via
+  `ignoreUnknownKeys`, exactly as today). Numeric fields go through `tonumber(mapper(...))` to keep
+  presentation rounding while emitting real JSON numbers. **Needs in-game verification.**
+  - **Fixture staleness noted:** the `examples/*` captures predate `maxSpeed`/`brand`/fuel-`usage`,
+    which current code *does* emit — so the live JSON will carry a few optional fields the fixtures
+    lack. That's expected (behaviour-preserving mirrors the code); regenerate fixtures from fresh
+    `vdTelemetry.json` captures once the mod emits JSON.
 
 **Scaffolding to remove/clean before merge:**
 - The `pcall` guard around `writeJsonFile` in `update()` — drop once the model is complete and JSON
   is the sole output.
 - `JsonContractTest` writes fixtures as a side-effect — split into a generator + a plain decode test.
 
+- **Shared-aspects slice migrated (2026-07-05).** Seven pure aspect collectors under
+  `src/collect/aspects/` (`TurnOn`, `Foldable`, `Lowered`, `FillUnit`, `Pipe`, `Cover`, `Wearable`)
+  + `Aspects.apply(object, model)` that maps each to its model key. `VehicleExporter` now applies
+  aspects to the vehicle and walks the **recursive implement tree** (`collectImplements`, running
+  `contributeObject` per implement too). New models: `AspectModel.lua`, `ImplementModel.lua`;
+  `VehicleModel` extended with the aspect + implement fields. Empty implement/fill-unit lists return
+  `nil` (absent key → Model.kt default `[]`), never a `{}`. `combinedInfo` stays OUT — it's the
+  next slice. Implement `brand` is emitted (behaviour-preserving; server drops it). **Needs
+  in-game verification.**
+
+- **Support systems + lights slice migrated (2026-07-05).** `src/collect/vehicle/Lights.lua`
+  (`gps`/`ai`/`cruiseControl` in `SupportSystems.lua`), models `LightsModel.lua`/`SupportModel.lua`,
+  `VehicleModel` extended. **Needs in-game verification.**
+- **Namespace fix (2026-07-05): all runtime modules moved under a single `VDT.*` table.** FS25
+  exposes vehicle specializations as bare globals (`Lights`, `FillUnit`, `Foldable`, `Cover`,
+  `Pipe`, `Wearable`); the earlier slices' bare-global modules clobbered them (latent bug — surfaces
+  when a *new* vehicle loads). Now `VDT.Motor`, `VDT.Lights`, `VDT.FillUnit`, … each guarded with
+  `VDT = VDT or {}`. This also un-clobbers the still-live XML code, which reads the real engine
+  globals. `ValueMapper`/`Set`/`MapUtil`/`Json` stay bare (no collision, used by XML code).
+- **`combined` deferred (not skipped forever).** VDTerminal doesn't use it and there's no GameGlass
+  integration yet, so there's no consumer to validate the shape — the JSON emitter omits it for now.
+  Collectors stayed pure, so `derive/CombinedInfo` drops in cleanly when a consumer needs it. The
+  XML writer still emits `combined` until the XML path is deleted.
+
 **Next session:**
-1. Verify the environment JSON in-game (diff `vdTelemetry.json` env subtree vs `examples/json/*`).
-2. Continue the slices per `restructure-design.md` migration order: **Motor** (first vehicle aspect
-   + first optional integration — extract Enhanced Vehicle to `integrations/EnhancedVehicle.lua`),
-   then shared aspects, support/lights, then `derive/CombinedInfo`. Reuse `ValueMapper`
-   (rpm/temp→int, speed→km/h, load→%); match the `Model.kt` types (`version` String, temps/rpm Int,
-   `speed.value`/`load.value` Float/Double).
-3. When the model is complete: server switches the file read from xmlutil to
-   `Json.decodeFromString<VdtData>` (lenient); delete the `populateXMLFrom*` methods + XML writer.
+1. Verify support-systems + lights (and the namespace refactor) in-game.
+2. The mod JSON model is now feature-complete for VDTerminal's needs (env + vehicle + motor +
+   aspects + implements + lights/gps/ai/cruiseControl; `combined` deferred). **Wire the server to
+   JSON:** switch the file read from xmlutil to `Json.decodeFromString<VdtData>` (lenient config,
+   `ignoreUnknownKeys = true`), point the watcher at `vdTelemetry.json`.
+3. Then remove the parallel XML path: delete `populateXMLFrom*` + `writeXMLFile`, drop the `pcall`
+   guard around `writeJsonFile`, and regenerate `examples/*` from fresh JSON captures.
 
 Note: `raw values vs presentation values` stays a *separate* decision — keep presentation values
 (via `ValueMapper`) for now so output matches the contract.

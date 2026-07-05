@@ -1,0 +1,17 @@
+-- Model definition for an implement node (recursive). Annotation-only (see EnvironmentModel.lua).
+-- Maps to Model.kt Implement. `brand` is emitted (preserving current behaviour) but absent from
+-- Model.kt, so the server drops it via ignoreUnknownKeys.
+
+---@class ImplementModel
+---@field position string
+---@field name string?
+---@field type string?
+---@field brand BrandModel?
+---@field isTurnedOn boolean?
+---@field foldable string?
+---@field lowered boolean?
+---@field fillUnits FillUnitsModel?
+---@field pipe string?
+---@field cover string?
+---@field wearable WearableModel?
+---@field implement ImplementModel[]?
