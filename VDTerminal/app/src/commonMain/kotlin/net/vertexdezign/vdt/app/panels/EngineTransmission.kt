@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.FoldableState
 import net.vertexdezign.vdt.Vehicle
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
@@ -78,8 +79,8 @@ fun EngineTransmission(vehicle: Vehicle) {
                 StatusIconButton(
                     icon = Icons.Filled.UnfoldMore,
                     modifier = Modifier.weight(1f),
-                    active = foldable == "FOLDED" || foldable == "EXTENDED",
-                    color = if (foldable == "EXTENDED") StatusColor.Green else StatusColor.White,
+                    active = foldable != null,
+                    color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
                 )
                 StatusIconButton(Icons.Filled.PowerSettingsNew, Modifier.weight(1f), active = vehicle.isTurnedOn == true, color = StatusColor.Green)
                 StatusIconButton(

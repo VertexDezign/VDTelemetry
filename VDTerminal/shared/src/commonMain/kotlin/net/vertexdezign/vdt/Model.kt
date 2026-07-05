@@ -103,11 +103,11 @@ data class Vehicle(
     val ai: Ai? = null,
     val cruiseControl: CruiseControl? = null,
     val isTurnedOn: Boolean? = null,
-    val foldable: String? = null,
+    val foldable: FoldableState? = null,
     val lowered: Boolean? = null,
     val fillUnits: FillUnits? = null,
-    val pipe: String? = null,
-    val cover: String? = null,
+    val pipe: PipeState? = null,
+    val cover: CoverType? = null,
     val wearable: Wearable? = null,
     val implement: List<Implement> = emptyList(),
     val combined: Combined? = null,
@@ -288,12 +288,11 @@ data class Implement(
     val name: String = "",
     val type: String = "",
     val isTurnedOn: Boolean? = null,
-    val foldable: String? = null,
+    val foldable: FoldableState? = null,
     val lowered: Boolean? = null,
     val fillUnits: FillUnits? = null,
-    val pipe: String? = null,
-    // the mod emits CoverType strings ("CLOSED"); kept a lenient String so future values don't break parsing.
-    val cover: String? = null,
+    val pipe: PipeState? = null,
+    val cover: CoverType? = null,
     val wearable: Wearable? = null,
     val implement: List<Implement> = emptyList(),
 )
@@ -315,21 +314,5 @@ data class CombinedImplement(
 data class CombinedImplementState(
     val isTurnedOn: Boolean? = null,
     val lowered: Boolean? = null,
-    val foldable: String? = null,
+    val foldable: FoldableState? = null,
 )
-
-// ---------------------------------------------------------------------------
-// Typed accessors for the enum-valued string fields.
-//
-// pipe / cover / foldable are stored as raw strings so an unknown/future value yields null instead
-// of failing the whole document; these parse them leniently for the client to render.
-// ---------------------------------------------------------------------------
-
-fun String?.toFoldableState(): FoldableState? =
-    this?.let { runCatching { FoldableState.valueOf(it) }.getOrNull() }
-
-fun String?.toPipeState(): PipeState? =
-    this?.let { runCatching { PipeState.valueOf(it) }.getOrNull() }
-
-fun String?.toCoverType(): CoverType? =
-    this?.let { runCatching { CoverType.valueOf(it) }.getOrNull() }

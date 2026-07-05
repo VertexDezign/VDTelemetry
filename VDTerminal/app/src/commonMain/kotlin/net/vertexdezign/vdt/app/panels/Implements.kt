@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.FillUnit
+import net.vertexdezign.vdt.FoldableState
 import net.vertexdezign.vdt.Implement
 import net.vertexdezign.vdt.Vehicle
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
@@ -156,7 +157,7 @@ private fun column(
             Text("${100 - damage}%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
         }
         val foldable = imp?.foldable
-        StatusIconButton(Icons.Filled.UnfoldMore, active = foldable == "FOLDED" || foldable == "EXTENDED", color = if (foldable == "EXTENDED") StatusColor.Green else StatusColor.White)
+        StatusIconButton(Icons.Filled.UnfoldMore, active = foldable != null, color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White)
         StatusIconButton(Icons.Filled.PowerSettingsNew, active = imp?.isTurnedOn == true, color = StatusColor.Green)
         StatusIconButton(if (imp?.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward, active = imp?.lowered == true, color = StatusColor.Green)
         if (attached) FillUnitsDisplay(fillUnits, Modifier.fillMaxWidth(), spacing = 4)

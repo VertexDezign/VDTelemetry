@@ -71,8 +71,8 @@ class VdtModelTest {
 
         assertEquals("combineDrivable", v.type)
         assertEquals(3.92f, v.speed?.value)
-        assertEquals(FoldableState.EXTENDED, v.foldable.toFoldableState())
-        assertEquals(PipeState.RETRACTED, v.pipe.toPipeState())
+        assertEquals(FoldableState.EXTENDED, v.foldable)
+        assertEquals(PipeState.RETRACTED, v.pipe)
 
         // combine motor has fuel + def but no air
         assertEquals(947, v.motor?.fillUnits?.fuel?.value)
