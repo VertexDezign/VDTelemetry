@@ -1,6 +1,6 @@
 # VDTelemetry
 
-VDTelemetry exports the current game state into an xml file so external telemetry consumers can read it, and provides
+VDTelemetry exports the current game state into a json file so external telemetry consumers can read it, and provides
 some additional action events for accessing more stuff with direct key bindings.
 
 > This mod was originally built as *GameGlassInterface* to provide integration with
@@ -14,12 +14,13 @@ Link to Discord Post: [GameGlass Discord](https://discord.com/channels/522506741
 
 * [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs)
 
-## XML
+## Output
 
-The xml is written directly into the farming simulator directory in the user folder, right besides your mod folder.
-Windows: `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\vdTelemetry.xml`
+The json is written directly into the farming simulator directory in the user folder, right besides your mod folder.
+Windows: `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\vdTelemetry.json`
 
-The schema for the currently written xml looks like this [VDTelemetrySchema](./vdTelemetrySchema.xsd)
+The shape of the written json is defined by the shared Kotlin model
+(`VDTerminal/shared/.../Model.kt`); see `examples/json/` for sample outputs.
 
 ## Configuration
 
@@ -29,13 +30,17 @@ at the same place where your mod folder is.
 ````xml
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <VDTS version="1">
-    <!-- Disable the xml export, useful for multiplayer where only one person has GameGlass to reduce load on the client -->
+    <!-- Disable the telemetry export, useful for multiplayer where only one person has GameGlass to reduce load on the client -->
     <exportEnabled>true</exportEnabled>
     <logging>
         <!-- Configure log levels for debugging purposes -->
         <level>INFO</level>
         <specLevel>INFO</specLevel>
     </logging>
+    <json>
+        <!-- Pretty-print the json output (indented + sorted keys) for easier live inspection during development -->
+        <pretty>false</pretty>
+    </json>
 </VDTS>
 
 ````
@@ -46,3 +51,16 @@ at the same place where your mod folder is.
     * Differential
     * AWD
     * Parking Brake
+
+## Tests
+
+The pure-Lua utility code (e.g. the JSON encoder in `src/utils/Json.lua`) is unit-tested with
+[busted](https://lunarmodules.github.io/busted/). Tests live in `spec/` (excluded from the packaged
+mod via `.fsignore`) and run in CI on Lua 5.1 — the version the GIANTS engine uses.
+
+Run them locally from this directory:
+
+```bash
+luarocks install busted   # once
+busted                    # discovers and runs spec/*_spec.lua
+```

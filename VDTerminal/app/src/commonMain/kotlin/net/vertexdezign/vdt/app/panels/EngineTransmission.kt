@@ -19,12 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.FoldableState
 import net.vertexdezign.vdt.Vehicle
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SimpleGauge
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
+import net.vertexdezign.vdt.app.components.format2
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /** Engine / transmission panel: speed gauge, RPM, temps, cruise, and vehicle fill units. */
@@ -58,7 +60,7 @@ fun EngineTransmission(vehicle: Vehicle) {
                     )
                     if (cruise != null) {
                         Text(
-                            "${cruise.targetSpeed ?: 0}",
+                            format2(cruise.targetSpeed ?: 0f),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (cruise.active == true) VdtColors.Green else VdtColors.DarkGray,
@@ -78,8 +80,8 @@ fun EngineTransmission(vehicle: Vehicle) {
                 StatusIconButton(
                     icon = Icons.Filled.UnfoldMore,
                     modifier = Modifier.weight(1f),
-                    active = foldable == "FOLDED" || foldable == "EXTENDED",
-                    color = if (foldable == "EXTENDED") StatusColor.Green else StatusColor.White,
+                    active = foldable != null,
+                    color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
                 )
                 StatusIconButton(Icons.Filled.PowerSettingsNew, Modifier.weight(1f), active = vehicle.isTurnedOn == true, color = StatusColor.Green)
                 StatusIconButton(

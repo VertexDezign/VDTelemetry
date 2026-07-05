@@ -4,8 +4,8 @@ Real-time dashboard for the VDTelemetry Farming Simulator 25 mod, rebuilt as a K
 Multiplatform project (replacing the old React/Vite + Go stack in `../VDTerminal_old`).
 
 - **`shared`** (KMP: `jvm` + `wasmJs`) — the typed VDT data model, the `ServerMessage` wire
-  protocol (kotlinx.serialization), and the xmlutil-based `VdtParser`.
-- **`server`** (Kotlin/JVM, Ktor) — watches `vdTelemetry.xml`, parses it, broadcasts over a
+  protocol (kotlinx.serialization), and the JSON `VdtParser`.
+- **`server`** (Kotlin/JVM, Ktor) — watches `vdTelemetry.json`, parses it, broadcasts over a
   WebSocket, serves the map image (DDS → PNG), and serves the built web app.
 - **`app`** (Compose Multiplatform, `wasmJs`) — the dashboard UI.
 
@@ -27,7 +27,7 @@ Two processes, mirroring the old Vite setup:
 ./gradlew :app:wasmJsBrowserDevelopmentRun
 ```
 
-Then open <http://localhost:8080>. Editing `vdTelemetry.xml` updates the dashboard live.
+Then open <http://localhost:8080>. Editing `vdTelemetry.json` updates the dashboard live.
 
 ## Configuration (environment variables)
 
@@ -35,13 +35,13 @@ Then open <http://localhost:8080>. Editing `vdTelemetry.xml` updates the dashboa
 |----------------|-----------------------------------------------------|----------------------------------|
 | `VDT_PORT`     | `3001`                                              | server port                      |
 | `VDT_GAME_DIR` | OS-specific FS25 profile dir (Windows / Linux+Proton) | game directory                 |
-| `VDT_XML_FILE` | `<gameDir>/vdTelemetry.xml`                          | telemetry file to watch          |
+| `VDT_FILE`     | `<gameDir>/vdTelemetry.json`                        | telemetry file to watch          |
 
 ## Production (single artifact)
 
 ```bash
 ./gradlew :server:installDist
-VDT_XML_FILE=/path/to/vdTelemetry.xml server/build/install/server/bin/server
+VDT_FILE=/path/to/vdTelemetry.json server/build/install/server/bin/server
 ```
 
 `:server:installDist` builds the production wasm bundle and embeds it in the server's resources,
@@ -52,7 +52,7 @@ portable archive.)
 ## Tests
 
 ```bash
-./gradlew :shared:jvmTest   # XML parsing + JSON round-trip + xsd validation of examples/xml/*
+./gradlew :shared:jvmTest   # JSON decode/round-trip + model assertions over examples/json/*
 ./gradlew :server:test      # DDS decoder golden tests vs the woozymasta/bcn reference
 ```
 

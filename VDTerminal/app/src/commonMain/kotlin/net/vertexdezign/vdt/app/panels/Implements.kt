@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Anchor
@@ -22,7 +23,6 @@ import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.UnfoldMore
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,8 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.vertexdezign.vdt.CombinedImplementState
 import net.vertexdezign.vdt.FillUnit
+import net.vertexdezign.vdt.FoldableState
 import net.vertexdezign.vdt.Implement
 import net.vertexdezign.vdt.Vehicle
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
@@ -87,14 +87,13 @@ fun Implements(vehicle: Vehicle) {
     var merged by remember { mutableStateOf(false) }
     val front = findImplement(vehicle.implement, "FRONT")
     val back = findImplement(vehicle.implement, "BACK")
-    val combined = vehicle.combined
 
     Panel(
         title = "Implements",
         icon = Icons.Filled.Anchor,
         headerActions = {
             Icon(
-                if (merged) Icons.Filled.ViewList else Icons.Filled.Layers,
+                if (merged) Icons.AutoMirrored.Filled.ViewList else Icons.Filled.Layers,
                 contentDescription = "toggle merge",
                 tint = VdtColors.DarkGray,
                 modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { merged = !merged }.padding(2.dp),
@@ -102,8 +101,8 @@ fun Implements(vehicle: Vehicle) {
         },
     ) {
         Row(Modifier.fillMaxHeight().fillMaxWidth()) {
-            column("Front", front, combined?.implement?.front, front?.wearable?.damage ?: combined?.wearable?.damage ?: 0, merged, left = true, modifier = Modifier.weight(1f))
-            column("Rear", back, combined?.implement?.back, back?.wearable?.damage ?: combined?.wearable?.damage ?: 0, merged, left = false, modifier = Modifier.weight(1f))
+            column("Front", front, merged, left = true, modifier = Modifier.weight(1f))
+            column("Rear", back, merged, left = false, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -112,13 +111,14 @@ fun Implements(vehicle: Vehicle) {
 private fun column(
     label: String,
     imp: Implement?,
-    state: CombinedImplementState?,
-    damage: Int,
     merged: Boolean,
     left: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val attached = imp != null
+    // The mod's old `combined.implement.front/back` was just the first front/back implement's own
+    // aspect state — which is exactly `imp` here — so read status/damage straight off it.
+    val damage = imp?.wearable?.damage ?: 0
     val fillUnits = collectFillUnits(imp).let { if (merged) mergeFillUnits(it) else it }
     val align = if (left) Alignment.Start else Alignment.End
 
@@ -143,7 +143,7 @@ private fun column(
                 // without a type shows a single, vertically-centred name instead of a name with an
                 // empty line reserved below it.
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(imp!!.name, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(imp.name, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (imp.type.isNotBlank()) {
                         Text(imp.type, fontSize = 8.sp, lineHeight = 10.sp, color = Gray400, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -156,10 +156,10 @@ private fun column(
             Icon(Icons.Filled.Build, null, tint = VdtColors.DarkGray, modifier = Modifier.height(14.dp))
             Text("${100 - damage}%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
         }
-        val foldable = state?.foldable
-        StatusIconButton(Icons.Filled.UnfoldMore, active = foldable == "FOLDED" || foldable == "EXTENDED", color = if (foldable == "EXTENDED") StatusColor.Green else StatusColor.White)
-        StatusIconButton(Icons.Filled.PowerSettingsNew, active = state?.isTurnedOn == true, color = StatusColor.Green)
-        StatusIconButton(if (state?.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward, active = state?.lowered == true, color = StatusColor.Green)
+        val foldable = imp?.foldable
+        StatusIconButton(Icons.Filled.UnfoldMore, active = foldable != null, color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White)
+        StatusIconButton(Icons.Filled.PowerSettingsNew, active = imp?.isTurnedOn == true, color = StatusColor.Green)
+        StatusIconButton(if (imp?.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward, active = imp?.lowered == true, color = StatusColor.Green)
         if (attached) FillUnitsDisplay(fillUnits, Modifier.fillMaxWidth(), spacing = 4)
     }
 }
