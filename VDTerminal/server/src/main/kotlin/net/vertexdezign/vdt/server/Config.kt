@@ -6,8 +6,8 @@ import kotlin.io.path.Path
 /**
  * Runtime configuration. Ports `paths.go`: env overrides, OS-specific default game dir.
  *
- * Note: the default XML file is now `vdTelemetry.xml` (the rebranded schema), no longer
- * `gameGlassInterface.xml`.
+ * The mod now emits JSON, so the default telemetry file is `vdTelemetry.json` (override with
+ * `VDT_FILE`).
  */
 object Config {
     val port: Int
@@ -32,8 +32,8 @@ object Config {
         }
     }
 
-    fun xmlPath(): Path {
-        System.getenv("VDT_XML_FILE")?.takeIf { it.isNotBlank() }?.let { return Path(it) }
-        return gameDir().resolve("vdTelemetry.xml")
+    fun telemetryPath(): Path {
+        System.getenv("VDT_FILE")?.takeIf { it.isNotBlank() }?.let { return Path(it) }
+        return gameDir().resolve("vdTelemetry.json")
     }
 }

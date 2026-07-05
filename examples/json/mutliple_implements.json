@@ -1,0 +1,169 @@
+{
+  "environment": {
+    "date": "01.08.2024",
+    "pda": {
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",
+      "height": 2048,
+      "player": {
+        "posX": 0.47436093166471,
+        "posZ": 0.34797613322735
+      },
+      "width": 2048
+    },
+    "time": "08:26",
+    "weather": {
+      "temperature": {
+        "current": 28,
+        "max": 34,
+        "min": 24,
+        "unit": "°C"
+      }
+    }
+  },
+  "vehicle": {
+    "ai": {
+      "active": false
+    },
+    "brand": {
+      "name": "DEUTZFAHR",
+      "title": "DEUTZ-FAHR"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 63
+    },
+    "gps": {
+      "active": false,
+      "enabled": false,
+      "heading": 276,
+      "headingUnit": "°"
+    },
+    "implement": [
+      {
+        "brand": {
+          "name": "POETTINGER",
+          "title": "PÖTTINGER"
+        },
+        "foldable": "EXTENDED",
+        "isTurnedOn": true,
+        "lowered": true,
+        "name": "PÖTTINGER NovaAlpin 301",
+        "position": "FRONT",
+        "type": "mower",
+        "wearable": {
+          "damage": 0,
+          "dirt": 1,
+          "unit": "%",
+          "wear": 0
+        }
+      },
+      {
+        "brand": {
+          "name": "POETTINGER",
+          "title": "PÖTTINGER"
+        },
+        "foldable": "FOLDED",
+        "isTurnedOn": false,
+        "lowered": false,
+        "name": "PÖTTINGER NOVADISC 900",
+        "position": "BACK",
+        "type": "mower",
+        "wearable": {
+          "damage": 0,
+          "dirt": 1,
+          "unit": "%",
+          "wear": 0
+        }
+      }
+    ],
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "hazard": false,
+        "left": false,
+        "right": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      },
+      "workLight": {
+        "back": false,
+        "front": false
+      }
+    },
+    "lowered": false,
+    "motor": {
+      "fillUnits": {
+        "air": {
+          "capacity": 3000,
+          "fillLevelPercentage": 81,
+          "title": "Luft",
+          "unit": "l",
+          "value": 2438
+        },
+        "def": {
+          "capacity": 35,
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "unit": "l",
+          "value": 35
+        },
+        "fuel": {
+          "capacity": 505,
+          "fillLevelPercentage": 100,
+          "title": "Diesel",
+          "type": "diesel",
+          "unit": "l",
+          "usage": 56.47,
+          "value": 502
+        }
+      },
+      "gear": {
+        "group": "N",
+        "isNeutral": false,
+        "value": "R"
+      },
+      "load": {
+        "max": 100,
+        "min": 0,
+        "unit": "%",
+        "value": 35.26
+      },
+      "maxSpeed": {
+        "backward": 33,
+        "forward": 63
+      },
+      "rpm": {
+        "max": 2200,
+        "min": 0,
+        "value": 1879
+      },
+      "state": "ON",
+      "temperatur": {
+        "max": 120,
+        "min": 20,
+        "unit": "°C",
+        "value": 92
+      }
+    },
+    "name": "DEUTZ-FAHR 8280 TTV",
+    "operatingTime": {
+      "unit": "h",
+      "value": "0.06"
+    },
+    "speed": {
+      "direction": "STOPPED",
+      "unit": "km/h",
+      "value": 0
+    },
+    "type": "tractor",
+    "wearable": {
+      "damage": 0,
+      "dirt": 1,
+      "unit": "%",
+      "wear": 0
+    }
+  },
+  "version": "1"
+}

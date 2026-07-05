@@ -3,11 +3,12 @@
 A telemetry pipeline for **Farming Simulator 25**, in two parts:
 
 - **[`vdTelemetry/`](vdTelemetry/Readme.md)** — the in-game mod (Lua) that exports live game
-  state to `vdTelemetry.xml`.
+  state to `vdTelemetry.json`.
 - **[`VDTerminal/`](VDTerminal/README.md)** — a Kotlin Multiplatform app that watches that file
   and renders a live web dashboard.
 
-`vdTelemetrySchema.xsd` is the contract between the two.
+The shared Kotlin model (`VDTerminal/shared/.../Model.kt`) plus the `examples/json/` fixtures are
+the contract between the two.
 
 ## Commit messages
 

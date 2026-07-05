@@ -80,14 +80,22 @@ telemetry keeps working; at the end we flip the server to JSON and delete the XM
   Collectors stayed pure, so `derive/CombinedInfo` drops in cleanly when a consumer needs it. The
   XML writer still emits `combined` until the XML path is deleted.
 
-**Next session:**
-1. Verify support-systems + lights (and the namespace refactor) in-game.
-2. The mod JSON model is now feature-complete for VDTerminal's needs (env + vehicle + motor +
-   aspects + implements + lights/gps/ai/cruiseControl; `combined` deferred). **Wire the server to
-   JSON:** switch the file read from xmlutil to `Json.decodeFromString<VdtData>` (lenient config,
-   `ignoreUnknownKeys = true`), point the watcher at `vdTelemetry.json`.
-3. Then remove the parallel XML path: delete `populateXMLFrom*` + `writeXMLFile`, drop the `pcall`
-   guard around `writeJsonFile`, and regenerate `examples/*` from fresh JSON captures.
+- **Server switched to JSON (2026-07-05).** `VdtParser.parseJson` (lenient); `XmlSource` →
+  `TelemetrySource` reading `vdTelemetry.json`; `Config.telemetryPath()` (env `VDT_FILE`);
+  verified end-to-end against a live game.
+- **✅ XML fully removed (2026-07-05) — the migration is complete.** Mod: `VDTelemetry.lua` now only
+  builds the model + writes `vdTelemetry.json` (all `populateXMLFrom*` / `writeXMLFile` / `combinedInfo`
+  scaffolding deleted, `pcall` guard dropped, `XML_VERSION` → `VERSION`). Kotlin: xmlutil dropped
+  (dependency + all `@Xml*` annotations on `Model.kt`); `VdtParser` is JSON-only; `XsdValidationTest`
+  deleted, `VdtParseTest` → `VdtModelTest` (repointed to `examples/json`), `JsonContractTest` trimmed.
+  Deleted `examples/xml/` and `vdTelemetrySchema.xsd`. Docs updated (CLAUDE.md, both READMEs, mod
+  Readme). `:shared:jvmTest` + wasm + `:server:compileKotlin` green on the host.
+
+**Migration done.** Remaining work is the independent near-term items below (configurable interval,
+reduce debounce, client interpolation), plus the deferred `combined` derive (when a consumer needs
+it) and the command back-channel. One loose end: `examples/json/*` are still the *old* XML-derived
+fixtures (missing `maxSpeed`/`brand`/`usage`) — refresh them from real `vdTelemetry.json` captures
+when convenient.
 
 Note: `raw values vs presentation values` stays a *separate* decision — keep presentation values
 (via `ValueMapper`) for now so output matches the contract.

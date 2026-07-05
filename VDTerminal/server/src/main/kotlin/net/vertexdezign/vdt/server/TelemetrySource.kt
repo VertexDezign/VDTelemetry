@@ -22,37 +22,38 @@ import kotlin.io.path.exists
 import kotlin.io.path.readText
 
 /**
- * Watches the *directory* containing [xmlPath] (the game replaces the file rather than editing it),
- * debounces bursts of events, parses, and publishes the latest good [VdtData] into a [StateFlow].
+ * Watches the *directory* containing [path] (the mod replaces the file rather than editing it),
+ * debounces bursts of events, parses the JSON telemetry, and publishes the latest good [VdtData]
+ * into a [StateFlow].
  *
  * The StateFlow is the broadcast hub: every WebSocket session is a collector. Parse/read failures
  * are logged and the last good state is kept, so the dashboard survives the file being deleted and
- * recreated mid-write.
+ * recreated mid-write (a torn read simply fails to parse and the next sample recovers).
  *
  * Ports `watcher.go` + `parser.go`.
  */
-class XmlSource(private val xmlPath: Path) {
-    private val log = LoggerFactory.getLogger(XmlSource::class.java)
+class TelemetrySource(private val path: Path) {
+    private val log = LoggerFactory.getLogger(TelemetrySource::class.java)
 
     private val _state = MutableStateFlow<VdtData?>(null)
     val state: StateFlow<VdtData?> = _state.asStateFlow()
 
     private fun reparse() {
         try {
-            if (!xmlPath.exists()) {
-                log.warn("XML file not present (yet): {}", xmlPath)
+            if (!path.exists()) {
+                log.warn("Telemetry file not present (yet): {}", path)
                 return
             }
-            _state.value = VdtParser.parse(xmlPath.readText())
-            log.debug("Parsed telemetry from {}", xmlPath)
+            _state.value = VdtParser.parseJson(path.readText())
+            log.debug("Parsed telemetry from {}", path)
         } catch (e: Exception) {
-            log.error("Failed to parse {}; keeping last good state", xmlPath, e)
+            log.error("Failed to parse {}; keeping last good state", path, e)
         }
     }
 
     fun launchIn(scope: CoroutineScope): Job = scope.launch(Dispatchers.IO) {
-        val dir = xmlPath.parent
-        val fileName = xmlPath.fileName
+        val dir = path.parent
+        val fileName = path.fileName
 
         reparse() // initial
 

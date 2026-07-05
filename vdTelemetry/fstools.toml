@@ -1,5 +1,5 @@
 [mod]
-zip_name = "FS25_vdTelemetryJson"
-version = "0.1.0.0-json"
+zip_name = "FS25_vdTelemetry"
+version = "0.1.0.0"
 author = "VertexDezign"
-title = "VDTelemetryJson"
+title = "VDTelemetry"

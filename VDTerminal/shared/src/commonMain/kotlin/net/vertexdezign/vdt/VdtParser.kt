@@ -1,19 +1,15 @@
 package net.vertexdezign.vdt
 
-import nl.adaptivity.xmlutil.serialization.XML
+import kotlinx.serialization.json.Json
 
 /**
- * Parses `vdTelemetry.xml` content into the typed [VdtData] model.
+ * Parses the mod's `vdTelemetry.json` into the typed [VdtData] model.
  *
- * Configured to ignore unknown children so the client survives the mod adding elements/attributes
- * ahead of the client catching up (the schema already lags what the mod emits).
+ * Configured to tolerate the mod running ahead of the client: unknown keys are ignored and omitted
+ * fields fall back to the model's data-class defaults (the mod writes only what's present).
  */
 object VdtParser {
-    private val xml = XML {
-        defaultPolicy {
-            ignoreUnknownChildren()
-        }
-    }
+    private val json = Json { ignoreUnknownKeys = true }
 
-    fun parse(text: String): VdtData = xml.decodeFromString(VdtData.serializer(), text)
+    fun parseJson(text: String): VdtData = json.decodeFromString(VdtData.serializer(), text)
 }

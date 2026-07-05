@@ -30,12 +30,12 @@ fun main() {
     val log = LoggerFactory.getLogger("VDTerminal")
     val json = Json { encodeDefaults = true }
 
-    val xmlPath = Config.xmlPath()
+    val telemetryPath = Config.telemetryPath()
     log.info("Game directory: {}", Config.gameDir())
-    log.info("XML path: {}", xmlPath)
+    log.info("Telemetry file: {}", telemetryPath)
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val source = XmlSource(xmlPath)
+    val source = TelemetrySource(telemetryPath)
     source.launchIn(appScope)
 
     log.info("Server starting on port {}", Config.port)
