@@ -15,8 +15,11 @@ local sourceFiles = {
   -- Utils
   "src/utils/Set.lua",
   "src/utils/MapUtil.lua",
+  "src/utils/Json.lua",
   -- Mappers
-  "src/mapper/ValueMapper.lua"
+  "src/mapper/ValueMapper.lua",
+  -- Collectors (model/ holds annotation-only @class defs and is not sourced)
+  "src/collect/EnvironmentExporter.lua"
 }
 
 for _, file in ipairs(sourceFiles) do
@@ -53,8 +56,10 @@ end
 ---@field settingsXmlFile string
 ---@field combinedInfo CombinedInfo
 ---@field pda PDA | nil
+---@field prettyJson boolean
 VDTelemetry = {}
 VDTelemetry.STATE_FILE_NAME = "vdTelemetry.xml"
+VDTelemetry.STATE_FILE_NAME_JSON = "vdTelemetry.json"
 VDTelemetry.XML_VERSION = 1
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 1
@@ -119,6 +124,7 @@ function VDTelemetry:loadMap(filename)
   if g_dedicatedServerInfo == nil then
     local appPath = getUserProfileAppPath()
     self.xmlFileLocation = appPath .. VDTelemetry.STATE_FILE_NAME
+    self.jsonFileLocation = appPath .. VDTelemetry.STATE_FILE_NAME_JSON
   end
 
   self.pda = MapUtil.getMapPDAFile()
@@ -134,6 +140,7 @@ function VDTelemetry:writeDefaultSettings()
   xml:setBool("VDTS.exportEnabled", g_dedicatedServerInfo == nil)
   xml:setString("VDTS.logging.level", "INFO")
   xml:setString("VDTS.logging.specLevel", "INFO")
+  xml:setBool("VDTS.json.pretty", false)
 
   xml:save()
   xml:delete()
@@ -153,6 +160,7 @@ function VDTelemetry:loadSettingsFromFile()
   self.exportEnabled = xml:getBool("VDTS.exportEnabled", true)
   local logLevel = xml:getString("VDTS.logging.level", "INFO")
   local specLogLevel = xml:getString("VDTS.logging.specLevel", "INFO")
+  self.prettyJson = xml:getBool("VDTS.json.pretty", false)
 
   local parseLogLevel = GrisuDebug.parseLogLevel(logLevel)
   self.debugger:setLogLvl(parseLogLevel)
@@ -175,6 +183,15 @@ function VDTelemetry:update(dt)
   -- Execute the desired statement
   self:writeXMLFile()
   self.debugger:trace("Wrote xml file")
+
+  -- JSON migration (roadmap item 5): the new collect -> model -> Json.encode pipeline, grown
+  -- slice by slice alongside the XML output and diffed against examples/json/*. Guarded so a
+  -- partial-migration error can never take down the working XML export. Once the model is
+  -- complete we flip the server to JSON and delete the populateXMLFrom* methods.
+  local ok, err = pcall(self.writeJsonFile, self)
+  if not ok then
+    self.debugger:error("json export failed: " .. tostring(err))
+  end
 
   -- Reset the timer after execution
   self.updateTimer = 0
@@ -200,6 +217,30 @@ function VDTelemetry:writeXMLFile()
   self:populateXMLFromVehicle(xml)
   xml:save()
   xml:delete()
+end
+
+-- Build the telemetry model from collectors and write it as JSON. This is the target on-disk
+-- format (roadmap item 5) replacing the XML writer above. It is grown one vertical slice at a
+-- time (environment first, then vehicle/motor/...), each slice diffed against examples/json/*.
+-- `version` is emitted as a string to match the shared model (Model.kt: VdtData.version: String).
+function VDTelemetry:writeJsonFile()
+  if self.jsonFileLocation == nil then
+    return
+  end
+
+  local model = {
+    version = tostring(VDTelemetry.XML_VERSION),
+    environment = EnvironmentExporter.collect(self.pda),
+  }
+
+  local file = io.open(self.jsonFileLocation, "w")
+  if file == nil then
+    self.debugger:error("could not open json file " .. tostring(self.jsonFileLocation))
+    return
+  end
+  file:write(Json.encode(model, self.prettyJson))
+  file:close()
+  self.debugger:trace("Wrote json file")
 end
 
 ---@param xml XMLFile

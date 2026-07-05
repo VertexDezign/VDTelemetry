@@ -14,12 +14,19 @@ no rhythmic stutter in the F8 script profiler). The items below build on that.
 
 ---
 
-## Status / next session (updated 2026-07-04)
+## Status / next session (updated 2026-07-05)
 
 **Decision:** do the **JSON migration (item 5) BEFORE the mod restructure**
 (`vdTelemetry/restructure-design.md`). JSON has no element-ordering requirement, so it sidesteps
 the XSD `xs:sequence` problem that would otherwise force ordered emission; the restructure then
 lands on a format that doesn't fight it.
+
+**Decision (2026-07-05): the restructure and the JSON migration are one and the same pass.** Each
+vertical slice becomes a `collect → model → Json.encode` pipeline. Because JSON is the only target,
+we **drop the `attr`-convention writer** from the design doc: the model is a plain table that maps
+1:1 to the contract, and "serialize" is just `Json.encode(model)`. The new pipeline grows the
+`vdTelemetry.json` output **alongside** the untouched `populateXMLFrom*` XML writer, so in-game
+telemetry keeps working; at the end we flip the server to JSON and delete the XML methods.
 
 **Done so far (on branch `restructure`):**
 - Confirmed the `shared` model is already `@Serializable` — JSON reuses the *identical* model and
@@ -29,18 +36,26 @@ lands on a format that doesn't fight it.
   minified default + `pretty` mode that also sorts keys for diff-stable live-watching). `io.open`
   writing works inside the Proton prefix on Linux. Validated with real, fast-changing motor values.
 - Added `VDTS.json.pretty` setting (default `false`, no `SETTINGS_XML_VERSION` bump — additive).
+- **Environment slice migrated (first real slice).** New `src/model/EnvironmentModel.lua`
+  (annotation-only) + `src/collect/EnvironmentExporter.lua` (pure `collect(pda)` returning the
+  fragment). The spike is gone: `update()` now calls `VDTelemetry:writeJsonFile()`, which builds
+  `{ version, environment }` and writes `vdTelemetry.json`. Still `pcall`-guarded while partial.
+  **Needs in-game verification** (no local Lua to run it).
 
 **Scaffolding to remove/clean before merge:**
-- `VDTelemetry:writeJsonSpike()` + its `pcall` in `update()` — throwaway; the real emitter replaces it.
+- The `pcall` guard around `writeJsonFile` in `update()` — drop once the model is complete and JSON
+  is the sole output.
 - `JsonContractTest` writes fixtures as a side-effect — split into a generator + a plain decode test.
 
 **Next session:**
-1. Grow the mod emitter to the **full contract-shaped JSON** — reuse `ValueMapper` (rpm/temp→int,
-   speed→km/h, load→%) and the nested `{value,min,max,unit}` objects so it matches `examples/json/*`.
-   This *is* the `serialize` step of the restructure (collect→model→serialize).
-2. Server: switch the file read from xmlutil to `Json.decodeFromString<VdtData>` (lenient config).
-   We decided a separate server-side spike is unnecessary — kotlinx JSON decode is already trusted.
-3. Then proceed with the restructure per `restructure-design.md`, Environment slice first.
+1. Verify the environment JSON in-game (diff `vdTelemetry.json` env subtree vs `examples/json/*`).
+2. Continue the slices per `restructure-design.md` migration order: **Motor** (first vehicle aspect
+   + first optional integration — extract Enhanced Vehicle to `integrations/EnhancedVehicle.lua`),
+   then shared aspects, support/lights, then `derive/CombinedInfo`. Reuse `ValueMapper`
+   (rpm/temp→int, speed→km/h, load→%); match the `Model.kt` types (`version` String, temps/rpm Int,
+   `speed.value`/`load.value` Float/Double).
+3. When the model is complete: server switches the file read from xmlutil to
+   `Json.decodeFromString<VdtData>` (lenient); delete the `populateXMLFrom*` methods + XML writer.
 
 Note: `raw values vs presentation values` stays a *separate* decision — keep presentation values
 (via `ValueMapper`) for now so output matches the contract.
