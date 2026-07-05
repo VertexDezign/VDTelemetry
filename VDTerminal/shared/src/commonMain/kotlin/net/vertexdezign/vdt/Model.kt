@@ -27,7 +27,7 @@ enum class MotorState { OFF, STARTING, ON }
 enum class FoldableState { FOLDED, EXTENDED }
 
 @Serializable
-enum class PipeState { RETRACTED, EXTENDED }
+enum class PipeState { RETRACTED, EXTENDED, MOVING }
 
 @Serializable
 enum class CoverType { CLOSED, OPEN, UNKNOWN }
