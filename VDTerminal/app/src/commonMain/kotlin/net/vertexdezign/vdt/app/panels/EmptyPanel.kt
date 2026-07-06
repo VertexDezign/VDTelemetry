@@ -14,10 +14,10 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 
 /** Placeholder panel. Port of `EmptyPanel`. */
 @Composable
-fun EmptyPanel() {
-    Panel(title = "ToDo", icon = Icons.Filled.Bolt) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("TODO", color = VdtColors.Gray, fontSize = 12.sp)
-        }
+fun EmptyPanel(modifier: Modifier = Modifier) {
+  Panel(title = "ToDo", icon = Icons.Filled.Bolt, modifier = modifier) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+      Text("TODO", color = VdtColors.Gray, fontSize = 12.sp)
     }
+  }
 }

@@ -76,3 +76,13 @@ Run them locally from this directory:
 luarocks install busted   # once
 busted                    # discovers and runs spec/*_spec.lua
 ```
+
+## Formatting
+
+Lua is formatted with [StyLua](https://github.com/JohnnyMorganz/StyLua) (config in `stylua.toml`).
+CI checks it; run it locally from this directory to apply:
+
+```bash
+stylua .            # format in place
+stylua --check .    # verify only (what CI runs)
+```

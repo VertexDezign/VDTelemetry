@@ -38,7 +38,7 @@ local sourceFiles = {
   -- Orchestrators depend on the collectors + aspects + integrations above
   "src/collect/VehicleExporter.lua",
   -- GUI: injects settings controls into the in-game menu
-  "src/gui/SettingsFrame.lua"
+  "src/gui/SettingsFrame.lua",
 }
 
 for _, file in ipairs(sourceFiles) do
@@ -72,7 +72,7 @@ VDTelemetry.DEFAULT_INTERVAL_MS = 100
 VDTelemetry.MIN_INTERVAL_MS = 16
 VDTelemetry.VD_AI = {
   REQUIRED_MAJOR_VERSION = 1,
-  REQUIRED_MIN_MINOR_VERSION = 1
+  REQUIRED_MIN_MINOR_VERSION = 1,
 }
 
 VDTelemetry.mainFuelTypes = Set:new({ "DIESEL", "ELECTRICCHARGE", "METHANE" })
@@ -118,10 +118,22 @@ function VDTelemetry:loadMap(filename)
     self.exportEnabled = false
   else
     if VDTelemetry.VD_AI.REQUIRED_MAJOR_VERSION ~= g_vdAdditionalInputs.MAJOR_VERSION then
-      self.debugger:error(string.format("FS25_additionalInputs with major version %s is required, but was %s", VDTelemetry.VD_AI.REQUIRED_MAJOR_VERSION, g_vdAdditionalInputs.MAJOR_VERSION))
+      self.debugger:error(
+        string.format(
+          "FS25_additionalInputs with major version %s is required, but was %s",
+          VDTelemetry.VD_AI.REQUIRED_MAJOR_VERSION,
+          g_vdAdditionalInputs.MAJOR_VERSION
+        )
+      )
       self.exportEnabled = false
     elseif VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION < g_vdAdditionalInputs.MINOR_VERSION then
-      self.debugger:error(string.format("FS25_additionalInputs with minimum minor version %s is required, but was %s", VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION, g_vdAdditionalInputs.MINOR_VERSION))
+      self.debugger:error(
+        string.format(
+          "FS25_additionalInputs with minimum minor version %s is required, but was %s",
+          VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION,
+          g_vdAdditionalInputs.MINOR_VERSION
+        )
+      )
       self.exportEnabled = false
     end
   end
@@ -193,7 +205,8 @@ function VDTelemetry:loadSettingsFromFile()
   end
 
   self.exportEnabled = xml:getBool("VDTS.export.enabled", g_dedicatedServerInfo == nil)
-  self.writeIntervalMs = math.max(xml:getInt("VDTS.export.intervalMs", VDTelemetry.DEFAULT_INTERVAL_MS), VDTelemetry.MIN_INTERVAL_MS)
+  self.writeIntervalMs =
+    math.max(xml:getInt("VDTS.export.intervalMs", VDTelemetry.DEFAULT_INTERVAL_MS), VDTelemetry.MIN_INTERVAL_MS)
   self.logLevelString = xml:getString("VDTS.logging.level", "INFO")
   self.specLevelString = xml:getString("VDTS.logging.specLevel", "INFO")
   self.prettyJson = xml:getBool("VDTS.json.pretty", false)

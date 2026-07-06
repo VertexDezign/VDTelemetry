@@ -28,8 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.vertexdezign.vdt.Vehicle
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.Vehicle
 import kotlin.math.floor
 
 private val GpsGreen = Color(0xFF16A34A)
@@ -38,61 +38,119 @@ private val Gray500 = Color(0xFF6B7280)
 private val Gray700 = Color(0xFF374151)
 
 private fun directionFromHeading(heading: Int): String {
-    val dirs = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
-    val index = (floor(heading / 22.5 + 0.5).toInt()) % 8
-    return dirs[(index + 8) % 8]
+  val dirs = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+  val index = (floor(heading / 22.5 + 0.5).toInt()) % 8
+  return dirs[(index + 8) % 8]
 }
 
 /** Bottom status bar. Port of the React `Footer`. */
 @Composable
-fun Footer(vehicle: Vehicle?) {
-    Row(
-        Modifier.fillMaxWidth().background(VdtColors.Black).height(56.dp).padding(horizontal = 24.dp),
+fun Footer(vehicle: Vehicle?, modifier: Modifier = Modifier) {
+  Row(
+    modifier
+      .fillMaxWidth()
+      .background(VdtColors.Black)
+      .height(56.dp)
+      .padding(horizontal = 24.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    if (vehicle == null) {
+      Row(
+        Modifier.weight(1f),
+        horizontalArrangement = Arrangement.spacedBy(40.dp),
         verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (vehicle == null) {
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(40.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.SatelliteAlt, null, tint = Gray700, modifier = Modifier.size(24.dp))
-                Box(Modifier.size(32.dp).clip(CircleShape).border(2.dp, Gray500, CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Memory, null, tint = Gray500, modifier = Modifier.size(20.dp))
-                }
-            }
-            Text("VDTERMINAL SYSTEM READY", color = Gray400, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            return@Row
+      ) {
+        Icon(Icons.Filled.SatelliteAlt, null, tint = Gray700, modifier = Modifier.size(24.dp))
+        Box(
+          Modifier.size(32.dp).clip(CircleShape).border(2.dp, Gray500, CircleShape),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(Icons.Filled.Memory, null, tint = Gray500, modifier = Modifier.size(20.dp))
         }
-
-        val gpsEnabled = vehicle.gps?.enabled ?: false
-        val gpsActive = vehicle.gps?.active ?: false
-        val aiActive = vehicle.ai?.active ?: false
-        val heading = vehicle.gps?.heading ?: 0
-        val fuelLevel = vehicle.motor?.fillUnits?.fuel?.fillLevelPercentage ?: 100
-        val lowFuel = fuelLevel <= 10
-
-        // Left
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(40.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Filled.SatelliteAlt, null, modifier = Modifier.size(24.dp),
-                tint = if (gpsEnabled) (if (gpsActive) GpsGreen else Gray500) else Gray700,
-            )
-            Box(Modifier.size(32.dp).clip(CircleShape).border(2.dp, if (aiActive) GpsGreen else Gray500, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Memory, null, tint = if (aiActive) GpsGreen else Gray500, modifier = Modifier.size(20.dp))
-            }
-        }
-        // Center
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-            Text(directionFromHeading(heading), color = VdtColors.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text("$heading", color = VdtColors.White, fontSize = 32.sp, fontWeight = FontWeight.Black)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Filled.LocalGasStation, null, tint = if (lowFuel) VdtColors.Red else Gray400, modifier = Modifier.size(20.dp))
-                Box(Modifier.width(4.dp).height(24.dp).background(Gray700)) {
-                    Box(Modifier.fillMaxWidth().fillMaxHeight(fuelLevel / 100f).align(Alignment.BottomStart).background(VdtColors.White))
-                }
-            }
-        }
-        // Right
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-            Text(vehicle.name, color = Gray400, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(vehicle.type, color = Gray400, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+      }
+      Text("VDTERMINAL SYSTEM READY", color = Gray400, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+      return@Row
     }
+
+    val gpsEnabled = vehicle.gps?.enabled ?: false
+    val gpsActive = vehicle.gps?.active ?: false
+    val aiActive = vehicle.ai?.active ?: false
+    val heading = vehicle.gps?.heading ?: 0
+    val fuelLevel =
+      vehicle.motor
+        ?.fillUnits
+        ?.fuel
+        ?.fillLevelPercentage ?: 100
+    val lowFuel = fuelLevel <= 10
+
+    // Left
+    Row(
+      Modifier.weight(1f),
+      horizontalArrangement = Arrangement.spacedBy(40.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Icon(
+        Icons.Filled.SatelliteAlt,
+        null,
+        modifier = Modifier.size(24.dp),
+        tint = if (gpsEnabled) (if (gpsActive) GpsGreen else Gray500) else Gray700,
+      )
+      Box(
+        Modifier.size(32.dp).clip(CircleShape).border(2.dp, if (aiActive) GpsGreen else Gray500, CircleShape),
+        contentAlignment = Alignment.Center,
+      ) {
+        Icon(
+          Icons.Filled.Memory,
+          null,
+          tint = if (aiActive) GpsGreen else Gray500,
+          modifier = Modifier.size(20.dp),
+        )
+      }
+    }
+    // Center
+    Row(
+      Modifier.weight(1f),
+      horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(directionFromHeading(heading), color = VdtColors.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+      Text("$heading", color = VdtColors.White, fontSize = 32.sp, fontWeight = FontWeight.Black)
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(
+          Icons.Filled.LocalGasStation,
+          null,
+          tint = if (lowFuel) VdtColors.Red else Gray400,
+          modifier = Modifier.size(20.dp),
+        )
+        Box(Modifier.width(4.dp).height(24.dp).background(Gray700)) {
+          Box(
+            Modifier
+              .fillMaxWidth()
+              .fillMaxHeight(fuelLevel / 100f)
+              .align(Alignment.BottomStart)
+              .background(VdtColors.White),
+          )
+        }
+      }
+    }
+    // Right
+    Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+      Text(
+        vehicle.name,
+        color = Gray400,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+      )
+      Text(
+        vehicle.type,
+        color = Gray400,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+      )
+    }
+  }
 }

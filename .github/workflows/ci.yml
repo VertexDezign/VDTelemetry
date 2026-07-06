@@ -64,3 +64,18 @@ jobs:
       - name: Run mod unit tests (spec/*_spec.lua)
         working-directory: vdTelemetry
         run: busted --verbose
+
+  mod-format:
+    name: Mod (Lua) formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # StyLua is the mod's formatter (config in vdTelemetry/stylua.toml); this only checks
+      # formatting — run `stylua vdTelemetry` locally to apply.
+      - name: Check Lua formatting (StyLua)
+        uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: v2.5.2
+          args: --check vdTelemetry

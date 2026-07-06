@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.VdtData
 
 /**
  * Parses the mod's `vdTelemetry.json` into the typed [VdtData] model.
@@ -9,7 +10,7 @@ import kotlinx.serialization.json.Json
  * fields fall back to the model's data-class defaults (the mod writes only what's present).
  */
 object VdtParser {
-    private val json = Json { ignoreUnknownKeys = true }
+  private val json = Json { ignoreUnknownKeys = true }
 
-    fun parseJson(text: String): VdtData = json.decodeFromString(VdtData.serializer(), text)
+  fun parseJson(text: String): VdtData = json.decodeFromString(VdtData.serializer(), text)
 }

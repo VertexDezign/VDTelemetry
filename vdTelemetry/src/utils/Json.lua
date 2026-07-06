@@ -18,20 +18,20 @@
 
 Json = {}
 
-local INDENT = '  '
+local INDENT = "  "
 
 local ESCAPES = {
   ['"'] = '\\"',
-  ['\\'] = '\\\\',
-  ['\b'] = '\\b',
-  ['\f'] = '\\f',
-  ['\n'] = '\\n',
-  ['\r'] = '\\r',
-  ['\t'] = '\\t',
+  ["\\"] = "\\\\",
+  ["\b"] = "\\b",
+  ["\f"] = "\\f",
+  ["\n"] = "\\n",
+  ["\r"] = "\\r",
+  ["\t"] = "\\t",
 }
 
 local function escapeChar(c)
-  return ESCAPES[c] or string.format('\\u%04x', string.byte(c))
+  return ESCAPES[c] or string.format("\\u%04x", string.byte(c))
 end
 
 local function encodeString(s)
@@ -40,12 +40,12 @@ end
 
 local function encodeNumber(n)
   if n ~= n or n == math.huge or n == -math.huge then
-    return 'null'
+    return "null"
   end
   if math.floor(n) == n and math.abs(n) < 1e15 then
-    return string.format('%.0f', n)
+    return string.format("%.0f", n)
   end
-  return string.format('%.14g', n)
+  return string.format("%.14g", n)
 end
 
 -- forward declaration so the container encoders can recurse through it
@@ -57,13 +57,13 @@ local function encodeArray(t, n, pretty, level)
     parts[i] = encodeValue(t[i], pretty, level + 1)
   end
   if not pretty then
-    return '[' .. table.concat(parts, ',') .. ']'
+    return "[" .. table.concat(parts, ",") .. "]"
   end
   local child = string.rep(INDENT, level + 1)
   for i = 1, n do
     parts[i] = child .. parts[i]
   end
-  return '[\n' .. table.concat(parts, ',\n') .. '\n' .. string.rep(INDENT, level) .. ']'
+  return "[\n" .. table.concat(parts, ",\n") .. "\n" .. string.rep(INDENT, level) .. "]"
 end
 
 local function encodeObject(t, pretty, level)
@@ -72,44 +72,46 @@ local function encodeObject(t, pretty, level)
     keys[#keys + 1] = k
   end
   if #keys == 0 then
-    return '{}'
+    return "{}"
   end
   if pretty then
-    table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+    table.sort(keys, function(a, b)
+      return tostring(a) < tostring(b)
+    end)
   end
 
-  local colon = pretty and ': ' or ':'
+  local colon = pretty and ": " or ":"
   local parts = {}
   for i = 1, #keys do
     local k = keys[i]
     parts[i] = encodeString(tostring(k)) .. colon .. encodeValue(t[k], pretty, level + 1)
   end
   if not pretty then
-    return '{' .. table.concat(parts, ',') .. '}'
+    return "{" .. table.concat(parts, ",") .. "}"
   end
   local child = string.rep(INDENT, level + 1)
   for i = 1, #parts do
     parts[i] = child .. parts[i]
   end
-  return '{\n' .. table.concat(parts, ',\n') .. '\n' .. string.rep(INDENT, level) .. '}'
+  return "{\n" .. table.concat(parts, ",\n") .. "\n" .. string.rep(INDENT, level) .. "}"
 end
 
 encodeValue = function(v, pretty, level)
   local t = type(v)
-  if t == 'string' then
+  if t == "string" then
     return encodeString(v)
-  elseif t == 'number' then
+  elseif t == "number" then
     return encodeNumber(v)
-  elseif t == 'boolean' then
-    return v and 'true' or 'false'
-  elseif t == 'table' then
+  elseif t == "boolean" then
+    return v and "true" or "false"
+  elseif t == "table" then
     local n = #v
     if n > 0 then
       return encodeArray(v, n, pretty, level)
     end
     return encodeObject(v, pretty, level)
   else
-    return 'null'
+    return "null"
   end
 end
 

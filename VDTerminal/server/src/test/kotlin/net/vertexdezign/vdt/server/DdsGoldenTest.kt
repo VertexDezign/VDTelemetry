@@ -11,31 +11,34 @@ import kotlin.test.fail
  * decoding risk — the Kotlin port and the Go decoder must agree exactly.
  */
 class DdsGoldenTest {
+  private fun resource(name: String): ByteArray =
+    javaClass.getResourceAsStream("/dds/$name")?.readBytes()
+      ?: fail("missing test resource /dds/$name")
 
-    private fun resource(name: String): ByteArray =
-        javaClass.getResourceAsStream("/dds/$name")?.readBytes()
-            ?: fail("missing test resource /dds/$name")
+  private fun assertGolden(
+    name: String,
+    width: Int,
+    height: Int,
+  ) {
+    val decoded = Dds.decode(resource("$name.dds"))
+    val golden = resource("$name.rgba")
 
-    private fun assertGolden(name: String, width: Int, height: Int) {
-        val decoded = Dds.decode(resource("$name.dds"))
-        val golden = resource("$name.rgba")
+    assertEquals(width, decoded.width, "$name width")
+    assertEquals(height, decoded.height, "$name height")
+    assertEquals(width * height * 4, golden.size, "$name golden size")
+    assertTrue(
+      decoded.rgba.contentEquals(golden),
+      "$name: decoded RGBA differs from bcn golden",
+    )
+  }
 
-        assertEquals(width, decoded.width, "$name width")
-        assertEquals(height, decoded.height, "$name height")
-        assertEquals(width * height * 4, golden.size, "$name golden size")
-        assertTrue(
-            decoded.rgba.contentEquals(golden),
-            "$name: decoded RGBA differs from bcn golden",
-        )
-    }
+  @Test fun dxt1_8x8() = assertGolden("dxt1_8x8", 8, 8)
 
-    @Test fun dxt1_8x8() = assertGolden("dxt1_8x8", 8, 8)
+  @Test fun dxt1_partialBlocks() = assertGolden("dxt1_5x5", 5, 5)
 
-    @Test fun dxt1_partialBlocks() = assertGolden("dxt1_5x5", 5, 5)
+  @Test fun dxt3_8x8() = assertGolden("dxt3_8x8", 8, 8)
 
-    @Test fun dxt3_8x8() = assertGolden("dxt3_8x8", 8, 8)
+  @Test fun dxt5_8x8() = assertGolden("dxt5_8x8", 8, 8)
 
-    @Test fun dxt5_8x8() = assertGolden("dxt5_8x8", 8, 8)
-
-    @Test fun dxt5_partialBlocks() = assertGolden("dxt5_6x6", 6, 6)
+  @Test fun dxt5_partialBlocks() = assertGolden("dxt5_6x6", 6, 6)
 }

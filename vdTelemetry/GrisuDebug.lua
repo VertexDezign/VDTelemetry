@@ -93,7 +93,7 @@ function GrisuDebug:print(lvl, txt, ...)
     text = string.format(tostring(txt), ...)
   end
 
-  if (self.id == nil) then
+  if self.id == nil then
     print(self.name .. " - " .. level .. ": " .. text)
   else
     print(self.name .. " - " .. level .. ": (" .. id .. " - " .. getName(id) .. ") " .. text)
@@ -103,7 +103,7 @@ end
 ---@param tbl table
 ---@param indent number
 ---@param recursive boolean
-function GrisuDebug:_tprint (tbl, indent, recursive)
+function GrisuDebug:_tprint(tbl, indent, recursive)
   if not indent then
     indent = 0
   end
@@ -114,23 +114,23 @@ function GrisuDebug:_tprint (tbl, indent, recursive)
   indent = indent + 2
   for k, v in pairs(tbl) do
     toprint = toprint .. string.rep(" ", indent)
-    if (type(k) == "number") then
+    if type(k) == "number" then
       toprint = toprint .. "[" .. k .. "] = "
-    elseif (type(k) == "string") then
+    elseif type(k) == "string" then
       toprint = toprint .. k .. "= "
     end
-    if (type(v) == "number") then
+    if type(v) == "number" then
       toprint = toprint .. v .. ",\r\n"
-    elseif (type(v) == "string") then
-      toprint = toprint .. "\"" .. v .. "\",\r\n"
-    elseif (type(v) == "table") then
+    elseif type(v) == "string" then
+      toprint = toprint .. '"' .. v .. '",\r\n'
+    elseif type(v) == "table" then
       if recursive and indent < 10 then
         toprint = toprint .. self:_tprint(v, indent + 2, recursive) .. ",\r\n"
       else
         toprint = toprint .. "table, \r\n"
       end
     else
-      toprint = toprint .. "\"" .. tostring(v) .. "\",\r\n"
+      toprint = toprint .. '"' .. tostring(v) .. '",\r\n'
     end
   end
   toprint = toprint .. string.rep(" ", indent - 2) .. "}"
