@@ -26,6 +26,11 @@ function XMLFile:getInt(path, default) end
 
 function XMLFile:getBool(path, default) end
 
+---Invoke `func(index, key)` for each repeated child element at `path` (e.g. "commands.command").
+---@param path string
+---@param func fun(index: number, key: string)
+function XMLFile:iterate(path, func) end
+
 function XMLFile:save() end
 
 function XMLFile:delete() end
