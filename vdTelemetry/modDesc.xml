@@ -16,6 +16,7 @@
     </description>
     <iconFilename>icon_vdTelemetry.png</iconFilename>
     <multiplayer supported="true"/>
+    <l10n filenamePrefix="l10n/l10n"/>
     <extraSourceFiles>
         <sourceFile filename="GrisuDebug.lua"/>
         <sourceFile filename="VDTelemetry.lua"/>

@@ -108,16 +108,25 @@ Note: `raw values vs presentation values` stays a *separate* decision — keep p
 
 ## Near-term
 
-### 1. Configurable write interval (mod)
+### 1. Configurable write interval (mod) — ✅ done
 
-- **What:** move the hard-coded 100 ms write interval into `vdTelemetrySettings.xml`
-  (e.g. `VDTS.export.intervalMs`, default 100).
-- **Why:** per-machine flexibility — low-end setups can back off; power users can push it.
-- **How:** add the field to `writeDefaultSettings()` / `loadSettingsFromFile()`
-  (`VDTelemetry.lua`) and read it into the `update()` timer threshold. Clamp to a sane
-  floor (sub-frame intervals are pointless: the game frame is ~16–33 ms).
-- **Note:** settings are read once at init (`loadSettingsFromFile`), so this is
-  **apply-on-restart**, not live. Acceptable for a tuning knob.
+- **What:** the hard-coded write interval now lives in `vdTelemetrySettings.xml`
+  (`VDTS.export.intervalMs`, default 100) and drives the `update()` timer threshold,
+  clamped to `VDTelemetry.MIN_INTERVAL_MS` (16 ms) so sub-frame intervals are impossible.
+- **Scope grew (per maintainer):** instead of the apply-on-restart note below, both this and
+  the export toggle (`VDTS.export.enabled`) are exposed as **live** controls on the in-game
+  **General Settings** page ("Allgemeine Einstellungen"), via `src/gui/SettingsFrame.lua`. The
+  callbacks call `VDTelemetry:setExportEnabled` / `setWriteIntervalMs`, which mutate the in-memory
+  fields (so `update()` picks them up next tick) and re-persist the XML. Disabling export also
+  `deleteFile`s the stale `vdTelemetry.json`. Settings XML bumped to version 2; l10n added.
+- **Injection mirrors the maintainer's own shipped pattern** (VertexDezign/LiquidManureTransfer):
+  hook `InGameMenuSettingsFrame.onFrameOpen`, clone the `economicDifficulty` MultiTextOption plus
+  the `gameSettingsLayout.elements[5]`/`[7]` row/header templates, `applyProfile(...)` the FS25
+  settings profiles, wire `FocusManager`, add once per frame with a marker field + `refreshGui()`
+  on reopen. The reference mod targets the **Game-Settings** tab (`gameSettingsLayout`); we clone
+  its templates but add the controls to the **General-Settings** tab's own layout (resolved by
+  name via `GENERAL_LAYOUT_CANDIDATES`, with a one-time layout-field dump if none match). Missing
+  templates/layout → a logged warning and no controls, never a broken menu.
 
 ### 2. Reduce server debounce
 
@@ -151,8 +160,11 @@ Note: `raw values vs presentation values` stays a *separate* decision — keep p
 
 Let the app send commands to the mod (toggle lights, set cruise speed, …).
 
-- **Transport: a file, not a pipe.** Server writes `commands.xml` (or `.json`) into the same
-  user dir; the mod polls it in `update()`. See "Rejected approaches" for why not pipes.
+- **Transport: a file, not a pipe.** Server writes `commands.json` (or `.xml`) into a `commands/`
+  subfolder of `modSettings/<modName>/` (sibling to the existing `telemetry/` folder); the mod
+  polls it in `update()`. See "Rejected approaches" for why not pipes. Note the mod can only
+  *delete* files under `modSettings/<modName>/`, but the server (native Linux) writes the command
+  file, so that constraint doesn't bite here.
 - **No duplicate execution:** each command carries a monotonic `id`; the mod tracks
   `lastCommandId` and executes only ids greater than it. Tolerant of the server rewriting
   the whole file; keep a small ring of recent commands so a missed poll doesn't drop

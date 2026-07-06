@@ -6,10 +6,13 @@ import kotlin.io.path.Path
 /**
  * Runtime configuration. Ports `paths.go`: env overrides, OS-specific default game dir.
  *
- * The mod now emits JSON, so the default telemetry file is `vdTelemetry.json` (override with
- * `VDT_FILE`).
+ * The mod writes JSON into `modSettings/<MOD_DIR>/telemetry/vdTelemetry.json` (it can only manage
+ * files under its own modSettings folder). Override the full path with `VDT_FILE`.
  */
 object Config {
+    /** The mod's folder name under modSettings/ (matches the packaged zip `FS25_vdTelemetry`). */
+    private const val MOD_DIR = "FS25_vdTelemetry"
+
     val port: Int
         get() = System.getenv("VDT_PORT")?.toIntOrNull() ?: 3001
 
@@ -34,6 +37,6 @@ object Config {
 
     fun telemetryPath(): Path {
         System.getenv("VDT_FILE")?.takeIf { it.isNotBlank() }?.let { return Path(it) }
-        return gameDir().resolve("vdTelemetry.json")
+        return gameDir().resolve("modSettings").resolve(MOD_DIR).resolve("telemetry").resolve("vdTelemetry.json")
     }
 }

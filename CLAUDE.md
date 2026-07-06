@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A telemetry pipeline for **Farming Simulator 25**, in two independent parts joined only by a JSON file:
 
-1. **`vdTelemetry/`** — the in-game mod (Lua). Reads live game state each frame and writes it to `vdTelemetry.json` in the FS25 user directory.
+1. **`vdTelemetry/`** — the in-game mod (Lua). Reads live game state each frame and writes it to `vdTelemetry.json` in the mod's own settings folder (`modSettings/FS25_vdTelemetry/telemetry/`).
 2. **`VDTerminal/`** — a standalone Kotlin Multiplatform app that watches `vdTelemetry.json` and renders a live web dashboard.
 
 The contract between the two is the shared Kotlin model **`VDTerminal/shared/.../Model.kt`** plus the **`examples/json/`** fixtures. Changing the data shape means changing the Lua collectors/model and the Kotlin model together, and refreshing the fixtures. (The project previously used XML + an XSD; that has been fully migrated to JSON.)
@@ -19,7 +19,7 @@ Follow the commit-subject convention documented in `README.md` ("Commit messages
 
 Plain Lua, no build system — the deliverable is `FS25_vdTelemetry.zip` (a zip of the folder's runtime files: the `.lua` files, `modDesc.xml`, `icon_vdTelemetry.dds`, `LICENSE`; `*.zip` is git-ignored).
 
-- `VDTelemetry.lua` — the mod entry point and main loop. It `source()`s the files listed in its `sourceFiles` table (order matters: dependencies first), then on a timer builds a model and writes `vdTelemetry.json`; reads config from `vdTelemetrySettings.xml` in `modSettings/` (settings still use the engine's XML API — unrelated to the telemetry output).
+- `VDTelemetry.lua` — the mod entry point and main loop. It `source()`s the files listed in its `sourceFiles` table (order matters: dependencies first), then on a timer builds a model and writes `modSettings/<modName>/telemetry/vdTelemetry.json`; reads config from `vdTelemetrySettings.xml` at the root of that same `modSettings/<modName>/` folder (settings use the engine's XML API — unrelated to the telemetry output). Everything lives under `modSettings/<modName>/` because the engine only permits `deleteFile()` there (disabling export deletes the json). Export enabled + write interval are also editable in-game (General Settings) via `src/gui/SettingsFrame.lua`.
 - The exporter is a **collect → model → serialize** pipeline. `src/collect/` holds the collectors (`EnvironmentExporter`, `VehicleExporter`, `vehicle/` for motor/lights/support, `aspects/` for collectors valid on any vehicle *or* implement); `src/integrations/` holds optional third-party mod hooks (e.g. Enhanced Vehicle) run via a stage registry — for mods that may or may not be installed; **FS25_additionalInputs is a hard requirement, so its data is treated as core in `collect/`, not an integration**. `src/model/` holds annotation-only `---@class` shape defs; `src/utils/Json.lua` is the pure-Lua encoder. **All runtime modules live under a single `VDT.*` namespace table** to avoid clobbering FS25's bare-global specialization classes (`Lights`, `FillUnit`, …).
 - `GrisuDebug.lua` — logging helper (`VDTelemetry.debugger`), levels configurable via the settings XML.
 - `src/mapper/ValueMapper.lua` — value normalization (enums, unit conversions like m/s→km/h, percentages). Collectors run it through `tonumber()` where the JSON field is numeric.
@@ -53,6 +53,6 @@ Run from `VDTerminal/`.
 
 Run a single test class: `./gradlew :shared:jvmTest --tests "net.vertexdezign.vdt.VdtModelTest"`.
 
-Config is via env vars: `VDT_PORT` (3001), `VDT_GAME_DIR`, `VDT_FILE` (the telemetry file, default `vdTelemetry.json`). Requires JDK 21+.
+Config is via env vars: `VDT_PORT` (3001), `VDT_GAME_DIR`, `VDT_FILE` (the telemetry file, default `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`). Requires JDK 21+.
 
 The DDS golden fixtures in `server/src/test/resources/dds/` are reference outputs originally generated from the Go `bcn` library — treat them as golden data, don't hand-edit.
