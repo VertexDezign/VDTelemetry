@@ -35,6 +35,7 @@ fun App(
     connection: ConnectionState,
     mapUrl: String,
     settings: Settings,
+    sampleIntervalMs: Int = 100,
     wakeLock: WakeLockStatus = WakeLockStatus.Unsupported,
     onToggleWakeLock: () -> Unit = {},
 ) {
@@ -42,7 +43,7 @@ fun App(
         Box(Modifier.fillMaxSize().background(VdtColors.Light)) {
             when {
                 telemetry == null -> LoadingScreen()
-                else -> Dashboard(telemetry, mapUrl, settings, wakeLock, onToggleWakeLock)
+                else -> Dashboard(telemetry, mapUrl, settings, sampleIntervalMs, wakeLock, onToggleWakeLock)
             }
 
             if (connection != ConnectionState.Connected) {
@@ -74,6 +75,7 @@ private fun Dashboard(
     data: VdtData,
     mapUrl: String,
     settings: Settings,
+    sampleIntervalMs: Int,
     wakeLock: WakeLockStatus,
     onToggleWakeLock: () -> Unit,
 ) {
@@ -92,8 +94,8 @@ private fun Dashboard(
         // 3x2 grid
         Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Cell(Modifier.weight(1f)) { MapPanel(mapUrl, data.environment?.pda, vehicle.gps?.heading ?: 0, settings) }
-                Cell(Modifier.weight(1f)) { EngineTransmission(vehicle) }
+                Cell(Modifier.weight(1f)) { MapPanel(mapUrl, data.environment?.pda, vehicle.gps?.heading ?: 0, sampleIntervalMs, settings) }
+                Cell(Modifier.weight(1f)) { EngineTransmission(vehicle, sampleIntervalMs) }
                 Cell(Modifier.weight(1f)) { Implements(vehicle) }
             }
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

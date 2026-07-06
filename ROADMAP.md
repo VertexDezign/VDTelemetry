@@ -141,16 +141,27 @@ Note: `raw values vs presentation values` stays a *separate* decision — keep p
   `reparse()`. The only real constraint is `debounce < interval`, which 40 ms satisfies for every
   interval preset (min 100 ms).
 
-### 3. Client-side interpolation (app)
+### 3. Client-side interpolation (app) — ✅ done
 
-- **What:** tween fast-changing values (speed, rpm, player position/heading) between samples
-  in the Compose app instead of snapping to each update.
+- **What:** speed + RPM (`EngineTransmission`), player position + heading (`MapPanel`), and fill-unit
+  progress bars (`ProgressBar` via `FillUnitsDisplay`) now animate between samples via `animate*AsState`
+  instead of snapping.
+- **Continuous vs stepwise values use different specs:** speed/rpm/position/heading change every
+  sample, so they use a linear `tween` sized to the measured interval (each reaches target as the
+  next arrives). The fill bar instead drives off the **fine-grained liters/capacity fraction**, not
+  the pre-rounded integer `fillLevelPercentage` — the integer staircases ~1% at a time and looked
+  jumpy even while liters climbed smoothly (a baler filling ~4%/s). A timing-independent `spring`
+  then cushions the big discontinuities (a tank filling at once, or a baler chamber resetting).
 - **Why:** decouples *perceived* smoothness from the write/broadcast rate. Smooth rendering
   over modest-rate samples reads as continuous — this is what lets us keep write rates
-  conservative without the dashboard looking choppy. Reduces the pressure to chase high
-  sample rates at all.
-- **How:** `Animatable`/`animate*AsState` on the values; the map panel already plans an
-  `Animatable` offset for the player marker (migration plan Phase 8).
+  conservative without the dashboard looking choppy.
+- **How:** the animation duration is the **measured** inter-sample interval, not a hardcoded value:
+  `TelemetryRepository` EMA-smooths the wall-clock gap between telemetry messages and exposes
+  `sampleIntervalMs` (clamped 50–1200), threaded down through `App`/`Dashboard`. So the tweens track
+  the mod's actual write rate as the user changes it, and each value reaches its target just as the
+  next sample arrives (linear easing). The map position tween's old hardcoded **500 ms** (a stale
+  copy of the pre-100 ms interval, which was *adding* latency) now uses this too. Heading is
+  interpolated along the shortest arc via an unwrapped accumulated angle (350°→10° turns +20°).
 
 ---
 

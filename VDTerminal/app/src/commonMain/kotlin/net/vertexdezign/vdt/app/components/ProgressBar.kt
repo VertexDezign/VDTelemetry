@@ -1,5 +1,8 @@
 package net.vertexdezign.vdt.app.components
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,12 +50,20 @@ private val LabelStyle = TextStyle(
  */
 @Composable
 fun ProgressBar(
-    percentage: Int,
+    fraction: Float,
     modifier: Modifier = Modifier,
     leftLabel: String? = null,
     rightLabel: String? = null,
 ) {
-    val frac = percentage.coerceIn(0, 100) / 100f
+    // Ease toward each new fill fraction with a spring. The caller feeds a fine-grained fraction
+    // (liters/capacity, not the pre-rounded integer percent), so this already moves smoothly; the
+    // spring is timing-independent, cushioning the occasional big jump (a tank filling at once, or a
+    // baler chamber resetting after an eject) without snapping.
+    val frac by animateFloatAsState(
+        targetValue = fraction.coerceIn(0f, 1f),
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "fill",
+    )
     Box(
         modifier
             .fillMaxWidth()

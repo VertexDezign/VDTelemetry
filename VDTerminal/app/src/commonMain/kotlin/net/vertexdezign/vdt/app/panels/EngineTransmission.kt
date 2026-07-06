@@ -1,10 +1,12 @@
 package net.vertexdezign.vdt.app.panels
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Agriculture
@@ -14,6 +16,7 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -28,10 +31,11 @@ import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
 import net.vertexdezign.vdt.app.components.format2
 import net.vertexdezign.vdt.app.theme.VdtColors
+import kotlin.math.roundToInt
 
 /** Engine / transmission panel: speed gauge, RPM, temps, cruise, and vehicle fill units. */
 @Composable
-fun EngineTransmission(vehicle: Vehicle) {
+fun EngineTransmission(vehicle: Vehicle, sampleIntervalMs: Int) {
     Panel(title = "Engine and Transmission", icon = Icons.Filled.Agriculture) {
         val motor = vehicle.motor
         if (motor == null) {
@@ -39,19 +43,34 @@ fun EngineTransmission(vehicle: Vehicle) {
             return@Panel
         }
         val cruise = vehicle.cruiseControl
-        val maxSpeed = (motor.maxSpeed?.let { maxOf(it.forward ?: 0, it.backward ?: 0) } ?: 0).let { if (it <= 0) 50 else it }
+        val maxSpeed =
+            (motor.maxSpeed?.let { maxOf(it.forward ?: 0, it.backward ?: 0) } ?: 0).let { if (it <= 0) 50 else it }
+
+        // Tween the fast-changing readouts over one sample interval so they read as continuous
+        // rather than snapping at the telemetry rate.
+        val spec = tween<Float>(durationMillis = sampleIntervalMs, easing = LinearEasing)
+        val animSpeed by animateFloatAsState(vehicle.speed?.value ?: 0f, spec, label = "speed")
+        val animRpm by animateFloatAsState((motor.rpm?.value ?: 0).toFloat(), spec, label = "rpm")
 
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 // Left: RPM + fuel/hr
-                Column(Modifier.width(64.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    metric("${motor.rpm?.value ?: 0}", "RPM")
+                Column(
+                    Modifier.width(64.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    metric("${animRpm.roundToInt()}", "RPM")
                     metric(usage(motor.fuel()?.usage, motor.fuel()?.unit), "FUEL/HR")
                 }
                 // Center: speed gauge + cruise
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     SimpleGauge(
-                        value = vehicle.speed?.value ?: 0f,
+                        value = animSpeed,
                         min = 0f,
                         max = maxSpeed.toFloat(),
                         unit = vehicle.speed?.unit ?: "",
@@ -69,7 +88,11 @@ fun EngineTransmission(vehicle: Vehicle) {
                     }
                 }
                 // Right: water temp + def/hr
-                Column(Modifier.width(64.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    Modifier.width(64.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     metric("${motor.temperatur?.value ?: 0}${motor.temperatur?.unit ?: ""}", "WATER")
                     metric(usage(motor.def()?.usage, null), "DEF/HR")
                 }
@@ -83,7 +106,12 @@ fun EngineTransmission(vehicle: Vehicle) {
                     active = foldable != null,
                     color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
                 )
-                StatusIconButton(Icons.Filled.PowerSettingsNew, Modifier.weight(1f), active = vehicle.isTurnedOn == true, color = StatusColor.Green)
+                StatusIconButton(
+                    Icons.Filled.PowerSettingsNew,
+                    Modifier.weight(1f),
+                    active = vehicle.isTurnedOn == true,
+                    color = StatusColor.Green
+                )
                 StatusIconButton(
                     if (vehicle.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
                     Modifier.weight(1f),

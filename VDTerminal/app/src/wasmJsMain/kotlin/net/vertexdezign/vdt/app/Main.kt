@@ -33,6 +33,7 @@ fun main() {
     ComposeViewport(document.body!!) {
         val telemetry by repository.telemetry.collectAsState()
         val connection by repository.connection.collectAsState()
+        val sampleIntervalMs by repository.sampleIntervalMs.collectAsState()
 
         val supported = remember { WakeLock.supported }
         // Reflect whether the lock is *actually* held: the request resolves asynchronously and can
@@ -55,6 +56,7 @@ fun main() {
             connection,
             mapUrl,
             settings,
+            sampleIntervalMs = sampleIntervalMs,
             wakeLock = wakeStatus,
             onToggleWakeLock = {
                 WakeLock.toggle()
