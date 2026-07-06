@@ -60,6 +60,19 @@ portable archive.)
 The DDS golden fixtures in `server/src/test/resources/dds/` are generated from the reference Go
 `bcn` library via `../VDTerminal_old/apps/server-go/ddsgen`.
 
+## Formatting
+
+[Spotless](https://github.com/diffplug/spotless) runs [ktlint](https://pinterest.github.io/ktlint/)
+over the Kotlin sources (`.kt`) and the Gradle build scripts (`*.gradle.kts`) in every module. The
+[compose-rules](https://mrmans0n.github.io/compose-rules/) ktlint ruleset adds Compose-specific
+checks and is applied to the `app` module's Compose UI (there its `compose:function-naming` replaces
+the standard `function-naming` rule). Rules are tuned in the root `.editorconfig`.
+
+```bash
+./gradlew spotlessCheck   # verify formatting (fails on violations)
+./gradlew spotlessApply   # auto-format in place
+```
+
 ## Known gaps / simplifications
 
 - The Lighting panel lays out the toggles functionally; the original tractor-schematic background

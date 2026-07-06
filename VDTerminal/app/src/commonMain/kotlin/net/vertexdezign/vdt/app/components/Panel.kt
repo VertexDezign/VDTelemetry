@@ -32,36 +32,46 @@ import net.vertexdezign.vdt.app.theme.VdtColors
  */
 @Composable
 fun Panel(
-    title: String,
-    modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
-    headerActions: @Composable RowScope.() -> Unit = {},
-    content: @Composable BoxScope.() -> Unit,
+  title: String,
+  modifier: Modifier = Modifier,
+  icon: ImageVector? = null,
+  headerActions: @Composable RowScope.() -> Unit = {},
+  content: @Composable BoxScope.() -> Unit,
 ) {
-    Column(
-        modifier
-            .fillMaxSize()
-            .clip(RoundedCornerShape(4.dp))
-            .background(VdtColors.Panel)
-            .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp)),
+  Column(
+    modifier
+      .fillMaxSize()
+      .clip(RoundedCornerShape(4.dp))
+      .background(VdtColors.Panel)
+      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp)),
+  ) {
+    Row(
+      Modifier
+        .fillMaxWidth()
+        .background(VdtColors.White.copy(alpha = 0.5f))
+        .padding(horizontal = 12.dp, vertical = 6.dp),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(VdtColors.White.copy(alpha = 0.5f))
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (icon !=
+          null
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (icon != null) Icon(icon, contentDescription = null, tint = VdtColors.DarkGray, modifier = Modifier.size(16.dp))
-                Text(title.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                headerActions()
-                Box(Modifier.size(16.dp).clip(CircleShape).background(VdtColors.TrackGray).border(1.dp, VdtColors.PanelBorder, CircleShape))
-            }
+          Icon(icon, contentDescription = null, tint = VdtColors.DarkGray, modifier = Modifier.size(16.dp))
         }
-        Box(Modifier.fillMaxSize().padding(8.dp)) { content() }
+        Text(title.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+      }
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        headerActions()
+        Box(
+          Modifier
+            .size(16.dp)
+            .clip(CircleShape)
+            .background(VdtColors.TrackGray)
+            .border(1.dp, VdtColors.PanelBorder, CircleShape),
+        )
+      }
     }
+    Box(Modifier.fillMaxSize().padding(8.dp)) { content() }
+  }
 }

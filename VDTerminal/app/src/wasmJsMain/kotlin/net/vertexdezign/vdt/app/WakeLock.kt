@@ -9,8 +9,8 @@ package net.vertexdezign.vdt.app
 // the lock is actually held so the UI can reflect real state, not just intent.
 
 private fun jsRequest() {
-    js(
-        """
+  js(
+    """
         try {
             if (navigator.wakeLock && navigator.wakeLock.request) {
                 navigator.wakeLock.request('screen').then(function(s){
@@ -24,28 +24,28 @@ private fun jsRequest() {
         } catch (e) {
             window.__vdtWakeActive = false;
         }
-        """
-    )
+        """,
+  )
 }
 
 private fun jsRelease() {
-    js(
-        """
+  js(
+    """
         try {
             if (window.__vdtWakeLock) { window.__vdtWakeLock.release(); window.__vdtWakeLock = null; }
         } catch (e) {}
         window.__vdtWakeActive = false;
-        """
-    )
+        """,
+  )
 }
 
 private fun jsSetWant(want: Boolean) {
-    js("window.__vdtWantWake = want;")
+  js("window.__vdtWantWake = want;")
 }
 
 private fun jsInstallVisibilityHandler() {
-    js(
-        """
+  js(
+    """
         document.addEventListener('visibilitychange', function(){
             if (document.visibilityState === 'visible' && window.__vdtWantWake && navigator.wakeLock && navigator.wakeLock.request) {
                 try {
@@ -59,8 +59,8 @@ private fun jsInstallVisibilityHandler() {
                 }
             }
         });
-        """
-    )
+        """,
+  )
 }
 
 private fun jsSupported(): Boolean = js("(typeof navigator !== 'undefined' && !!navigator.wakeLock)")
@@ -69,24 +69,24 @@ private fun jsActive(): Boolean = js("(!!window.__vdtWakeActive)")
 
 /** Toggles the screen wake lock on/off. */
 object WakeLock {
-    private var enabled = false
-    private var handlerInstalled = false
+  private var enabled = false
+  private var handlerInstalled = false
 
-    /** Whether the browser exposes the Screen Wake Lock API at all. */
-    val supported: Boolean get() = jsSupported()
+  /** Whether the browser exposes the Screen Wake Lock API at all. */
+  val supported: Boolean get() = jsSupported()
 
-    /** Whether the lock is currently held (reflects async success, not just the request intent). */
-    val active: Boolean get() = jsActive()
+  /** Whether the lock is currently held (reflects async success, not just the request intent). */
+  val active: Boolean get() = jsActive()
 
-    /** Flips the wake lock and returns the new desired state (true = keep screen awake). */
-    fun toggle(): Boolean {
-        enabled = !enabled
-        jsSetWant(enabled)
-        if (!handlerInstalled) {
-            jsInstallVisibilityHandler()
-            handlerInstalled = true
-        }
-        if (enabled) jsRequest() else jsRelease()
-        return enabled
+  /** Flips the wake lock and returns the new desired state (true = keep screen awake). */
+  fun toggle(): Boolean {
+    enabled = !enabled
+    jsSetWant(enabled)
+    if (!handlerInstalled) {
+      jsInstallVisibilityHandler()
+      handlerInstalled = true
     }
+    if (enabled) jsRequest() else jsRelease()
+    return enabled
+  }
 }
