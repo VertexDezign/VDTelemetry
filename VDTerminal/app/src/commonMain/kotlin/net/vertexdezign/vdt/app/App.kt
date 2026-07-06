@@ -26,6 +26,7 @@ import net.vertexdezign.vdt.app.panels.Header
 import net.vertexdezign.vdt.app.panels.Implements
 import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.VdtData
 
@@ -39,12 +40,13 @@ fun App(
   sampleIntervalMs: Int = 100,
   wakeLock: WakeLockStatus = WakeLockStatus.Unsupported,
   onToggleWakeLock: () -> Unit = {},
+  onCommand: (ClientMessage) -> Unit = {},
 ) {
   MaterialTheme {
     Box(modifier.fillMaxSize().background(VdtColors.Light)) {
       when {
         telemetry == null -> LoadingScreen()
-        else -> Dashboard(telemetry, mapUrl, settings, sampleIntervalMs, wakeLock, onToggleWakeLock)
+        else -> Dashboard(telemetry, mapUrl, settings, sampleIntervalMs, wakeLock, onToggleWakeLock, onCommand)
       }
 
       if (connection != ConnectionState.Connected) {
@@ -85,6 +87,7 @@ private fun Dashboard(
   sampleIntervalMs: Int,
   wakeLock: WakeLockStatus,
   onToggleWakeLock: () -> Unit,
+  onCommand: (ClientMessage) -> Unit,
 ) {
   val vehicle = data.vehicle
   Column(Modifier.fillMaxSize()) {
@@ -108,7 +111,7 @@ private fun Dashboard(
         Cell(Modifier.weight(1f)) { Implements(vehicle) }
       }
       Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Cell(Modifier.weight(1f)) { Lighting(vehicle) }
+        Cell(Modifier.weight(1f)) { Lighting(vehicle, onCommand = onCommand) }
         Cell(Modifier.weight(1f)) { EmptyPanel() }
         Cell(Modifier.weight(1f)) { EmptyPanel() }
       }

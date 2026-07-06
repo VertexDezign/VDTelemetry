@@ -171,6 +171,76 @@ Note: `raw values vs presentation values` stays a *separate* decision — keep p
 
 Let the app send commands to the mod (toggle lights, set cruise speed, …).
 
+**Sandbox finding (2026-07-06): the mod CANNOT read files via `io`.** In-game, `io.open(path, "r")`
+is rejected — *"io.open, only write mode ('w') is allowed"*. So the JSON-from-day-one plan for the
+command channel is impossible: telemetry works only because it *writes* (`io.open("w")`). The **only
+file reader the mod has is the engine `XMLFile.load`** (already how it reads its settings XML). So
+**the command channel is XML on disk**, read via `XMLFile.load` — telemetry stays JSON (write-only).
+This is exactly what the "read via `XMLFile.load`" note below hedged for.
+
+**PoC built (2026-07-06) — read side (XML), needs in-game verification.** What landed:
+- **`src/command/CommandChannel.lua`** — `VDT.CommandChannel.poll` reads `commands.xml` via
+  `XMLFile.loadIfExists` + `:iterate("commands.command", ...)`, hands the raw list to a **pure**
+  `selectNew(commands, lastId)` that filters `id > lastCommandId` and **sorts by id**, then
+  dispatches via a handler. `loadIfExists` returns nil for absent *or* torn (mid-write) files →
+  skip, retry next tick. No execution yet (logs only).
+- **Wiring in `VDTelemetry.lua`:** `commands/` subfolder (sibling of `telemetry/`, created in
+  `loadMap`), `lastCommandId` watermark, `pollCommands()`/`onCommand()`. `update()` restructured so
+  the command poll runs on the telemetry cadence **even when export is disabled** (sending commands
+  is independent of exporting), still gated on `isTelemetryAvailable()` (client-side only).
+  Load-time logs the resolved telemetry + command **paths** (Wine paths — must match the writer);
+  `pollCommands` logs a rate-limited heartbeat (`exists=`, `lastId=`) so a debug session can see the
+  loop run without flooding at 100 ms.
+- **`Json.decode` was added then removed** — the mod can't read files via `io`, so a JSON *reader*
+  has no consumer. `Json.lua` is encoder-only again (telemetry write). `fsTypes/XMLFile.lua` gained
+  an `iterate` annotation.
+- **`scripts/write-command.sh`** (repo root, not zipped) simulates the server: writes `commands.xml`,
+  monotonic id, keeps a 3-command ring, temp+atomic-rename write.
+- **Verified offline** with a Lua 5.1 harness (same as FS25's LuaJIT), 12 checks: `Json.encode`,
+  `selectNew` dedup/ordering/malformed-skip, `poll` (with a stub `XMLFile` parsing real XML)
+  dispatch/attr-read/dedup/missing-file, and the real `write-command.sh` driving 5 writes → ids 1..5
+  each dispatched once + a ring of 3. (`poll`'s `XMLFile.load` wiring itself is only truly testable
+  in-game.)
+- **✅ Cross-boundary read freshness VERIFIED in-game (2026-07-06).** The mod, polling inside
+  Proton/Wine on the 100 ms timer, promptly sees a `commands.xml` a native-Linux process
+  (`write-command.sh`) just overwrote, and sees *subsequent* overwrites — no Wine stat/content
+  caching problem. Ids dispatched once each, in order, dedup held. **The transport is proven.** This
+  is the crux the whole PoC de-risked; the file-based command channel is viable.
+
+**Light control wired end-to-end (2026-07-06) — needs in-game verification.** The 8 Lighting-panel
+functions now round-trip app → mod. Decisions & shape:
+- **Lights stay in-mod** (native `Lights` spec), NOT routed through `FS25_additionalInputs` (that's
+  only for extra keybinds). `src/command/LightControl.lua` (`VDT.LightControl`) maps absolute targets
+  onto the engine setters: `setBeaconLightsVisibility` (bool), `setLightsTypesMask` (read-modify-write
+  a single beam/work bit, preserving the others), `setTurnLightState` (the indicator enum).
+- **Absolute state, never toggle.** Commands carry a target (`on=true/false`, `state=left`), not a
+  flip — idempotent over the lossy channel; the app computes the target from the telemetry it already
+  renders (a tap on an active signal clears it). Indicators are one enum (off/left/right/hazard), not
+  three booleans, so the panel's left/right/hazard buttons map to a single `setTurnLight`.
+- **Two command types:** `setLight{light,on}` (light ∈ beacon|lowBeam|highBeam|workFront|workBack)
+  and `setTurnLight{state}`. Vocabulary shared as `LightTarget.token`/`TurnLightState.token` in
+  `shared/Protocol.kt`.
+- **Kotlin path:** `ClientMessage` sealed types (`SetLight`/`SetTurnLight`) → app `Lighting.kt`
+  buttons `onClick` → `TelemetryRepository.send` (a buffered, DROP_OLDEST command queue drained over
+  the WS session) → server `/ws` now reads `incoming` concurrently with the telemetry push →
+  `CommandWriter` assigns a monotonic id (seeded from the file's max on restart), keeps a ring of 16,
+  writes temp + atomic rename. `Config.commandPath()` (`VDT_COMMAND_FILE`, else sibling of the
+  telemetry file).
+- **Tested:** mod `spec/CommandChannel_spec.lua` (busted, 28 green total incl. `selectNew`
+  dedup/ordering + `poll` attr reads via an XMLFile stub); `:shared:jvmTest`, `:server:compileKotlin`,
+  `:app:compileKotlinWasmJs` green on the host. In-game: click the panel, confirm the lights react
+  and stay consistent with a second client / the physical keybinds.
+
+**Verified in-game (2026-07-06): light control works.** Clicking the panel toggles the vehicle
+lights; absolute-state keeps it consistent. PoC logging dialed back afterwards — the per-poll
+heartbeat is gone, the resolved-path + per-command lines demoted to `debug`, and the only remaining
+`debug` traces fire on actual new commands (not every 100 ms poll), so the default INFO level is quiet.
+
+**Remaining / follow-ups:**
+- **`setLightsTypesMask` on unsupported types:** first cut sets the bit unconditionally; if a vehicle
+  lacks a work light the engine should ignore it, but consider guarding against the available mask.
+- **Next commands:** cruise speed (numeric param), engine start/stop, etc. — same `type`+params shape.
+
 - **Transport: a file, not a pipe.** Server writes `commands.json` (or `.xml`) into a `commands/`
   subfolder of `modSettings/<modName>/` (sibling to the existing `telemetry/` folder); the mod
   polls it in `update()`. See "Rejected approaches" for why not pipes. Note the mod can only

@@ -63,6 +63,7 @@ fun main() {
         WakeLock.toggle()
         active = WakeLock.active
       },
+      onCommand = repository::send,
     )
   }
 }
