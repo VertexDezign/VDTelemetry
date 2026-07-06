@@ -62,6 +62,7 @@ end
 ---@field baseDir string modSettings/<modName>/ — holds the settings XML + the telemetry/ subfolder
 ---@field commandFileLocation string | nil path to the command channel's commands.xml (client-side only)
 ---@field lastCommandId number highest command id already handled (dedup watermark)
+---@field commandsPolledThisCycle boolean guards the once-per-cycle command poll (offset from the write)
 VDTelemetry = {}
 VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 VDTelemetry.VERSION = 1
@@ -105,6 +106,7 @@ function VDTelemetry.init()
   self.specLogLevel = GrisuDebug.INFO
   self.updateTimer = 0
   self.lastCommandId = 0
+  self.commandsPolledThisCycle = false
 
   self.baseDir = getUserProfileAppPath() .. "modSettings/" .. modName .. "/"
   createFolder(self.baseDir)
@@ -157,6 +159,13 @@ function VDTelemetry:loadMap(filename)
     local commandDir = self.baseDir .. VDTelemetry.COMMAND_SUBDIR
     createFolder(commandDir)
     self.commandFileLocation = commandDir .. VDT.CommandChannel.FILE_NAME
+    -- Start each session with a clean command channel: delete any leftover commands.xml so stale
+    -- commands can't fire on load and ids restart from scratch (the server resets its id counter
+    -- when it finds the file gone). The mod may deleteFile under modSettings/<modName>/.
+    if fileExists(self.commandFileLocation) then
+      deleteFile(self.commandFileLocation)
+    end
+    self.lastCommandId = 0
     -- Resolved paths at debug: on Proton these are Wine paths, handy when pointing the server's
     -- command writer at the right prefix, but not needed in normal operation.
     self.debugger:debug("Telemetry file: %s", self.jsonFileLocation)
@@ -251,6 +260,7 @@ function VDTelemetry:setExportEnabled(enabled)
   end
   self.exportEnabled = enabled
   self.updateTimer = 0
+  self.commandsPolledThisCycle = false
   if not enabled then
     -- drop the stale file so the terminal's file-watch sees export stop
     self:deleteJsonFile()
@@ -268,6 +278,7 @@ function VDTelemetry:setWriteIntervalMs(intervalMs)
   end
   self.writeIntervalMs = intervalMs
   self.updateTimer = 0
+  self.commandsPolledThisCycle = false
   self:saveSettingsToFile()
   self.debugger:info("Write interval set to %d ms", intervalMs)
 end
@@ -287,17 +298,26 @@ function VDTelemetry:update(dt)
   end
 
   self.updateTimer = self.updateTimer + dt
+
+  -- Poll commands once per cycle at the half-interval mark, so the command read lands on a different
+  -- frame than the telemetry write below — spreading the per-frame cost rather than doing both at
+  -- once. Command latency stays ≈ one interval, fine for button presses.
+  if not self.commandsPolledThisCycle and self.updateTimer >= self.writeIntervalMs * 0.5 then
+    self.commandsPolledThisCycle = true
+    self:pollCommands()
+    return
+  end
+
   if self.updateTimer < self.writeIntervalMs then
     return
   end
   -- Reset the timer before the work so a slow tick doesn't compound.
   self.updateTimer = 0
+  self.commandsPolledThisCycle = false
 
   if self.exportEnabled then
     self:writeJsonFile()
   end
-
-  self:pollCommands()
 end
 
 -- Poll the command back-channel and dispatch any commands newer than lastCommandId. Same cadence

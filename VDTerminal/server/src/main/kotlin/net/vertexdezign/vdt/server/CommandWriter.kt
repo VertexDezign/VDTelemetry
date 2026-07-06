@@ -17,8 +17,14 @@ import kotlin.io.path.readText
  * Each command gets a monotonically increasing id; the mod dedups by id and runs only ids greater
  * than the last it executed. We keep a small ring of recent commands in the file so a missed mod
  * poll doesn't drop intermediate commands, and write temp + atomic rename so the mod never reads a
- * torn file. Ids are seeded from the existing file's max id on startup, so a server restart doesn't
- * reissue ids a still-running mod already executed (which it would then ignore).
+ * torn file.
+ *
+ * Id lifetime tracks the file's lifetime. The mod deletes `commands.xml` at the start of every game
+ * session (and zeroes its watermark); when [submit] then finds the file gone, it treats that as a
+ * new session — resetting the id counter to 1 and dropping the stale ring (whose high ids would
+ * otherwise replay against the mod's freshly-zeroed watermark). This also keeps ids from growing
+ * without bound across sessions. On *server* startup (not per write) ids are seeded from the
+ * existing file's max, so a server restart mid-session doesn't reissue ids the mod already ran.
  */
 class CommandWriter(
   private val path: Path,
@@ -33,6 +39,14 @@ class CommandWriter(
 
   @Synchronized
   fun submit(message: ClientMessage) {
+    // The mod deletes commands.xml at game start; if it's gone, this is a new session — restart ids
+    // from 1 and drop the stale ring so its old high ids can't replay against the mod's zeroed
+    // watermark. Also what keeps ids from growing without bound across sessions.
+    if (!path.exists()) {
+      nextId = 1
+      ring.clear()
+      log.info("Command file gone (new session) — resetting ids")
+    }
     val id = nextId++
     ring.addLast(render(id, message))
     while (ring.size > ringSize) ring.removeFirst()
@@ -46,10 +60,13 @@ class CommandWriter(
   ): String =
     when (message) {
       // Tokens are fixed enum values and ids are ints, so no XML escaping is needed here.
-      is ClientMessage.SetLight ->
+      is ClientMessage.SetLight -> {
         """<command id="$id" type="setLight" light="${message.light.token}" on="${message.on}"/>"""
-      is ClientMessage.SetTurnLight ->
+      }
+
+      is ClientMessage.SetTurnLight -> {
         """<command id="$id" type="setTurnLight" state="${message.state.token}"/>"""
+      }
     }
 
   private fun write() {

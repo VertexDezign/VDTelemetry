@@ -236,6 +236,18 @@ lights; absolute-state keeps it consistent. PoC logging dialed back afterwards �
 heartbeat is gone, the resolved-path + per-command lines demoted to `debug`, and the only remaining
 `debug` traces fire on actual new commands (not every 100 ms poll), so the default INFO level is quiet.
 
+**Hardening (2026-07-06):**
+- **Clean command channel per session.** `loadMap` **deletes** any leftover `commands.xml` and zeroes
+  the watermark, so stale commands can't fire on load. The **server** completes the reset: when
+  `CommandWriter.submit` finds the file gone (mod wiped it), it restarts ids from 1 and drops its
+  in-memory ring — otherwise the ring's old high ids would replay against the zeroed watermark, and
+  it also keeps ids from growing without bound across sessions. (Server startup still seeds ids from
+  the file's max, covering a server restart *mid*-session.)
+- **Command poll offset from the telemetry write.** `update()` polls commands once per cycle at the
+  **half-interval** mark (guarded by `commandsPolledThisCycle`, reset with the write timer), so the
+  read lands on a different frame than the write instead of both firing at once — spreads the
+  per-frame cost. Latency stays ≈ one interval.
+
 **Remaining / follow-ups:**
 - **`setLightsTypesMask` on unsupported types:** first cut sets the bit unconditionally; if a vehicle
   lacks a work light the engine should ignore it, but consider guarding against the available mask.

@@ -64,7 +64,8 @@ object Config {
   fun commandPath(): Path {
     System.getenv("VDT_COMMAND_FILE")?.takeIf { it.isNotBlank() }?.let { return Path(it) }
     // telemetryPath() = <mod>/telemetry/vdTelemetry.json -> parent.parent = <mod>/
-    return telemetryPath().parent.parent
+    return telemetryPath()
+      .parent.parent
       .resolve("commands")
       .resolve("commands.xml")
   }

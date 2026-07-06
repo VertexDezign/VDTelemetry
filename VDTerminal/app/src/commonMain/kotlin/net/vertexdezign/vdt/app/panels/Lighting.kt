@@ -48,6 +48,7 @@ private const val IMAGE_ASPECT = 1429f / 1259f
 @Composable
 fun Lighting(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
   val lights = vehicle.lights
+
   // Each tap sends an ABSOLUTE target computed from the state we're rendering (not a toggle), so the
   // command is idempotent over the lossy file channel. See ClientMessage.
   fun setLight(light: LightTarget, on: Boolean) = onCommand(ClientMessage.SetLight(light, on))

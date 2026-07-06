@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.russhwolf.settings.Settings
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.panels.EmptyPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
@@ -26,7 +27,6 @@ import net.vertexdezign.vdt.app.panels.Header
 import net.vertexdezign.vdt.app.panels.Implements
 import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
-import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.VdtData
 
