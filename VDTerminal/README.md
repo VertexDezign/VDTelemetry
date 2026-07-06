@@ -36,6 +36,7 @@ Then open <http://localhost:8080>. Editing `vdTelemetry.json` updates the dashbo
 | `VDT_PORT`     | `3001`                                              | server port                      |
 | `VDT_GAME_DIR` | OS-specific FS25 profile dir (Windows / Linux+Proton) | game directory                 |
 | `VDT_FILE`     | `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json` | telemetry file to watch          |
+| `VDT_DEBOUNCE_MS` | `40`                                             | debounce window for file writes  |
 
 ## Production (single artifact)
 

@@ -33,9 +33,10 @@ fun main() {
     val telemetryPath = Config.telemetryPath()
     log.info("Game directory: {}", Config.gameDir())
     log.info("Telemetry file: {}", telemetryPath)
+    log.info("Debounce: {} ms", Config.debounceMs())
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val source = TelemetrySource(telemetryPath)
+    val source = TelemetrySource(telemetryPath, Config.debounceMs())
     source.launchIn(appScope)
 
     log.info("Server starting on port {}", Config.port)
