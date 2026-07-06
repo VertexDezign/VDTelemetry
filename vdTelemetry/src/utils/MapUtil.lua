@@ -35,7 +35,7 @@ function MapUtil.getMapPDAFile()
       return {
         filename = pdaMapFile,
         width = width,
-        height = height
+        height = height,
       }
     end
   end

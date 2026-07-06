@@ -129,8 +129,12 @@ local function dumpLayouts(frame)
   dumpedLayouts = true
   for k, v in pairs(frame) do
     if type(v) == "table" and type(v.addElement) == "function" then
-      d:info("[SettingsFrame] layout field: frame.%s (typeName=%s children=%s)",
-        tostring(k), tostring(v.typeName), (v.elements ~= nil) and tostring(#v.elements) or "?")
+      d:info(
+        "[SettingsFrame] layout field: frame.%s (typeName=%s children=%s)",
+        tostring(k),
+        tostring(v.typeName),
+        (v.elements ~= nil) and tostring(#v.elements) or "?"
+      )
     end
   end
 end
@@ -230,8 +234,20 @@ function SettingsFrame.initSettingsGui(frame)
   targetLayout:addElement(title)
 
   local options = {
-    { id = "vdtExportEnabled", key = "enabled",  title = "vdt_setting_exportEnabled", tooltip = "vdt_setting_exportEnabled_tooltip", texts = SettingsFrame.getEnabledTexts() },
-    { id = "vdtWriteInterval", key = "interval", title = "vdt_setting_writeInterval", tooltip = "vdt_setting_writeInterval_tooltip", texts = SettingsFrame.getIntervalTexts() },
+    {
+      id = "vdtExportEnabled",
+      key = "enabled",
+      title = "vdt_setting_exportEnabled",
+      tooltip = "vdt_setting_exportEnabled_tooltip",
+      texts = SettingsFrame.getEnabledTexts(),
+    },
+    {
+      id = "vdtWriteInterval",
+      key = "interval",
+      title = "vdt_setting_writeInterval",
+      tooltip = "vdt_setting_writeInterval_tooltip",
+      texts = SettingsFrame.getIntervalTexts(),
+    },
   }
 
   for _, option in ipairs(options) do
@@ -285,7 +301,8 @@ function SettingsFrame.install()
     end
     return
   end
-  InGameMenuSettingsFrame.onFrameOpen = Utils.appendedFunction(InGameMenuSettingsFrame.onFrameOpen, SettingsFrame.initSettingsGui)
+  InGameMenuSettingsFrame.onFrameOpen =
+    Utils.appendedFunction(InGameMenuSettingsFrame.onFrameOpen, SettingsFrame.initSettingsGui)
   SettingsFrame.installed = true
 end
 

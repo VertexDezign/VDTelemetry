@@ -94,17 +94,23 @@ describe("Json.encode", function()
 
   describe("pretty mode (indented, keys sorted)", function()
     it("indents and sorts object keys alphabetically", function()
-      assert.are.equal([=[{
+      assert.are.equal(
+        [=[{
   "a": 1,
   "b": 2
-}]=], Json.encode({ b = 2, a = 1 }, true))
+}]=],
+        Json.encode({ b = 2, a = 1 }, true)
+      )
     end)
 
     it("indents arrays", function()
-      assert.are.equal([=[[
+      assert.are.equal(
+        [=[[
   1,
   2
-]]=], Json.encode({ 1, 2 }, true))
+]]=],
+        Json.encode({ 1, 2 }, true)
+      )
     end)
 
     it("keeps an empty object compact", function()
@@ -116,7 +122,8 @@ describe("Json.encode", function()
         version = "1",
         motor = { state = "ON", rpm = { value = 850, min = 0, max = 2200 } },
       }
-      assert.are.equal([=[{
+      assert.are.equal(
+        [=[{
   "motor": {
     "rpm": {
       "max": 2200,
@@ -126,7 +133,9 @@ describe("Json.encode", function()
     "state": "ON"
   },
   "version": "1"
-}]=], Json.encode(model, true))
+}]=],
+        Json.encode(model, true)
+      )
     end)
   end)
 end)
