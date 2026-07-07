@@ -43,6 +43,8 @@ local sourceFiles = {
   "src/command/CommandChannel.lua",
   "src/command/LightControl.lua",
   "src/command/ImplementControl.lua",
+  "src/command/MotorControl.lua",
+  "src/command/CruiseControl.lua",
   -- GUI: injects settings controls into the in-game menu
   "src/gui/SettingsFrame.lua",
 }

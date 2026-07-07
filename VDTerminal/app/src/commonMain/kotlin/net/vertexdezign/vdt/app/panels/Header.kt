@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Coffee
@@ -61,7 +60,6 @@ fun Header(
       Icon(Icons.Filled.Menu, "menu", tint = accent.text, modifier = Modifier.size(24.dp))
       Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Stat(Icons.Filled.Thermostat, if (temp != null) "${temp.current}${temp.unit}" else "--", accent.text)
-        Stat(Icons.Filled.Agriculture, vehicle?.motor?.state?.name ?: "--", accent.text)
         Stat(Icons.Filled.CalendarMonth, env?.date ?: "--", accent.text)
         Stat(Icons.Filled.Schedule, env?.time ?: "--", accent.text)
       }

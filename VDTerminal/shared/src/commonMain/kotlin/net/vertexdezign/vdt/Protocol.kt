@@ -78,6 +78,38 @@ sealed interface ClientMessage {
     val target: ControlTarget,
     val on: Boolean,
   ) : ClientMessage
+
+  /** Start (`on = true`) or stop the vehicle's engine. */
+  @Serializable
+  @SerialName("setMotorState")
+  data class SetMotorState(
+    val on: Boolean,
+  ) : ClientMessage
+
+  /**
+   * Cruise control. One command with an [action] (`enable`/`disable`/`setSpeed`) rather than
+   * separate types: cruise is a single subsystem whose knobs move together. [speed] (km/h, a float
+   * since mods allow sub-1 steps) is only meaningful for `setSpeed`.
+   */
+  @Serializable
+  @SerialName("setCruiseControl")
+  data class SetCruiseControl(
+    val action: CruiseAction,
+    val speed: Float? = null,
+  ) : ClientMessage
+}
+
+/**
+ * A cruise-control action. [token] is the wire vocabulary (the `action=` attribute in
+ * `commands.xml`). `SET_SPEED` carries the target in `SetCruiseControl.speed`.
+ */
+@Serializable
+enum class CruiseAction(
+  val token: String,
+) {
+  ENABLE("enable"),
+  DISABLE("disable"),
+  SET_SPEED("setSpeed"),
 }
 
 /**

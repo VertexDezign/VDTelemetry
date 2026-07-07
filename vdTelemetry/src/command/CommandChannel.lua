@@ -1,4 +1,4 @@
--- Command back-channel (app -> mod), read side. Proof of concept.
+-- Command back-channel (app -> mod), read side.
 --
 -- The terminal server writes commands into modSettings/<modName>/commands/commands.xml (a sibling
 -- of the telemetry/ folder). The mod polls that file on the telemetry timer cadence and dispatches
@@ -7,10 +7,11 @@
 -- Why XML and not JSON: the FS25 Lua sandbox restricts io.open to WRITE mode ('w') only, so the mod
 -- cannot read a file itself. The engine's XMLFile.load is the only file reader available (it's how
 -- the mod reads its own settings). So telemetry stays JSON (write-only via io.open) but the command
--- channel must be XML. File shape (written by the server; for the PoC by dev/write-command.sh):
+-- channel must be XML. Each <command> carries an `id` + `type` envelope plus type-specific attributes
+-- that the owning control parses (see CommandRegistry). File shape (written by the server):
 --   <commands>
---     <command id="1" type="toggleLights"/>
---     <command id="2" type="setCruiseSpeed" value="15"/>
+--     <command id="1" type="setLight" light="beacon" on="true"/>
+--     <command id="2" type="setCruiseControl" action="setSpeed" speed="15"/>
 --   </commands>
 --
 -- Dedup: each command carries a monotonic `id`; the mod tracks the highest id it has handled and

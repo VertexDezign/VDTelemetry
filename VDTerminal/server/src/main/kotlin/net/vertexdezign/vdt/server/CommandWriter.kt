@@ -79,6 +79,15 @@ class CommandWriter(
       is ClientMessage.SetActivated -> {
         """<command id="$id" type="setActivated" target="${message.target.token}" on="${message.on}"/>"""
       }
+
+      is ClientMessage.SetMotorState -> {
+        """<command id="$id" type="setMotorState" on="${message.on}"/>"""
+      }
+
+      is ClientMessage.SetCruiseControl -> {
+        val speedAttr = message.speed?.let { " speed=\"$it\"" } ?: ""
+        """<command id="$id" type="setCruiseControl" action="${message.action.token}"$speedAttr/>"""
+      }
     }
 
   private fun write() {

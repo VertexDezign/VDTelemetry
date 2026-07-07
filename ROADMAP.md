@@ -271,7 +271,9 @@ covering the three status buttons on the Engine panel (vehicle itself) and the I
   `isTurnedOn` non-null). Same absolute-target computation as the lights (fold `on = state !=
   FOLDED`, lower/activate `on = !current`).
 - **Verified:** `luac -p` clean, busted 28/28, `:shared:jvmTest` + `:server:compileKotlin` +
-  `:app:compileKotlinWasmJs` green. *In-game verification pending.*
+  `:app:compileKotlinWasmJs` green. **✅ In-game verified 2026-07-07** — front/back via
+  additionalInputs, and the vehicle-self path once its `vdAI{Lower,Fold,Activate}Vehicle(on)`
+  functions were added to FS25_additionalInputs (incl. the BigM fold-to-middle lowering).
 
 **Command registry (2026-07-07): decouple the reader from command schemas.** `CommandChannel.poll`
 used to read the *union* of every command type's attributes and `onCommand` was a growing type-switch
@@ -284,10 +286,30 @@ cmd.params, debugger)`. Each control **self-registers** its command types next t
 dispatch. Unknown types are warned + skipped in `poll` (watermark still advances). busted 29/29 (added
 an unknown-type case; poll tests now exercise the real registry). Wire format unchanged.
 
-**Remaining / follow-ups:**
-- **`setLightsTypesMask` on unsupported types:** first cut sets the bit unconditionally; if a vehicle
-  lacks a work light the engine should ignore it, but consider guarding against the available mask.
-- **Next commands:** cruise speed (numeric param), engine start/stop, etc. — same `type`+params shape.
+**Engine + cruise (2026-07-07).** Third command family, added on the registry above (one control file
++ its registration each, no reader changes).
+- **Engine:** `setMotorState{on}` → `src/command/MotorControl.lua` → `vehicle:startMotor()` /
+  `stopMotor()` (both self-guard on the current motor state, so a repeat is a no-op). App: a **panel-
+  header** key icon (green when `motor.state != OFF`); tap sends `on = state == OFF`.
+- **Cruise:** `setCruiseControl{action, speed?}` (`action ∈ enable|disable|setSpeed`) →
+  `src/command/CruiseControl.lua` → `setCruiseControlState(Drivable.CRUISECONTROL_STATE_ACTIVE/OFF)`
+  / `setCruiseControlMaxSpeed(kmh)`. One command (not three types) since cruise is one subsystem whose
+  knobs move together. App: **tap the speed gauge** to enable/disable; a `−  <speed>  +` adjuster below
+  it (`SimpleGauge` gained an optional `onClick`), and the speed is tappable to type an exact value
+  (inline `BasicTextField`, commits on Enter / blur).
+- Verified: `luac -p` clean, busted 29/29, `:shared:jvmTest` + all three `compile*` + `spotlessCheck`
+  green. **✅ In-game verified 2026-07-07** (engine start/stop + cruise enable/disable/setSpeed,
+  incl. the float speed + inline input). Engine-state readout removed from the top Header (redundant
+  with the panel-header toggle).
+
+**Follow-ups — resolved (2026-07-07):** the command back-channel is effectively complete.
+- ✅ **Test coverage.** Added busted specs for the three thin controls
+  (`MotorControl_spec` / `CruiseControl_spec` / `ImplementControl_spec`), dispatch + guards. **43/43**.
+- ✅ **Cosmetic.** `CommandChannel.lua`'s header example refreshed to real commands (setLight /
+  setCruiseControl); dead `write-command.sh` reference removed (the script itself is already gone).
+- **Accepted as-is (no change):** `setLightsTypesMask` sets the bit unconditionally — the engine
+  ignores a light type the vehicle lacks. Cruise `setCruiseControlMaxSpeed` isn't extra-synced in MP —
+  it's the driver's own target speed, so per-client is fine.
 
 - **Transport: a file, not a pipe.** Server writes `commands.json` (or `.xml`) into a `commands/`
   subfolder of `modSettings/<modName>/` (sibling to the existing `telemetry/` folder); the mod
