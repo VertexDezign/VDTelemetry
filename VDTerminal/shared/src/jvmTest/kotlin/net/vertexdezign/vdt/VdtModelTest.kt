@@ -177,6 +177,19 @@ class VdtModelTest {
   }
 
   @Test
+  fun coercesNullCapacityToDefault() {
+    // A pass-through fill unit (a forage/carrot harvester's output) has no capacity in its XML, so
+    // the engine reports +inf and the mod's JSON encoder emits `capacity: null`. A strict parse blew
+    // up on that and froze the whole feed; coerceInputValues must fall it back to the default (0).
+    val text =
+      """{"version":"1","vehicle":{"fillUnits":{"fillUnit":""" +
+        """[{"value":0,"fillLevelPercentage":0,"capacity":null,"unit":""}]}}}"""
+    val data = VdtParser.parseJson(text)
+    val unit = assertNotNull(data.vehicle?.fillUnits?.fillUnit?.singleOrNull())
+    assertEquals(0, unit.capacity)
+  }
+
+  @Test
   fun serverMessageUsesTypeDiscriminator() {
     val msg: ServerMessage = ServerMessage.Telemetry(model("combine.json"))
     val encoded = json.encodeToString(ServerMessage.serializer(), msg)

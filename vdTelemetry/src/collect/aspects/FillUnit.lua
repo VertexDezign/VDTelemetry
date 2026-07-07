@@ -2,8 +2,9 @@
 -- Distinct from the motor's fixed fuel/def/air fill units (see collect/vehicle/Motor.lua).
 -- Namespaced under VDT.* (see TurnOn.lua).
 --
--- Skips a vehicle's propellant (fuel) fill units — those belong to the motor block — and AIR.
--- fillTypeIndex 1 is the "unknown" default fill type: its name/title/unit are blanked to "".
+-- Skips a vehicle's propellant (fuel) fill units — those belong to the motor block — AIR, and any
+-- unit the game hides from the info HUD (showOnInfoHud="false", e.g. a harvester's pass-through
+-- output). fillTypeIndex 1 is the "unknown" default fill type: its name/title/unit are blanked to "".
 
 VDT = VDT or {}
 VDT.FillUnit = {}
@@ -29,8 +30,19 @@ function VDT.FillUnit.collect(object)
   for fillUnitIndex, fillUnit in ipairs(spec.fillUnits) do
     local fillTypeIndex = fillUnit.fillType
     local fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
-    if not (propellantFillUnitIndices:contains(fillUnitIndex) or fillType.name == "AIR") then
+    -- Skip units the game itself hides from the vehicle info box (showOnInfoHud="false" in the XML,
+    -- e.g. a forage/carrot harvester's pass-through output). The engine defaults the flag to true, so
+    -- only an explicit false hides it; a nil (unit created outside XML load) is treated as shown.
+    local hiddenFromInfoHud = fillUnit.showOnInfoHud == false
+    if not (propellantFillUnitIndices:contains(fillUnitIndex) or fillType.name == "AIR" or hiddenFromInfoHud) then
       local capacity = fillUnit.capacity
+      -- Pass-through units (e.g. a forage/carrot harvester's output) carry no capacity in their XML,
+      -- so the engine reports capacity = math.huge. The JSON encoder turns +inf into null, which the
+      -- typed model (capacity: Int) rejects -> normalize any non-finite capacity to 0 (treated like
+      -- the zero-capacity mods handled below).
+      if capacity ~= capacity or capacity == math.huge or capacity == -math.huge then
+        capacity = 0
+      end
       local fillLevel = fillUnit.fillLevel
       local unit = fillType.unitShort
       local name = fillType.name
