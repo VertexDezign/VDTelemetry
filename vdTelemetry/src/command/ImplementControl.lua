@@ -67,3 +67,32 @@ end
 function VDT.ImplementControl.setActivated(vehicle, target, on, debugger)
   callAi(vehicle, target, "activate", on, debugger)
 end
+
+-- Command handlers (see CommandRegistry). All three share the {target, on} payload.
+local function parseTargetOn(xml, key)
+  return {
+    target = xml:getString(key .. "#target"),
+    on = xml:getBool(key .. "#on", false),
+  }
+end
+
+VDT.CommandRegistry.register("setLowered", {
+  parse = parseTargetOn,
+  execute = function(vehicle, params, debugger)
+    VDT.ImplementControl.setLowered(vehicle, params.target, params.on, debugger)
+  end,
+})
+
+VDT.CommandRegistry.register("setFolded", {
+  parse = parseTargetOn,
+  execute = function(vehicle, params, debugger)
+    VDT.ImplementControl.setFolded(vehicle, params.target, params.on, debugger)
+  end,
+})
+
+VDT.CommandRegistry.register("setActivated", {
+  parse = parseTargetOn,
+  execute = function(vehicle, params, debugger)
+    VDT.ImplementControl.setActivated(vehicle, params.target, params.on, debugger)
+  end,
+})

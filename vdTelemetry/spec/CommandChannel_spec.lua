@@ -4,8 +4,14 @@
 -- sets a global `VDT.CommandChannel` when executed. `poll` reads via the engine `XMLFile.load`, which
 -- doesn't exist off-engine, so we stub a minimal XMLFile that parses our flat command XML — enough
 -- to exercise poll's iterate + attribute reads. `selectNew` is pure and tested directly.
+--
+-- poll() delegates payload parsing to the command registry, so we also source CommandRegistry and a
+-- real control (LightControl) — its execute() closures reference engine setters but are never invoked
+-- here (poll only parses + dispatches), so no engine stubs are needed for them.
 
+dofile("src/command/CommandRegistry.lua")
 dofile("src/command/CommandChannel.lua")
+dofile("src/command/LightControl.lua")
 
 -- Install a minimal XMLFile stub as a global: parses <command .../> elements and answers
 -- getInt/getString/getBool for keys shaped like "cmd:<index>#<attr>" (what our fake iterate hands
@@ -73,7 +79,7 @@ local function pollXml(xml, lastId)
   f:write(xml)
   f:close()
   local got = {}
-  local newLast = VDT.CommandChannel.poll(path, lastId, function(cmd)
+  local newLast = VDT.CommandChannel.poll(path, lastId, VDT.CommandRegistry, function(cmd)
     got[#got + 1] = cmd
   end, debugger)
   os.remove(path)
@@ -103,7 +109,7 @@ describe("CommandChannel.poll", function()
   it("returns lastCommandId unchanged when the file is absent", function()
     installXmlStub()
     local dispatched = 0
-    local newLast = VDT.CommandChannel.poll("/no/such/file.xml", 7, function()
+    local newLast = VDT.CommandChannel.poll("/no/such/file.xml", 7, VDT.CommandRegistry, function()
       dispatched = dispatched + 1
     end, debugger)
     assert.are.equal(7, newLast)
@@ -126,17 +132,23 @@ describe("CommandChannel.poll", function()
     assert.are.equal(3, got[3].id)
   end)
 
-  it("reads setLight attributes (light + boolean on)", function()
+  it("delegates setLight parsing to its control (light + boolean on)", function()
     local _, got = pollXml([[<commands><command id="1" type="setLight" light="highBeam" on="true"/></commands>]], 0)
     assert.are.equal("setLight", got[1].type)
-    assert.are.equal("highBeam", got[1].light)
-    assert.is_true(got[1].on)
+    assert.are.equal("highBeam", got[1].params.light)
+    assert.is_true(got[1].params.on)
   end)
 
-  it("reads setTurnLight state", function()
+  it("delegates setTurnLight parsing to its control (state)", function()
     local _, got = pollXml([[<commands><command id="1" type="setTurnLight" state="hazard"/></commands>]], 0)
     assert.are.equal("setTurnLight", got[1].type)
-    assert.are.equal("hazard", got[1].state)
+    assert.are.equal("hazard", got[1].params.state)
+  end)
+
+  it("skips unknown command types but still advances the watermark", function()
+    local newLast, got = pollXml([[<commands><command id="4" type="bogusCommand"/></commands>]], 0)
+    assert.are.equal(4, newLast)
+    assert.are.equal(0, #got)
   end)
 
   it("dedups: re-polling the same file dispatches nothing", function()

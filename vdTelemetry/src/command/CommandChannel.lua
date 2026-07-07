@@ -26,8 +26,8 @@ VDT.CommandChannel = {}
 VDT.CommandChannel.FILE_NAME = "commands.xml"
 
 ---Filter a raw command list down to those newer than lastCommandId, sorted ascending by id.
----Pure (no engine calls) so it's unit-testable offline; poll() feeds it what it read from XML.
----@param commands table[] each { id = number, type = string, value = string|nil }
+---Pure (no engine calls) so it's unit-testable offline; poll() feeds it the envelopes it read.
+---@param commands table[] each at least { id = number }
 ---@param lastCommandId number
 ---@return table[] pending commands to dispatch, ascending by id
 function VDT.CommandChannel.selectNew(commands, lastCommandId)
@@ -46,12 +46,17 @@ function VDT.CommandChannel.selectNew(commands, lastCommandId)
 end
 
 ---Poll the command file and dispatch every command newer than lastCommandId, in id order.
+---Reads only the envelope (id + type) itself; the per-command payload is parsed by the control that
+---owns the type, looked up in `registry`. So this stays free of command schemas -- a new command
+---type is added by registering it, with no change here (see CommandRegistry).
 ---@param filePath string absolute path to commands.xml
 ---@param lastCommandId number highest command id already handled
----@param handler fun(cmd: table) called once per new command, ascending by id
+---@param registry table command registry with get(type) -> { parse, execute } | nil
+---@param handler fun(cmd: table) called once per new, known command (ascending by id) with
+---  { id, type, params, execute }; params is what the control's parse() returned
 ---@param debugger GrisuDebug
 ---@return number newLastCommandId the highest id handled after this poll
-function VDT.CommandChannel.poll(filePath, lastCommandId, handler, debugger)
+function VDT.CommandChannel.poll(filePath, lastCommandId, registry, handler, debugger)
   -- loadIfExists returns nil when the file is absent OR unparsable (torn read); both mean "nothing
   -- to do this tick", so no separate fileExists guard is needed.
   local xml = XMLFile.loadIfExists("vdtCommands", filePath)
@@ -59,28 +64,17 @@ function VDT.CommandChannel.poll(filePath, lastCommandId, handler, debugger)
     return lastCommandId
   end
 
-  -- Read the command attributes here (this is the one place that touches XML). The set is the union
-  -- of every command type's schema; a given command only reads the fields it needs in onCommand.
-  local commands = {}
+  -- Envelope only (id + type). `key` stays valid for attribute reads until xml:delete() below, so we
+  -- keep it to hand to each command's parse() after id-filtering.
+  local entries = {}
   xml:iterate("commands.command", function(_, key)
     local id = xml:getInt(key .. "#id")
     if id ~= nil then
-      commands[#commands + 1] = {
-        id = id,
-        type = xml:getString(key .. "#type"),
-        -- setLight: which light + absolute on/off
-        light = xml:getString(key .. "#light"),
-        on = xml:getBool(key .. "#on", false),
-        -- setTurnLight: absolute turn-light state (off/left/right/hazard)
-        state = xml:getString(key .. "#state"),
-        -- setLowered/setFolded/setActivated: what to act on (vehicle/front/back)
-        target = xml:getString(key .. "#target"),
-      }
+      entries[#entries + 1] = { id = id, type = xml:getString(key .. "#type"), key = key }
     end
   end)
-  xml:delete()
 
-  local pending = VDT.CommandChannel.selectNew(commands, lastCommandId)
+  local pending = VDT.CommandChannel.selectNew(entries, lastCommandId)
   if #pending > 0 then
     -- Only when there's actually something new — the ring file is re-read every poll, so an
     -- unconditional log here would fire at the full 100 ms cadence forever.
@@ -88,12 +82,21 @@ function VDT.CommandChannel.poll(filePath, lastCommandId, handler, debugger)
   end
 
   local newLast = lastCommandId
-  for _, cmd in ipairs(pending) do
-    handler(cmd)
-    if cmd.id > newLast then
-      newLast = cmd.id
+  for _, entry in ipairs(pending) do
+    local cmdHandler = registry.get(entry.type)
+    if cmdHandler == nil then
+      debugger:warn("unknown command type: %s", tostring(entry.type))
+    else
+      -- delegate payload parsing to the control that owns this type
+      local params = cmdHandler.parse(xml, entry.key)
+      handler({ id = entry.id, type = entry.type, params = params, execute = cmdHandler.execute })
+    end
+    -- advance past every pending id, including unknown ones, so we don't re-warn each poll
+    if entry.id > newLast then
+      newLast = entry.id
     end
   end
 
+  xml:delete()
   return newLast
 end

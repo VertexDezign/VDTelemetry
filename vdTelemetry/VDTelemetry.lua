@@ -37,7 +37,9 @@ local sourceFiles = {
   "src/integrations/registry.lua",
   -- Orchestrators depend on the collectors + aspects + integrations above
   "src/collect/VehicleExporter.lua",
-  -- Command back-channel (app -> mod), read side; depends on Json above
+  -- Command back-channel (app -> mod), read side; depends on Json above. CommandRegistry first: the
+  -- controls self-register their command types into it when sourced.
+  "src/command/CommandRegistry.lua",
   "src/command/CommandChannel.lua",
   "src/command/LightControl.lua",
   "src/command/ImplementControl.lua",
@@ -333,13 +335,20 @@ function VDTelemetry:pollCommands()
     return
   end
 
-  self.lastCommandId = VDT.CommandChannel.poll(self.commandFileLocation, self.lastCommandId, function(cmd)
-    self:onCommand(cmd)
-  end, self.debugger)
+  self.lastCommandId = VDT.CommandChannel.poll(
+    self.commandFileLocation,
+    self.lastCommandId,
+    VDT.CommandRegistry,
+    function(cmd)
+      self:onCommand(cmd)
+    end,
+    self.debugger
+  )
 end
 
--- Handle a single received command, dispatching by type. Light control stays in this mod (native
--- vehicle spec) rather than routing through FS25_additionalInputs, which is only for extra keybinds.
+-- Handle a single received command. Parsing + execution live in the control that owns the command
+-- type (registered in VDT.CommandRegistry); poll() has already parsed the payload, so here we just
+-- supply the current vehicle and run it. Unknown types are handled (warned) in poll().
 function VDTelemetry:onCommand(cmd)
   self.debugger:debug("Received command id=%s type=%s", tostring(cmd.id), tostring(cmd.type))
 
@@ -349,19 +358,7 @@ function VDTelemetry:onCommand(cmd)
     return
   end
 
-  if cmd.type == "setLight" then
-    VDT.LightControl.setLight(vehicle, cmd.light, cmd.on, self.debugger)
-  elseif cmd.type == "setTurnLight" then
-    VDT.LightControl.setTurnLight(vehicle, cmd.state, self.debugger)
-  elseif cmd.type == "setLowered" then
-    VDT.ImplementControl.setLowered(vehicle, cmd.target, cmd.on, self.debugger)
-  elseif cmd.type == "setFolded" then
-    VDT.ImplementControl.setFolded(vehicle, cmd.target, cmd.on, self.debugger)
-  elseif cmd.type == "setActivated" then
-    VDT.ImplementControl.setActivated(vehicle, cmd.target, cmd.on, self.debugger)
-  else
-    self.debugger:warn("unknown command type: %s", tostring(cmd.type))
-  end
+  cmd.execute(vehicle, cmd.params, self.debugger)
 end
 
 -- Build the telemetry model from the collectors and write it as JSON (the mod's on-disk format).

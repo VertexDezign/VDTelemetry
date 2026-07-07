@@ -273,6 +273,17 @@ covering the three status buttons on the Engine panel (vehicle itself) and the I
 - **Verified:** `luac -p` clean, busted 28/28, `:shared:jvmTest` + `:server:compileKotlin` +
   `:app:compileKotlinWasmJs` green. *In-game verification pending.*
 
+**Command registry (2026-07-07): decouple the reader from command schemas.** `CommandChannel.poll`
+used to read the *union* of every command type's attributes and `onCommand` was a growing type-switch
+— two parallel edit points per new command. Introduced `src/command/CommandRegistry.lua`
+(`VDT.CommandRegistry`, `type -> { parse, execute }`). `poll` now reads only the envelope (`id`+`type`)
+and delegates the payload parse to the registered handler; `onCommand` just calls `cmd.execute(vehicle,
+cmd.params, debugger)`. Each control **self-registers** its command types next to its logic
+(`LightControl` → `setLight`/`setTurnLight`, `ImplementControl` → `setLowered`/`setFolded`/
+`setActivated`), so a new command type is a local change to its control — no edits to the reader or
+dispatch. Unknown types are warned + skipped in `poll` (watermark still advances). busted 29/29 (added
+an unknown-type case; poll tests now exercise the real registry). Wire format unchanged.
+
 **Remaining / follow-ups:**
 - **`setLightsTypesMask` on unsupported types:** first cut sets the bit unconditionally; if a vehicle
   lacks a work light the engine should ignore it, but consider guarding against the available mask.

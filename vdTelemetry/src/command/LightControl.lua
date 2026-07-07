@@ -97,3 +97,26 @@ function VDT.LightControl.setTurnLight(vehicle, state, debugger)
   vehicle:setTurnLightState(turnState)
   debugger:debug("setTurnLight state=%s", tostring(state))
 end
+
+-- Command handlers (see CommandRegistry): parse each light command off its XML element and run it.
+-- Kept next to the setters so a light command's schema lives with its logic, not in the reader.
+VDT.CommandRegistry.register("setLight", {
+  parse = function(xml, key)
+    return {
+      light = xml:getString(key .. "#light"),
+      on = xml:getBool(key .. "#on", false),
+    }
+  end,
+  execute = function(vehicle, params, debugger)
+    VDT.LightControl.setLight(vehicle, params.light, params.on, debugger)
+  end,
+})
+
+VDT.CommandRegistry.register("setTurnLight", {
+  parse = function(xml, key)
+    return { state = xml:getString(key .. "#state") }
+  end,
+  execute = function(vehicle, params, debugger)
+    VDT.LightControl.setTurnLight(vehicle, params.state, debugger)
+  end,
+})
