@@ -124,8 +124,8 @@ fun EngineTransmission(
         StatusIconButton(
           Icons.Filled.PowerSettingsNew,
           Modifier.weight(1f),
-          active = vehicle.isTurnedOn == true,
-          color = StatusColor.Green,
+          active = vehicle.isTurnedOn != null,
+          color = if (vehicle.isTurnedOn == true) StatusColor.Green else StatusColor.White,
           onClick =
             vehicle.isTurnedOn?.let {
               { onCommand(ClientMessage.SetActivated(ControlTarget.VEHICLE, on = !it)) }
@@ -134,8 +134,8 @@ fun EngineTransmission(
         StatusIconButton(
           if (vehicle.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
           Modifier.weight(1f),
-          active = vehicle.lowered == true,
-          color = StatusColor.Green,
+          active = vehicle.lowered != null,
+          color = if (vehicle.lowered == true) StatusColor.Green else StatusColor.White,
           onClick =
             vehicle.lowered?.let {
               { onCommand(ClientMessage.SetLowered(ControlTarget.VEHICLE, on = !it)) }

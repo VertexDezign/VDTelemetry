@@ -222,8 +222,8 @@ private fun ImplementColumn(
     )
     StatusIconButton(
       Icons.Filled.PowerSettingsNew,
-      active = imp?.isTurnedOn == true,
-      color = StatusColor.Green,
+      active = imp?.isTurnedOn != null,
+      color = if (imp?.isTurnedOn == true) StatusColor.Green else StatusColor.White,
       onClick =
         imp?.isTurnedOn?.let {
           { onCommand(ClientMessage.SetActivated(target, on = !it)) }
@@ -237,8 +237,8 @@ private fun ImplementColumn(
       } else {
         Icons.Filled.ArrowUpward
       },
-      active = imp?.lowered == true,
-      color = StatusColor.Green,
+      active = imp?.lowered != null,
+      color = if (imp?.lowered == true) StatusColor.Green else StatusColor.White,
       onClick =
         imp?.lowered?.let {
           { onCommand(ClientMessage.SetLowered(target, on = !it)) }
