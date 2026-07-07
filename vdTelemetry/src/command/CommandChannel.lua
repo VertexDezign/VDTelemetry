@@ -73,6 +73,8 @@ function VDT.CommandChannel.poll(filePath, lastCommandId, handler, debugger)
         on = xml:getBool(key .. "#on", false),
         -- setTurnLight: absolute turn-light state (off/left/right/hazard)
         state = xml:getString(key .. "#state"),
+        -- setLowered/setFolded/setActivated: what to act on (vehicle/front/back)
+        target = xml:getString(key .. "#target"),
       }
     end
   end)

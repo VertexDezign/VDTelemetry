@@ -48,6 +48,51 @@ sealed interface ClientMessage {
   data class SetTurnLight(
     val state: TurnLightState,
   ) : ClientMessage
+
+  /**
+   * Lower (`on = true`) or raise (`false`) the [target].
+   *
+   * Kept as three sibling command types (lower/fold/activate) rather than one action enum: they
+   * share the `target`+`on` shape today, but each is likely to grow its own parameters, and a
+   * separate type lets one evolve without disturbing the others.
+   */
+  @Serializable
+  @SerialName("setLowered")
+  data class SetLowered(
+    val target: ControlTarget,
+    val on: Boolean,
+  ) : ClientMessage
+
+  /** Fold (`on = true`, transport) or unfold (`false`, work) the [target]. */
+  @Serializable
+  @SerialName("setFolded")
+  data class SetFolded(
+    val target: ControlTarget,
+    val on: Boolean,
+  ) : ClientMessage
+
+  /** Turn the [target] on (`on = true`) or off — PTO / powered tools. */
+  @Serializable
+  @SerialName("setActivated")
+  data class SetActivated(
+    val target: ControlTarget,
+    val on: Boolean,
+  ) : ClientMessage
+}
+
+/**
+ * What a control command acts on. `vehicle` is the controlled vehicle itself (the mod calls its
+ * native setter directly); `front`/`back` are its attached implements, routed mod-side through
+ * FS25_additionalInputs' `vdAI…Front/Back` functions. [token] is the wire vocabulary (the `target=`
+ * attribute in `commands.xml`), kept explicit so the enum can be renamed without breaking it.
+ */
+@Serializable
+enum class ControlTarget(
+  val token: String,
+) {
+  VEHICLE("vehicle"),
+  FRONT("front"),
+  BACK("back"),
 }
 
 /**

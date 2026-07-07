@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SimpleGauge
@@ -36,7 +38,12 @@ import kotlin.math.roundToInt
 
 /** Engine / transmission panel: speed gauge, RPM, temps, cruise, and vehicle fill units. */
 @Composable
-fun EngineTransmission(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier = Modifier) {
+fun EngineTransmission(
+  vehicle: Vehicle,
+  sampleIntervalMs: Int,
+  modifier: Modifier = Modifier,
+  onCommand: (ClientMessage) -> Unit = {},
+) {
   Panel(title = "Engine and Transmission", icon = Icons.Filled.Agriculture, modifier = modifier) {
     val motor = vehicle.motor
     if (motor == null) {
@@ -99,6 +106,9 @@ fun EngineTransmission(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifi
         }
       }
 
+      // Vehicle self controls. Each button is only clickable when the vehicle actually has that
+      // aspect (foldable/turnOn/lowered present); the tap sends the ABSOLUTE target state, computed
+      // from what we render, so it stays idempotent over the lossy command channel (see ClientMessage).
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val foldable = vehicle.foldable
         StatusIconButton(
@@ -106,18 +116,30 @@ fun EngineTransmission(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifi
           modifier = Modifier.weight(1f),
           active = foldable != null,
           color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
+          onClick =
+            foldable?.let {
+              { onCommand(ClientMessage.SetFolded(ControlTarget.VEHICLE, on = it != FoldableState.EXTENDED)) }
+            },
         )
         StatusIconButton(
           Icons.Filled.PowerSettingsNew,
           Modifier.weight(1f),
           active = vehicle.isTurnedOn == true,
           color = StatusColor.Green,
+          onClick =
+            vehicle.isTurnedOn?.let {
+              { onCommand(ClientMessage.SetActivated(ControlTarget.VEHICLE, on = !it)) }
+            },
         )
         StatusIconButton(
           if (vehicle.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
           Modifier.weight(1f),
           active = vehicle.lowered == true,
           color = StatusColor.Green,
+          onClick =
+            vehicle.lowered?.let {
+              { onCommand(ClientMessage.SetLowered(ControlTarget.VEHICLE, on = !it)) }
+            },
         )
       }
 

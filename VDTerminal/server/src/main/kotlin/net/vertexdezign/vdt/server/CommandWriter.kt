@@ -67,6 +67,18 @@ class CommandWriter(
       is ClientMessage.SetTurnLight -> {
         """<command id="$id" type="setTurnLight" state="${message.state.token}"/>"""
       }
+
+      is ClientMessage.SetLowered -> {
+        """<command id="$id" type="setLowered" target="${message.target.token}" on="${message.on}"/>"""
+      }
+
+      is ClientMessage.SetFolded -> {
+        """<command id="$id" type="setFolded" target="${message.target.token}" on="${message.on}"/>"""
+      }
+
+      is ClientMessage.SetActivated -> {
+        """<command id="$id" type="setActivated" target="${message.target.token}" on="${message.on}"/>"""
+      }
     }
 
   private fun write() {

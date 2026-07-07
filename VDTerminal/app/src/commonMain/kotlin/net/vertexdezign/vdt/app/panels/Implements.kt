@@ -38,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.StatusColor
@@ -89,7 +91,7 @@ private fun mergeFillUnits(units: List<FillUnit>): List<FillUnit> {
 
 /** Implements panel with front/rear columns and a merged/separate fill-unit toggle. */
 @Composable
-fun Implements(vehicle: Vehicle, modifier: Modifier = Modifier) {
+fun Implements(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
   var merged by remember { mutableStateOf(false) }
   val front = findImplement(vehicle.implement, "FRONT")
   val back = findImplement(vehicle.implement, "BACK")
@@ -108,8 +110,14 @@ fun Implements(vehicle: Vehicle, modifier: Modifier = Modifier) {
     },
   ) {
     Row(Modifier.fillMaxHeight().fillMaxWidth()) {
-      ImplementColumn("Front", front, merged, left = true, modifier = Modifier.weight(1f))
-      ImplementColumn("Rear", back, merged, left = false, modifier = Modifier.weight(1f))
+      ImplementColumn(
+        "Front", front, merged, left = true, target = ControlTarget.FRONT,
+        onCommand = onCommand, modifier = Modifier.weight(1f),
+      )
+      ImplementColumn(
+        "Rear", back, merged, left = false, target = ControlTarget.BACK,
+        onCommand = onCommand, modifier = Modifier.weight(1f),
+      )
     }
   }
 }
@@ -120,6 +128,8 @@ private fun ImplementColumn(
   imp: Implement?,
   merged: Boolean,
   left: Boolean,
+  target: ControlTarget,
+  onCommand: (ClientMessage) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val attached = imp != null
@@ -189,20 +199,36 @@ private fun ImplementColumn(
       Icon(Icons.Filled.Build, null, tint = VdtColors.DarkGray, modifier = Modifier.height(14.dp))
       Text("${100 - damage}%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
     }
+    // Each control is clickable only when the implement has that aspect; the tap sends the ABSOLUTE
+    // target for this column's front/back position, computed from the rendered state (idempotent
+    // over the lossy command channel — see ClientMessage). Front/back are routed mod-side through
+    // FS25_additionalInputs.
     val foldable = imp?.foldable
     StatusIconButton(
       Icons.Filled.UnfoldMore,
       active = foldable != null,
       color =
-      if (foldable ==
-        FoldableState.EXTENDED
-      ) {
-        StatusColor.Green
-      } else {
-        StatusColor.White
-      },
+        if (foldable ==
+          FoldableState.EXTENDED
+        ) {
+          StatusColor.Green
+        } else {
+          StatusColor.White
+        },
+      onClick =
+        foldable?.let {
+          { onCommand(ClientMessage.SetFolded(target, on = it != FoldableState.EXTENDED)) }
+        },
     )
-    StatusIconButton(Icons.Filled.PowerSettingsNew, active = imp?.isTurnedOn == true, color = StatusColor.Green)
+    StatusIconButton(
+      Icons.Filled.PowerSettingsNew,
+      active = imp?.isTurnedOn == true,
+      color = StatusColor.Green,
+      onClick =
+        imp?.isTurnedOn?.let {
+          { onCommand(ClientMessage.SetActivated(target, on = !it)) }
+        },
+    )
     StatusIconButton(
       if (imp?.lowered ==
         true
@@ -213,6 +239,10 @@ private fun ImplementColumn(
       },
       active = imp?.lowered == true,
       color = StatusColor.Green,
+      onClick =
+        imp?.lowered?.let {
+          { onCommand(ClientMessage.SetLowered(target, on = !it)) }
+        },
     )
     if (attached) FillUnitsDisplay(fillUnits, Modifier.fillMaxWidth(), spacing = 4)
   }

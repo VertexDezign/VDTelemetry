@@ -40,6 +40,7 @@ local sourceFiles = {
   -- Command back-channel (app -> mod), read side; depends on Json above
   "src/command/CommandChannel.lua",
   "src/command/LightControl.lua",
+  "src/command/ImplementControl.lua",
   -- GUI: injects settings controls into the in-game menu
   "src/gui/SettingsFrame.lua",
 }
@@ -352,6 +353,12 @@ function VDTelemetry:onCommand(cmd)
     VDT.LightControl.setLight(vehicle, cmd.light, cmd.on, self.debugger)
   elseif cmd.type == "setTurnLight" then
     VDT.LightControl.setTurnLight(vehicle, cmd.state, self.debugger)
+  elseif cmd.type == "setLowered" then
+    VDT.ImplementControl.setLowered(vehicle, cmd.target, cmd.on, self.debugger)
+  elseif cmd.type == "setFolded" then
+    VDT.ImplementControl.setFolded(vehicle, cmd.target, cmd.on, self.debugger)
+  elseif cmd.type == "setActivated" then
+    VDT.ImplementControl.setActivated(vehicle, cmd.target, cmd.on, self.debugger)
   else
     self.debugger:warn("unknown command type: %s", tostring(cmd.type))
   end

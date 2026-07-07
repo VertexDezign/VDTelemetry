@@ -248,6 +248,31 @@ heartbeat is gone, the resolved-path + per-command lines demoted to `debug`, and
   read lands on a different frame than the write instead of both firing at once — spreads the
   per-frame cost. Latency stays ≈ one interval.
 
+**Implement / vehicle controls (2026-07-07): lower / fold / activate.** Second command family,
+covering the three status buttons on the Engine panel (vehicle itself) and the Implements panel
+(front/rear columns).
+- **Three command types**, not one action enum: `setLowered{target,on}`, `setFolded{target,on}`,
+  `setActivated{target,on}` — they share the `target`+`on` shape today but are likely to each grow
+  their own params, and separate types let one evolve without disturbing the others. `target ∈
+  vehicle|front|back` (`ControlTarget.token` in `shared/Protocol.kt`).
+- **One mod-side path** (`src/command/ImplementControl.lua`, `VDT.ImplementControl`): every target
+  routes through **FS25_additionalInputs** `vehicle:vdAI{Lower,Fold,Activate}{Vehicle,Front,Back}(on)`,
+  which owns the spec-aware logic (attacher-joint lowering, fold-to-middle, `requiresPower`). The mod
+  is just a table lookup + method call.
+  - *First cut hand-rolled the `target=vehicle` case* with native setters (`setLoweredAll` etc.) and
+    it broke on self-propelled foldables: the **Krone BigM** reports `lowered` via `Foldable:
+    getIsLowered` (the fold-to-**middle** state), not `Attachable`, so `setLoweredAll` (an `Attachable`
+    method) simply doesn't exist on it and the call no-oped. Per-spec reimplementation was the wrong
+    layer — additionalInputs already handles all of this — so the vehicle case became a third
+    position (`vdAI*Vehicle`) alongside front/back. **(additionalInputs must expose the three
+    `vdAI{Lower,Fold,Activate}Vehicle(on)` functions.)**
+- **App:** the existing (previously display-only) `StatusIconButton`s in `EngineTransmission.kt` and
+  `Implements.kt` gained `onClick`, wired only when the aspect is present (`foldable`/`lowered`/
+  `isTurnedOn` non-null). Same absolute-target computation as the lights (fold `on = state !=
+  FOLDED`, lower/activate `on = !current`).
+- **Verified:** `luac -p` clean, busted 28/28, `:shared:jvmTest` + `:server:compileKotlin` +
+  `:app:compileKotlinWasmJs` green. *In-game verification pending.*
+
 **Remaining / follow-ups:**
 - **`setLightsTypesMask` on unsupported types:** first cut sets the bit unconditionally; if a vehicle
   lacks a work light the engine should ignore it, but consider guarding against the available mask.

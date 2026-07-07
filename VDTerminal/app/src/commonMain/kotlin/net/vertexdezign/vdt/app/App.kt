@@ -107,8 +107,8 @@ private fun Dashboard(
         Cell(Modifier.weight(1f)) {
           MapPanel(mapUrl, data.environment?.pda, vehicle.gps?.heading ?: 0, sampleIntervalMs, settings)
         }
-        Cell(Modifier.weight(1f)) { EngineTransmission(vehicle, sampleIntervalMs) }
-        Cell(Modifier.weight(1f)) { Implements(vehicle) }
+        Cell(Modifier.weight(1f)) { EngineTransmission(vehicle, sampleIntervalMs, onCommand = onCommand) }
+        Cell(Modifier.weight(1f)) { Implements(vehicle, onCommand = onCommand) }
       }
       Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Cell(Modifier.weight(1f)) { Lighting(vehicle, onCommand = onCommand) }
