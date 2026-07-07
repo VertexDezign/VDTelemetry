@@ -111,12 +111,22 @@ fun Implements(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (Clie
   ) {
     Row(Modifier.fillMaxHeight().fillMaxWidth()) {
       ImplementColumn(
-        "Front", front, merged, left = true, target = ControlTarget.FRONT,
-        onCommand = onCommand, modifier = Modifier.weight(1f),
+        "Front",
+        front,
+        merged,
+        left = true,
+        target = ControlTarget.FRONT,
+        onCommand = onCommand,
+        modifier = Modifier.weight(1f),
       )
       ImplementColumn(
-        "Rear", back, merged, left = false, target = ControlTarget.BACK,
-        onCommand = onCommand, modifier = Modifier.weight(1f),
+        "Rear",
+        back,
+        merged,
+        left = false,
+        target = ControlTarget.BACK,
+        onCommand = onCommand,
+        modifier = Modifier.weight(1f),
       )
     }
   }
@@ -208,26 +218,26 @@ private fun ImplementColumn(
       Icons.Filled.UnfoldMore,
       active = foldable != null,
       color =
-        if (foldable ==
-          FoldableState.EXTENDED
-        ) {
-          StatusColor.Green
-        } else {
-          StatusColor.White
-        },
+      if (foldable ==
+        FoldableState.EXTENDED
+      ) {
+        StatusColor.Green
+      } else {
+        StatusColor.White
+      },
       onClick =
-        foldable?.let {
-          { onCommand(ClientMessage.SetFolded(target, on = it != FoldableState.EXTENDED)) }
-        },
+      foldable?.let {
+        { onCommand(ClientMessage.SetFolded(target, on = it != FoldableState.EXTENDED)) }
+      },
     )
     StatusIconButton(
       Icons.Filled.PowerSettingsNew,
       active = imp?.isTurnedOn != null,
       color = if (imp?.isTurnedOn == true) StatusColor.Green else StatusColor.White,
       onClick =
-        imp?.isTurnedOn?.let {
-          { onCommand(ClientMessage.SetActivated(target, on = !it)) }
-        },
+      imp?.isTurnedOn?.let {
+        { onCommand(ClientMessage.SetActivated(target, on = !it)) }
+      },
     )
     StatusIconButton(
       if (imp?.lowered ==
@@ -240,9 +250,9 @@ private fun ImplementColumn(
       active = imp?.lowered != null,
       color = if (imp?.lowered == true) StatusColor.Green else StatusColor.White,
       onClick =
-        imp?.lowered?.let {
-          { onCommand(ClientMessage.SetLowered(target, on = !it)) }
-        },
+      imp?.lowered?.let {
+        { onCommand(ClientMessage.SetLowered(target, on = !it)) }
+      },
     )
     if (attached) FillUnitsDisplay(fillUnits, Modifier.fillMaxWidth(), spacing = 4)
   }

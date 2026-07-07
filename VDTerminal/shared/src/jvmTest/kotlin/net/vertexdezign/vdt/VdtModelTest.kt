@@ -185,7 +185,13 @@ class VdtModelTest {
       """{"version":"1","vehicle":{"fillUnits":{"fillUnit":""" +
         """[{"value":0,"fillLevelPercentage":0,"capacity":null,"unit":""}]}}}"""
     val data = VdtParser.parseJson(text)
-    val unit = assertNotNull(data.vehicle?.fillUnits?.fillUnit?.singleOrNull())
+    val unit =
+      assertNotNull(
+        data.vehicle
+          ?.fillUnits
+          ?.fillUnit
+          ?.singleOrNull(),
+      )
     assertEquals(0, unit.capacity)
   }
 

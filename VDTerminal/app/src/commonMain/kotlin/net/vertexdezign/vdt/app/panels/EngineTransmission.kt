@@ -117,9 +117,9 @@ fun EngineTransmission(
           active = foldable != null,
           color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
           onClick =
-            foldable?.let {
-              { onCommand(ClientMessage.SetFolded(ControlTarget.VEHICLE, on = it != FoldableState.EXTENDED)) }
-            },
+          foldable?.let {
+            { onCommand(ClientMessage.SetFolded(ControlTarget.VEHICLE, on = it != FoldableState.EXTENDED)) }
+          },
         )
         StatusIconButton(
           Icons.Filled.PowerSettingsNew,
@@ -127,9 +127,9 @@ fun EngineTransmission(
           active = vehicle.isTurnedOn != null,
           color = if (vehicle.isTurnedOn == true) StatusColor.Green else StatusColor.White,
           onClick =
-            vehicle.isTurnedOn?.let {
-              { onCommand(ClientMessage.SetActivated(ControlTarget.VEHICLE, on = !it)) }
-            },
+          vehicle.isTurnedOn?.let {
+            { onCommand(ClientMessage.SetActivated(ControlTarget.VEHICLE, on = !it)) }
+          },
         )
         StatusIconButton(
           if (vehicle.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
@@ -137,9 +137,9 @@ fun EngineTransmission(
           active = vehicle.lowered != null,
           color = if (vehicle.lowered == true) StatusColor.Green else StatusColor.White,
           onClick =
-            vehicle.lowered?.let {
-              { onCommand(ClientMessage.SetLowered(ControlTarget.VEHICLE, on = !it)) }
-            },
+          vehicle.lowered?.let {
+            { onCommand(ClientMessage.SetLowered(ControlTarget.VEHICLE, on = !it)) }
+          },
         )
       }
 
