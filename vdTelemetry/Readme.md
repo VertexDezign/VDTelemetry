@@ -26,6 +26,33 @@ Windows: `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\modSettings\FS25
 The shape of the written json is defined by the shared Kotlin model
 (`VDTerminal/shared/.../Model.kt`); see `examples/json/` for sample outputs.
 
+### Linux: keep telemetry writes off the SSD (optional)
+
+The json is rewritten every interval (100 ms by default), so on Linux you can back the `telemetry/`
+subfolder with RAM (tmpfs) to avoid the constant SSD writes. Only the `telemetry/` folder needs this;
+the settings XML lives one level up and stays on disk, and the mod recreates the (empty) folder on
+every map load, so nothing needs to persist there.
+
+Mount tmpfs onto the folder via `/etc/fstab`. **The path contains a space (`My Games`), which must be
+escaped as `\040`** — fstab uses whitespace as its field separator, and quotes/backslash-space do not
+work. On Steam Proton the path is under `steamapps/compatdata/2300320/pfx/`; find it with:
+
+```bash
+find ~ -type d -path '*modSettings/FS25_vdTelemetry/telemetry' 2>/dev/null
+```
+
+Generate the escaped fstab line (avoids typos in the long path):
+
+```bash
+TDIR=$(find ~ -type d -path '*modSettings/FS25_vdTelemetry/telemetry' 2>/dev/null | head -1)
+printf 'tmpfs  %s  tmpfs  rw,size=16M,uid=%s,gid=%s,mode=0755,noatime  0  0\n' \
+  "${TDIR// /\\040}" "$(id -u)" "$(id -g)"
+```
+
+Add that line to `/etc/fstab`, then `sudo mount -a` (no error = valid fstab). Verify with
+`findmnt --target "<real path with a normal space>"` — it should show `tmpfs` as the source.
+16M is far more than enough; the json is a few KB.
+
 ## Configuration
 
 Export can be toggled and the write interval chosen directly in-game: **General Settings**.
