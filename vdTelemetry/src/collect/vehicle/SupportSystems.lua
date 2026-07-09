@@ -20,6 +20,11 @@ function VDT.SupportSystems.collectGps(vehicle)
     active = aiSSpec.steeringEnabled,
     heading = math.floor(ValueMapper.calculateHeading(vehicle)),
     headingUnit = "°",
+    -- Not vehicle state: whether AIAutomaticSteering draws its lines is a global client setting (the
+    -- one the game's own TOGGLE_AI_STEERING_LINES keybind flips). Reported here anyway because it is
+    -- only meaningful for a vehicle that has the spec -- i.e. exactly when this collector returns a
+    -- model at all. See VDT.GpsControl for the write side.
+    linesVisible = g_gameSettings:getValue(GameSettings.SETTING.STEERING_ASSIST_LINES) == true,
   }
 end
 

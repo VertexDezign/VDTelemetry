@@ -159,12 +159,18 @@ data class WorkLight(
 // GPS / AI / cruise control
 // ---------------------------------------------------------------------------
 
+/**
+ * [linesVisible] is the odd one out: the steering-assist guide lines are drawn from a *global* client
+ * setting, not from vehicle state. It rides here because it only means anything for a vehicle that
+ * has the steering spec — which is exactly when the mod emits a `gps` subtree at all.
+ */
 @Serializable
 data class Gps(
   val enabled: Boolean = false,
   val active: Boolean = false,
   val heading: Int = 0,
   val headingUnit: String = "",
+  val linesVisible: Boolean = false,
 )
 
 @Serializable

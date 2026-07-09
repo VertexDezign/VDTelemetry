@@ -97,6 +97,17 @@ sealed interface ClientMessage {
     val action: CruiseAction,
     val speed: Float? = null,
   ) : ClientMessage
+
+  /**
+   * Show (`on = true`) or hide the steering-assist guide lines. Alone among the commands this one
+   * targets a global client setting rather than the current vehicle, so the mod ignores which
+   * vehicle is being driven when it runs it.
+   */
+  @Serializable
+  @SerialName("setGpsLinesVisible")
+  data class SetGpsLinesVisible(
+    val on: Boolean,
+  ) : ClientMessage
 }
 
 /**

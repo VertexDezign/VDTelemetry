@@ -88,6 +88,10 @@ class CommandWriter(
         val speedAttr = message.speed?.let { " speed=\"$it\"" } ?: ""
         """<command id="$id" type="setCruiseControl" action="${message.action.token}"$speedAttr/>"""
       }
+
+      is ClientMessage.SetGpsLinesVisible -> {
+        """<command id="$id" type="setGpsLinesVisible" on="${message.on}"/>"""
+      }
     }
 
   private fun write() {

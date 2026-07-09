@@ -117,7 +117,7 @@ private fun Dashboard(
       }
     }
 
-    Footer(vehicle)
+    Footer(vehicle, onCommand = onCommand)
   }
 }
 

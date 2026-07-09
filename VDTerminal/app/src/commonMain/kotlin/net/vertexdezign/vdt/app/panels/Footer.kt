@@ -2,6 +2,7 @@ package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.SatelliteAlt
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.math.floor
@@ -45,7 +48,7 @@ private fun directionFromHeading(heading: Int): String {
 
 /** Bottom status bar. Port of the React `Footer`. */
 @Composable
-fun Footer(vehicle: Vehicle?, modifier: Modifier = Modifier) {
+fun Footer(vehicle: Vehicle?, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
   Row(
     modifier
       .fillMaxWidth()
@@ -72,10 +75,11 @@ fun Footer(vehicle: Vehicle?, modifier: Modifier = Modifier) {
       return@Row
     }
 
-    val gpsEnabled = vehicle.gps?.enabled ?: false
-    val gpsActive = vehicle.gps?.active ?: false
+    val gps = vehicle.gps
+    val gpsEnabled = gps?.enabled ?: false
+    val gpsActive = gps?.active ?: false
     val aiActive = vehicle.ai?.active ?: false
-    val heading = vehicle.gps?.heading ?: 0
+    val heading = gps?.heading ?: 0
     val fuelLevel =
       vehicle.motor
         ?.fillUnits
@@ -105,6 +109,25 @@ fun Footer(vehicle: Vehicle?, modifier: Modifier = Modifier) {
           tint = if (aiActive) GpsGreen else Gray500,
           modifier = Modifier.size(20.dp),
         )
+      }
+      // Only offered where it has an effect: no gps subtree means the vehicle has no steering spec,
+      // so it draws no guide lines to hide. The tap sends the ABSOLUTE target, like every other
+      // command (see ClientMessage) — never a toggle.
+      if (gps != null) {
+        Box(
+          Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .clickable { onCommand(ClientMessage.SetGpsLinesVisible(on = !gps.linesVisible)) },
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(
+            Icons.Filled.Timeline,
+            "Toggle steering assist lines",
+            tint = if (gps.linesVisible) GpsGreen else Gray700,
+            modifier = Modifier.size(24.dp),
+          )
+        }
       }
     }
     // Center
