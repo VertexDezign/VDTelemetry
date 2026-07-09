@@ -167,7 +167,7 @@ Note: `raw values vs presentation values` stays a *separate* decision — keep p
 
 ## Larger features
 
-### 4. Command back-channel (app → mod)
+### 4. Command back-channel (app → mod) — ✅ done
 
 Let the app send commands to the mod (toggle lights, set cruise speed, …).
 
@@ -311,28 +311,33 @@ an unknown-type case; poll tests now exercise the real registry). Wire format un
   ignores a light type the vehicle lacks. Cruise `setCruiseControlMaxSpeed` isn't extra-synced in MP —
   it's the driver's own target speed, so per-client is fine.
 
-- **Transport: a file, not a pipe.** Server writes `commands.json` (or `.xml`) into a `commands/`
-  subfolder of `modSettings/<modName>/` (sibling to the existing `telemetry/` folder); the mod
-  polls it in `update()`. See "Rejected approaches" for why not pipes. Note the mod can only
-  *delete* files under `modSettings/<modName>/`, but the server (native Linux) writes the command
-  file, so that constraint doesn't bite here.
-- **No duplicate execution:** each command carries a monotonic `id`; the mod tracks
-  `lastCommandId` and executes only ids greater than it. Tolerant of the server rewriting
-  the whole file; keep a small ring of recent commands so a missed poll doesn't drop
-  intermediate messages.
-- **Atomicity is the *server's* job:** losing a command is bad (unlike lossy telemetry), so
-  the server — native Linux, real `rename(2)` — writes temp + atomic rename. The mod side
-  (which lacks `os.rename`) doesn't need to write anything back.
-- **Mod-side reads:** guard with `fileExists` before `XMLFile.load`; poll on the same timer
-  cadence (command latency ≈ poll interval, fine for button presses). Execution flows
-  through the vehicle API / `FS25_additionalInputs` action events.
-- **Protocol:** mirrors the migration plan's `ClientMessage` sealed interface (app → server
-  over WS → server → `commands.xml` → mod).
-- **Constraint:** telemetry (and by symmetry command handling) is **client-side only** —
-  `exportEnabled` and `xmlFileLocation` are gated on `g_dedicatedServerInfo == nil`. The
-  file lives on the *client's* machine, not the dedicated server box.
+**Design (as built):**
 
-### 5. Migrate serialization XML → JSON
+- **Transport: a file, not a pipe.** The server writes `commands.xml` into a `commands/` subfolder of
+  `modSettings/<modName>/` (sibling to `telemetry/`); the mod polls it in `update()`. XML, not JSON:
+  the mod cannot *read* via `io` (see the sandbox finding above), so `XMLFile.load` is its only
+  reader. See "Rejected approaches" for why not pipes. The mod may only *delete* files under
+  `modSettings/<modName>/`, but the server (native Linux) is the writer, so that constraint doesn't
+  bite here.
+- **No duplicate execution:** each command carries a monotonic `id`; the mod tracks `lastCommandId`
+  and executes only ids greater than it, sorted by id. Tolerant of the server rewriting the whole
+  file; the server keeps a ring of 16 recent commands so a missed poll doesn't drop intermediate
+  messages.
+- **Atomicity is the *server's* job:** losing a command is bad (unlike lossy telemetry), so the
+  server — native Linux, real `rename(2)` — writes temp + atomic rename. The mod side (which lacks
+  `os.rename`) doesn't need to write anything back.
+- **Mod-side reads:** `XMLFile.loadIfExists` (nil for absent *or* torn files → skip, retry next
+  tick). Polled once per telemetry cycle at the **half-interval** mark, so the read lands on a
+  different frame than the write; command latency ≈ one interval, fine for button presses. Execution
+  flows through the vehicle API / `FS25_additionalInputs` action events, dispatched via
+  `CommandRegistry`.
+- **Protocol:** mirrors the migration plan's `ClientMessage` sealed interface (app → server over WS →
+  server → `commands.xml` → mod).
+- **Constraint:** telemetry (and by symmetry command handling) is **client-side only** — both
+  `jsonFileLocation` and `commandFileLocation` are set behind `isTelemetryAvailable()`. The files live
+  on the *client's* machine, not the dedicated server box.
+
+### 5. Migrate serialization XML → JSON — ✅ done
 
 - **What:** replace the on-disk XML with JSON on both sides.
 - **Why it fits:** the server already speaks JSON on the wire (`ServerMessage` via
@@ -349,8 +354,10 @@ an unknown-type case; poll tests now exercise the real registry). Wire format un
   - **Loses the XSD as the published contract.** Replace it with the shared Kotlin model +
     `examples/*` fixtures as the contract (the migration plan already leans this way). Update
     the example fixtures and parse tests accordingly.
-- **Sequencing:** independent of the latency work. Natural first step is to make any new
-  **fast/command channel JSON from day one**, then migrate the main document later.
+- **Sequencing:** independent of the latency work. (The original plan — make any new **fast/command
+  channel JSON from day one** — turned out to be impossible for the command channel: the mod can only
+  *write* via `io`, so its only reader is `XMLFile.load`. Telemetry is JSON, commands are XML. See
+  item 4.)
 
 ---
 

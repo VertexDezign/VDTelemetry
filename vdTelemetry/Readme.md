@@ -60,7 +60,13 @@ Both apply immediately and are saved back to the configuration file — disablin
 removes the stale `vdTelemetry.json` so consumers can tell it stopped.
 
 The mod keeps its files under `modSettings/FS25_vdTelemetry/` (next to your `mods` folder): the
-configuration file `vdTelemetrySettings.xml` at its root, and the telemetry json under `telemetry/`.
+configuration file `vdTelemetrySettings.xml` at its root, the telemetry json under `telemetry/`, and
+the command channel under `commands/`.
+
+`commands/commands.xml` is the back-channel: VDTerminal writes commands into it (toggle lights, start
+the engine, set cruise speed, …) and the mod polls it. It is XML rather than json because the mod can
+only *write* files via `io` — its sole file reader is the engine's `XMLFile.load`. The mod deletes any
+leftover `commands.xml` on load, so stale commands never fire at session start.
 
 ````xml
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
