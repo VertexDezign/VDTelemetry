@@ -143,7 +143,7 @@ function VDTelemetry:loadMap(filename)
         )
       )
       self.exportEnabled = false
-    elseif VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION < g_vdAdditionalInputs.MINOR_VERSION then
+    elseif VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION > g_vdAdditionalInputs.MINOR_VERSION then
       self.debugger:error(
         string.format(
           "FS25_additionalInputs with minimum minor version %s is required, but was %s",
