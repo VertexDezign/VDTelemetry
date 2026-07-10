@@ -54,7 +54,10 @@ end
 ---@param lastCommandId number highest command id already handled
 ---@param registry table command registry with get(type) -> { parse, execute } | nil
 ---@param handler fun(cmd: table) called once per new, known command (ascending by id) with
----  { id, type, params, execute }; params is what the control's parse() returned
+---  { id, type, params, execute, requiresVehicle }; params is what the control's parse() returned.
+---  requiresVehicle mirrors the handler's flag (default true): the dispatcher drops a command that
+---  needs a vehicle when there is none, but runs vehicle-independent ones (e.g. setGpsLinesVisible)
+---  even on foot.
 ---@param debugger GrisuDebug
 ---@return number newLastCommandId the highest id handled after this poll
 function VDT.CommandChannel.poll(filePath, lastCommandId, registry, handler, debugger)
@@ -90,7 +93,15 @@ function VDT.CommandChannel.poll(filePath, lastCommandId, registry, handler, deb
     else
       -- delegate payload parsing to the control that owns this type
       local params = cmdHandler.parse(xml, entry.key)
-      handler({ id = entry.id, type = entry.type, params = params, execute = cmdHandler.execute })
+      -- requiresVehicle defaults to true: only a handler that explicitly opts out (== false) runs
+      -- when there's no current vehicle.
+      handler({
+        id = entry.id,
+        type = entry.type,
+        params = params,
+        execute = cmdHandler.execute,
+        requiresVehicle = cmdHandler.requiresVehicle ~= false,
+      })
     end
     -- advance past every pending id, including unknown ones, so we don't re-warn each poll
     if entry.id > newLast then

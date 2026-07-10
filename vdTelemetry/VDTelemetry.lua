@@ -355,8 +355,11 @@ end
 function VDTelemetry:onCommand(cmd)
   self.debugger:debug("Received command id=%s type=%s", tostring(cmd.id), tostring(cmd.type))
 
+  -- Most commands drive the current vehicle and are meaningless on foot, so they're dropped when
+  -- there's none. A handler that targets global client state (e.g. setGpsLinesVisible) declares
+  -- requiresVehicle = false and runs regardless — the vehicle arg is simply nil for those.
   local vehicle = self.currentVehicle
-  if vehicle == nil then
+  if cmd.requiresVehicle and vehicle == nil then
     self.debugger:debug("no current vehicle; ignoring command %s", tostring(cmd.type))
     return
   end
