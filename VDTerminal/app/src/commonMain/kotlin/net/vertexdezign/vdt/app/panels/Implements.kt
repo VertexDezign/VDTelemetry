@@ -227,7 +227,7 @@ private fun ImplementColumn(
       },
       onClick =
       foldable?.let {
-        { onCommand(ClientMessage.SetFolded(target, on = it != FoldableState.EXTENDED)) }
+        { onCommand(ClientMessage.SetFolded(target, on = it == FoldableState.EXTENDED)) }
       },
     )
     StatusIconButton(

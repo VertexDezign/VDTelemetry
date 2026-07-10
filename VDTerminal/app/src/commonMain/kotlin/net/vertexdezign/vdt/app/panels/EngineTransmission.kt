@@ -170,7 +170,7 @@ fun EngineTransmission(
           color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
           onClick =
           foldable?.let {
-            { onCommand(ClientMessage.SetFolded(ControlTarget.VEHICLE, on = it != FoldableState.EXTENDED)) }
+            { onCommand(ClientMessage.SetFolded(ControlTarget.VEHICLE, on = it == FoldableState.EXTENDED)) }
           },
         )
         StatusIconButton(
