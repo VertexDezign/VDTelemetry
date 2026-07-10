@@ -271,7 +271,9 @@ private fun CruiseInput(
   var hadFocus by remember { mutableStateOf(false) }
   val focusRequester = remember { FocusRequester() }
 
-  fun commit() = text.toFloatOrNull()?.let(onCommit) ?: onCancel()
+  // A long digit string parses to Infinity rather than null, so screen for finiteness before
+  // committing — an out-of-range entry cancels the edit instead of building an invalid command.
+  fun commit() = text.toFloatOrNull()?.takeIf { it.isFinite() }?.let(onCommit) ?: onCancel()
 
   BasicTextField(
     value = text,

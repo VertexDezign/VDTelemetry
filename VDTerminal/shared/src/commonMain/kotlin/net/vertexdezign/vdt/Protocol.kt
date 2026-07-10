@@ -96,7 +96,16 @@ sealed interface ClientMessage {
   data class SetCruiseControl(
     val action: CruiseAction,
     val speed: Float? = null,
-  ) : ClientMessage
+  ) : ClientMessage {
+    init {
+      // A non-finite speed would serialize to `speed="Infinity"`/`"NaN"`, which the mod's Lua
+      // `tonumber` turns into `inf`/`nan` rather than nil — so its `speed == nil` guard misses it.
+      // The constructor also runs during kotlinx decode, so rejecting it here makes the bad state
+      // unrepresentable end to end: no client path can build one and no wire value (`1e400`) can
+      // decode into one, which is why the command writer doesn't have to screen for it.
+      require(speed == null || speed.isFinite()) { "cruise speed must be finite, was $speed" }
+    }
+  }
 
   /**
    * Show (`on = true`) or hide the steering-assist guide lines. Alone among the commands this one
