@@ -140,7 +140,7 @@ private fun Dashboard(
 
     when (page) {
       Page.Vehicle -> VehiclePage(data, mapUrl, settings, sampleIntervalMs, onCommand)
-      Page.Farm -> FarmPage(data, mapUrl, settings, sampleIntervalMs, taskList)
+      Page.Farm -> FarmPage(data, mapUrl, settings, sampleIntervalMs, taskList, onCommand)
     }
   }
 }
@@ -189,6 +189,7 @@ private fun ColumnScope.FarmPage(
   settings: Settings,
   sampleIntervalMs: Int,
   taskList: TaskListData?,
+  onCommand: (ClientMessage) -> Unit,
 ) {
   Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -198,7 +199,7 @@ private fun ColumnScope.FarmPage(
         MapPanel(mapUrl, data.environment?.pda, heading = 0, sampleIntervalMs, settings)
       }
       Column(Modifier.fillMaxHeight().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.fillMaxWidth().weight(1f)) { TaskListPanel(taskList) }
+        Box(Modifier.fillMaxWidth().weight(1f)) { TaskListPanel(taskList, onCommand = onCommand) }
         // CropRotation stays a placeholder: its planner data isn't reachable on a dedicated-server
         // client, so that channel needs a redesign (see farm-page-plan.md).
         Box(Modifier.fillMaxWidth().weight(1f)) { PlaceholderPanel("Crop Rotation", Icons.Filled.Agriculture) }

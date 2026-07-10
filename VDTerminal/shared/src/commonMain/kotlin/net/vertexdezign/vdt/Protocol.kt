@@ -40,9 +40,17 @@ sealed interface ServerMessage {
  * Messages sent client -> server over the WebSocket (app -> mod back-channel), JSON-encoded. The
  * server turns these into `<command>` entries in `commands.xml`, which the mod polls and executes.
  *
- * Commands carry an **absolute** target state, never a toggle: the file channel is lossy/async, so
- * an idempotent set-to-state is self-correcting where a dropped or doubled toggle would desync. The
- * app already knows the current state (it renders it), so a button tap computes the target itself.
+ * Most commands carry an **absolute** target state, never a toggle: the file channel is lossy/async,
+ * so an idempotent set-to-state is self-correcting where a dropped or doubled toggle would desync.
+ * The app already knows the current state (it renders it), so a button tap computes the target itself.
+ *
+ * The TaskList commands are the exception — a `createTask` / `completeTask` / `deleteTask` is an
+ * **action**, not a state you can restate idempotently. Redelivery there is *not* safe (a doubled
+ * `createTask` makes two tasks), so it must not be assumed. Safety instead comes from delivery being
+ * **at-most-once**: each command's monotonic `id` plus the mod's `lastCommandId` watermark runs an id
+ * at most once, and [net.vertexdezign.vdt.server.CommandWriter]'s session-reset (file gone → ids
+ * restart at 1, ring dropped) preserves that across restarts. So these carry no target-state and are
+ * never resent on their own.
  */
 @Serializable
 sealed interface ClientMessage {
@@ -129,7 +137,65 @@ sealed interface ClientMessage {
   data class SetGpsLinesVisible(
     val on: Boolean,
   ) : ClientMessage
+
+  // ---- FS25_TaskList write-back (farm page). All target the mod's own task state via its MP event
+  // wrappers, so they run with no current vehicle (requiresVehicle = false mod-side). ----
+
+  /** Mark the due (active) task `taskId` in `groupId` complete. */
+  @Serializable
+  @SerialName("completeTask")
+  data class CompleteTask(
+    val groupId: String,
+    val taskId: String,
+  ) : ClientMessage
+
+  /** Remove task `taskId` from `groupId` entirely. */
+  @Serializable
+  @SerialName("deleteTask")
+  data class DeleteTask(
+    val groupId: String,
+    val taskId: String,
+  ) : ClientMessage
+
+  /** Add a new Standard task to `groupId`. The mod generates the task id. */
+  @Serializable
+  @SerialName("createTask")
+  data class CreateTask(
+    val groupId: String,
+    val task: TaskInput,
+  ) : ClientMessage
+
+  /** Replace the existing task `taskId` in `groupId` with [task]'s values. */
+  @Serializable
+  @SerialName("editTask")
+  data class EditTask(
+    val groupId: String,
+    val taskId: String,
+    val task: TaskInput,
+  ) : ClientMessage
 }
+
+/**
+ * The user-facing fields of a Standard task, as entered in the app's create/edit form. The mod turns
+ * these into a `Task` the same way its own wizard does — resolving the internal `period` / `nextN`
+ * from [month] and the current game day — so only these intent values cross the wire (see
+ * `src/command/TaskListControl.lua`). Non-Standard (husbandry/production) tasks aren't editable here.
+ */
+@Serializable
+data class TaskInput(
+  /** Free-text label (the mod caps it at 45 chars). */
+  val detail: String = "",
+  /** 1-10; lower runs first. */
+  val priority: Int = 1,
+  /** 1-5. */
+  val effort: Int = 1,
+  /** Task.RECUR_MODE: 0 Once, 1 Monthly, 2 Daily, 3 Every N months, 4 Every N days. */
+  val recurMode: Int = 0,
+  /** The N for the every-N modes; ignored otherwise. */
+  val n: Int = 1,
+  /** Start month 1-12; used by Once / Monthly / Every N months (ignored by the daily modes). */
+  val month: Int = 1,
+)
 
 /**
  * A cruise-control action. [token] is the wire vocabulary (the `action=` attribute in

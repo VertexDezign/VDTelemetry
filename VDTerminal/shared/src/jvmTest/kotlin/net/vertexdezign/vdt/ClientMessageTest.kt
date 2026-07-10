@@ -32,6 +32,25 @@ class ClientMessageTest {
   }
 
   @Test
+  fun `task write commands round-trip through the wire`() {
+    val json = Json { encodeDefaults = true }
+    val messages =
+      listOf(
+        ClientMessage.CompleteTask("group-1", "task-1"),
+        ClientMessage.DeleteTask("group-1", "task-2"),
+        ClientMessage.CreateTask(
+          "group-1",
+          TaskInput(detail = "Plow", priority = 2, effort = 3, recurMode = 1, month = 5),
+        ),
+        ClientMessage.EditTask("group-1", "task-3", TaskInput(detail = "Sow", recurMode = 4, n = 2, month = 3)),
+      )
+    for (message in messages) {
+      val encoded = json.encodeToString(ClientMessage.serializer(), message)
+      assertEquals(message, json.decodeFromString(ClientMessage.serializer(), encoded))
+    }
+  }
+
+  @Test
   fun `decoding an overflowing speed fails instead of yielding infinity`() {
     // `1e400` is valid JSON but overflows Float to +Infinity. The decode has to run the init-block
     // require (a hostile client can't smuggle a non-finite speed through), so this must throw rather

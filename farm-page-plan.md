@@ -16,6 +16,11 @@ Progress (2026-07-10):
   [Open risks](#open-risks).
 - **Step 3** (channels + multi-file server + read-only TaskList) — done. CropRotation stays a
   farm-page placeholder pending a client-side read redesign (its planner data is server-only).
+- **Step 4** (TaskList write paths) — done. B2 (CommandWriter XML escaping) and B3 (Protocol
+  invariant restated for the non-idempotent task actions) landed; complete / delete / create / edit
+  wired app → command channel → the mod's own MP wrappers (`src/command/TaskListControl.lua`), with a
+  task create/edit form in the panel. CropRotation writes remain out of scope (read path still
+  blocked).
 
 ---
 
