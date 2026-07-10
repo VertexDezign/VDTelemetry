@@ -10,10 +10,10 @@ Progress (2026-07-10):
 - **Step 1** (`requiresVehicle`) — done.
 - **Step 2** (pages + navigation) — done.
 - **Dedicated-server MessageCenter — verified in-game** (temporary probe). **TaskList works**
-  (message fires client-side *and* `g_currentMission.taskList` is readable). **CropRotation's read
-  path is blocked**: on a dedicated-server client both `g_cropRotationPlanner` and `g_cropRotation`
-  are `nil` and `CROP_ROTATIONS_CHANGED` fires with no payload — see the CropRotation note below and
-  [Open risks](#open-risks).
+  (message fires client-side *and* `g_currentMission.taskList` is readable). **CropRotation is *not*
+  blocked after all** — the probe's `nil` was a misread of mod-environment isolation, not server-only
+  data; the planner is reachable client-side via `FS25_CropRotation.g_cropRotationPlanner` (source
+  re-diagnosis 2026-07-10). See the CropRotation note below and [Open risks](#open-risks).
 - **Step 3** (channels + multi-file server + read-only TaskList) — done. CropRotation stays a
   farm-page placeholder pending a client-side read redesign (its planner data is server-only).
 - **Step 4** (TaskList write paths) — done. B2 (CommandWriter XML escaping) and B3 (Protocol
@@ -147,8 +147,10 @@ alongside the existing `VDT.Integrations`. Each channel declares:
 `update()` writes any channel that is dirty. The existing telemetry file becomes the one channel
 that is dirty every tick.
 
-Both mods self-detect exactly like `integrations/EnhancedVehicle.lua` does
-(`g_currentMission.taskList ~= nil`, `g_cropRotationPlanner ~= nil`), so they belong in
+Both mods self-detect exactly like `integrations/EnhancedVehicle.lua` does — TaskList via the shared
+`g_currentMission.taskList ~= nil`, CropRotation via its **env global**
+`FS25_CropRotation ~= nil and FS25_CropRotation.g_cropRotationPlanner ~= nil` (the bare
+`g_cropRotationPlanner` is `nil` from our env; see the CropRotation note). They belong in
 `src/integrations/`, **not** `collect/`. If the mod isn't installed the file is never written, and
 **absence of the file is the app's "not installed" signal**.
 
@@ -214,29 +216,52 @@ but do a **full scan on first call**. Fine on an event-driven write; would not b
 
 ### CropRotation (`FS25_CropRotation`)
 
-> ⛔ **VERIFIED BLOCKED on a dedicated server (2026-07-10).** On the *client*, both
-> `g_cropRotationPlanner` and `g_cropRotation` are `nil` (the planner instance is server-only), and
-> `CROP_ROTATIONS_CHANGED` fires reliably on every planner click but carries **no arguments**
-> (`argc=0`). So the client gets a "something changed" pulse with no way to read the plans through
-> the documented globals or the message. The plan below assumes `g_cropRotationPlanner.cropRotations`
-> and therefore **does not work on a dedicated server** as written.
+> ✅ **NOT blocked — re-diagnosed 2026-07-10 from the mod source.** The earlier "blocked" call was a
+> misread. The probe checked the **bare** globals `g_cropRotationPlanner` / `g_cropRotation` and got
+> `nil`, but those aren't server-only — they're globals in **FS25_CropRotation's own Lua
+> environment**, not the shared `_G`. This is the exact mod-environment isolation that hid
+> `FS25_TaskList.Task` (see the TaskList write-path fix). Both are created on the client too
+> (`g_cropRotationPlanner = CropRotationPlanner.new()` runs on load, both sides —
+> `CropRotationPlanner.lua:225`), and are reachable from our mod as
+> **`FS25_CropRotation.g_cropRotationPlanner`** and **`FS25_CropRotation.g_cropRotation`**.
 >
-> The planner GUI *does* render the plans, so the client holds the data somewhere — most likely
-> inside the planner GUI frame, or fetched via a request/response event when the screen opens.
-> Finding that handle needs the mod's own source (planner class + `SyncCropRotationPlannerEvent` +
-> the GUI frame), not more black-box probing. Writes (`CropRotationEntryEvent:sendOrBroadcastEvent()`)
-> are a client-fireable broadcast and likely still work, but an editor must read current plans to
-> display them — so the read is the blocker. **CropRotation (Step 4) needs a redesign; TaskList is
-> unaffected and proceeds in Step 3.**
+> The client's data is populated and stays live:
+> - **Initial:** `SyncCropRotationPlannerEvent:readStream` sets `g_cropRotationPlanner.cropRotations`
+>   on the client — its `connection:getIsServer()` guard is true for a normal client
+>   (`SyncCropRotationPlannerEvent.lua:43-46`).
+> - **On edits:** the broadcast `CropRotationEntryEvent:run` (invoked from `readStream` on the client)
+>   updates the client's `cropRotations` **and** publishes `CROP_ROTATIONS_CHANGED`
+>   (`CropRotationEntryEvent.lua:80-92` → `CropRotationPlanner:updateCropRotation` /
+>   `:addDeleteCropRotations`). So the message fires *after* the data is current — the same
+>   collect-on-message pattern TaskList uses. The `argc=0` the probe saw is fine; we re-read the
+>   planner rather than reading message args.
+>
+> The GUI frame (`InGameMenuCropRotationPlanner.lua:94-118`) reads exactly these globals and renders
+> on the client — proof they're populated there. **So CropRotation is implementable the same way as
+> TaskList** (env-global read + subscribe to `CROP_ROTATIONS_CHANGED` + `collect()`), with writes
+> driving the mod's own wrappers. Verify the env-global handle in-game before building (as we did for
+> TaskList), and note it keys off the exact mod name `FS25_CropRotation`.
 
-Globals: `g_cropRotation`, `g_cropRotationPlanner`. Note the `CropRotationPlanner` *class* is
-file-local — only the instance is reachable.
+The `CropRotationPlanner` *class* is file-local, but the **instance** is `g_cropRotationPlanner`
+(reachable as `FS25_CropRotation.g_cropRotationPlanner`); likewise `FS25_CropRotation.g_cropRotation`.
 
-- **Read:** `g_cropRotationPlanner.cropRotations` — a list of
-  `{ name, farmId, index, rotations = [{ state, yieldValue, catchCropState }] }`. Crop `state`s are
-  fruit-type indices; resolve for display via `g_cropRotation:cropByFruitTypeIndex(state)`.
-- **Write:** the global `CropRotationEntryEvent`:
-  `CropRotationEntryEvent.new(farmId, name, rotations, index, isUpdate, shouldDelete):sendOrBroadcastEvent()`.
+- **Read:** `FS25_CropRotation.g_cropRotationPlanner.cropRotations` — a list of
+  `{ name, farmId, index, rotations = [{ state, catchCropState, yieldValue }] }`. `state` /
+  `catchCropState` are fruit-type indices (**0 = fallow / no catch crop**). Resolve display names via
+  `FS25_CropRotation.g_cropRotation:getPossibleCropStates()` and `:getPossibleCatchCropStates()` —
+  each a list of `{ cropIndex, name }` built on the client in `onLoadMapFinished`
+  (`CropRotation.lua:389-433`), and they include the special 0 states with i18n labels. Prefer these
+  over `cropByFruitTypeIndex(state)`, which returns `nil` for fallow and a crop object rather than a
+  display name.
+- **Write:** drive the planner's own wrappers on `FS25_CropRotation.g_cropRotationPlanner` — they run
+  in the mod's env (so `CropRotationEntryEvent` and `g_cropRotation` resolve) and each does the
+  MP-correct `sendOrBroadcastEvent`, exactly like the TaskList wrappers:
+  `:addCropRotation(name, farmId)`, `:removeCropRotation(cr)`,
+  `:addCropRotationSelection(cr)` / `:removeCropRotationSelection(cr)` (append / drop a rotation slot),
+  `:updateCropSelection(cr, rotationIndex, cropIndex)`,
+  `:updateCatchCropSelection(cr, rotationIndex, catchCropIndex)`. Get `cr` via
+  `planner:getCropRotationWithIndex(index)`. (The raw global `CropRotationEntryEvent` is still there
+  as a lower-level fallback.)
 
 ⚠️ **Landmine.** `MessageTypeExtension.lua` sets `MessageType.CROP_ROTATIONS_CHANGED` by *counting*
 existing `MessageType` entries rather than calling `nextMessageTypeId()`, so it never **reserves**
@@ -300,8 +325,15 @@ Escaping and create-dedup land together here.
 - **MessageCenter on a dedicated-server client.** ✅ **Verified 2026-07-10** (temporary probe on the
   client). **TaskList:** both `ACTIVE_TASKS_UPDATED` and `TASK_GROUPS_UPDATED` fire client-side and
   `g_currentMission.taskList` is fully readable — Step 3 is safe. **CropRotation:**
-  `CROP_ROTATIONS_CHANGED` fires client-side but the data globals are `nil` and the message is empty
-  — read path blocked (see the CropRotation note above).
+  `CROP_ROTATIONS_CHANGED` fires client-side; the data globals only *looked* empty because they live
+  in the mod's own environment — reachable via `FS25_CropRotation.g_cropRotationPlanner` (see the
+  re-diagnosis in the CropRotation note above). Not a blocker; confirm the env-global handle in-game
+  before building, same as we did for TaskList.
+- **Mod-environment isolation.** FS25 gives each mod its own Lua env, so a third-party mod's *class*
+  and `g_*` singletons (`FS25_TaskList.Task`, `FS25_CropRotation.g_cropRotationPlanner`) are **not**
+  reachable as bare globals from our mod — only shared engine tables (`g_currentMission`,
+  `MessageType`) and instances hung off them are. Reach a mod's own globals through the env global
+  named after the mod. This is what caused both the createTask crash and the CropRotation misread.
 - **Mod version drift.** Both integrations read third-party internals. Pin the versions this was
   written against (CropRotation `1.0.1.0`) and fail soft — a missing field must not throw in the
   collector.
