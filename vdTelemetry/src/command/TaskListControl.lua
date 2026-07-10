@@ -20,34 +20,78 @@ local function taskList()
   return g_currentMission ~= nil and g_currentMission.taskList or nil
 end
 
+-- The mod's convertMonthNumberToPeriod, inlined: it lives in FS25_TaskList's Lua environment (the
+-- TaskListUtils global), which the engine does not share with ours. It's a fixed -2 (wrap 12) offset
+-- with no game state (period 1 = March), so we replicate it rather than reach for the unreachable.
+local function monthToPeriod(month)
+  month = month - 2
+  if month <= 0 then
+    month = month + 12
+  end
+  return month
+end
+
+-- Recover FS25_TaskList's `Task` class. Its `Task = {}` global lives in *that mod's* environment, not
+-- shared with ours, so `Task.new()` isn't reachable directly — only the taskList *instance* on the
+-- (shared) g_currentMission is. But every existing task instance carries the class on its metatable
+-- (Class(Task) => getmetatable(task).__index == Task), so we borrow it from any task that exists.
+-- Returns nil only when no task exists anywhere yet — the single case create/edit can't cover (the
+-- user adds a first task in-game, which also seeds the class for us).
+local function resolveTaskClass()
+  local tl = taskList()
+  if tl == nil then
+    return nil
+  end
+  for _, group in pairs(tl.taskGroups or {}) do
+    for _, task in pairs(group.tasks or {}) do
+      local mt = getmetatable(task)
+      if type(mt) == "table" then
+        local class = mt.__index or mt
+        if type(class) == "table" and type(class.new) == "function" then
+          return class
+        end
+      end
+    end
+  end
+  return nil
+end
+
 -- Build a Standard Task from the command params, mirroring ManageTasksFrame's period / nextN rules.
--- Exposed for unit testing (the period / nextN logic is the fiddly part); stub Task / TaskListUtils /
--- g_currentMission to exercise it offline.
+-- Returns nil when the Task class can't be recovered (no existing task to borrow it from). Exposed for
+-- unit testing: stub g_currentMission.taskList with a task whose metatable.__index is a Task-like
+-- table (TASK_TYPE / RECUR_MODE / new) to exercise it offline.
 ---@param taskId string|nil existing id for an edit, or nil to let the mod generate one for a create
 ---@param params table { detail, priority, effort, recurMode, n, month }
+---@return table|nil
 function VDT.TaskListControl.buildStandardTask(taskId, params)
-  local task = Task.new()
+  local TaskClass = resolveTaskClass()
+  if TaskClass == nil then
+    return nil
+  end
+  local recur = TaskClass.RECUR_MODE
+
+  local task = TaskClass.new()
   if taskId ~= nil then
     task.id = taskId
   end
-  task.type = Task.TASK_TYPE.Standard
+  task.type = TaskClass.TASK_TYPE.Standard
   task.detail = params.detail or ""
   task.priority = params.priority or 1
   task.effort = params.effort or 1
 
-  local recurMode = params.recurMode or Task.RECUR_MODE.NONE
+  local recurMode = params.recurMode or recur.NONE
   task.recurMode = recurMode
-  task.shouldRecur = recurMode ~= Task.RECUR_MODE.NONE
+  task.shouldRecur = recurMode ~= recur.NONE
   task.n = 0
   task.nextN = 0
   local month = params.month or 1
 
-  if recurMode == Task.RECUR_MODE.NONE or recurMode == Task.RECUR_MODE.MONTHLY then
-    task.period = TaskListUtils.convertMonthNumberToPeriod(month)
-  elseif recurMode == Task.RECUR_MODE.EVERY_N_MONTHS then
+  if recurMode == recur.NONE or recurMode == recur.MONTHLY then
+    task.period = monthToPeriod(month)
+  elseif recurMode == recur.EVERY_N_MONTHS then
     task.n = params.n or 1
-    task.nextN = TaskListUtils.convertMonthNumberToPeriod(month) -- start period
-  elseif recurMode == Task.RECUR_MODE.EVERY_N_DAYS then
+    task.nextN = monthToPeriod(month) -- start period
+  elseif recurMode == recur.EVERY_N_DAYS then
     task.n = params.n or 1
     task.nextN = g_currentMission.environment.currentDay
   end
@@ -111,7 +155,12 @@ VDT.CommandRegistry.register("createTask", {
       debugger:warn("createTask: TaskList not available")
       return
     end
-    tl:addTask(params.groupId, VDT.TaskListControl.buildStandardTask(nil, params), false)
+    local task = VDT.TaskListControl.buildStandardTask(nil, params)
+    if task == nil then
+      debugger:warn("createTask: no existing task to derive the Task class from; add one in-game first")
+      return
+    end
+    tl:addTask(params.groupId, task, false)
     debugger:debug("createTask in %s", tostring(params.groupId))
   end,
 })
@@ -125,7 +174,12 @@ VDT.CommandRegistry.register("editTask", {
       debugger:warn("editTask: TaskList not available")
       return
     end
-    tl:addTask(params.groupId, VDT.TaskListControl.buildStandardTask(params.taskId, params), true)
+    local task = VDT.TaskListControl.buildStandardTask(params.taskId, params)
+    if task == nil then
+      debugger:warn("editTask: no existing task to derive the Task class from")
+      return
+    end
+    tl:addTask(params.groupId, task, true)
     debugger:debug("editTask %s/%s", tostring(params.groupId), tostring(params.taskId))
   end,
 })

@@ -2,34 +2,36 @@
 --
 -- Run with `busted` from the vdTelemetry/ directory. The control self-registers its command types
 -- into VDT.CommandRegistry at load, so we load CommandRegistry first (only if not already loaded, so
--- we don't reset a registry another spec populated). buildStandardTask reads the FS25_TaskList globals
--- Task / TaskListUtils and g_currentMission, which don't exist off-engine, so we stub them.
+-- we don't reset a registry another spec populated).
+--
+-- buildStandardTask can't reach FS25_TaskList's `Task` global (it lives in that mod's environment),
+-- so it recovers the class from an existing task instance's metatable. We reproduce that: a stubbed
+-- g_currentMission.taskList holds one task whose metatable.__index is a Task-like class table.
 
 if VDT == nil or VDT.CommandRegistry == nil then
   dofile("src/command/CommandRegistry.lua")
 end
 dofile("src/command/TaskListControl.lua")
 
--- RECUR_MODE mirrors the mod's Task.lua; the real convertMonthNumberToPeriod is a fixed -2 (wrap 12)
--- offset with no game state, so we replicate it exactly.
-local function installTaskListGlobals(currentDay)
-  rawset(_G, "Task", {
+-- Task-like class: the constants buildStandardTask reads plus a new() that returns a defaulted task.
+local function stubTaskClass()
+  return {
     TASK_TYPE = { Standard = 1 },
     RECUR_MODE = { NONE = 0, MONTHLY = 1, DAILY = 2, EVERY_N_MONTHS = 3, EVERY_N_DAYS = 4 },
     new = function()
       return { id = "generated-id", period = 1 }
     end,
+  }
+end
+
+-- Install g_currentMission with one existing task so resolveTaskClass can borrow the class off its
+-- metatable, exactly as it does in-game.
+local function installTaskList(currentDay)
+  local sampleTask = setmetatable({}, { __index = stubTaskClass() })
+  rawset(_G, "g_currentMission", {
+    taskList = { taskGroups = { seed = { tasks = { sampleTask } } } },
+    environment = { currentDay = currentDay or 100 },
   })
-  rawset(_G, "TaskListUtils", {
-    convertMonthNumberToPeriod = function(month)
-      month = month - 2
-      if month <= 0 then
-        month = month + 12
-      end
-      return month
-    end,
-  })
-  rawset(_G, "g_currentMission", { environment = { currentDay = currentDay or 100 } })
 end
 
 local build = function(taskId, params)
@@ -48,7 +50,7 @@ end)
 
 describe("TaskListControl.buildStandardTask", function()
   before_each(function()
-    installTaskListGlobals(100)
+    installTaskList(100)
   end)
 
   it("carries the common fields and marks a once task non-recurring", function()
@@ -92,7 +94,7 @@ describe("TaskListControl.buildStandardTask", function()
   end)
 
   it("seeds nextN from the current day for every-N-days", function()
-    installTaskListGlobals(137)
+    installTaskList(137)
     local task = build(nil, { recurMode = 4, n = 3, month = 5 })
     assert.are.equal(3, task.n)
     assert.are.equal(137, task.nextN)
