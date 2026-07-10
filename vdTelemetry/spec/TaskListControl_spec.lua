@@ -48,8 +48,9 @@ describe("TaskListControl command registration", function()
   end)
 end)
 
-describe("TaskListControl.buildStandardTask", function()
+describe("TaskListControl.buildStandardTask (metatable fallback)", function()
   before_each(function()
+    rawset(_G, "FS25_TaskList", nil) -- exercise the fallback: recover the class off a task metatable
     installTaskList(100)
   end)
 
@@ -98,5 +99,19 @@ describe("TaskListControl.buildStandardTask", function()
     local task = build(nil, { recurMode = 4, n = 3, month = 5 })
     assert.are.equal(3, task.n)
     assert.are.equal(137, task.nextN)
+  end)
+end)
+
+describe("TaskListControl.buildStandardTask (mod env global)", function()
+  it("resolves Task from FS25_TaskList.Task even with no existing task", function()
+    -- The primary path: FS25 exposes the mod's environment as a global, so the class is reachable
+    -- before any task exists. No taskList / task instance is set here.
+    rawset(_G, "FS25_TaskList", { Task = stubTaskClass() })
+    rawset(_G, "g_currentMission", { environment = { currentDay = 100 } })
+
+    local task = build(nil, { detail = "First task", recurMode = 0, month = 4 })
+    assert.is_not_nil(task)
+    assert.are.equal("First task", task.detail)
+    assert.are.equal(2, task.period) -- month 4 -> period 2
   end)
 end)

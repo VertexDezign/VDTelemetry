@@ -31,13 +31,19 @@ local function monthToPeriod(month)
   return month
 end
 
--- Recover FS25_TaskList's `Task` class. Its `Task = {}` global lives in *that mod's* environment, not
--- shared with ours, so `Task.new()` isn't reachable directly — only the taskList *instance* on the
--- (shared) g_currentMission is. But every existing task instance carries the class on its metatable
--- (Class(Task) => getmetatable(task).__index == Task), so we borrow it from any task that exists.
--- Returns nil only when no task exists anywhere yet — the single case create/edit can't cover (the
--- user adds a first task in-game, which also seeds the class for us).
+-- Recover FS25_TaskList's `Task` class. Its `Task = {}` global lives in *that mod's* Lua environment,
+-- not shared with ours, so `Task.new()` isn't reachable directly. FS25 exposes each mod's environment
+-- as a global named after the mod, though, so FS25_TaskList.Task reaches it — and works even before
+-- any task exists. As a fallback (mod installed under a non-standard global name) we borrow the class
+-- off an existing task instance's metatable (Class(Task) => getmetatable(task).__index == Task).
+local function isTaskClass(class)
+  return type(class) == "table" and type(class.new) == "function" and type(class.TASK_TYPE) == "table"
+end
+
 local function resolveTaskClass()
+  if type(FS25_TaskList) == "table" and isTaskClass(FS25_TaskList.Task) then
+    return FS25_TaskList.Task
+  end
   local tl = taskList()
   if tl == nil then
     return nil
@@ -47,7 +53,7 @@ local function resolveTaskClass()
       local mt = getmetatable(task)
       if type(mt) == "table" then
         local class = mt.__index or mt
-        if type(class) == "table" and type(class.new) == "function" then
+        if isTaskClass(class) then
           return class
         end
       end
@@ -57,9 +63,9 @@ local function resolveTaskClass()
 end
 
 -- Build a Standard Task from the command params, mirroring ManageTasksFrame's period / nextN rules.
--- Returns nil when the Task class can't be recovered (no existing task to borrow it from). Exposed for
--- unit testing: stub g_currentMission.taskList with a task whose metatable.__index is a Task-like
--- table (TASK_TYPE / RECUR_MODE / new) to exercise it offline.
+-- Returns nil only when the Task class can't be recovered at all (see resolveTaskClass). Exposed for
+-- unit testing: set FS25_TaskList.Task, or stub g_currentMission.taskList with a task whose
+-- metatable.__index is a Task-like table (TASK_TYPE / RECUR_MODE / new), to exercise it offline.
 ---@param taskId string|nil existing id for an edit, or nil to let the mod generate one for a create
 ---@param params table { detail, priority, effort, recurMode, n, month }
 ---@return table|nil
@@ -157,7 +163,7 @@ VDT.CommandRegistry.register("createTask", {
     end
     local task = VDT.TaskListControl.buildStandardTask(nil, params)
     if task == nil then
-      debugger:warn("createTask: no existing task to derive the Task class from; add one in-game first")
+      debugger:warn("createTask: could not resolve the FS25_TaskList Task class")
       return
     end
     tl:addTask(params.groupId, task, false)
@@ -176,7 +182,7 @@ VDT.CommandRegistry.register("editTask", {
     end
     local task = VDT.TaskListControl.buildStandardTask(params.taskId, params)
     if task == nil then
-      debugger:warn("editTask: no existing task to derive the Task class from")
+      debugger:warn("editTask: could not resolve the FS25_TaskList Task class")
       return
     end
     tl:addTask(params.groupId, task, true)
