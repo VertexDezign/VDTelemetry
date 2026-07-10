@@ -1,6 +1,8 @@
 package net.vertexdezign.vdt.app.panels
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,8 +11,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -99,20 +104,9 @@ fun TaskFormDialog(title: String, initial: TaskInput, onSave: (TaskInput) -> Uni
         )
         Stepper("Priority", priority, 1..10) { priority = it }
         Stepper("Effort", effort, 1..5) { effort = it }
-        Stepper("Repeat", recurMode, 0..4, display = { RECUR_LABELS[it] }) { recurMode = it }
+        DropdownField("Repeat", RECUR_LABELS, recurMode) { recurMode = it }
         if (usesMonth(recurMode)) {
-          Stepper(
-            if (recurMode ==
-              3
-            ) {
-              "Start month"
-            } else {
-              "Month"
-            },
-            month,
-            1..12,
-            display = { MONTHS[it - 1] },
-          ) { month = it }
+          DropdownField(if (recurMode == 3) "Start month" else "Month", MONTHS, month - 1) { month = it + 1 }
         }
         if (usesN(recurMode)) {
           Stepper(if (recurMode == 3) "Every N months" else "Every N days", n, 1..12) { n = it }
@@ -120,6 +114,41 @@ fun TaskFormDialog(title: String, initial: TaskInput, onSave: (TaskInput) -> Uni
       }
     },
   )
+}
+
+/** Label on the left, the selected option + a menu on the right — for enumerated values (month,
+ *  recurrence) where a stepper would mean clicking through the whole list. */
+@Composable
+private fun DropdownField(label: String, options: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit) {
+  var expanded by remember { mutableStateOf(false) }
+  Row(
+    Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(label, fontSize = 13.sp)
+    Box {
+      Row(
+        Modifier.clickable { expanded = true }.widthIn(min = 120.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(options.getOrElse(selectedIndex) { "" }, fontSize = 13.sp)
+        Icon(Icons.Filled.ArrowDropDown, "select $label")
+      }
+      DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        options.forEachIndexed { index, option ->
+          DropdownMenuItem(
+            text = { Text(option) },
+            onClick = {
+              onSelect(index)
+              expanded = false
+            },
+          )
+        }
+      }
+    }
+  }
 }
 
 /** Label on the left, [-] value [+] on the right. Clamps to [range]. */
