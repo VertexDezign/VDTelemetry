@@ -42,6 +42,7 @@ fun Header(
   modifier: Modifier = Modifier,
   wakeLock: WakeLockStatus = WakeLockStatus.Unsupported,
   onToggleWakeLock: () -> Unit = {},
+  onTogglePage: () -> Unit = {},
 ) {
   val accent = brandAccentFor(vehicle?.brand?.name)
   val brandName = vehicle?.brand?.title?.takeIf { it.isNotBlank() } ?: "VDTerminal"
@@ -57,7 +58,12 @@ fun Header(
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-      Icon(Icons.Filled.Menu, "menu", tint = accent.text, modifier = Modifier.size(24.dp))
+      Icon(
+        Icons.Filled.Menu,
+        "switch page",
+        tint = accent.text,
+        modifier = Modifier.size(24.dp).clickable(onClick = onTogglePage),
+      )
       Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Stat(Icons.Filled.Thermostat, if (temp != null) "${temp.current}${temp.unit}" else "--", accent.text)
         Stat(Icons.Filled.CalendarMonth, env?.date ?: "--", accent.text)
