@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.russhwolf.settings.Settings
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.panels.EmptyPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
@@ -39,12 +40,13 @@ fun App(
   sampleIntervalMs: Int = 100,
   wakeLock: WakeLockStatus = WakeLockStatus.Unsupported,
   onToggleWakeLock: () -> Unit = {},
+  onCommand: (ClientMessage) -> Unit = {},
 ) {
   MaterialTheme {
     Box(modifier.fillMaxSize().background(VdtColors.Light)) {
       when {
         telemetry == null -> LoadingScreen()
-        else -> Dashboard(telemetry, mapUrl, settings, sampleIntervalMs, wakeLock, onToggleWakeLock)
+        else -> Dashboard(telemetry, mapUrl, settings, sampleIntervalMs, wakeLock, onToggleWakeLock, onCommand)
       }
 
       if (connection != ConnectionState.Connected) {
@@ -85,6 +87,7 @@ private fun Dashboard(
   sampleIntervalMs: Int,
   wakeLock: WakeLockStatus,
   onToggleWakeLock: () -> Unit,
+  onCommand: (ClientMessage) -> Unit,
 ) {
   val vehicle = data.vehicle
   Column(Modifier.fillMaxSize()) {
@@ -104,17 +107,17 @@ private fun Dashboard(
         Cell(Modifier.weight(1f)) {
           MapPanel(mapUrl, data.environment?.pda, vehicle.gps?.heading ?: 0, sampleIntervalMs, settings)
         }
-        Cell(Modifier.weight(1f)) { EngineTransmission(vehicle, sampleIntervalMs) }
-        Cell(Modifier.weight(1f)) { Implements(vehicle) }
+        Cell(Modifier.weight(1f)) { EngineTransmission(vehicle, sampleIntervalMs, onCommand = onCommand) }
+        Cell(Modifier.weight(1f)) { Implements(vehicle, onCommand = onCommand) }
       }
       Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Cell(Modifier.weight(1f)) { Lighting(vehicle) }
+        Cell(Modifier.weight(1f)) { Lighting(vehicle, onCommand = onCommand) }
         Cell(Modifier.weight(1f)) { EmptyPanel() }
         Cell(Modifier.weight(1f)) { EmptyPanel() }
       }
     }
 
-    Footer(vehicle)
+    Footer(vehicle, onCommand = onCommand)
   }
 }
 

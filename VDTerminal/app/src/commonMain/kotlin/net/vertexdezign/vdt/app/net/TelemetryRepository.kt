@@ -5,6 +5,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.model.VdtData
 import kotlin.math.roundToInt
@@ -29,6 +31,17 @@ enum class ConnectionState { Connecting, Connected, Disconnected }
 class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: String) {
   private val json = Json { ignoreUnknownKeys = true }
   private val client = HttpClient { install(ClientWebSockets) }
+
+  // Outbound app -> server commands. Buffered + conflating overflow so a UI click never suspends and
+  // a burst while briefly disconnected can't grow unbounded; queued commands flush on (re)connect.
+  // Commands are absolute-state (idempotent), so sending a slightly stale one on reconnect is safe.
+  private val commandQueue =
+    Channel<ClientMessage>(capacity = 64, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+
+  /** Enqueue a command for delivery to the server (non-blocking; safe to call from the UI). */
+  fun send(message: ClientMessage) {
+    commandQueue.trySend(message)
+  }
 
   private val _telemetry = MutableStateFlow<VdtData?>(null)
   val telemetry: StateFlow<VdtData?> = _telemetry.asStateFlow()
@@ -65,19 +78,30 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
           _connection.value = ConnectionState.Connecting
           client.webSocket(wsUrl) {
             _connection.value = ConnectionState.Connected
-            for (frame in incoming) {
-              if (frame is Frame.Text) {
-                when (val msg = json.decodeFromString(ServerMessage.serializer(), frame.readText())) {
-                  is ServerMessage.Telemetry -> {
-                    recordSampleInterval()
-                    _telemetry.value = msg.data
-                  }
+            // Drain queued outbound commands for the life of this session.
+            val sendJob =
+              launch {
+                for (message in commandQueue) {
+                  send(Frame.Text(json.encodeToString(ClientMessage.serializer(), message)))
+                }
+              }
+            try {
+              for (frame in incoming) {
+                if (frame is Frame.Text) {
+                  when (val msg = json.decodeFromString(ServerMessage.serializer(), frame.readText())) {
+                    is ServerMessage.Telemetry -> {
+                      recordSampleInterval()
+                      _telemetry.value = msg.data
+                    }
 
-                  is ServerMessage.Error -> {
-                    /* surfaced later; ignore for now */
+                    is ServerMessage.Error -> {
+                      /* surfaced later; ignore for now */
+                    }
                   }
                 }
               }
+            } finally {
+              sendJob.cancel()
             }
           }
         } catch (_: Throwable) {

@@ -37,6 +37,15 @@ local sourceFiles = {
   "src/integrations/registry.lua",
   -- Orchestrators depend on the collectors + aspects + integrations above
   "src/collect/VehicleExporter.lua",
+  -- Command back-channel (app -> mod), read side; depends on Json above. CommandRegistry first: the
+  -- controls self-register their command types into it when sourced.
+  "src/command/CommandRegistry.lua",
+  "src/command/CommandChannel.lua",
+  "src/command/LightControl.lua",
+  "src/command/ImplementControl.lua",
+  "src/command/MotorControl.lua",
+  "src/command/CruiseControl.lua",
+  "src/command/GpsControl.lua",
   -- GUI: injects settings controls into the in-game menu
   "src/gui/SettingsFrame.lua",
 }
@@ -57,6 +66,9 @@ end
 ---@field logLevelString string
 ---@field specLevelString string
 ---@field baseDir string modSettings/<modName>/ — holds the settings XML + the telemetry/ subfolder
+---@field commandFileLocation string | nil path to the command channel's commands.xml (client-side only)
+---@field lastCommandId number highest command id already handled (dedup watermark)
+---@field commandsPolledThisCycle boolean guards the once-per-cycle command poll (offset from the write)
 VDTelemetry = {}
 VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 VDTelemetry.VERSION = 1
@@ -66,6 +78,10 @@ VDTelemetry.SETTINGS_XML_VERSION = 2
 -- JSON in a telemetry/ subfolder (a future command channel gets its own sibling folder). The
 -- subfolder matters because the engine only permits deleteFile() inside modSettings/<modName>/.
 VDTelemetry.TELEMETRY_SUBDIR = "telemetry/"
+-- Command back-channel: the server writes commands.xml here, the mod polls it (XML because the
+-- sandbox io.open is write-only, so the mod reads via the engine XMLFile.load). Sibling of the
+-- telemetry/ subfolder, same modSettings/<modName>/ deleteFile() constraint (only the server writes).
+VDTelemetry.COMMAND_SUBDIR = "commands/"
 -- Write interval (ms) between telemetry samples. Configurable via the in-game General Settings
 -- page; clamped to MIN_INTERVAL_MS since sub-frame intervals are pointless (a game frame is ~16-33 ms).
 VDTelemetry.DEFAULT_INTERVAL_MS = 100
@@ -95,6 +111,8 @@ function VDTelemetry.init()
   self.specLevelString = "INFO"
   self.specLogLevel = GrisuDebug.INFO
   self.updateTimer = 0
+  self.lastCommandId = 0
+  self.commandsPolledThisCycle = false
 
   self.baseDir = getUserProfileAppPath() .. "modSettings/" .. modName .. "/"
   createFolder(self.baseDir)
@@ -126,7 +144,7 @@ function VDTelemetry:loadMap(filename)
         )
       )
       self.exportEnabled = false
-    elseif VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION < g_vdAdditionalInputs.MINOR_VERSION then
+    elseif VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION > g_vdAdditionalInputs.MINOR_VERSION then
       self.debugger:error(
         string.format(
           "FS25_additionalInputs with minimum minor version %s is required, but was %s",
@@ -143,6 +161,23 @@ function VDTelemetry:loadMap(filename)
     local telemetryDir = self.baseDir .. VDTelemetry.TELEMETRY_SUBDIR
     createFolder(telemetryDir)
     self.jsonFileLocation = telemetryDir .. VDTelemetry.STATE_FILE_NAME
+
+    local commandDir = self.baseDir .. VDTelemetry.COMMAND_SUBDIR
+    createFolder(commandDir)
+    self.commandFileLocation = commandDir .. VDT.CommandChannel.FILE_NAME
+    -- Start each session with a clean command channel: delete any leftover commands.xml so stale
+    -- commands can't fire on load and ids restart from scratch (the server resets its id counter
+    -- when it finds the file gone). The mod may deleteFile under modSettings/<modName>/.
+    if fileExists(self.commandFileLocation) then
+      deleteFile(self.commandFileLocation)
+    end
+    self.lastCommandId = 0
+    -- Resolved paths at debug: on Proton these are Wine paths, handy when pointing the server's
+    -- command writer at the right prefix, but not needed in normal operation.
+    self.debugger:debug("Telemetry file: %s", self.jsonFileLocation)
+    self.debugger:debug("Command file:   %s", self.commandFileLocation)
+  else
+    self.debugger:debug("Telemetry + command channel disabled (dedicated server / not available)")
   end
 
   self.pda = MapUtil.getMapPDAFile()
@@ -231,6 +266,7 @@ function VDTelemetry:setExportEnabled(enabled)
   end
   self.exportEnabled = enabled
   self.updateTimer = 0
+  self.commandsPolledThisCycle = false
   if not enabled then
     -- drop the stale file so the terminal's file-watch sees export stop
     self:deleteJsonFile()
@@ -248,6 +284,7 @@ function VDTelemetry:setWriteIntervalMs(intervalMs)
   end
   self.writeIntervalMs = intervalMs
   self.updateTimer = 0
+  self.commandsPolledThisCycle = false
   self:saveSettingsToFile()
   self.debugger:info("Write interval set to %d ms", intervalMs)
 end
@@ -260,19 +297,71 @@ function VDTelemetry:deleteJsonFile()
 end
 
 function VDTelemetry:update(dt)
-  if self.exportEnabled == false then
+  -- Client-side only (the files live on the client's machine). The command channel runs even when
+  -- telemetry export is off — sending commands is independent of exporting telemetry.
+  if not self:isTelemetryAvailable() then
     return
   end
 
   self.updateTimer = self.updateTimer + dt
-  if self.updateTimer < self.writeIntervalMs then
+
+  -- Poll commands once per cycle at the half-interval mark, so the command read lands on a different
+  -- frame than the telemetry write below — spreading the per-frame cost rather than doing both at
+  -- once. Command latency stays ≈ one interval, fine for button presses.
+  if not self.commandsPolledThisCycle and self.updateTimer >= self.writeIntervalMs * 0.5 then
+    self.commandsPolledThisCycle = true
+    self:pollCommands()
     return
   end
 
-  self:writeJsonFile()
-
-  -- Reset the timer after execution
+  if self.updateTimer < self.writeIntervalMs then
+    return
+  end
+  -- Reset the timer before the work so a slow tick doesn't compound.
   self.updateTimer = 0
+  self.commandsPolledThisCycle = false
+
+  if self.exportEnabled then
+    self:writeJsonFile()
+  end
+end
+
+-- Poll the command back-channel and dispatch any commands newer than lastCommandId. Same cadence
+-- as the telemetry write; command latency ≈ poll interval, fine for button presses.
+function VDTelemetry:pollCommands()
+  if self.commandFileLocation == nil then
+    -- warn once, not every tick: the channel is inactive (loadMap never set the path)
+    if not self.warnedNoCommandFile then
+      self.debugger:warn("pollCommands: commandFileLocation is nil — command channel inactive")
+      self.warnedNoCommandFile = true
+    end
+    return
+  end
+
+  self.lastCommandId = VDT.CommandChannel.poll(
+    self.commandFileLocation,
+    self.lastCommandId,
+    VDT.CommandRegistry,
+    function(cmd)
+      self:onCommand(cmd)
+    end,
+    self.debugger
+  )
+end
+
+-- Handle a single received command. Parsing + execution live in the control that owns the command
+-- type (registered in VDT.CommandRegistry); poll() has already parsed the payload, so here we just
+-- supply the current vehicle and run it. Unknown types are handled (warned) in poll().
+function VDTelemetry:onCommand(cmd)
+  self.debugger:debug("Received command id=%s type=%s", tostring(cmd.id), tostring(cmd.type))
+
+  local vehicle = self.currentVehicle
+  if vehicle == nil then
+    self.debugger:debug("no current vehicle; ignoring command %s", tostring(cmd.type))
+    return
+  end
+
+  cmd.execute(vehicle, cmd.params, self.debugger)
 end
 
 -- Build the telemetry model from the collectors and write it as JSON (the mod's on-disk format).

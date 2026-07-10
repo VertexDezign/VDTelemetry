@@ -8,9 +8,18 @@ import net.vertexdezign.vdt.model.VdtData
  *
  * Configured to tolerate the mod running ahead of the client: unknown keys are ignored and omitted
  * fields fall back to the model's data-class defaults (the mod writes only what's present).
+ *
+ * `coerceInputValues` extends that tolerance to explicit `null`s on non-nullable fields: they fall
+ * back to the default instead of failing the whole parse. A `null` slips in when the mod emits a
+ * value JSON can't represent — e.g. a pass-through fill unit whose capacity is +inf encodes as
+ * `null` — and one such field must not freeze the entire telemetry feed at last-good-state.
  */
 object VdtParser {
-  private val json = Json { ignoreUnknownKeys = true }
+  private val json =
+    Json {
+      ignoreUnknownKeys = true
+      coerceInputValues = true
+    }
 
   fun parseJson(text: String): VdtData = json.decodeFromString(VdtData.serializer(), text)
 }

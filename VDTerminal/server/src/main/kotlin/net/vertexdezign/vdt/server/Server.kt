@@ -18,11 +18,14 @@ import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.Frame
+import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import org.slf4j.LoggerFactory
 
@@ -38,6 +41,9 @@ fun main() {
   val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   val source = TelemetrySource(telemetryPath, Config.debounceMs())
   source.launchIn(appScope)
+
+  val commandWriter = CommandWriter(Config.commandPath())
+  log.info("Command file: {}", Config.commandPath())
 
   log.info("Server starting on port {}", Config.port)
   embeddedServer(Netty, port = Config.port) {
@@ -55,12 +61,31 @@ fun main() {
       get("/health") { call.respondText("OK") }
 
       webSocket("/ws") {
-        // Sending the StateFlow's current value on connect + every subsequent update.
-        source.state.collect { data ->
-          if (data != null) {
-            val message: ServerMessage = ServerMessage.Telemetry(data)
-            send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+        // Outgoing: push the StateFlow's current value on connect + every subsequent update.
+        val sendJob =
+          launch {
+            source.state.collect { data ->
+              if (data != null) {
+                val message: ServerMessage = ServerMessage.Telemetry(data)
+                send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+              }
+            }
           }
+        // Incoming: app -> mod commands. Decode and hand to the writer; ignore anything unparseable
+        // so a bad frame can't kill the session. Reading `incoming` also keeps the socket alive.
+        try {
+          for (frame in incoming) {
+            if (frame is Frame.Text) {
+              try {
+                val message = json.decodeFromString(ClientMessage.serializer(), frame.readText())
+                commandWriter.submit(message)
+              } catch (e: Exception) {
+                log.warn("Ignoring unparseable client message", e)
+              }
+            }
+          }
+        } finally {
+          sendJob.cancel()
         }
       }
 

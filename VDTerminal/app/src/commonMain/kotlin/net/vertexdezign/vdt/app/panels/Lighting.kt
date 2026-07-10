@@ -21,6 +21,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.LightTarget
+import net.vertexdezign.vdt.TurnLightState
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
@@ -43,8 +46,21 @@ private const val IMAGE_ASPECT = 1429f / 1259f
  * were re-mapped from the original React panel's percentages into the cropped image's coordinates.
  */
 @Composable
-fun Lighting(vehicle: Vehicle, modifier: Modifier = Modifier) {
+fun Lighting(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
   val lights = vehicle.lights
+
+  // Each tap sends an ABSOLUTE target computed from the state we're rendering (not a toggle), so the
+  // command is idempotent over the lossy file channel. See ClientMessage.
+  fun setLight(light: LightTarget, on: Boolean) = onCommand(ClientMessage.SetLight(light, on))
+  fun setTurn(state: TurnLightState) = onCommand(ClientMessage.SetTurnLight(state))
+
+  val ind = lights?.indicator
+  // "Pure" left/right = the signal without hazard (hazard lights both indicators). Tapping a signal
+  // that's already the sole active one turns signalling off; otherwise it selects that signal.
+  val leftActive = ind?.left == true && ind.hazard != true
+  val rightActive = ind?.right == true && ind.hazard != true
+  val hazardActive = ind?.hazard == true
+
   Panel(title = "Lighting", icon = Icons.Filled.Lightbulb, modifier = modifier) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
       // Largest box with the image's aspect that fits the panel (letterbox on the long axis).
@@ -67,24 +83,38 @@ fun Lighting(vehicle: Vehicle, modifier: Modifier = Modifier) {
         )
 
         // Beacon — top of cabin.
-        light(boxW, boxH, 0.591f, 0.085f, Icons.Filled.Warning, lights?.beaconLight == true)
+        val beaconOn = lights?.beaconLight == true
+        light(boxW, boxH, 0.591f, 0.085f, Icons.Filled.Warning, beaconOn) {
+          setLight(LightTarget.BEACON, !beaconOn)
+        }
         // Work lights — front / back of cabin.
-        light(boxW, boxH, 0.419f, 0.207f, Icons.Filled.Lightbulb, lights?.workLight?.front == true)
-        light(boxW, boxH, 0.763f, 0.207f, Icons.Filled.Lightbulb, lights?.workLight?.back == true)
+        val workFront = lights?.workLight?.front == true
+        val workBack = lights?.workLight?.back == true
+        light(boxW, boxH, 0.419f, 0.207f, Icons.Filled.Lightbulb, workFront) {
+          setLight(LightTarget.WORK_FRONT, !workFront)
+        }
+        light(boxW, boxH, 0.763f, 0.207f, Icons.Filled.Lightbulb, workBack) {
+          setLight(LightTarget.WORK_BACK, !workBack)
+        }
         // Head lights — upper / lower front.
-        light(boxW, boxH, 0.075f, 0.415f, Icons.Filled.Lightbulb, lights?.light?.highBeam == true)
-        light(boxW, boxH, 0.075f, 0.573f, Icons.Filled.Lightbulb, lights?.light?.lowBeam == true)
-        // Indicators — bottom row.
-        light(boxW, boxH, 0.344f, 0.915f, Icons.AutoMirrored.Filled.ArrowBack, lights?.indicator?.left == true)
-        light(boxW, boxH, 0.505f, 0.915f, Icons.Filled.ChangeHistory, lights?.indicator?.hazard == true)
-        light(
-          boxW,
-          boxH,
-          0.667f,
-          0.915f,
-          Icons.AutoMirrored.Filled.ArrowForward,
-          lights?.indicator?.right == true,
-        )
+        val highBeam = lights?.light?.highBeam == true
+        val lowBeam = lights?.light?.lowBeam == true
+        light(boxW, boxH, 0.075f, 0.415f, Icons.Filled.Lightbulb, highBeam) {
+          setLight(LightTarget.HIGH_BEAM, !highBeam)
+        }
+        light(boxW, boxH, 0.075f, 0.573f, Icons.Filled.Lightbulb, lowBeam) {
+          setLight(LightTarget.LOW_BEAM, !lowBeam)
+        }
+        // Indicators — bottom row. One enum state; tapping the active signal clears it.
+        light(boxW, boxH, 0.344f, 0.915f, Icons.AutoMirrored.Filled.ArrowBack, leftActive) {
+          setTurn(if (leftActive) TurnLightState.OFF else TurnLightState.LEFT)
+        }
+        light(boxW, boxH, 0.505f, 0.915f, Icons.Filled.ChangeHistory, hazardActive) {
+          setTurn(if (hazardActive) TurnLightState.OFF else TurnLightState.HAZARD)
+        }
+        light(boxW, boxH, 0.667f, 0.915f, Icons.AutoMirrored.Filled.ArrowForward, rightActive) {
+          setTurn(if (rightActive) TurnLightState.OFF else TurnLightState.RIGHT)
+        }
       }
     }
   }
@@ -92,12 +122,20 @@ fun Lighting(vehicle: Vehicle, modifier: Modifier = Modifier) {
 
 /** Places a round status button centred on the fractional point ([fx], [fy]) of the box. */
 @Composable
-private fun BoxScope.light(boxW: Dp, boxH: Dp, fx: Float, fy: Float, icon: ImageVector, active: Boolean) {
+private fun BoxScope.light(
+  boxW: Dp,
+  boxH: Dp,
+  fx: Float,
+  fy: Float,
+  icon: ImageVector,
+  active: Boolean,
+  onClick: (() -> Unit)? = null,
+) {
   Box(
     Modifier
       .align(Alignment.TopStart)
       .offset(x = boxW * fx - BUTTON_SIZE / 2, y = boxH * fy - BUTTON_SIZE / 2),
   ) {
-    StatusIconButton(icon, active = active, color = StatusColor.Green, round = true)
+    StatusIconButton(icon, active = active, color = StatusColor.Green, round = true, onClick = onClick)
   }
 }

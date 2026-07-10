@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
@@ -34,13 +35,15 @@ fun SimpleGauge(
   modifier: Modifier = Modifier,
   size: Dp = 130.dp,
   isActive: Boolean = false,
+  onClick: (() -> Unit)? = null,
 ) {
   val range = (max - min)
   val percentage = if (range > 0f) ((value.coerceIn(min, max) - min) / range) else 0f
   val trackColor = Color(0xFFE2E8F0)
   val activeColor = if (isActive) VdtColors.Green else Color(0xFF94A3B8)
 
-  Box(modifier.size(size), contentAlignment = Alignment.Center) {
+  val boxModifier = modifier.size(size).let { if (onClick != null) it.clickable(onClick = onClick) else it }
+  Box(boxModifier, contentAlignment = Alignment.Center) {
     Canvas(Modifier.size(size)) {
       val minDim = this.size.minDimension
       val strokeWidth = minDim * 0.08f

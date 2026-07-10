@@ -6,6 +6,7 @@
 ---@field active boolean
 ---@field heading number
 ---@field headingUnit string
+---@field linesVisible boolean whether the steering-assist lines are drawn (a global client setting)
 
 ---@class AiModel
 ---@field active boolean

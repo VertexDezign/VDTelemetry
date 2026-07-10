@@ -15,6 +15,13 @@ The contract between the two is the shared Kotlin model **`VDTerminal/shared/...
 
 Follow the commit-subject convention documented in `README.md` ("Commit messages"): `<issue> <modifier> <[area]> <subject>`, where the modifier is a gitmoji (a `commit-msg` hook rewrites the one-letter shorthands like `+`, `!`, `r`, `c` to their emoji).
 
+## Formatting
+
+Both subsystems are formatter-gated in CI (`.github/workflows/ci.yml`) — format before committing, or the build fails:
+
+- **Kotlin (`VDTerminal/`)** → **Spotless** (ktlint). Run `./gradlew spotlessApply` from `VDTerminal/` (`spotlessCheck` is the CI gate). See `VDTerminal/README.md` → "Formatting".
+- **Lua (`vdTelemetry/`)** → **StyLua** (config `vdTelemetry/stylua.toml`). Run `stylua .` from `vdTelemetry/` (`stylua --check .` is the CI gate). See `vdTelemetry/Readme.md`.
+
 ## The mod (`vdTelemetry/`)
 
 Plain Lua, no build system — the deliverable is `FS25_vdTelemetry.zip` (a zip of the folder's runtime files: the `.lua` files, `modDesc.xml`, `icon_vdTelemetry.dds`, `LICENSE`; `*.zip` is git-ignored).

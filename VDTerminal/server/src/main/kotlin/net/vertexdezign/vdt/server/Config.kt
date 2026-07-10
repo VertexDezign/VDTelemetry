@@ -57,6 +57,20 @@ object Config {
   }
 
   /**
+   * The app -> mod command file the server writes. A sibling of the telemetry file's `telemetry/`
+   * folder: `modSettings/<MOD_DIR>/commands/commands.xml`. Derived from [telemetryPath] so a single
+   * `VDT_FILE` override moves both; override the command file directly with `VDT_COMMAND_FILE`.
+   */
+  fun commandPath(): Path {
+    System.getenv("VDT_COMMAND_FILE")?.takeIf { it.isNotBlank() }?.let { return Path(it) }
+    // telemetryPath() = <mod>/telemetry/vdTelemetry.json -> parent.parent = <mod>/
+    return telemetryPath()
+      .parent.parent
+      .resolve("commands")
+      .resolve("commands.xml")
+  }
+
+  /**
    * Debounce window (ms) coalescing the burst of filesystem events from a single mod write. Kept a
    * small constant — it only needs to cover one file save, not the write interval — so it stays
    * below the mod's interval (default 100 ms) and doesn't throttle the stream. Override with

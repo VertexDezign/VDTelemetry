@@ -1,7 +1,8 @@
 -- Orchestrates collection of a vehicle into a VehicleModel: assembles the header fields, delegates
 -- to per-aspect collectors, walks the recursive implement tree, then lets optional integrations
 -- decorate each object.
--- Namespaced under VDT.* (see aspects/TurnOn.lua). Combined aggregation is deferred (see ROADMAP).
+-- Namespaced under VDT.* (see aspects/TurnOn.lua). Combined aggregation is deferred until a
+-- consumer needs it.
 
 VDT = VDT or {}
 VDT.VehicleExporter = {}
