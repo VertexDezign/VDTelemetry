@@ -2,6 +2,7 @@ package net.vertexdezign.vdt
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
 /**
@@ -15,6 +16,17 @@ sealed interface ServerMessage {
   @SerialName("telemetry")
   data class Telemetry(
     val data: VdtData,
+  ) : ServerMessage
+
+  /**
+   * The optional FS25_TaskList channel. Broadcast on its own cadence (event-driven, not the ~100 ms
+   * telemetry tick) and only while the mod is installed — its file's absence is why this arrives as a
+   * distinct message rather than a field on [Telemetry].
+   */
+  @Serializable
+  @SerialName("taskList")
+  data class TaskList(
+    val data: TaskListData,
   ) : ServerMessage
 
   @Serializable

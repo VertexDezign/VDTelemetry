@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Agriculture
-import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,7 +38,9 @@ import net.vertexdezign.vdt.app.panels.Header
 import net.vertexdezign.vdt.app.panels.Implements
 import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
+import net.vertexdezign.vdt.app.panels.TaskListPanel
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
 /** The dashboard's two top-level views: the live vehicle page and the on-foot farm page. */
@@ -56,6 +57,7 @@ fun App(
   wakeLock: WakeLockStatus = WakeLockStatus.Unsupported,
   onToggleWakeLock: () -> Unit = {},
   onCommand: (ClientMessage) -> Unit = {},
+  taskList: TaskListData? = null,
 ) {
   // Auto-switch pages on each enter/leave transition. Keying the effect on the *boolean* presence
   // (not the vehicle object) means a manual pick via the header Menu stays put until the next
@@ -80,6 +82,7 @@ fun App(
             wakeLock,
             onToggleWakeLock,
             onCommand,
+            taskList,
           )
       }
 
@@ -124,6 +127,7 @@ private fun Dashboard(
   wakeLock: WakeLockStatus,
   onToggleWakeLock: () -> Unit,
   onCommand: (ClientMessage) -> Unit,
+  taskList: TaskListData?,
 ) {
   Column(Modifier.fillMaxSize()) {
     Header(
@@ -136,7 +140,7 @@ private fun Dashboard(
 
     when (page) {
       Page.Vehicle -> VehiclePage(data, mapUrl, settings, sampleIntervalMs, onCommand)
-      Page.Farm -> FarmPage(data, mapUrl, settings, sampleIntervalMs)
+      Page.Farm -> FarmPage(data, mapUrl, settings, sampleIntervalMs, taskList)
     }
   }
 }
@@ -179,7 +183,13 @@ private fun ColumnScope.VehiclePage(
 
 /** Everything that isn't the current vehicle: a large map plus the farm panels (placeholders for now). */
 @Composable
-private fun ColumnScope.FarmPage(data: VdtData, mapUrl: String, settings: Settings, sampleIntervalMs: Int) {
+private fun ColumnScope.FarmPage(
+  data: VdtData,
+  mapUrl: String,
+  settings: Settings,
+  sampleIntervalMs: Int,
+  taskList: TaskListData?,
+) {
   Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       // On foot there's no vehicle heading, so the marker points north (heading = 0). A player-
@@ -188,7 +198,9 @@ private fun ColumnScope.FarmPage(data: VdtData, mapUrl: String, settings: Settin
         MapPanel(mapUrl, data.environment?.pda, heading = 0, sampleIntervalMs, settings)
       }
       Column(Modifier.fillMaxHeight().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.fillMaxWidth().weight(1f)) { PlaceholderPanel("Tasks", Icons.Filled.Checklist) }
+        Box(Modifier.fillMaxWidth().weight(1f)) { TaskListPanel(taskList) }
+        // CropRotation stays a placeholder: its planner data isn't reachable on a dedicated-server
+        // client, so that channel needs a redesign (see farm-page-plan.md).
         Box(Modifier.fillMaxWidth().weight(1f)) { PlaceholderPanel("Crop Rotation", Icons.Filled.Agriculture) }
       }
     }

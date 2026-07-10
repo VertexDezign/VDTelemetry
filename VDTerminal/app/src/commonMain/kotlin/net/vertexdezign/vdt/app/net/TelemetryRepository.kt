@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
+import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 import kotlin.math.roundToInt
 import kotlin.time.DurationUnit
@@ -45,6 +46,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
   private val _telemetry = MutableStateFlow<VdtData?>(null)
   val telemetry: StateFlow<VdtData?> = _telemetry.asStateFlow()
+
+  // Optional FS25_TaskList channel; null until the server sends it, and it only does so while the mod
+  // is installed. Separate flow (not folded into telemetry) because it arrives on its own cadence.
+  private val _taskList = MutableStateFlow<TaskListData?>(null)
+  val taskList: StateFlow<TaskListData?> = _taskList.asStateFlow()
 
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
@@ -92,6 +98,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
                     is ServerMessage.Telemetry -> {
                       recordSampleInterval()
                       _telemetry.value = msg.data
+                    }
+
+                    is ServerMessage.TaskList -> {
+                      _taskList.value = msg.data
                     }
 
                     is ServerMessage.Error -> {

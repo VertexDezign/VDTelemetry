@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
+import net.vertexdezign.vdt.VdtParser
 import org.slf4j.LoggerFactory
 
 fun main() {
@@ -39,8 +40,15 @@ fun main() {
   log.info("Debounce: {} ms", Config.debounceMs())
 
   val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-  val source = TelemetrySource(telemetryPath, Config.debounceMs())
-  source.launchIn(appScope)
+  // One watcher over the telemetry directory feeds a StateFlow per file. taskList.json is optional:
+  // its absence is the "mod not installed" signal, so that flow resets to null when the file is gone.
+  val watcher = TelemetryWatcher(telemetryPath.parent, Config.debounceMs())
+  val telemetryState =
+    watcher.register(telemetryPath.fileName.toString(), nullOnAbsent = false) {
+      VdtParser.parseJson(it)
+    }
+  val taskListState = watcher.register("taskList.json", nullOnAbsent = true) { VdtParser.parseTaskList(it) }
+  watcher.launchIn(appScope)
 
   val commandWriter = CommandWriter(Config.commandPath())
   log.info("Command file: {}", Config.commandPath())
@@ -61,12 +69,22 @@ fun main() {
       get("/health") { call.respondText("OK") }
 
       webSocket("/ws") {
-        // Outgoing: push the StateFlow's current value on connect + every subsequent update.
+        // Outgoing: push each StateFlow's current value on connect + every subsequent update. One job
+        // per channel so the slow taskList feed broadcasts on its own cadence, not the telemetry tick.
         val sendJob =
           launch {
-            source.state.collect { data ->
+            telemetryState.collect { data ->
               if (data != null) {
                 val message: ServerMessage = ServerMessage.Telemetry(data)
+                send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+              }
+            }
+          }
+        val taskListJob =
+          launch {
+            taskListState.collect { data ->
+              if (data != null) {
+                val message: ServerMessage = ServerMessage.TaskList(data)
                 send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
               }
             }
@@ -86,12 +104,13 @@ fun main() {
           }
         } finally {
           sendJob.cancel()
+          taskListJob.cancel()
         }
       }
 
       get("/api/map-image") {
         val pda =
-          source.state.value
+          telemetryState.value
             ?.environment
             ?.pda
         val filename = pda?.filename

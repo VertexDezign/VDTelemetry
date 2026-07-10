@@ -4,7 +4,18 @@ Plan for a second dashboard page covering everything that isn't the current vehi
 mod/server/app plumbing needed to feed it from two optional third-party mods
 (**FS25_CropRotation**, **FS25_TaskList**).
 
-Status: **planned, not started.** Written 2026-07-09 against `main` @ `c1809e5`.
+Status: **in progress.** Written 2026-07-09 against `main` @ `c1809e5`.
+
+Progress (2026-07-10):
+- **Step 1** (`requiresVehicle`) — done.
+- **Step 2** (pages + navigation) — done.
+- **Dedicated-server MessageCenter — verified in-game** (temporary probe). **TaskList works**
+  (message fires client-side *and* `g_currentMission.taskList` is readable). **CropRotation's read
+  path is blocked**: on a dedicated-server client both `g_cropRotationPlanner` and `g_cropRotation`
+  are `nil` and `CROP_ROTATIONS_CHANGED` fires with no payload — see the CropRotation note below and
+  [Open risks](#open-risks).
+- **Step 3** (channels + multi-file server + read-only TaskList) — done. CropRotation stays a
+  farm-page placeholder pending a client-side read redesign (its planner data is server-only).
 
 ---
 
@@ -198,6 +209,21 @@ but do a **full scan on first call**. Fine on an event-driven write; would not b
 
 ### CropRotation (`FS25_CropRotation`)
 
+> ⛔ **VERIFIED BLOCKED on a dedicated server (2026-07-10).** On the *client*, both
+> `g_cropRotationPlanner` and `g_cropRotation` are `nil` (the planner instance is server-only), and
+> `CROP_ROTATIONS_CHANGED` fires reliably on every planner click but carries **no arguments**
+> (`argc=0`). So the client gets a "something changed" pulse with no way to read the plans through
+> the documented globals or the message. The plan below assumes `g_cropRotationPlanner.cropRotations`
+> and therefore **does not work on a dedicated server** as written.
+>
+> The planner GUI *does* render the plans, so the client holds the data somewhere — most likely
+> inside the planner GUI frame, or fetched via a request/response event when the screen opens.
+> Finding that handle needs the mod's own source (planner class + `SyncCropRotationPlannerEvent` +
+> the GUI frame), not more black-box probing. Writes (`CropRotationEntryEvent:sendOrBroadcastEvent()`)
+> are a client-fireable broadcast and likely still work, but an editor must read current plans to
+> display them — so the read is the blocker. **CropRotation (Step 4) needs a redesign; TaskList is
+> unaffected and proceeds in Step 3.**
+
 Globals: `g_cropRotation`, `g_cropRotationPlanner`. Note the `CropRotationPlanner` *class* is
 file-local — only the instance is reachable.
 
@@ -266,10 +292,11 @@ Escaping and create-dedup land together here.
 
 ## Open risks
 
-- **MessageCenter on a dedicated-server client.** Telemetry is client-side only, and both mods sync
-  their state to clients via initial-state events (`InitialClientStateEvent`,
-  `SyncCropRotationPlannerEvent`), so the client *should* see updates. **Prove this in-game before
-  committing to Step 3** rather than assuming it.
+- **MessageCenter on a dedicated-server client.** ✅ **Verified 2026-07-10** (temporary probe on the
+  client). **TaskList:** both `ACTIVE_TASKS_UPDATED` and `TASK_GROUPS_UPDATED` fire client-side and
+  `g_currentMission.taskList` is fully readable — Step 3 is safe. **CropRotation:**
+  `CROP_ROTATIONS_CHANGED` fires client-side but the data globals are `nil` and the message is empty
+  — read path blocked (see the CropRotation note above).
 - **Mod version drift.** Both integrations read third-party internals. Pin the versions this was
   written against (CropRotation `1.0.1.0`) and fail soft — a missing field must not throw in the
   collector.
