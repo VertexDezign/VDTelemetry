@@ -1,5 +1,5 @@
 -- Model definitions for the vehicle subtree. Annotation-only (see EnvironmentModel.lua).
--- (`combined` aggregation is intentionally not emitted — deferred, see ROADMAP.)
+-- (`combined` aggregation is intentionally not emitted — deferred until a consumer needs it.)
 
 ---@class SpeedModel
 ---@field value number

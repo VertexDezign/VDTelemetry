@@ -2,7 +2,8 @@
 -- vehicle and its front/back attached implements. The inverse of the VDT.Lowered / VDT.Foldable /
 -- VDT.TurnOn aspect collectors: it maps an absolute target ("front lowered", "vehicle folded",
 -- "back turned on") onto an action. Absolute (not toggle) for the same reason as LightControl --
--- the file channel is lossy/async (see ROADMAP #4).
+-- the file channel is lossy/async, so an idempotent set-to-state is self-correcting where a dropped
+-- or doubled toggle would desync.
 --
 -- Every target routes through FS25_additionalInputs (a hard dependency), which owns the spec-aware
 -- logic: attacher-joint lowering, fold-to-middle, requiresPower, the whole implement chain. We do

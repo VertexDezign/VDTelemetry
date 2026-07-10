@@ -1,7 +1,7 @@
 -- Executes light commands from the app -> mod back-channel. The inverse of the read-only
 -- VDT.Lights collector: it maps an absolute target ("beacon on", "highBeam off", "turn left") onto
 -- the FS25 engine setters. Absolute (not toggle) on purpose — the command channel is lossy/async, so
--- idempotent set-to-state is self-correcting where a relative toggle would desync (see ROADMAP #4).
+-- idempotent set-to-state is self-correcting where a relative toggle would desync.
 --
 -- Reads the engine global `Lights` (LIGHT_TYPE_*, TURNLIGHT_*), so it must stay namespaced under
 -- VDT.* — a bare `Lights = {}` would clobber the specialization (see collect/vehicle/Lights.lua).
