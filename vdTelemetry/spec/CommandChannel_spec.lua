@@ -7,9 +7,13 @@
 --
 -- poll() delegates payload parsing to the command registry, so we also source CommandRegistry and a
 -- real control (LightControl) — its execute() closures reference engine setters but are never invoked
--- here (poll only parses + dispatches), so no engine stubs are needed for them.
+-- here (poll only parses + dispatches), so no engine stubs are needed for them. CommandRegistry is
+-- loaded only if it isn't already, so we don't reset a registry another spec populated (see the
+-- sibling *Control specs).
 
-dofile("src/command/CommandRegistry.lua")
+if VDT == nil or VDT.CommandRegistry == nil then
+  dofile("src/command/CommandRegistry.lua")
+end
 dofile("src/command/CommandChannel.lua")
 dofile("src/command/LightControl.lua")
 
