@@ -14,7 +14,9 @@
 --                                                            husbandry/production fields, ... }
 --   g_currentMission.taskList.activeTasks map  "groupId_taskId" -> { id, groupId, createdMarker }
 -- Task:getTaskDescription() resolves a human label (Standard tasks => detail; husbandry/production
--- tasks scan getHusbandries()/getProductions(), cached — fine on an event-driven collect).
+-- tasks scan getHusbandries()/getProductions()). Those scans populate a lazy cache on the mod, and
+-- triggering that build too early poisons it — see describe() below; we only read it once the mod
+-- has built it itself.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
@@ -26,6 +28,10 @@ VDT.TaskList.FILE_NAME = "taskList.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin TaskListData.
 VDT.TaskList.VERSION = 1
 
+-- Task.TASK_TYPE.Standard. A Standard task's label is just its `detail`; only the auto types
+-- (husbandry/production) need the mod's caches to resolve a label.
+local TASK_TYPE_STANDARD = 1
+
 local function taskList()
   return g_currentMission ~= nil and g_currentMission.taskList or nil
 end
@@ -34,9 +40,24 @@ function VDT.TaskList.isAvailable()
   return taskList() ~= nil
 end
 
--- Human-readable label. getTaskDescription reaches into husbandries/productions + i18n, so guard it
--- and fall back to the raw detail (which is exactly what it returns for a Standard task anyway).
+-- Human-readable label, resolved WITHOUT side-effecting the mod.
+--
+-- For an auto (husbandry/production) task, getTaskDescription reads TaskList's lazy `husbandries` /
+-- `productions` caches. Crucially, we must never be the one to trigger their *initial* build:
+-- getHusbandries()/getProductions() populate the cache from the current placeables, and if we call
+-- it at collect time — during mission load, before the placeables and farm id are ready — the mod is
+-- left holding an empty cache (it only rebuilds when the field is nil). Its own taskCleanup() then
+-- reads that empty cache and DROPS every husbandry/production task ("missing husbandry"), and the
+-- in-game menu can't create new ones. So only resolve once the mod has built the caches itself;
+-- otherwise fall back to the raw detail (empty for auto tasks, which the app renders as untitled).
 local function describe(task)
+  if task.type == TASK_TYPE_STANDARD then
+    return task.detail or ""
+  end
+  local tl = taskList()
+  if tl == nil or tl.husbandries == nil or tl.productions == nil then
+    return task.detail or ""
+  end
   local ok, desc = pcall(task.getTaskDescription, task)
   if ok and type(desc) == "string" and desc ~= "" then
     return desc
