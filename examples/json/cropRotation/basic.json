@@ -10,19 +10,22 @@
           "state": 3,
           "crop": "Wheat",
           "catchCropState": 0,
-          "catchCrop": "Without catch crop"
+          "catchCrop": "Without catch crop",
+          "yieldPercent": 115
         },
         {
           "state": 5,
           "crop": "Canola",
           "catchCropState": 2,
-          "catchCrop": "Oilseed Radish"
+          "catchCrop": "Oilseed Radish",
+          "yieldPercent": 130
         },
         {
           "state": 0,
           "crop": "Fallow",
           "catchCropState": 0,
-          "catchCrop": "Without catch crop"
+          "catchCrop": "Without catch crop",
+          "yieldPercent": 100
         }
       ]
     },
@@ -35,13 +38,15 @@
           "state": 9,
           "crop": "Potato",
           "catchCropState": 0,
-          "catchCrop": "Without catch crop"
+          "catchCrop": "Without catch crop",
+          "yieldPercent": 95
         },
         {
           "state": 10,
           "crop": "Sugar Beet",
           "catchCropState": 0,
-          "catchCrop": "Without catch crop"
+          "catchCrop": "Without catch crop",
+          "yieldPercent": 115
         }
       ]
     }

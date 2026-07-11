@@ -49,12 +49,14 @@ class CropRotationModelTest {
     assertEquals(3, wheat.state)
     assertEquals("Wheat", wheat.crop)
     assertEquals(0, wheat.catchCropState)
+    assertEquals(115, wheat.yieldPercent)
 
     // Middle step carries a catch crop.
     val canola = heavy.sequence[1]
     assertEquals("Canola", canola.crop)
     assertEquals(2, canola.catchCropState)
     assertEquals("Oilseed Radish", canola.catchCrop)
+    assertEquals(130, canola.yieldPercent)
 
     // Fallow step: state 0.
     assertEquals(0, heavy.sequence[2].state)
@@ -75,6 +77,25 @@ class CropRotationModelTest {
     assertEquals("1", data.version)
     assertTrue(data.rotations.isEmpty())
     assertRoundTrips(data)
+  }
+
+  @Test
+  fun omittedYieldPercentDecodesToNull() {
+    // An older mod (or a compute failure) omits yieldPercent; it must decode to null, not 0, so the
+    // app can render "no percentage" rather than a misleading 0%.
+    val data =
+      VdtParser.parseCropRotation(
+        """{"version":"1","rotations":[{"index":1,"name":"Old","farmId":1,
+           "sequence":[{"state":3,"crop":"Wheat","catchCropState":0,"catchCrop":""}]}]}""",
+      )
+    assertEquals(
+      null,
+      data.rotations
+        .single()
+        .sequence
+        .single()
+        .yieldPercent,
+    )
   }
 
   @Test

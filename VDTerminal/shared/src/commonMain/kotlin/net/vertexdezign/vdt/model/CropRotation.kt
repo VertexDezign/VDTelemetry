@@ -37,4 +37,10 @@ data class CropRotationSlot(
   val crop: String = "",
   val catchCropState: Int = 0,
   val catchCrop: String = "",
+  /**
+   * The yield-bonus percentage the game shows under this slot (e.g. 115 = +15%), recomputed mod-side
+   * with FS25_CropRotation's own YieldCalculator. Null when the mod couldn't compute it (older
+   * version / missing calculator), rendered as no percentage rather than a misleading 0.
+   */
+  val yieldPercent: Int? = null,
 )

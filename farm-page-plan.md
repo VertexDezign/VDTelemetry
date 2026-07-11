@@ -24,8 +24,11 @@ Progress (2026-07-10):
   "blocked" call is retracted (env-global isolation, not server-only data). Mod:
   `src/integrations/CropRotation.lua` self-detects via `FS25_CropRotation.g_cropRotationPlanner` and
   serializes the local farm's plans (crop + catch-crop display names resolved inline from
-  `g_cropRotation:getPossibleCropStates()` / `:getPossibleCatchCropStates()`; `yieldValue` omitted —
-  it's only recomputed while the planner GUI is open). Shared `CropRotationData` model +
+  `g_cropRotation:getPossibleCropStates()` / `:getPossibleCatchCropStates()`, plus the per-slot
+  **yield-bonus %** the game shows). The planner only stores `yieldValue` while its GUI is open, so we
+  recompute it exactly as the GUI does — build the preceding history window and call the mod's own
+  `YieldCalculator:getYieldMultiplier` (pure client-side maths). The app colours it green/red around
+  100 %, which is the whole point of previewing a rotation before committing it in-game. Shared `CropRotationData` model +
   `ServerMessage.CropRotation`; server watches `cropRotation.json`; app `CropRotationPanel` renders the
   sequences read-only (replaces the farm-page placeholder). Fixtures
   `examples/json/cropRotation/*.json`, `:shared:jvmTest` decode tests, and `spec/CropRotation_spec.lua`

@@ -65,6 +65,33 @@ local function stateNames(list)
   return byIndex
 end
 
+-- The yield-bonus percentage the game shows under each slot (e.g. 115%). The planner only stores
+-- `slot.yieldValue` while its GUI is open (InGameMenuCropRotationPlanner:updateYieldValues), so we
+-- recompute it exactly as the GUI does: build the preceding `numHistory` states (wrapping around the
+-- cycle) and run the mod's own YieldCalculator. Calling the mod's method means its body resolves
+-- CropRotation.* in the mod's own env for free, and it's pure client-side maths (settings + crop
+-- tables loaded on every client) — no density maps or server state. pcall so a mod version change
+-- can't throw in the collector; nil then omits the field and the app shows no percentage.
+local function yieldPercent(calc, numHistory, rotations, rotationIndex, state, catchCropState)
+  if calc == nil then
+    return nil
+  end
+  local count = #rotations
+  if count == 0 then
+    return nil
+  end
+  local historyStates = {}
+  for i = 1, numHistory do
+    local moduloIndex = ((rotationIndex - 1) - i) % count
+    historyStates[#historyStates + 1] = rotations[moduloIndex + 1].state
+  end
+  local ok, multiplier = pcall(calc.getYieldMultiplier, calc, historyStates, state, catchCropState)
+  if ok and type(multiplier) == "number" then
+    return math.floor(multiplier * 100 + 0.5)
+  end
+  return nil
+end
+
 ---Build the cropRotation model, or nil when the mod isn't loaded (skips the write).
 ---@return table|nil
 function VDT.CropRotation.collect()
@@ -75,6 +102,7 @@ function VDT.CropRotation.collect()
 
   local cr = env().g_cropRotation
   local cropNames, catchNames = {}, {}
+  local calc, numHistory = nil, 2
   -- getPossibleCropStates/getPossibleCatchCropStates just return prebuilt tables (no lazy build, so
   -- unlike TaskList's getHusbandries there's no cache to poison); still pcall-guard against a mod
   -- version that renamed them.
@@ -87,6 +115,8 @@ function VDT.CropRotation.collect()
     if okCatch then
       catchNames = stateNames(catchStates)
     end
+    calc = cr.yieldCalculator
+    numHistory = cr.NUM_HISTORY_MAPS or 2
   end
 
   -- Scope to the local player's farm, matching the in-game planner
@@ -100,12 +130,13 @@ function VDT.CropRotation.collect()
   for _, cropRotation in pairs(pl.cropRotations or {}) do
     if farmId == nil or cropRotation.farmId == farmId then
       local sequence = {}
-      for _, slot in ipairs(cropRotation.rotations or {}) do
+      for i, slot in ipairs(cropRotation.rotations or {}) do
         sequence[#sequence + 1] = {
           state = slot.state,
           crop = cropNames[slot.state] or "",
           catchCropState = slot.catchCropState,
           catchCrop = catchNames[slot.catchCropState] or "",
+          yieldPercent = yieldPercent(calc, numHistory, cropRotation.rotations, i, slot.state, slot.catchCropState),
         }
       end
       rotations[#rotations + 1] = {

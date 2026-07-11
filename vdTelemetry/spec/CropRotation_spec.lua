@@ -16,6 +16,7 @@ local function installMod(cropRotations)
   rawset(_G, "FS25_CropRotation", {
     g_cropRotationPlanner = { cropRotations = cropRotations },
     g_cropRotation = {
+      NUM_HISTORY_MAPS = 2,
       getPossibleCropStates = function()
         return {
           { cropIndex = 0, name = "Fallow" },
@@ -29,6 +30,14 @@ local function installMod(cropRotations)
           { cropIndex = 2, name = "Oilseed Radish" },
         }
       end,
+      -- Stand-in YieldCalculator: returns a multiplier derived from the slot's own state + catch crop
+      -- and the history window it's handed, so we can assert the collector wires those through and
+      -- rounds 100*multiplier. (Real maths lives in the mod's YieldCalculator; not reimplemented here.)
+      yieldCalculator = {
+        getYieldMultiplier = function(_, historyStates, currentState, catchCropIndex)
+          return 1.0 + 0.1 * #historyStates + 0.01 * currentState + 0.001 * catchCropIndex
+        end,
+      },
     },
   })
 end
@@ -81,15 +90,27 @@ describe("CropRotation.collect", function()
     assert.are.equal("Heavy Soil", plan.name)
     assert.are.equal(3, #plan.sequence)
 
+    -- yieldPercent = round(100 * stubMultiplier); stub = 1 + 0.1*#history(2) + 0.01*state + 0.001*catch.
     assert.are.same(
-      { state = 3, crop = "Wheat", catchCropState = 0, catchCrop = "Without catch crop" },
+      { state = 3, crop = "Wheat", catchCropState = 0, catchCrop = "Without catch crop", yieldPercent = 123 },
       plan.sequence[1]
     )
-    assert.are.same({ state = 5, crop = "Canola", catchCropState = 2, catchCrop = "Oilseed Radish" }, plan.sequence[2])
     assert.are.same(
-      { state = 0, crop = "Fallow", catchCropState = 0, catchCrop = "Without catch crop" },
+      { state = 5, crop = "Canola", catchCropState = 2, catchCrop = "Oilseed Radish", yieldPercent = 125 },
+      plan.sequence[2]
+    )
+    assert.are.same(
+      { state = 0, crop = "Fallow", catchCropState = 0, catchCrop = "Without catch crop", yieldPercent = 120 },
       plan.sequence[3]
     )
+  end)
+
+  it("omits yieldPercent when the mod has no yield calculator", function()
+    installMod({ { index = 1, name = "A", farmId = 1, rotations = { { state = 3, catchCropState = 0 } } } })
+    rawget(_G, "FS25_CropRotation").g_cropRotation.yieldCalculator = nil
+
+    local model = VDT.CropRotation.collect()
+    assert.is_nil(model.rotations[1].sequence[1].yieldPercent)
   end)
 
   it("scopes to the local player's farm", function()

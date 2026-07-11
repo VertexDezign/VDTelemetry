@@ -115,6 +115,20 @@ private fun SlotRow(position: Int, slot: CropRotationSlot) {
         overflow = TextOverflow.Ellipsis,
       )
     }
+    // Yield bonus the game shows under each slot: green above 100 %, red below, neutral at 100.
+    // Absent (null) when the mod couldn't compute it — show nothing rather than a bogus 0 %.
+    slot.yieldPercent?.let { pct ->
+      Text(
+        "$pct%",
+        color = when {
+          pct > 100 -> VdtColors.Green
+          pct < 100 -> VdtColors.Red
+          else -> VdtColors.DarkGray
+        },
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+      )
+    }
   }
 }
 
