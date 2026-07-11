@@ -50,7 +50,12 @@ Progress (2026-07-10):
   a per-slot `cropYields` / `catchYields` (one `{ state, yieldPercent }` per catalog option, crop
   options varying the main crop with the catch fixed and vice-versa, via the same YieldCalculator).
   Crop + catch crop now share one line; the catch-crop 0 state is labelled "No catch crop" in English
-  (the mod's own crop names follow the game language — no app-side localization yet). Shared `CropRotationData` model +
+  (the mod's own crop names follow the game language — no app-side localization yet).
+  - **Known limitation (accepted, not a bug):** the 2-deep history window wraps modulo the rotation
+    length, so in a **2-slot** rotation "two back" lands on the slot itself. The dropdown preview reads
+    that self-reference from the slot's *stored* crop, not the hovered candidate, so a 2-slot preview
+    can be slightly off from the committed value. Verified in-game and deliberately left as-is —
+    rotations that short carry almost no history, so it's not worth special-casing (2026-07-11). Shared `CropRotationData` model +
   `ServerMessage.CropRotation`; server watches `cropRotation.json`; app `CropRotationPanel` renders the
   sequences read-only (replaces the farm-page placeholder). Fixtures
   `examples/json/cropRotation/*.json`, `:shared:jvmTest` decode tests, and `spec/CropRotation_spec.lua`
