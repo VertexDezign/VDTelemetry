@@ -28,7 +28,23 @@ Progress (2026-07-10):
   **yield-bonus %** the game shows). The planner only stores `yieldValue` while its GUI is open, so we
   recompute it exactly as the GUI does — build the preceding history window and call the mod's own
   `YieldCalculator:getYieldMultiplier` (pure client-side maths). The app colours it green/red around
-  100 %, which is the whole point of previewing a rotation before committing it in-game. Shared `CropRotationData` model +
+  100 %, which is the whole point of previewing a rotation before committing it in-game.
+- **CropRotation write path — full CRUD** (2026-07-11) — done, read + yield verified on the dedicated
+  server first. The collector now also ships the selectable-crop catalog (`crops` / `catchCrops`,
+  `{ state, name }`, minus `ignoreInPlanner`) so the app can render dropdowns. `src/command/
+  CropRotationControl.lua` registers six `requiresVehicle = false` handlers driving the planner's own
+  MP wrappers: `setRotationCrop` / `setRotationCatchCrop` (idempotent slot edits →
+  updateCropSelection / updateCatchCropSelection), `addRotationSlot` / `removeRotationSlot`
+  (addCropRotationSelection / removeCropRotationSelection, keeps ≥1 slot), `createRotation` /
+  `deleteRotation` (addCropRotation on the local farm / removeCropRotation). Shared `ClientMessage`
+  variants (+ B3 note extended: the add/remove/create/delete ones are non-idempotent actions, the two
+  slot edits are absolute-state), `CommandWriter` render branches (name escaped), and an interactive
+  `CropRotationPanel` (per-slot dropdowns, add/remove slot, create/delete plan; degrades to read-only
+  when the mod ships no catalog). Tests: `spec/CropRotationControl_spec.lua`, extended
+  `CropRotation_spec.lua` (catalog), `CommandWriterTest`, `CropRotationModelTest`. The poll-driven
+  collector means every write is reflected back live (incl. singleplayer, where the wrappers mutate
+  in place without a message). **This completes the farm-page plan** — all four steps plus both
+  optional-mod channels, read + write. Shared `CropRotationData` model +
   `ServerMessage.CropRotation`; server watches `cropRotation.json`; app `CropRotationPanel` renders the
   sequences read-only (replaces the farm-page placeholder). Fixtures
   `examples/json/cropRotation/*.json`, `:shared:jvmTest` decode tests, and `spec/CropRotation_spec.lua`

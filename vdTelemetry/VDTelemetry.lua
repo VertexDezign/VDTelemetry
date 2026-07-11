@@ -51,6 +51,7 @@ local sourceFiles = {
   "src/command/CruiseControl.lua",
   "src/command/GpsControl.lua",
   "src/command/TaskListControl.lua",
+  "src/command/CropRotationControl.lua",
   -- GUI: injects settings controls into the in-game menu
   "src/gui/SettingsFrame.lua",
 }

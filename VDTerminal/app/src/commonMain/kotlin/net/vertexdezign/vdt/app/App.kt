@@ -202,7 +202,7 @@ private fun ColumnScope.FarmPage(
       }
       Column(Modifier.fillMaxHeight().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.fillMaxWidth().weight(1f)) { TaskListPanel(taskList, onCommand = onCommand) }
-        Box(Modifier.fillMaxWidth().weight(1f)) { CropRotationPanel(cropRotation) }
+        Box(Modifier.fillMaxWidth().weight(1f)) { CropRotationPanel(cropRotation, onCommand = onCommand) }
       }
     }
   }

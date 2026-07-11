@@ -22,6 +22,7 @@ local function installMod(cropRotations)
           { cropIndex = 0, name = "Fallow" },
           { cropIndex = 3, name = "Wheat" },
           { cropIndex = 5, name = "Canola", ignoreInPlanner = false },
+          { cropIndex = 99, name = "Weeds", ignoreInPlanner = true },
         }
       end,
       getPossibleCatchCropStates = function()
@@ -103,6 +104,22 @@ describe("CropRotation.collect", function()
       { state = 0, crop = "Fallow", catchCropState = 0, catchCrop = "Without catch crop", yieldPercent = 120 },
       plan.sequence[3]
     )
+  end)
+
+  it("ships the crop catalog for the write dropdowns, dropping ignoreInPlanner crops", function()
+    installMod({ { index = 1, name = "A", farmId = 1, rotations = { { state = 3, catchCropState = 0 } } } })
+
+    local model = VDT.CropRotation.collect()
+    -- Weeds (ignoreInPlanner) is excluded; fallow leads, order preserved.
+    assert.are.same({
+      { state = 0, name = "Fallow" },
+      { state = 3, name = "Wheat" },
+      { state = 5, name = "Canola" },
+    }, model.crops)
+    assert.are.same({
+      { state = 0, name = "Without catch crop" },
+      { state = 2, name = "Oilseed Radish" },
+    }, model.catchCrops)
   end)
 
   it("omits yieldPercent when the mod has no yield calculator", function()

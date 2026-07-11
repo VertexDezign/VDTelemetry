@@ -14,6 +14,21 @@ import kotlinx.serialization.Serializable
 data class CropRotationData(
   val version: String = "",
   val rotations: List<CropRotationPlan> = emptyList(),
+  /**
+   * The selectable main crops for the write-side dropdowns (fruit-type index + display name), in the
+   * mod's order and already minus the planner-ignored ones. Empty when the mod doesn't ship a
+   * catalog, which the app reads as "render read-only".
+   */
+  val crops: List<CropOption> = emptyList(),
+  /** The selectable catch crops, including index 0 ("without catch crop"). */
+  val catchCrops: List<CropOption> = emptyList(),
+)
+
+/** One selectable crop: [state] is the fruit-type index a write command sends back, [name] the label. */
+@Serializable
+data class CropOption(
+  val state: Int = 0,
+  val name: String = "",
 )
 
 /** One named rotation plan: an ordered [sequence] of crops the farmer cycles a field through. */

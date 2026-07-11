@@ -65,6 +65,14 @@ class CropRotationModelTest {
     assertEquals("Root Crops", data.rotations[1].name)
     assertEquals(2, data.rotations[1].sequence.size)
 
+    // Write-side catalogs: main crops lead with fallow, catch crops with "without".
+    assertEquals(5, data.crops.size)
+    assertEquals(0, data.crops.first().state)
+    assertEquals("Fallow", data.crops.first().name)
+    assertEquals(5, data.crops.first { it.name == "Canola" }.state)
+    assertEquals(2, data.catchCrops.size)
+    assertEquals("Oilseed Radish", data.catchCrops.first { it.state == 2 }.name)
+
     assertRoundTrips(data)
   }
 

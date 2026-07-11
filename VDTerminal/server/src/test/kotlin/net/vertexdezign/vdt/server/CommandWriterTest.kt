@@ -39,6 +39,28 @@ class CommandWriterTest {
   }
 
   @Test
+  fun `writes crop rotation slot edits with int attributes`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    val writer = CommandWriter(path)
+    writer.submit(ClientMessage.SetRotationCrop(rotationIndex = 2, slot = 3, state = 5))
+    writer.submit(ClientMessage.SetRotationCatchCrop(rotationIndex = 2, slot = 3, catchCropState = 1))
+    writer.submit(ClientMessage.RemoveRotationSlot(rotationIndex = 2))
+    val xml = path.readText()
+    assertTrue(xml.contains("""type="setRotationCrop" rotationIndex="2" slot="3" state="5""""), xml)
+    assertTrue(xml.contains("""type="setRotationCatchCrop" rotationIndex="2" slot="3" catchCropState="1""""), xml)
+    assertTrue(xml.contains("""type="removeRotationSlot" rotationIndex="2""""), xml)
+  }
+
+  @Test
+  fun `xml-escapes the rotation name`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    CommandWriter(path).submit(ClientMessage.CreateRotation("""Heavy & "wet" <soil>"""))
+    val xml = path.readText()
+    assertTrue(xml.contains("""name="Heavy &amp; &quot;wet&quot; &lt;soil&gt;""""), xml)
+    assertFalse(xml.contains("Heavy & "), "the raw ampersand must not survive: $xml")
+  }
+
+  @Test
   fun `xml-escapes user text in task commands`() {
     val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
     // A detail with all five special chars would otherwise produce a file the mod's XMLFile.load

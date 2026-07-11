@@ -50,5 +50,16 @@
         }
       ]
     }
+  ],
+  "crops": [
+    { "state": 0, "name": "Fallow" },
+    { "state": 3, "name": "Wheat" },
+    { "state": 5, "name": "Canola" },
+    { "state": 9, "name": "Potato" },
+    { "state": 10, "name": "Sugar Beet" }
+  ],
+  "catchCrops": [
+    { "state": 0, "name": "Without catch crop" },
+    { "state": 2, "name": "Oilseed Radish" }
   ]
 }

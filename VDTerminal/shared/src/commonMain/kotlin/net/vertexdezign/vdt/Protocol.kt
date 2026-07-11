@@ -56,13 +56,15 @@ sealed interface ServerMessage {
  * so an idempotent set-to-state is self-correcting where a dropped or doubled toggle would desync.
  * The app already knows the current state (it renders it), so a button tap computes the target itself.
  *
- * The TaskList commands are the exception — a `createTask` / `completeTask` / `deleteTask` is an
- * **action**, not a state you can restate idempotently. Redelivery there is *not* safe (a doubled
- * `createTask` makes two tasks), so it must not be assumed. Safety instead comes from delivery being
- * **at-most-once**: each command's monotonic `id` plus the mod's `lastCommandId` watermark runs an id
- * at most once, and [net.vertexdezign.vdt.server.CommandWriter]'s session-reset (file gone → ids
- * restart at 1, ring dropped) preserves that across restarts. So these carry no target-state and are
- * never resent on their own.
+ * The **action** commands are the exception — `createTask` / `completeTask` / `deleteTask`, and the
+ * CropRotation `addRotationSlot` / `removeRotationSlot` / `createRotation` / `deleteRotation`, each do
+ * a thing rather than assert a state, so they can't be restated idempotently (a doubled `createTask`
+ * makes two tasks). Redelivery there is *not* safe and must not be assumed. Safety instead comes from
+ * delivery being **at-most-once**: each command's monotonic `id` plus the mod's `lastCommandId`
+ * watermark runs an id at most once, and [net.vertexdezign.vdt.server.CommandWriter]'s session-reset
+ * (file gone → ids restart at 1, ring dropped) preserves that across restarts. So these carry no
+ * target-state and are never resent on their own. (The `setRotationCrop` / `setRotationCatchCrop`
+ * slot edits, by contrast, *are* absolute-state and follow the idempotent rule like the rest.)
  */
 @Serializable
 sealed interface ClientMessage {
@@ -184,6 +186,56 @@ sealed interface ClientMessage {
     val groupId: String,
     val taskId: String,
     val task: TaskInput,
+  ) : ClientMessage
+
+  // ---- FS25_CropRotation write-back (farm page). All drive the planner's own MP event wrappers, so
+  // they run with no current vehicle (requiresVehicle = false mod-side). `rotationIndex` is the
+  // plan's exported `index`; `slot` is the 1-based position in its sequence. ----
+
+  /** Set the main crop of `slot` in plan `rotationIndex` to fruit-type [state] (idempotent). */
+  @Serializable
+  @SerialName("setRotationCrop")
+  data class SetRotationCrop(
+    val rotationIndex: Int,
+    val slot: Int,
+    val state: Int,
+  ) : ClientMessage
+
+  /** Set the catch crop of `slot` in plan `rotationIndex` to [catchCropState] (0 = none; idempotent). */
+  @Serializable
+  @SerialName("setRotationCatchCrop")
+  data class SetRotationCatchCrop(
+    val rotationIndex: Int,
+    val slot: Int,
+    val catchCropState: Int,
+  ) : ClientMessage
+
+  /** Append a slot to plan `rotationIndex`. */
+  @Serializable
+  @SerialName("addRotationSlot")
+  data class AddRotationSlot(
+    val rotationIndex: Int,
+  ) : ClientMessage
+
+  /** Drop the last slot of plan `rotationIndex` (the mod keeps at least one). */
+  @Serializable
+  @SerialName("removeRotationSlot")
+  data class RemoveRotationSlot(
+    val rotationIndex: Int,
+  ) : ClientMessage
+
+  /** Create a new one-slot rotation plan named [name] on the local player's farm (mod resolves the id). */
+  @Serializable
+  @SerialName("createRotation")
+  data class CreateRotation(
+    val name: String,
+  ) : ClientMessage
+
+  /** Delete plan `rotationIndex` entirely. */
+  @Serializable
+  @SerialName("deleteRotation")
+  data class DeleteRotation(
+    val rotationIndex: Int,
   ) : ClientMessage
 }
 

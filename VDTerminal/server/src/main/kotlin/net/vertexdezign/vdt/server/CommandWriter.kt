@@ -112,6 +112,31 @@ class CommandWriter(
           message.groupId,
         )}" taskId="${esc(message.taskId)}"${taskAttrs(message.task)}/>"""
       }
+
+      // CropRotation writes. Only createRotation carries user text (name → escaped); the rest are ints.
+      is ClientMessage.SetRotationCrop -> {
+        """<command id="$id" type="setRotationCrop" rotationIndex="${message.rotationIndex}" slot="${message.slot}" state="${message.state}"/>"""
+      }
+
+      is ClientMessage.SetRotationCatchCrop -> {
+        """<command id="$id" type="setRotationCatchCrop" rotationIndex="${message.rotationIndex}" slot="${message.slot}" catchCropState="${message.catchCropState}"/>"""
+      }
+
+      is ClientMessage.AddRotationSlot -> {
+        """<command id="$id" type="addRotationSlot" rotationIndex="${message.rotationIndex}"/>"""
+      }
+
+      is ClientMessage.RemoveRotationSlot -> {
+        """<command id="$id" type="removeRotationSlot" rotationIndex="${message.rotationIndex}"/>"""
+      }
+
+      is ClientMessage.CreateRotation -> {
+        """<command id="$id" type="createRotation" name="${esc(message.name)}"/>"""
+      }
+
+      is ClientMessage.DeleteRotation -> {
+        """<command id="$id" type="deleteRotation" rotationIndex="${message.rotationIndex}"/>"""
+      }
     }
 
   /** The shared `TaskInput` attributes for createTask / editTask (detail is user text → escaped). */

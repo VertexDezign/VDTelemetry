@@ -65,6 +65,21 @@ local function stateNames(list)
   return byIndex
 end
 
+-- The selectable-crop catalog the app needs to render the write-side dropdowns: { state, name }
+-- pairs in the mod's own order. For the main crop we drop `ignoreInPlanner` entries exactly like the
+-- planner GUI does (InGameMenuCropRotationPlanner:mapPossibleStateIfNeeded); catch crops keep all
+-- (including the 0 "without catch crop" option). `state` is the value the write command sends back
+-- (updateCropSelection / updateCatchCropSelection take these indices verbatim).
+local function cropOptions(list, skipIgnored)
+  local options = {}
+  for _, state in ipairs(list or {}) do
+    if state.cropIndex ~= nil and not (skipIgnored and state.ignoreInPlanner) then
+      options[#options + 1] = { state = state.cropIndex, name = state.name }
+    end
+  end
+  return options
+end
+
 -- The yield-bonus percentage the game shows under each slot (e.g. 115%). The planner only stores
 -- `slot.yieldValue` while its GUI is open (InGameMenuCropRotationPlanner:updateYieldValues), so we
 -- recompute it exactly as the GUI does: build the preceding `numHistory` states (wrapping around the
@@ -101,23 +116,25 @@ function VDT.CropRotation.collect()
   end
 
   local cr = env().g_cropRotation
-  local cropNames, catchNames = {}, {}
+  local cropStates, catchStates = {}, {}
   local calc, numHistory = nil, 2
   -- getPossibleCropStates/getPossibleCatchCropStates just return prebuilt tables (no lazy build, so
   -- unlike TaskList's getHusbandries there's no cache to poison); still pcall-guard against a mod
   -- version that renamed them.
   if cr ~= nil then
-    local okCrop, cropStates = pcall(cr.getPossibleCropStates, cr)
-    if okCrop then
-      cropNames = stateNames(cropStates)
+    local okCrop, cs = pcall(cr.getPossibleCropStates, cr)
+    if okCrop and type(cs) == "table" then
+      cropStates = cs
     end
-    local okCatch, catchStates = pcall(cr.getPossibleCatchCropStates, cr)
-    if okCatch then
-      catchNames = stateNames(catchStates)
+    local okCatch, ccs = pcall(cr.getPossibleCatchCropStates, cr)
+    if okCatch and type(ccs) == "table" then
+      catchStates = ccs
     end
     calc = cr.yieldCalculator
     numHistory = cr.NUM_HISTORY_MAPS or 2
   end
+  local cropNames = stateNames(cropStates)
+  local catchNames = stateNames(catchStates)
 
   -- Scope to the local player's farm, matching the in-game planner
   -- (InGameMenuCropRotationPlanner:updateFarmCropRotations); fall back to all if it can't be resolved.
@@ -150,9 +167,16 @@ function VDT.CropRotation.collect()
     end
   end
 
+  -- The write-side crop catalogs (static after load); omitted when empty so the app treats a mod that
+  -- doesn't ship them as read-only.
+  local crops = cropOptions(cropStates, true)
+  local catchCrops = cropOptions(catchStates, false)
+
   return {
     version = tostring(VDT.CropRotation.VERSION),
     rotations = #rotations > 0 and rotations or nil,
+    crops = #crops > 0 and crops or nil,
+    catchCrops = #catchCrops > 0 and catchCrops or nil,
   }
 end
 
