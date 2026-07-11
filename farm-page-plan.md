@@ -44,7 +44,13 @@ Progress (2026-07-10):
   `CropRotation_spec.lua` (catalog), `CommandWriterTest`, `CropRotationModelTest`. The poll-driven
   collector means every write is reflected back live (incl. singleplayer, where the wrappers mutate
   in place without a message). **This completes the farm-page plan** — all four steps plus both
-  optional-mod channels, read + write. Shared `CropRotationData` model +
+  optional-mod channels, read + write.
+- **CropRotation dropdown yield previews + compact layout** (2026-07-11). Each dropdown option shows
+  the % that pick would produce, so the best crop is visible without trying each: the collector emits
+  a per-slot `cropYields` / `catchYields` (one `{ state, yieldPercent }` per catalog option, crop
+  options varying the main crop with the catch fixed and vice-versa, via the same YieldCalculator).
+  Crop + catch crop now share one line; the catch-crop 0 state is labelled "No catch crop" in English
+  (the mod's own crop names follow the game language — no app-side localization yet). Shared `CropRotationData` model +
   `ServerMessage.CropRotation`; server watches `cropRotation.json`; app `CropRotationPanel` renders the
   sequences read-only (replaces the farm-page placeholder). Fixtures
   `examples/json/cropRotation/*.json`, `:shared:jvmTest` decode tests, and `spec/CropRotation_spec.lua`

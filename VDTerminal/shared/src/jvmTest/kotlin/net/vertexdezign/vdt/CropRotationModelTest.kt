@@ -50,6 +50,12 @@ class CropRotationModelTest {
     assertEquals("Wheat", wheat.crop)
     assertEquals(0, wheat.catchCropState)
     assertEquals(115, wheat.yieldPercent)
+    // Per-option dropdown previews: one per catalog crop, and the current crop's preview matches the
+    // slot's own yield.
+    assertEquals(5, wheat.cropYields.size)
+    assertEquals(120, wheat.cropYields.first { it.state == 5 }.yieldPercent)
+    assertEquals(wheat.yieldPercent, wheat.cropYields.first { it.state == wheat.state }.yieldPercent)
+    assertEquals(122, wheat.catchYields.first { it.state == 2 }.yieldPercent)
 
     // Middle step carries a catch crop.
     val canola = heavy.sequence[1]

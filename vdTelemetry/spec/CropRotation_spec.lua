@@ -91,19 +91,19 @@ describe("CropRotation.collect", function()
     assert.are.equal("Heavy Soil", plan.name)
     assert.are.equal(3, #plan.sequence)
 
-    -- yieldPercent = round(100 * stubMultiplier); stub = 1 + 0.1*#history(2) + 0.01*state + 0.001*catch.
-    assert.are.same(
-      { state = 3, crop = "Wheat", catchCropState = 0, catchCrop = "Without catch crop", yieldPercent = 123 },
-      plan.sequence[1]
-    )
-    assert.are.same(
-      { state = 5, crop = "Canola", catchCropState = 2, catchCrop = "Oilseed Radish", yieldPercent = 125 },
-      plan.sequence[2]
-    )
-    assert.are.same(
-      { state = 0, crop = "Fallow", catchCropState = 0, catchCrop = "Without catch crop", yieldPercent = 120 },
-      plan.sequence[3]
-    )
+    -- Compare only the display fields (slots also carry cropYields/catchYields previews, asserted
+    -- separately below). yieldPercent = round(100 * stubMultiplier); stub =
+    -- 1 + 0.1*#history(2) + 0.01*state + 0.001*catch.
+    local function assertDisplay(slot, state, crop, catchCropState, catchCrop, yieldPercent)
+      assert.are.equal(state, slot.state)
+      assert.are.equal(crop, slot.crop)
+      assert.are.equal(catchCropState, slot.catchCropState)
+      assert.are.equal(catchCrop, slot.catchCrop)
+      assert.are.equal(yieldPercent, slot.yieldPercent)
+    end
+    assertDisplay(plan.sequence[1], 3, "Wheat", 0, "Without catch crop", 123)
+    assertDisplay(plan.sequence[2], 5, "Canola", 2, "Oilseed Radish", 125)
+    assertDisplay(plan.sequence[3], 0, "Fallow", 0, "Without catch crop", 120)
   end)
 
   it("ships the crop catalog for the write dropdowns, dropping ignoreInPlanner crops", function()
@@ -120,6 +120,25 @@ describe("CropRotation.collect", function()
       { state = 0, name = "Without catch crop" },
       { state = 2, name = "Oilseed Radish" },
     }, model.catchCrops)
+  end)
+
+  it("ships per-option yield previews for the dropdowns", function()
+    installMod({ { index = 1, name = "A", farmId = 1, rotations = { { state = 3, catchCropState = 0 } } } })
+
+    local slot = VDT.CropRotation.collect().rotations[1].sequence[1]
+    -- One entry per catalog option (crops drop the ignoreInPlanner "Weeds": fallow, wheat, canola).
+    assert.are.equal(3, #slot.cropYields)
+    assert.are.equal(2, #slot.catchYields)
+    -- The preview varies only its own axis: cropYields hold the slot's catch crop (0), catchYields its
+    -- crop (3). The stub multiplier is 1 + 0.1*#history(2) + 0.01*state + 0.001*catch, *100 rounded.
+    local byState = {}
+    for _, e in ipairs(slot.cropYields) do
+      byState[e.state] = e.yieldPercent
+    end
+    assert.are.equal(120, byState[0]) -- 120 + 0 crop + 0 catch
+    assert.are.equal(125, byState[5]) -- 120 + 5 crop + 0 catch
+    -- The current crop's preview equals the slot's own yield.
+    assert.are.equal(slot.yieldPercent, byState[slot.state])
   end)
 
   it("omits yieldPercent when the mod has no yield calculator", function()

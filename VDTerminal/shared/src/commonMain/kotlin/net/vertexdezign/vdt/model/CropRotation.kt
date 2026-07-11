@@ -58,4 +58,19 @@ data class CropRotationSlot(
    * version / missing calculator), rendered as no percentage rather than a misleading 0.
    */
   val yieldPercent: Int? = null,
+  /**
+   * Per-option yield previews for this slot's crop dropdown: for each selectable crop, the % this
+   * slot would yield if it were picked (catch crop held at its current value). Lets the app show the
+   * outcome of each choice inline. Empty when the mod ships no catalog / calculator.
+   */
+  val cropYields: List<CropYield> = emptyList(),
+  /** The same previews for the catch-crop dropdown (main crop held at its current value). */
+  val catchYields: List<CropYield> = emptyList(),
+)
+
+/** One dropdown option's preview: [state] is the crop/catch index, [yieldPercent] its resulting %. */
+@Serializable
+data class CropYield(
+  val state: Int = 0,
+  val yieldPercent: Int? = null,
 )

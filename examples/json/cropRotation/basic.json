@@ -11,7 +11,18 @@
           "crop": "Wheat",
           "catchCropState": 0,
           "catchCrop": "Without catch crop",
-          "yieldPercent": 115
+          "yieldPercent": 115,
+          "cropYields": [
+            { "state": 0, "yieldPercent": 100 },
+            { "state": 3, "yieldPercent": 115 },
+            { "state": 5, "yieldPercent": 120 },
+            { "state": 9, "yieldPercent": 118 },
+            { "state": 10, "yieldPercent": 112 }
+          ],
+          "catchYields": [
+            { "state": 0, "yieldPercent": 115 },
+            { "state": 2, "yieldPercent": 122 }
+          ]
         },
         {
           "state": 5,

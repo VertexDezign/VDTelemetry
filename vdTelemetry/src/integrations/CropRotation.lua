@@ -107,6 +107,31 @@ local function yieldPercent(calc, numHistory, rotations, rotationIndex, state, c
   return nil
 end
 
+-- Per-option yield previews for a slot's dropdowns: for each catalog option, the % the slot would
+-- yield if that option were picked, holding the *other* axis at the slot's current value. So the crop
+-- dropdown varies the main crop with the catch crop fixed, and the catch dropdown varies the catch
+-- crop with the main crop fixed — letting the app show the outcome of each choice inline. Returns a
+-- list of { state, yieldPercent }, or nil when there's nothing to compute (no calculator/options).
+local function previewYields(calc, numHistory, rotations, rotationIndex, options, varyCatch, fixedState)
+  if calc == nil or #options == 0 then
+    return nil
+  end
+  local previews = {}
+  for _, option in ipairs(options) do
+    local state, catchCropState
+    if varyCatch then
+      state, catchCropState = fixedState, option.state
+    else
+      state, catchCropState = option.state, fixedState
+    end
+    previews[#previews + 1] = {
+      state = option.state,
+      yieldPercent = yieldPercent(calc, numHistory, rotations, rotationIndex, state, catchCropState),
+    }
+  end
+  return previews
+end
+
 ---Build the cropRotation model, or nil when the mod isn't loaded (skips the write).
 ---@return table|nil
 function VDT.CropRotation.collect()
@@ -135,6 +160,10 @@ function VDT.CropRotation.collect()
   end
   local cropNames = stateNames(cropStates)
   local catchNames = stateNames(catchStates)
+  -- The write-side crop catalogs (static after load); the per-slot previews below vary over these
+  -- exact option sets so the dropdown %s line up with what a pick would produce.
+  local crops = cropOptions(cropStates, true)
+  local catchCrops = cropOptions(catchStates, false)
 
   -- Scope to the local player's farm, matching the in-game planner
   -- (InGameMenuCropRotationPlanner:updateFarmCropRotations); fall back to all if it can't be resolved.
@@ -148,12 +177,17 @@ function VDT.CropRotation.collect()
     if farmId == nil or cropRotation.farmId == farmId then
       local sequence = {}
       for i, slot in ipairs(cropRotation.rotations or {}) do
+        local slots = cropRotation.rotations
         sequence[#sequence + 1] = {
           state = slot.state,
           crop = cropNames[slot.state] or "",
           catchCropState = slot.catchCropState,
           catchCrop = catchNames[slot.catchCropState] or "",
-          yieldPercent = yieldPercent(calc, numHistory, cropRotation.rotations, i, slot.state, slot.catchCropState),
+          yieldPercent = yieldPercent(calc, numHistory, slots, i, slot.state, slot.catchCropState),
+          -- Inline dropdown previews: crop options vary the main crop (catch fixed), catch options
+          -- vary the catch (main fixed).
+          cropYields = previewYields(calc, numHistory, slots, i, crops, false, slot.catchCropState),
+          catchYields = previewYields(calc, numHistory, slots, i, catchCrops, true, slot.state),
         }
       end
       rotations[#rotations + 1] = {
@@ -166,11 +200,6 @@ function VDT.CropRotation.collect()
       }
     end
   end
-
-  -- The write-side crop catalogs (static after load); omitted when empty so the app treats a mod that
-  -- doesn't ship them as read-only.
-  local crops = cropOptions(cropStates, true)
-  local catchCrops = cropOptions(catchStates, false)
 
   return {
     version = tostring(VDT.CropRotation.VERSION),

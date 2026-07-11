@@ -6,10 +6,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -204,61 +207,73 @@ private fun SlotRow(
   onCatchCrop: (Int) -> Unit,
 ) {
   val fallow = slot.state == FALLOW_STATE
+  // state -> resulting % for each dropdown option (see the mod's per-slot previewYields).
+  val cropYields = remember(slot.cropYields) { slot.cropYields.associate { it.state to it.yieldPercent } }
+  val catchYields = remember(slot.catchYields) { slot.catchYields.associate { it.state to it.yieldPercent } }
   Row(
     Modifier.fillMaxWidth().padding(start = 4.dp),
     verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.spacedBy(6.dp),
+    horizontalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     Box(
       Modifier.size(8.dp).clip(CircleShape).background(if (fallow) VdtColors.TrackGray else VdtColors.Green),
     )
-    Text("$position.", color = VdtColors.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-      CropDropdown(
-        options = crops,
-        selectedState = slot.state,
-        fallback = slot.crop.ifBlank { if (fallow) "Fallow" else "Crop ${slot.state}" },
-        bold = true,
-        prefix = "",
-        onSelect = onCrop,
-      )
-      CropDropdown(
-        options = catchCrops,
-        selectedState = slot.catchCropState,
-        fallback = slot.catchCrop,
-        bold = false,
-        prefix = "+ ",
-        onSelect = onCatchCrop,
-      )
-    }
+    Text("$position.", color = VdtColors.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    // Crop + catch crop on one line (crop gets the extra room), current % on the right.
+    CropDropdown(
+      modifier = Modifier.weight(1.3f),
+      options = crops,
+      yields = cropYields,
+      selectedState = slot.state,
+      fallback = slot.crop.ifBlank { if (fallow) "Fallow" else "Crop ${slot.state}" },
+      isCatch = false,
+      onSelect = onCrop,
+    )
+    CropDropdown(
+      modifier = Modifier.weight(1f),
+      options = catchCrops,
+      yields = catchYields,
+      selectedState = slot.catchCropState,
+      fallback = slot.catchCrop,
+      isCatch = true,
+      onSelect = onCatchCrop,
+    )
     slot.yieldPercent?.let { pct -> YieldLabel(pct) }
   }
 }
 
+/** Catch-crop 0 is "no catch crop"; label it in English (the mod string follows the game language). */
+private fun displayName(state: Int, name: String, isCatch: Boolean): String =
+  if (isCatch && state == FALLOW_STATE) "No catch crop" else name
+
 /**
- * The selected crop with a dropdown to change it. When [options] is empty (mod shipped no catalog)
- * it renders as plain read-only text — the [fallback] display name.
+ * The selected crop with a dropdown to change it; each menu option shows the % this slot would yield
+ * if picked ([yields]). When [options] is empty (mod shipped no catalog) it renders as plain
+ * read-only text — the [fallback] display name.
  */
 @Composable
 private fun CropDropdown(
   options: List<CropOption>,
+  yields: Map<Int, Int?>,
   selectedState: Int,
   fallback: String,
-  bold: Boolean,
-  prefix: String,
+  isCatch: Boolean,
   onSelect: (Int) -> Unit,
+  modifier: Modifier = Modifier,
 ) {
-  // Nothing to select and (for a catch crop) nothing set: show nothing rather than "+ ".
-  val name = options.firstOrNull { it.state == selectedState }?.name ?: fallback
-  if (!bold && selectedState == FALLOW_STATE && name.isBlank()) return
+  val rawName = options.firstOrNull { it.state == selectedState }?.name ?: fallback
+  val name = displayName(selectedState, rawName, isCatch)
 
-  val color = if (bold) VdtColors.TextDark else VdtColors.DarkGray
-  val size = if (bold) 13.sp else 11.sp
-  val weight = if (bold) FontWeight.SemiBold else FontWeight.Normal
+  val color = if (isCatch) VdtColors.DarkGray else VdtColors.TextDark
+  val size = if (isCatch) 11.sp else 13.sp
+  val weight = if (isCatch) FontWeight.Normal else FontWeight.SemiBold
 
   if (options.isEmpty()) {
+    // Read-only fallback (no catalog): plain text; hide an unset catch crop rather than clutter.
+    if (isCatch && selectedState == FALLOW_STATE && rawName.isBlank()) return
     Text(
-      prefix + name,
+      name,
+      modifier,
       color = color,
       fontSize = size,
       fontWeight = weight,
@@ -269,10 +284,10 @@ private fun CropDropdown(
   }
 
   var expanded by remember { mutableStateOf(false) }
-  Box {
+  Box(modifier) {
     Row(Modifier.fillMaxWidth().clickable { expanded = true }, verticalAlignment = Alignment.CenterVertically) {
       Text(
-        prefix + name,
+        name,
         color = color,
         fontSize = size,
         fontWeight = weight,
@@ -280,12 +295,12 @@ private fun CropDropdown(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f, fill = false),
       )
-      Icon(Icons.Filled.ArrowDropDown, "change", tint = VdtColors.Gray, modifier = Modifier.size(16.dp))
+      Icon(Icons.Filled.ArrowDropDown, "change", tint = VdtColors.Gray, modifier = Modifier.size(14.dp))
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
       options.forEach { option ->
         DropdownMenuItem(
-          text = { Text(option.name) },
+          text = { OptionRow(displayName(option.state, option.name, isCatch), yields[option.state]) },
           onClick = {
             onSelect(option.state)
             expanded = false
@@ -296,18 +311,37 @@ private fun CropDropdown(
   }
 }
 
+/** A dropdown option: crop name on the left, its resulting yield % (coloured) on the right. */
+@Composable
+private fun OptionRow(name: String, pct: Int?) {
+  Row(
+    Modifier.widthIn(min = 190.dp),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(
+      name,
+      fontSize = 13.sp,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f, fill = false),
+    )
+    if (pct != null) {
+      Spacer(Modifier.width(16.dp))
+      Text("$pct%", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = yieldColor(pct))
+    }
+  }
+}
+
+private fun yieldColor(pct: Int): Color = when {
+  pct > 100 -> VdtColors.Green
+  pct < 100 -> VdtColors.Red
+  else -> VdtColors.DarkGray
+}
+
 @Composable
 private fun YieldLabel(pct: Int) {
-  Text(
-    "$pct%",
-    color = when {
-      pct > 100 -> VdtColors.Green
-      pct < 100 -> VdtColors.Red
-      else -> VdtColors.DarkGray
-    },
-    fontSize = 12.sp,
-    fontWeight = FontWeight.Bold,
-  )
+  Text("$pct%", color = yieldColor(pct), fontSize = 12.sp, fontWeight = FontWeight.Bold)
 }
 
 @Composable
