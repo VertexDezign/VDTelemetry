@@ -19,8 +19,19 @@ Progress (2026-07-10):
 - **Step 4** (TaskList write paths) — done. B2 (CommandWriter XML escaping) and B3 (Protocol
   invariant restated for the non-idempotent task actions) landed; complete / delete / create / edit
   wired app → command channel → the mod's own MP wrappers (`src/command/TaskListControl.lua`), with a
-  task create/edit form in the panel. CropRotation writes remain out of scope (read path still
-  blocked).
+  task create/edit form in the panel.
+- **CropRotation read channel** (2026-07-11) — done, mirroring the TaskList read path now that the
+  "blocked" call is retracted (env-global isolation, not server-only data). Mod:
+  `src/integrations/CropRotation.lua` self-detects via `FS25_CropRotation.g_cropRotationPlanner`,
+  subscribes to `CROP_ROTATIONS_CHANGED`, and serializes the local farm's plans (crop + catch-crop
+  display names resolved inline from `g_cropRotation:getPossibleCropStates()` /
+  `:getPossibleCatchCropStates()`; `yieldValue` omitted — it's only recomputed while the planner GUI
+  is open). Shared `CropRotationData` model + `ServerMessage.CropRotation`; server watches
+  `cropRotation.json`; app `CropRotationPanel` renders the sequences read-only (replaces the farm-page
+  placeholder). Fixtures `examples/json/cropRotation/*.json`, `:shared:jvmTest` decode tests, and
+  `spec/CropRotation_spec.lua` collector tests. **Verify the `FS25_CropRotation` env-global handle
+  in-game** (as we did for TaskList) before building the write path. CropRotation *writes* (planner
+  editing) remain out of scope — that's the next step.
 
 ---
 

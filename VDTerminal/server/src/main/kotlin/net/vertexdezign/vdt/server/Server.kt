@@ -40,14 +40,17 @@ fun main() {
   log.info("Debounce: {} ms", Config.debounceMs())
 
   val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-  // One watcher over the telemetry directory feeds a StateFlow per file. taskList.json is optional:
-  // its absence is the "mod not installed" signal, so that flow resets to null when the file is gone.
+  // One watcher over the telemetry directory feeds a StateFlow per file. taskList.json and
+  // cropRotation.json are optional: a file's absence is the "mod not installed" signal, so those
+  // flows reset to null when the file is gone.
   val watcher = TelemetryWatcher(telemetryPath.parent, Config.debounceMs())
   val telemetryState =
     watcher.register(telemetryPath.fileName.toString(), nullOnAbsent = false) {
       VdtParser.parseJson(it)
     }
   val taskListState = watcher.register("taskList.json", nullOnAbsent = true) { VdtParser.parseTaskList(it) }
+  val cropRotationState =
+    watcher.register("cropRotation.json", nullOnAbsent = true) { VdtParser.parseCropRotation(it) }
   watcher.launchIn(appScope)
 
   val commandWriter = CommandWriter(Config.commandPath())
@@ -89,6 +92,15 @@ fun main() {
               }
             }
           }
+        val cropRotationJob =
+          launch {
+            cropRotationState.collect { data ->
+              if (data != null) {
+                val message: ServerMessage = ServerMessage.CropRotation(data)
+                send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+              }
+            }
+          }
         // Incoming: app -> mod commands. Decode and hand to the writer; ignore anything unparseable
         // so a bad frame can't kill the session. Reading `incoming` also keeps the socket alive.
         try {
@@ -105,6 +117,7 @@ fun main() {
         } finally {
           sendJob.cancel()
           taskListJob.cancel()
+          cropRotationJob.cancel()
         }
       }
 

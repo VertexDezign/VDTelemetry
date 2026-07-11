@@ -38,6 +38,7 @@ local sourceFiles = {
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",
   "src/integrations/TaskList.lua",
+  "src/integrations/CropRotation.lua",
   -- Orchestrators depend on the collectors + aspects + integrations above
   "src/collect/VehicleExporter.lua",
   -- Command back-channel (app -> mod), read side; depends on Json above. CommandRegistry first: the

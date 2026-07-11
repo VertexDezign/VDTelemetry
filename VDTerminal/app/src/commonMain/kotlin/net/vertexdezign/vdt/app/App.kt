@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,14 +21,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.russhwolf.settings.Settings
 import net.vertexdezign.vdt.ClientMessage
-import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.net.ConnectionState
+import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EmptyPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
 import net.vertexdezign.vdt.app.panels.Footer
@@ -40,6 +37,7 @@ import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
 import net.vertexdezign.vdt.app.panels.TaskListPanel
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -58,6 +56,7 @@ fun App(
   onToggleWakeLock: () -> Unit = {},
   onCommand: (ClientMessage) -> Unit = {},
   taskList: TaskListData? = null,
+  cropRotation: CropRotationData? = null,
 ) {
   // Auto-switch pages on each enter/leave transition. Keying the effect on the *boolean* presence
   // (not the vehicle object) means a manual pick via the header Menu stays put until the next
@@ -83,6 +82,7 @@ fun App(
             onToggleWakeLock,
             onCommand,
             taskList,
+            cropRotation,
           )
       }
 
@@ -128,6 +128,7 @@ private fun Dashboard(
   onToggleWakeLock: () -> Unit,
   onCommand: (ClientMessage) -> Unit,
   taskList: TaskListData?,
+  cropRotation: CropRotationData?,
 ) {
   Column(Modifier.fillMaxSize()) {
     Header(
@@ -140,7 +141,7 @@ private fun Dashboard(
 
     when (page) {
       Page.Vehicle -> VehiclePage(data, mapUrl, settings, sampleIntervalMs, onCommand)
-      Page.Farm -> FarmPage(data, mapUrl, settings, sampleIntervalMs, taskList, onCommand)
+      Page.Farm -> FarmPage(data, mapUrl, settings, sampleIntervalMs, taskList, cropRotation, onCommand)
     }
   }
 }
@@ -189,6 +190,7 @@ private fun ColumnScope.FarmPage(
   settings: Settings,
   sampleIntervalMs: Int,
   taskList: TaskListData?,
+  cropRotation: CropRotationData?,
   onCommand: (ClientMessage) -> Unit,
 ) {
   Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -200,24 +202,12 @@ private fun ColumnScope.FarmPage(
       }
       Column(Modifier.fillMaxHeight().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.fillMaxWidth().weight(1f)) { TaskListPanel(taskList, onCommand = onCommand) }
-        // CropRotation stays a placeholder: its planner data isn't reachable on a dedicated-server
-        // client, so that channel needs a redesign (see farm-page-plan.md).
-        Box(Modifier.fillMaxWidth().weight(1f)) { PlaceholderPanel("Crop Rotation", Icons.Filled.Agriculture) }
+        Box(Modifier.fillMaxWidth().weight(1f)) { CropRotationPanel(cropRotation) }
       }
     }
   }
 
   Footer(null)
-}
-
-/** Titled panel with no data yet — the farm panels are wired up in a later step. */
-@Composable
-private fun PlaceholderPanel(title: String, icon: ImageVector) {
-  Panel(title = title, icon = icon) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-      Text("COMING SOON", color = VdtColors.Gray, fontSize = 12.sp)
-    }
-  }
 }
 
 @Composable

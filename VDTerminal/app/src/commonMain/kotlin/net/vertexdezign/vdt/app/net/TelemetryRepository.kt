@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
+import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 import kotlin.math.roundToInt
@@ -51,6 +52,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // is installed. Separate flow (not folded into telemetry) because it arrives on its own cadence.
   private val _taskList = MutableStateFlow<TaskListData?>(null)
   val taskList: StateFlow<TaskListData?> = _taskList.asStateFlow()
+
+  // Optional FS25_CropRotation channel; same "null until sent, only while installed" contract as
+  // taskList, on its own event-driven cadence.
+  private val _cropRotation = MutableStateFlow<CropRotationData?>(null)
+  val cropRotation: StateFlow<CropRotationData?> = _cropRotation.asStateFlow()
 
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
@@ -102,6 +108,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.TaskList -> {
                       _taskList.value = msg.data
+                    }
+
+                    is ServerMessage.CropRotation -> {
+                      _cropRotation.value = msg.data
                     }
 
                     is ServerMessage.Error -> {

@@ -2,6 +2,7 @@ package net.vertexdezign.vdt
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -27,6 +28,17 @@ sealed interface ServerMessage {
   @SerialName("taskList")
   data class TaskList(
     val data: TaskListData,
+  ) : ServerMessage
+
+  /**
+   * The optional FS25_CropRotation channel. Like [TaskList], a distinct event-driven message (not a
+   * field on [Telemetry]) so it broadcasts on its own cadence and its file's absence stays the "mod
+   * not installed" signal.
+   */
+  @Serializable
+  @SerialName("cropRotation")
+  data class CropRotation(
+    val data: CropRotationData,
   ) : ServerMessage
 
   @Serializable

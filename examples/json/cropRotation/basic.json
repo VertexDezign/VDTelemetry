@@ -1,0 +1,49 @@
+{
+  "version": "1",
+  "rotations": [
+    {
+      "index": 1,
+      "name": "Heavy Soil",
+      "farmId": 1,
+      "sequence": [
+        {
+          "state": 3,
+          "crop": "Wheat",
+          "catchCropState": 0,
+          "catchCrop": "Without catch crop"
+        },
+        {
+          "state": 5,
+          "crop": "Canola",
+          "catchCropState": 2,
+          "catchCrop": "Oilseed Radish"
+        },
+        {
+          "state": 0,
+          "crop": "Fallow",
+          "catchCropState": 0,
+          "catchCrop": "Without catch crop"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "name": "Root Crops",
+      "farmId": 1,
+      "sequence": [
+        {
+          "state": 9,
+          "crop": "Potato",
+          "catchCropState": 0,
+          "catchCrop": "Without catch crop"
+        },
+        {
+          "state": 10,
+          "crop": "Sugar Beet",
+          "catchCropState": 0,
+          "catchCrop": "Without catch crop"
+        }
+      ]
+    }
+  ]
+}
