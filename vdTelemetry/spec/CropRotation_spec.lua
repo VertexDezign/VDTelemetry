@@ -36,7 +36,7 @@ end
 before_each(function()
   rawset(_G, "FS25_CropRotation", nil)
   rawset(_G, "g_localPlayer", { farmId = 1 })
-  VDT.CropRotation.subscribed = nil
+  VDT.CropRotation.signature = nil
 end)
 
 describe("CropRotation channel registration", function()
@@ -125,5 +125,59 @@ describe("CropRotation.collect", function()
 
     local model = VDT.CropRotation.collect()
     assert.are.equal("", model.rotations[1].sequence[1].crop)
+  end)
+end)
+
+describe("CropRotation.tick change detection", function()
+  local debugger = { info = function() end }
+  local realMarkDirty
+  local dirtied
+
+  before_each(function()
+    dirtied = 0
+    realMarkDirty = VDT.ExportChannels.markDirty
+    VDT.ExportChannels.markDirty = function(name)
+      if name == "cropRotation" then
+        dirtied = dirtied + 1
+      end
+    end
+  end)
+
+  after_each(function()
+    VDT.ExportChannels.markDirty = realMarkDirty
+  end)
+
+  it("does nothing while the mod isn't installed", function()
+    VDT.CropRotation.tick(debugger)
+    assert.are.equal(0, dirtied)
+  end)
+
+  it("marks dirty on the first tick, then only when the planner actually changes", function()
+    installMod({
+      { index = 1, name = "A", farmId = 1, rotations = { { state = 3, catchCropState = 0 } } },
+    })
+    local pl = rawget(_G, "FS25_CropRotation").g_cropRotationPlanner
+    pl.nextCropRotationIndex = 2
+
+    VDT.CropRotation.tick(debugger) -- initial write of what's already loaded
+    assert.are.equal(1, dirtied)
+    VDT.CropRotation.tick(debugger) -- unchanged: no write
+    assert.are.equal(1, dirtied)
+
+    -- Singleplayer addCropRotation mutates the planner directly with no message; the poll must catch it.
+    pl.nextCropRotationIndex = 3
+    pl.cropRotations[2] = { index = 2, name = "B", farmId = 1, rotations = { { state = 5, catchCropState = 0 } } }
+    VDT.CropRotation.tick(debugger)
+    assert.are.equal(2, dirtied)
+
+    -- In-place slot edit (updateCropSelection): count/index unchanged, but the state moved.
+    pl.cropRotations[1].rotations[1].state = 9
+    VDT.CropRotation.tick(debugger)
+    assert.are.equal(3, dirtied)
+
+    -- Removal leaves a hole in cropRotations; the poll still notices.
+    pl.cropRotations[2] = nil
+    VDT.CropRotation.tick(debugger)
+    assert.are.equal(4, dirtied)
   end)
 end)

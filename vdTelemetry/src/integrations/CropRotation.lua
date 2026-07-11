@@ -1,15 +1,23 @@
--- Optional integration: FS25_CropRotation. An event-driven export channel mirroring the mod's
--- saved rotation plans (the planner), the same way integrations/TaskList.lua mirrors task groups:
--- it self-detects the mod, subscribes to its change message, and serializes the current farm's
--- crop-rotation plans into cropRotation.json. **Absence of that file is the app's "not installed"
--- signal** — when the mod isn't present the channel is registered but never writes.
+-- Optional integration: FS25_CropRotation. An export channel mirroring the mod's saved rotation
+-- plans (the planner), like integrations/TaskList.lua mirrors task groups: it self-detects the mod
+-- and serializes the local farm's crop-rotation plans into cropRotation.json. **Absence of that file
+-- is the app's "not installed" signal** — when the mod isn't present the channel is registered but
+-- never writes.
+--
+-- Unlike TaskList this channel is NOT subscribe-driven. FS25_CropRotation only publishes
+-- CROP_ROTATIONS_CHANGED from its *multiplayer* event path, so in singleplayer the cases that matter
+-- never fire it: addCropRotation / removeCropRotation take the server branch and mutate
+-- `cropRotations` directly, and the per-slot edits (updateCropSelection, ...) mutate the slot in
+-- place before sending the event. Subscribing would miss all of that (a new plan only appeared after
+-- a save+reload). So we diff a cheap per-tick signature of the planner instead (see tick()); the file
+-- is still only written when that signature moves. This also sidesteps the CROP_ROTATIONS_CHANGED id
+-- landmine (see farm-page-plan.md) since we never rely on that id.
 --
 -- Mod-environment isolation (see farm-page-plan.md "Mod-environment isolation"): FS25_CropRotation's
 -- `g_cropRotationPlanner` / `g_cropRotation` are globals in *its own* Lua environment, not the shared
 -- `_G`, so from our env they're reachable only as `FS25_CropRotation.g_cropRotationPlanner` /
 -- `.g_cropRotation` — the bare globals are nil here. (This is exactly what made the earlier probe
--- misread the data as server-only.) `MessageType`, `g_messageCenter` and `g_localPlayer` are shared
--- engine globals, so those are read directly.
+-- misread the data as server-only.) `g_localPlayer` is a shared engine global, read directly.
 --
 -- Data shape (from the mod's CropRotationPlanner.lua / CropRotation.lua):
 --   planner.cropRotations   list of  { name, farmId, index, rotations = [{ state, catchCropState,
@@ -117,30 +125,43 @@ function VDT.CropRotation.collect()
   }
 end
 
--- MessageCenter invokes callback(target, ...); target is VDT.CropRotation and the extra args are
--- ignored (we re-read the planner rather than reading the message payload).
-function VDT.CropRotation.markDirty()
-  VDT.ExportChannels.markDirty(VDT.CropRotation.CHANNEL)
+-- Allocation-free change signature of the planner. FS25's engine Lua has no bitwise operators, so
+-- this is a plain arithmetic rolling hash (kept in double-exact integer range) — enough for change
+-- detection, where the only failure mode is a hash collision missing one update, and the data is a
+-- handful of plans. pairs() order is stable for an unmodified table, so an unchanged planner hashes
+-- the same every tick; any add / remove / in-place slot edit moves the hash.
+local function signature(pl)
+  local h = 0
+  local function mix(v)
+    h = (h * 1000003 + (v or 0)) % 2147483647
+  end
+  mix(pl.nextCropRotationIndex)
+  for _, cropRotation in pairs(pl.cropRotations or {}) do
+    mix(cropRotation.index)
+    mix(cropRotation.farmId)
+    for _, slot in ipairs(cropRotation.rotations or {}) do
+      mix(slot.state)
+      mix(slot.catchCropState)
+    end
+  end
+  return h
 end
 
--- Lazy subscribe: CROP_ROTATIONS_CHANGED only exists once the mod has loaded, so we wait for the
--- planner (also the natural "installed?" gate) before subscribing. Once subscribed we queue an
--- initial write so the file reflects the state already present on connect.
---
--- ⚠️ FS25_CropRotation reserves this MessageType id by *counting* rather than nextMessageTypeId(), so
--- another mod could share the id (see farm-page-plan.md landmine). Harmless here: a spurious wake
--- just rewrites the same file from the planner.
+-- Per-tick change poll (see the header note on why this isn't subscribe-driven). Diffs a cheap
+-- signature of the planner and marks the channel dirty when it moves; the first tick has a nil
+-- baseline, so it always queues the initial write of whatever is already loaded.
 function VDT.CropRotation.tick(debugger)
-  if VDT.CropRotation.subscribed or not VDT.CropRotation.isAvailable() then
+  if not VDT.CropRotation.isAvailable() then
     return
   end
-  if MessageType == nil or MessageType.CROP_ROTATIONS_CHANGED == nil then
-    return
+  local sig = signature(planner())
+  if sig ~= VDT.CropRotation.signature then
+    if VDT.CropRotation.signature == nil then
+      debugger:info("CropRotation integration active (polling planner for changes)")
+    end
+    VDT.CropRotation.signature = sig
+    VDT.ExportChannels.markDirty(VDT.CropRotation.CHANNEL)
   end
-  g_messageCenter:subscribe(MessageType.CROP_ROTATIONS_CHANGED, VDT.CropRotation.markDirty, VDT.CropRotation)
-  VDT.CropRotation.subscribed = true
-  VDT.CropRotation.markDirty()
-  debugger:info("CropRotation integration active (subscribed to crop rotation updates)")
 end
 
 -- Self-register the channel (see ExportChannels). Registered even when the mod isn't installed;

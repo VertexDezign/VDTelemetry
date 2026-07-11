@@ -22,16 +22,26 @@ Progress (2026-07-10):
   task create/edit form in the panel.
 - **CropRotation read channel** (2026-07-11) — done, mirroring the TaskList read path now that the
   "blocked" call is retracted (env-global isolation, not server-only data). Mod:
-  `src/integrations/CropRotation.lua` self-detects via `FS25_CropRotation.g_cropRotationPlanner`,
-  subscribes to `CROP_ROTATIONS_CHANGED`, and serializes the local farm's plans (crop + catch-crop
-  display names resolved inline from `g_cropRotation:getPossibleCropStates()` /
-  `:getPossibleCatchCropStates()`; `yieldValue` omitted — it's only recomputed while the planner GUI
-  is open). Shared `CropRotationData` model + `ServerMessage.CropRotation`; server watches
-  `cropRotation.json`; app `CropRotationPanel` renders the sequences read-only (replaces the farm-page
-  placeholder). Fixtures `examples/json/cropRotation/*.json`, `:shared:jvmTest` decode tests, and
-  `spec/CropRotation_spec.lua` collector tests. **Verify the `FS25_CropRotation` env-global handle
-  in-game** (as we did for TaskList) before building the write path. CropRotation *writes* (planner
+  `src/integrations/CropRotation.lua` self-detects via `FS25_CropRotation.g_cropRotationPlanner` and
+  serializes the local farm's plans (crop + catch-crop display names resolved inline from
+  `g_cropRotation:getPossibleCropStates()` / `:getPossibleCatchCropStates()`; `yieldValue` omitted —
+  it's only recomputed while the planner GUI is open). Shared `CropRotationData` model +
+  `ServerMessage.CropRotation`; server watches `cropRotation.json`; app `CropRotationPanel` renders the
+  sequences read-only (replaces the farm-page placeholder). Fixtures
+  `examples/json/cropRotation/*.json`, `:shared:jvmTest` decode tests, and `spec/CropRotation_spec.lua`
+  collector + change-detection tests. **Verified in-game (singleplayer):** existing plans show on
+  entry; live add/remove/edit now show too (see the poll note below). CropRotation *writes* (planner
   editing) remain out of scope — that's the next step.
+- **CropRotation is poll-driven, not subscribe-driven** (2026-07-11). The plan below assumed
+  `CROP_ROTATIONS_CHANGED` was a usable change signal like TaskList's messages. It isn't:
+  FS25_CropRotation only publishes it from its *multiplayer event path*. In singleplayer
+  `CropRotationPlanner:addCropRotation` / `:removeCropRotation` take the server branch and mutate
+  `cropRotations` directly with no publish, and the per-slot edits (`updateCropSelection`, ...) mutate
+  the slot in place before sending the event — so a subscribe-only channel missed every live change (a
+  new plan only appeared after save+reload). The channel instead diffs a cheap allocation-free
+  signature of the planner in its per-tick `tick()` and marks itself dirty when it moves; the file is
+  still only written on an actual change. This also moots the `CROP_ROTATIONS_CHANGED` id-collision
+  landmine, since nothing subscribes to it.
 
 ---
 
