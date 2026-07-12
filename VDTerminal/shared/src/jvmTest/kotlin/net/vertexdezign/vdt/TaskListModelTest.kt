@@ -94,4 +94,18 @@ class TaskListModelTest {
     val decoded = json.decodeFromString(ServerMessage.serializer(), encoded)
     assertEquals(message, assertNotNull(decoded as? ServerMessage.TaskList))
   }
+
+  /**
+   * "Mod not installed" has to be expressible on the wire: the server sends it when `taskList.json`
+   * is gone, and the app clears the panel on it. If `data` were non-nullable the null could never be
+   * broadcast and an uninstalled mod would keep showing its last tasks.
+   */
+  @Test
+  fun taskListCarriesTheNotInstalledNull() {
+    val message: ServerMessage = ServerMessage.TaskList(null)
+    val encoded = json.encodeToString(ServerMessage.serializer(), message)
+
+    val decoded = json.decodeFromString(ServerMessage.serializer(), encoded)
+    assertEquals(null, assertNotNull(decoded as? ServerMessage.TaskList).data)
+  }
 }

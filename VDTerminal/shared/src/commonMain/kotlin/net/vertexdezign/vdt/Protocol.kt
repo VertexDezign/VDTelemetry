@@ -23,22 +23,27 @@ sealed interface ServerMessage {
    * The optional FS25_TaskList channel. Broadcast on its own cadence (event-driven, not the ~100 ms
    * telemetry tick) and only while the mod is installed — its file's absence is why this arrives as a
    * distinct message rather than a field on [Telemetry].
+   *
+   * [data] is **null when the mod is not installed**, i.e. when `taskList.json` is absent (the mod
+   * deletes it at startup when the integration isn't there). That null has to cross the wire: the app
+   * holds the last value it was sent, so without an explicit "it's gone" the panel would keep
+   * rendering the previous session's tasks forever.
    */
   @Serializable
   @SerialName("taskList")
   data class TaskList(
-    val data: TaskListData,
+    val data: TaskListData? = null,
   ) : ServerMessage
 
   /**
    * The optional FS25_CropRotation channel. Like [TaskList], a distinct event-driven message (not a
-   * field on [Telemetry]) so it broadcasts on its own cadence and its file's absence stays the "mod
-   * not installed" signal.
+   * field on [Telemetry]) so it broadcasts on its own cadence, and [data] is null when the mod isn't
+   * installed — same "the absence must be broadcast, not swallowed" rule.
    */
   @Serializable
   @SerialName("cropRotation")
   data class CropRotation(
-    val data: CropRotationData,
+    val data: CropRotationData? = null,
   ) : ServerMessage
 
   @Serializable

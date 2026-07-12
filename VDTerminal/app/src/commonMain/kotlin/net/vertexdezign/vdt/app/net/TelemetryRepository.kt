@@ -48,13 +48,15 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   private val _telemetry = MutableStateFlow<VdtData?>(null)
   val telemetry: StateFlow<VdtData?> = _telemetry.asStateFlow()
 
-  // Optional FS25_TaskList channel; null until the server sends it, and it only does so while the mod
-  // is installed. Separate flow (not folded into telemetry) because it arrives on its own cadence.
+  // Optional FS25_TaskList channel; null while the mod isn't installed. The server sends that null
+  // explicitly (message with `data: null`) when the file goes away, so uninstalling the mod clears the
+  // panel instead of freezing the last data. Separate flow (not folded into telemetry) because it
+  // arrives on its own cadence.
   private val _taskList = MutableStateFlow<TaskListData?>(null)
   val taskList: StateFlow<TaskListData?> = _taskList.asStateFlow()
 
-  // Optional FS25_CropRotation channel; same "null until sent, only while installed" contract as
-  // taskList, on its own event-driven cadence.
+  // Optional FS25_CropRotation channel; same "null means not installed, and the null is sent" contract
+  // as taskList, on its own event-driven cadence.
   private val _cropRotation = MutableStateFlow<CropRotationData?>(null)
   val cropRotation: StateFlow<CropRotationData?> = _cropRotation.asStateFlow()
 

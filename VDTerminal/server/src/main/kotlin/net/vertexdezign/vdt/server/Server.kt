@@ -83,22 +83,21 @@ fun main() {
               }
             }
           }
+        // The optional channels broadcast their null too: null means "mod not installed" (file gone),
+        // and the app keeps whatever it was last sent — swallowing the null would leave it rendering
+        // a stale panel for a mod that has since been uninstalled.
         val taskListJob =
           launch {
             taskListState.collect { data ->
-              if (data != null) {
-                val message: ServerMessage = ServerMessage.TaskList(data)
-                send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
-              }
+              val message: ServerMessage = ServerMessage.TaskList(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
         val cropRotationJob =
           launch {
             cropRotationState.collect { data ->
-              if (data != null) {
-                val message: ServerMessage = ServerMessage.CropRotation(data)
-                send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
-              }
+              val message: ServerMessage = ServerMessage.CropRotation(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
         // Incoming: app -> mod commands. Decode and hand to the writer; ignore anything unparseable

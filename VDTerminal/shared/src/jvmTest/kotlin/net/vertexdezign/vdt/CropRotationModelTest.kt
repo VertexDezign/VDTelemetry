@@ -122,4 +122,14 @@ class CropRotationModelTest {
     val decoded = json.decodeFromString(ServerMessage.serializer(), encoded)
     assertEquals(message, assertNotNull(decoded as? ServerMessage.CropRotation))
   }
+
+  /** The "mod not installed" null must survive the wire — see the taskList twin of this test. */
+  @Test
+  fun cropRotationCarriesTheNotInstalledNull() {
+    val message: ServerMessage = ServerMessage.CropRotation(null)
+    val encoded = json.encodeToString(ServerMessage.serializer(), message)
+
+    val decoded = json.decodeFromString(ServerMessage.serializer(), encoded)
+    assertEquals(null, assertNotNull(decoded as? ServerMessage.CropRotation).data)
+  }
 }
