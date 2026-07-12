@@ -36,7 +36,18 @@ VDT.TaskList.VERSION = 1
 
 -- Task.TASK_TYPE.Standard. A Standard task's label is just its `detail`; only the auto types
 -- (husbandry/production) need the mod's caches to resolve a label.
-local TASK_TYPE_STANDARD = 1
+--
+-- Read from the mod's own enum when it's reachable (its Task class lives in the mod's env, not _G --
+-- the isolation rule again) so a future release that reorders TASK_TYPE can't turn every standard task
+-- into an "auto" one here. The literal stays as the fallback for the version we pinned above.
+local TASK_TYPE_STANDARD_FALLBACK = 1
+local function standardTaskType()
+  local mod = type(FS25_TaskList) == "table" and FS25_TaskList or nil
+  local taskClass = mod ~= nil and mod.Task or nil
+  local types = taskClass ~= nil and taskClass.TASK_TYPE or nil
+  local standard = types ~= nil and types.Standard or nil
+  return type(standard) == "number" and standard or TASK_TYPE_STANDARD_FALLBACK
+end
 
 local function taskList()
   return g_currentMission ~= nil and g_currentMission.taskList or nil
@@ -57,7 +68,7 @@ end
 -- in-game menu can't create new ones. So only resolve once the mod has built the caches itself;
 -- otherwise fall back to the raw detail (empty for auto tasks, which the app renders as untitled).
 local function describe(task)
-  if task.type == TASK_TYPE_STANDARD then
+  if task.type == standardTaskType() then
     return task.detail or ""
   end
   local tl = taskList()

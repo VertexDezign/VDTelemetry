@@ -103,29 +103,56 @@ function VDT.ExportChannels.selectDirty()
   return out
 end
 
+---Write one channel's file. May raise (collect / encode read and walk third-party data); writeDirty
+---pcalls it. The open handle is closed on the way out either way -- an escaping error would otherwise
+---leak the file descriptor, and the engine's Lua has no `finally`.
+---@param ch table the channel
+---@param dir string telemetry directory with trailing slash
+---@param encode fun(model: table): string
+---@param debugger GrisuDebug
+local function writeChannel(ch, dir, encode, debugger)
+  local model = ch.collect()
+  if model == nil then
+    debugger:trace("channel %s: collect returned nil, skipping", ch.name)
+    return
+  end
+
+  local path = dir .. ch.fileName
+  local file = io.open(path, "w")
+  if file == nil then
+    debugger:error("channel %s: could not open %s", ch.name, tostring(path))
+    return
+  end
+
+  local ok, err = pcall(function()
+    file:write(encode(model))
+  end)
+  file:close()
+  if not ok then
+    error(err, 0) -- rethrow to writeDirty's pcall, now that the handle is closed
+  end
+  debugger:trace("channel %s: wrote %s", ch.name, ch.fileName)
+end
+
 ---Write every dirty + available channel and clear its dirty flag. A channel whose collect() returns
 ---nil is skipped (still cleared, so a transient nil doesn't spin). Writing is io.open write-mode
 ---(permitted by the sandbox); the model is serialized by the injected `encode` so this module stays
----decoupled from Json.
+---decoupled from Json. A channel that throws is contained: it is logged and the rest still flush.
 ---@param dir string telemetry directory with trailing slash; files land at dir .. fileName
 ---@param encode fun(model: table): string serializer, e.g. Json.encode bound to prettyJson
 ---@param debugger GrisuDebug
 function VDT.ExportChannels.writeDirty(dir, encode, debugger)
   for _, ch in ipairs(VDT.ExportChannels.selectDirty()) do
     dirty[ch.name] = nil
-    local model = ch.collect()
-    if model == nil then
-      debugger:trace("channel %s: collect returned nil, skipping", ch.name)
-    else
-      local path = dir .. ch.fileName
-      local file = io.open(path, "w")
-      if file == nil then
-        debugger:error("channel %s: could not open %s", ch.name, tostring(path))
-      else
-        file:write(encode(model))
-        file:close()
-        debugger:trace("channel %s: wrote %s", ch.name, ch.fileName)
-      end
+    -- Contain each channel: collect() on an integration reads a third-party mod's internals, which a
+    -- mod update is free to rename (see the fail-soft contract in src/integrations/), and encode()
+    -- then walks whatever it returned. Uncontained, one bad channel aborts the whole flush -- taking
+    -- the core telemetry write down with it, every tick, for as long as the mod stays installed. The
+    -- dirty flag is already cleared, so a throwing channel waits for its next change rather than
+    -- spinning on the failure.
+    local ok, err = pcall(writeChannel, ch, dir, encode, debugger)
+    if not ok then
+      debugger:error("channel %s: write failed (%s)", ch.name, tostring(err))
     end
   end
 end

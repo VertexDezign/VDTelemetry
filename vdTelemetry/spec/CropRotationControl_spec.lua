@@ -2,12 +2,21 @@
 --
 -- Run with `busted` from the vdTelemetry/ directory. The control self-registers its command types
 -- into VDT.CommandRegistry at load, so we load CommandRegistry first (only if not already loaded, so
--- we don't reset a registry another spec populated). The handlers reach the planner through the mod's
--- env global FS25_CropRotation.g_cropRotationPlanner; we stub a planner that records the wrapper calls
--- it receives, plus g_localPlayer for createRotation.
+-- we don't reset a registry another spec populated). It also takes its planner + local-farm handles
+-- from the read-side integration, so that is loaded ahead of it exactly as VDTelemetry.lua's
+-- sourceFiles order does (and ExportChannels ahead of *that*, since the integration registers a
+-- channel at load). The handlers reach the planner through the mod's env global
+-- FS25_CropRotation.g_cropRotationPlanner; we stub a planner that records the wrapper calls it
+-- receives, plus g_localPlayer for the farm-ownership checks.
 
 if VDT == nil or VDT.CommandRegistry == nil then
   dofile("src/command/CommandRegistry.lua")
+end
+if VDT.ExportChannels == nil then
+  dofile("src/export/ExportChannels.lua")
+end
+if VDT.CropRotation == nil then
+  dofile("src/integrations/CropRotation.lua")
 end
 dofile("src/command/CropRotationControl.lua")
 
@@ -16,10 +25,15 @@ local debugger = {
   debug = function() end,
 }
 
--- A planner stub that records each wrapper call, and resolves plans by index from a fixed set.
+-- A planner stub that records each wrapper call, and resolves plans by index from a fixed set. Plans
+-- default to the stubbed local farm (1), since every mutation is farm-scoped; a test that wants a
+-- foreign plan says so with an explicit farmId.
 local function installPlanner(plans)
   local calls = {}
   local pl
+  for _, cr in pairs(plans) do
+    cr.farmId = cr.farmId or 1
+  end
   pl = {
     calls = calls,
     getCropRotationWithIndex = function(_, index)
@@ -125,11 +139,44 @@ describe("CropRotationControl execute", function()
     assert.are.equal(0, #calls)
   end)
 
+  it("skips createRotation on farm 0 (spectator / no farm), not just a missing player", function()
+    local calls = installPlanner({})
+    rawset(_G, "g_localPlayer", { farmId = 0 })
+    run("createRotation", { name = "X" })
+    assert.are.equal(0, #calls)
+  end)
+
+  it("refuses to mutate a plan owned by another farm", function()
+    -- The read side exports every farm's plans when the local farm can't be resolved, so the app can
+    -- put a foreign index in front of the user; the mod's own planner GUI only ever shows its own.
+    local calls = installPlanner({ { index = 7, farmId = 2, rotations = { {}, {} } } })
+
+    run("setRotationCrop", { rotationIndex = 7, slot = 1, state = 5 })
+    run("setRotationCatchCrop", { rotationIndex = 7, slot = 1, catchCropState = 1 })
+    run("addRotationSlot", { rotationIndex = 7 })
+    run("removeRotationSlot", { rotationIndex = 7 })
+    run("deleteRotation", { rotationIndex = 7 })
+
+    assert.are.equal(0, #calls)
+  end)
+
+  it("refuses to mutate anything while the local farm is unresolved", function()
+    local calls = installPlanner({ { index = 7, rotations = { {}, {} } } })
+    rawset(_G, "g_localPlayer", nil)
+
+    run("setRotationCrop", { rotationIndex = 7, slot = 1, state = 5 })
+    run("deleteRotation", { rotationIndex = 7 })
+
+    assert.are.equal(0, #calls)
+  end)
+
   it("no-ops every command when the mod isn't installed", function()
     -- FS25_CropRotation is nil (before_each); nothing should throw.
     assert.has_no.errors(function()
       run("setRotationCrop", { rotationIndex = 1, slot = 1, state = 1 })
+      run("setRotationCatchCrop", { rotationIndex = 1, slot = 1, catchCropState = 1 })
       run("addRotationSlot", { rotationIndex = 1 })
+      run("removeRotationSlot", { rotationIndex = 1 })
       run("createRotation", { name = "X" })
       run("deleteRotation", { rotationIndex = 1 })
     end)

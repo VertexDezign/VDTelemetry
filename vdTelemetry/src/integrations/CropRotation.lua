@@ -52,9 +52,24 @@ local function env()
   return type(FS25_CropRotation) == "table" and FS25_CropRotation or nil
 end
 
-local function planner()
+---The mod's planner instance, or nil when it isn't installed. Public because the write side
+---(src/command/CropRotationControl.lua) resolves the planner exactly the same way — one definition of
+---the mod-environment handle, so the isolation rule above can't drift between read and write.
+---@return table|nil
+function VDT.CropRotation.planner()
   local e = env()
   return e ~= nil and e.g_cropRotationPlanner or nil
+end
+local planner = VDT.CropRotation.planner
+
+---The local player's farm, or nil when it can't be resolved (farm 0 is "no farm", not a farm id).
+---Shared with the write side, which must not create or mutate plans on farm 0.
+---@return number|nil
+function VDT.CropRotation.localFarmId()
+  if g_localPlayer ~= nil and type(g_localPlayer.farmId) == "number" and g_localPlayer.farmId > 0 then
+    return g_localPlayer.farmId
+  end
+  return nil
 end
 
 function VDT.CropRotation.isAvailable()
@@ -174,17 +189,14 @@ function VDT.CropRotation.collect()
 
   -- Scope to the local player's farm, matching the in-game planner
   -- (InGameMenuCropRotationPlanner:updateFarmCropRotations); fall back to all if it can't be resolved.
-  local farmId = nil
-  if g_localPlayer ~= nil and type(g_localPlayer.farmId) == "number" and g_localPlayer.farmId > 0 then
-    farmId = g_localPlayer.farmId
-  end
+  local farmId = VDT.CropRotation.localFarmId()
 
   local rotations = {}
   for _, cropRotation in pairs(pl.cropRotations or {}) do
     if farmId == nil or cropRotation.farmId == farmId then
       local sequence = {}
-      for i, slot in ipairs(cropRotation.rotations or {}) do
-        local slots = cropRotation.rotations
+      local slots = cropRotation.rotations or {}
+      for i, slot in ipairs(slots) do
         sequence[#sequence + 1] = {
           state = slot.state,
           crop = cropNames[slot.state] or "",

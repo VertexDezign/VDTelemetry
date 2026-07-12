@@ -103,11 +103,14 @@ end
 --- produced by MathUtil.getYRotationFromDirection / consumed by MathUtil.getDirectionFromYRotation.
 --- Both the vehicle heading and the on-foot player heading go through here, so the map marker means
 --- the same thing in either mode. `%` wraps yRot into [0, 2pi) for any input (Lua's modulo follows
---- the divisor's sign), so callers may hand in an angle they shifted by half a turn.
+--- the divisor's sign), so callers may hand in an angle they shifted by half a turn. The outer `%
+--- 360` maps the resulting 360 back to 0: the subtraction lands in (0, 360], so dead-on north would
+--- otherwise export as "360°" rather than "0°" (identical to a compass, junk to a consumer reading
+--- the number).
 ---@param yRot number yaw in radians
----@return number
+---@return number heading in degrees, [0, 360)
 function ValueMapper.headingFromYRotation(yRot)
-  return 360 - math.deg(yRot % (2 * math.pi))
+  return (360 - math.deg(yRot % (2 * math.pi))) % 360
 end
 
 --- The player's yaw sits exactly half a turn from the yaw a vehicle heading is built from (that one

@@ -105,6 +105,53 @@ describe("ExportChannels.writeDirty", function()
     assert.are.equal(0, off.collects)
   end)
 
+  it("contains a throwing channel: the others still flush, and it isn't retried", function()
+    -- A collector reading a third-party mod's internals can throw when that mod changes. Uncontained
+    -- it would abort the whole flush, so the CORE telemetry write must survive a broken integration.
+    local boom = channel("boom", true, { body = "x" })
+    boom.collect = function()
+      boom.collects = boom.collects + 1
+      error("mod internals changed")
+    end
+    local errors = 0
+    local loud = {
+      trace = function() end,
+      error = function()
+        errors = errors + 1
+      end,
+    }
+    VDT.ExportChannels.register(boom)
+    VDT.ExportChannels.register(channel("core", true, { body = "telemetry" }))
+    VDT.ExportChannels.markAllDirty()
+
+    VDT.ExportChannels.writeDirty(dir, encode, loud)
+    assert.are.equal("telemetry", readFile(dir .. "core.json")) -- the good channel still wrote
+    assert.are.equal(1, errors) -- and the failure was reported, not swallowed
+
+    -- dirty cleared despite the throw, so it waits for its next change instead of spinning
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty())
+    VDT.ExportChannels.writeDirty(dir, encode, loud)
+    assert.are.equal(1, boom.collects)
+  end)
+
+  it("closes the file when encode throws (and reports it)", function()
+    local ch = channel("bad", true, { body = "x" })
+    local errors = 0
+    local loud = {
+      trace = function() end,
+      error = function()
+        errors = errors + 1
+      end,
+    }
+    VDT.ExportChannels.register(ch)
+    VDT.ExportChannels.markDirty("bad")
+
+    VDT.ExportChannels.writeDirty(dir, function()
+      error("unserializable model")
+    end, loud)
+    assert.are.equal(1, errors)
+  end)
+
   it("skips (but clears) a channel whose collect returns nil", function()
     local nilCh = channel("empty", true, nil)
     VDT.ExportChannels.register(nilCh)

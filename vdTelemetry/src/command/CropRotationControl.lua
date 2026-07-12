@@ -24,17 +24,22 @@
 VDT = VDT or {}
 VDT.CropRotationControl = {}
 
-local function env()
-  return type(FS25_CropRotation) == "table" and FS25_CropRotation or nil
-end
-
-local function planner()
-  local e = env()
-  return e ~= nil and e.g_cropRotationPlanner or nil
-end
+-- The planner handle and the local farm come from the read side (src/integrations/CropRotation.lua):
+-- one definition of the mod-environment isolation rule and of "which farm are we", so read and write
+-- can't drift apart.
+local planner = VDT.CropRotation.planner
+local localFarmId = VDT.CropRotation.localFarmId
 
 -- Resolve the planner + the target plan for a command, logging the reason on a miss. Returns
 -- (planner, plan) or nil so callers can `if pl == nil then return end`.
+--
+-- Plans are addressed by a bare index that the app hands back to us, so this is also where ownership
+-- is enforced: only the local farm's plans may be touched, exactly as the mod's own planner GUI shows
+-- only those (InGameMenuCropRotationPlanner:updateFarmCropRotations). Without the check a command
+-- carrying any index would happily edit or delete another farm's rotation in multiplayer -- and the
+-- read side falls back to exporting *all* farms when the local one can't be resolved, so the app can
+-- genuinely put a foreign index in front of the user. When the farm is unresolved we refuse to mutate
+-- rather than guess: reading someone else's plan is harmless, rewriting it is not.
 local function resolve(rotationIndex, debugger, label)
   local pl = planner()
   if pl == nil then
@@ -44,6 +49,21 @@ local function resolve(rotationIndex, debugger, label)
   local cr = pl:getCropRotationWithIndex(rotationIndex)
   if cr == nil then
     debugger:warn("%s: no rotation with index %s", label, tostring(rotationIndex))
+    return nil
+  end
+  local farmId = localFarmId()
+  if farmId == nil then
+    debugger:warn("%s: no local farm resolved, refusing to mutate rotation %s", label, tostring(rotationIndex))
+    return nil
+  end
+  if cr.farmId ~= farmId then
+    debugger:warn(
+      "%s: rotation %s belongs to farm %s, not the local farm %s -- ignoring",
+      label,
+      tostring(rotationIndex),
+      tostring(cr.farmId),
+      tostring(farmId)
+    )
     return nil
   end
   return pl, cr
@@ -166,9 +186,10 @@ VDT.CommandRegistry.register("createRotation", {
       return
     end
     -- addCropRotation takes the owning farm; use the local player's, matching the in-game planner
-    -- (InGameMenuCropRotationPlanner:addEntryCallback).
-    local farmId = g_localPlayer ~= nil and g_localPlayer.farmId or nil
-    if type(farmId) ~= "number" then
+    -- (InGameMenuCropRotationPlanner:addEntryCallback). localFarmId() rejects farm 0 ("no farm"),
+    -- which would otherwise create a plan nobody owns.
+    local farmId = localFarmId()
+    if farmId == nil then
       debugger:warn("createRotation: no local farm to own the rotation")
       return
     end
