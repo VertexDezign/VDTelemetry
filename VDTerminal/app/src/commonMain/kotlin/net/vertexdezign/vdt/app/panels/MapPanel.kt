@@ -6,23 +6,39 @@ import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.CenterFocusStrong
-import androidx.compose.material.icons.filled.Landscape
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.IndeterminateCheckBox
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,6 +50,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
@@ -101,9 +118,11 @@ private val mapImageClient by lazy { HttpClient() }
 /**
  * Map panel: loads the PDA map image from the server, supports pan/zoom, draws the player marker
  * (position + heading), and auto-centers on the player until the user pans. On top of the image it
- * overlays the map channel's data ([MapData]): field outlines + number labels and POI markers, each
- * behind its own header toggle. Zoom, auto-center and the overlay toggles are persisted. Port of
- * the React `MapPanel` (no map library — a single custom composable).
+ * overlays the map channels' data: field outlines + number labels ([MapData]), POI dots, and
+ * vehicle markers ([MapVehiclesData]), filtered per category/state through the filter popover
+ * (Tune button), which also hosts a field/POI search that pans the map to a hit. Zoom, auto-center
+ * and the filter selections are persisted. Port of the React `MapPanel` (no map library — a single
+ * custom composable).
  */
 @Composable
 fun MapPanel(
@@ -119,8 +138,12 @@ fun MapPanel(
   var scale by remember { mutableStateOf(settings.getFloat("zoom", 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean("autoCenter", true)) }
   var showFields by remember { mutableStateOf(settings.getBoolean("showFields", true)) }
-  var showPois by remember { mutableStateOf(settings.getBoolean("showPois", true)) }
-  var showVehicles by remember { mutableStateOf(settings.getBoolean("showVehicles", true)) }
+  var poiCats by remember { mutableStateOf(loadFilterSet(settings, "poiCats", PoiCategories)) }
+  var vehStates by remember { mutableStateOf(loadFilterSet(settings, "vehStates", VehicleStates)) }
+  var filterOpen by remember { mutableStateOf(false) }
+  var searchQuery by remember { mutableStateOf("") }
+  // Normalized position of the last search hit; drawn as a ring until the query is cleared.
+  var highlight by remember { mutableStateOf<Offset?>(null) }
   var dragOffset by remember { mutableStateOf(Offset.Zero) }
   var sidePx by remember { mutableFloatStateOf(0f) }
   val player = pda?.player
@@ -155,6 +178,16 @@ fun MapPanel(
     scale = newScale
   }
 
+  // Center the map on a search hit (normalized coords), zoomed in far enough that its label shows,
+  // and ring-highlight it. Panning to a target naturally ends auto-centering.
+  fun focusOn(norm: Offset) {
+    val newScale = scale.coerceAtLeast(DETAIL_ZOOM)
+    scale = newScale
+    autoCenter = false
+    dragOffset = Offset(sidePx / 2f - norm.x * sidePx * newScale, sidePx / 2f - norm.y * sidePx * newScale)
+    highlight = norm
+  }
+
   LaunchedEffect(cacheKey) {
     if (cacheKey == null || bitmap != null) return@LaunchedEffect // already cached, or no PDA image
     runCatching {
@@ -168,34 +201,20 @@ fun MapPanel(
   LaunchedEffect(scale) { settings.putFloat("zoom", scale) }
   LaunchedEffect(autoCenter) { settings.putBoolean("autoCenter", autoCenter) }
   LaunchedEffect(showFields) { settings.putBoolean("showFields", showFields) }
-  LaunchedEffect(showPois) { settings.putBoolean("showPois", showPois) }
-  LaunchedEffect(showVehicles) { settings.putBoolean("showVehicles", showVehicles) }
+  LaunchedEffect(poiCats) { settings.putString("poiCats", poiCats.joinToString(",")) }
+  LaunchedEffect(vehStates) { settings.putString("vehStates", vehStates.joinToString(",")) }
 
   Panel(
     title = "Map",
     icon = Icons.Filled.Map,
     modifier = modifier,
     headerActions = {
-      if (mapData != null) {
+      if (mapData != null || mapVehicles != null) {
         Icon(
-          Icons.Filled.Landscape,
-          "show fields",
-          tint = if (showFields) VdtColors.Green else VdtColors.DarkGray,
-          modifier = Modifier.size(16.dp).clickableNoRipple { showFields = !showFields },
-        )
-        Icon(
-          Icons.Filled.Place,
-          "show POIs",
-          tint = if (showPois) VdtColors.Green else VdtColors.DarkGray,
-          modifier = Modifier.size(16.dp).clickableNoRipple { showPois = !showPois },
-        )
-      }
-      if (mapVehicles != null) {
-        Icon(
-          Icons.Filled.Agriculture,
-          "show vehicles",
-          tint = if (showVehicles) VdtColors.Green else VdtColors.DarkGray,
-          modifier = Modifier.size(16.dp).clickableNoRipple { showVehicles = !showVehicles },
+          Icons.Filled.Tune,
+          "filters & search",
+          tint = if (filterOpen) VdtColors.Green else VdtColors.DarkGray,
+          modifier = Modifier.size(16.dp).clickableNoRipple { filterOpen = !filterOpen },
         )
       }
       Icon(
@@ -315,7 +334,7 @@ fun MapPanel(
       // OUTSIDE the zoom-scaled graphicsLayer — the layer rasterizes, so vectors inside it blur at
       // high zoom. The outlines are re-projected each draw under the same transform as the image
       // (norm * side * scale + translation), the labels/markers stay constant-size.
-      if ((mapData != null && (showFields || showPois)) || (mapVehicles != null && showVehicles)) {
+      if (mapData != null || mapVehicles != null) {
         MapDataOverlay(
           mapData,
           mapVehicles,
@@ -324,8 +343,9 @@ fun MapPanel(
           scale,
           applied,
           showFields,
-          showPois,
-          showVehicles,
+          poiCats,
+          vehStates,
+          highlight,
         )
       }
 
@@ -351,6 +371,26 @@ fun MapPanel(
               }.rotate(animHeading),
           )
         }
+      }
+
+      // Filter & search popover, on top of everything map-related.
+      if (filterOpen && (mapData != null || mapVehicles != null)) {
+        MapFilterPanel(
+          mapData = mapData,
+          mapVehicles = mapVehicles,
+          showFields = showFields,
+          onShowFields = { showFields = it },
+          poiCats = poiCats,
+          onPoiCats = { poiCats = it },
+          vehStates = vehStates,
+          onVehStates = { vehStates = it },
+          query = searchQuery,
+          onQuery = {
+            searchQuery = it
+            if (it.isBlank()) highlight = null
+          },
+          onFocus = ::focusOn,
+        )
       }
     }
   }
@@ -381,8 +421,9 @@ private fun BoxScope.MapDataOverlay(
   scale: Float,
   applied: Offset,
   showFields: Boolean,
-  showPois: Boolean,
-  showVehicles: Boolean,
+  poiCats: Set<String>,
+  vehStates: Set<String>,
+  highlight: Offset?,
 ) {
   val density = LocalDensity.current
   val textMeasurer = rememberTextMeasurer()
@@ -468,22 +509,25 @@ private fun BoxScope.MapDataOverlay(
       }
     }
 
-    if (showPois && mapData != null) {
+    if (mapData != null && poiCats.isNotEmpty()) {
       for (poi in mapData.pois) {
+        val category = poiCategory(poi.type)
+        if (category !in poiCats) continue
         val pos = toScreen(poi.posX, poi.posZ)
         if (!onCanvas(pos)) continue
         drawCircle(VdtColors.White, radius = 4.dp.toPx(), center = pos)
-        drawCircle(poiColor(poi.type), radius = 3.dp.toPx(), center = pos)
+        drawCircle(poiCategoryColor(category), radius = 3.dp.toPx(), center = pos)
         if (scale >= DETAIL_ZOOM && poi.name.isNotBlank()) {
           drawCenteredText(textMeasurer, poi.name, pos + Offset(0f, 12.dp.toPx()), detailStyle)
         }
       }
     }
 
-    if (showVehicles && mapVehicles != null) {
+    if (mapVehicles != null && vehStates.isNotEmpty()) {
       for (v in mapVehicles.vehicles) {
         // The locally driven vehicle already has the (animated) player marker on it.
         if (v.isEntered) continue
+        if (vehicleStateOf(v) !in vehStates) continue
         val pos = toScreen(v.posX, v.posZ)
         if (!onCanvas(pos)) continue
         val tint = vehicleTint(v, playerFarmId, farmColors)
@@ -512,6 +556,16 @@ private fun BoxScope.MapDataOverlay(
           drawCenteredText(textMeasurer, v.name, pos + Offset(0f, 14.dp.toPx()), detailStyle)
         }
       }
+    }
+
+    // Search-hit ring, always on top of the markers it points at.
+    highlight?.let {
+      drawCircle(
+        VdtColors.Red,
+        radius = 11.dp.toPx(),
+        center = toScreen(it.x, it.y),
+        style = Stroke(width = 2.dp.toPx()),
+      )
     }
   }
 }
@@ -555,28 +609,219 @@ private fun parseHexColor(hex: String?): Color? {
   )
 }
 
-// The in-game map legend's category colors (sampled from the game's building filter tiles), keyed
-// the way PlaceableHotspot.CATEGORY_MAPPING groups the placeable types — a POI dot shows the color
-// the player already knows from the game's own map.
-private val PoiUnloading = Color(0xFF8D0D5F) // Abladestationen
-private val PoiLoading = Color(0xFF264BB0) // Ladestationen
-private val PoiProduction = Color(0xFF16C6C8) // Produktionen
-private val PoiAnimal = Color(0xFF166A5F) // Tiere
-private val PoiOther = Color(0xFFCDC60D) // Sonstiges
+// The in-game map legend's categories: the filter vocabulary, in legend order. Vehicle "states"
+// are the filter vocabulary on the vehicles side (a vehicle is exactly one of these).
+private val PoiCategories = listOf("unloading", "loading", "production", "animal", "other")
+private val VehicleStates = listOf("ai", "player", "parked")
+
+private fun poiCategoryLabel(category: String): String = when (category) {
+  "unloading" -> "Unloading"
+  "loading" -> "Loading"
+  "production" -> "Production"
+  "animal" -> "Animals"
+  else -> "Other"
+}
+
+private fun vehicleStateLabel(state: String): String = when (state) {
+  "ai" -> "AI active"
+  "player" -> "Player-driven"
+  else -> "Parked"
+}
 
 /**
- * Marker color per POI type token (the mod's camelCased `PlaceableHotspot.TYPE` key), grouped into
- * the in-game map legend's categories and colored like its tiles. Shops render under "Sonstiges"
- * in the game (despite CATEGORY_SHOP existing in code), so they share [PoiOther]. An unknown token
- * from a newer mod falls back to neutral gray.
+ * Legend category per POI type token (the mod's camelCased `PlaceableHotspot.TYPE` key), grouped
+ * the way the in-game map legend groups them. Shops render under "Sonstiges" in the game (despite
+ * CATEGORY_SHOP existing in code), and an unknown token from a newer mod lands there too.
  */
-private fun poiColor(type: String): Color = when (type) {
-  "unloading", "unloadingTrain", "unloadingPallet" -> PoiUnloading
-  "loading", "fuel", "electricity" -> PoiLoading
-  "productionPoint", "fishpond", "fishbreeding" -> PoiProduction
-  "chicken", "pig", "sheep", "cow", "horse", "bee", "wildlife" -> PoiAnimal
-  "farm", "train", "exclamationMark", "shop", "shopAnimal" -> PoiOther
-  else -> VdtColors.DarkGray
+private fun poiCategory(type: String): String = when (type) {
+  "unloading", "unloadingTrain", "unloadingPallet" -> "unloading"
+  "loading", "fuel", "electricity" -> "loading"
+  "productionPoint", "fishpond", "fishbreeding" -> "production"
+  "chicken", "pig", "sheep", "cow", "horse", "bee", "wildlife" -> "animal"
+  else -> "other"
+}
+
+// The in-game map legend's category colors (sampled from the game's building filter tiles) — a POI
+// dot shows the color the player already knows from the game's own map.
+private fun poiCategoryColor(category: String): Color = when (category) {
+  "unloading" -> Color(0xFF8D0D5F)
+
+  // Abladestationen
+  "loading" -> Color(0xFF264BB0)
+
+  // Ladestationen
+  "production" -> Color(0xFF16C6C8)
+
+  // Produktionen
+  "animal" -> Color(0xFF166A5F)
+
+  // Tiere
+  else -> Color(0xFFCDC60D) // Sonstiges
+}
+
+/** One filter state per vehicle: an AI helper, a human driver, or neither. */
+private fun vehicleStateOf(vehicle: MapVehicle): String = when {
+  vehicle.isAI -> "ai"
+  vehicle.isControlled -> "player"
+  else -> "parked"
+}
+
+/** Loads a persisted filter set; an unset key defaults to everything enabled. */
+private fun loadFilterSet(settings: Settings, key: String, all: List<String>): Set<String> =
+  settings.getString(key, all.joinToString(",")).split(",").filter { it.isNotEmpty() }.toSet()
+
+/** A search hit: display label + normalized map position to focus. */
+private data class SearchHit(val label: String, val pos: Offset)
+
+/**
+ * The filter & search popover: a search box over fields/POIs (a hit pans+zooms the map onto it),
+ * then per-section filters — fields on/off, POIs per legend category (with the category's color
+ * dot), vehicles per state. Sections only show while their channel is live. Anchored top-end over
+ * the map; the root tap handler keeps clicks from falling through to the map gestures.
+ */
+@Composable
+private fun BoxScope.MapFilterPanel(
+  mapData: MapData?,
+  mapVehicles: MapVehiclesData?,
+  showFields: Boolean,
+  onShowFields: (Boolean) -> Unit,
+  poiCats: Set<String>,
+  onPoiCats: (Set<String>) -> Unit,
+  vehStates: Set<String>,
+  onVehStates: (Set<String>) -> Unit,
+  query: String,
+  onQuery: (String) -> Unit,
+  onFocus: (Offset) -> Unit,
+) {
+  Column(
+    Modifier
+      .align(Alignment.TopEnd)
+      .padding(6.dp)
+      .width(210.dp)
+      .clip(RoundedCornerShape(4.dp))
+      .background(VdtColors.Panel)
+      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
+      .pointerInput(Unit) { detectTapGestures {} }
+      .padding(8.dp)
+      .verticalScroll(rememberScrollState()),
+    verticalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    BasicTextField(
+      value = query,
+      onValueChange = onQuery,
+      singleLine = true,
+      textStyle = TextStyle(fontSize = 13.sp, color = VdtColors.TextDark),
+      modifier =
+      Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(4.dp))
+        .background(VdtColors.White)
+        .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
+        .padding(horizontal = 8.dp, vertical = 6.dp),
+      decorationBox = { inner ->
+        Box {
+          if (query.isEmpty()) {
+            Text("Search field / POI…", fontSize = 13.sp, color = VdtColors.DarkGray)
+          }
+          inner()
+        }
+      },
+    )
+
+    if (query.isNotBlank()) {
+      val hits =
+        remember(query, mapData) {
+          val q = query.trim().lowercase()
+          buildList {
+            for (field in mapData?.fields ?: emptyList()) {
+              val label = field.name.ifBlank { field.id.toString() }
+              if (label.lowercase().contains(q)) add(SearchHit("Field $label", Offset(field.labelX, field.labelZ)))
+            }
+            for (poi in mapData?.pois ?: emptyList()) {
+              if (poi.name.lowercase().contains(q)) add(SearchHit(poi.name, Offset(poi.posX, poi.posZ)))
+            }
+          }.take(6)
+        }
+      if (hits.isEmpty()) {
+        Text("No matches", fontSize = 12.sp, color = VdtColors.DarkGray)
+      }
+      for (hit in hits) {
+        Text(
+          hit.label,
+          fontSize = 13.sp,
+          color = VdtColors.TextDark,
+          modifier = Modifier.fillMaxWidth().clickableNoRipple { onFocus(hit.pos) }.padding(vertical = 2.dp),
+        )
+      }
+    }
+
+    if (mapData != null) {
+      FilterRow("Fields", checked = showFields) { onShowFields(it) }
+      FilterSectionHeader("POIs", PoiCategories, poiCats, onPoiCats)
+      for (category in PoiCategories) {
+        FilterRow(
+          poiCategoryLabel(category),
+          checked = category in poiCats,
+          dot = poiCategoryColor(category),
+        ) { on -> onPoiCats(if (on) poiCats + category else poiCats - category) }
+      }
+    }
+
+    if (mapVehicles != null) {
+      FilterSectionHeader("Vehicles", VehicleStates, vehStates, onVehStates)
+      for (state in VehicleStates) {
+        FilterRow(vehicleStateLabel(state), checked = state in vehStates) { on ->
+          onVehStates(if (on) vehStates + state else vehStates - state)
+        }
+      }
+    }
+  }
+}
+
+/** Section title with an all/none/partial tri-state box; clicking flips between all and none. */
+@Composable
+private fun FilterSectionHeader(
+  title: String,
+  all: List<String>,
+  selected: Set<String>,
+  onChange: (Set<String>) -> Unit,
+) {
+  val allOn = all.all { it in selected }
+  val icon =
+    when {
+      allOn -> Icons.Filled.CheckBox
+      all.none { it in selected } -> Icons.Filled.CheckBoxOutlineBlank
+      else -> Icons.Filled.IndeterminateCheckBox
+    }
+  Row(
+    Modifier.fillMaxWidth().clickableNoRipple { onChange(if (allOn) emptySet() else all.toSet()) }.padding(top = 4.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Icon(icon, null, tint = if (allOn) VdtColors.Green else VdtColors.DarkGray, modifier = Modifier.size(16.dp))
+    Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
+  }
+}
+
+/** One filter line: checkbox icon, optional legend color dot, label. */
+@Composable
+private fun FilterRow(label: String, checked: Boolean, dot: Color? = null, onToggle: (Boolean) -> Unit) {
+  Row(
+    Modifier.fillMaxWidth().clickableNoRipple { onToggle(!checked) },
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Icon(
+      if (checked) Icons.Filled.CheckBox else Icons.Filled.CheckBoxOutlineBlank,
+      null,
+      tint = if (checked) VdtColors.Green else VdtColors.DarkGray,
+      modifier = Modifier.size(16.dp),
+    )
+    if (dot != null) {
+      Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
+    }
+    Text(label, fontSize = 13.sp, color = VdtColors.TextDark)
+  }
 }
 
 /** Translation that places the player at the box centre for the given side length and scale. */
@@ -586,6 +831,12 @@ private fun centeredOffset(side: Float, player: Player?, scale: Float): Offset =
   Offset.Zero
 }
 
-/** Tap handler without the material ripple (icons act as buttons here). */
+/**
+ * Tap handler without the material ripple (icons act as buttons here). Keyed on [onClick]: a
+ * pointer-input coroutine outlives recompositions and Compose may even reuse the node for a
+ * *different* row of a loop, so a Unit key would keep dispatching to the first lambda ever seen —
+ * toggling stale state (or a neighboring filter row). Keying on the lambda restarts the (cheap)
+ * tap detector whenever the handler actually changes.
+ */
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
-  this.pointerInput(Unit) { detectTapGestures(onTap = { onClick() }) }
+  this.pointerInput(onClick) { detectTapGestures(onTap = { onClick() }) }
