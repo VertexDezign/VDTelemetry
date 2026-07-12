@@ -1,0 +1,38 @@
+{
+  "version": "1",
+  "terrainSize": 2048,
+  "pois": [
+    {
+      "type": "unloading",
+      "name": "Grain Mill",
+      "posX": 0.51234,
+      "posZ": 0.33417,
+      "ownerFarmId": 1
+    },
+    {
+      "type": "shop",
+      "posX": 0.208,
+      "posZ": 0.741
+    }
+  ],
+  "fields": [
+    {
+      "id": 7,
+      "name": "7",
+      "farmlandId": 7,
+      "ownerFarmId": 1,
+      "areaHa": 2.31,
+      "labelX": 0.41,
+      "labelZ": 0.52,
+      "polygon": [0.4021, 0.5013, 0.4188, 0.501, 0.4203, 0.5145, 0.4025, 0.5152]
+    },
+    {
+      "id": 12,
+      "name": "12",
+      "farmlandId": 12,
+      "areaHa": 4.5,
+      "labelX": 0.62,
+      "labelZ": 0.31
+    }
+  ]
+}

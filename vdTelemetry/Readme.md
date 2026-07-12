@@ -27,26 +27,33 @@ Windows: `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\modSettings\FS25
 The shape of the written json is defined by the shared Kotlin model
 (`VDTerminal/shared/.../Model.kt`); see `examples/json/` for sample outputs.
 
-### Per-mod channels
+### Event-driven channels
 
 `vdTelemetry.json` is only the first of several **export channels** written into `telemetry/`, each on
-its own cadence. The vehicle telemetry is rewritten every interval; the channels that mirror an
-optional third-party mod change rarely, so they are written only when their data actually changes —
-they never ride the 100 ms tick.
+its own cadence. The vehicle telemetry is rewritten every interval; the event-driven channels change
+rarely, so they are written only when their data actually changes — they never ride the 100 ms tick.
 
 | File | Source | Written |
 |---|---|---|
 | `vdTelemetry.json` | vehicle + environment (core) | every interval |
+| `map.json` | map overlay: POIs + fields (core, `src/collect/MapExporter.lua`) | on farmland/placeable change |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
 | `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
 
 Each channel file carries its **own `version`**, evolving independently of the telemetry one.
 
-**A channel file's absence means "that mod isn't installed"** — that is exactly how VDTerminal decides
-whether to show the panel at all. So the mod deletes, once at startup, the file of every channel that
-this session will never write: uninstall one of the mods and its json goes away with it, instead of
-leaving the terminal showing last session's data. (With export disabled nothing is written at all, so
-all of them go.)
+For the per-mod channels, **the file's absence means "that mod isn't installed"** — that is exactly how
+VDTerminal decides whether to show the panel at all. So the mod deletes, once at startup, the file of
+every channel that this session will never write: uninstall one of the mods and its json goes away with
+it, instead of leaving the terminal showing last session's data. (With export disabled nothing is
+written at all, so all of them go.) `map.json` reads base-game data and is always written; its absence
+just means "no data yet", and VDTerminal drops its map overlays until it reappears.
+
+`map.json` carries the near-static map data: selling/loading stations, shops, productions and other
+placeable POIs (typed via the game's own hotspot enum), plus every field's number, ownership, area and
+border polygon. All coordinates are normalized `[0,1]` map coordinates in the same frame as the player
+marker; `terrainSize` converts them back to meters. Border polygons are thinned (5 m minimum spacing,
+capped at 256 points per field) to keep the file small.
 
 ### Linux: keep telemetry writes off the SSD (optional)
 

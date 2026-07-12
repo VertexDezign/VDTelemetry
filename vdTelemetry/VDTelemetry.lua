@@ -34,6 +34,8 @@ local sourceFiles = {
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
+  -- Map channel: base-game POIs + fields, self-registers into the registry above
+  "src/collect/MapExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",

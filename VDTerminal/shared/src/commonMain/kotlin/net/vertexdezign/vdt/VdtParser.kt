@@ -2,6 +2,7 @@ package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.model.CropRotationData
+import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -30,4 +31,7 @@ object VdtParser {
 
   /** Parse the optional `cropRotation.json` channel (FS25_CropRotation) into [CropRotationData]. */
   fun parseCropRotation(text: String): CropRotationData = json.decodeFromString(CropRotationData.serializer(), text)
+
+  /** Parse the `map.json` channel (map overlay: POIs + fields) into [MapData]. */
+  fun parseMap(text: String): MapData = json.decodeFromString(MapData.serializer(), text)
 }
