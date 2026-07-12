@@ -17,6 +17,8 @@
 ---@class PlayerModel
 ---@field posX number
 ---@field posZ number
+---@field heading number compass heading, same convention as GpsModel.heading
+---@field headingUnit string
 
 ---@class PdaModel
 ---@field filename string?

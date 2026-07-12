@@ -195,10 +195,11 @@ private fun ColumnScope.FarmPage(
 ) {
   Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      // On foot there's no vehicle heading, so the marker points north (heading = 0). A player-
-      // rotation field on the environment collector is a later addition (see farm-page plan).
+      // On foot the heading comes from the player itself (the vehicle GPS is what the vehicle page
+      // uses); both are the same compass convention, so the marker behaves identically.
       Cell(Modifier.weight(2f)) {
-        MapPanel(mapUrl, data.environment?.pda, heading = 0, sampleIntervalMs, settings)
+        val pda = data.environment?.pda
+        MapPanel(mapUrl, pda, heading = pda?.player?.heading ?: 0, sampleIntervalMs, settings)
       }
       Column(Modifier.fillMaxHeight().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.fillMaxWidth().weight(1f)) { TaskListPanel(taskList, onCommand = onCommand) }

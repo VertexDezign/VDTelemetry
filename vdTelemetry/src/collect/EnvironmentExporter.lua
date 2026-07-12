@@ -37,12 +37,19 @@ function VDT.EnvironmentExporter.collect(pda)
 
   -- pda / player position: the player position is always present; filename/width/height only when
   -- the map actually ships a PDA image.
+  --
+  -- The heading rides along with the position: the HUD map refreshes playerRotation (the local
+  -- player's yaw, radians) in the same updatePlayerPosition() pass that produces the normalized
+  -- coordinates, and it already accounts for the top-down camera. It is only unset before that
+  -- first pass, hence the `or 0`.
   local ingameMap = g_currentMission.hud.ingameMap
   ---@type PdaModel
   local pdaModel = {
     player = {
       posX = ingameMap.normalizedPlayerPosX,
       posZ = ingameMap.normalizedPlayerPosZ,
+      heading = math.floor(ValueMapper.calculatePlayerHeading(ingameMap.playerRotation or 0)),
+      headingUnit = "°",
     },
   }
   if pda ~= nil then

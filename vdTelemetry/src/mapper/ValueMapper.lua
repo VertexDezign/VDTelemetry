@@ -99,16 +99,34 @@ function ValueMapper.mapPeriodToMonth(currentPeriod)
   end
 end
 
+--- Compass heading (degrees) from an engine y-rotation, i.e. the yaw of a facing direction as
+--- produced by MathUtil.getYRotationFromDirection / consumed by MathUtil.getDirectionFromYRotation.
+--- Both the vehicle heading and the on-foot player heading go through here, so the map marker means
+--- the same thing in either mode. `%` wraps yRot into [0, 2pi) for any input (Lua's modulo follows
+--- the divisor's sign), so callers may hand in an angle they shifted by half a turn.
+---@param yRot number yaw in radians
+---@return number
+function ValueMapper.headingFromYRotation(yRot)
+  return 360 - math.deg(yRot % (2 * math.pi))
+end
+
+--- The player's yaw sits exactly half a turn from the yaw a vehicle heading is built from (that one
+--- comes from the vehicle's local -z forward axis, see calculateHeading below). Feeding it in raw
+--- leaves the on-foot marker pointing backwards -- verified in game. The engine's own map readout
+--- applies the same pi offset to this value (IngameMap: math.abs(playerRotation - math.pi)), so
+--- shift here rather than teaching the compass conversion about two conventions.
+---@param yaw number player yaw in radians (ingameMap.playerRotation / g_localPlayer:getYaw())
+---@return number
+function ValueMapper.calculatePlayerHeading(yaw)
+  return ValueMapper.headingFromYRotation(yaw + math.pi)
+end
+
 ---@param vehicle Vehicle
 ---@return number
 function ValueMapper.calculateHeading(vehicle)
   local dx, _, dz = localDirectionToWorld(vehicle.rootNode, 0, 0, -1)
-  local yRot = MathUtil.getYRotationFromDirection(dx, dz)
-  if yRot < 0 then
-    yRot = yRot + math.pi * 2
-  end
 
-  return 360 - math.deg(yRot)
+  return ValueMapper.headingFromYRotation(MathUtil.getYRotationFromDirection(dx, dz))
 end
 
 ---@param state number

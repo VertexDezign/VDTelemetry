@@ -114,9 +114,11 @@ enter/leave detection needs **no mod change**.
 
 **The map already works on foot.** `MapPanel` takes its marker from `environment.pda.player`, which
 `EnvironmentExporter.lua` fills from `ingameMap.normalizedPlayerPosX/Z` — the HUD's *controlled
-entity* position, which tracks the player when out of a vehicle. The only vehicle-coupled input is
-`heading`, passed from `vehicle.gps.heading` in `App.kt`. On the farm page pass `0` (marker points
-north), or add a player-rotation field to the environment collector.
+entity* position, which tracks the player when out of a vehicle. The only vehicle-coupled input was
+`heading`, passed from `vehicle.gps.heading` in `App.kt`. **Done:** `environment.pda.player` now also
+carries `heading`/`headingUnit`, read from `ingameMap.playerRotation` (the same HUD pass that yields
+the normalized position) and converted with the same `ValueMapper` transform as the vehicle heading,
+so the farm-page marker rotates with the player.
 
 ---
 
@@ -341,7 +343,7 @@ Fixes [B1](#b1-every-command-is-dropped-when-there-is-no-vehicle), including the
 
 - `Page` enum, hoisted into `App`; `LaunchedEffect(vehicle != null)` auto-switch.
 - `Header` Menu icon → `onToggPage` callback.
-- Farm page: large `MapPanel` (pass `heading = 0`) + placeholder cells.
+- Farm page: large `MapPanel` (initially `heading = 0`, later the player heading) + placeholder cells.
 - Verifies auto-switch end-to-end immediately, with zero new plumbing.
 
 ### Step 3 — Channels + multi-file server + TaskList read-only
