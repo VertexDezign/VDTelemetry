@@ -461,27 +461,27 @@ private fun parseHexColor(hex: String?): Color? {
   )
 }
 
+// The in-game map legend's category colors (sampled from the game's building filter tiles), keyed
+// the way PlaceableHotspot.CATEGORY_MAPPING groups the placeable types — a POI dot shows the color
+// the player already knows from the game's own map.
+private val PoiUnloading = Color(0xFF8D0D5F) // Abladestationen
+private val PoiLoading = Color(0xFF264BB0) // Ladestationen
+private val PoiProduction = Color(0xFF16C6C8) // Produktionen
+private val PoiAnimal = Color(0xFF166A5F) // Tiere
+private val PoiOther = Color(0xFFCDC60D) // Sonstiges
+
 /**
- * Marker color per POI type token (the mod's camelCased `PlaceableHotspot.TYPE` key). Grouped by
- * what the player does there; an unknown token from a newer mod falls back to neutral gray.
+ * Marker color per POI type token (the mod's camelCased `PlaceableHotspot.TYPE` key), grouped into
+ * the in-game map legend's categories and colored like its tiles. Shops render under "Sonstiges"
+ * in the game (despite CATEGORY_SHOP existing in code), so they share [PoiOther]. An unknown token
+ * from a newer mod falls back to neutral gray.
  */
 private fun poiColor(type: String): Color = when (type) {
-  "unloading", "unloadingTrain", "unloadingPallet" -> Color(0xFFF59E0B)
-
-  // sellpoints: amber
-  "loading", "fuel", "electricity" -> VdtColors.ProgressBlue
-
-  // pick something up: blue
-  "productionPoint", "fishpond", "fishbreeding" -> Color(0xFF9333EA)
-
-  // productions: purple
-  "shop", "shopAnimal" -> VdtColors.Red
-
-  "farm" -> VdtColors.Green
-
-  "chicken", "pig", "sheep", "cow", "horse", "bee", "wildlife" -> Color(0xFF92400E)
-
-  // animals: brown
+  "unloading", "unloadingTrain", "unloadingPallet" -> PoiUnloading
+  "loading", "fuel", "electricity" -> PoiLoading
+  "productionPoint", "fishpond", "fishbreeding" -> PoiProduction
+  "chicken", "pig", "sheep", "cow", "horse", "bee", "wildlife" -> PoiAnimal
+  "farm", "train", "exclamationMark", "shop", "shopAnimal" -> PoiOther
   else -> VdtColors.DarkGray
 }
 
