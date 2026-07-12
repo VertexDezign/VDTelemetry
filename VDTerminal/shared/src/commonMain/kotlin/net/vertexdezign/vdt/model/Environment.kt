@@ -46,4 +46,9 @@ data class Player(
   val posZ: Float = 0f,
   val heading: Int = 0,
   val headingUnit: String = "",
+  /**
+   * The local player's farm id; null while spectating. Joined against [MapField.ownerFarmId] /
+   * [MapPoi.ownerFarmId] to tell own fields and POIs from other farms'.
+   */
+  val farmId: Int? = null,
 )

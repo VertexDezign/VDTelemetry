@@ -23,6 +23,20 @@ data class MapData(
   val terrainSize: Float = 0f,
   val pois: List<MapPoi> = emptyList(),
   val fields: List<MapField> = emptyList(),
+  val farms: List<MapFarm> = emptyList(),
+)
+
+@Serializable
+data class MapFarm(
+  val id: Int = 0,
+  val name: String = "",
+  /**
+   * The farm's in-game map color as sRGB `#rrggbb` — `Farm:getColor()` (the per-farm palette color
+   * in multiplayer, the fixed singleplayer green otherwise), gamma-converted mod-side from the
+   * engine's linear RGB. Null when the color couldn't be read; the app then falls back to its own
+   * own/other tint.
+   */
+  val color: String? = null,
 )
 
 @Serializable

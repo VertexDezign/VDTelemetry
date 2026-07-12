@@ -25,8 +25,14 @@
 ---@field labelZ number
 ---@field polygon number[]? flat border outline [x1,z1,x2,z2,...]; omitted when unresolvable
 
+---@class MapFarmModel
+---@field id number
+---@field name string?
+---@field color string? the farm's in-game map color as sRGB "#rrggbb" (Farm:getColor(), gamma-converted)
+
 ---@class MapModel
 ---@field version string
 ---@field terrainSize number world edge length in meters
 ---@field pois MapPoiModel[]?
 ---@field fields MapFieldModel[]?
+---@field farms MapFarmModel[]?

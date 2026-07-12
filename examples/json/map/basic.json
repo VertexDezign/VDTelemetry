@@ -15,6 +15,17 @@
       "posZ": 0.741
     }
   ],
+  "farms": [
+    {
+      "id": 1,
+      "name": "My Farm",
+      "color": "#ffaf00"
+    },
+    {
+      "id": 2,
+      "color": "#638aff"
+    }
+  ],
   "fields": [
     {
       "id": 7,

@@ -52,6 +52,11 @@ function VDT.EnvironmentExporter.collect(pda)
       headingUnit = "°",
     },
   }
+  -- The local player's farm, so the app can tell own fields/POIs from other farms' (map.json only
+  -- carries ownerFarmId). 0 is the spectator farm = "no farm" -> omitted (see CropRotation.lua).
+  if g_localPlayer ~= nil and type(g_localPlayer.farmId) == "number" and g_localPlayer.farmId > 0 then
+    pdaModel.player.farmId = g_localPlayer.farmId
+  end
   if pda ~= nil then
     pdaModel.filename = pda.filename
     pdaModel.width = pda.width

@@ -12,7 +12,9 @@
 --
 -- POIs come from the HUD map's hotspot list filtered to placeable hotspots (placeableType is only
 -- set on PlaceableHotspot) — one list covers sellpoints, shops, productions and animal pens, with
--- the game's own type enum. Fields come from g_fieldManager; the border polygon nodes are resolved
+-- the game's own type enum. Farms ride along with their in-game map color (linear RGB converted to
+-- sRGB hex) so the app can tint ownership the way the game does. Fields come from g_fieldManager;
+-- the border polygon nodes are resolved
 -- to world coordinates, thinned to MIN_POINT_SPACING_M and capped at MAX_POLYGON_POINTS so a big
 -- map can't bloat the file. All engine reads are guarded — a failed polygon degrades the field to
 -- its label, a failed hotspot is skipped; writeDirty()'s pcall contains anything that still throws.
@@ -82,6 +84,30 @@ function VDT.MapExporter.decimate(points, minDist, maxPoints)
     out = capped
   end
   return out
+end
+
+-- One linear-RGB channel (the game's color space) -> sRGB (the dashboard's), IEC 61966-2-1.
+local function channelToSrgb(c)
+  c = math.max(0, math.min(1, c))
+  if c <= 0.0031308 then
+    return 12.92 * c
+  end
+  return 1.055 * c ^ (1 / 2.4) - 0.055
+end
+
+---The game's linear-RGB color (Farm:getColor() and friends) as an sRGB "#rrggbb" hex string, so the
+---app can render exactly what the engine's gamma pipeline puts on screen.
+---@param r number
+---@param g number
+---@param b number
+---@return string
+function VDT.MapExporter.linearToSrgbHex(r, g, b)
+  return string.format(
+    "#%02x%02x%02x",
+    math.floor(channelToSrgb(r) * 255 + 0.5),
+    math.floor(channelToSrgb(g) * 255 + 0.5),
+    math.floor(channelToSrgb(b) * 255 + 0.5)
+  )
 end
 
 -- "PRODUCTION_POINT" -> "productionPoint": the wire vocabulary is the game's enum key, camelCased,
@@ -209,6 +235,34 @@ local function collectPolygon(field, sizeX, sizeZ)
   return polygon
 end
 
+-- The farms with their in-game map colors (Farm:getColor() — per-farm palette color in MP, the
+-- fixed singleplayer green in SP, exactly what the game's own farmlands overlay uses). The
+-- spectator farm (id 0) is skipped; a farm whose color can't be read exports without one.
+---@return MapFarmModel[]
+local function collectFarms()
+  local farms = {}
+  local manager = g_farmManager
+  if manager == nil or manager.farms == nil then
+    return farms
+  end
+
+  for _, farm in ipairs(manager.farms) do
+    if type(farm.farmId) == "number" and farm.farmId > 0 and farm.isSpectator ~= true then
+      ---@type MapFarmModel
+      local entry = { id = farm.farmId }
+      if type(farm.name) == "string" and farm.name ~= "" then
+        entry.name = farm.name
+      end
+      local ok, color = pcall(farm.getColor, farm)
+      if ok and type(color) == "table" and type(color[1]) == "number" then
+        entry.color = VDT.MapExporter.linearToSrgbHex(color[1], color[2] or 0, color[3] or 0)
+      end
+      farms[#farms + 1] = entry
+    end
+  end
+  return farms
+end
+
 ---@param sizeX number
 ---@param sizeZ number
 ---@return MapFieldModel[]
@@ -287,6 +341,7 @@ function VDT.MapExporter.collect()
 
   local pois = collectPois(sizeX, sizeZ)
   local fields = collectFields(sizeX, sizeZ)
+  local farms = collectFarms()
 
   return {
     version = tostring(VDT.MapExporter.VERSION),
@@ -295,6 +350,7 @@ function VDT.MapExporter.collect()
     -- absent and the Kotlin model falls back to emptyList() (see TaskList.lua).
     pois = #pois > 0 and pois or nil,
     fields = #fields > 0 and fields or nil,
+    farms = #farms > 0 and farms or nil,
   }
 end
 
@@ -304,9 +360,9 @@ function VDT.MapExporter.markDirty()
 end
 
 -- Lazy subscribe: wait until the field list is up, then watch the events that change this channel's
--- data — land bought/sold (ownership tint) and placeables added/removed (POIs). All base-game
--- messages, but guarded anyway (fail-soft house rule). The initial markDirty() writes the state
--- that was already present on load.
+-- data — land bought/sold (ownership tint), placeables added/removed (POIs), and farms
+-- created/deleted/recolored (the farm color table). All base-game messages, but guarded anyway
+-- (fail-soft house rule). The initial markDirty() writes the state that was already present on load.
 function VDT.MapExporter.tick(debugger)
   if VDT.MapExporter.subscribed or not VDT.MapExporter.isAvailable() then
     return
@@ -314,7 +370,15 @@ function VDT.MapExporter.tick(debugger)
   if MessageType == nil or g_messageCenter == nil then
     return
   end
-  for _, message in ipairs({ "FARMLAND_OWNER_CHANGED", "PLACEABLE_ADDED", "PLACEABLE_REMOVED" }) do
+  for _, message in ipairs({
+    "FARMLAND_OWNER_CHANGED",
+    "PLACEABLE_ADDED",
+    "PLACEABLE_REMOVED",
+    "FARM_CREATED",
+    "FARM_DELETED",
+    "FARM_SETTINGS_CHANGED",
+    "FARM_PROPERTY_CHANGED",
+  }) do
     if MessageType[message] ~= nil then
       g_messageCenter:subscribe(MessageType[message], VDT.MapExporter.markDirty, VDT.MapExporter)
     end

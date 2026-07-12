@@ -55,6 +55,14 @@ class MapDataModelTest {
     assertEquals("", shop.name)
     assertNull(shop.ownerFarmId)
 
+    // Farms with their in-game map colors; the second omits name and exercises the defaults.
+    assertEquals(2, data.farms.size)
+    assertEquals(1, data.farms[0].id)
+    assertEquals("My Farm", data.farms[0].name)
+    assertEquals("#ffaf00", data.farms[0].color)
+    assertEquals("", data.farms[1].name)
+    assertEquals("#638aff", data.farms[1].color)
+
     assertEquals(2, data.fields.size)
     val owned = data.fields[0]
     assertEquals(7, owned.id)
@@ -88,6 +96,7 @@ class MapDataModelTest {
     assertEquals(2048f, data.terrainSize)
     assertTrue(data.pois.isEmpty())
     assertTrue(data.fields.isEmpty())
+    assertTrue(data.farms.isEmpty())
     assertRoundTrips(data)
   }
 

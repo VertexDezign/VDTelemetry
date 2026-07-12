@@ -78,6 +78,23 @@ describe("MapExporter.decimate", function()
   end)
 end)
 
+describe("MapExporter.linearToSrgbHex", function()
+  it("converts the game's linear RGB to sRGB hex", function()
+    -- Farm.COLORS[1] and COLOR_SINGLEPLAYER from the game source; sRGB per IEC 61966-2-1
+    assert.are.equal("#ffaf00", VDT.MapExporter.linearToSrgbHex(1, 0.4287, 0))
+    assert.are.equal("#82ab0c", VDT.MapExporter.linearToSrgbHex(0.22323, 0.40724, 0.00368))
+  end)
+
+  it("passes black and white through unchanged", function()
+    assert.are.equal("#000000", VDT.MapExporter.linearToSrgbHex(0, 0, 0))
+    assert.are.equal("#ffffff", VDT.MapExporter.linearToSrgbHex(1, 1, 1))
+  end)
+
+  it("clamps out-of-range channels", function()
+    assert.are.equal("#ff0000", VDT.MapExporter.linearToSrgbHex(1.5, -0.2, 0))
+  end)
+end)
+
 describe("MapExporter.collect", function()
   -- A polygon node id -> world coordinate table; the engine global getWorldTranslation is stubbed
   -- to read from it (returns x, y, z like the real one).
@@ -136,6 +153,7 @@ describe("MapExporter.collect", function()
       hud = { ingameMap = { worldSizeX = 2048, worldSizeZ = 2048, hotspots = {} } },
     })
     rawset(_G, "g_fieldManager", { fields = {} })
+    rawset(_G, "g_farmManager", { farms = {} })
   end)
 
   after_each(function()
@@ -143,6 +161,7 @@ describe("MapExporter.collect", function()
     rawset(_G, "PlaceableHotspot", nil)
     rawset(_G, "g_currentMission", nil)
     rawset(_G, "g_fieldManager", nil)
+    rawset(_G, "g_farmManager", nil)
   end)
 
   it("returns nil without a mission", function()
@@ -150,12 +169,32 @@ describe("MapExporter.collect", function()
     assert.is_nil(VDT.MapExporter.collect())
   end)
 
-  it("omits empty poi/field arrays (Json can't distinguish [] from {})", function()
+  it("omits empty poi/field/farm arrays (Json can't distinguish [] from {})", function()
     local model = VDT.MapExporter.collect()
     assert.are.equal("1", model.version)
     assert.are.equal(2048, model.terrainSize)
     assert.is_nil(model.pois)
     assert.is_nil(model.fields)
+    assert.is_nil(model.farms)
+  end)
+
+  it("exports farms with their map color, skipping the spectator farm", function()
+    g_farmManager.farms = {
+      { farmId = 0, isSpectator = true, name = "Spectator" },
+      {
+        farmId = 1,
+        name = "My Farm",
+        getColor = function()
+          return { 1, 0.4287, 0, 1 }
+        end,
+      },
+      { farmId = 2 }, -- no name, no readable color -> both omitted
+    }
+
+    local farms = VDT.MapExporter.collect().farms
+    assert.are.equal(2, #farms)
+    assert.are.same({ id = 1, name = "My Farm", color = "#ffaf00" }, farms[1])
+    assert.are.same({ id = 2 }, farms[2])
   end)
 
   it("exports placeable hotspots as normalized POIs and skips non-placeable ones", function()

@@ -301,7 +301,7 @@ fun MapPanel(
       // high zoom. The outlines are re-projected each draw under the same transform as the image
       // (norm * side * scale + translation), the labels/markers stay constant-size.
       if (mapData != null && (showFields || showPois)) {
-        MapDataOverlay(mapData, side, scale, applied, showFields, showPois)
+        MapDataOverlay(mapData, player?.farmId, side, scale, applied, showFields, showPois)
       }
 
       // Player marker: drawn OUTSIDE the zoom-scaled layer so the vector stays crisp (no
@@ -345,6 +345,7 @@ private const val OVERLAY_CULL_MARGIN = 80f
 @Composable
 private fun BoxScope.MapDataOverlay(
   mapData: MapData,
+  playerFarmId: Int?,
   side: Float,
   scale: Float,
   applied: Offset,
@@ -353,6 +354,12 @@ private fun BoxScope.MapDataOverlay(
 ) {
   val density = LocalDensity.current
   val textMeasurer = rememberTextMeasurer()
+
+  // farmId -> the farm's in-game map color, parsed once per channel update.
+  val farmColors =
+    remember(mapData) {
+      mapData.farms.mapNotNull { farm -> parseHexColor(farm.color)?.let { farm.id to it } }.toMap()
+    }
 
   // One Path per field, rebuilt only when the channel updates (never on pan/zoom).
   val fieldPaths =
@@ -397,7 +404,7 @@ private fun BoxScope.MapDataOverlay(
         // Stroke width divided back out of the transform: geometry scales, the line doesn't.
         val strokeWidth = 1.5.dp.toPx() / factor
         for ((field, path) in fieldPaths) {
-          val tint = fieldTint(field)
+          val tint = fieldTint(field, playerFarmId, farmColors)
           drawPath(path, tint.copy(alpha = 0.10f))
           drawPath(path, tint, style = Stroke(width = strokeWidth))
         }
@@ -432,11 +439,27 @@ private fun DrawScope.drawCenteredText(measurer: TextMeasurer, text: String, cen
 }
 
 /**
- * Owned fields tint green, unowned gray. The channel doesn't say which farm is *the player's* yet
- * (nothing in the telemetry does), so any owner counts as "owned" — refining own-vs-other farm is a
- * follow-up once the player's farm id is exported.
+ * Field tint by ownership: an owned field uses **the owning farm's in-game map color** (from the
+ * channel's `farms` table — the exact color the game's own farmlands overlay paints), unowned gray.
+ * When the owner's color isn't in the table (telemetry from a mod version without `farms`), fall
+ * back to own-green / other-red, and to green for every owner when the player's farm is unknown too.
  */
-private fun fieldTint(field: MapField): Color = if (field.ownerFarmId != null) VdtColors.Green else VdtColors.DarkGray
+private fun fieldTint(field: MapField, playerFarmId: Int?, farmColors: Map<Int, Color>): Color {
+  val owner = field.ownerFarmId ?: return VdtColors.DarkGray
+  farmColors[owner]?.let { return it }
+  return if (playerFarmId == null || owner == playerFarmId) VdtColors.Green else VdtColors.Red
+}
+
+/** "#rrggbb" -> [Color]; null for anything else (missing, malformed, unexpected length). */
+private fun parseHexColor(hex: String?): Color? {
+  if (hex == null || hex.length != 7 || !hex.startsWith("#")) return null
+  val rgb = hex.substring(1).toIntOrNull(16) ?: return null
+  return Color(
+    red = ((rgb shr 16) and 0xFF) / 255f,
+    green = ((rgb shr 8) and 0xFF) / 255f,
+    blue = (rgb and 0xFF) / 255f,
+  )
+}
 
 /**
  * Marker color per POI type token (the mod's camelCased `PlaceableHotspot.TYPE` key). Grouped by
