@@ -59,7 +59,9 @@ class CommandWriter(
     message: ClientMessage,
   ): String =
     when (message) {
-      // Tokens are fixed enum values and ids are ints, so no XML escaping is needed here.
+      // Tokens are fixed enum values and ids are ints, so the fixed-shape commands below need no
+      // escaping. The TaskList commands do — they carry user-typed ids/detail — so those attribute
+      // values go through esc() (the mod reads via XMLFile.load, which unescapes on its side).
       is ClientMessage.SetLight -> {
         """<command id="$id" type="setLight" light="${message.light.token}" on="${message.on}"/>"""
       }
@@ -92,7 +94,64 @@ class CommandWriter(
       is ClientMessage.SetGpsLinesVisible -> {
         """<command id="$id" type="setGpsLinesVisible" on="${message.on}"/>"""
       }
+
+      is ClientMessage.CompleteTask -> {
+        """<command id="$id" type="completeTask" groupId="${esc(message.groupId)}" taskId="${esc(message.taskId)}"/>"""
+      }
+
+      is ClientMessage.DeleteTask -> {
+        """<command id="$id" type="deleteTask" groupId="${esc(message.groupId)}" taskId="${esc(message.taskId)}"/>"""
+      }
+
+      is ClientMessage.CreateTask -> {
+        """<command id="$id" type="createTask" groupId="${esc(message.groupId)}"${taskAttrs(message.task)}/>"""
+      }
+
+      is ClientMessage.EditTask -> {
+        """<command id="$id" type="editTask" groupId="${esc(
+          message.groupId,
+        )}" taskId="${esc(message.taskId)}"${taskAttrs(message.task)}/>"""
+      }
+
+      // CropRotation writes. Only createRotation carries user text (name → escaped); the rest are ints.
+      is ClientMessage.SetRotationCrop -> {
+        """<command id="$id" type="setRotationCrop" rotationIndex="${message.rotationIndex}" slot="${message.slot}" state="${message.state}"/>"""
+      }
+
+      is ClientMessage.SetRotationCatchCrop -> {
+        """<command id="$id" type="setRotationCatchCrop" rotationIndex="${message.rotationIndex}" slot="${message.slot}" catchCropState="${message.catchCropState}"/>"""
+      }
+
+      is ClientMessage.AddRotationSlot -> {
+        """<command id="$id" type="addRotationSlot" rotationIndex="${message.rotationIndex}"/>"""
+      }
+
+      is ClientMessage.RemoveRotationSlot -> {
+        """<command id="$id" type="removeRotationSlot" rotationIndex="${message.rotationIndex}"/>"""
+      }
+
+      is ClientMessage.CreateRotation -> {
+        """<command id="$id" type="createRotation" name="${esc(message.name)}"/>"""
+      }
+
+      is ClientMessage.DeleteRotation -> {
+        """<command id="$id" type="deleteRotation" rotationIndex="${message.rotationIndex}"/>"""
+      }
     }
+
+  /** The shared `TaskInput` attributes for createTask / editTask (detail is user text → escaped). */
+  private fun taskAttrs(task: net.vertexdezign.vdt.TaskInput): String =
+    """ detail="${esc(task.detail)}" priority="${task.priority}" effort="${task.effort}"""" +
+      """ recurMode="${task.recurMode}" n="${task.n}" month="${task.month}""""
+
+  /** XML-escape an attribute value. `&` first so the entities it introduces aren't re-escaped. */
+  private fun esc(value: String): String =
+    value
+      .replace("&", "&amp;")
+      .replace("<", "&lt;")
+      .replace(">", "&gt;")
+      .replace("\"", "&quot;")
+      .replace("'", "&apos;")
 
   private fun write() {
     path.parent?.createDirectories()

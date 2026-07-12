@@ -1,7 +1,8 @@
 # VDTelemetry
 
-VDTelemetry exports the current game state into a json file so external telemetry consumers can read it, and provides
-some additional action events for accessing more stuff with direct key bindings.
+VDTelemetry exports the current game state into json files so external telemetry consumers can read it, and provides
+some additional action events for accessing more stuff with direct key bindings. Consumers can also write
+back through a command channel (drive the vehicle's lights/engine/cruise, edit the supported mods' data).
 
 > This mod was originally built as *GameGlassInterface* to provide integration with
 > [GameGlass](https://gameglass.gg/), which remains the primary intended consumer.
@@ -16,15 +17,36 @@ Link to Discord Post: [GameGlass Discord](https://discord.com/channels/522506741
 
 ## Output
 
-The json is written into the mod's own settings folder, in a `telemetry/` subfolder
-(`modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`). It lives there — rather than the user
-directory root — because the engine only lets a mod delete files inside its own
-`modSettings/<modName>/` folder, and disabling export removes the file.
+The telemetry json is written into the mod's own settings folder, in a `telemetry/` subfolder
+(`modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`); the per-mod channels below land beside it.
+It lives there — rather than the user directory root — because the engine only lets a mod delete files
+inside its own `modSettings/<modName>/` folder, and disabling export removes the files.
 
 Windows: `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\modSettings\FS25_vdTelemetry\telemetry\vdTelemetry.json`
 
 The shape of the written json is defined by the shared Kotlin model
 (`VDTerminal/shared/.../Model.kt`); see `examples/json/` for sample outputs.
+
+### Per-mod channels
+
+`vdTelemetry.json` is only the first of several **export channels** written into `telemetry/`, each on
+its own cadence. The vehicle telemetry is rewritten every interval; the channels that mirror an
+optional third-party mod change rarely, so they are written only when their data actually changes —
+they never ride the 100 ms tick.
+
+| File | Source | Written |
+|---|---|---|
+| `vdTelemetry.json` | vehicle + environment (core) | every interval |
+| `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
+| `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
+
+Each channel file carries its **own `version`**, evolving independently of the telemetry one.
+
+**A channel file's absence means "that mod isn't installed"** — that is exactly how VDTerminal decides
+whether to show the panel at all. So the mod deletes, once at startup, the file of every channel that
+this session will never write: uninstall one of the mods and its json goes away with it, instead of
+leaving the terminal showing last session's data. (With export disabled nothing is written at all, so
+all of them go.)
 
 ### Linux: keep telemetry writes off the SSD (optional)
 
@@ -56,8 +78,9 @@ Add that line to `/etc/fstab`, then `sudo mount -a` (no error = valid fstab). Ve
 ## Configuration
 
 Export can be toggled and the write interval chosen directly in-game: **General Settings**.
-Both apply immediately and are saved back to the configuration file — disabling export also
-removes the stale `vdTelemetry.json` so consumers can tell it stopped.
+Both apply immediately and are saved back to the configuration file — disabling export also removes
+every channel file (`vdTelemetry.json` and any per-mod one) so consumers can tell it stopped, and
+re-enabling repopulates them at once rather than waiting for the next change.
 
 The mod keeps its files under `modSettings/FS25_vdTelemetry/` (next to your `mods` folder): the
 configuration file `vdTelemetrySettings.xml` at its root, the telemetry json under `telemetry/`, and
@@ -92,10 +115,27 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
 
 ### Supported Mods
 
-* [EnhancedVehicle](https://github.com/ZhooL/FS25_EnhancedVehicle)
+All three are **optional** — VDTelemetry detects each at runtime and simply omits its data when it
+isn't installed. Because they are read through their *internals*, each is pinned to the version it was
+developed against (see the header comment of the file named below) and fails soft: a field a future mod
+version renames costs you that panel, never a Lua error.
+
+* [EnhancedVehicle](https://github.com/ZhooL/FS25_EnhancedVehicle) — extra fields on the vehicle
+  telemetry (`src/integrations/EnhancedVehicle.lua`)
     * Differential
     * AWD
     * Parking Brake
+* [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) `1.2.0.1`
+  ([source](https://github.com/Ozz-Modding/FS25_TaskList)) — the farm task list, in its own
+  `taskList.json` channel (`src/integrations/TaskList.lua`). **Read and write:** VDTerminal can
+  complete, delete, create and edit tasks, which it does by driving the mod's own multiplayer-correct
+  wrappers (`src/command/TaskListControl.lua`) — VDTelemetry stores nothing of its own.
+* [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) `1.0.1.0` —
+  the crop-rotation **planner** (the saved rotation plans, not the field history map), in its own
+  `cropRotation.json` channel (`src/integrations/CropRotation.lua`), including the per-slot yield-bonus
+  % the game shows. **Read and write:** VDTerminal can edit a plan's crops and catch crops, add/remove
+  slots, and create/delete plans, again through the mod's own event wrappers
+  (`src/command/CropRotationControl.lua`).
 
 ## Tests
 

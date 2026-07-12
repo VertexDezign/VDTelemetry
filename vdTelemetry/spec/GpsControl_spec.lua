@@ -71,4 +71,11 @@ describe("setGpsLinesVisible command", function()
     handler.execute(nil, { on = true }, debugger)
     assert.are.same({ { id = "steeringAssistLines", value = true, doSave = true } }, settings.calls)
   end)
+
+  -- The setting is global client state, so the dispatcher must run it on foot. The handler opts out
+  -- of the requires-a-vehicle gate (VDTelemetry:onCommand) by declaring requiresVehicle = false.
+  it("declares requiresVehicle = false so it runs with no current vehicle", function()
+    local handler = VDT.CommandRegistry.get("setGpsLinesVisible")
+    assert.are.equal(false, handler.requiresVehicle)
+  end)
 end)

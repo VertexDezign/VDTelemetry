@@ -1,0 +1,76 @@
+{
+  "version": "1",
+  "rotations": [
+    {
+      "index": 1,
+      "name": "Heavy Soil",
+      "farmId": 1,
+      "sequence": [
+        {
+          "state": 3,
+          "crop": "Wheat",
+          "catchCropState": 0,
+          "catchCrop": "Without catch crop",
+          "yieldPercent": 115,
+          "cropYields": [
+            { "state": 0, "yieldPercent": 100 },
+            { "state": 3, "yieldPercent": 115 },
+            { "state": 5, "yieldPercent": 120 },
+            { "state": 9, "yieldPercent": 118 },
+            { "state": 10, "yieldPercent": 112 }
+          ],
+          "catchYields": [
+            { "state": 0, "yieldPercent": 115 },
+            { "state": 2, "yieldPercent": 122 }
+          ]
+        },
+        {
+          "state": 5,
+          "crop": "Canola",
+          "catchCropState": 2,
+          "catchCrop": "Oilseed Radish",
+          "yieldPercent": 130
+        },
+        {
+          "state": 0,
+          "crop": "Fallow",
+          "catchCropState": 0,
+          "catchCrop": "Without catch crop",
+          "yieldPercent": 100
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "name": "Root Crops",
+      "farmId": 1,
+      "sequence": [
+        {
+          "state": 9,
+          "crop": "Potato",
+          "catchCropState": 0,
+          "catchCrop": "Without catch crop",
+          "yieldPercent": 95
+        },
+        {
+          "state": 10,
+          "crop": "Sugar Beet",
+          "catchCropState": 0,
+          "catchCrop": "Without catch crop",
+          "yieldPercent": 115
+        }
+      ]
+    }
+  ],
+  "crops": [
+    { "state": 0, "name": "Fallow" },
+    { "state": 3, "name": "Wheat" },
+    { "state": 5, "name": "Canola" },
+    { "state": 9, "name": "Potato" },
+    { "state": 10, "name": "Sugar Beet" }
+  ],
+  "catchCrops": [
+    { "state": 0, "name": "Without catch crop" },
+    { "state": 2, "name": "Oilseed Radish" }
+  ]
+}

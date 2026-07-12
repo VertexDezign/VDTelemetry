@@ -1,0 +1,65 @@
+{
+  "version": "1",
+  "groups": [
+    {
+      "id": "3f1a9c2e-4b7d-4e10-9a21-8c5f0b2d1e33",
+      "name": "Spring Fieldwork",
+      "type": 1,
+      "farmId": 1,
+      "effortMultiplier": 1,
+      "tasks": [
+        {
+          "id": "task-fertilize-01",
+          "detail": "Fertilize north fields",
+          "description": "Fertilize north fields",
+          "type": 1,
+          "priority": 1,
+          "period": 3,
+          "effort": 2,
+          "shouldRecur": true,
+          "recurMode": 1,
+          "n": 0,
+          "nextN": 0,
+          "active": true
+        },
+        {
+          "id": "task-fences-02",
+          "detail": "Repair the west fences",
+          "description": "Repair the west fences",
+          "type": 1,
+          "priority": 2,
+          "period": 5,
+          "effort": 1,
+          "shouldRecur": false,
+          "recurMode": 0,
+          "n": 0,
+          "nextN": 0,
+          "active": false
+        }
+      ]
+    },
+    {
+      "id": "b7e4d0a1-2c6f-4d88-b1a0-9f3e7c4a5b12",
+      "name": "Livestock",
+      "type": 1,
+      "farmId": 1,
+      "effortMultiplier": 2,
+      "tasks": [
+        {
+          "id": "task-cowfood-03",
+          "detail": "",
+          "description": "Cow Barn Fill total",
+          "type": 2,
+          "priority": 1,
+          "period": 0,
+          "effort": 0,
+          "shouldRecur": true,
+          "recurMode": 2,
+          "n": 0,
+          "nextN": 0,
+          "active": true
+        }
+      ]
+    }
+  ]
+}

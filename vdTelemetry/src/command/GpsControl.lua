@@ -31,8 +31,11 @@ function VDT.GpsControl.setLinesVisible(on, debugger)
   debugger:debug("setGpsLinesVisible=%s", tostring(on))
 end
 
--- Command handler (see CommandRegistry).
+-- Command handler (see CommandRegistry). requiresVehicle = false: the steering-assist lines are a
+-- global client setting, not vehicle state, so this must run even when the player is on foot (the
+-- dispatcher otherwise drops commands with no current vehicle).
 VDT.CommandRegistry.register("setGpsLinesVisible", {
+  requiresVehicle = false,
   parse = function(xml, key)
     return { on = xml:getBool(key .. "#on", false) }
   end,

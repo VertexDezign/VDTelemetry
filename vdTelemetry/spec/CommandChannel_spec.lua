@@ -16,6 +16,10 @@ if VDT == nil or VDT.CommandRegistry == nil then
 end
 dofile("src/command/CommandChannel.lua")
 dofile("src/command/LightControl.lua")
+-- Sourced for the requiresVehicle-threading tests below: it registers a handler with
+-- requiresVehicle = false. poll() only parses + dispatches (never executes), so its execute()'s
+-- engine references are never touched here.
+dofile("src/command/GpsControl.lua")
 
 -- Install a minimal XMLFile stub as a global: parses <command .../> elements and answers
 -- getInt/getString/getBool for keys shaped like "cmd:<index>#<attr>" (what our fake iterate hands
@@ -153,6 +157,19 @@ describe("CommandChannel.poll", function()
     local newLast, got = pollXml([[<commands><command id="4" type="bogusCommand"/></commands>]], 0)
     assert.are.equal(4, newLast)
     assert.are.equal(0, #got)
+  end)
+
+  -- The dispatcher (VDTelemetry:onCommand) drops vehicle commands when on foot but runs the ones
+  -- that don't need a vehicle. poll() surfaces the owning handler's flag on the dispatched command;
+  -- it defaults to true when the handler doesn't declare it (LightControl).
+  it("marks a vehicle-driving command requiresVehicle = true by default", function()
+    local _, got = pollXml([[<commands><command id="1" type="setLight" light="beacon" on="true"/></commands>]], 0)
+    assert.is_true(got[1].requiresVehicle)
+  end)
+
+  it("propagates requiresVehicle = false from an opted-out handler (setGpsLinesVisible)", function()
+    local _, got = pollXml([[<commands><command id="1" type="setGpsLinesVisible" on="true"/></commands>]], 0)
+    assert.are.equal(false, got[1].requiresVehicle)
   end)
 
   it("dedups: re-polling the same file dispatches nothing", function()

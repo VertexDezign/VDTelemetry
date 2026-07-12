@@ -35,8 +35,15 @@ data class Pda(
   val player: Player? = null,
 )
 
+/**
+ * The map marker's subject: on foot the player, in a vehicle the vehicle it drives. [heading] uses
+ * the same compass convention as the vehicle's `Gps.heading`, so the marker reads the same in either
+ * mode.
+ */
 @Serializable
 data class Player(
   val posX: Float = 0f,
   val posZ: Float = 0f,
+  val heading: Int = 0,
+  val headingUnit: String = "",
 )

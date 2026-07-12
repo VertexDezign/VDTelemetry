@@ -1,0 +1,135 @@
+package net.vertexdezign.vdt
+
+import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.CropRotationData
+import java.io.File
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+
+/**
+ * Decodes the committed `examples/json/cropRotation` fixtures through the real server path
+ * ([VdtParser.parseCropRotation]) and asserts the field mapping, the omitted-`rotations` case, and a
+ * lossless JSON round-trip — the cropRotation channel's half of the mod↔Kotlin contract.
+ */
+class CropRotationModelTest {
+  private val json = Json { encodeDefaults = true }
+
+  private fun example(name: String): String {
+    var dir: File? = File(".").absoluteFile
+    while (dir != null) {
+      val candidate = File(dir, "examples/json/cropRotation/$name")
+      if (candidate.exists()) return candidate.readText()
+      dir = dir.parentFile
+    }
+    error("Could not locate examples/json/cropRotation/$name from ${File(".").absolutePath}")
+  }
+
+  private fun assertRoundTrips(data: CropRotationData) {
+    val encoded = json.encodeToString(CropRotationData.serializer(), data)
+    val decoded = json.decodeFromString(CropRotationData.serializer(), encoded)
+    assertEquals(data, decoded, "JSON round-trip should be lossless")
+  }
+
+  @Test
+  fun parsesBasicCropRotation() {
+    val data = VdtParser.parseCropRotation(example("basic.json"))
+
+    assertEquals("1", data.version)
+    assertEquals(2, data.rotations.size)
+
+    val heavy = data.rotations[0]
+    assertEquals(1, heavy.index)
+    assertEquals("Heavy Soil", heavy.name)
+    assertEquals(1, heavy.farmId)
+    assertEquals(3, heavy.sequence.size)
+
+    val wheat = heavy.sequence[0]
+    assertEquals(3, wheat.state)
+    assertEquals("Wheat", wheat.crop)
+    assertEquals(0, wheat.catchCropState)
+    assertEquals(115, wheat.yieldPercent)
+    // Per-option dropdown previews: one per catalog crop, and the current crop's preview matches the
+    // slot's own yield.
+    assertEquals(5, wheat.cropYields.size)
+    assertEquals(120, wheat.cropYields.first { it.state == 5 }.yieldPercent)
+    assertEquals(wheat.yieldPercent, wheat.cropYields.first { it.state == wheat.state }.yieldPercent)
+    assertEquals(122, wheat.catchYields.first { it.state == 2 }.yieldPercent)
+
+    // Middle step carries a catch crop.
+    val canola = heavy.sequence[1]
+    assertEquals("Canola", canola.crop)
+    assertEquals(2, canola.catchCropState)
+    assertEquals("Oilseed Radish", canola.catchCrop)
+    assertEquals(130, canola.yieldPercent)
+
+    // Fallow step: state 0.
+    assertEquals(0, heavy.sequence[2].state)
+    assertEquals("Fallow", heavy.sequence[2].crop)
+
+    assertEquals("Root Crops", data.rotations[1].name)
+    assertEquals(2, data.rotations[1].sequence.size)
+
+    // Write-side catalogs: main crops lead with fallow, catch crops with "without".
+    assertEquals(5, data.crops.size)
+    assertEquals(0, data.crops.first().state)
+    assertEquals("Fallow", data.crops.first().name)
+    assertEquals(5, data.crops.first { it.name == "Canola" }.state)
+    assertEquals(2, data.catchCrops.size)
+    assertEquals("Oilseed Radish", data.catchCrops.first { it.state == 2 }.name)
+
+    assertRoundTrips(data)
+  }
+
+  @Test
+  fun parsesEmptyCropRotationWithOmittedRotations() {
+    // The mod omits an empty `rotations` array (the Json encoder can't distinguish [] from {}), so the
+    // Kotlin default fills in. "Installed but no plans" — distinct from the mod not being present.
+    val data = VdtParser.parseCropRotation(example("empty.json"))
+
+    assertEquals("1", data.version)
+    assertTrue(data.rotations.isEmpty())
+    assertRoundTrips(data)
+  }
+
+  @Test
+  fun omittedYieldPercentDecodesToNull() {
+    // An older mod (or a compute failure) omits yieldPercent; it must decode to null, not 0, so the
+    // app can render "no percentage" rather than a misleading 0%.
+    val data =
+      VdtParser.parseCropRotation(
+        """{"version":"1","rotations":[{"index":1,"name":"Old","farmId":1,
+           "sequence":[{"state":3,"crop":"Wheat","catchCropState":0,"catchCrop":""}]}]}""",
+      )
+    assertEquals(
+      null,
+      data.rotations
+        .single()
+        .sequence
+        .single()
+        .yieldPercent,
+    )
+  }
+
+  @Test
+  fun cropRotationRidesTheServerMessageDiscriminator() {
+    val data = VdtParser.parseCropRotation(example("basic.json"))
+    val message: ServerMessage = ServerMessage.CropRotation(data)
+    val encoded = json.encodeToString(ServerMessage.serializer(), message)
+
+    assertTrue(encoded.contains("\"type\":\"cropRotation\""), "expected the cropRotation discriminator in $encoded")
+    val decoded = json.decodeFromString(ServerMessage.serializer(), encoded)
+    assertEquals(message, assertNotNull(decoded as? ServerMessage.CropRotation))
+  }
+
+  /** The "mod not installed" null must survive the wire — see the taskList twin of this test. */
+  @Test
+  fun cropRotationCarriesTheNotInstalledNull() {
+    val message: ServerMessage = ServerMessage.CropRotation(null)
+    val encoded = json.encodeToString(ServerMessage.serializer(), message)
+
+    val decoded = json.decodeFromString(ServerMessage.serializer(), encoded)
+    assertEquals(null, assertNotNull(decoded as? ServerMessage.CropRotation).data)
+  }
+}

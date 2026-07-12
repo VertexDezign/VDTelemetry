@@ -58,6 +58,20 @@ private const val MIN_ZOOM = 0.25f
 private const val MAX_ZOOM = 16f
 
 /**
+ * Decoded map images, held outside composition and keyed by request URL + PDA filename.
+ *
+ * The vehicle and farm pages each host their own [MapPanel], so entering or leaving a vehicle
+ * disposes one panel and composes the other from scratch — `remember`ed state included. Without a
+ * cache that outlives the panel, the new one starts with no bitmap and the map shows blank while it
+ * re-fetches and re-decodes. A save has exactly one map, so this holds one entry (wasm is
+ * single-threaded; no synchronization needed).
+ */
+private val mapImageCache = mutableMapOf<String, ImageBitmap>()
+
+/** Shared with the cache above: outliving the panel is the whole point, so it can't be `remember`ed. */
+private val mapImageClient by lazy { HttpClient() }
+
+/**
  * Map panel: loads the PDA map image from the server, supports pan/zoom, draws the player marker
  * (position + heading), and auto-centers on the player until the user pans. Zoom and auto-center
  * are persisted. Port of the React `MapPanel` (no map library — a single custom composable).
@@ -75,9 +89,11 @@ fun MapPanel(
   var autoCenter by remember { mutableStateOf(settings.getBoolean("autoCenter", true)) }
   var dragOffset by remember { mutableStateOf(Offset.Zero) }
   var sidePx by remember { mutableFloatStateOf(0f) }
-  var bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-  val client = remember { HttpClient() }
   val player = pda?.player
+
+  // Seed from the cache so a panel composed after a page switch paints the map on its first frame.
+  val cacheKey = if (pda?.filename.isNullOrBlank()) null else "$mapUrl|${pda.filename}"
+  var bitmap by remember(cacheKey) { mutableStateOf(cacheKey?.let(mapImageCache::get)) }
 
   // Smooth the compass heading toward each new value along the *shortest* arc: accumulate an
   // unwrapped angle so e.g. 350°→10° rotates +20°, not -340° the long way round. rotate() takes
@@ -105,12 +121,14 @@ fun MapPanel(
     scale = newScale
   }
 
-  LaunchedEffect(mapUrl, pda?.filename) {
-    if (!pda?.filename.isNullOrBlank()) {
-      runCatching {
-        val bytes = client.get(mapUrl).readRawBytes()
-        bitmap = Image.makeFromEncoded(bytes).toComposeImageBitmap()
-      }
+  LaunchedEffect(cacheKey) {
+    if (cacheKey == null || bitmap != null) return@LaunchedEffect // already cached, or no PDA image
+    runCatching {
+      val bytes = mapImageClient.get(mapUrl).readRawBytes()
+      Image.makeFromEncoded(bytes).toComposeImageBitmap()
+    }.onSuccess {
+      mapImageCache[cacheKey] = it
+      bitmap = it
     }
   }
   LaunchedEffect(scale) { settings.putFloat("zoom", scale) }

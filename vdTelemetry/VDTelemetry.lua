@@ -32,9 +32,13 @@ local sourceFiles = {
   "src/collect/aspects/Cover.lua",
   "src/collect/aspects/Wearable.lua",
   "src/collect/aspects/Aspects.lua",
+  -- Export-channel registry (must precede any integration that registers a channel into it)
+  "src/export/ExportChannels.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",
+  "src/integrations/TaskList.lua",
+  "src/integrations/CropRotation.lua",
   -- Orchestrators depend on the collectors + aspects + integrations above
   "src/collect/VehicleExporter.lua",
   -- Command back-channel (app -> mod), read side; depends on Json above. CommandRegistry first: the
@@ -46,6 +50,8 @@ local sourceFiles = {
   "src/command/MotorControl.lua",
   "src/command/CruiseControl.lua",
   "src/command/GpsControl.lua",
+  "src/command/TaskListControl.lua",
+  "src/command/CropRotationControl.lua",
   -- GUI: injects settings controls into the in-game menu
   "src/gui/SettingsFrame.lua",
 }
@@ -69,8 +75,11 @@ end
 ---@field commandFileLocation string | nil path to the command channel's commands.xml (client-side only)
 ---@field lastCommandId number highest command id already handled (dedup watermark)
 ---@field commandsPolledThisCycle boolean guards the once-per-cycle command poll (offset from the write)
+---@field staleFilesCleaned boolean guards the one-shot startup cleanup of never-written channel files
 VDTelemetry = {}
 VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
+-- Registry name of the main telemetry export channel (see src/export/ExportChannels.lua).
+VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 VDTelemetry.VERSION = 1
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 2
@@ -113,6 +122,7 @@ function VDTelemetry.init()
   self.updateTimer = 0
   self.lastCommandId = 0
   self.commandsPolledThisCycle = false
+  self.staleFilesCleaned = false
 
   self.baseDir = getUserProfileAppPath() .. "modSettings/" .. modName .. "/"
   createFolder(self.baseDir)
@@ -158,9 +168,9 @@ function VDTelemetry:loadMap(filename)
 
   -- telemetry is client-side only: the file lives on the client's machine, not the dedicated server
   if self:isTelemetryAvailable() then
-    local telemetryDir = self.baseDir .. VDTelemetry.TELEMETRY_SUBDIR
-    createFolder(telemetryDir)
-    self.jsonFileLocation = telemetryDir .. VDTelemetry.STATE_FILE_NAME
+    self.telemetryDir = self.baseDir .. VDTelemetry.TELEMETRY_SUBDIR
+    createFolder(self.telemetryDir)
+    self.jsonFileLocation = self.telemetryDir .. VDTelemetry.STATE_FILE_NAME
 
     local commandDir = self.baseDir .. VDTelemetry.COMMAND_SUBDIR
     createFolder(commandDir)
@@ -174,6 +184,27 @@ function VDTelemetry:loadMap(filename)
     self.lastCommandId = 0
     -- Resolved paths at debug: on Proton these are Wine paths, handy when pointing the server's
     -- command writer at the right prefix, but not needed in normal operation.
+    -- The main telemetry file is itself an export channel, marked dirty every write interval.
+    -- Event-driven channels (TaskList, ...) self-register when their integration file is sourced.
+    VDT.ExportChannels.register({
+      name = VDTelemetry.TELEMETRY_CHANNEL,
+      fileName = VDTelemetry.STATE_FILE_NAME,
+      isAvailable = function()
+        return true
+      end,
+      collect = function()
+        return {
+          version = tostring(VDTelemetry.VERSION),
+          environment = VDT.EnvironmentExporter.collect(self.pda),
+          vehicle = VDT.VehicleExporter.collect(self.currentVehicle),
+        }
+      end,
+    })
+    -- Serializer shared by every channel; reads prettyJson live so the settings toggle applies.
+    self.encode = function(model)
+      return Json.encode(model, self.prettyJson)
+    end
+
     self.debugger:debug("Telemetry file: %s", self.jsonFileLocation)
     self.debugger:debug("Command file:   %s", self.commandFileLocation)
   else
@@ -267,9 +298,12 @@ function VDTelemetry:setExportEnabled(enabled)
   self.exportEnabled = enabled
   self.updateTimer = 0
   self.commandsPolledThisCycle = false
-  if not enabled then
-    -- drop the stale file so the terminal's file-watch sees export stop
-    self:deleteJsonFile()
+  if enabled then
+    -- repopulate every available channel promptly rather than waiting for the next change event
+    VDT.ExportChannels.markAllDirty()
+  else
+    -- drop the stale files so the terminal's file-watch sees export stop
+    self:deleteChannelFiles()
   end
   self:saveSettingsToFile()
   self.debugger:info("Export %s", enabled and "enabled" or "disabled")
@@ -289,10 +323,43 @@ function VDTelemetry:setWriteIntervalMs(intervalMs)
   self.debugger:info("Write interval set to %d ms", intervalMs)
 end
 
-function VDTelemetry:deleteJsonFile()
-  if self.jsonFileLocation ~= nil and fileExists(self.jsonFileLocation) then
-    deleteFile(self.jsonFileLocation)
-    self.debugger:debug("Deleted json file %s", self.jsonFileLocation)
+-- Delete the named files from the telemetry folder. deleteFile is permitted under
+-- modSettings/<modName>/.
+---@param fileNames string[]
+function VDTelemetry:deleteTelemetryFiles(fileNames)
+  if self.telemetryDir == nil then
+    return
+  end
+  for _, fileName in ipairs(fileNames) do
+    local path = self.telemetryDir .. fileName
+    if fileExists(path) then
+      deleteFile(path)
+      self.debugger:debug("Deleted %s", path)
+    end
+  end
+end
+
+-- Delete every channel's file (called when export is disabled) so the terminal's file-watch sees
+-- export stop.
+function VDTelemetry:deleteChannelFiles()
+  self:deleteTelemetryFiles(VDT.ExportChannels.fileNames())
+end
+
+-- One-shot startup cleanup: drop every channel file that this session will never write, so the
+-- terminal can't serve last session's data. A file's absence is exactly how the app learns an
+-- optional mod isn't installed, so uninstalling FS25_TaskList / FS25_CropRotation would otherwise
+-- leave its json behind and the app would keep rendering that stale panel forever. With export off
+-- nothing is written at all, so everything goes.
+--
+-- Deferred to the first update rather than loadMap because isAvailable() only turns true once the
+-- integration's mod has loaded; by the first update tick every mod is up, so an unavailable channel
+-- really means "not installed". A channel that is available rewrites its file on the same tick or
+-- shortly after (both integrations queue an initial write), so nothing useful is dropped.
+function VDTelemetry:deleteStaleChannelFiles()
+  if self.exportEnabled then
+    self:deleteTelemetryFiles(VDT.ExportChannels.unavailableFileNames())
+  else
+    self:deleteChannelFiles()
   end
 end
 
@@ -303,26 +370,35 @@ function VDTelemetry:update(dt)
     return
   end
 
+  -- Let event-driven channels subscribe/settle (cheap once ready); independent of export + interval.
+  VDT.ExportChannels.tick(self.debugger)
+
+  -- After that first tick every integration has had its chance to come up, so now (and only now) an
+  -- unavailable channel means "mod not installed" -- see deleteStaleChannelFiles().
+  if not self.staleFilesCleaned then
+    self.staleFilesCleaned = true
+    self:deleteStaleChannelFiles()
+  end
+
   self.updateTimer = self.updateTimer + dt
 
-  -- Poll commands once per cycle at the half-interval mark, so the command read lands on a different
-  -- frame than the telemetry write below — spreading the per-frame cost rather than doing both at
-  -- once. Command latency stays ≈ one interval, fine for button presses.
+  -- Poll commands once per cycle at the half-interval mark, and mark telemetry dirty at the full
+  -- interval — offset so the command read and the telemetry write land on different frames, spreading
+  -- the per-frame cost. Command latency stays ≈ one interval, fine for button presses.
   if not self.commandsPolledThisCycle and self.updateTimer >= self.writeIntervalMs * 0.5 then
     self.commandsPolledThisCycle = true
     self:pollCommands()
-    return
+  elseif self.updateTimer >= self.writeIntervalMs then
+    -- Reset the timer before the work so a slow tick doesn't compound.
+    self.updateTimer = 0
+    self.commandsPolledThisCycle = false
+    VDT.ExportChannels.markDirty(VDTelemetry.TELEMETRY_CHANNEL)
   end
 
-  if self.updateTimer < self.writeIntervalMs then
-    return
-  end
-  -- Reset the timer before the work so a slow tick doesn't compound.
-  self.updateTimer = 0
-  self.commandsPolledThisCycle = false
-
+  -- The export master switch gates every file write; the command channel above runs regardless.
+  -- Flushes telemetry on its interval and any event-driven channel a message marked dirty this cycle.
   if self.exportEnabled then
-    self:writeJsonFile()
+    VDT.ExportChannels.writeDirty(self.telemetryDir, self.encode, self.debugger)
   end
 end
 
@@ -355,38 +431,16 @@ end
 function VDTelemetry:onCommand(cmd)
   self.debugger:debug("Received command id=%s type=%s", tostring(cmd.id), tostring(cmd.type))
 
+  -- Most commands drive the current vehicle and are meaningless on foot, so they're dropped when
+  -- there's none. A handler that targets global client state (e.g. setGpsLinesVisible) declares
+  -- requiresVehicle = false and runs regardless — the vehicle arg is simply nil for those.
   local vehicle = self.currentVehicle
-  if vehicle == nil then
+  if cmd.requiresVehicle and vehicle == nil then
     self.debugger:debug("no current vehicle; ignoring command %s", tostring(cmd.type))
     return
   end
 
   cmd.execute(vehicle, cmd.params, self.debugger)
-end
-
--- Build the telemetry model from the collectors and write it as JSON (the mod's on-disk format).
--- collect -> model -> Json.encode: each collector returns a plain-table fragment; the whole model
--- serializes with no per-field format code. `version` is emitted as a string to match the shared
--- model (Model.kt: VdtData.version: String).
-function VDTelemetry:writeJsonFile()
-  if self.jsonFileLocation == nil then
-    return
-  end
-
-  local model = {
-    version = tostring(VDTelemetry.VERSION),
-    environment = VDT.EnvironmentExporter.collect(self.pda),
-    vehicle = VDT.VehicleExporter.collect(self.currentVehicle),
-  }
-
-  local file = io.open(self.jsonFileLocation, "w")
-  if file == nil then
-    self.debugger:error("could not open json file " .. tostring(self.jsonFileLocation))
-    return
-  end
-  file:write(Json.encode(model, self.prettyJson))
-  file:close()
-  self.debugger:trace("Wrote json file")
 end
 
 ---@param vehicle VDTelemetrySpec

@@ -69,6 +69,8 @@ class VdtModelTest {
     assertEquals(2048, pda.height)
     assertEquals(0.4532542f, pda.player?.posX)
     assertEquals(0.42799774f, pda.player?.posZ)
+    assertEquals(91, pda.player?.heading)
+    assertEquals("°", pda.player?.headingUnit)
 
     val v = assertNotNull(data.vehicle)
     assertEquals("Valtra T195 Active", v.name)

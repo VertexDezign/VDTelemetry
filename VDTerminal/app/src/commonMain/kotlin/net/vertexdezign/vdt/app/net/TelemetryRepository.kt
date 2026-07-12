@@ -15,6 +15,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
+import net.vertexdezign.vdt.model.CropRotationData
+import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 import kotlin.math.roundToInt
 import kotlin.time.DurationUnit
@@ -45,6 +47,18 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
   private val _telemetry = MutableStateFlow<VdtData?>(null)
   val telemetry: StateFlow<VdtData?> = _telemetry.asStateFlow()
+
+  // Optional FS25_TaskList channel; null while the mod isn't installed. The server sends that null
+  // explicitly (message with `data: null`) when the file goes away, so uninstalling the mod clears the
+  // panel instead of freezing the last data. Separate flow (not folded into telemetry) because it
+  // arrives on its own cadence.
+  private val _taskList = MutableStateFlow<TaskListData?>(null)
+  val taskList: StateFlow<TaskListData?> = _taskList.asStateFlow()
+
+  // Optional FS25_CropRotation channel; same "null means not installed, and the null is sent" contract
+  // as taskList, on its own event-driven cadence.
+  private val _cropRotation = MutableStateFlow<CropRotationData?>(null)
+  val cropRotation: StateFlow<CropRotationData?> = _cropRotation.asStateFlow()
 
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
@@ -92,6 +106,14 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
                     is ServerMessage.Telemetry -> {
                       recordSampleInterval()
                       _telemetry.value = msg.data
+                    }
+
+                    is ServerMessage.TaskList -> {
+                      _taskList.value = msg.data
+                    }
+
+                    is ServerMessage.CropRotation -> {
+                      _cropRotation.value = msg.data
                     }
 
                     is ServerMessage.Error -> {

@@ -10,6 +10,12 @@
 --       and returns a plain params table. Runs while the command file is open.
 --   execute = function(vehicle, params, debugger)
 --       Runs the command against the current vehicle. Runs once the current vehicle is known.
+-- Plus one optional flag:
+--   requiresVehicle = boolean (default true)
+--       When true (the default), the dispatcher drops the command if there's no current vehicle.
+--       Set false for a command that drives global client state rather than the vehicle (e.g.
+--       GpsControl's setGpsLinesVisible), so it still runs when the player is on foot; `vehicle` is
+--       then passed as nil.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
