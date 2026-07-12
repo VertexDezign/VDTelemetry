@@ -30,7 +30,13 @@ Progress (2026-07-10):
   **yield-bonus %** the game shows). The planner only stores `yieldValue` while its GUI is open, so we
   recompute it exactly as the GUI does — build the preceding history window and call the mod's own
   `YieldCalculator:getYieldMultiplier` (pure client-side maths). The app colours it green/red around
-  100 %, which is the whole point of previewing a rotation before committing it in-game.
+  100 %, which is the whole point of previewing a rotation before committing it in-game. Shared
+  `CropRotationData` model + `ServerMessage.CropRotation`; server watches `cropRotation.json`; app
+  `CropRotationPanel` renders the sequences read-only (replaces the farm-page placeholder). Fixtures
+  `examples/json/cropRotation/*.json`, `:shared:jvmTest` decode tests, and `spec/CropRotation_spec.lua`
+  collector + change-detection tests. **Verified in-game (singleplayer):** existing plans show on
+  entry; live add/remove/edit now show too (see the poll note below). (Writes came next — see the CRUD
+  entry above.)
 - **CropRotation write path — full CRUD** (2026-07-11) — done, read + yield verified on the dedicated
   server first. The collector now also ships the selectable-crop catalog (`crops` / `catchCrops`,
   `{ state, name }`, minus `ignoreInPlanner`) so the app can render dropdowns. `src/command/
@@ -57,13 +63,7 @@ Progress (2026-07-10):
     length, so in a **2-slot** rotation "two back" lands on the slot itself. The dropdown preview reads
     that self-reference from the slot's *stored* crop, not the hovered candidate, so a 2-slot preview
     can be slightly off from the committed value. Verified in-game and deliberately left as-is —
-    rotations that short carry almost no history, so it's not worth special-casing (2026-07-11). Shared `CropRotationData` model +
-  `ServerMessage.CropRotation`; server watches `cropRotation.json`; app `CropRotationPanel` renders the
-  sequences read-only (replaces the farm-page placeholder). Fixtures
-  `examples/json/cropRotation/*.json`, `:shared:jvmTest` decode tests, and `spec/CropRotation_spec.lua`
-  collector + change-detection tests. **Verified in-game (singleplayer):** existing plans show on
-  entry; live add/remove/edit now show too (see the poll note below). CropRotation *writes* (planner
-  editing) remain out of scope — that's the next step.
+    rotations that short carry almost no history, so it's not worth special-casing (2026-07-11).
 - **CropRotation is poll-driven, not subscribe-driven** (2026-07-11). The plan below assumed
   `CROP_ROTATIONS_CHANGED` was a usable change signal like TaskList's messages. It isn't:
   FS25_CropRotation only publishes it from its *multiplayer event path*. In singleplayer
