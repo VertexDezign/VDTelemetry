@@ -1,0 +1,23 @@
+-- Model definitions for the vehicle-marker export channel (mapVehicles.json,
+-- src/collect/MapVehiclesExporter.lua).
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/MapVehicles.kt) and the
+-- fixtures in examples/json/mapVehicles/*.
+--
+-- posX/posZ are normalized [0,1] map coordinates in the same frame as MapModel / PlayerModel.
+
+---@class MapVehicleModel
+---@field type string VehicleHotspot.TYPE key, camelCased ("tractor", "harvester", "trailer", ...)
+---@field name string?
+---@field posX number
+---@field posZ number
+---@field heading number? compass degrees, same convention as GpsModel.heading; omitted if unreadable
+---@field farmId number? owning farm; omitted when none
+---@field isAI boolean an AI helper is driving
+---@field isControlled boolean? a human is driving (any player in MP); omitted for non-enterables
+---@field isEntered boolean? the LOCAL player is inside; omitted for non-enterables
+
+---@class MapVehiclesModel
+---@field version string
+---@field vehicles MapVehicleModel[]?

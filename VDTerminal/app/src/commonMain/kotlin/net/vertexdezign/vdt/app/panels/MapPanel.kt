@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material.icons.filled.Map
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -67,6 +69,8 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapField
+import net.vertexdezign.vdt.model.MapVehicle
+import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.Pda
 import net.vertexdezign.vdt.model.Player
 import org.jetbrains.skia.Image
@@ -110,11 +114,13 @@ fun MapPanel(
   settings: Settings,
   modifier: Modifier = Modifier,
   mapData: MapData? = null,
+  mapVehicles: MapVehiclesData? = null,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat("zoom", 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean("autoCenter", true)) }
   var showFields by remember { mutableStateOf(settings.getBoolean("showFields", true)) }
   var showPois by remember { mutableStateOf(settings.getBoolean("showPois", true)) }
+  var showVehicles by remember { mutableStateOf(settings.getBoolean("showVehicles", true)) }
   var dragOffset by remember { mutableStateOf(Offset.Zero) }
   var sidePx by remember { mutableFloatStateOf(0f) }
   val player = pda?.player
@@ -163,6 +169,7 @@ fun MapPanel(
   LaunchedEffect(autoCenter) { settings.putBoolean("autoCenter", autoCenter) }
   LaunchedEffect(showFields) { settings.putBoolean("showFields", showFields) }
   LaunchedEffect(showPois) { settings.putBoolean("showPois", showPois) }
+  LaunchedEffect(showVehicles) { settings.putBoolean("showVehicles", showVehicles) }
 
   Panel(
     title = "Map",
@@ -181,6 +188,14 @@ fun MapPanel(
           "show POIs",
           tint = if (showPois) VdtColors.Green else VdtColors.DarkGray,
           modifier = Modifier.size(16.dp).clickableNoRipple { showPois = !showPois },
+        )
+      }
+      if (mapVehicles != null) {
+        Icon(
+          Icons.Filled.Agriculture,
+          "show vehicles",
+          tint = if (showVehicles) VdtColors.Green else VdtColors.DarkGray,
+          modifier = Modifier.size(16.dp).clickableNoRipple { showVehicles = !showVehicles },
         )
       }
       Icon(
@@ -300,8 +315,18 @@ fun MapPanel(
       // OUTSIDE the zoom-scaled graphicsLayer — the layer rasterizes, so vectors inside it blur at
       // high zoom. The outlines are re-projected each draw under the same transform as the image
       // (norm * side * scale + translation), the labels/markers stay constant-size.
-      if (mapData != null && (showFields || showPois)) {
-        MapDataOverlay(mapData, player?.farmId, side, scale, applied, showFields, showPois)
+      if ((mapData != null && (showFields || showPois)) || (mapVehicles != null && showVehicles)) {
+        MapDataOverlay(
+          mapData,
+          mapVehicles,
+          player?.farmId,
+          side,
+          scale,
+          applied,
+          showFields,
+          showPois,
+          showVehicles,
+        )
       }
 
       // Player marker: drawn OUTSIDE the zoom-scaled layer so the vector stays crisp (no
@@ -334,37 +359,47 @@ fun MapPanel(
 // Points projected further than this (px) outside the canvas are culled before any text measuring.
 private const val OVERLAY_CULL_MARGIN = 80f
 
+// VehicleHotspot.TYPE tokens that are driven and get a heading arrow; everything else (trailer,
+// tool, toolTrailed, cutter, other, and unknown future types) is equipment and gets a plain square.
+private val DrivableVehicleTypes =
+  setOf("tractor", "truck", "car", "harvester", "wheelloader", "horse", "train", "motorbike", "woodHarvester", "boat")
+
 /**
- * The [MapData] overlay: field polygons + number labels and POI dots, drawn into the same
- * side×side box as the map image. The polygons are vector paths in normalized [0,1] space,
- * re-projected each draw under the image's exact transform (screen = norm * side * scale +
+ * The map-data overlay: field polygons + number labels, POI dots, and vehicle markers, drawn into
+ * the same side×side box as the map image. The polygons are vector paths in normalized [0,1]
+ * space, re-projected each draw under the image's exact transform (screen = norm * side * scale +
  * translation) with a zoom-compensated stroke — so they hug the map at any zoom but keep a
- * constant on-screen line width. Labels and POI markers are constant-size like the player marker;
- * secondary text (field area, POI names) only appears above [DETAIL_ZOOM].
+ * constant on-screen line width. Labels, POI dots and vehicle arrows are constant-size like the
+ * player marker; secondary text (field area, POI/vehicle names) only appears above [DETAIL_ZOOM].
  */
 @Composable
 private fun BoxScope.MapDataOverlay(
-  mapData: MapData,
+  mapData: MapData?,
+  mapVehicles: MapVehiclesData?,
   playerFarmId: Int?,
   side: Float,
   scale: Float,
   applied: Offset,
   showFields: Boolean,
   showPois: Boolean,
+  showVehicles: Boolean,
 ) {
   val density = LocalDensity.current
   val textMeasurer = rememberTextMeasurer()
 
-  // farmId -> the farm's in-game map color, parsed once per channel update.
+  // farmId -> the farm's in-game map color, parsed once per channel update. Also colors the
+  // vehicle markers, so ownership reads the same for land and machines.
   val farmColors =
     remember(mapData) {
-      mapData.farms.mapNotNull { farm -> parseHexColor(farm.color)?.let { farm.id to it } }.toMap()
+      (mapData?.farms ?: emptyList())
+        .mapNotNull { farm -> parseHexColor(farm.color)?.let { farm.id to it } }
+        .toMap()
     }
 
   // One Path per field, rebuilt only when the channel updates (never on pan/zoom).
   val fieldPaths =
     remember(mapData) {
-      mapData.fields.mapNotNull { field ->
+      (mapData?.fields ?: emptyList()).mapNotNull { field ->
         val poly = field.polygon
         if (poly.size < 6) return@mapNotNull null
         val path =
@@ -374,6 +409,20 @@ private fun BoxScope.MapDataOverlay(
             close()
           }
         field to path
+      }
+    }
+
+  // Navigation-style arrow pointing north (heading 0), in px around the origin; rotated per
+  // vehicle at draw time. Built once — px sizes only change with density.
+  val vehicleArrow =
+    remember(density) {
+      val u = with(density) { 1.dp.toPx() }
+      Path().apply {
+        moveTo(0f, -7f * u)
+        lineTo(5f * u, 6f * u)
+        lineTo(0f, 3f * u)
+        lineTo(-5f * u, 6f * u)
+        close()
       }
     }
 
@@ -396,7 +445,7 @@ private fun BoxScope.MapDataOverlay(
     fun onCanvas(pos: Offset) = pos.x in -OVERLAY_CULL_MARGIN..side + OVERLAY_CULL_MARGIN &&
       pos.y in -OVERLAY_CULL_MARGIN..side + OVERLAY_CULL_MARGIN
 
-    if (showFields) {
+    if (showFields && mapData != null) {
       withTransform({
         translate(applied.x, applied.y)
         scale(factor, factor, pivot = Offset.Zero)
@@ -419,7 +468,7 @@ private fun BoxScope.MapDataOverlay(
       }
     }
 
-    if (showPois) {
+    if (showPois && mapData != null) {
       for (poi in mapData.pois) {
         val pos = toScreen(poi.posX, poi.posZ)
         if (!onCanvas(pos)) continue
@@ -430,7 +479,52 @@ private fun BoxScope.MapDataOverlay(
         }
       }
     }
+
+    if (showVehicles && mapVehicles != null) {
+      for (v in mapVehicles.vehicles) {
+        // The locally driven vehicle already has the (animated) player marker on it.
+        if (v.isEntered) continue
+        val pos = toScreen(v.posX, v.posZ)
+        if (!onCanvas(pos)) continue
+        val tint = vehicleTint(v, playerFarmId, farmColors)
+        if (v.type in DrivableVehicleTypes) {
+          // Drivables: a heading arrow.
+          withTransform({
+            translate(pos.x, pos.y)
+            rotate(degrees = v.heading.toFloat(), pivot = Offset.Zero)
+          }) {
+            drawPath(vehicleArrow, tint)
+            drawPath(vehicleArrow, VdtColors.White, style = Stroke(width = 1.dp.toPx()))
+          }
+        } else {
+          // Implements/trailers: a plain square — no arrow, they don't "head" anywhere.
+          val half = 3.5.dp.toPx()
+          val topLeft = pos - Offset(half, half)
+          val size = Size(half * 2, half * 2)
+          drawRect(tint, topLeft = topLeft, size = size)
+          drawRect(VdtColors.White, topLeft = topLeft, size = size, style = Stroke(width = 1.dp.toPx()))
+        }
+        // AI helper: a small badge dot at the marker's center.
+        if (v.isAI) {
+          drawCircle(VdtColors.White, radius = 1.5.dp.toPx(), center = pos)
+        }
+        if (scale >= DETAIL_ZOOM && v.name.isNotBlank()) {
+          drawCenteredText(textMeasurer, v.name, pos + Offset(0f, 14.dp.toPx()), detailStyle)
+        }
+      }
+    }
   }
+}
+
+/**
+ * Vehicle marker tint: the owning farm's in-game map color, same lookup as [fieldTint] so land and
+ * machines read consistently; the own/other fallback applies when the color table is missing, and
+ * an unowned vehicle stays gray.
+ */
+private fun vehicleTint(vehicle: MapVehicle, playerFarmId: Int?, farmColors: Map<Int, Color>): Color {
+  val owner = vehicle.farmId ?: return VdtColors.DarkGray
+  farmColors[owner]?.let { return it }
+  return if (playerFarmId == null || owner == playerFarmId) VdtColors.Green else VdtColors.Red
 }
 
 private fun DrawScope.drawCenteredText(measurer: TextMeasurer, text: String, center: Offset, style: TextStyle) {

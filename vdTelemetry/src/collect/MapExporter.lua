@@ -141,9 +141,12 @@ function VDT.MapExporter.poiTypeToken(placeableType, types)
   return tokenByType[placeableType] or "other"
 end
 
--- Terrain edge lengths (meters) for normalization: the HUD map's worldSize (the exact values the
--- player marker is normalized with), falling back to the mission terrainSize.
-local function resolveWorldSize()
+---Terrain edge lengths (meters) for normalization: the HUD map's worldSize (the exact values the
+---player marker is normalized with), falling back to the mission terrainSize. Shared with the
+---vehicle channel (MapVehiclesExporter) so every overlay uses the same frame. Requires
+---g_currentMission; returns nil, nil while the size can't be resolved.
+---@return number|nil sizeX, number|nil sizeZ
+function VDT.MapExporter.resolveWorldSize()
   local hud = g_currentMission.hud
   local map = hud ~= nil and hud.ingameMap or nil
   local sizeX = map ~= nil and map.worldSizeX or nil
@@ -334,7 +337,7 @@ function VDT.MapExporter.collect()
   if g_currentMission == nil then
     return nil
   end
-  local sizeX, sizeZ = resolveWorldSize()
+  local sizeX, sizeZ = VDT.MapExporter.resolveWorldSize()
   if sizeX == nil then
     return nil
   end

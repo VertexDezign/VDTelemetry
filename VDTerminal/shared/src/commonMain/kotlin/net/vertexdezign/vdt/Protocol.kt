@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -59,6 +60,18 @@ sealed interface ServerMessage {
   @SerialName("map")
   data class MapUpdate(
     val data: MapData? = null,
+  ) : ServerMessage
+
+  /**
+   * The vehicle-marker channel (`mapVehicles.json`). Broadcast on the mod's own ~1 s vehicle
+   * interval — a third cadence besides the telemetry tick and the event-driven [MapUpdate], which
+   * is why it is its own message. [data] is **null when the file is absent** (export disabled):
+   * the app clears its vehicle markers then.
+   */
+  @Serializable
+  @SerialName("mapVehicles")
+  data class MapVehicles(
+    val data: MapVehiclesData? = null,
   ) : ServerMessage
 
   @Serializable

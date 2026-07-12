@@ -37,6 +37,7 @@ fun main() {
     val taskList by repository.taskList.collectAsState()
     val cropRotation by repository.cropRotation.collectAsState()
     val mapData by repository.mapData.collectAsState()
+    val mapVehicles by repository.mapVehicles.collectAsState()
 
     val supported = remember { WakeLock.supported }
     // Reflect whether the lock is *actually* held: the request resolves asynchronously and can
@@ -70,6 +71,7 @@ fun main() {
       taskList = taskList,
       cropRotation = cropRotation,
       mapData = mapData,
+      mapVehicles = mapVehicles,
     )
   }
 }

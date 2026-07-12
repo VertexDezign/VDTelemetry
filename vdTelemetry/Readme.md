@@ -36,7 +36,8 @@ rarely, so they are written only when their data actually changes — they never
 | File | Source | Written |
 |---|---|---|
 | `vdTelemetry.json` | vehicle + environment (core) | every interval |
-| `map.json` | map overlay: POIs + fields (core, `src/collect/MapExporter.lua`) | on farmland/placeable change |
+| `map.json` | map overlay: POIs + fields + farms (core, `src/collect/MapExporter.lua`) | on farmland/placeable/farm change |
+| `mapVehicles.json` | vehicle markers (core, `src/collect/MapVehiclesExporter.lua`) | own interval (1 s) |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
 | `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
 
@@ -46,8 +47,9 @@ For the per-mod channels, **the file's absence means "that mod isn't installed"*
 VDTerminal decides whether to show the panel at all. So the mod deletes, once at startup, the file of
 every channel that this session will never write: uninstall one of the mods and its json goes away with
 it, instead of leaving the terminal showing last session's data. (With export disabled nothing is
-written at all, so all of them go.) `map.json` reads base-game data and is always written; its absence
-just means "no data yet", and VDTerminal drops its map overlays until it reappears.
+written at all, so all of them go.) `map.json` and `mapVehicles.json` read base-game data and are
+always written; their absence just means "no data yet", and VDTerminal drops the affected map
+overlays until they reappear.
 
 `map.json` carries the near-static map data: selling/loading stations, shops, productions and other
 placeable POIs (typed via the game's own hotspot enum), every field's number, ownership, area and
@@ -56,6 +58,12 @@ border polygon, and the farms with their in-game map color (`Farm:getColor()`, c
 normalized `[0,1]` map coordinates in the same frame as the player marker; `terrainSize` converts them
 back to meters. Border polygons are thinned (5 m minimum spacing, capped at 256 points per field) to
 keep the file small.
+
+`mapVehicles.json` carries one marker per vehicle rig the game's own map would show (root vehicles
+with `mapHotspotAvailable`, typed via `VehicleHotspot.TYPE`): position/heading in the same normalized
+frame, owning farm, and AI/controlled/entered flags. It rewrites on its own 1 s interval — positions
+change constantly, but a map overview needs neither the 100 ms telemetry cadence nor event-driven
+writes.
 
 ### Linux: keep telemetry writes off the SSD (optional)
 

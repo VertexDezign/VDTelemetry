@@ -54,6 +54,8 @@ fun main() {
   // map.json is event-driven too, but its absence means "no data yet / export off" rather than
   // "mod not installed" — either way the app must drop its overlays, so null broadcasts as well.
   val mapState = watcher.register("map.json", nullOnAbsent = true) { VdtParser.parseMap(it) }
+  // mapVehicles.json rewrites on the mod's own ~1 s vehicle interval; same absence rule.
+  val mapVehiclesState = watcher.register("mapVehicles.json", nullOnAbsent = true) { VdtParser.parseMapVehicles(it) }
   watcher.launchIn(appScope)
 
   val commandWriter = CommandWriter(Config.commandPath())
@@ -110,6 +112,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val mapVehiclesJob =
+          launch {
+            mapVehiclesState.collect { data ->
+              val message: ServerMessage = ServerMessage.MapVehicles(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         // Incoming: app -> mod commands. Decode and hand to the writer; ignore anything unparseable
         // so a bad frame can't kill the session. Reading `incoming` also keeps the socket alive.
         try {
@@ -128,6 +137,7 @@ fun main() {
           taskListJob.cancel()
           cropRotationJob.cancel()
           mapJob.cancel()
+          mapVehiclesJob.cancel()
         }
       }
 
