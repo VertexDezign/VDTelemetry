@@ -4,7 +4,9 @@ Plan for a second dashboard page covering everything that isn't the current vehi
 mod/server/app plumbing needed to feed it from two optional third-party mods
 (**FS25_CropRotation**, **FS25_TaskList**).
 
-Status: **in progress.** Written 2026-07-09 against `main` @ `c1809e5`.
+Status: **done** (2026-07-12) — all four steps plus both optional-mod channels, read and write. What
+remains is listed under [Deferred](#deferred) and was never in scope for this plan. Written 2026-07-09
+against `main` @ `c1809e5`.
 
 Progress (2026-07-10):
 - **Step 1** (`requiresVehicle`) — done.
@@ -72,6 +74,26 @@ Progress (2026-07-10):
   signature of the planner in its per-tick `tick()` and marks itself dirty when it moves; the file is
   still only written on an actual change. This also moots the `CROP_ROTATIONS_CHANGED` id-collision
   landmine, since nothing subscribes to it.
+- **Farm-page follow-ups** (2026-07-12) — three fixes found by using the finished page. Two of them
+  close gaps *in this plan*, not against it: the plan asserted the not-installed contract as though it
+  were a property of the system, but nothing enforced either half of it.
+  - **Player heading on foot** — done, see [What already works](#what-already-works). (Was listed under
+    Deferred.) The player's yaw sits half a turn from the yaw a vehicle heading is built from, so it
+    takes a π shift before the shared compass conversion; without it the marker points backwards.
+  - **"Absence of the file = not installed" is now actually true end to end.** It was aspirational on
+    *both* sides. Mod: nothing ever deleted a channel file, so uninstalling FS25_TaskList /
+    FS25_CropRotation left its json behind and the app kept rendering last session's data — the mod now
+    deletes the files of unavailable channels once at startup (`ExportChannels.unavailableFileNames()`,
+    run on the first update, when every mod has loaded and `isAvailable()` is trustworthy). Server: the
+    watcher did reset the flow to null on a delete, but both send jobs were guarded with
+    `if (data != null)`, so the null never reached the app — and the "not installed" state wasn't even
+    representable on the wire. `ServerMessage.TaskList`/`.CropRotation` now carry a nullable payload and
+    the server broadcasts the null. (Telemetry keeps its guard: there a missing file means "keep the
+    last good value".)
+  - **The map image is cached across page switches.** Each page hosts its own `MapPanel`, so entering or
+    leaving a vehicle disposed one and composed the other from scratch — the remembered bitmap went with
+    it and the map flashed blank while it re-fetched. Decoded images now live in a module-level cache
+    outside composition.
 
 ---
 
@@ -205,7 +227,9 @@ Both mods self-detect exactly like `integrations/EnhancedVehicle.lua` does — T
 `FS25_CropRotation ~= nil and FS25_CropRotation.g_cropRotationPlanner ~= nil` (the bare
 `g_cropRotationPlanner` is `nil` from our env; see the CropRotation note). They belong in
 `src/integrations/`, **not** `collect/`. If the mod isn't installed the file is never written, and
-**absence of the file is the app's "not installed" signal**.
+**absence of the file is the app's "not installed" signal** — which means a file left over from a
+session where the mod *was* installed is stale and must be deleted (the mod does this once at startup;
+see the 2026-07-12 progress note, which is where both halves of this contract were finally enforced).
 
 Each channel file carries its **own `version` field**, evolving independently of
 `VDTelemetry.VERSION`.
@@ -236,11 +260,11 @@ change.
 > the exact property we want. Adding sealed subtypes is safe because the server serves the wasm
 > bundle — app and server always ship together.
 
-**Roadmap note:** this revives the machinery from the shelved
-[Fast/slow channel split](ROADMAP.md) — but for a different reason than it was shelved for. That was
-a *rate split of the same data* and wasn't worth the complexity. This is genuinely *different data*
-with a naturally different cadence. Worth a line in `ROADMAP.md` so the shelving rationale doesn't
-read as contradicted.
+**Roadmap note:** this revives the machinery from the once-shelved *fast/slow channel split* — but for
+a different reason than it was shelved for. That was a *rate split of the same data* and wasn't worth
+the complexity. This is genuinely *different data* with a naturally different cadence. (The plan
+originally asked for a line in `ROADMAP.md` so the shelving rationale didn't read as contradicted;
+that file has since been deleted — `4dd6af5` — so this paragraph is the only record.)
 
 ### App: pages
 
@@ -387,9 +411,12 @@ Escaping and create-dedup land together here.
   reachable as bare globals from our mod — only shared engine tables (`g_currentMission`,
   `MessageType`) and instances hung off them are. Reach a mod's own globals through the env global
   named after the mod. This is what caused both the createTask crash and the CropRotation misread.
-- **Mod version drift.** Both integrations read third-party internals. Pin the versions this was
-  written against (CropRotation `1.0.1.0`) and fail soft — a missing field must not throw in the
-  collector.
+- **Mod version drift.** ✅ **Handled** (2026-07-12). Both integrations read third-party internals, so
+  each header now pins the version it was written against — **FS25_TaskList `1.2.0.1`**,
+  **FS25_CropRotation `1.0.1.0`** — and states the fail-soft contract: guard every field read (and
+  `pcall` the yield maths), because a throw in a collector takes the whole telemetry write down with
+  it. The risk itself doesn't go away; a mod update can still empty a panel, and the pin is what tells
+  the next reader where to look.
 - **`CROP_ROTATIONS_CHANGED` id collision.** See the landmine above.
 
 ---
@@ -403,8 +430,6 @@ Escaping and create-dedup land together here.
   per-field table. Both need a timer (position changes as you drive) and in-game profiling. The
   channel registry supports it — a channel whose `markDirty()` is driven by a position bucket rather
   than a message.
-- **Player heading on foot.** Add a rotation field to `EnvironmentExporter` so the farm-page map
-  marker points where the player looks, instead of always north.
 - **VDT-owned data layer.** Notes / custom fields that the mods cannot represent. Explicitly out of
   scope for the four steps above: it needs a VDT-owned store and a read path the mod does not have
   today. The concrete motivating case is field→rotation assignment, below.

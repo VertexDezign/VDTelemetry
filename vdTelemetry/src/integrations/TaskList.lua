@@ -6,6 +6,11 @@
 -- Verified (2026-07-10): on a dedicated-server client both ACTIVE_TASKS_UPDATED and
 -- TASK_GROUPS_UPDATED fire and `g_currentMission.taskList` is fully readable (see farm-page-plan.md).
 --
+-- **Written against FS25_TaskList 1.2.0.1** — everything below reads that mod's *internals*, which it
+-- is free to rename in any release. So fail soft, never throw: guard every field read and treat a
+-- missing one as "no data" (an empty panel beats a Lua error in the collector, which would take the
+-- whole telemetry write down with it). Same contract on the write side (src/command/TaskListControl.lua).
+--
 -- Data shape (from the mod's Task.lua / TaskGroup.lua / main.lua):
 --   g_currentMission.taskList.taskGroups  map  groupId -> { id, farmId, name, effortMultiplier,
 --                                                            type, templateGroupId, tasks }
