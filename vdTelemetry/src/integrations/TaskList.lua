@@ -1,7 +1,8 @@
--- Optional integration: FS25_TaskList (https://github.com/...). An event-driven export channel:
--- it self-detects the mod, subscribes to the two change messages, and serializes the current farm's
--- task groups + tasks into taskList.json. **Absence of that file is the app's "not installed"
--- signal** — when the mod isn't present the channel is registered but never writes.
+-- Optional integration: FS25_TaskList (ModHub mod_id 312938, source github.com/Ozz-Modding/FS25_TaskList).
+-- An event-driven export channel: it self-detects the mod, subscribes to the two change messages, and
+-- serializes the current farm's task groups + tasks into taskList.json. **Absence of that file is the
+-- app's "not installed" signal** — when the mod isn't present the channel is registered but never
+-- writes (and a file left over from a session where it *was* installed is deleted at startup).
 --
 -- Verified (2026-07-10): on a dedicated-server client both ACTIVE_TASKS_UPDATED and
 -- TASK_GROUPS_UPDATED fire and `g_currentMission.taskList` is fully readable (see farm-page-plan.md).

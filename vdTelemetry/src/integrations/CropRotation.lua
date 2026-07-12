@@ -1,8 +1,9 @@
--- Optional integration: FS25_CropRotation. An export channel mirroring the mod's saved rotation
--- plans (the planner), like integrations/TaskList.lua mirrors task groups: it self-detects the mod
--- and serializes the local farm's crop-rotation plans into cropRotation.json. **Absence of that file
--- is the app's "not installed" signal** — when the mod isn't present the channel is registered but
--- never writes.
+-- Optional integration: FS25_CropRotation (ModHub mod_id 347316, by Chissel). An export channel
+-- mirroring the mod's saved rotation plans (the planner), like integrations/TaskList.lua mirrors task
+-- groups: it self-detects the mod and serializes the local farm's crop-rotation plans into
+-- cropRotation.json. **Absence of that file is the app's "not installed" signal** — when the mod isn't
+-- present the channel is registered but never writes (and a file left over from a session where it
+-- *was* installed is deleted at startup).
 --
 -- Unlike TaskList this channel is NOT subscribe-driven. FS25_CropRotation only publishes
 -- CROP_ROTATIONS_CHANGED from its *multiplayer* event path, so in singleplayer the cases that matter
