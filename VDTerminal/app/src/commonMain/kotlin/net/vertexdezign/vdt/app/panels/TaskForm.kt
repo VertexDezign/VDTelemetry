@@ -44,6 +44,16 @@ private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Au
 private fun usesMonth(recurMode: Int) = recurMode == 0 || recurMode == 1 || recurMode == 3
 private fun usesN(recurMode: Int) = recurMode == 3 || recurMode == 4
 
+/**
+ * The N values the mod's own wizard offers (`ManageTasksFrame:onAddEditTaskRequestN`): 1..12, and for
+ * "Every N months" also 24 and 36. It is deliberately *not* a contiguous range — a 1..12 stepper here
+ * would rewrite an existing 24- or 36-month task as 12 the moment you opened it for editing.
+ */
+private fun nOptions(recurMode: Int): List<Int> = if (recurMode == 3) N_MONTHS else N_DAYS
+
+private val N_DAYS = (1..12).toList()
+private val N_MONTHS = N_DAYS + listOf(24, 36)
+
 /** period -> calendar month (1-12), the inverse of the mod's convertMonthNumberToPeriod (offset +2). */
 private fun periodToMonth(period: Int): Int {
   var m = period + 2
@@ -61,7 +71,9 @@ fun editInitial(task: Task): TaskInput = TaskInput(
   priority = task.priority.coerceIn(1, 10),
   effort = task.effort.coerceIn(1, 5),
   recurMode = task.recurMode.coerceIn(0, 4),
-  n = task.n.coerceIn(1, 12),
+  // No upper clamp: N is whatever the task actually carries (24 and 36 are legal, and a task made
+  // elsewhere could hold any value). Editing must never silently rewrite it — see nOptions.
+  n = task.n.coerceAtLeast(1),
   month = if (task.recurMode == 3) periodToMonth(task.nextN) else periodToMonth(task.period),
 )
 
@@ -109,7 +121,14 @@ fun TaskFormDialog(title: String, initial: TaskInput, onSave: (TaskInput) -> Uni
           DropdownField(if (recurMode == 3) "Start month" else "Month", MONTHS, month - 1) { month = it + 1 }
         }
         if (usesN(recurMode)) {
-          Stepper(if (recurMode == 3) "Every N months" else "Every N days", n, 1..12) { n = it }
+          // Union with the current n so a value outside the mod's vocabulary (a task authored by some
+          // other tool) stays selectable instead of being truncated away on save.
+          val options = (nOptions(recurMode) + n).distinct().sorted()
+          DropdownField(
+            if (recurMode == 3) "Every N months" else "Every N days",
+            options.map { it.toString() },
+            options.indexOf(n),
+          ) { n = options[it] }
         }
       }
     },

@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.TaskInput
+import net.vertexdezign.vdt.app.components.ActionIcon
+import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Task
@@ -184,27 +186,12 @@ private fun TaskRow(task: Task, onComplete: (Task) -> Unit, onEdit: (Task) -> Un
       overflow = TextOverflow.Ellipsis,
       modifier = Modifier.weight(1f),
     )
-    if (task.active) ActionIcon(Icons.Filled.Check, "complete", VdtColors.Green) { onComplete(task) }
-    if (task.type == TASK_TYPE_STANDARD) ActionIcon(Icons.Filled.Edit, "edit", VdtColors.DarkGray) { onEdit(task) }
-    ActionIcon(Icons.Filled.Delete, "delete", VdtColors.DarkGray) { onDelete(task) }
+    if (task.active) ActionIcon(Icons.Filled.Check, "complete", VdtColors.Green, onClick = { onComplete(task) })
+    if (task.type == TASK_TYPE_STANDARD) {
+      ActionIcon(Icons.Filled.Edit, "edit", VdtColors.DarkGray, onClick = { onEdit(task) })
+    }
+    ActionIcon(Icons.Filled.Delete, "delete", VdtColors.DarkGray, onClick = { onDelete(task) })
   }
-}
-
-@Composable
-private fun ActionIcon(icon: ImageVector, description: String, tint: Color, onClick: () -> Unit) {
-  Icon(
-    icon,
-    contentDescription = description,
-    tint = tint,
-    modifier = Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onClick).padding(1.dp),
-  )
 }
 
 private fun Task.label(): String = description.ifBlank { detail }.ifBlank { "(untitled task)" }
-
-@Composable
-private fun Centered(text: String) {
-  Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-    Text(text, color = VdtColors.Gray, fontSize = 12.sp)
-  }
-}

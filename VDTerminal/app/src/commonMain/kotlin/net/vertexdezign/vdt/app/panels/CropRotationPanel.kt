@@ -38,12 +38,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.app.components.ActionIcon
+import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CropOption
@@ -88,7 +89,7 @@ fun CropRotationPanel(data: CropRotationData?, modifier: Modifier = Modifier, on
               verticalAlignment = Alignment.CenterVertically,
             ) {
               Text("PLANS", color = VdtColors.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-              ActionIcon(Icons.Filled.Add, "new rotation", VdtColors.Green) { showCreate = true }
+              ActionIcon(Icons.Filled.Add, "new rotation", VdtColors.Green, onClick = { showCreate = true })
             }
           }
           if (data.rotations.isEmpty()) {
@@ -183,14 +184,20 @@ private fun PlanSection(
 
     if (editable) {
       Row(Modifier.padding(start = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        ActionIcon(Icons.Filled.Add, "add slot", VdtColors.Green) {
-          onCommand(ClientMessage.AddRotationSlot(plan.index))
-        }
+        ActionIcon(
+          Icons.Filled.Add,
+          "add slot",
+          VdtColors.Green,
+          onClick = { onCommand(ClientMessage.AddRotationSlot(plan.index)) },
+        )
         // The mod keeps at least one slot, so hide remove when a single one is left.
         if (plan.sequence.size > 1) {
-          ActionIcon(Icons.Filled.Remove, "remove last slot", VdtColors.DarkGray) {
-            onCommand(ClientMessage.RemoveRotationSlot(plan.index))
-          }
+          ActionIcon(
+            Icons.Filled.Remove,
+            "remove last slot",
+            VdtColors.DarkGray,
+            onClick = { onCommand(ClientMessage.RemoveRotationSlot(plan.index)) },
+          )
         }
       }
     }
@@ -365,21 +372,4 @@ private fun NameDialog(title: String, onConfirm: (String) -> Unit, onDismiss: ()
     },
     dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
   )
-}
-
-@Composable
-private fun ActionIcon(icon: ImageVector, description: String, tint: Color, onClick: () -> Unit) {
-  Icon(
-    icon,
-    contentDescription = description,
-    tint = tint,
-    modifier = Modifier.size(20.dp).clip(CircleShape).clickable(onClick = onClick).padding(1.dp),
-  )
-}
-
-@Composable
-private fun Centered(text: String) {
-  Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-    Text(text, color = VdtColors.Gray, fontSize = 12.sp)
-  }
 }

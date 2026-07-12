@@ -1,8 +1,10 @@
 package net.vertexdezign.vdt.server
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -89,34 +91,69 @@ class TelemetryWatcher(
     return channel.flow.asStateFlow()
   }
 
+  /**
+   * Watch until cancelled, restarting the [java.nio.file.WatchService] if it fails.
+   *
+   * The watch has to survive the directory going away and coming back: the mod recreates `telemetry/`
+   * on every map load, and on Linux we tell users to mount tmpfs over it (see the mod's Readme), so an
+   * unmount/remount — or a game restart — invalidates the watch key underneath us. Letting the
+   * exception escape would kill this coroutine for good and freeze *every* channel, telemetry
+   * included, until the server was restarted; nothing else would report it. So a failure logs, waits,
+   * and re-establishes the watch instead.
+   */
   fun launchIn(scope: CoroutineScope): Job =
     scope.launch(Dispatchers.IO) {
       channels.forEach { it.reparse() } // initial read of whatever is already present
 
-      if (!dir.exists()) {
-        log.warn("Watch directory does not exist: {} — serving last good state only", dir)
-        return@launch
+      while (isActive) {
+        try {
+          watchOnce()
+        } catch (e: CancellationException) {
+          throw e // cooperative cancellation, not a failure
+        } catch (e: Exception) {
+          log.warn("Watch on {} failed; retrying in {} ms", dir, RETRY_MS, e)
+        }
+        if (isActive) delay(RETRY_MS)
       }
+    }
 
-      val watcher = FileSystems.getDefault().newWatchService()
-      dir.register(watcher, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE)
+  /** One watch session: register, then dispatch events until the service or the directory fails. */
+  private suspend fun watchOnce() {
+    if (!dir.exists()) {
+      // Not an error: the mod creates the folder on map load, so before the first session there is
+      // simply nothing to watch yet. Retry rather than give up (this used to end the coroutine).
+      log.warn("Watch directory does not exist: {} — serving last good state only", dir)
+      return
+    }
+
+    FileSystems.getDefault().newWatchService().use { ws ->
+      dir.register(ws, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE)
       log.info("Watching {} for {}", dir, channels.map { it.fileName })
 
-      watcher.use { ws ->
-        while (isActive) {
-          // Poll (rather than take()) so the coroutine stays cancellable.
-          val key = ws.poll(1, TimeUnit.SECONDS) ?: continue
-          val changed =
-            key.pollEvents().mapNotNullTo(mutableSetOf()) { event ->
-              val name = (event.context() as? Path)?.fileName?.toString()
-              channels.firstOrNull { it.fileName == name }
-            }
-          key.reset()
-          if (changed.isNotEmpty()) {
-            delay(debounceMs) // coalesce the burst of events from one write
-            changed.forEach { it.reparse() }
+      while (currentCoroutineContext().isActive) {
+        // Poll (rather than take()) so the coroutine stays cancellable.
+        val key = ws.poll(1, TimeUnit.SECONDS) ?: continue
+        val changed =
+          key.pollEvents().mapNotNullTo(mutableSetOf()) { event ->
+            val name = (event.context() as? Path)?.fileName?.toString()
+            channels.firstOrNull { it.fileName == name }
           }
+        // A key that can't be reset is no longer valid — the directory was deleted or replaced (a
+        // tmpfs remount does exactly this). Leave, so the caller re-registers on the new directory.
+        val valid = key.reset()
+        if (changed.isNotEmpty()) {
+          delay(debounceMs) // coalesce the burst of events from one write
+          changed.forEach { it.reparse() }
+        }
+        if (!valid) {
+          log.warn("Watch key for {} is no longer valid (directory replaced?); re-registering", dir)
+          return
         }
       }
     }
+  }
+
+  private companion object {
+    const val RETRY_MS = 1000L
+  }
 }

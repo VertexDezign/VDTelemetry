@@ -264,7 +264,22 @@ data class TaskInput(
   val n: Int = 1,
   /** Start month 1-12; used by Once / Monthly / Every N months (ignored by the daily modes). */
   val month: Int = 1,
-)
+) {
+  init {
+    // These flow straight into TaskListControl.buildStandardTask, where `month` drives the period /
+    // nextN arithmetic and the rest land on the task verbatim — an out-of-range value there produces a
+    // silently malformed task rather than an error. Rejecting at the type boundary makes that
+    // unrepresentable end to end, exactly as SetCruiseControl does for a non-finite speed: the
+    // constructor also runs during kotlinx decode, so no wire value can smuggle one in either.
+    // `n` is deliberately unbounded — the mod's wizard offers 24 and 36 beyond 1..12, and a task
+    // authored elsewhere may hold any value, which the app must round-trip rather than clamp.
+    require(priority in 1..10) { "priority must be 1..10, was $priority" }
+    require(effort in 1..5) { "effort must be 1..5, was $effort" }
+    require(recurMode in 0..4) { "recurMode must be 0..4, was $recurMode" }
+    require(month in 1..12) { "month must be 1..12, was $month" }
+    require(n >= 1) { "n must be >= 1, was $n" }
+  }
+}
 
 /**
  * A cruise-control action. [token] is the wire vocabulary (the `action=` attribute in
