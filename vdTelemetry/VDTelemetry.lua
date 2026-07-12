@@ -75,6 +75,7 @@ end
 ---@field commandFileLocation string | nil path to the command channel's commands.xml (client-side only)
 ---@field lastCommandId number highest command id already handled (dedup watermark)
 ---@field commandsPolledThisCycle boolean guards the once-per-cycle command poll (offset from the write)
+---@field staleFilesCleaned boolean guards the one-shot startup cleanup of never-written channel files
 VDTelemetry = {}
 VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 -- Registry name of the main telemetry export channel (see src/export/ExportChannels.lua).
@@ -121,6 +122,7 @@ function VDTelemetry.init()
   self.updateTimer = 0
   self.lastCommandId = 0
   self.commandsPolledThisCycle = false
+  self.staleFilesCleaned = false
 
   self.baseDir = getUserProfileAppPath() .. "modSettings/" .. modName .. "/"
   createFolder(self.baseDir)
@@ -321,18 +323,43 @@ function VDTelemetry:setWriteIntervalMs(intervalMs)
   self.debugger:info("Write interval set to %d ms", intervalMs)
 end
 
--- Delete every channel's file (called when export is disabled) so the terminal's file-watch sees
--- export stop. deleteFile is permitted under modSettings/<modName>/.
-function VDTelemetry:deleteChannelFiles()
+-- Delete the named files from the telemetry folder. deleteFile is permitted under
+-- modSettings/<modName>/.
+---@param fileNames string[]
+function VDTelemetry:deleteTelemetryFiles(fileNames)
   if self.telemetryDir == nil then
     return
   end
-  for _, fileName in ipairs(VDT.ExportChannels.fileNames()) do
+  for _, fileName in ipairs(fileNames) do
     local path = self.telemetryDir .. fileName
     if fileExists(path) then
       deleteFile(path)
       self.debugger:debug("Deleted %s", path)
     end
+  end
+end
+
+-- Delete every channel's file (called when export is disabled) so the terminal's file-watch sees
+-- export stop.
+function VDTelemetry:deleteChannelFiles()
+  self:deleteTelemetryFiles(VDT.ExportChannels.fileNames())
+end
+
+-- One-shot startup cleanup: drop every channel file that this session will never write, so the
+-- terminal can't serve last session's data. A file's absence is exactly how the app learns an
+-- optional mod isn't installed, so uninstalling FS25_TaskList / FS25_CropRotation would otherwise
+-- leave its json behind and the app would keep rendering that stale panel forever. With export off
+-- nothing is written at all, so everything goes.
+--
+-- Deferred to the first update rather than loadMap because isAvailable() only turns true once the
+-- integration's mod has loaded; by the first update tick every mod is up, so an unavailable channel
+-- really means "not installed". A channel that is available rewrites its file on the same tick or
+-- shortly after (both integrations queue an initial write), so nothing useful is dropped.
+function VDTelemetry:deleteStaleChannelFiles()
+  if self.exportEnabled then
+    self:deleteTelemetryFiles(VDT.ExportChannels.unavailableFileNames())
+  else
+    self:deleteChannelFiles()
   end
 end
 
@@ -345,6 +372,13 @@ function VDTelemetry:update(dt)
 
   -- Let event-driven channels subscribe/settle (cheap once ready); independent of export + interval.
   VDT.ExportChannels.tick(self.debugger)
+
+  -- After that first tick every integration has had its chance to come up, so now (and only now) an
+  -- unavailable channel means "mod not installed" -- see deleteStaleChannelFiles().
+  if not self.staleFilesCleaned then
+    self.staleFilesCleaned = true
+    self:deleteStaleChannelFiles()
+  end
 
   self.updateTimer = self.updateTimer + dt
 

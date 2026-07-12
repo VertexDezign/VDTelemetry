@@ -60,6 +60,22 @@ function VDT.ExportChannels.fileNames()
   return names
 end
 
+---File names of the channels that are currently unavailable, i.e. that will never be written. The
+---app reads a channel file's *absence* as "that mod isn't installed", so a file left behind by a
+---session where the mod WAS installed keeps it showing stale data — the caller deletes these once at
+---startup. Only meaningful once every mod has loaded (isAvailable() is false until its mod is up).
+---@return string[]
+function VDT.ExportChannels.unavailableFileNames()
+  local names = {}
+  for _, name in ipairs(order) do
+    local ch = channels[name]
+    if not ch.isAvailable() then
+      names[#names + 1] = ch.fileName
+    end
+  end
+  return names
+end
+
 ---Per-tick hook: lets each channel do cheap setup (event-driven channels subscribe lazily here,
 ---since a third-party mod's message ids only exist once it has loaded). Channels without tick() are
 ---skipped.
