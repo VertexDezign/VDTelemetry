@@ -24,6 +24,7 @@ fun main() {
   val wsProtocol = if (location.protocol == "https:") "wss:" else "ws:"
   val wsUrl = "$wsProtocol//${location.host}/ws"
   val mapUrl = "${location.protocol}//${location.host}/api/map-image"
+  val mapLayerUrl = "${location.protocol}//${location.host}/api/map-layer"
 
   val repository = TelemetryRepository(scope, wsUrl)
   repository.start()
@@ -38,6 +39,7 @@ fun main() {
     val cropRotation by repository.cropRotation.collectAsState()
     val mapData by repository.mapData.collectAsState()
     val mapVehicles by repository.mapVehicles.collectAsState()
+    val mapLayers by repository.mapLayers.collectAsState()
 
     val supported = remember { WakeLock.supported }
     // Reflect whether the lock is *actually* held: the request resolves asynchronously and can
@@ -72,6 +74,8 @@ fun main() {
       cropRotation = cropRotation,
       mapData = mapData,
       mapVehicles = mapVehicles,
+      mapLayerUrl = mapLayerUrl,
+      mapLayers = mapLayers,
     )
   }
 }

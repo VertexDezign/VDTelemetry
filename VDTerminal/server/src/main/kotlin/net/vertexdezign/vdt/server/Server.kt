@@ -28,6 +28,7 @@ import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.VdtParser
+import net.vertexdezign.vdt.model.MapLayersInfo
 import org.slf4j.LoggerFactory
 
 fun main() {
@@ -56,6 +57,8 @@ fun main() {
   val mapState = watcher.register("map.json", nullOnAbsent = true) { VdtParser.parseMap(it) }
   // mapVehicles.json rewrites on the mod's own ~1 s vehicle interval; same absence rule.
   val mapVehiclesState = watcher.register("mapVehicles.json", nullOnAbsent = true) { VdtParser.parseMapVehicles(it) }
+  // mapLayers.json rewrites on the mod's own multi-second sweep cadence; same absence rule.
+  val mapLayersState = watcher.register("mapLayers.json", nullOnAbsent = true) { VdtParser.parseMapLayers(it) }
   watcher.launchIn(appScope)
 
   val commandWriter = CommandWriter(Config.commandPath())
@@ -119,6 +122,15 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        // The raster rows never cross the WebSocket -- only legends + a content-derived version, so
+        // the app knows when to refetch the PNG from /api/map-layer/{id}.
+        val mapLayersJob =
+          launch {
+            mapLayersState.collect { data ->
+              val message: ServerMessage = ServerMessage.MapLayers(data?.let { MapLayersInfo.from(it) })
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         // Incoming: app -> mod commands. Decode and hand to the writer; ignore anything unparseable
         // so a bad frame can't kill the session. Reading `incoming` also keeps the socket alive.
         try {
@@ -138,7 +150,26 @@ fun main() {
           cropRotationJob.cancel()
           mapJob.cancel()
           mapVehiclesJob.cancel()
+          mapLayersJob.cancel()
         }
+      }
+
+      get("/api/map-layer/{id}") {
+        val data = mapLayersState.value
+        val layerId = call.parameters["id"]
+        if (data == null || layerId == null) {
+          call.respondText("Ground layer not available", status = HttpStatusCode.NotFound)
+          return@get
+        }
+        val bytes = MapLayerRenderer.rendered(data, layerId)
+        if (bytes == null) {
+          call.respondText("Unknown ground layer: $layerId", status = HttpStatusCode.NotFound)
+          return@get
+        }
+        // Content-addressed via the ?v= query param (MapLayersInfo.version): the bytes at this exact
+        // URL never change, unlike /api/map-image which has no such versioning.
+        call.response.headers.append(HttpHeaders.CacheControl, "max-age=31536000, immutable")
+        call.respondBytes(bytes, ContentType.Image.PNG)
       }
 
       get("/api/map-image") {

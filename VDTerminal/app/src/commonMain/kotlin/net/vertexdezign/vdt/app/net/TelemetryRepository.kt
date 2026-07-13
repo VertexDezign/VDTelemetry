@@ -17,6 +17,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
@@ -70,6 +71,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // Vehicle markers, on the mod's own ~1 s interval; same null-when-absent contract as mapData.
   private val _mapVehicles = MutableStateFlow<MapVehiclesData?>(null)
   val mapVehicles: StateFlow<MapVehiclesData?> = _mapVehicles.asStateFlow()
+
+  // Ground-layer legends (crops/growth/soil), on the mod's sweep cadence; same null-when-absent
+  // contract as mapData/mapVehicles. Raster rows never cross the WebSocket -- only legends.
+  private val _mapLayers = MutableStateFlow<MapLayersInfo?>(null)
+  val mapLayers: StateFlow<MapLayersInfo?> = _mapLayers.asStateFlow()
 
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
@@ -133,6 +139,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.MapVehicles -> {
                       _mapVehicles.value = msg.data
+                    }
+
+                    is ServerMessage.MapLayers -> {
+                      _mapLayers.value = msg.data
                     }
 
                     is ServerMessage.Error -> {

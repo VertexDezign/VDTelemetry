@@ -6,7 +6,8 @@ Multiplatform project (replacing the old React/Vite + Go stack in `../VDTerminal
 - **`shared`** (KMP: `jvm` + `wasmJs`) — the typed VDT data model, the `ServerMessage` wire
   protocol (kotlinx.serialization), and the JSON `VdtParser`.
 - **`server`** (Kotlin/JVM, Ktor) — watches `vdTelemetry.json`, parses it, broadcasts over a
-  WebSocket, serves the map image (DDS → PNG), and serves the built web app.
+  WebSocket, serves the map image (DDS → PNG) and the ground-layer raster PNGs
+  (`/api/map-layer/{id}`), and serves the built web app.
 - **`app`** (Compose Multiplatform, `wasmJs`) — the dashboard UI.
 
 ## Requirements
@@ -54,7 +55,7 @@ portable archive.)
 
 ```bash
 ./gradlew :shared:jvmTest   # JSON decode/round-trip + model assertions over examples/json/*
-./gradlew :server:test      # DDS decoder golden tests vs the woozymasta/bcn reference
+./gradlew :server:test      # DDS decoder golden tests + ground-layer PNG rendering
 ```
 
 The DDS golden fixtures in `server/src/test/resources/dds/` are generated from the reference Go
