@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -832,11 +833,10 @@ private fun centeredOffset(side: Float, player: Player?, scale: Float): Offset =
 }
 
 /**
- * Tap handler without the material ripple (icons act as buttons here). Keyed on [onClick]: a
- * pointer-input coroutine outlives recompositions and Compose may even reuse the node for a
- * *different* row of a loop, so a Unit key would keep dispatching to the first lambda ever seen —
- * toggling stale state (or a neighboring filter row). Keying on the lambda restarts the (cheap)
- * tap detector whenever the handler actually changes.
+ * Click handler without the material ripple (icons act as buttons here). Uses the semantic
+ * [clickable] modifier — not a raw `pointerInput` — so header actions, search results, and filter
+ * rows stay keyboard- and screen-reader-activatable. `indication = null` drops the ripple; the null
+ * [interactionSource] lets `clickable` lazily manage its own, so there is nothing to key on.
  */
 private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
-  this.pointerInput(onClick) { detectTapGestures(onTap = { onClick() }) }
+  this.clickable(interactionSource = null, indication = null, onClick = onClick)
