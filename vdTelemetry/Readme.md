@@ -38,6 +38,7 @@ rarely, so they are written only when their data actually changes — they never
 | `vdTelemetry.json` | vehicle + environment (core) | every interval |
 | `map.json` | map overlay: POIs + fields + farms (core, `src/collect/MapExporter.lua`) | on farmland/placeable/farm change |
 | `mapVehicles.json` | vehicle markers (core, `src/collect/MapVehiclesExporter.lua`) | own interval (1 s) |
+| `mapLayers.json` | ground layers: crops/growth/soil rasters (core, `src/collect/MapLayersExporter.lua`) | own sweep cadence |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
 | `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
 
@@ -64,6 +65,14 @@ with `mapHotspotAvailable`, typed via `VehicleHotspot.TYPE`): position/heading i
 frame, owning farm, and AI/controlled/entered flags. It rewrites on its own 1 s interval — positions
 change constantly, but a map overview needs neither the 100 ms telemetry cadence nor event-driven
 writes.
+
+`mapLayers.json` carries three grid-sampled ground rasters — what's planted (crops), growth state, and
+soil condition — at the in-game map overlay's own 512² resolution, classified and colored to match
+`MapOverlayGenerator` exactly (fruit colors, growth-state gradient, weed/stone/fertilizer/plow/lime
+legends). Sampling one world position per grid cell is expensive, so a sweep is spread over many
+frames (a few thousand cells per tick) rather than done in one pass, then paused for a while before the
+next sweep. Each layer is a one-byte-per-cell plane, encoded as right-trimmed hex row strings, with a
+legend of only the values actually seen on this map.
 
 ### Linux: keep telemetry writes off the SSD (optional)
 

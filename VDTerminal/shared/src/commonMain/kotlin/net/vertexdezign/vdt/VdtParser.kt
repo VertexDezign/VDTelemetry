@@ -3,6 +3,7 @@ package net.vertexdezign.vdt
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapLayersData
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
@@ -38,4 +39,7 @@ object VdtParser {
 
   /** Parse the `mapVehicles.json` channel (vehicle markers) into [MapVehiclesData]. */
   fun parseMapVehicles(text: String): MapVehiclesData = json.decodeFromString(MapVehiclesData.serializer(), text)
+
+  /** Parse the `mapLayers.json` channel (ground-layer rasters) into [MapLayersData]. */
+  fun parseMapLayers(text: String): MapLayersData = json.decodeFromString(MapLayersData.serializer(), text)
 }

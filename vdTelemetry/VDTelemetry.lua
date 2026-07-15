@@ -34,10 +34,12 @@ local sourceFiles = {
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
-  -- Map channels: base-game POIs + fields (event-driven) and vehicle markers (own interval);
-  -- both self-register into the registry above, MapVehicles reuses MapExporter's normalization
+  -- Map channels: base-game POIs + fields (event-driven), vehicle markers (own interval), and the
+  -- ground-layer raster (own sweep cadence); all self-register into the registry above, and both
+  -- MapVehicles and MapLayers reuse MapExporter's normalization/world-size helpers
   "src/collect/MapExporter.lua",
   "src/collect/MapVehiclesExporter.lua",
+  "src/collect/MapLayersExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",

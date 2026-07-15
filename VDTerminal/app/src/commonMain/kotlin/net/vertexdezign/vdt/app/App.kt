@@ -39,6 +39,7 @@ import net.vertexdezign.vdt.app.panels.TaskListPanel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
@@ -61,6 +62,8 @@ fun App(
   cropRotation: CropRotationData? = null,
   mapData: MapData? = null,
   mapVehicles: MapVehiclesData? = null,
+  mapLayerUrl: String = "",
+  mapLayers: MapLayersInfo? = null,
 ) {
   // Auto-switch pages on each enter/leave transition. Keying the effect on the *boolean* presence
   // (not the vehicle object) means a manual pick via the header Menu stays put until the next
@@ -89,6 +92,8 @@ fun App(
             cropRotation,
             mapData,
             mapVehicles,
+            mapLayerUrl,
+            mapLayers,
           )
       }
 
@@ -137,6 +142,8 @@ private fun Dashboard(
   cropRotation: CropRotationData?,
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
+  mapLayerUrl: String,
+  mapLayers: MapLayersInfo?,
 ) {
   Column(Modifier.fillMaxSize()) {
     Header(
@@ -148,10 +155,23 @@ private fun Dashboard(
     )
 
     when (page) {
-      Page.Vehicle -> VehiclePage(data, mapUrl, settings, sampleIntervalMs, mapData, mapVehicles, onCommand)
+      Page.Vehicle ->
+        VehiclePage(data, mapUrl, settings, sampleIntervalMs, mapData, mapVehicles, mapLayerUrl, mapLayers, onCommand)
 
       Page.Farm ->
-        FarmPage(data, mapUrl, settings, sampleIntervalMs, taskList, cropRotation, mapData, mapVehicles, onCommand)
+        FarmPage(
+          data,
+          mapUrl,
+          settings,
+          sampleIntervalMs,
+          taskList,
+          cropRotation,
+          mapData,
+          mapVehicles,
+          mapLayerUrl,
+          mapLayers,
+          onCommand,
+        )
     }
   }
 }
@@ -165,6 +185,8 @@ private fun ColumnScope.VehiclePage(
   sampleIntervalMs: Int,
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
+  mapLayerUrl: String,
+  mapLayers: MapLayersInfo?,
   onCommand: (ClientMessage) -> Unit,
 ) {
   val vehicle = data.vehicle
@@ -187,6 +209,8 @@ private fun ColumnScope.VehiclePage(
           settings,
           mapData = mapData,
           mapVehicles = mapVehicles,
+          mapLayerUrl = mapLayerUrl,
+          mapLayers = mapLayers,
         )
       }
       Cell(Modifier.weight(1f)) { EngineTransmission(vehicle, sampleIntervalMs, onCommand = onCommand) }
@@ -213,6 +237,8 @@ private fun ColumnScope.FarmPage(
   cropRotation: CropRotationData?,
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
+  mapLayerUrl: String,
+  mapLayers: MapLayersInfo?,
   onCommand: (ClientMessage) -> Unit,
 ) {
   Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -229,6 +255,8 @@ private fun ColumnScope.FarmPage(
           settings,
           mapData = mapData,
           mapVehicles = mapVehicles,
+          mapLayerUrl = mapLayerUrl,
+          mapLayers = mapLayers,
         )
       }
       Column(Modifier.fillMaxHeight().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
