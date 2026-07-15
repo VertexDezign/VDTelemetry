@@ -19,6 +19,7 @@
 ---@field posZ number
 ---@field heading number compass heading, same convention as GpsModel.heading
 ---@field headingUnit string
+---@field farmId number? the local player's farm; omitted while spectating (farm 0)
 
 ---@class PdaModel
 ---@field filename string?

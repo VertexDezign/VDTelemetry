@@ -38,6 +38,8 @@ import net.vertexdezign.vdt.app.panels.MapPanel
 import net.vertexdezign.vdt.app.panels.TaskListPanel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CropRotationData
+import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -57,6 +59,8 @@ fun App(
   onCommand: (ClientMessage) -> Unit = {},
   taskList: TaskListData? = null,
   cropRotation: CropRotationData? = null,
+  mapData: MapData? = null,
+  mapVehicles: MapVehiclesData? = null,
 ) {
   // Auto-switch pages on each enter/leave transition. Keying the effect on the *boolean* presence
   // (not the vehicle object) means a manual pick via the header Menu stays put until the next
@@ -83,6 +87,8 @@ fun App(
             onCommand,
             taskList,
             cropRotation,
+            mapData,
+            mapVehicles,
           )
       }
 
@@ -129,6 +135,8 @@ private fun Dashboard(
   onCommand: (ClientMessage) -> Unit,
   taskList: TaskListData?,
   cropRotation: CropRotationData?,
+  mapData: MapData?,
+  mapVehicles: MapVehiclesData?,
 ) {
   Column(Modifier.fillMaxSize()) {
     Header(
@@ -140,8 +148,10 @@ private fun Dashboard(
     )
 
     when (page) {
-      Page.Vehicle -> VehiclePage(data, mapUrl, settings, sampleIntervalMs, onCommand)
-      Page.Farm -> FarmPage(data, mapUrl, settings, sampleIntervalMs, taskList, cropRotation, onCommand)
+      Page.Vehicle -> VehiclePage(data, mapUrl, settings, sampleIntervalMs, mapData, mapVehicles, onCommand)
+
+      Page.Farm ->
+        FarmPage(data, mapUrl, settings, sampleIntervalMs, taskList, cropRotation, mapData, mapVehicles, onCommand)
     }
   }
 }
@@ -153,6 +163,8 @@ private fun ColumnScope.VehiclePage(
   mapUrl: String,
   settings: Settings,
   sampleIntervalMs: Int,
+  mapData: MapData?,
+  mapVehicles: MapVehiclesData?,
   onCommand: (ClientMessage) -> Unit,
 ) {
   val vehicle = data.vehicle
@@ -167,7 +179,15 @@ private fun ColumnScope.VehiclePage(
   Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       Cell(Modifier.weight(1f)) {
-        MapPanel(mapUrl, data.environment?.pda, vehicle.gps?.heading ?: 0, sampleIntervalMs, settings)
+        MapPanel(
+          mapUrl,
+          data.environment?.pda,
+          vehicle.gps?.heading ?: 0,
+          sampleIntervalMs,
+          settings,
+          mapData = mapData,
+          mapVehicles = mapVehicles,
+        )
       }
       Cell(Modifier.weight(1f)) { EngineTransmission(vehicle, sampleIntervalMs, onCommand = onCommand) }
       Cell(Modifier.weight(1f)) { Implements(vehicle, onCommand = onCommand) }
@@ -191,6 +211,8 @@ private fun ColumnScope.FarmPage(
   sampleIntervalMs: Int,
   taskList: TaskListData?,
   cropRotation: CropRotationData?,
+  mapData: MapData?,
+  mapVehicles: MapVehiclesData?,
   onCommand: (ClientMessage) -> Unit,
 ) {
   Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -199,7 +221,15 @@ private fun ColumnScope.FarmPage(
       // uses); both are the same compass convention, so the marker behaves identically.
       Cell(Modifier.weight(2f)) {
         val pda = data.environment?.pda
-        MapPanel(mapUrl, pda, heading = pda?.player?.heading ?: 0, sampleIntervalMs, settings)
+        MapPanel(
+          mapUrl,
+          pda,
+          heading = pda?.player?.heading ?: 0,
+          sampleIntervalMs,
+          settings,
+          mapData = mapData,
+          mapVehicles = mapVehicles,
+        )
       }
       Column(Modifier.fillMaxHeight().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.fillMaxWidth().weight(1f)) { TaskListPanel(taskList, onCommand = onCommand) }

@@ -9,7 +9,8 @@
 --   fileName    string           written as <telemetryDir><fileName>
 --   isAvailable fun(): boolean    false => never written (the mod isn't installed / no data yet)
 --   collect     fun(): table|nil  builds the model to serialize; nil => skip this flush
---   tick        fun(debugger)?    optional per-tick hook; event-driven channels subscribe lazily here
+--   tick        fun(debugger, dt)?  optional per-tick hook; event-driven channels subscribe lazily
+--                                 here, interval-driven ones accumulate dt (ms) and mark themselves
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
@@ -77,14 +78,16 @@ function VDT.ExportChannels.unavailableFileNames()
 end
 
 ---Per-tick hook: lets each channel do cheap setup (event-driven channels subscribe lazily here,
----since a third-party mod's message ids only exist once it has loaded). Channels without tick() are
+---since a third-party mod's message ids only exist once it has loaded) or keep its own cadence
+---(interval-driven channels accumulate dt and markDirty themselves). Channels without tick() are
 ---skipped.
 ---@param debugger GrisuDebug
-function VDT.ExportChannels.tick(debugger)
+---@param dt number? frame delta in ms (from the engine's update)
+function VDT.ExportChannels.tick(debugger, dt)
   for _, name in ipairs(order) do
     local ch = channels[name]
     if ch.tick ~= nil then
-      ch.tick(debugger)
+      ch.tick(debugger, dt)
     end
   end
 end

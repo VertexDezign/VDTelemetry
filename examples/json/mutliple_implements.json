@@ -5,6 +5,7 @@
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",
       "height": 2048,
       "player": {
+        "farmId": 1,
         "heading": 276,
         "headingUnit": "°",
         "posX": 0.47436093166471,

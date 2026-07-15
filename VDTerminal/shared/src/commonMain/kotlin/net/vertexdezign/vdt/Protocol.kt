@@ -3,6 +3,8 @@ package net.vertexdezign.vdt
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.vertexdezign.vdt.model.CropRotationData
+import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -44,6 +46,32 @@ sealed interface ServerMessage {
   @SerialName("cropRotation")
   data class CropRotation(
     val data: CropRotationData? = null,
+  ) : ServerMessage
+
+  /**
+   * The map overlay channel (POIs + fields, `map.json`). Event-driven like [TaskList], hence a
+   * distinct message on its own cadence rather than a field on [Telemetry] — the field polygons are
+   * far too heavy to rebroadcast at the telemetry tick.
+   *
+   * [data] is **null when `map.json` is absent** (export disabled / cleaned up): the app must clear
+   * its overlays then, not freeze them at the last state.
+   */
+  @Serializable
+  @SerialName("map")
+  data class MapUpdate(
+    val data: MapData? = null,
+  ) : ServerMessage
+
+  /**
+   * The vehicle-marker channel (`mapVehicles.json`). Broadcast on the mod's own ~1 s vehicle
+   * interval — a third cadence besides the telemetry tick and the event-driven [MapUpdate], which
+   * is why it is its own message. [data] is **null when the file is absent** (export disabled):
+   * the app clears its vehicle markers then.
+   */
+  @Serializable
+  @SerialName("mapVehicles")
+  data class MapVehicles(
+    val data: MapVehiclesData? = null,
   ) : ServerMessage
 
   @Serializable

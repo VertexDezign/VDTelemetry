@@ -34,6 +34,10 @@ local sourceFiles = {
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
+  -- Map channels: base-game POIs + fields (event-driven) and vehicle markers (own interval);
+  -- both self-register into the registry above, MapVehicles reuses MapExporter's normalization
+  "src/collect/MapExporter.lua",
+  "src/collect/MapVehiclesExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",
@@ -370,8 +374,9 @@ function VDTelemetry:update(dt)
     return
   end
 
-  -- Let event-driven channels subscribe/settle (cheap once ready); independent of export + interval.
-  VDT.ExportChannels.tick(self.debugger)
+  -- Let event-driven channels subscribe/settle and interval-driven ones advance their own timer
+  -- (cheap once ready); independent of export + the main write interval.
+  VDT.ExportChannels.tick(self.debugger, dt)
 
   -- After that first tick every integration has had its chance to come up, so now (and only now) an
   -- unavailable channel means "mod not installed" -- see deleteStaleChannelFiles().

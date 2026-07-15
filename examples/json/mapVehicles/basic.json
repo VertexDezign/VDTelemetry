@@ -1,0 +1,36 @@
+{
+  "version": "1",
+  "vehicles": [
+    {
+      "type": "tractor",
+      "name": "Valtra T195 Active",
+      "posX": 0.45325,
+      "posZ": 0.42799,
+      "heading": 91,
+      "farmId": 1,
+      "isAI": false,
+      "isControlled": true,
+      "isEntered": true
+    },
+    {
+      "type": "harvester",
+      "name": "Fendt IDEAL 9T",
+      "posX": 0.61234,
+      "posZ": 0.30417,
+      "heading": 180,
+      "farmId": 2,
+      "isAI": true,
+      "isControlled": false,
+      "isEntered": false
+    },
+    {
+      "type": "trailer",
+      "name": "Krampe Bandit 750",
+      "posX": 0.5,
+      "posZ": 0.5,
+      "heading": 12,
+      "farmId": 1,
+      "isAI": false
+    }
+  ]
+}

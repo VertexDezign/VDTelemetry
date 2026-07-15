@@ -16,6 +16,8 @@ import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.model.CropRotationData
+import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 import kotlin.math.roundToInt
@@ -59,6 +61,15 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // as taskList, on its own event-driven cadence.
   private val _cropRotation = MutableStateFlow<CropRotationData?>(null)
   val cropRotation: StateFlow<CropRotationData?> = _cropRotation.asStateFlow()
+
+  // Map overlay channel (POIs + fields); null while map.json is absent (no data yet / export off) —
+  // the server broadcasts that null so the overlays clear instead of freezing at the last state.
+  private val _mapData = MutableStateFlow<MapData?>(null)
+  val mapData: StateFlow<MapData?> = _mapData.asStateFlow()
+
+  // Vehicle markers, on the mod's own ~1 s interval; same null-when-absent contract as mapData.
+  private val _mapVehicles = MutableStateFlow<MapVehiclesData?>(null)
+  val mapVehicles: StateFlow<MapVehiclesData?> = _mapVehicles.asStateFlow()
 
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
@@ -114,6 +125,14 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.CropRotation -> {
                       _cropRotation.value = msg.data
+                    }
+
+                    is ServerMessage.MapUpdate -> {
+                      _mapData.value = msg.data
+                    }
+
+                    is ServerMessage.MapVehicles -> {
+                      _mapVehicles.value = msg.data
                     }
 
                     is ServerMessage.Error -> {
