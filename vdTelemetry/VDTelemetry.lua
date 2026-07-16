@@ -225,7 +225,7 @@ end
 
 function VDTelemetry:writeDefaultSettings()
   self.debugger:trace("writeDefaultSettings")
-  self.exportEnabled = g_dedicatedServerInfo == nil
+  self.exportEnabled = g_dedicatedServer == nil
   self.writeIntervalMs = VDTelemetry.DEFAULT_INTERVAL_MS
   self.logLevelString = "INFO"
   self.specLevelString = "INFO"
@@ -274,7 +274,7 @@ function VDTelemetry:loadSettingsFromFile()
     return
   end
 
-  self.exportEnabled = xml:getBool("VDTS.export.enabled", g_dedicatedServerInfo == nil)
+  self.exportEnabled = xml:getBool("VDTS.export.enabled", g_dedicatedServer == nil)
   self.writeIntervalMs =
     math.max(xml:getInt("VDTS.export.intervalMs", VDTelemetry.DEFAULT_INTERVAL_MS), VDTelemetry.MIN_INTERVAL_MS)
   self.logLevelString = xml:getString("VDTS.logging.level", "INFO")
@@ -290,7 +290,7 @@ end
 -- Telemetry is client-side only: the file lives on the client's machine, not the dedicated
 -- server box. The settings UI is gated on this too.
 function VDTelemetry:isTelemetryAvailable()
-  return g_dedicatedServerInfo == nil
+  return g_dedicatedServer == nil
 end
 
 ---Live-apply an export enabled/disabled change from the settings UI and persist it.
