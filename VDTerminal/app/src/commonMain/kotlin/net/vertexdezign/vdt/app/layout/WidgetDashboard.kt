@@ -38,7 +38,7 @@ import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetPicker
-import net.vertexdezign.vdt.app.widgets.WidgetRegistry
+import net.vertexdezign.vdt.app.widgets.availableWidgets
 
 /**
  * The body of a [Page]: its [GridLayout] rendered as a [WidgetGrid], with every edit written straight
@@ -69,7 +69,7 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
     if (pending != null) {
       val placed = page.layout.cells.map { it.widgetId }.toSet()
       WidgetPicker(
-        available = WidgetRegistry.widgets.filter { it.id !in placed },
+        available = availableWidgets().filter { it.id !in placed },
         onPick = {
           apply(page.layout.addWidget(it, pending.col, pending.row))
           addAt = null

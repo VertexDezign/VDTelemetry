@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.apps.AppRegistry
+import net.vertexdezign.vdt.app.apps.availableApps
 import net.vertexdezign.vdt.app.layout.WidgetDashboard
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.AutoShow
@@ -100,7 +101,7 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
 
         if (launcherOpen) {
           Launcher(
-            apps = AppRegistry.apps,
+            apps = availableApps(),
             pages = pages,
             screen = screen,
             onOpen = {

@@ -26,6 +26,20 @@ interface VdtApp {
    */
   val widgets: List<Widget> get() = emptyList()
 
+  /**
+   * Whether this app exists in *this* installation — i.e. its optional mod is present. An
+   * unavailable app is hidden from the launcher, and its [widgets] are withheld from the picker;
+   * there's no point offering a screen that can only say "mod not installed".
+   *
+   * This is about the feature *existing*, not about it having data right now: the Vehicle app stays
+   * available while you're on foot (its widgets render their own empty state). Core apps leave it
+   * at true.
+   *
+   * Composable so the launcher reacts if a mod appears or disappears mid-session.
+   */
+  @Composable
+  fun isAvailable(): Boolean = true
+
   /** The app's dedicated full-screen view, filling [modifier]'s bounds. */
   @Composable
   fun FullPage(modifier: Modifier)
