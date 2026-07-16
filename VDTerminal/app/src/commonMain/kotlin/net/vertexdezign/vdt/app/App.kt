@@ -1,20 +1,17 @@
 package net.vertexdezign.vdt.app
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,96 +21,112 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.russhwolf.settings.Settings
-import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.app.apps.AppRegistry
+import net.vertexdezign.vdt.app.layout.WidgetDashboard
 import net.vertexdezign.vdt.app.net.ConnectionState
-import net.vertexdezign.vdt.app.panels.CropRotationPanel
-import net.vertexdezign.vdt.app.panels.EmptyPanel
-import net.vertexdezign.vdt.app.panels.EngineTransmission
+import net.vertexdezign.vdt.app.pages.AutoShow
+import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.panels.Footer
 import net.vertexdezign.vdt.app.panels.Header
-import net.vertexdezign.vdt.app.panels.Implements
-import net.vertexdezign.vdt.app.panels.Lighting
-import net.vertexdezign.vdt.app.panels.MapPanel
-import net.vertexdezign.vdt.app.panels.TaskListPanel
+import net.vertexdezign.vdt.app.state.LocalVdtStore
+import net.vertexdezign.vdt.app.state.VdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
-import net.vertexdezign.vdt.model.CropRotationData
-import net.vertexdezign.vdt.model.MapData
-import net.vertexdezign.vdt.model.MapVehiclesData
-import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
-/** The dashboard's two top-level views: the live vehicle page and the on-foot farm page. */
-enum class Page { Vehicle, Farm }
-
 @Composable
-fun App(
-  telemetry: VdtData?,
-  connection: ConnectionState,
-  mapUrl: String,
-  settings: Settings,
-  modifier: Modifier = Modifier,
-  sampleIntervalMs: Int = 100,
-  wakeLock: WakeLockStatus = WakeLockStatus.Unsupported,
-  onToggleWakeLock: () -> Unit = {},
-  onCommand: (ClientMessage) -> Unit = {},
-  taskList: TaskListData? = null,
-  cropRotation: CropRotationData? = null,
-  mapData: MapData? = null,
-  mapVehicles: MapVehiclesData? = null,
-) {
-  // Auto-switch pages on each enter/leave transition. Keying the effect on the *boolean* presence
-  // (not the vehicle object) means a manual pick via the header Menu stays put until the next
-  // enter/leave, and the first composition already lands on the right page.
-  var page by remember { mutableStateOf(Page.Vehicle) }
-  val vehiclePresent = telemetry?.vehicle != null
-  LaunchedEffect(vehiclePresent) { page = if (vehiclePresent) Page.Vehicle else Page.Farm }
+fun App(store: VdtStore, modifier: Modifier = Modifier) {
+  CompositionLocalProvider(LocalVdtStore provides store) {
+    val telemetry by store.telemetry.collectAsState()
+    val connection by store.connection.collectAsState()
+    val pages by store.pages.pages.collectAsState()
 
-  MaterialTheme {
-    Box(modifier.fillMaxSize().background(VdtColors.Light)) {
-      when {
-        telemetry == null -> LoadingScreen()
+    // Auto-switch on each enter/leave transition: activate the first page that opts into the new
+    // state. Keying the effect on the resolved *id* (which only changes when the state flips) means a
+    // manual pick from the launcher stays put until the next transition. Only pages auto-show; apps
+    // are opened by hand.
+    val onFoot = telemetry?.vehicle == null
+    val wanted = if (onFoot) AutoShow.OnFoot else AutoShow.InVehicle
+    val autoPageId = pages.firstOrNull { it.autoShow == wanted }?.id
 
-        else ->
-          Dashboard(
-            telemetry,
-            page,
-            onTogglePage = { page = if (page == Page.Vehicle) Page.Farm else Page.Vehicle },
-            mapUrl,
-            settings,
-            sampleIntervalMs,
-            wakeLock,
-            onToggleWakeLock,
-            onCommand,
-            taskList,
-            cropRotation,
-            mapData,
-            mapVehicles,
-          )
+    var screen by remember { mutableStateOf(initialScreen(autoPageId, pages)) }
+    LaunchedEffect(autoPageId) { autoPageId?.let { screen = Screen.OpenPage(it) } }
+    // The open page can vanish (deleted in edit mode) — fall back rather than render nothing.
+    LaunchedEffect(pages, screen) {
+      val open = screen
+      if (open is Screen.OpenPage && pages.none { it.id == open.pageId }) {
+        screen = initialScreen(autoPageId, pages)
       }
+    }
 
-      if (connection != ConnectionState.Connected) {
-        Box(
-          Modifier.fillMaxSize().background(VdtColors.Black.copy(alpha = 0.55f)),
-          contentAlignment = Alignment.Center,
-        ) {
-          Text(
-            if (connection ==
-              ConnectionState.Connecting
-            ) {
-              "CONNECTING…"
-            } else {
-              "CONNECTION LOST — RECONNECTING…"
+    var launcherOpen by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+
+    MaterialTheme {
+      Box(modifier.fillMaxSize().background(VdtColors.Light)) {
+        val data = telemetry
+        when {
+          data == null -> LoadingScreen()
+
+          else ->
+            Shell(
+              data,
+              screen,
+              pages,
+              editing = editing,
+              onToggleEdit = { editing = !editing },
+              onOpenLauncher = { launcherOpen = true },
+            )
+        }
+
+        if (connection != ConnectionState.Connected) {
+          Box(
+            Modifier.fillMaxSize().background(VdtColors.Black.copy(alpha = 0.55f)),
+            contentAlignment = Alignment.Center,
+          ) {
+            Text(
+              if (connection ==
+                ConnectionState.Connecting
+              ) {
+                "CONNECTING…"
+              } else {
+                "CONNECTION LOST — RECONNECTING…"
+              },
+              color = VdtColors.White,
+              fontSize = 22.sp,
+              fontWeight = FontWeight.Bold,
+            )
+          }
+        }
+
+        if (launcherOpen) {
+          Launcher(
+            apps = AppRegistry.apps,
+            pages = pages,
+            screen = screen,
+            onOpen = {
+              // Apps aren't editable, so leaving a page ends edit mode.
+              if (it is Screen.OpenApp) editing = false
+              screen = it
+              launcherOpen = false
             },
-            color = VdtColors.White,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
+            onCreatePage = {
+              // Open the new (empty) page straight into edit mode — there's nothing on it yet.
+              screen = Screen.OpenPage(store.pages.create().id)
+              editing = true
+              launcherOpen = false
+            },
+            onDismiss = { launcherOpen = false },
           )
         }
       }
     }
   }
 }
+
+/** The page that should auto-show, else any page, else the first app (the user deleted every page). */
+private fun initialScreen(autoPageId: String?, pages: List<Page>): Screen = autoPageId?.let(Screen::OpenPage)
+  ?: pages.firstOrNull()?.let { Screen.OpenPage(it.id) }
+  ?: Screen.OpenApp(AppRegistry.apps.first().id)
 
 @Composable
 private fun LoadingScreen() {
@@ -123,125 +136,44 @@ private fun LoadingScreen() {
 }
 
 @Composable
-private fun Dashboard(
+private fun Shell(
   data: VdtData,
-  page: Page,
-  onTogglePage: () -> Unit,
-  mapUrl: String,
-  settings: Settings,
-  sampleIntervalMs: Int,
-  wakeLock: WakeLockStatus,
-  onToggleWakeLock: () -> Unit,
-  onCommand: (ClientMessage) -> Unit,
-  taskList: TaskListData?,
-  cropRotation: CropRotationData?,
-  mapData: MapData?,
-  mapVehicles: MapVehiclesData?,
+  screen: Screen,
+  pages: List<Page>,
+  editing: Boolean,
+  onToggleEdit: () -> Unit,
+  onOpenLauncher: () -> Unit,
 ) {
+  val store = LocalVdtStore.current
+  val wakeLock by store.wakeLock.collectAsState()
+
   Column(Modifier.fillMaxSize()) {
     Header(
       data.environment,
       data.vehicle,
       wakeLock = wakeLock,
-      onToggleWakeLock = onToggleWakeLock,
-      onTogglePage = onTogglePage,
+      editing = editing,
+      // Only pages have an editable layout; the edit toggle is hidden while an app is open.
+      canEdit = screen is Screen.OpenPage,
+      onToggleWakeLock = store.onToggleWakeLock,
+      onToggleEdit = onToggleEdit,
+      onOpenLauncher = onOpenLauncher,
     )
 
-    when (page) {
-      Page.Vehicle -> VehiclePage(data, mapUrl, settings, sampleIntervalMs, mapData, mapVehicles, onCommand)
-
-      Page.Farm ->
-        FarmPage(data, mapUrl, settings, sampleIntervalMs, taskList, cropRotation, mapData, mapVehicles, onCommand)
-    }
-  }
-}
-
-/** The live vehicle dashboard: 3x2 panel grid, or a placeholder when a page switch left us here on foot. */
-@Composable
-private fun ColumnScope.VehiclePage(
-  data: VdtData,
-  mapUrl: String,
-  settings: Settings,
-  sampleIntervalMs: Int,
-  mapData: MapData?,
-  mapVehicles: MapVehiclesData?,
-  onCommand: (ClientMessage) -> Unit,
-) {
-  val vehicle = data.vehicle
-  if (vehicle == null) {
-    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-      Text("No vehicle connected", color = VdtColors.Green, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-    }
-    Footer(null)
-    return
-  }
-
-  Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      Cell(Modifier.weight(1f)) {
-        MapPanel(
-          mapUrl,
-          data.environment?.pda,
-          vehicle.gps?.heading ?: 0,
-          sampleIntervalMs,
-          settings,
-          mapData = mapData,
-          mapVehicles = mapVehicles,
-        )
+    when (screen) {
+      is Screen.OpenPage -> {
+        val page = pages.firstOrNull { it.id == screen.pageId }
+        if (page != null) WidgetDashboard(page, editing) else Box(Modifier.fillMaxWidth().weight(1f))
       }
-      Cell(Modifier.weight(1f)) { EngineTransmission(vehicle, sampleIntervalMs, onCommand = onCommand) }
-      Cell(Modifier.weight(1f)) { Implements(vehicle, onCommand = onCommand) }
-    }
-    Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      Cell(Modifier.weight(1f)) { Lighting(vehicle, onCommand = onCommand) }
-      Cell(Modifier.weight(1f)) { EmptyPanel() }
-      Cell(Modifier.weight(1f)) { EmptyPanel() }
-    }
-  }
 
-  Footer(vehicle, onCommand = onCommand)
-}
-
-/** Everything that isn't the current vehicle: a large map plus the farm panels (placeholders for now). */
-@Composable
-private fun ColumnScope.FarmPage(
-  data: VdtData,
-  mapUrl: String,
-  settings: Settings,
-  sampleIntervalMs: Int,
-  taskList: TaskListData?,
-  cropRotation: CropRotationData?,
-  mapData: MapData?,
-  mapVehicles: MapVehiclesData?,
-  onCommand: (ClientMessage) -> Unit,
-) {
-  Column(Modifier.fillMaxWidth().weight(1f).padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      // On foot the heading comes from the player itself (the vehicle GPS is what the vehicle page
-      // uses); both are the same compass convention, so the marker behaves identically.
-      Cell(Modifier.weight(2f)) {
-        val pda = data.environment?.pda
-        MapPanel(
-          mapUrl,
-          pda,
-          heading = pda?.player?.heading ?: 0,
-          sampleIntervalMs,
-          settings,
-          mapData = mapData,
-          mapVehicles = mapVehicles,
-        )
-      }
-      Column(Modifier.fillMaxHeight().weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.fillMaxWidth().weight(1f)) { TaskListPanel(taskList, onCommand = onCommand) }
-        Box(Modifier.fillMaxWidth().weight(1f)) { CropRotationPanel(cropRotation, onCommand = onCommand) }
+      is Screen.OpenApp -> {
+        val app = AppRegistry.byId(screen.appId)
+        Box(Modifier.fillMaxWidth().weight(1f).padding(8.dp)) {
+          app?.FullPage(Modifier.fillMaxSize())
+        }
       }
     }
+
+    Footer(data.vehicle, onCommand = store.onCommand)
   }
-
-  Footer(null)
-}
-
-@Composable
-private fun RowScope.Cell(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-  Box(modifier.fillMaxHeight()) { content() }
 }
