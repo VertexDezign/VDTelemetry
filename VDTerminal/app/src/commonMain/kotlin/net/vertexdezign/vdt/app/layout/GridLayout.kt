@@ -66,8 +66,9 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
   }
 
   fun addWidget(widgetId: String, col: Int, row: Int): GridLayout {
-    if (cellCovering(col, row) != null) return this
-    return copy(cells = cells + LayoutCell(widgetId, col, row))
+    val cell = LayoutCell(widgetId, col, row)
+    if (!fits(cell, ignoring = emptySet())) return this
+    return copy(cells = cells + cell)
   }
 
   fun removeAt(col: Int, row: Int): GridLayout {
@@ -115,7 +116,7 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
     val movedMoving = moving.copy(col = target.col, row = target.row)
     val movedTarget = target.copy(col = moving.col, row = moving.row)
     val ignore = setOf(moving, target)
-    if (!fits(movedMoving, ignore) || !fits(movedTarget, ignore)) return this
+    if (!fits(movedMoving, ignore) || !fits(movedTarget, ignore) || movedMoving.overlaps(movedTarget)) return this
     return copy(
       cells =
       cells.map {

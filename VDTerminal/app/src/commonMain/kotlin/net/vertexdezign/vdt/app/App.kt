@@ -45,9 +45,8 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
     // state. Keying the effect on the resolved *id* (which only changes when the state flips) means a
     // manual pick from the launcher stays put until the next transition. Only pages auto-show; apps
     // are opened by hand.
-    val onFoot = telemetry?.vehicle == null
-    val wanted = if (onFoot) AutoShow.OnFoot else AutoShow.InVehicle
-    val autoPageId = pages.firstOrNull { it.autoShow == wanted }?.id
+    val wanted = telemetry?.let { if (it.vehicle == null) AutoShow.OnFoot else AutoShow.InVehicle }
+    val autoPageId = wanted?.let { mode -> pages.firstOrNull { it.autoShow == mode }?.id }
 
     var screen by remember { mutableStateOf(initialScreen(autoPageId, pages)) }
     LaunchedEffect(autoPageId) { autoPageId?.let { screen = Screen.OpenPage(it) } }

@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -131,6 +132,18 @@ private fun WidgetCell(
   var drag by remember { mutableStateOf(Offset.Zero) }
   val dragging = drag != Offset.Zero
 
+  // The pointerInput below only restarts when this widget's own cell changes, so it must read
+  // these through rememberUpdatedState rather than close over them directly — otherwise a drag
+  // spanning another widget's edit (which changes `layout`/`onLayoutChange` upstream without
+  // touching this cell) would submit the stale layout on drop.
+  val currentLayout by rememberUpdatedState(layout)
+  val currentOnLayoutChange by rememberUpdatedState(onLayoutChange)
+  val currentOriginX by rememberUpdatedState(originX)
+  val currentOriginY by rememberUpdatedState(originY)
+  val currentWidthPx by rememberUpdatedState(widthPx)
+  val currentHeightPx by rememberUpdatedState(heightPx)
+  val currentHitTest by rememberUpdatedState(hitTest)
+
   Box(
     Modifier
       .zIndex(if (dragging) 1f else 0f)
@@ -156,10 +169,14 @@ private fun WidgetCell(
                 drag += delta
               },
               onDragEnd = {
-                val center = Offset(originX + drag.x + widthPx / 2f, originY + drag.y + heightPx / 2f)
-                val target = hitTest(center)
+                val center =
+                  Offset(
+                    currentOriginX + drag.x + currentWidthPx / 2f,
+                    currentOriginY + drag.y + currentHeightPx / 2f,
+                  )
+                val target = currentHitTest(center)
                 drag = Offset.Zero
-                onLayoutChange(layout.moveOrSwap(GridPos(cell.col, cell.row), target))
+                currentOnLayoutChange(currentLayout.moveOrSwap(GridPos(cell.col, cell.row), target))
               },
               onDragCancel = { drag = Offset.Zero },
             )

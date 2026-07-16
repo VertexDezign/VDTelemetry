@@ -50,7 +50,8 @@ import net.vertexdezign.vdt.app.widgets.availableWidgets
 fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier = Modifier) {
   val store = LocalVdtStore.current
   val pageStore = store.pages
-  var addAt by remember(page.id) { mutableStateOf<GridPos?>(null) }
+  var addAt by
+    remember(page.id, editing, page.layout.columns, page.layout.rows) { mutableStateOf<GridPos?>(null) }
 
   fun apply(next: GridLayout) = pageStore.update(page.copy(layout = next))
 
@@ -65,7 +66,7 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
       onAddRequest = { addAt = it },
     )
 
-    val pending = addAt
+    val pending = addAt?.takeIf { editing && it in page.layout.freePositions() }
     if (pending != null) {
       val placed = page.layout.cells.map { it.widgetId }.toSet()
       WidgetPicker(
