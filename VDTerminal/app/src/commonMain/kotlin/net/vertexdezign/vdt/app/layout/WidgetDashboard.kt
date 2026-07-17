@@ -31,6 +31,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.components.ConfirmDialog
 import net.vertexdezign.vdt.app.pages.AutoShow
 import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.pages.PageIcon
@@ -52,10 +53,29 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
   val pageStore = store.pages
   var addAt by
     remember(page.id, editing, page.layout.columns, page.layout.rows) { mutableStateOf<GridPos?>(null) }
+  // A resize that would drop widgets is held here until the user confirms; delete is guarded too.
+  var pendingResize by remember(page.id) { mutableStateOf<GridLayout?>(null) }
+  var confirmDelete by remember(page.id) { mutableStateOf(false) }
 
   fun apply(next: GridLayout) = pageStore.update(page.copy(layout = next))
 
-  if (editing) PageEditToolbar(page, pageStore)
+  // Shrinking is destructive (see GridLayout.withGridSize): apply straight away when nothing is lost,
+  // otherwise stage the new layout and let the user confirm the drop.
+  fun requestGridSize(columns: Int, rows: Int) {
+    val next = page.layout.withGridSize(columns, rows)
+    if (next.cells.size < page.layout.cells.size) pendingResize = next else apply(next)
+  }
+
+  // Hide the toolbar while a confirmation is pending: its dialog only scrims the grid area below, so
+  // an exposed toolbar would let a second destructive request stack up behind the modal.
+  if (editing && pendingResize == null && !confirmDelete) {
+    PageEditToolbar(
+      page,
+      pageStore,
+      onResizeGrid = ::requestGridSize,
+      onDeleteRequest = { confirmDelete = true },
+    )
+  }
 
   Box(modifier.fillMaxWidth().weight(1f)) {
     WidgetGrid(
@@ -78,12 +98,48 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
         onDismiss = { addAt = null },
       )
     }
+
+    pendingResize?.let { next ->
+      val dropped = page.layout.cells.size - next.cells.size
+      ConfirmDialog(
+        title = "SHRINK GRID?",
+        message = "$dropped widget${if (dropped == 1) "" else "s"} won't fit the smaller grid and will be removed.",
+        confirmLabel = "SHRINK",
+        onConfirm = {
+          apply(next)
+          pendingResize = null
+        },
+        onDismiss = { pendingResize = null },
+      )
+    }
+
+    if (confirmDelete) {
+      ConfirmDialog(
+        title = "DELETE PAGE?",
+        message = "“${page.title}” and its layout will be permanently removed.",
+        confirmLabel = "DELETE",
+        onConfirm = {
+          confirmDelete = false
+          pageStore.remove(page.id)
+        },
+        onDismiss = { confirmDelete = false },
+      )
+    }
   }
 }
 
-/** Page-level editing: rename, icon, when it auto-shows, grid size, and delete. */
+/**
+ * Page-level editing: rename, icon, when it auto-shows, grid size, and delete. Grid resizes go through
+ * [onResizeGrid] and delete through [onDeleteRequest] so the parent can guard the destructive ones;
+ * the non-destructive edits write straight back through [store].
+ */
 @Composable
-private fun PageEditToolbar(page: Page, store: PageStore) {
+private fun PageEditToolbar(
+  page: Page,
+  store: PageStore,
+  onResizeGrid: (columns: Int, rows: Int) -> Unit,
+  onDeleteRequest: () -> Unit,
+) {
   Row(
     Modifier
       .fillMaxWidth()
@@ -126,13 +182,9 @@ private fun PageEditToolbar(page: Page, store: PageStore) {
 
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
       Label("GRID")
-      Stepper(page.layout.columns) {
-        store.update(page.copy(layout = page.layout.withGridSize(page.layout.columns + it, page.layout.rows)))
-      }
+      Stepper(page.layout.columns) { onResizeGrid(page.layout.columns + it, page.layout.rows) }
       Text("×", fontSize = 11.sp, color = VdtColors.DarkGray)
-      Stepper(page.layout.rows) {
-        store.update(page.copy(layout = page.layout.withGridSize(page.layout.columns, page.layout.rows + it)))
-      }
+      Stepper(page.layout.rows) { onResizeGrid(page.layout.columns, page.layout.rows + it) }
     }
 
     Spacer(Modifier.weight(1f))
@@ -141,7 +193,7 @@ private fun PageEditToolbar(page: Page, store: PageStore) {
       Icons.Filled.Delete,
       "delete page",
       tint = VdtColors.Red,
-      modifier = Modifier.size(20.dp).clickableNoRipple { store.remove(page.id) },
+      modifier = Modifier.size(20.dp).clickableNoRipple(onDeleteRequest),
     )
   }
 }

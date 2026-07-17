@@ -30,6 +30,16 @@ class PageStore(private val settings: Settings) {
 
   fun remove(id: String) = persist(_pages.value.filterNot { it.id == id })
 
+  /**
+   * Re-adds any [seedPages] that are currently missing (matched by id), leaving existing pages
+   * untouched. Gives the user a way back to the starter Vehicle/Farm dashboards after deleting them —
+   * in particular after deleting every page.
+   */
+  fun restoreDefaults() {
+    val existing = _pages.value.mapTo(mutableSetOf()) { it.id }
+    persist(_pages.value + seedPages().filterNot { it.id in existing })
+  }
+
   /** Appends a fresh empty page and returns it, so the caller can open it. */
   fun create(): Page {
     val page =
