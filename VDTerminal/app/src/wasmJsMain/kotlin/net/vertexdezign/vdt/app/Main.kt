@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import net.vertexdezign.vdt.app.alerts.AlertEngine
+import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.net.TelemetryRepository
 import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.app.state.VdtStore
@@ -41,6 +43,10 @@ fun main() {
 
   val settings = StorageSettings()
 
+  // Every app's alert rules run shell-wide over the raw telemetry stream, whatever is on screen.
+  val alerts = AlertEngine(AppRegistry.apps.flatMap { it.alerts })
+  scope.launch { repository.telemetry.collect { alerts.process(it) } }
+
   val store =
     VdtStore(
       telemetry = repository.telemetry,
@@ -54,6 +60,7 @@ fun main() {
       mapUrl = mapUrl,
       settings = settings,
       pages = PageStore(settings),
+      alerts = alerts,
       onToggleWakeLock = {
         WakeLock.toggle()
         wakeLock.value = currentWakeStatus()

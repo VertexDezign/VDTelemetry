@@ -3,6 +3,7 @@ package net.vertexdezign.vdt.app.apps
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import net.vertexdezign.vdt.app.alerts.AlertRule
 import net.vertexdezign.vdt.app.widgets.Widget
 
 /**
@@ -25,6 +26,14 @@ interface VdtApp {
    * today; an app may grow to expose several.
    */
   val widgets: List<Widget> get() = emptyList()
+
+  /**
+   * Alert rules this app raises from telemetry, evaluated shell-wide by the
+   * [net.vertexdezign.vdt.app.alerts.AlertEngine] regardless of what's on screen. An app whose mod
+   * is missing never fires: its rules read telemetry that isn't there, and [AlertRule] predicates
+   * are false on absent data.
+   */
+  val alerts: List<AlertRule> get() = emptyList()
 
   /**
    * Whether this app exists in *this* installation — i.e. its optional mod is present. An
