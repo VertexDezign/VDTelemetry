@@ -12,7 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Coffee
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Schedule
@@ -41,8 +43,11 @@ fun Header(
   vehicle: Vehicle?,
   modifier: Modifier = Modifier,
   wakeLock: WakeLockStatus = WakeLockStatus.Unsupported,
+  editing: Boolean = false,
+  canEdit: Boolean = true,
   onToggleWakeLock: () -> Unit = {},
-  onTogglePage: () -> Unit = {},
+  onToggleEdit: () -> Unit = {},
+  onOpenLauncher: () -> Unit = {},
 ) {
   val accent = brandAccentFor(vehicle?.brand?.name)
   val brandName = vehicle?.brand?.title?.takeIf { it.isNotBlank() } ?: "VDTerminal"
@@ -60,9 +65,9 @@ fun Header(
     ) {
       Icon(
         Icons.Filled.Menu,
-        "switch page",
+        "open app launcher",
         tint = accent.text,
-        modifier = Modifier.size(24.dp).clickable(onClick = onTogglePage),
+        modifier = Modifier.size(24.dp).clickable(onClick = onOpenLauncher),
       )
       Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Stat(Icons.Filled.Thermostat, if (temp != null) "${temp.current}${temp.unit}" else "--", accent.text)
@@ -87,6 +92,14 @@ fun Header(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       WakeLockButton(wakeLock, onToggleWakeLock, accent.text)
+      if (canEdit) {
+        Icon(
+          if (editing) Icons.Filled.Check else Icons.Filled.Edit,
+          if (editing) "done editing layout" else "edit layout",
+          tint = accent.text,
+          modifier = Modifier.size(20.dp).clickable(onClick = onToggleEdit),
+        )
+      }
       Icon(Icons.Filled.Search, "search", tint = accent.text, modifier = Modifier.size(20.dp))
       Icon(Icons.Filled.Remove, "zoom out", tint = accent.text, modifier = Modifier.size(20.dp))
       Icon(Icons.Filled.Add, "zoom in", tint = accent.text, modifier = Modifier.size(20.dp))

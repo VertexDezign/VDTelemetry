@@ -32,7 +32,13 @@ allprojects {
           .setEditorConfigPath(rootProject.file(".editorconfig"))
           .customRuleSets(listOf(composeRulesRuleSet))
       if (isComposeModule) {
-        ktlintConfig.editorConfigOverride(mapOf("ktlint_standard_function-naming" to "disabled"))
+        ktlintConfig.editorConfigOverride(
+          mapOf(
+            "ktlint_standard_function-naming" to "disabled",
+            // App-wide ambient state container, provided once at the root (see state/VdtStore.kt).
+            "compose_allowed_composition_locals" to "LocalVdtStore",
+          ),
+        )
       }
     }
     kotlinGradle {

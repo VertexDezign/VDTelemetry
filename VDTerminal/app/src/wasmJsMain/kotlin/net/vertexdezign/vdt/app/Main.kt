@@ -1,11 +1,5 @@
 package net.vertexdezign.vdt.app
 
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import com.russhwolf.settings.StorageSettings
@@ -13,7 +7,13 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import net.vertexdezign.vdt.app.net.TelemetryRepository
+import net.vertexdezign.vdt.app.pages.PageStore
+import net.vertexdezign.vdt.app.state.VdtStore
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
@@ -28,50 +28,44 @@ fun main() {
   val repository = TelemetryRepository(scope, wsUrl)
   repository.start()
 
+  // Screen wake lock: reflect whether the lock is *actually* held. The request resolves
+  // asynchronously and can fail (e.g. Firefox iOS), and the browser drops the lock when the tab
+  // hides, so poll the flag into a flow the store exposes.
+  val wakeLock = MutableStateFlow(currentWakeStatus())
+  scope.launch {
+    while (isActive && WakeLock.supported) {
+      wakeLock.value = currentWakeStatus()
+      delay(500)
+    }
+  }
+
   val settings = StorageSettings()
 
-  ComposeViewport(document.body!!) {
-    val telemetry by repository.telemetry.collectAsState()
-    val connection by repository.connection.collectAsState()
-    val sampleIntervalMs by repository.sampleIntervalMs.collectAsState()
-    val taskList by repository.taskList.collectAsState()
-    val cropRotation by repository.cropRotation.collectAsState()
-    val mapData by repository.mapData.collectAsState()
-    val mapVehicles by repository.mapVehicles.collectAsState()
-
-    val supported = remember { WakeLock.supported }
-    // Reflect whether the lock is *actually* held: the request resolves asynchronously and can
-    // fail (e.g. Firefox iOS), and the browser drops the lock when the tab hides. Poll the flag.
-    var active by remember { mutableStateOf(false) }
-    LaunchedEffect(supported) {
-      while (supported) {
-        active = WakeLock.active
-        delay(500)
-      }
-    }
-    val wakeStatus =
-      when {
-        !supported -> WakeLockStatus.Unsupported
-        active -> WakeLockStatus.On
-        else -> WakeLockStatus.Off
-      }
-
-    App(
-      telemetry,
-      connection,
-      mapUrl,
-      settings,
-      sampleIntervalMs = sampleIntervalMs,
-      wakeLock = wakeStatus,
+  val store =
+    VdtStore(
+      telemetry = repository.telemetry,
+      connection = repository.connection,
+      sampleIntervalMs = repository.sampleIntervalMs,
+      taskList = repository.taskList,
+      cropRotation = repository.cropRotation,
+      mapData = repository.mapData,
+      mapVehicles = repository.mapVehicles,
+      wakeLock = wakeLock.asStateFlow(),
+      mapUrl = mapUrl,
+      settings = settings,
+      pages = PageStore(settings),
       onToggleWakeLock = {
         WakeLock.toggle()
-        active = WakeLock.active
+        wakeLock.value = currentWakeStatus()
       },
       onCommand = repository::send,
-      taskList = taskList,
-      cropRotation = cropRotation,
-      mapData = mapData,
-      mapVehicles = mapVehicles,
     )
-  }
+
+  ComposeViewport(document.body!!) { App(store) }
+}
+
+private fun currentWakeStatus(): WakeLockStatus = when {
+  !WakeLock.supported -> WakeLockStatus.Unsupported
+  WakeLock.active -> WakeLockStatus.On
+  else -> WakeLockStatus.Off
 }

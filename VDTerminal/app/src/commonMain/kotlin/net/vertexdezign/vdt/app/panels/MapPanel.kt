@@ -102,6 +102,14 @@ private const val MAX_ZOOM = 16f
 // always-on field numbers and POI dots, so a zoomed-out map doesn't drown in labels.
 private const val DETAIL_ZOOM = 2f
 
+// Persistence keys. The `vdt.` prefix namespaces them within the origin's storage, which the whole
+// page is sharing; each is read and written in separate places, so name them once.
+private const val KEY_ZOOM = "vdt.zoom"
+private const val KEY_AUTO_CENTER = "vdt.autoCenter"
+private const val KEY_SHOW_FIELDS = "vdt.showFields"
+private const val KEY_POI_CATS = "vdt.poiCats"
+private const val KEY_VEH_STATES = "vdt.vehStates"
+
 /**
  * Decoded map images, held outside composition and keyed by request URL + PDA filename.
  *
@@ -136,11 +144,11 @@ fun MapPanel(
   mapData: MapData? = null,
   mapVehicles: MapVehiclesData? = null,
 ) {
-  var scale by remember { mutableStateOf(settings.getFloat("zoom", 1f)) }
-  var autoCenter by remember { mutableStateOf(settings.getBoolean("autoCenter", true)) }
-  var showFields by remember { mutableStateOf(settings.getBoolean("showFields", true)) }
-  var poiCats by remember { mutableStateOf(loadFilterSet(settings, "poiCats", PoiCategories)) }
-  var vehStates by remember { mutableStateOf(loadFilterSet(settings, "vehStates", VehicleStates)) }
+  var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
+  var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
+  var showFields by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_FIELDS, true)) }
+  var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
+  var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
   var filterOpen by remember { mutableStateOf(false) }
   var searchQuery by remember { mutableStateOf("") }
   // Normalized position of the last search hit; drawn as a ring until the query is cleared.
@@ -199,11 +207,11 @@ fun MapPanel(
       bitmap = it
     }
   }
-  LaunchedEffect(scale) { settings.putFloat("zoom", scale) }
-  LaunchedEffect(autoCenter) { settings.putBoolean("autoCenter", autoCenter) }
-  LaunchedEffect(showFields) { settings.putBoolean("showFields", showFields) }
-  LaunchedEffect(poiCats) { settings.putString("poiCats", poiCats.joinToString(",")) }
-  LaunchedEffect(vehStates) { settings.putString("vehStates", vehStates.joinToString(",")) }
+  LaunchedEffect(scale) { settings.putFloat(KEY_ZOOM, scale) }
+  LaunchedEffect(autoCenter) { settings.putBoolean(KEY_AUTO_CENTER, autoCenter) }
+  LaunchedEffect(showFields) { settings.putBoolean(KEY_SHOW_FIELDS, showFields) }
+  LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
+  LaunchedEffect(vehStates) { settings.putString(KEY_VEH_STATES, vehStates.joinToString(",")) }
 
   Panel(
     title = "Map",
