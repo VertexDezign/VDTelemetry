@@ -1,4 +1,8 @@
+@file:OptIn(ExperimentalWasmJsInterop::class)
+
 package net.vertexdezign.vdt.app
+
+import kotlin.js.ExperimentalWasmJsInterop
 
 // Browser Screen Wake Lock interop (port of the old wakeLock.ts). The sentinel is kept on
 // `window` and re-acquired on visibilitychange, since the browser drops it when the tab hides.

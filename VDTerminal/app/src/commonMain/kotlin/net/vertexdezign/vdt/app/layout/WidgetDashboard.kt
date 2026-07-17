@@ -27,8 +27,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.ConfirmDialog
@@ -66,21 +69,32 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
     if (next.cells.size < page.layout.cells.size) pendingResize = next else apply(next)
   }
 
+  // Cap the grid to what keeps cells readable in the current viewport: measure the body and derive how
+  // many columns/rows fit at MIN_CELL_WIDTH/HEIGHT, so the grid "+" steppers stop before cells go tiny.
+  var bodySize by remember { mutableStateOf(IntSize.Zero) }
+  val density = LocalDensity.current
+  val gapPx = with(density) { CELL_GAP.toPx() }
+  val insetPx = with(density) { (GRID_PADDING * 2).toPx() }
+  val maxColumns = maxGridSide(bodySize.width - insetPx, with(density) { MIN_CELL_WIDTH.toPx() }, gapPx)
+  val maxRows = maxGridSide(bodySize.height - insetPx, with(density) { MIN_CELL_HEIGHT.toPx() }, gapPx)
+
   // Hide the toolbar while a confirmation is pending: its dialog only scrims the grid area below, so
   // an exposed toolbar would let a second destructive request stack up behind the modal.
   if (editing && pendingResize == null && !confirmDelete) {
     PageEditToolbar(
       page,
       pageStore,
+      maxColumns = maxColumns,
+      maxRows = maxRows,
       onResizeGrid = ::requestGridSize,
       onDeleteRequest = { confirmDelete = true },
     )
   }
 
-  Box(modifier.fillMaxWidth().weight(1f)) {
+  Box(modifier.fillMaxWidth().weight(1f).onSizeChanged { bodySize = it }) {
     WidgetGrid(
       page.layout,
-      Modifier.fillMaxSize().padding(8.dp),
+      Modifier.fillMaxSize().padding(GRID_PADDING),
       editing = editing,
       onLayoutChange = ::apply,
       onAddRequest = { addAt = it },
@@ -131,12 +145,15 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
 /**
  * Page-level editing: rename, icon, when it auto-shows, grid size, and delete. Grid resizes go through
  * [onResizeGrid] and delete through [onDeleteRequest] so the parent can guard the destructive ones;
- * the non-destructive edits write straight back through [store].
+ * the non-destructive edits write straight back through [store]. The grid steppers won't grow past
+ * [maxColumns]/[maxRows] — the point beyond which cells would be too small to read.
  */
 @Composable
 private fun PageEditToolbar(
   page: Page,
   store: PageStore,
+  maxColumns: Int,
+  maxRows: Int,
   onResizeGrid: (columns: Int, rows: Int) -> Unit,
   onDeleteRequest: () -> Unit,
 ) {
@@ -182,9 +199,17 @@ private fun PageEditToolbar(
 
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
       Label("GRID")
-      Stepper(page.layout.columns) { onResizeGrid(page.layout.columns + it, page.layout.rows) }
+      Stepper(
+        page.layout.columns,
+        canDecrement = page.layout.columns > GridLayout.MIN_SIDE,
+        canIncrement = page.layout.columns < maxColumns,
+      ) { onResizeGrid(page.layout.columns + it, page.layout.rows) }
       Text("×", fontSize = 11.sp, color = VdtColors.DarkGray)
-      Stepper(page.layout.rows) { onResizeGrid(page.layout.columns, page.layout.rows + it) }
+      Stepper(
+        page.layout.rows,
+        canDecrement = page.layout.rows > GridLayout.MIN_SIDE,
+        canIncrement = page.layout.rows < maxRows,
+      ) { onResizeGrid(page.layout.columns, page.layout.rows + it) }
     }
 
     Spacer(Modifier.weight(1f))
@@ -193,7 +218,7 @@ private fun PageEditToolbar(
       Icons.Filled.Delete,
       "delete page",
       tint = VdtColors.Red,
-      modifier = Modifier.size(20.dp).clickableNoRipple(onDeleteRequest),
+      modifier = Modifier.size(20.dp).clickableNoRipple(onClick = onDeleteRequest),
     )
   }
 }
@@ -203,28 +228,33 @@ private fun Label(text: String) {
   Text(text, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.Gray)
 }
 
-/** `− n +` control; the callback gets the delta. */
+/** `− n +` control; the callback gets the delta. Each button greys out and ignores taps at its bound. */
 @Composable
-private fun Stepper(value: Int, onStep: (Int) -> Unit) {
+private fun Stepper(value: Int, canDecrement: Boolean, canIncrement: Boolean, onStep: (Int) -> Unit) {
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-    StepButton("−") { onStep(-1) }
+    StepButton("−", enabled = canDecrement) { onStep(-1) }
     Text("$value", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
-    StepButton("+") { onStep(+1) }
+    StepButton("+", enabled = canIncrement) { onStep(+1) }
   }
 }
 
 @Composable
-private fun StepButton(glyph: String, onClick: () -> Unit) {
+private fun StepButton(glyph: String, enabled: Boolean, onClick: () -> Unit) {
   Box(
     Modifier
       .size(16.dp)
       .clip(RoundedCornerShape(3.dp))
       .background(VdtColors.White)
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(3.dp))
-      .clickableNoRipple(onClick),
+      .clickableNoRipple(enabled = enabled, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
-    Text(glyph, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+    Text(
+      glyph,
+      fontSize = 11.sp,
+      fontWeight = FontWeight.Bold,
+      color = if (enabled) VdtColors.DarkGray else VdtColors.Gray,
+    )
   }
 }
 
@@ -240,11 +270,11 @@ private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
       .clip(RoundedCornerShape(3.dp))
       .background(if (selected) VdtColors.Green else VdtColors.White)
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(3.dp))
-      .clickableNoRipple(onClick)
+      .clickableNoRipple(onClick = onClick)
       .padding(horizontal = 6.dp, vertical = 3.dp),
   )
 }
 
 /** Click target without the material ripple; keeps these dense controls keyboard/AX-activatable. */
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
-  this.clickable(interactionSource = null, indication = null, onClick = onClick)
+private fun Modifier.clickableNoRipple(enabled: Boolean = true, onClick: () -> Unit): Modifier =
+  this.clickable(enabled = enabled, interactionSource = null, indication = null, onClick = onClick)

@@ -46,7 +46,32 @@ import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.math.roundToInt
 
 /** Gap between grid cells; matches the 8.dp the hand-laid panel grids used. */
-private val CELL_GAP = 8.dp
+internal val CELL_GAP = 8.dp
+
+/** Padding between the grid and the dashboard body edge; also subtracted when sizing cells. */
+internal val GRID_PADDING = 8.dp
+
+/**
+ * Smallest a grid cell may get before its widget stops being readable. The page's column/row count is
+ * capped so a cell never shrinks below this in the current viewport — the readability floor is on cell
+ * *size*, not on any per-widget span (the grid is freely resizable, so a span floor wouldn't bound the
+ * pixels). Tuned by eye; adjust here if tiles feel too dense or too sparse.
+ */
+internal val MIN_CELL_WIDTH = 200.dp
+internal val MIN_CELL_HEIGHT = 140.dp
+
+/**
+ * The most cells that fit along one axis while keeping each at least [minCellPx] (accounting for the
+ * [gapPx] between them), clamped to [GridLayout.MIN_SIDE]..[GridLayout.MAX_SIDE]. Returns the hard
+ * ceiling when [availablePx] isn't known yet (not measured), so the control stays usable on first frame.
+ *
+ * Derivation: `availablePx >= n*minCellPx + (n-1)*gapPx` ⇒ `n <= (availablePx + gapPx)/(minCellPx + gapPx)`.
+ */
+internal fun maxGridSide(availablePx: Float, minCellPx: Float, gapPx: Float): Int {
+  if (availablePx <= 0f) return GridLayout.MAX_SIDE
+  val fit = ((availablePx + gapPx) / (minCellPx + gapPx)).toInt()
+  return fit.coerceIn(GridLayout.MIN_SIDE, GridLayout.MAX_SIDE)
+}
 
 /**
  * Renders a [GridLayout]: a `columns × rows` grid of equal cells with [CELL_GAP] gaps, each widget
@@ -195,6 +220,11 @@ private fun WidgetCell(
           modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
         )
 
+        // A resize direction is offered only when it would actually change the layout: shrinking is
+        // blocked at a 1-cell span, growing at the grid edge or against a neighbour. resize() is a
+        // no-op (returns the same layout) in those cases, so that's the signal.
+        fun canResizeTo(colSpan: Int, rowSpan: Int) = layout.resize(cell, colSpan, rowSpan) != layout
+
         Row(
           Modifier.align(Alignment.BottomEnd).padding(4.dp),
           horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -202,21 +232,25 @@ private fun WidgetCell(
           CtrlButton(
             Icons.AutoMirrored.Filled.KeyboardArrowLeft,
             "narrower",
+            enabled = canResizeTo(cell.colSpan - 1, cell.rowSpan),
             onClick = { onLayoutChange(layout.resize(cell, cell.colSpan - 1, cell.rowSpan)) },
           )
           CtrlButton(
             Icons.AutoMirrored.Filled.KeyboardArrowRight,
             "wider",
+            enabled = canResizeTo(cell.colSpan + 1, cell.rowSpan),
             onClick = { onLayoutChange(layout.resize(cell, cell.colSpan + 1, cell.rowSpan)) },
           )
           CtrlButton(
             Icons.Filled.KeyboardArrowUp,
             "shorter",
+            enabled = canResizeTo(cell.colSpan, cell.rowSpan - 1),
             onClick = { onLayoutChange(layout.resize(cell, cell.colSpan, cell.rowSpan - 1)) },
           )
           CtrlButton(
             Icons.Filled.KeyboardArrowDown,
             "taller",
+            enabled = canResizeTo(cell.colSpan, cell.rowSpan + 1),
             onClick = { onLayoutChange(layout.resize(cell, cell.colSpan, cell.rowSpan + 1)) },
           )
         }
@@ -240,18 +274,27 @@ private fun AddSlot(onClick: () -> Unit, modifier: Modifier = Modifier) {
   }
 }
 
-/** Small round control button used by the edit overlay. */
+/**
+ * Small round control button used by the edit overlay. When [enabled] is false it greys out and
+ * ignores taps — used to show a resize direction has hit its limit.
+ */
 @Composable
-private fun CtrlButton(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun CtrlButton(
+  icon: ImageVector,
+  description: String,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  enabled: Boolean = true,
+) {
   Box(
     modifier
       .size(24.dp)
       .clip(CircleShape)
       .background(VdtColors.Panel)
       .border(1.dp, VdtColors.PanelBorder, CircleShape)
-      .clickable(onClick = onClick),
+      .clickable(enabled = enabled, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
-    Icon(icon, description, tint = VdtColors.DarkGray, modifier = Modifier.size(16.dp))
+    Icon(icon, description, tint = if (enabled) VdtColors.DarkGray else VdtColors.Gray, modifier = Modifier.size(16.dp))
   }
 }
