@@ -9,16 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -100,9 +97,6 @@ fun Header(
           modifier = Modifier.size(20.dp).clickable(onClick = onToggleEdit),
         )
       }
-      Icon(Icons.Filled.Search, "search", tint = accent.text, modifier = Modifier.size(20.dp))
-      Icon(Icons.Filled.Remove, "zoom out", tint = accent.text, modifier = Modifier.size(20.dp))
-      Icon(Icons.Filled.Add, "zoom in", tint = accent.text, modifier = Modifier.size(20.dp))
     }
   }
 }
