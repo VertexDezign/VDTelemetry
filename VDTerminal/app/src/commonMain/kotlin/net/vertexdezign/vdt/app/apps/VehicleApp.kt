@@ -9,13 +9,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.alerts.AlertInputs
 import net.vertexdezign.vdt.app.alerts.AlertRule
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
+import net.vertexdezign.vdt.app.alerts.ThresholdAlertRule
 import net.vertexdezign.vdt.app.widgets.EngineWidget
 import net.vertexdezign.vdt.app.widgets.ImplementsWidget
 import net.vertexdezign.vdt.app.widgets.LightingWidget
 import net.vertexdezign.vdt.app.widgets.Widget
-import net.vertexdezign.vdt.model.VdtData
 
 /**
  * The vehicle itself: owns everything about the machine you're driving. Provides the engine,
@@ -38,7 +39,7 @@ object VehicleApp : VdtApp {
 
   override val alerts: List<AlertRule> =
     listOf(
-      AlertRule(
+      ThresholdAlertRule(
         id = LOW_FUEL_ALERT_ID,
         severity = AlertSeverity.Warning,
         title = "LOW FUEL",
@@ -59,9 +60,10 @@ object VehicleApp : VdtApp {
 }
 
 /** Null when on foot or the vehicle reports no fuel unit — the alert then holds its state. */
-private val VdtData.fuelPercent: Int?
+private val AlertInputs.fuelPercent: Int?
   get() =
-    vehicle
+    telemetry
+      ?.vehicle
       ?.motor
       ?.fillUnits
       ?.fuel

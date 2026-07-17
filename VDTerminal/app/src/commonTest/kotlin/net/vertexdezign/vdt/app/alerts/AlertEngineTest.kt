@@ -1,9 +1,13 @@
 package net.vertexdezign.vdt.app.alerts
 
+import net.vertexdezign.vdt.app.apps.TasksApp
 import net.vertexdezign.vdt.app.apps.VehicleApp
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.Motor
 import net.vertexdezign.vdt.model.MotorFillUnits
+import net.vertexdezign.vdt.model.Task
+import net.vertexdezign.vdt.model.TaskGroup
+import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.test.Test
@@ -11,12 +15,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-/** [AlertEngine] semantics: edge-triggering, hysteresis, and behavior on absent data. */
+/** [AlertEngine] semantics: edge-triggering, hysteresis, keyed entities, and absent data. */
 class AlertEngineTest {
   /** Enter at ≤ 10, re-arm above 15 — the same band the fuel alert uses. */
   private fun engine() = AlertEngine(
     listOf(
-      AlertRule(
+      ThresholdAlertRule(
         id = "test.low",
         severity = AlertSeverity.Warning,
         title = "LOW",
@@ -62,9 +66,9 @@ class AlertEngineTest {
   fun absentDataFreezesRuleState() {
     val engine = engine()
     engine.process(fuelData(9))
-    // On foot (no vehicle) and a connection gap (null tick): neither clears nor re-fires.
-    assertEquals(0, engine.process(VdtData()).size)
-    assertEquals(0, engine.process(null).size)
+    // On foot (no vehicle) and a connection gap (empty inputs): neither clears nor re-fires.
+    assertEquals(0, engine.process(AlertInputs(telemetry = VdtData())).size)
+    assertEquals(0, engine.process(AlertInputs()).size)
     assertEquals(1, engine.active.value.size)
     assertEquals(0, engine.process(fuelData(9)).size)
   }
@@ -98,18 +102,81 @@ class AlertEngineTest {
     engine.process(fuelData(16))
     assertTrue(engine.active.value.isEmpty())
   }
+
+  // ---------------------------------------------------------------------------
+  // Keyed rules (via the real TasksApp tasks-due rule)
+  // ---------------------------------------------------------------------------
+
+  @Test
+  fun keyedRuleFiresPerNewEntityNotPerTick() {
+    val engine = AlertEngine(TasksApp.alerts)
+    val raised = engine.process(taskData("a" to "Feed cows")).single()
+    assertEquals(TasksApp.TASKS_DUE_ALERT_ID, raised.rule.id)
+    assertEquals("Feed cows", raised.message)
+    // Same snapshot ticking again: nothing new.
+    assertEquals(0, engine.process(taskData("a" to "Feed cows")).size)
+    // A second task turns due: one raise, mentioning only the newcomer.
+    val second = engine.process(taskData("a" to "Feed cows", "b" to "Harvest field 3")).single()
+    assertEquals("Harvest field 3", second.message)
+  }
+
+  @Test
+  fun keyedRuleBatchesSimultaneousEntities() {
+    val engine = AlertEngine(TasksApp.alerts)
+    val raised = engine.process(taskData("a" to "One", "b" to "Two")).single()
+    assertEquals("2 tasks: One, Two", raised.message)
+  }
+
+  @Test
+  fun keyedRuleClearsWhenNoEntityRemainsAndCanReFire() {
+    val engine = AlertEngine(TasksApp.alerts)
+    engine.process(taskData("a" to "Feed cows"))
+    assertEquals(1, engine.active.value.size)
+    // Task completed: alert clears; the same task recurring later is a fresh raise.
+    assertEquals(0, engine.process(taskData()).size)
+    assertTrue(engine.active.value.isEmpty())
+    assertEquals(1, engine.process(taskData("a" to "Feed cows")).size)
+  }
+
+  @Test
+  fun keyedRuleFreezesOnAbsentChannel() {
+    val engine = AlertEngine(TasksApp.alerts)
+    engine.process(taskData("a" to "Feed cows"))
+    // Channel gone (mod missing / not yet received): neither clears nor re-fires.
+    assertEquals(0, engine.process(AlertInputs()).size)
+    assertEquals(1, engine.active.value.size)
+    assertEquals(0, engine.process(taskData("a" to "Feed cows")).size)
+  }
 }
 
-private fun fuelData(percent: Int) = VdtData(
-  vehicle =
-  Vehicle(
-    motor = Motor(fillUnits = MotorFillUnits(fuel = FillUnit(fillLevelPercentage = percent))),
+private fun fuelData(percent: Int) = AlertInputs(
+  telemetry =
+  VdtData(
+    vehicle =
+    Vehicle(
+      motor = Motor(fillUnits = MotorFillUnits(fuel = FillUnit(fillLevelPercentage = percent))),
+    ),
   ),
 )
 
-private val VdtData.fuel: Int?
+/** A task list with one group whose given tasks (id → description) are all currently due. */
+private fun taskData(vararg due: Pair<String, String>) = AlertInputs(
+  taskList =
+  TaskListData(
+    groups =
+    listOf(
+      TaskGroup(
+        id = "g",
+        tasks = due.map { (id, description) -> Task(id = id, description = description, active = true) },
+      ),
+    ),
+  ),
+)
+
+private val AlertInputs.fuel: Int?
   get() =
-    vehicle
+    telemetry
+      ?.vehicle
       ?.motor
       ?.fillUnits
       ?.fuel

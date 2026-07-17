@@ -28,10 +28,10 @@ interface VdtApp {
   val widgets: List<Widget> get() = emptyList()
 
   /**
-   * Alert rules this app raises from telemetry, evaluated shell-wide by the
+   * Alert rules this app raises from the data streams, evaluated shell-wide by the
    * [net.vertexdezign.vdt.app.alerts.AlertEngine] regardless of what's on screen. An app whose mod
-   * is missing never fires: its rules read telemetry that isn't there, and [AlertRule] predicates
-   * are false on absent data.
+   * is missing never fires: its rules read channels that are absent, and absent data freezes a
+   * rule (see [net.vertexdezign.vdt.app.alerts.AlertInputs]).
    */
   val alerts: List<AlertRule> get() = emptyList()
 
