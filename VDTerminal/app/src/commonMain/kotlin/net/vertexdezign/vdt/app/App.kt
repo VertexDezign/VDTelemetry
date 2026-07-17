@@ -115,6 +115,8 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
               editing = true
               launcherOpen = false
             },
+            // Keep the launcher open so the restored pages appear in place for the user to pick.
+            onRestoreDefaults = { store.pages.restoreDefaults() },
             onDismiss = { launcherOpen = false },
           )
         }

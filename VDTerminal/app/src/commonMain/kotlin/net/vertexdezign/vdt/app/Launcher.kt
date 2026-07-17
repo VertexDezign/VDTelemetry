@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +47,7 @@ fun Launcher(
   screen: Screen,
   onOpen: (Screen) -> Unit,
   onCreatePage: () -> Unit,
+  onRestoreDefaults: () -> Unit,
   onDismiss: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -76,12 +79,38 @@ fun Launcher(
           onOpen,
           trailing = { Tile(Icons.Filled.Add, "New page", active = false, onClick = onCreatePage) },
         )
+        // With every page gone there's no path back to the seeded dashboards — offer to restore them.
+        if (pages.isEmpty()) RestoreDefaultsRow(onRestoreDefaults)
       }
     }
   }
 }
 
 private data class Entry(val icon: ImageVector, val title: String, val target: Screen)
+
+/** Full-width action shown only when no pages remain: brings back the starter Vehicle/Farm pages. */
+@Composable
+private fun RestoreDefaultsRow(onClick: () -> Unit) {
+  Row(
+    Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(6.dp))
+      .background(VdtColors.White.copy(alpha = 0.5f))
+      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(6.dp))
+      .clickable(onClick = onClick)
+      .padding(horizontal = 12.dp, vertical = 10.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(10.dp),
+  ) {
+    Icon(Icons.Filled.Refresh, contentDescription = null, tint = VdtColors.DarkGray, modifier = Modifier.size(20.dp))
+    Text(
+      "RESTORE DEFAULT PAGES",
+      fontSize = 12.sp,
+      fontWeight = FontWeight.Bold,
+      color = VdtColors.DarkGray,
+    )
+  }
+}
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
