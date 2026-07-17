@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.vertexdezign.vdt.app.alerts.AlertEngine
+import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.net.TelemetryRepository
 import net.vertexdezign.vdt.app.pages.PageStore
@@ -46,6 +47,13 @@ fun main() {
   // Every app's alert rules run shell-wide over the raw telemetry stream, whatever is on screen.
   val alerts = AlertEngine(AppRegistry.apps.flatMap { it.alerts })
   scope.launch { repository.telemetry.collect { alerts.process(it) } }
+
+  // Audible cue per raise, alongside the banner. Info stays silent — it's passive by definition;
+  // a chime the driver must react to means at least Warning.
+  AlertSound.install()
+  scope.launch {
+    alerts.raised.collect { if (it.rule.severity != AlertSeverity.Info) AlertSound.play() }
+  }
 
   val store =
     VdtStore(
