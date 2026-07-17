@@ -34,6 +34,9 @@ kotlin {
       implementation(libs.ktor.client.websockets)
       implementation(libs.multiplatform.settings)
     }
+    commonTest.dependencies {
+      implementation(kotlin("test"))
+    }
   }
 }
 
