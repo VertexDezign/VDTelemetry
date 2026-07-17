@@ -66,7 +66,9 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
     if (next.cells.size < page.layout.cells.size) pendingResize = next else apply(next)
   }
 
-  if (editing) {
+  // Hide the toolbar while a confirmation is pending: its dialog only scrims the grid area below, so
+  // an exposed toolbar would let a second destructive request stack up behind the modal.
+  if (editing && pendingResize == null && !confirmDelete) {
     PageEditToolbar(
       page,
       pageStore,
