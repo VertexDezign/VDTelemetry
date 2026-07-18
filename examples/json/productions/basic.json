@@ -49,6 +49,17 @@
       "fills": [
         { "type": "LIQUIDMANURE", "title": "Gülle", "level": 145000, "capacity": 300000 }
       ]
+    },
+    {
+      "id": "BaleBarn_1",
+      "name": "Bale Barn",
+      "kind": "object",
+      "count": 32,
+      "capacity": 250,
+      "objects": [
+        { "title": "Round bale (Straw)", "count": 20 },
+        { "title": "Square bale (Hay)", "count": 12 }
+      ]
     }
   ]
 }

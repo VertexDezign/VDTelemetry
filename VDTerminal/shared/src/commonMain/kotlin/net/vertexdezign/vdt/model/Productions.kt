@@ -91,10 +91,27 @@ data class ProductionFill(
   val capacity: Int = 0,
 )
 
-/** An owned storage placeable with no production (silo, storage barn). */
+/**
+ * An owned storage placeable with no production. Two kinds, distinguished by [kind]:
+ * - `fill` — a liter silo: contents in [fills] (per fill type, level/capacity).
+ * - `object` — an object storage (bales/pallets, count-based): total [count] / [capacity] objects,
+ *   with a per-type breakdown in [objects] (which may be partial on a multiplayer client, where only
+ *   counts are synced — the total is always accurate).
+ */
 @Serializable
 data class StandaloneStorage(
   val id: String = "",
   val name: String = "",
+  val kind: String = "fill",
   val fills: List<ProductionFill> = emptyList(),
+  val objects: List<StoredObject> = emptyList(),
+  val count: Int = 0,
+  val capacity: Int = 0,
+)
+
+/** A group of identical stored objects in an object storage. */
+@Serializable
+data class StoredObject(
+  val title: String = "",
+  val count: Int = 0,
 )

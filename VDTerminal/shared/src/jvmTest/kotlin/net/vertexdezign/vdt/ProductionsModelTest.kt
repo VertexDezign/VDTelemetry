@@ -82,12 +82,24 @@ class ProductionsModelTest {
     assertEquals(0, assertNotNull(manureStore).level)
     assertEquals(20000, manureStore.capacity)
 
-    assertEquals(1, data.storages.size)
+    assertEquals(2, data.storages.size)
     val silo = data.storages[0]
     assertEquals("Zentrales Güllelager", silo.name)
+    // No `kind` in the fixture -> the liter-silo default.
+    assertEquals("fill", silo.kind)
     assertEquals(1, silo.fills.size)
     assertEquals("LIQUIDMANURE", silo.fills[0].type)
     assertEquals(145000, silo.fills[0].level)
+
+    // Object storage: count-based, with a per-type breakdown instead of liter fills.
+    val barn = data.storages[1]
+    assertEquals("object", barn.kind)
+    assertEquals(32, barn.count)
+    assertEquals(250, barn.capacity)
+    assertTrue(barn.fills.isEmpty())
+    assertEquals(2, barn.objects.size)
+    assertEquals("Round bale (Straw)", barn.objects[0].title)
+    assertEquals(20, barn.objects[0].count)
 
     assertRoundTrips(data)
   }

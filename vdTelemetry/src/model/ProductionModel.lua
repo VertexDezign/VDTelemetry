@@ -39,10 +39,18 @@
 ---@field lines ProductionLineModel[]
 ---@field storage ProductionFillModel[] the point's shared internal storage, one row per fill type
 
----@class StandaloneStorageModel an owned storage placeable with no production (silo, storage barn)
+---@class StoredObjectModel a group of identical stored objects in an object storage
+---@field title string display name (the abstract object's dialog text, e.g. "Round bale (Straw)")
+---@field count number number of that object currently stored
+
+---@class StandaloneStorageModel an owned storage placeable with no production
 ---@field id string stable id for app selection (placeable uniqueId, else a synthesized fallback)
 ---@field name string display name (owning placeable's name)
----@field fills ProductionFillModel[] one row per stored fill type
+---@field kind string "fill" (liter silo) or "object" (object storage: bales/pallets, count-based)
+---@field fills ProductionFillModel[]? kind=="fill": one row per stored fill type
+---@field objects StoredObjectModel[]? kind=="object": per-type item counts (may be partial on MP clients)
+---@field count number? kind=="object": total number of objects currently stored
+---@field capacity number? kind=="object": maximum number of objects
 
 ---@class ProductionsModel
 ---@field version string channel version, independent of VDTelemetry.VERSION

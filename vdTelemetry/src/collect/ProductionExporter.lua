@@ -218,18 +218,85 @@ local function collectPoint(pp, placeable, storage, fallbackId, isFactory)
   return point
 end
 
--- Standalone storages: owned silo placeables (PlaceableSilo — farm silos). A Storage object carries
--- NO back-reference to its placeable (PlaceableSilo sets owningPlaceable on its loading/unloading
--- stations, never on the Storage), so these can't be discovered from storageSystem:getStorages() --
--- we walk the placeable list and read each silo's own spec_silo.storages. Production points are
--- excluded for free: they are not PlaceableSilo (a production placeable carries spec_productionPoint,
--- not spec_silo), and their storage is already reported under productionPoints. Silo extensions and
--- object storages (bales/pallets, count-based) are out of scope for v1.
---
--- A silo with storagePerFarm holds one Storage per farm (storage.ownerFarmId set per set); we include
+local function placeableName(placeable)
+  local okName, name = pcall(placeable.getName, placeable)
+  return (okName and type(name) == "string" and name ~= "") and name or "Storage"
+end
+
+-- A liter-fill silo (PlaceableSilo). Its Storage objects carry NO back-reference to the placeable
+-- (PlaceableSilo sets owningPlaceable on its loading/unloading stations, never on the Storage), which
+-- is why these can't be discovered from storageSystem:getStorages() -- we read spec_silo.storages
+-- directly. A storagePerFarm silo holds one Storage per farm (storage.ownerFarmId per set); include
 -- only the local farm's set. A normal owned silo sets ownerFarmId to the placeable owner, so the same
--- check passes there too. Duplicate fill types across sets are merged; an all-empty (0-level) silo
--- still shows as long as it has capacity for some fill type.
+-- check passes. Duplicate fill types across sets are merged; an all-empty (0-level) silo still shows
+-- as long as it has capacity for some fill type. Returns nil when there's nothing to show.
+---@return StandaloneStorageModel|nil
+local function collectSilo(placeable, farmId, fallbackIndex)
+  local rows = {}
+  local seen = {}
+  for _, storage in ipairs(placeable.spec_silo.storages) do
+    local sOwner = storage.ownerFarmId
+    if sOwner == nil or sOwner == farmId then
+      for _, row in ipairs(storageRows(storage)) do
+        if not seen[row.type] then
+          seen[row.type] = true
+          rows[#rows + 1] = row
+        end
+      end
+    end
+  end
+  if #rows == 0 then
+    return nil
+  end
+  table.sort(rows, function(a, b)
+    return a.type < b.type
+  end)
+  return {
+    id = VDT.ProductionExporter.placeableId(placeable, "storage" .. fallbackIndex),
+    name = placeableName(placeable),
+    kind = "fill",
+    fills = rows,
+  }
+end
+
+-- An object storage (PlaceableObjectStorage — bales/pallets). Count-based, not liters:
+-- spec.numStoredObjects / spec.capacity total, with spec.objectInfos grouping identical stored
+-- objects. The per-group title comes from the live object's getDialogText(), which exists on the
+-- server/SP host but not necessarily on an MP client (only counts stream there -- the game's own HUD
+-- skips those too); we still report the accurate total and include a group row only when its title
+-- resolves. Shown even when empty (capacity > 0) like an empty silo.
+---@return StandaloneStorageModel|nil
+local function collectObjectStorage(placeable, farmId, fallbackIndex)
+  local spec = placeable.spec_objectStorage
+  local capacity = math.floor(num(spec.capacity))
+  if capacity <= 0 then
+    return nil
+  end
+  local objects = {}
+  for _, info in ipairs(spec.objectInfos or {}) do
+    local count = math.floor(num(info.numObjects))
+    local first = type(info.objects) == "table" and info.objects[1] or nil
+    if count > 0 and first ~= nil then
+      local okText, title = pcall(first.getDialogText, first)
+      if okText and type(title) == "string" and title ~= "" then
+        objects[#objects + 1] = { title = title, count = count }
+      end
+    end
+  end
+  return {
+    id = VDT.ProductionExporter.placeableId(placeable, "storage" .. fallbackIndex),
+    name = placeableName(placeable),
+    kind = "object",
+    count = math.floor(num(spec.numStoredObjects)),
+    capacity = capacity,
+    objects = objects,
+  }
+end
+
+-- Standalone storages: owned silo and object-storage placeables. Production points are excluded for
+-- free (they carry spec_productionPoint, not spec_silo / spec_objectStorage, and their storage is
+-- already reported under productionPoints). Silo extensions stay out of scope for v1. Walked over the
+-- placeable list because a Storage/object-storage has no reliable back-reference to its placeable.
 ---@param farmId number
 ---@return StandaloneStorageModel[]
 local function collectStorages(farmId)
@@ -241,34 +308,16 @@ local function collectStorages(farmId)
   end
 
   for _, placeable in ipairs(placeables) do
-    local spec = placeable.spec_silo
-    if spec ~= nil and type(spec.storages) == "table" then
-      local okOwner, owner = pcall(placeable.getOwnerFarmId, placeable)
-      if okOwner and owner == farmId then
-        local rows = {}
-        local seen = {}
-        for _, storage in ipairs(spec.storages) do
-          local sOwner = storage.ownerFarmId
-          if sOwner == nil or sOwner == farmId then
-            for _, row in ipairs(storageRows(storage)) do
-              if not seen[row.type] then
-                seen[row.type] = true
-                rows[#rows + 1] = row
-              end
-            end
-          end
-        end
-        if #rows > 0 then
-          table.sort(rows, function(a, b)
-            return a.type < b.type
-          end)
-          local okName, name = pcall(placeable.getName, placeable)
-          out[#out + 1] = {
-            id = VDT.ProductionExporter.placeableId(placeable, "storage" .. (#out + 1)),
-            name = (okName and type(name) == "string" and name ~= "") and name or "Storage",
-            fills = rows,
-          }
-        end
+    local okOwner, owner = pcall(placeable.getOwnerFarmId, placeable)
+    if okOwner and owner == farmId then
+      local entry
+      if placeable.spec_silo ~= nil and type(placeable.spec_silo.storages) == "table" then
+        entry = collectSilo(placeable, farmId, #out + 1)
+      elseif placeable.spec_objectStorage ~= nil then
+        entry = collectObjectStorage(placeable, farmId, #out + 1)
+      end
+      if entry ~= nil then
+        out[#out + 1] = entry
       end
     end
   end

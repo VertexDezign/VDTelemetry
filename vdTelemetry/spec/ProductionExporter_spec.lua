@@ -95,6 +95,34 @@ local function makeFactory(name, owner, uniqueId, opts)
   }
 end
 
+-- An object-storage placeable (spec_objectStorage). `groups` is a list of { title, count } modelled
+-- as the game's objectInfos (each with an abstract object exposing getDialogText).
+local function makeObjectStorage(name, owner, uniqueId, capacity, numStored, groups)
+  local objectInfos = {}
+  for _, g in ipairs(groups or {}) do
+    objectInfos[#objectInfos + 1] = {
+      numObjects = g.count,
+      objects = {
+        {
+          getDialogText = function()
+            return g.title
+          end,
+        },
+      },
+    }
+  end
+  return {
+    uniqueId = uniqueId,
+    spec_objectStorage = { capacity = capacity, numStoredObjects = numStored, objectInfos = objectInfos },
+    getName = function()
+      return name
+    end,
+    getOwnerFarmId = function()
+      return owner
+    end,
+  }
+end
+
 local function setupWorld(points, placeables, farmId, factories)
   _G.ProductionPoint = { PROD_STATUS = PROD_STATUS, OUTPUT_MODE = OUTPUT_MODE }
   _G.g_fillTypeManager = {
@@ -271,9 +299,41 @@ describe("ProductionExporter.collect", function()
     assert.is_nil(model.productionPoints)
     assert.are.equal(1, #model.storages)
     assert.are.equal("silo-1", model.storages[1].id)
+    assert.are.equal("fill", model.storages[1].kind)
     assert.are.equal("Central slurry store", model.storages[1].name)
     assert.are.equal("LIQUIDMANURE", model.storages[1].fills[1].type)
     assert.are.equal(145000, model.storages[1].fills[1].level)
+  end)
+
+  it("reports object storages with a per-type breakdown, skipping other farms", function()
+    local mine = makeObjectStorage("Bale barn", 1, "barn-1", 250, 32, {
+      { title = "Round bale (Straw)", count = 20 },
+      { title = "Square bale (Hay)", count = 12 },
+    })
+    local theirs = makeObjectStorage("Neighbour barn", 2, "barn-2", 250, 5, { { title = "Pallet", count = 5 } })
+    setupWorld({}, { mine, theirs }, 1)
+
+    local model = VDT.ProductionExporter.collect()
+    assert.are.equal(1, #model.storages)
+    local s = model.storages[1]
+    assert.are.equal("barn-1", s.id)
+    assert.are.equal("object", s.kind)
+    assert.are.equal(32, s.count)
+    assert.are.equal(250, s.capacity)
+    assert.are.equal(2, #s.objects)
+    assert.are.equal("Round bale (Straw)", s.objects[1].title)
+    assert.are.equal(20, s.objects[1].count)
+  end)
+
+  it("shows an empty object storage with no breakdown rows", function()
+    local empty = makeObjectStorage("Empty barn", 1, "barn-3", 100, 0, {})
+    setupWorld({}, { empty }, 1)
+
+    local model = VDT.ProductionExporter.collect()
+    assert.are.equal(1, #model.storages)
+    assert.are.equal("object", model.storages[1].kind)
+    assert.are.equal(0, model.storages[1].count)
+    assert.are.equal(0, #model.storages[1].objects)
   end)
 
   it("returns just the version while spectating (no local farm)", function()

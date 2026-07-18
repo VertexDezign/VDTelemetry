@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Factory
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -133,7 +134,7 @@ private fun OwnedList(
       data.storages.forEach { storage ->
         OwnedRow(
           name = storage.name,
-          subtitle = typeCountLabel(storage.fills.size),
+          subtitle = storageSubtitle(storage),
           selected = storage.id == selectedId,
           onClick = { onSelect(storage.id) },
         )
@@ -318,23 +319,59 @@ private fun IoRow(entry: ProductionIo, fill: ProductionFill?, onSetMode: ((Strin
 
 @Composable
 private fun StandaloneStorageDetail(storage: StandaloneStorage) {
+  val isObject = storage.kind == "object"
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
       Icon(
-        Icons.Filled.Warehouse,
+        if (isObject) Icons.Filled.Inventory2 else Icons.Filled.Warehouse,
         contentDescription = null,
         tint = VdtColors.DarkGray,
         modifier = Modifier.size(16.dp),
       )
       Text(storage.name, color = VdtColors.TextDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
-    if (storage.fills.isEmpty()) {
-      Text("This storage is empty", color = VdtColors.Gray, fontSize = 11.sp)
+    if (isObject) {
+      ObjectStorageBody(storage)
+    } else {
+      if (storage.fills.isEmpty()) {
+        Text("This storage is empty", color = VdtColors.Gray, fontSize = 11.sp)
+      }
+      storage.fills.forEach { fill -> FillRow(fill) }
     }
-    storage.fills.forEach { fill -> FillRow(fill) }
+  }
+}
+
+/** Object storage: a total count/capacity bar, then the per-type breakdown (title × count). */
+@Composable
+private fun ObjectStorageBody(storage: StandaloneStorage) {
+  val fraction = if (storage.capacity > 0) storage.count.toFloat() / storage.capacity.toFloat() else 0f
+  ProgressBar(
+    fraction = fraction,
+    leftLabel = "Objects",
+    rightLabel = "${formatInt(storage.count)} / ${formatInt(storage.capacity)}",
+  )
+  if (storage.count == 0) {
+    Text("This storage is empty", color = VdtColors.Gray, fontSize = 11.sp)
+  }
+  storage.objects.forEach { obj ->
+    Row(
+      Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        obj.title,
+        color = VdtColors.TextDark,
+        fontSize = 12.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f, fill = false),
+      )
+      Text("×${formatInt(obj.count)}", color = VdtColors.DarkGray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
   }
 }
 
@@ -459,6 +496,9 @@ private fun modeLabel(mode: String): String = when (mode) {
 private fun lineCountLabel(n: Int): String = if (n == 1) "1 line" else "$n lines"
 
 private fun typeCountLabel(n: Int): String = if (n == 1) "1 fill type" else "$n fill types"
+
+private fun storageSubtitle(storage: StandaloneStorage): String =
+  if (storage.kind == "object") "${storage.count} / ${storage.capacity}" else typeCountLabel(storage.fills.size)
 
 /** Group a non-negative liter count with thousands separators (e.g. 145000 -> "145,000"). */
 private fun formatInt(value: Int): String {
