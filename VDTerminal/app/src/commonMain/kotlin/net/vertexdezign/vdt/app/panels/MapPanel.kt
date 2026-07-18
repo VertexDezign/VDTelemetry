@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.IndeterminateCheckBox
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
@@ -85,13 +87,18 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.FieldCropRotation
+import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.FieldInfoEntry
 import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapFarm
 import net.vertexdezign.vdt.model.MapField
 import net.vertexdezign.vdt.model.MapVehicle
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.Pda
 import net.vertexdezign.vdt.model.Player
 import org.jetbrains.skia.Image
+import kotlin.math.hypot
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -101,6 +108,9 @@ private const val MAX_ZOOM = 16f
 // Above this zoom the overlay shows secondary text (field area, POI names) — below it only the
 // always-on field numbers and POI dots, so a zoomed-out map doesn't drown in labels.
 private const val DETAIL_ZOOM = 2f
+
+// Max on-screen distance from a field's number label at which a tap opens that field's info popup.
+private val FIELD_TAP_RADIUS_DP = 20.dp
 
 // Persistence keys. The `vdt.` prefix namespaces them within the origin's storage, which the whole
 // page is sharing; each is read and written in separate places, so name them once.
@@ -143,6 +153,7 @@ fun MapPanel(
   modifier: Modifier = Modifier,
   mapData: MapData? = null,
   mapVehicles: MapVehiclesData? = null,
+  fieldInfo: FieldInfoData? = null,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
@@ -150,6 +161,9 @@ fun MapPanel(
   var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
   var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
   var filterOpen by remember { mutableStateOf(false) }
+  // The field whose info popup is open (its id / farmland number), or null when none. Set by tapping
+  // a field label, cleared by tapping empty map or the popup's close button.
+  var selectedFieldId by remember { mutableStateOf<Int?>(null) }
   var searchQuery by remember { mutableStateOf("") }
   // Normalized position of the last search hit; drawn as a ring until the query is cleared.
   var highlight by remember { mutableStateOf<Offset?>(null) }
@@ -321,6 +335,34 @@ fun MapPanel(
                 }
               }
             }
+          }.pointerInput(mapData, side) {
+            // Tap a field label to open its info popup; a tap that hits none closes an open one.
+            // detectTapGestures coexists with the transform/scroll handlers above: it cancels itself
+            // when a drag starts, so panning is unaffected. Positions arrive in the *screen* space of
+            // this side×side box — the same frame the transform gesture's centroid and `applied`
+            // live in — so a label is projected with the overlay's exact toScreen math
+            // (norm*side*scale + applied) and matched within a constant on-screen radius.
+            detectTapGestures { tap ->
+              val fields = mapData?.fields
+              if (fields.isNullOrEmpty()) {
+                selectedFieldId = null
+                return@detectTapGestures
+              }
+              val factor = side * scale
+              val originX = currentApplied.x
+              val originY = currentApplied.y
+              val radius = FIELD_TAP_RADIUS_DP.toPx()
+              var bestId: Int? = null
+              var bestDist = radius
+              for (f in fields) {
+                val d = hypot(tap.x - (f.labelX * factor + originX), tap.y - (f.labelZ * factor + originY))
+                if (d <= bestDist) {
+                  bestDist = d
+                  bestId = f.id
+                }
+              }
+              selectedFieldId = bestId
+            }
           }.graphicsLayer {
             transformOrigin = TransformOrigin(0f, 0f)
             scaleX = scale
@@ -378,6 +420,23 @@ fun MapPanel(
                   (animNorm.y * side * scale + applied.y - 12.dp.toPx()).roundToInt(),
                 )
               }.rotate(animHeading),
+          )
+        }
+      }
+
+      // Field-info popup: the tapped field's game FELDINFO (geometry from mapData + agronomy from
+      // fieldInfo), joined by field id. Cleared when the field leaves the data or the user closes it.
+      selectedFieldId?.let { id ->
+        val field = mapData?.fields?.firstOrNull { it.id == id }
+        if (field == null) {
+          selectedFieldId = null
+        } else {
+          FieldInfoPopup(
+            field = field,
+            info = fieldInfo?.fields?.firstOrNull { it.id == id },
+            farms = mapData.farms,
+            playerFarmId = player?.farmId,
+            onClose = { selectedFieldId = null },
           )
         }
       }
@@ -831,6 +890,131 @@ private fun FilterRow(label: String, checked: Boolean, dot: Color? = null, onTog
     }
     Text(label, fontSize = 13.sp, color = VdtColors.TextDark)
   }
+}
+
+/**
+ * The field-info popup: the game's FELDINFO panel for a tapped field. Geometry rows (farmland id,
+ * owner, area) come from the [MapField]; the agronomy rows (crop, growth, fertilized, warnings) and
+ * the FS25_CropRotation rows come from [FieldInfoEntry] when the interval-driven `fieldInfo` channel
+ * is live — [info] is null when it isn't, and the popup then shows the geometry rows alone. Anchored
+ * bottom-start over the map; its own tap handler swallows clicks so they don't fall through to the
+ * map gestures (and so a tap inside it doesn't close it).
+ */
+@Composable
+private fun BoxScope.FieldInfoPopup(
+  field: MapField,
+  info: FieldInfoEntry?,
+  farms: List<MapFarm>,
+  playerFarmId: Int?,
+  onClose: () -> Unit,
+) {
+  Column(
+    Modifier
+      .align(Alignment.BottomStart)
+      .padding(6.dp)
+      .width(230.dp)
+      .clip(RoundedCornerShape(4.dp))
+      .background(VdtColors.Panel)
+      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
+      .pointerInput(Unit) { detectTapGestures {} }
+      .heightIn(max = 320.dp)
+      .padding(8.dp),
+  ) {
+    // Fixed header: stays pinned while the rows below scroll.
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+      Text(
+        "Field ${field.name.ifBlank { field.id.toString() }}",
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Bold,
+        color = VdtColors.TextDark,
+        modifier = Modifier.weight(1f),
+      )
+      Icon(
+        Icons.Filled.Close,
+        "close",
+        tint = VdtColors.DarkGray,
+        modifier = Modifier.size(16.dp).clickableNoRipple(onClose),
+      )
+    }
+
+    // Scrollable body: the value rows overflow into this region, the header stays put.
+    Column(
+      Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 3.dp),
+      verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+      InfoRow("Farmland", (field.farmlandId ?: field.id).toString())
+      InfoRow("Owner", ownerLabel(field.ownerFarmId, playerFarmId, farms))
+      if (field.areaHa > 0f) InfoRow("Area", "${field.areaHa} ha")
+
+      if (info != null) {
+        if (info.crop.isNotBlank()) InfoRow("Crop", info.crop)
+        val growth = growthLabel(info.growth)
+        if (growth.isNotBlank()) InfoRow("Growth", growth)
+        if (info.maxGrowthState > 0) InfoRow("Stage", "${info.growthState} / ${info.maxGrowthState}")
+        info.yieldBonusPercent?.let { InfoRow("Yield bonus", "+ $it %") }
+        info.sprayLevelPercent?.let { InfoRow("Fertilized", "$it %") }
+        if (info.weed.isNotBlank()) InfoRow("Weeds", info.weed)
+        if (info.needsPlowing) InfoRow("Needs plowing", "", warning = true)
+        if (info.needsLime) InfoRow("Needs lime", "", warning = true)
+        if (info.needsRolling) InfoRow("Needs rolling", "", warning = true)
+        info.cropRotation?.let { CropRotationRows(it) }
+      }
+    }
+  }
+}
+
+/** The FS25_CropRotation section of the popup: a header plus the mod's per-field history rows. */
+@Composable
+private fun CropRotationRows(cr: FieldCropRotation) {
+  Column(
+    Modifier.fillMaxWidth().padding(top = 4.dp),
+    verticalArrangement = Arrangement.spacedBy(3.dp),
+  ) {
+    Text("Crop Rotation", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
+    if (cr.lastCrop.isNotBlank()) InfoRow("Last crop", cr.lastCrop)
+    if (cr.prevCrop.isNotBlank()) InfoRow("Previous crop", cr.prevCrop)
+    cr.yieldPercent?.let { InfoRow("Rotation yield", "$it %") }
+    InfoRow("Catch crop", cr.catchCrop?.ifBlank { null } ?: "None")
+  }
+}
+
+/** One label/value line in the field-info popup; a [warning] row is the label alone, highlighted. */
+@Composable
+private fun InfoRow(label: String, value: String, warning: Boolean = false) {
+  Row(
+    Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(
+      label,
+      fontSize = 12.sp,
+      color = if (warning) VdtColors.Red else VdtColors.DarkGray,
+      fontWeight = if (warning) FontWeight.Bold else FontWeight.Normal,
+      modifier = Modifier.weight(1f),
+    )
+    if (value.isNotBlank()) {
+      Text(value, fontSize = 12.sp, color = VdtColors.TextDark, fontWeight = FontWeight.Medium)
+    }
+  }
+}
+
+/** Game growth-map token -> readable label (mirrors `PlayerHUDUpdater`'s growth text ladder). */
+private fun growthLabel(token: String): String = when (token) {
+  "growing" -> "Growing"
+  "readyToPrepare" -> "Ready to prepare"
+  "readyToHarvest" -> "Ready to harvest"
+  "cut" -> "Cut"
+  "withered" -> "Withered"
+  else -> ""
+}
+
+/** Owner display: "You" for the player's farm, the farm name for another, "Not owned" for none. */
+private fun ownerLabel(ownerFarmId: Int?, playerFarmId: Int?, farms: List<MapFarm>): String {
+  if (ownerFarmId == null) return "Not owned"
+  if (playerFarmId != null && ownerFarmId == playerFarmId) return "You"
+  val name = farms.firstOrNull { it.id == ownerFarmId }?.name
+  return if (!name.isNullOrBlank()) name else "Farm $ownerFarmId"
 }
 
 /** Translation that places the player at the box centre for the given side length and scale. */

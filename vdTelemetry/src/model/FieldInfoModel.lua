@@ -1,0 +1,33 @@
+-- Model definitions for the field-info export channel (fieldInfo.json, src/collect/FieldInfoExporter.lua).
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/FieldInfo.kt) and the fixtures
+-- in examples/json/fieldInfo/*.
+--
+-- Per-field agronomy the game shows in its FELDINFO panel, one entry per field keyed by `id` (the
+-- farmland id, the same value the map channel's MapFieldModel exports — the app joins the two on it).
+-- Unlike the map channel this data is dynamic (crops grow over time), so it is resampled on a timer.
+
+---@class FieldCropRotationModel  the optional FS25_CropRotation rows (nil when the mod isn't installed)
+---@field lastCrop string? last harvested crop title ("Letzte Frucht")
+---@field prevCrop string? crop before that ("Vorletzte Frucht")
+---@field yieldPercent number? rotation yield percentage ("Fruchtfolgen Ertrag", e.g. 115)
+---@field catchCrop string? catch/cover crop title ("Zwischenfrucht"); nil means "no catch crop"
+
+---@class FieldInfoEntryModel
+---@field id number farmland id (same value as MapFieldModel.id)
+---@field crop string? fruit-type title; omitted on a bare / unknown field
+---@field growthState number? current growth state; omitted when there is no crop
+---@field maxGrowthState number? the crop's growth-state count, for a "6 / 7" display
+---@field growth string? growth token: growing|readyToPrepare|readyToHarvest|cut|withered
+---@field yieldBonusPercent number? yield bonus while growing (e.g. 12 = "+ 12 %")
+---@field sprayLevelPercent number? fertilized percentage
+---@field weed string? resolved weed-state title; omitted when weed-free
+---@field needsPlowing boolean? true when plowing is required
+---@field needsLime boolean? true when liming is required
+---@field needsRolling boolean? true when rolling is required
+---@field cropRotation FieldCropRotationModel? present only when FS25_CropRotation is installed
+
+---@class FieldInfoModel
+---@field version string
+---@field fields FieldInfoEntryModel[]?

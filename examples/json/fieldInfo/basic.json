@@ -1,0 +1,30 @@
+{
+  "version": "1",
+  "fields": [
+    {
+      "id": 49,
+      "crop": "Maize",
+      "growthState": 6,
+      "maxGrowthState": 7,
+      "growth": "growing",
+      "yieldBonusPercent": 12,
+      "sprayLevelPercent": 100,
+      "needsPlowing": true,
+      "cropRotation": {
+        "lastCrop": "Beetroot",
+        "prevCrop": "Potato",
+        "yieldPercent": 115,
+        "catchCrop": null
+      }
+    },
+    {
+      "id": 7,
+      "crop": "Wheat",
+      "growthState": 7,
+      "maxGrowthState": 7,
+      "growth": "readyToHarvest",
+      "sprayLevelPercent": 50,
+      "weed": "Weeds (light)"
+    }
+  ]
+}

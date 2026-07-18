@@ -9,6 +9,7 @@ import net.vertexdezign.vdt.app.alerts.AlertEngine
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.model.CropRotationData
+import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.TaskListData
@@ -31,6 +32,7 @@ class VdtStore(
   val cropRotation: StateFlow<CropRotationData?>,
   val mapData: StateFlow<MapData?>,
   val mapVehicles: StateFlow<MapVehiclesData?>,
+  val fieldInfo: StateFlow<FieldInfoData?>,
   val wakeLock: StateFlow<WakeLockStatus>,
   val mapUrl: String,
   val settings: Settings,

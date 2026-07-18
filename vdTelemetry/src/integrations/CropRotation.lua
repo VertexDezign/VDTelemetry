@@ -228,6 +228,107 @@ function VDT.CropRotation.collect()
   }
 end
 
+---Per-field FS25_CropRotation rows for the field-info popup (src/collect/FieldInfoExporter.lua),
+---read from the mod's density maps at a world position — the same reads its
+---PlayerHUDUpdaterExtension does for the in-game HUD: the crop history (last / previous crop), the
+---rotation yield, and the catch crop. Returns a FieldCropRotationModel-shaped table, or nil when the
+---mod isn't loaded or nothing could be read.
+---
+---Follows the same fail-soft contract as collect(): resolves the mod's globals through the env handle
+---(mod-environment isolation, see the header), pcall-guards every read, and treats a missing internal
+---as "no data" so a mod version bump can never throw in the collector (which would take the whole
+---telemetry write down). The position is world (x, z); the mod's *AtWorldPos reads take exactly that.
+---@param x number world x
+---@param z number world z
+---@param fruitTypeIndex number? the field's current fruit-type index (for the potential-yield read)
+---@return FieldCropRotationModel|nil
+function VDT.CropRotation.collectField(x, z, fruitTypeIndex)
+  local e = env()
+  local cr = e ~= nil and e.g_cropRotation or nil
+  if cr == nil then
+    return nil
+  end
+
+  local result = {}
+  local any = false
+
+  -- Crop history: each history state's map resolves the crop name at this position. The list is
+  -- ordered, so the first is the last crop and the second the one before it (the HUD's row order).
+  local historyStateManager = cr.historyStateManager
+  local states = historyStateManager ~= nil and historyStateManager.historyStates or nil
+  if type(states) == "table" then
+    local ordered = {}
+    for _, s in ipairs(states) do
+      ordered[#ordered + 1] = s
+    end
+    local function titleAt(historyState)
+      local map = historyState ~= nil and historyState.map or nil
+      if map == nil or type(map.getStateTitleAtWorldPos) ~= "function" then
+        return nil
+      end
+      local ok, title = pcall(map.getStateTitleAtWorldPos, map, x, z)
+      if ok and type(title) == "string" and title ~= "" then
+        return title
+      end
+      return nil
+    end
+    local last = titleAt(ordered[1])
+    if last ~= nil then
+      result.lastCrop = last
+      any = true
+    end
+    local prev = titleAt(ordered[2])
+    if prev ~= nil then
+      result.prevCrop = prev
+      any = true
+    end
+  end
+
+  -- Rotation yield at this position (the "Fruchtfolgen Ertrag" %), only for a real fruit type.
+  local unknown = (FruitType ~= nil and FruitType.UNKNOWN) or 0
+  local calc = cr.yieldCalculator
+  if
+    fruitTypeIndex ~= nil
+    and fruitTypeIndex ~= unknown
+    and fruitTypeIndex ~= 0
+    and calc ~= nil
+    and type(calc.potentialYieldAtPosition) == "function"
+  then
+    local ok, yield = pcall(calc.potentialYieldAtPosition, calc, x, z, fruitTypeIndex)
+    if ok and type(yield) == "number" then
+      result.yieldPercent = math.floor(yield * 100 + 0.5)
+      any = true
+    end
+  end
+
+  -- Catch crop at this position; no title means "no catch crop" (the app shows "None"). Only fills
+  -- the field, never the sole reason to emit the block — a bare field shouldn't grow a rotation panel.
+  local catchCropManager = cr.catchCropManager
+  local catchCropMap = catchCropManager ~= nil and catchCropManager.catchCropMap or nil
+  if
+    catchCropMap ~= nil
+    and type(catchCropMap.getState) == "function"
+    and type(cr.fruitTypeByCatchCropIndex) == "function"
+  then
+    local ok, catchCropIndex =
+      pcall(catchCropMap.getState, catchCropMap, x, z, catchCropMap.firstChannel, catchCropMap.numChannels)
+    if ok and catchCropIndex ~= nil then
+      local okFruit, fruitType = pcall(cr.fruitTypeByCatchCropIndex, cr, catchCropIndex)
+      if okFruit and fruitType ~= nil and fruitType.fillType ~= nil then
+        local title = fruitType.fillType.title
+        if type(title) == "string" and title ~= "" then
+          result.catchCrop = title
+        end
+      end
+    end
+  end
+
+  if not any then
+    return nil
+  end
+  return result
+end
+
 -- Allocation-free change signature of the planner. FS25's engine Lua has no bitwise operators, so
 -- this is a plain arithmetic rolling hash (kept in double-exact integer range) — enough for change
 -- detection, where the only failure mode is a hash collision missing one update, and the data is a

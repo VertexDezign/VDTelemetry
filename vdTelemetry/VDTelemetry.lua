@@ -43,6 +43,9 @@ local sourceFiles = {
   "src/integrations/registry.lua",
   "src/integrations/TaskList.lua",
   "src/integrations/CropRotation.lua",
+  -- Per-field agronomy channel (field-info popup); reads base-game FieldState and, when present,
+  -- enriches each field via the CropRotation integration above, so it is sourced after it.
+  "src/collect/FieldInfoExporter.lua",
   -- Orchestrators depend on the collectors + aspects + integrations above
   "src/collect/VehicleExporter.lua",
   -- Command back-channel (app -> mod), read side; depends on Json above. CommandRegistry first: the
