@@ -35,7 +35,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /** How long a banner stays up before expiring on its own. */
-private const val BANNER_SHOW_MS = 6_000L
+private const val BANNER_SHOW_MS = 10_000L
+
+/** At most this many banners at once; a raise beyond it evicts the oldest. */
+private const val MAX_BANNERS = 4
 
 private val AlertSeverity.color: Color
   get() = when (this) {
@@ -53,7 +56,14 @@ private val AlertSeverity.color: Color
 @Composable
 fun AlertBannerHost(raised: SharedFlow<ActiveAlert>, modifier: Modifier = Modifier) {
   val banners = remember { mutableStateListOf<ActiveAlert>() }
-  LaunchedEffect(raised) { raised.collect { banners.add(it) } }
+  LaunchedEffect(raised) {
+    raised.collect {
+      // A raise burst inside the expiry window must not stack banners over the whole screen.
+      // TODO: Future improvement, add queue
+      if (banners.size >= MAX_BANNERS) banners.removeAt(0)
+      banners.add(it)
+    }
+  }
 
   Column(
     modifier,
