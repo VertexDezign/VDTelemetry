@@ -343,8 +343,10 @@ fun MapPanel(
             // live in — so a label is projected with the overlay's exact toScreen math
             // (norm*side*scale + applied) and matched within a constant on-screen radius.
             detectTapGestures { tap ->
+              // Only fields that are actually drawn are tappable — with the overlay hidden there are
+              // no labels on screen, so a tap must not open a popup for an invisible field.
               val fields = mapData?.fields
-              if (fields.isNullOrEmpty()) {
+              if (!showFields || fields.isNullOrEmpty()) {
                 selectedFieldId = null
                 return@detectTapGestures
               }

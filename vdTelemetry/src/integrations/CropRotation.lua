@@ -301,8 +301,10 @@ function VDT.CropRotation.collectField(x, z, fruitTypeIndex)
     end
   end
 
-  -- Catch crop at this position; no title means "no catch crop" (the app shows "None"). Only fills
-  -- the field, never the sole reason to emit the block — a bare field shouldn't grow a rotation panel.
+  -- Catch crop at this position. A real cover crop (non-empty title) is meaningful data and counts
+  -- toward `any`, so a field whose only rotation signal is its catch crop still emits the block. A
+  -- missing title means "no catch crop" (the app shows "None") and never emits the block on its own —
+  -- a bare field shouldn't grow a rotation panel.
   local catchCropManager = cr.catchCropManager
   local catchCropMap = catchCropManager ~= nil and catchCropManager.catchCropMap or nil
   if
@@ -318,6 +320,7 @@ function VDT.CropRotation.collectField(x, z, fruitTypeIndex)
         local title = fruitType.fillType.title
         if type(title) == "string" and title ~= "" then
           result.catchCrop = title
+          any = true
         end
       end
     end
