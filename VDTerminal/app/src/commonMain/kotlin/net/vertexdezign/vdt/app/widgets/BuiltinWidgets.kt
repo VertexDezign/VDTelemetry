@@ -40,6 +40,7 @@ object MapWidget : Widget {
     val sampleIntervalMs by store.sampleIntervalMs.collectAsState()
     val mapData by store.mapData.collectAsState()
     val mapVehicles by store.mapVehicles.collectAsState()
+    val fieldInfo by store.fieldInfo.collectAsState()
 
     val pda = telemetry?.environment?.pda
     // In a vehicle the heading is the vehicle's GPS; on foot it's the player's. Same compass
@@ -54,6 +55,7 @@ object MapWidget : Widget {
       modifier = modifier,
       mapData = mapData,
       mapVehicles = mapVehicles,
+      fieldInfo = fieldInfo,
     )
   }
 }

@@ -71,6 +71,7 @@ fun main() {
       cropRotation = repository.cropRotation,
       mapData = repository.mapData,
       mapVehicles = repository.mapVehicles,
+      fieldInfo = repository.fieldInfo,
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,
       settings = settings,

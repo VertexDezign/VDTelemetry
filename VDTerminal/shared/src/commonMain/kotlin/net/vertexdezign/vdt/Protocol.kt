@@ -3,6 +3,7 @@ package net.vertexdezign.vdt
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.vertexdezign.vdt.model.CropRotationData
+import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.TaskListData
@@ -72,6 +73,19 @@ sealed interface ServerMessage {
   @SerialName("mapVehicles")
   data class MapVehicles(
     val data: MapVehiclesData? = null,
+  ) : ServerMessage
+
+  /**
+   * The per-field agronomy channel (`fieldInfo.json`), feeding the field-info popup. Interval-driven
+   * (the crop state grows over in-game time) — a fourth cadence besides the telemetry tick, the
+   * event-driven [MapUpdate] and the ~1 s [MapVehicles] — so it is its own message. [data] is
+   * **null when the file is absent** (export disabled / no data yet): the popup then falls back to
+   * the [MapUpdate] geometry rows alone.
+   */
+  @Serializable
+  @SerialName("fieldInfo")
+  data class FieldInfo(
+    val data: FieldInfoData? = null,
   ) : ServerMessage
 
   @Serializable

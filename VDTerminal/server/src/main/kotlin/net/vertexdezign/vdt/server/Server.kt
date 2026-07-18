@@ -56,6 +56,9 @@ fun main() {
   val mapState = watcher.register("map.json", nullOnAbsent = true) { VdtParser.parseMap(it) }
   // mapVehicles.json rewrites on the mod's own ~1 s vehicle interval; same absence rule.
   val mapVehiclesState = watcher.register("mapVehicles.json", nullOnAbsent = true) { VdtParser.parseMapVehicles(it) }
+  // fieldInfo.json is interval-driven (per-field agronomy, resampled as crops grow); same "absence
+  // means no data / export off" rule as map.json — the app drops back to the geometry rows.
+  val fieldInfoState = watcher.register("fieldInfo.json", nullOnAbsent = true) { VdtParser.parseFieldInfo(it) }
   watcher.launchIn(appScope)
 
   val commandWriter = CommandWriter(Config.commandPath())
@@ -119,6 +122,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val fieldInfoJob =
+          launch {
+            fieldInfoState.collect { data ->
+              val message: ServerMessage = ServerMessage.FieldInfo(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         // Incoming: app -> mod commands. Decode and hand to the writer; ignore anything unparseable
         // so a bad frame can't kill the session. Reading `incoming` also keeps the socket alive.
         try {
@@ -138,6 +148,7 @@ fun main() {
           cropRotationJob.cancel()
           mapJob.cancel()
           mapVehiclesJob.cancel()
+          fieldInfoJob.cancel()
         }
       }
 
