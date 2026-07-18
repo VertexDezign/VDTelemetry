@@ -11,6 +11,9 @@ end
 if VDT.ProductionExporter == nil then
   dofile("src/collect/ProductionExporter.lua")
 end
+if Json == nil then
+  dofile("src/utils/Json.lua")
+end
 
 -- The game enums the tokens are derived from (keys matter, values are arbitrary here).
 local PROD_STATUS = { INACTIVE = 0, RUNNING = 1, MISSING_INPUTS = 2, NO_OUTPUT_SPACE = 3 }
@@ -333,7 +336,21 @@ describe("ProductionExporter.collect", function()
     assert.are.equal(1, #model.storages)
     assert.are.equal("object", model.storages[1].kind)
     assert.are.equal(0, model.storages[1].count)
-    assert.are.equal(0, #model.storages[1].objects)
+    -- empty arrays are omitted (nil), never {} — the encoder would emit {} which Kotlin rejects
+    assert.is_nil(model.storages[1].objects)
+  end)
+
+  it("never encodes an empty array as {} (would break the Kotlin parse)", function()
+    -- Regression for the reported crash: the Json encoder writes {} for an empty Lua table, which
+    -- Kotlin rejects ("expected ["). Every array field must be omitted when empty, so the encoded
+    -- model must contain no {} at all. Exercises the widest set of would-be-empty fields at once: an
+    -- empty object storage (objects), a production point with no lines (lines/storage).
+    local empty = makeObjectStorage("Empty barn", 1, "barn-3", 100, 0, {})
+    local point = makePoint({ name = "P", owner = 1, owningPlaceable = { uniqueId = "p" }, productions = {} })
+    setupWorld({ point }, { empty }, 1)
+
+    local encoded = Json.encode(VDT.ProductionExporter.collect())
+    assert.is_nil(string.find(encoded, "{}", 1, true))
   end)
 
   it("returns just the version while spectating (no local farm)", function()

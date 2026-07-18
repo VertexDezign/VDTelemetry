@@ -180,42 +180,47 @@ end
 ---@return ProductionPointModel
 local function collectPoint(pp, placeable, storage, fallbackId, isFactory)
   local okName, name = pcall(pp.getName, pp)
-  local point = {
-    id = VDT.ProductionExporter.placeableId(placeable, fallbackId),
-    name = (okName and type(name) == "string" and name ~= "") and name or "Production",
-    isFactory = isFactory or nil,
-    lines = {},
-    storage = storage ~= nil and storageRows(storage) or {},
-  }
+  -- Every array field is omitted when empty (set nil, not {}): the Json encoder writes {} for an
+  -- empty Lua table, which the Kotlin model rejects as "expected [" -- an omitted key falls back to
+  -- emptyList() instead (see the collect() note / MapExporter / TaskList.lua).
+  local storageRowsList = storage ~= nil and storageRows(storage) or {}
+  local lines = {}
 
   for index, production in ipairs(pp.productions or {}) do
     local okEnabled, enabled = pcall(pp.getIsProductionEnabled, pp, production.id)
-    local line = {
+    local inputs = {}
+    for _, input in ipairs(production.inputs or {}) do
+      local row = ioRow(pp, input, false)
+      if row ~= nil then
+        inputs[#inputs + 1] = row
+      end
+    end
+    local outputs = {}
+    for _, output in ipairs(production.outputs or {}) do
+      local row = ioRow(pp, output, true)
+      if row ~= nil then
+        outputs[#outputs + 1] = row
+      end
+    end
+    lines[#lines + 1] = {
       id = production.id ~= nil and tostring(production.id) or ("line" .. index),
       name = (type(production.name) == "string" and production.name ~= "") and production.name or ("Line " .. index),
       status = VDT.ProductionExporter.statusToken(production.status),
       enabled = okEnabled and enabled == true,
       cyclesPerMonth = math.floor(num(production.cyclesPerMonth)),
       costsPerMonth = math.floor(num(production.costsPerActiveMonth)),
-      inputs = {},
-      outputs = {},
+      inputs = #inputs > 0 and inputs or nil,
+      outputs = #outputs > 0 and outputs or nil,
     }
-    for _, input in ipairs(production.inputs or {}) do
-      local row = ioRow(pp, input, false)
-      if row ~= nil then
-        line.inputs[#line.inputs + 1] = row
-      end
-    end
-    for _, output in ipairs(production.outputs or {}) do
-      local row = ioRow(pp, output, true)
-      if row ~= nil then
-        line.outputs[#line.outputs + 1] = row
-      end
-    end
-    point.lines[#point.lines + 1] = line
   end
 
-  return point
+  return {
+    id = VDT.ProductionExporter.placeableId(placeable, fallbackId),
+    name = (okName and type(name) == "string" and name ~= "") and name or "Production",
+    isFactory = isFactory or nil,
+    lines = #lines > 0 and lines or nil,
+    storage = #storageRowsList > 0 and storageRowsList or nil,
+  }
 end
 
 local function placeableName(placeable)
@@ -289,7 +294,8 @@ local function collectObjectStorage(placeable, farmId, fallbackIndex)
     kind = "object",
     count = math.floor(num(spec.numStoredObjects)),
     capacity = capacity,
-    objects = objects,
+    -- omit when empty: an empty Lua table encodes as {} which the Kotlin List<StoredObject> rejects
+    objects = #objects > 0 and objects or nil,
   }
 end
 
