@@ -19,6 +19,7 @@ object VdtColors {
   val TrackGray = Color(0xFFE5E7EB) // gray-200
   val ProgressBlue = Color(0xFF2563EB) // blue-600
   val Red = Color(0xFFDC2626)
+  val Amber = Color(0xFFD97706) // amber-600
 }
 
 /** Per-brand accent, ported from the `.brand-*` CSS classes. */

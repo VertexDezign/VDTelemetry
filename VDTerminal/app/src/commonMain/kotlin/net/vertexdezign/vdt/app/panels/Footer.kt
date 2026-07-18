@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +33,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.app.apps.VehicleApp
+import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.math.floor
@@ -85,7 +89,9 @@ fun Footer(vehicle: Vehicle?, modifier: Modifier = Modifier, onCommand: (ClientM
         ?.fillUnits
         ?.fuel
         ?.fillLevelPercentage ?: 100
-    val lowFuel = fuelLevel <= 10
+    // The alert engine owns the threshold (with hysteresis); the icon just mirrors the sticky state.
+    val activeAlerts by LocalVdtStore.current.alerts.active.collectAsState()
+    val lowFuel = activeAlerts.any { it.rule.id == VehicleApp.LOW_FUEL_ALERT_ID }
 
     // Left
     Row(

@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.alerts.AlertBannerHost
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.apps.availableApps
 import net.vertexdezign.vdt.app.layout.WidgetDashboard
@@ -77,6 +78,14 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
               onOpenLauncher = { launcherOpen = true },
             )
         }
+
+        // Shell-level, so banners survive navigation; below the header so they don't cover its
+        // controls. Deliberately under the connection scrim — stale-data banners shouldn't outrank
+        // "connection lost".
+        AlertBannerHost(
+          store.alerts.raised,
+          Modifier.align(Alignment.TopCenter).padding(top = 72.dp),
+        )
 
         if (connection != ConnectionState.Connected) {
           Box(

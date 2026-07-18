@@ -5,6 +5,7 @@ import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.StateFlow
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.WakeLockStatus
+import net.vertexdezign.vdt.app.alerts.AlertEngine
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.model.CropRotationData
@@ -35,6 +36,8 @@ class VdtStore(
   val settings: Settings,
   /** The user's pages (created/edited at runtime, persisted); see [PageStore]. */
   val pages: PageStore,
+  /** Shell-wide alert state (banners + sticky active set); see [AlertEngine]. */
+  val alerts: AlertEngine,
   val onToggleWakeLock: () -> Unit,
   val onCommand: (ClientMessage) -> Unit,
 )

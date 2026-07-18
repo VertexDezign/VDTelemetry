@@ -9,6 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.alerts.AlertInputs
+import net.vertexdezign.vdt.app.alerts.AlertRule
+import net.vertexdezign.vdt.app.alerts.AlertSeverity
+import net.vertexdezign.vdt.app.alerts.ThresholdAlertRule
 import net.vertexdezign.vdt.app.widgets.EngineWidget
 import net.vertexdezign.vdt.app.widgets.ImplementsWidget
 import net.vertexdezign.vdt.app.widgets.LightingWidget
@@ -20,10 +24,30 @@ import net.vertexdezign.vdt.app.widgets.Widget
  * look at the current vehicle.
  */
 object VehicleApp : VdtApp {
+  /** Below this the low-fuel alert fires… */
+  private const val FUEL_ENTER_PERCENT = 10
+
+  /** …and only above this does it re-arm, so sloshing around the threshold can't flap it. */
+  private const val FUEL_EXIT_PERCENT = 15
+
+  const val LOW_FUEL_ALERT_ID = "vehicle.fuel.low"
+
   override val id = "vehicle"
   override val title = "Vehicle"
   override val icon: ImageVector = Icons.Filled.Agriculture
   override val widgets: List<Widget> = listOf(EngineWidget, ImplementsWidget, LightingWidget)
+
+  override val alerts: List<AlertRule> =
+    listOf(
+      ThresholdAlertRule(
+        id = LOW_FUEL_ALERT_ID,
+        severity = AlertSeverity.Warning,
+        title = "LOW FUEL",
+        message = { "Fuel at ${it.fuelPercent}%" },
+        enter = { data -> data.fuelPercent?.let { it <= FUEL_ENTER_PERCENT } == true },
+        exit = { data -> data.fuelPercent?.let { it > FUEL_EXIT_PERCENT } == true },
+      ),
+    )
 
   @Composable
   override fun FullPage(modifier: Modifier) {
@@ -34,3 +58,13 @@ object VehicleApp : VdtApp {
     }
   }
 }
+
+/** Null when on foot or the vehicle reports no fuel unit — the alert then holds its state. */
+private val AlertInputs.fuelPercent: Int?
+  get() =
+    telemetry
+      ?.vehicle
+      ?.motor
+      ?.fillUnits
+      ?.fuel
+      ?.fillLevelPercentage

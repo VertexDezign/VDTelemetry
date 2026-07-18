@@ -9,8 +9,13 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import net.vertexdezign.vdt.app.alerts.AlertEngine
+import net.vertexdezign.vdt.app.alerts.AlertInputs
+import net.vertexdezign.vdt.app.alerts.AlertSeverity
+import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.net.TelemetryRepository
 import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.app.state.VdtStore
@@ -41,6 +46,22 @@ fun main() {
 
   val settings = StorageSettings()
 
+  // Every app's alert rules run shell-wide over the raw data streams, whatever is on screen. A
+  // tick of any channel re-evaluates all rules against the latest snapshot of every channel.
+  val alerts = AlertEngine(AppRegistry.apps.flatMap { it.alerts })
+  scope.launch {
+    combine(repository.telemetry, repository.taskList) { telemetry, taskList ->
+      AlertInputs(telemetry = telemetry, taskList = taskList)
+    }.collect { alerts.process(it) }
+  }
+
+  // Audible cue per raise, alongside the banner. Info stays silent — it's passive by definition;
+  // a chime the driver must react to means at least Warning.
+  AlertSound.install()
+  scope.launch {
+    alerts.raised.collect { if (it.rule.severity != AlertSeverity.Info) AlertSound.play() }
+  }
+
   val store =
     VdtStore(
       telemetry = repository.telemetry,
@@ -54,6 +75,7 @@ fun main() {
       mapUrl = mapUrl,
       settings = settings,
       pages = PageStore(settings),
+      alerts = alerts,
       onToggleWakeLock = {
         WakeLock.toggle()
         wakeLock.value = currentWakeStatus()
