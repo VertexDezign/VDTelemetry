@@ -32,9 +32,10 @@
 ---@field inputs ProductionIoModel[]
 ---@field outputs ProductionIoModel[]
 
----@class ProductionPointModel one owned production point (factory, greenhouse, biogas plant, ...)
+---@class ProductionPointModel one owned production point (greenhouse, biogas plant, ...) or factory
 ---@field id string stable id for app selection (placeable uniqueId, else a synthesized fallback)
 ---@field name string display name (ProductionPoint:getName())
+---@field isFactory boolean? true for a PlaceableFactory (read-only: no on/off, no output-mode control)
 ---@field lines ProductionLineModel[]
 ---@field storage ProductionFillModel[] the point's shared internal storage, one row per fill type
 

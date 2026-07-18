@@ -78,7 +78,24 @@ local function makeSilo(name, owner, uniqueId, levels, caps)
   }
 end
 
-local function setupWorld(points, placeables, farmId)
+-- A factory (PlaceableFactory) stub: it IS the placeable, its input storage lives on
+-- spec_factory.storage, its lone production has no id/status, and it has neither
+-- getIsProductionEnabled nor getOutputDistributionMode.
+local function makeFactory(name, owner, uniqueId, opts)
+  return {
+    uniqueId = uniqueId,
+    productions = opts.productions,
+    spec_factory = { storage = opts.storage },
+    getName = function()
+      return name
+    end,
+    getOwnerFarmId = function()
+      return owner
+    end,
+  }
+end
+
+local function setupWorld(points, placeables, farmId, factories)
   _G.ProductionPoint = { PROD_STATUS = PROD_STATUS, OUTPUT_MODE = OUTPUT_MODE }
   _G.g_fillTypeManager = {
     getFillTypeByIndex = function(_, idx)
@@ -87,7 +104,7 @@ local function setupWorld(points, placeables, farmId)
   }
   _G.g_localPlayer = farmId ~= nil and { farmId = farmId } or nil
   _G.g_currentMission = {
-    productionChainManager = { productionPoints = points },
+    productionChainManager = { productionPoints = points, factories = factories or {} },
     placeableSystem = { placeables = placeables or {} },
     storageSystem = {
       getStorages = function()
@@ -191,6 +208,50 @@ describe("ProductionExporter.collect", function()
     local model = VDT.ProductionExporter.collect()
     assert.are.equal(1, #model.productionPoints)
     assert.are.equal("Mine", model.productionPoints[1].name)
+  end)
+
+  it("collects own-farm factories as read-only points", function()
+    local factory = makeFactory("Sawmill", 1, "mill-1", {
+      productions = {
+        {
+          name = "Boards",
+          cyclesPerMonth = 30,
+          costsPerActiveMonth = 0,
+          inputs = { { type = 10, amount = 5 } },
+          outputs = { { type = 11, amount = 1, isFactory = true } },
+        },
+      },
+      storage = makeStorage({ [10] = 1000 }, { [10] = 5000 }),
+    })
+    local otherFarm = makeFactory("Neighbour mill", 2, "mill-2", { productions = {} })
+    setupWorld({}, {}, 1, { factory, otherFarm })
+
+    local model = VDT.ProductionExporter.collect()
+    assert.are.equal(1, #model.productionPoints)
+    local p = model.productionPoints[1]
+    assert.are.equal("mill-1", p.id)
+    assert.are.equal("Sawmill", p.name)
+    assert.is_true(p.isFactory)
+    assert.are.equal(1, #p.lines)
+    local line = p.lines[1]
+    -- factory productions carry no id/status and no on/off surface
+    assert.are.equal("line1", line.id)
+    assert.is_false(line.enabled)
+    -- factory output has no distribution mode
+    assert.is_nil(line.outputs[1].mode)
+    -- input storage came from spec_factory.storage
+    assert.are.equal(1, #p.storage)
+    assert.are.equal("MANURE", p.storage[1].type)
+    assert.are.equal(1000, p.storage[1].level)
+  end)
+
+  it("merges production points and factories into one list", function()
+    local point = makePoint({ name = "Bakery", owner = 1, owningPlaceable = { uniqueId = "p" } })
+    local factory = makeFactory("Mill", 1, "f", { productions = {} })
+    setupWorld({ point }, {}, 1, { factory })
+
+    local model = VDT.ProductionExporter.collect()
+    assert.are.equal(2, #model.productionPoints)
   end)
 
   it("reports owned silo placeables as standalone storages, skipping other farms and non-silos", function()

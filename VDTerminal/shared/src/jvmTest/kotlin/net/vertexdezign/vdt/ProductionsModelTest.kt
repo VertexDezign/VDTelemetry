@@ -45,6 +45,8 @@ class ProductionsModelTest {
     val point = data.productionPoints[0]
     assertEquals("BunkerMittel_1", point.id)
     assertEquals("Bunker Mittel", point.name)
+    // A real production point (not a factory) — the omitted key falls back to the default.
+    assertFalse(point.isFactory)
     assertEquals(2, point.lines.size)
     assertEquals(4, point.storage.size)
 

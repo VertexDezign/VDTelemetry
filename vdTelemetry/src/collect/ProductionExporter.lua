@@ -165,24 +165,34 @@ local function ioRow(pp, entry, isOutput)
   return row
 end
 
----@param pp table a ProductionPoint
+-- Build a point model from anything exposing the ProductionPoint reading surface. Kept
+-- source-agnostic because a **factory** (PlaceableFactory) is a different object than a
+-- ProductionPoint: it IS the placeable (so `placeable` is passed explicitly, not read off
+-- `.owningPlaceable`), its input storage lives on a different field (passed as `storage`), its lone
+-- production has no id/status, and it has no getIsProductionEnabled / getOutputDistributionMode --
+-- the pcall guards below degrade those to enabled=false / no mode, which is exactly what a read-only
+-- factory should report. `isFactory` marks the point so the app hides the on/off + mode controls.
+---@param pp table a ProductionPoint or a PlaceableFactory (the reading surface: getName, productions)
+---@param placeable table|nil the placeable to derive the stable id from
+---@param storage table|nil the shared/input storage, or nil
 ---@param fallbackId string
----@return ProductionPointModel|nil
-local function collectPoint(pp, fallbackId)
+---@param isFactory boolean
+---@return ProductionPointModel
+local function collectPoint(pp, placeable, storage, fallbackId, isFactory)
   local okName, name = pcall(pp.getName, pp)
   local point = {
-    id = VDT.ProductionExporter.placeableId(pp.owningPlaceable, fallbackId),
+    id = VDT.ProductionExporter.placeableId(placeable, fallbackId),
     name = (okName and type(name) == "string" and name ~= "") and name or "Production",
+    isFactory = isFactory or nil,
     lines = {},
-    storage = pp.storage ~= nil and storageRows(pp.storage) or {},
+    storage = storage ~= nil and storageRows(storage) or {},
   }
 
-  for _, production in ipairs(pp.productions or {}) do
+  for index, production in ipairs(pp.productions or {}) do
     local okEnabled, enabled = pcall(pp.getIsProductionEnabled, pp, production.id)
     local line = {
-      id = tostring(production.id),
-      name = (type(production.name) == "string" and production.name ~= "") and production.name
-        or tostring(production.id),
+      id = production.id ~= nil and tostring(production.id) or ("line" .. index),
+      name = (type(production.name) == "string" and production.name ~= "") and production.name or ("Line " .. index),
       status = VDT.ProductionExporter.statusToken(production.status),
       enabled = okEnabled and enabled == true,
       cyclesPerMonth = math.floor(num(production.cyclesPerMonth)),
@@ -288,7 +298,18 @@ function VDT.ProductionExporter.collect()
   for index, pp in ipairs(manager.productionPoints or {}) do
     local okOwner, owner = pcall(pp.getOwnerFarmId, pp)
     if okOwner and owner == farmId then
-      points[#points + 1] = collectPoint(pp, "point" .. index)
+      points[#points + 1] = collectPoint(pp, pp.owningPlaceable, pp.storage, "point" .. index, false)
+    end
+  end
+  -- Factories (PlaceableFactory) are a separate chain-manager list the game's own menu also shows.
+  -- A factory is the placeable itself; its input storage lives on spec_factory.storage. Read-only:
+  -- collectPoint's guards report no on/off + no output mode, and isFactory=true hides those controls.
+  for index, factory in ipairs(manager.factories or {}) do
+    local okOwner, owner = pcall(factory.getOwnerFarmId, factory)
+    if okOwner and owner == farmId then
+      local spec = factory.spec_factory
+      local storage = spec ~= nil and spec.storage or nil
+      points[#points + 1] = collectPoint(factory, factory, storage, "factory" .. index, true)
     end
   end
 

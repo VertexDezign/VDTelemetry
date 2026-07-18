@@ -21,12 +21,18 @@ data class ProductionsData(
   val storages: List<StandaloneStorage> = emptyList(),
 )
 
-/** One owned production point (factory, greenhouse, biogas plant, ...). */
+/** One owned production point (greenhouse, biogas plant, ...) or a factory. */
 @Serializable
 data class ProductionPoint(
   /** Stable id for selection — the placeable's uniqueId, or a synthesized fallback. */
   val id: String = "",
   val name: String = "",
+  /**
+   * True for a `PlaceableFactory` — a passive "deliver input → produce/sell a product" building
+   * (a separate chain-manager list from real production points). Read-only: it has no on/off state
+   * and no output distribution mode, so the app hides those controls.
+   */
+  val isFactory: Boolean = false,
   val lines: List<ProductionLine> = emptyList(),
   /**
    * The point's shared internal storage, one row per fill type. A line's [ProductionIo.type] joins

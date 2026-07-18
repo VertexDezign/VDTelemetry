@@ -195,7 +195,7 @@ private fun ProductionPointDetail(point: ProductionPoint, onCommand: (ClientMess
     if (point.lines.isEmpty()) {
       Text("This production has no production lines", color = VdtColors.Gray, fontSize = 11.sp)
     }
-    point.lines.forEach { line -> LineCard(point.id, line, byType, onCommand) }
+    point.lines.forEach { line -> LineCard(point.id, line, byType, point.isFactory, onCommand) }
   }
 }
 
@@ -204,6 +204,7 @@ private fun LineCard(
   pointId: String,
   line: ProductionLine,
   storageByType: Map<String, ProductionFill>,
+  isFactory: Boolean,
   onCommand: (ClientMessage) -> Unit,
 ) {
   Column(
@@ -215,8 +216,12 @@ private fun LineCard(
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-      // Tapping the toggle sends the *opposite* of the current state (absolute, idempotent command).
-      EnableToggle(line.enabled, onToggle = { onCommand(ClientMessage.SetProductionEnabled(pointId, line.id, it)) })
+      // A factory has no on/off state and no live status — it just runs on delivered input. Show a
+      // neutral "Factory" tag in place of the toggle/badge so its read-only nature is obvious.
+      if (!isFactory) {
+        // Tapping the toggle sends the *opposite* of the current state (absolute, idempotent command).
+        EnableToggle(line.enabled, onToggle = { onCommand(ClientMessage.SetProductionEnabled(pointId, line.id, it)) })
+      }
       Text(
         line.name,
         color = VdtColors.TextDark,
@@ -224,22 +229,24 @@ private fun LineCard(
         fontWeight = FontWeight.SemiBold,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(start = 8.dp).weight(1f, fill = false),
+        modifier = Modifier.padding(start = if (isFactory) 0.dp else 8.dp).weight(1f, fill = false),
       )
       Box(Modifier.weight(1f))
-      StatusBadge(line.status)
+      if (isFactory) NeutralTag("Factory") else StatusBadge(line.status)
     }
 
     if (line.inputs.isNotEmpty()) {
       IoGroup("Inputs", line.inputs, storageByType, onSetMode = null)
     }
     if (line.outputs.isNotEmpty()) {
-      IoGroup(
-        "Outputs",
-        line.outputs,
-        storageByType,
-        onSetMode = { fillType, mode -> onCommand(ClientMessage.SetProductionOutputMode(pointId, fillType, mode)) },
-      )
+      // A factory's output is sold, not stored/routed — no mode control (onSetMode stays null).
+      val onSetMode: ((String, OutputMode) -> Unit)? =
+        if (isFactory) {
+          null
+        } else {
+          { fillType, mode -> onCommand(ClientMessage.SetProductionOutputMode(pointId, fillType, mode)) }
+        }
+      IoGroup("Outputs", line.outputs, storageByType, onSetMode = onSetMode)
     }
 
     Text(
@@ -405,6 +412,21 @@ private fun StatusBadge(status: String) {
     fontSize = 9.sp,
     fontWeight = FontWeight.Bold,
     modifier = Modifier.clip(RoundedCornerShape(3.dp)).background(color).padding(horizontal = 6.dp, vertical = 2.dp),
+  )
+}
+
+/** A muted pill for a non-status label (e.g. "Factory") — same shape as the status badge, greyed. */
+@Composable
+private fun NeutralTag(text: String) {
+  Text(
+    text.uppercase(),
+    color = VdtColors.DarkGray,
+    fontSize = 9.sp,
+    fontWeight = FontWeight.Bold,
+    modifier = Modifier
+      .clip(RoundedCornerShape(3.dp))
+      .background(VdtColors.TrackGray)
+      .padding(horizontal = 6.dp, vertical = 2.dp),
   )
 }
 
