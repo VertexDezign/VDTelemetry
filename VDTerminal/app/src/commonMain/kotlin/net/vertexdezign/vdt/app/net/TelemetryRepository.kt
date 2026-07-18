@@ -19,6 +19,7 @@ import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.ProductionsData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 import kotlin.math.roundToInt
@@ -77,6 +78,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // rows back to the map geometry alone.
   private val _fieldInfo = MutableStateFlow<FieldInfoData?>(null)
   val fieldInfo: StateFlow<FieldInfoData?> = _fieldInfo.asStateFlow()
+
+  // Productions overview (own-farm production points + standalone storages), on the mod's own ~2 s
+  // interval; same null-when-absent contract as mapData (export off / no data yet clears the app view).
+  private val _productions = MutableStateFlow<ProductionsData?>(null)
+  val productions: StateFlow<ProductionsData?> = _productions.asStateFlow()
 
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
@@ -144,6 +150,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.FieldInfo -> {
                       _fieldInfo.value = msg.data
+                    }
+
+                    is ServerMessage.Productions -> {
+                      _productions.value = msg.data
                     }
 
                     is ServerMessage.Error -> {

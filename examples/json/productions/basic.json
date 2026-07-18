@@ -1,0 +1,54 @@
+{
+  "version": "1",
+  "productionPoints": [
+    {
+      "id": "BunkerMittel_1",
+      "name": "Bunker Mittel",
+      "lines": [
+        {
+          "id": "mist",
+          "name": "Mist",
+          "status": "missingInputs",
+          "enabled": true,
+          "cyclesPerMonth": 360,
+          "costsPerMonth": 60,
+          "inputs": [
+            { "type": "MANURE", "title": "Mist", "amount": 400 }
+          ],
+          "outputs": [
+            { "type": "FERMENTERMANURE", "title": "Fermentermist", "amount": 400, "mode": "autoDeliver", "sellDirectly": false }
+          ]
+        },
+        {
+          "id": "silage",
+          "name": "Silage",
+          "status": "inactive",
+          "enabled": false,
+          "cyclesPerMonth": 360,
+          "costsPerMonth": 60,
+          "inputs": [
+            { "type": "SILAGE", "title": "Silage", "amount": 400 }
+          ],
+          "outputs": [
+            { "type": "FERMENTERSILAGE", "title": "Fermentersilage", "amount": 400, "mode": "autoDeliver", "sellDirectly": false }
+          ]
+        }
+      ],
+      "storage": [
+        { "type": "FERMENTERMANURE", "title": "Fermentermist", "level": 0, "capacity": 15000 },
+        { "type": "FERMENTERSILAGE", "title": "Fermentersilage", "level": 0, "capacity": 50000 },
+        { "type": "MANURE", "title": "Mist", "level": 0, "capacity": 20000 },
+        { "type": "SILAGE", "title": "Silage", "level": 12000, "capacity": 60000 }
+      ]
+    }
+  ],
+  "storages": [
+    {
+      "id": "ZentralesGuellelager_1",
+      "name": "Zentrales Güllelager",
+      "fills": [
+        { "type": "LIQUIDMANURE", "title": "Gülle", "level": 145000, "capacity": 300000 }
+      ]
+    }
+  ]
+}

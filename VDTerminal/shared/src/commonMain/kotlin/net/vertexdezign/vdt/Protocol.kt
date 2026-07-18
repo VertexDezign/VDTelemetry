@@ -6,6 +6,7 @@ import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.ProductionsData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -86,6 +87,19 @@ sealed interface ServerMessage {
   @SerialName("fieldInfo")
   data class FieldInfo(
     val data: FieldInfoData? = null,
+  ) : ServerMessage
+
+  /**
+   * The productions channel (own-farm production points + standalone storages, `productions.json`).
+   * Interval-driven on the mod's own ~2 s cadence (fill levels drift as material is delivered/
+   * consumed) — its own cadence besides the telemetry tick, so it is its own message. [data] is
+   * **null when `productions.json` is absent** (export disabled / no data yet): the app clears its
+   * productions overview then rather than freezing the last state.
+   */
+  @Serializable
+  @SerialName("productions")
+  data class Productions(
+    val data: ProductionsData? = null,
   ) : ServerMessage
 
   @Serializable

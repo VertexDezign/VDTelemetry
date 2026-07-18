@@ -72,6 +72,7 @@ fun main() {
       mapData = repository.mapData,
       mapVehicles = repository.mapVehicles,
       fieldInfo = repository.fieldInfo,
+      productions = repository.productions,
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,
       settings = settings,
