@@ -298,6 +298,55 @@ sealed interface ClientMessage {
   data class DeleteRotation(
     val rotationIndex: Int,
   ) : ClientMessage
+
+  // ---- Productions write-back (productions app). Both drive the base-game ProductionPoint setters
+  // via their MP events, so they run with no current vehicle (requiresVehicle = false mod-side).
+  // `pointId` is the production point's exported id; own-farm ownership is enforced mod-side. ----
+
+  /**
+   * Switch production line `productionId` of point `pointId` on (`enabled = true`) or off. Absolute
+   * state (idempotent), matching the mod's `setProductionState`.
+   */
+  @Serializable
+  @SerialName("setProductionEnabled")
+  data class SetProductionEnabled(
+    val pointId: String,
+    val productionId: String,
+    val enabled: Boolean,
+  ) : ClientMessage
+
+  /**
+   * Set the distribution [mode] of buffered output [fillType] (its internal name) in point `pointId`.
+   * Absolute state (idempotent), matching the mod's `setOutputDistributionMode`. Direct-sell outputs
+   * have no mode and are not targeted here.
+   */
+  @Serializable
+  @SerialName("setProductionOutputMode")
+  data class SetProductionOutputMode(
+    val pointId: String,
+    val fillType: String,
+    val mode: OutputMode,
+  ) : ClientMessage
+}
+
+/**
+ * A production output's distribution mode. [token] is the wire vocabulary (the `mode=` attribute in
+ * `commands.xml`, and the same token the read model's [net.vertexdezign.vdt.model.ProductionIo.mode]
+ * carries), kept explicit so the enum can be renamed without breaking the contract.
+ */
+@Serializable
+enum class OutputMode(
+  val token: String,
+) {
+  KEEP("keep"),
+  DIRECT_SELL("directSell"),
+  AUTO_DELIVER("autoDeliver"),
+  ;
+
+  companion object {
+    /** The [OutputMode] for a read-model token, or null for an unknown/absent one (e.g. direct-sell). */
+    fun fromToken(token: String?): OutputMode? = entries.firstOrNull { it.token == token }
+  }
 }
 
 /**

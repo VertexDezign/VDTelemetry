@@ -62,6 +62,9 @@ local sourceFiles = {
   "src/command/GpsControl.lua",
   "src/command/TaskListControl.lua",
   "src/command/CropRotationControl.lua",
+  -- Productions write-back (line on/off + output mode); depends on ProductionExporter (own-farm +
+  -- id helpers) sourced with the collectors above
+  "src/command/ProductionControl.lua",
   -- GUI: injects settings controls into the in-game menu
   "src/gui/SettingsFrame.lua",
 }

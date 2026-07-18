@@ -84,7 +84,9 @@ local function num(v)
 end
 
 -- The local player's farm, or nil while spectating / before a player exists (see EnvironmentExporter).
-local function ownFarmId()
+-- Public so the write side (src/command/ProductionControl.lua) enforces ownership against the exact
+-- same "which farm are we" rule the read side scopes to — one definition, so they can't drift.
+function VDT.ProductionExporter.ownFarmId()
   if g_localPlayer ~= nil and type(g_localPlayer.farmId) == "number" and g_localPlayer.farmId > 0 then
     return g_localPlayer.farmId
   end
@@ -92,8 +94,9 @@ local function ownFarmId()
 end
 
 -- Stable id for app selection: the placeable's uniqueId (persisted across sessions), else its scene
--- node id (stable within a session), else the caller's fallback.
-local function placeableId(placeable, fallback)
+-- node id (stable within a session), else the caller's fallback. Public so the write side resolves a
+-- point's exported id back to the live ProductionPoint with the identical id function (no drift).
+function VDT.ProductionExporter.placeableId(placeable, fallback)
   if placeable ~= nil then
     local uid = placeable.uniqueId
     if type(uid) == "string" and uid ~= "" then
@@ -168,7 +171,7 @@ end
 local function collectPoint(pp, fallbackId)
   local okName, name = pcall(pp.getName, pp)
   local point = {
-    id = placeableId(pp.owningPlaceable, fallbackId),
+    id = VDT.ProductionExporter.placeableId(pp.owningPlaceable, fallbackId),
     name = (okName and type(name) == "string" and name ~= "") and name or "Production",
     lines = {},
     storage = pp.storage ~= nil and storageRows(pp.storage) or {},
@@ -232,7 +235,7 @@ local function collectStorages(farmId)
         if entry == nil then
           local okName, name = pcall(placeable.getName, placeable)
           entry = {
-            id = placeableId(placeable, "storage" .. (#order + 1)),
+            id = VDT.ProductionExporter.placeableId(placeable, "storage" .. (#order + 1)),
             name = (okName and type(name) == "string" and name ~= "") and name or "Storage",
             fills = {},
           }
@@ -270,7 +273,7 @@ function VDT.ProductionExporter.collect()
   if not VDT.ProductionExporter.isAvailable() then
     return nil
   end
-  local farmId = ownFarmId()
+  local farmId = VDT.ProductionExporter.ownFarmId()
   if farmId == nil then
     -- spectator / no owned farm: keep the channel present but empty (no points, no storages)
     return { version = tostring(VDT.ProductionExporter.VERSION) }

@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Factory
 import androidx.compose.material.icons.filled.Warehouse
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.OutputMode
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
@@ -53,12 +57,13 @@ import net.vertexdezign.vdt.model.StandaloneStorage
  * lines (status, output mode, per-line input/output storage bars, cycles/costs), or a standalone
  * storage's fill levels.
  *
- * Read-only for now; the on/off + output-mode controls are a later step over the command channel.
- * A null [data] means the channel is absent (export off / no data yet) — distinct from an owned-
- * nothing farm, which shows the empty state.
+ * Production lines can be switched on/off and buffered outputs' distribution mode changed, via
+ * [onCommand] (absolute-state commands over the mod command channel). A null [data] means the
+ * channel is absent (export off / no data yet) — distinct from an owned-nothing farm, which shows
+ * the empty state.
  */
 @Composable
-fun ProductionsPanel(data: ProductionsData?, modifier: Modifier = Modifier) {
+fun ProductionsPanel(data: ProductionsData?, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
   Panel(title = "Productions", icon = Icons.Filled.Factory, modifier = modifier) {
     when {
       data == null -> Centered("Waiting for production data…")
@@ -66,13 +71,13 @@ fun ProductionsPanel(data: ProductionsData?, modifier: Modifier = Modifier) {
       data.productionPoints.isEmpty() && data.storages.isEmpty() ->
         Centered("No owned productions or storages")
 
-      else -> ProductionsMasterDetail(data)
+      else -> ProductionsMasterDetail(data, onCommand)
     }
   }
 }
 
 @Composable
-private fun ProductionsMasterDetail(data: ProductionsData) {
+private fun ProductionsMasterDetail(data: ProductionsData, onCommand: (ClientMessage) -> Unit) {
   // Selection is by id so it survives the ~2 s refreshes; falls back to the first entry when the
   // selected placeable disappears (sold / demolished) or on first render.
   var selectedId by remember { mutableStateOf<String?>(null) }
@@ -91,7 +96,7 @@ private fun ProductionsMasterDetail(data: ProductionsData) {
       val point = data.productionPoints.firstOrNull { it.id == currentId }
       val storage = data.storages.firstOrNull { it.id == currentId }
       when {
-        point != null -> ProductionPointDetail(point)
+        point != null -> ProductionPointDetail(point, onCommand)
         storage != null -> StandaloneStorageDetail(storage)
         else -> Centered("Select an entry")
       }
@@ -179,7 +184,7 @@ private fun OwnedRow(name: String, subtitle: String, selected: Boolean, onClick:
 // ---- Production point detail ---------------------------------------------------------------------
 
 @Composable
-private fun ProductionPointDetail(point: ProductionPoint) {
+private fun ProductionPointDetail(point: ProductionPoint, onCommand: (ClientMessage) -> Unit) {
   // The shared storage joined by fill type, so each line's inputs/outputs resolve their live level.
   val byType = remember(point) { point.storage.associateBy { it.type } }
   Column(
@@ -190,12 +195,17 @@ private fun ProductionPointDetail(point: ProductionPoint) {
     if (point.lines.isEmpty()) {
       Text("This production has no production lines", color = VdtColors.Gray, fontSize = 11.sp)
     }
-    point.lines.forEach { line -> LineCard(line, byType) }
+    point.lines.forEach { line -> LineCard(point.id, line, byType, onCommand) }
   }
 }
 
 @Composable
-private fun LineCard(line: ProductionLine, storageByType: Map<String, ProductionFill>) {
+private fun LineCard(
+  pointId: String,
+  line: ProductionLine,
+  storageByType: Map<String, ProductionFill>,
+  onCommand: (ClientMessage) -> Unit,
+) {
   Column(
     Modifier
       .fillMaxWidth()
@@ -205,7 +215,8 @@ private fun LineCard(line: ProductionLine, storageByType: Map<String, Production
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-      EnabledDot(line.enabled)
+      // Tapping the toggle sends the *opposite* of the current state (absolute, idempotent command).
+      EnableToggle(line.enabled, onToggle = { onCommand(ClientMessage.SetProductionEnabled(pointId, line.id, it)) })
       Text(
         line.name,
         color = VdtColors.TextDark,
@@ -213,17 +224,22 @@ private fun LineCard(line: ProductionLine, storageByType: Map<String, Production
         fontWeight = FontWeight.SemiBold,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(start = 6.dp).weight(1f, fill = false),
+        modifier = Modifier.padding(start = 8.dp).weight(1f, fill = false),
       )
       Box(Modifier.weight(1f))
       StatusBadge(line.status)
     }
 
     if (line.inputs.isNotEmpty()) {
-      IoGroup("Inputs", line.inputs, storageByType)
+      IoGroup("Inputs", line.inputs, storageByType, onSetMode = null)
     }
     if (line.outputs.isNotEmpty()) {
-      IoGroup("Outputs", line.outputs, storageByType)
+      IoGroup(
+        "Outputs",
+        line.outputs,
+        storageByType,
+        onSetMode = { fillType, mode -> onCommand(ClientMessage.SetProductionOutputMode(pointId, fillType, mode)) },
+      )
     }
 
     Text(
@@ -236,21 +252,29 @@ private fun LineCard(line: ProductionLine, storageByType: Map<String, Production
 }
 
 @Composable
-private fun IoGroup(label: String, io: List<ProductionIo>, storageByType: Map<String, ProductionFill>) {
+private fun IoGroup(
+  label: String,
+  io: List<ProductionIo>,
+  storageByType: Map<String, ProductionFill>,
+  onSetMode: ((String, OutputMode) -> Unit)?,
+) {
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
     Text(label.uppercase(), color = VdtColors.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     io.forEach { entry ->
       val fill = storageByType[entry.type]
-      IoRow(entry, fill)
+      IoRow(entry, fill, onSetMode)
     }
   }
 }
 
 @Composable
-private fun IoRow(entry: ProductionIo, fill: ProductionFill?) {
+private fun IoRow(entry: ProductionIo, fill: ProductionFill?, onSetMode: ((String, OutputMode) -> Unit)?) {
   val level = fill?.level ?: 0
   val capacity = fill?.capacity ?: 0
   val fraction = if (capacity > 0) level.toFloat() / capacity.toFloat() else 0f
+  // A buffered output (has a mode + a callback) gets an interactive mode dropdown; everything else
+  // (inputs, direct-sell outputs) is read-only.
+  val mode = entry.mode?.let { OutputMode.fromToken(it) }
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
     // Direct-sell outputs are never buffered in storage — there is no fill bar to show, so the
     // recipe amount + mode carries the row instead.
@@ -272,8 +296,12 @@ private fun IoRow(entry: ProductionIo, fill: ProductionFill?) {
         leftLabel = entry.title,
         rightLabel = "${formatInt(level)} / ${formatInt(capacity)} L",
       )
-      entry.mode?.let { mode ->
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { ModeTag(mode) }
+      if (mode != null && onSetMode != null) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+          ModeDropdown(current = mode, onSelect = { onSetMode(entry.type, it) })
+        }
+      } else {
+        entry.mode?.let { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { ModeTag(it) } }
       }
     }
   }
@@ -315,9 +343,57 @@ private fun FillRow(fill: ProductionFill) {
 
 // ---- Small shared pieces -------------------------------------------------------------------------
 
+/** Tappable on/off chip for a production line — green ON / gray OFF; a tap requests the opposite. */
 @Composable
-private fun EnabledDot(enabled: Boolean) {
-  Box(Modifier.size(8.dp).clip(CircleShape).background(if (enabled) VdtColors.Green else VdtColors.TrackGray))
+private fun EnableToggle(enabled: Boolean, onToggle: (Boolean) -> Unit) {
+  val bg = if (enabled) VdtColors.Green else VdtColors.TrackGray
+  val fg = if (enabled) VdtColors.White else VdtColors.DarkGray
+  Text(
+    if (enabled) "ON" else "OFF",
+    color = fg,
+    fontSize = 9.sp,
+    fontWeight = FontWeight.Bold,
+    modifier = Modifier
+      .clip(RoundedCornerShape(3.dp))
+      .background(bg)
+      .clickable { onToggle(!enabled) }
+      .padding(horizontal = 8.dp, vertical = 3.dp),
+  )
+}
+
+/** The current output mode as a tappable chip; the dropdown picks another (absolute-state command). */
+@Composable
+private fun ModeDropdown(current: OutputMode, onSelect: (OutputMode) -> Unit) {
+  var expanded by remember { mutableStateOf(false) }
+  Box {
+    Row(
+      Modifier
+        .clip(RoundedCornerShape(3.dp))
+        .background(VdtColors.TrackGray)
+        .clickable { expanded = true }
+        .padding(start = 6.dp, end = 2.dp, top = 2.dp, bottom = 2.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        modeLabel(current.token).uppercase(),
+        color = VdtColors.DarkGray,
+        fontSize = 9.sp,
+        fontWeight = FontWeight.Bold,
+      )
+      Icon(Icons.Filled.ArrowDropDown, "change mode", tint = VdtColors.DarkGray, modifier = Modifier.size(14.dp))
+    }
+    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+      OutputMode.entries.forEach { mode ->
+        DropdownMenuItem(
+          text = { Text(modeLabel(mode.token)) },
+          onClick = {
+            if (mode != current) onSelect(mode)
+            expanded = false
+          },
+        )
+      }
+    }
+  }
 }
 
 @Composable

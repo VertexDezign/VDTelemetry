@@ -22,7 +22,8 @@ object ProductionsApp : VdtApp {
 
   @Composable
   override fun FullPage(modifier: Modifier) {
-    val productions by LocalVdtStore.current.productions.collectAsState()
-    ProductionsPanel(productions, modifier)
+    val store = LocalVdtStore.current
+    val productions by store.productions.collectAsState()
+    ProductionsPanel(productions, modifier, onCommand = store.onCommand)
   }
 }

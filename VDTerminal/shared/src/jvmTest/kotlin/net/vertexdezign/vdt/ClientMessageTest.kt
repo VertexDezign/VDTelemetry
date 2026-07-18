@@ -51,6 +51,32 @@ class ClientMessageTest {
   }
 
   @Test
+  fun `production write commands round-trip through the wire`() {
+    val json = Json { encodeDefaults = true }
+    val messages =
+      listOf(
+        ClientMessage.SetProductionEnabled("point-1", "line1", enabled = true),
+        ClientMessage.SetProductionEnabled("point-1", "line2", enabled = false),
+        ClientMessage.SetProductionOutputMode("point-1", "MANURE", OutputMode.DIRECT_SELL),
+        ClientMessage.SetProductionOutputMode("point-1", "FERMENTERMANURE", OutputMode.AUTO_DELIVER),
+      )
+    for (message in messages) {
+      val encoded = json.encodeToString(ClientMessage.serializer(), message)
+      assertEquals(message, json.decodeFromString(ClientMessage.serializer(), encoded))
+    }
+  }
+
+  @Test
+  fun `output mode maps to and from its read-model token`() {
+    // The command enum and the read model's ProductionIo.mode string share one token vocabulary, so
+    // the app can turn a rendered mode straight into a command.
+    assertEquals(OutputMode.KEEP, OutputMode.fromToken("keep"))
+    assertEquals(OutputMode.AUTO_DELIVER, OutputMode.fromToken("autoDeliver"))
+    assertEquals(null, OutputMode.fromToken(null))
+    assertEquals(null, OutputMode.fromToken("bogus"))
+  }
+
+  @Test
   fun `a task input outside its documented ranges is rejected`() {
     // These reach TaskListControl.buildStandardTask, where `month` drives the period / nextN maths —
     // an out-of-range value would build a silently malformed task rather than fail. `n` stays

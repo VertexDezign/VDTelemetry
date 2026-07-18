@@ -2,6 +2,7 @@ package net.vertexdezign.vdt.server
 
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.CruiseAction
+import net.vertexdezign.vdt.OutputMode
 import net.vertexdezign.vdt.TaskInput
 import java.nio.file.Files
 import kotlin.io.path.readText
@@ -49,6 +50,25 @@ class CommandWriterTest {
     assertTrue(xml.contains("""type="setRotationCrop" rotationIndex="2" slot="3" state="5""""), xml)
     assertTrue(xml.contains("""type="setRotationCatchCrop" rotationIndex="2" slot="3" catchCropState="1""""), xml)
     assertTrue(xml.contains("""type="removeRotationSlot" rotationIndex="2""""), xml)
+  }
+
+  @Test
+  fun `writes production control commands`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    val writer = CommandWriter(path)
+    writer.submit(ClientMessage.SetProductionEnabled("biogas-1", "mist", enabled = false))
+    writer.submit(ClientMessage.SetProductionOutputMode("biogas-1", "FERMENTERMANURE", OutputMode.AUTO_DELIVER))
+    val xml = path.readText()
+    assertTrue(
+      xml.contains("""type="setProductionEnabled" pointId="biogas-1" productionId="mist" enabled="false""""),
+      xml,
+    )
+    assertTrue(
+      xml.contains(
+        """type="setProductionOutputMode" pointId="biogas-1" fillType="FERMENTERMANURE" mode="autoDeliver"""",
+      ),
+      xml,
+    )
   }
 
   @Test
