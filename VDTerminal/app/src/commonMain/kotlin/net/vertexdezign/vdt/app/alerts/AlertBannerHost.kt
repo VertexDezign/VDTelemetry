@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -27,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +48,13 @@ private val AlertSeverity.color: Color
     AlertSeverity.Info -> VdtColors.ProgressBlue
     AlertSeverity.Warning -> VdtColors.Amber
     AlertSeverity.Critical -> VdtColors.Red
+  }
+
+private val AlertSeverity.icon: ImageVector
+  get() = when (this) {
+    AlertSeverity.Info -> Icons.Filled.Info
+    AlertSeverity.Warning -> Icons.Filled.Warning
+    AlertSeverity.Critical -> Icons.Filled.Error
   }
 
 /**
@@ -97,7 +107,7 @@ private fun Banner(alert: ActiveAlert, onDismiss: () -> Unit) {
   ) {
     Box(Modifier.width(4.dp).fillMaxHeight().background(alert.rule.severity.color))
     Icon(
-      Icons.Filled.Warning,
+      alert.rule.severity.icon,
       null,
       tint = alert.rule.severity.color,
       modifier = Modifier.padding(start = 12.dp),
