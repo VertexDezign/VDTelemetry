@@ -34,9 +34,9 @@ class PageStoreTest {
   @Test
   fun moveByIdClampsToEnds() {
     val store = PageStore(MapSettings()) // [vehicle, farm]
-    store.move("vehicle", +5) // clamps to the last slot
+    store.move("vehicle", Int.MAX_VALUE) // clamps to the last slot (must not overflow to the front)
     assertEquals(listOf("farm", "vehicle"), ids(store))
-    store.move("vehicle", -5) // clamps back to the first
+    store.move("vehicle", Int.MIN_VALUE) // clamps back to the first
     assertEquals(listOf("vehicle", "farm"), ids(store))
     store.move("missing", 1) // unknown id: no-op
     assertEquals(listOf("vehicle", "farm"), ids(store))

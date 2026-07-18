@@ -58,7 +58,9 @@ class PageStore(private val settings: Settings) {
   fun move(id: String, delta: Int) {
     val from = _pages.value.indexOfFirst { it.id == id }
     if (from < 0) return
-    reorder(from, (from + delta).coerceIn(_pages.value.indices))
+    // Long math so an extreme delta (e.g. Int.MAX_VALUE) can't overflow and wrap past the clamp.
+    val target = (from.toLong() + delta).coerceIn(0L, _pages.value.lastIndex.toLong()).toInt()
+    reorder(from, target)
   }
 
   /** Appends a fresh empty page and returns it, so the caller can open it. */

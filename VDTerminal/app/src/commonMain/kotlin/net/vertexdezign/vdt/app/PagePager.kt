@@ -44,8 +44,10 @@ fun ColumnScope.PagePager(
 ) {
   val currentIndex = pages.indexOfFirst { it.id == currentPageId }.coerceAtLeast(0)
   val pagerState = rememberPagerState(initialPage = currentIndex) { pages.size }
-  // The effect below restarts on pages/state changes; read the latest callback through this so it
-  // never captures a stale lambda from an earlier composition.
+  // The settle effect below is keyed only on the (stable) pager, so it reads the live pages/id/callback
+  // through these snapshots rather than capturing stale values from the composition that started it.
+  val pagesState by rememberUpdatedState(pages)
+  val currentPageIdState by rememberUpdatedState(currentPageId)
   val onPageChangeState by rememberUpdatedState(onPageChange)
 
   // External selection -> scroll to match. Keyed on the id so it only fires when the shell's open
@@ -56,10 +58,12 @@ fun ColumnScope.PagePager(
       pagerState.animateScrollToPage(target)
     }
   }
-  // A swipe settling on a new page -> tell the shell, so the header (edit target) and dots follow.
-  LaunchedEffect(pagerState, pages) {
-    snapshotFlow { pagerState.currentPage }.collect { idx ->
-      pages.getOrNull(idx)?.let { if (it.id != currentPageId) onPageChangeState(it.id) }
+  // A swipe settling on a new page -> tell the shell, so the header (edit target) and dots follow. We
+  // watch settledPage, not currentPage: currentPage ticks through every index during an animated jump
+  // (e.g. a dot tap across several pages), which would publish those fly-over pages as selections.
+  LaunchedEffect(pagerState) {
+    snapshotFlow { pagerState.settledPage }.collect { idx ->
+      pagesState.getOrNull(idx)?.let { if (it.id != currentPageIdState) onPageChangeState(it.id) }
     }
   }
 
