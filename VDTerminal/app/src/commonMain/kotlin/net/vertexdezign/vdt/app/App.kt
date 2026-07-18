@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.alerts.AlertBannerHost
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.apps.availableApps
-import net.vertexdezign.vdt.app.layout.WidgetDashboard
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.AutoShow
 import net.vertexdezign.vdt.app.pages.Page
@@ -74,6 +73,7 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
               screen,
               pages,
               editing = editing,
+              onOpenScreen = { screen = it },
               onToggleEdit = { editing = !editing },
               onOpenLauncher = { launcherOpen = true },
             )
@@ -124,6 +124,7 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
               editing = true
               launcherOpen = false
             },
+            onReorder = { from, to -> store.pages.reorder(from, to) },
             // Keep the launcher open so the restored pages appear in place for the user to pick.
             onRestoreDefaults = { store.pages.restoreDefaults() },
             onDismiss = { launcherOpen = false },
@@ -152,6 +153,7 @@ private fun Shell(
   screen: Screen,
   pages: List<Page>,
   editing: Boolean,
+  onOpenScreen: (Screen) -> Unit,
   onToggleEdit: () -> Unit,
   onOpenLauncher: () -> Unit,
 ) {
@@ -172,10 +174,12 @@ private fun Shell(
     )
 
     when (screen) {
-      is Screen.OpenPage -> {
-        val page = pages.firstOrNull { it.id == screen.pageId }
-        if (page != null) WidgetDashboard(page, editing) else Box(Modifier.fillMaxWidth().weight(1f))
-      }
+      is Screen.OpenPage ->
+        if (pages.isEmpty()) {
+          Box(Modifier.fillMaxWidth().weight(1f))
+        } else {
+          PagePager(pages, screen.pageId, editing, onPageChange = { onOpenScreen(Screen.OpenPage(it)) })
+        }
 
       is Screen.OpenApp -> {
         val app = AppRegistry.byId(screen.appId)

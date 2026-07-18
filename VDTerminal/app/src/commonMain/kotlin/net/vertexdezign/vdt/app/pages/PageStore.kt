@@ -40,6 +40,27 @@ class PageStore(private val settings: Settings) {
     persist(_pages.value + seedPages().filterNot { it.id in existing })
   }
 
+  /**
+   * Moves the page currently at [fromIndex] to [toIndex], shifting the pages in between. Out-of-range
+   * indices or a no-op move (same slot) leave the list untouched. Order is the single knob that drives
+   * both swipe order and auto-switch priority (the shell activates the *first* page matching a state),
+   * so persisting it here is what makes reordering stick and change which page auto-shows.
+   */
+  fun reorder(fromIndex: Int, toIndex: Int) {
+    val list = _pages.value
+    if (fromIndex !in list.indices || toIndex !in list.indices || fromIndex == toIndex) return
+    val next = list.toMutableList()
+    next.add(toIndex, next.removeAt(fromIndex))
+    persist(next)
+  }
+
+  /** Moves the page with [id] by [delta] slots (negative = earlier), clamped to the ends. */
+  fun move(id: String, delta: Int) {
+    val from = _pages.value.indexOfFirst { it.id == id }
+    if (from < 0) return
+    reorder(from, (from + delta).coerceIn(_pages.value.indices))
+  }
+
   /** Appends a fresh empty page and returns it, so the caller can open it. */
   fun create(): Page {
     val page =
