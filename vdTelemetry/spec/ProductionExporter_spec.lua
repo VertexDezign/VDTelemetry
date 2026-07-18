@@ -62,7 +62,23 @@ local function makePoint(opts)
   return pp
 end
 
-local function setupWorld(points, storagesSet, farmId)
+-- A silo placeable (spec_silo) owned by `owner`, with a single storage set of level/cap maps.
+local function makeSilo(name, owner, uniqueId, levels, caps)
+  local storage = makeStorage(levels, caps)
+  storage.ownerFarmId = owner
+  return {
+    uniqueId = uniqueId,
+    spec_silo = { storages = { storage } },
+    getOwnerFarmId = function()
+      return owner
+    end,
+    getName = function()
+      return name
+    end,
+  }
+end
+
+local function setupWorld(points, placeables, farmId)
   _G.ProductionPoint = { PROD_STATUS = PROD_STATUS, OUTPUT_MODE = OUTPUT_MODE }
   _G.g_fillTypeManager = {
     getFillTypeByIndex = function(_, idx)
@@ -72,9 +88,10 @@ local function setupWorld(points, storagesSet, farmId)
   _G.g_localPlayer = farmId ~= nil and { farmId = farmId } or nil
   _G.g_currentMission = {
     productionChainManager = { productionPoints = points },
+    placeableSystem = { placeables = placeables or {} },
     storageSystem = {
       getStorages = function()
-        return storagesSet or {}
+        return {}
       end,
     },
   }
@@ -176,31 +193,18 @@ describe("ProductionExporter.collect", function()
     assert.are.equal("Mine", model.productionPoints[1].name)
   end)
 
-  it("reports standalone storages but not production-point storages", function()
-    -- A standalone silo (own farm) and a production point's storage — the latter carries
-    -- spec_productionPoint on its placeable and must be excluded from the storages list.
-    local siloStorage = makeStorage({ [12] = 145000 }, { [12] = 300000 })
-    siloStorage.owningPlaceable = {
-      spec_productionPoint = nil,
-      uniqueId = "silo-1",
-      getOwnerFarmId = function()
-        return 1
-      end,
-      getName = function()
-        return "Central slurry store"
-      end,
-    }
-    local prodStorage = makeStorage({ [10] = 0 }, { [10] = 20000 })
-    prodStorage.owningPlaceable = {
+  it("reports owned silo placeables as standalone storages, skipping other farms and non-silos", function()
+    local mine = makeSilo("Central slurry store", 1, "silo-1", { [12] = 145000 }, { [12] = 300000 })
+    local theirs = makeSilo("Neighbour silo", 2, "silo-2", { [12] = 5000 }, { [12] = 100000 })
+    -- A production placeable is not a silo (no spec_silo) and its storage is reported under
+    -- productionPoints — it must never appear in the standalone storages list.
+    local prod = {
       spec_productionPoint = {},
       getOwnerFarmId = function()
         return 1
       end,
-      getName = function()
-        return "Biogas"
-      end,
     }
-    setupWorld({}, { [siloStorage] = siloStorage, [prodStorage] = prodStorage }, 1)
+    setupWorld({}, { mine, theirs, prod }, 1)
 
     local model = VDT.ProductionExporter.collect()
     assert.is_nil(model.productionPoints)

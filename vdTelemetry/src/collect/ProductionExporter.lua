@@ -208,54 +208,58 @@ local function collectPoint(pp, fallbackId)
   return point
 end
 
--- Standalone storages: every registered Storage whose owning placeable is NOT a production point
--- (those are reported under productionPoints via pp.storage) and belongs to the local farm. Multiple
--- storages under one placeable merge into a single entry; entries with no fill rows are dropped.
+-- Standalone storages: owned silo placeables (PlaceableSilo — farm silos). A Storage object carries
+-- NO back-reference to its placeable (PlaceableSilo sets owningPlaceable on its loading/unloading
+-- stations, never on the Storage), so these can't be discovered from storageSystem:getStorages() --
+-- we walk the placeable list and read each silo's own spec_silo.storages. Production points are
+-- excluded for free: they are not PlaceableSilo (a production placeable carries spec_productionPoint,
+-- not spec_silo), and their storage is already reported under productionPoints. Silo extensions and
+-- object storages (bales/pallets, count-based) are out of scope for v1.
+--
+-- A silo with storagePerFarm holds one Storage per farm (storage.ownerFarmId set per set); we include
+-- only the local farm's set. A normal owned silo sets ownerFarmId to the placeable owner, so the same
+-- check passes there too. Duplicate fill types across sets are merged; an all-empty (0-level) silo
+-- still shows as long as it has capacity for some fill type.
 ---@param farmId number
 ---@return StandaloneStorageModel[]
 local function collectStorages(farmId)
   local out = {}
-  local system = g_currentMission.storageSystem
-  if system == nil then
-    return out
-  end
-  local okAll, all = pcall(system.getStorages, system)
-  if not okAll or type(all) ~= "table" then
+  local system = g_currentMission.placeableSystem
+  local placeables = system ~= nil and system.placeables or nil
+  if type(placeables) ~= "table" then
     return out
   end
 
-  local byPlaceable = {}
-  local order = {}
-  for storage in pairs(all) do
-    local placeable = storage.owningPlaceable
-    if placeable ~= nil and placeable.spec_productionPoint == nil then
+  for _, placeable in ipairs(placeables) do
+    local spec = placeable.spec_silo
+    if spec ~= nil and type(spec.storages) == "table" then
       local okOwner, owner = pcall(placeable.getOwnerFarmId, placeable)
       if okOwner and owner == farmId then
-        local entry = byPlaceable[placeable]
-        if entry == nil then
-          local okName, name = pcall(placeable.getName, placeable)
-          entry = {
-            id = VDT.ProductionExporter.placeableId(placeable, "storage" .. (#order + 1)),
-            name = (okName and type(name) == "string" and name ~= "") and name or "Storage",
-            fills = {},
-          }
-          byPlaceable[placeable] = entry
-          order[#order + 1] = placeable
+        local rows = {}
+        local seen = {}
+        for _, storage in ipairs(spec.storages) do
+          local sOwner = storage.ownerFarmId
+          if sOwner == nil or sOwner == farmId then
+            for _, row in ipairs(storageRows(storage)) do
+              if not seen[row.type] then
+                seen[row.type] = true
+                rows[#rows + 1] = row
+              end
+            end
+          end
         end
-        for _, row in ipairs(storageRows(storage)) do
-          entry.fills[#entry.fills + 1] = row
+        if #rows > 0 then
+          table.sort(rows, function(a, b)
+            return a.type < b.type
+          end)
+          local okName, name = pcall(placeable.getName, placeable)
+          out[#out + 1] = {
+            id = VDT.ProductionExporter.placeableId(placeable, "storage" .. (#out + 1)),
+            name = (okName and type(name) == "string" and name ~= "") and name or "Storage",
+            fills = rows,
+          }
         end
       end
-    end
-  end
-
-  for _, placeable in ipairs(order) do
-    local entry = byPlaceable[placeable]
-    if #entry.fills > 0 then
-      table.sort(entry.fills, function(a, b)
-        return a.type < b.type
-      end)
-      out[#out + 1] = entry
     end
   end
   return out
