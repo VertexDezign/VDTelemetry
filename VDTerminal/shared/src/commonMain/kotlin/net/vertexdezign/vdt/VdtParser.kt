@@ -44,6 +44,6 @@ object VdtParser {
   /** Parse the `mapVehicles.json` channel (vehicle markers) into [MapVehiclesData]. */
   fun parseMapVehicles(text: String): MapVehiclesData = json.decodeFromString(MapVehiclesData.serializer(), text)
 
-  /** Parse the `productions.json` channel (production points + standalone storages) into [ProductionsData]. */
+  /** Parse the `productionStorage.json` channel (production points + standalone storages) into [ProductionsData]. */
   fun parseProductions(text: String): ProductionsData = json.decodeFromString(ProductionsData.serializer(), text)
 }

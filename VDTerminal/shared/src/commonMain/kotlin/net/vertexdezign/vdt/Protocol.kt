@@ -90,14 +90,14 @@ sealed interface ServerMessage {
   ) : ServerMessage
 
   /**
-   * The productions channel (own-farm production points + standalone storages, `productions.json`).
-   * Interval-driven on the mod's own ~2 s cadence (fill levels drift as material is delivered/
-   * consumed) — its own cadence besides the telemetry tick, so it is its own message. [data] is
-   * **null when `productions.json` is absent** (export disabled / no data yet): the app clears its
-   * productions overview then rather than freezing the last state.
+   * The production & storage channel (own-farm production points + standalone storages,
+   * `productionStorage.json`). Interval-driven on the mod's own ~2 s cadence (fill levels drift as
+   * material is delivered/consumed) — its own cadence besides the telemetry tick, so it is its own
+   * message. [data] is **null when `productionStorage.json` is absent** (export disabled / no data
+   * yet): the app clears its overview then rather than freezing the last state.
    */
   @Serializable
-  @SerialName("productions")
+  @SerialName("productionStorage")
   data class Productions(
     val data: ProductionsData? = null,
   ) : ServerMessage
@@ -299,7 +299,7 @@ sealed interface ClientMessage {
     val rotationIndex: Int,
   ) : ClientMessage
 
-  // ---- Productions write-back (productions app). Both drive the base-game ProductionPoint setters
+  // ---- Productions write-back (production & storage app). Both drive the base-game ProductionPoint setters
   // via their MP events, so they run with no current vehicle (requiresVehicle = false mod-side).
   // `pointId` is the production point's exported id; own-farm ownership is enforced mod-side. ----
 

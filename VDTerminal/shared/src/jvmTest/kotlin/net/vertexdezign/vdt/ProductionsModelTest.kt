@@ -11,7 +11,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Decodes the committed `examples/json/productions` fixtures through the real server path
+ * Decodes the committed `examples/json/productionStorage` fixtures through the real server path
  * ([VdtParser.parseProductions]) and asserts the field mapping, the omission defaults (empty
  * lists, absent output `mode`), and a lossless JSON round-trip — the productions channel's half of
  * the mod↔Kotlin contract.
@@ -22,11 +22,11 @@ class ProductionsModelTest {
   private fun example(name: String): String {
     var dir: File? = File(".").absoluteFile
     while (dir != null) {
-      val candidate = File(dir, "examples/json/productions/$name")
+      val candidate = File(dir, "examples/json/productionStorage/$name")
       if (candidate.exists()) return candidate.readText()
       dir = dir.parentFile
     }
-    error("Could not locate examples/json/productions/$name from ${File(".").absolutePath}")
+    error("Could not locate examples/json/productionStorage/$name from ${File(".").absolutePath}")
   }
 
   private fun assertRoundTrips(data: ProductionsData) {
@@ -122,13 +122,16 @@ class ProductionsModelTest {
     val message: ServerMessage = ServerMessage.Productions(data)
     val encoded = json.encodeToString(ServerMessage.serializer(), message)
 
-    assertTrue(encoded.contains("\"type\":\"productions\""), "expected the productions discriminator in $encoded")
+    assertTrue(
+      encoded.contains("\"type\":\"productionStorage\""),
+      "expected the productionStorage discriminator in $encoded",
+    )
     val decoded = json.decodeFromString(ServerMessage.serializer(), encoded)
     assertEquals(message, assertNotNull(decoded as? ServerMessage.Productions))
   }
 
   /**
-   * "File gone" has to be expressible on the wire: the server sends it when `productions.json` is
+   * "File gone" has to be expressible on the wire: the server sends it when `productionStorage.json` is
    * absent (export disabled) and the app clears its overview on it.
    */
   @Test

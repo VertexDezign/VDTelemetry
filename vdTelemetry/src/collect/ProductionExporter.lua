@@ -1,15 +1,15 @@
--- Productions export channel: the LOCAL player's owned production points (with their production
--- lines + shared internal storage) and standalone storages (owned silos with no production),
--- written to productions.json on its OWN interval — fill levels drift as material is delivered/
--- consumed, so this is interval-driven like mapVehicles.json, not tied to the 100 ms main tick.
+-- Production & storage export channel: the LOCAL player's owned production points (with their
+-- production lines + shared internal storage) and standalone storages (owned silos with no
+-- production), written to productionStorage.json on its OWN interval — fill levels drift as material
+-- is delivered/consumed, so this is interval-driven like mapVehicles.json, not tied to the main tick.
 --
 -- Reads only base-game state (g_currentMission.productionChainManager / .storageSystem), so it lives
 -- in collect/, not integrations/. Every engine read is pcall-guarded (fail-soft house rule): a point
 -- that throws is dropped, a bad storage row skipped, and writeDirty()'s pcall contains the rest.
 --
 -- Scope is own-farm only (g_localPlayer.farmId): a production point / storage is included only when
--- its owning placeable's farm matches. Absence of productions.json means "no data yet / export off",
--- same as map.json; the app clears its overview then.
+-- its owning placeable's farm matches. Absence of productionStorage.json means "no data yet / export
+-- off", same as map.json; the app clears its overview then.
 --
 -- Enum tokens (status, output mode) are derived from the game's own enum KEYS, camelCased — so they
 -- stay stable even if Giants renumbers ProductionPoint.PROD_STATUS / .OUTPUT_MODE (see MapExporter).
@@ -19,8 +19,8 @@
 VDT = VDT or {}
 VDT.ProductionExporter = {}
 
-VDT.ProductionExporter.CHANNEL = "productions"
-VDT.ProductionExporter.FILE_NAME = "productions.json"
+VDT.ProductionExporter.CHANNEL = "productionStorage"
+VDT.ProductionExporter.FILE_NAME = "productionStorage.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin ProductionsData.
 VDT.ProductionExporter.VERSION = 1
 -- Write cadence in ms. Its own constant (not the main telemetry interval): production fill levels

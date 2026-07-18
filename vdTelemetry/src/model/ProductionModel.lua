@@ -1,9 +1,9 @@
--- Model definitions for the productions export channel (productions.json,
+-- Model definitions for the production & storage export channel (productionStorage.json,
 -- src/collect/ProductionExporter.lua).
 --
 -- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
 -- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Productions.kt) and the
--- fixtures in examples/json/productions/*.
+-- fixtures in examples/json/productionStorage/*.
 --
 -- Scope: the LOCAL player's farm only (see g_localPlayer.farmId). Two sibling lists — production
 -- points (with their production lines) and standalone storages (owned silos with no production).

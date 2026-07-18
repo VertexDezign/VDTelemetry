@@ -3,7 +3,7 @@ package net.vertexdezign.vdt.model
 import kotlinx.serialization.Serializable
 
 /**
- * Typed model of the **productions** channel the mod writes to `productions.json` (separate file,
+ * Typed model of the **production & storage** channel the mod writes to `productionStorage.json` (separate file,
  * interval-driven cadence — see the mod's `src/collect/ProductionExporter.lua`): the local farm's
  * owned production points (with their production lines + shared internal storage) and standalone
  * storages (owned silos with no production).

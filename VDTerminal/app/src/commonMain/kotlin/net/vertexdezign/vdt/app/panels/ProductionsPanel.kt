@@ -65,7 +65,7 @@ import net.vertexdezign.vdt.model.StandaloneStorage
  */
 @Composable
 fun ProductionsPanel(data: ProductionsData?, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
-  Panel(title = "Productions", icon = Icons.Filled.Factory, modifier = modifier) {
+  Panel(title = "Production & Storage", icon = Icons.Filled.Factory, modifier = modifier) {
     when {
       data == null -> Centered("Waiting for production data…")
 

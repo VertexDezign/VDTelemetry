@@ -11,13 +11,13 @@ import net.vertexdezign.vdt.app.panels.ProductionsPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 
 /**
- * The Productions app: the local farm's owned production points and standalone storages. Base-game
- * data, so it is always available (the panel renders its own waiting/empty states). Full page only
- * for now — no dashboard tile yet.
+ * The Production & Storage app: the local farm's owned production points (incl. factories) and
+ * standalone storages (silos + object storages). Base-game data, so it is always available (the panel
+ * renders its own waiting/empty states). Full page only for now — no dashboard tile yet.
  */
 object ProductionsApp : VdtApp {
-  override val id = "productions"
-  override val title = "Productions"
+  override val id = "productionStorage"
+  override val title = "Production & Storage"
   override val icon: ImageVector = Icons.Filled.Factory
 
   @Composable
