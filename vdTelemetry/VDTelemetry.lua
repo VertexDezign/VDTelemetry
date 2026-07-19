@@ -102,7 +102,7 @@ VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 VDTelemetry.VERSION = 1
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
-VDTelemetry.SETTINGS_XML_VERSION = 2
+VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
 -- JSON in a telemetry/ subfolder (a future command channel gets its own sibling folder). The
 -- subfolder matters because the engine only permits deleteFile() inside modSettings/<modName>/.
@@ -271,6 +271,18 @@ function VDTelemetry:saveSettingsToFile()
   xml:setString("VDTS.logging.specLevel", self.specLevelString)
   xml:setBool("VDTS.json.pretty", self.prettyJson)
 
+  -- Per-channel config (enable toggle + interval override). Enumerated from the registry so the
+  -- channel list isn't duplicated here; event-driven channels have no intervalMs. Fine-tuned via the
+  -- app / this XML only (there's no in-game per-channel UI); applied at load, see loadSettingsFromFile.
+  for i, cfg in ipairs(VDT.ExportChannels.configurableChannels()) do
+    local key = string.format("VDTS.channels.channel(%d)", i - 1)
+    xml:setString(key .. "#id", cfg.name)
+    xml:setBool(key .. "#enabled", cfg.enabled)
+    if cfg.intervalMs ~= nil then
+      xml:setInt(key .. "#intervalMs", cfg.intervalMs)
+    end
+  end
+
   xml:save()
   xml:delete()
 end
@@ -300,6 +312,19 @@ function VDTelemetry:loadSettingsFromFile()
   self.logLevelString = xml:getString("VDTS.logging.level", "INFO")
   self.specLevelString = xml:getString("VDTS.logging.specLevel", "INFO")
   self.prettyJson = xml:getBool("VDTS.json.pretty", false)
+
+  -- Per-channel config: apply each entry to its registered channel (all configurable channels have
+  -- self-registered by now, since this runs from init() after the sourceFiles loop). Unknown ids and
+  -- nil fields are ignored by configure(), so a stale/partial entry falls back to the channel default.
+  xml:iterate("VDTS.channels.channel", function(_, key)
+    local id = xml:getString(key .. "#id")
+    if id ~= nil then
+      VDT.ExportChannels.configure(id, {
+        enabled = xml:getBool(key .. "#enabled"),
+        intervalMs = xml:getInt(key .. "#intervalMs"),
+      })
+    end
+  end)
 
   self.debugger:setLogLvl(GrisuDebug.parseLogLevel(self.logLevelString))
   self.specLogLevel = GrisuDebug.parseLogLevel(self.specLevelString)

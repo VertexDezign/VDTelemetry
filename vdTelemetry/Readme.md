@@ -110,7 +110,7 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
 
 ````xml
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
-<VDTS version="2">
+<VDTS version="3">
     <export>
         <!-- Disable the telemetry export, useful for multiplayer where only one person has GameGlass to reduce load on the client -->
         <enabled>true</enabled>
@@ -126,6 +126,20 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
         <!-- Pretty-print the json output (indented + sorted keys) for easier live inspection during development -->
         <pretty>false</pretty>
     </json>
+    <!-- Per-channel config for the secondary export channels (the live vehicle telemetry above is always on).
+         `enabled` turns a channel off entirely if you don't use that base-game feature — no file is written and any
+         existing one is deleted. `intervalMs` (interval-driven channels only) sets how often it refreshes, clamped to
+         a 100 ms floor. Applied at load; edit here (or from VDTerminal) and restart the game. -->
+    <channels>
+        <channel id="map" enabled="true"/>
+        <channel id="mapVehicles" enabled="true" intervalMs="1000"/>
+        <channel id="production" enabled="true" intervalMs="2000"/>
+        <channel id="storage" enabled="true" intervalMs="2000"/>
+        <channel id="husbandry" enabled="true" intervalMs="5000"/>
+        <channel id="taskList" enabled="true"/>
+        <channel id="cropRotation" enabled="true"/>
+        <channel id="fieldInfo" enabled="true"/>
+    </channels>
 </VDTS>
 
 ````

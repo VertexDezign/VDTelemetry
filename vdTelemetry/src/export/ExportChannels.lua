@@ -24,10 +24,19 @@ local dirtyAt = {} -- name -> monotonic ms when it went clean->dirty (the longes
 local timers = {} -- name -> ms accumulated since last fire, for interval-driven channels
 local nowMs = 0 -- monotonic clock accumulated from tick(dt); the timebase for dirtyAt
 
+-- Per-channel user config (from the settings XML, see configure()); absent entries fall back to the
+-- channel's registered defaults (enabled, ch.intervalMs).
+local enabledOverride = {} -- name -> boolean user toggle
+local intervalOverride = {} -- name -> ms user interval, for interval-driven channels only
+
 -- Interval channels are phase-staggered at registration so channels sharing an interval don't fire on
 -- the same frame (each is seeded this far into its first period). Kept below the smallest interval.
 local STAGGER_STEP_MS = 250
 local intervalChannelCount = 0 -- running count of interval channels; drives the per-channel stagger
+
+-- Floor for a user-configured interval (ms). The channels walk placeables/animals/vehicles, so an
+-- interval near frame time would reintroduce the per-frame cost this module exists to spread out.
+VDT.ExportChannels.MIN_INTERVAL_MS = 100
 
 ---Register an export channel. Registration order is the write order.
 ---@param channel table { name, fileName, isAvailable, collect, intervalMs?, tick?, latencyCritical? }
@@ -53,6 +62,62 @@ function VDT.ExportChannels.markDirty(name)
   end
 end
 
+-- A channel is enabled unless the user turned it off in the settings XML (default true).
+local function channelEnabled(name)
+  local v = enabledOverride[name]
+  return v == nil or v
+end
+
+-- Effective cadence: the user's interval override if set, else the channel's registered default.
+local function channelInterval(ch)
+  return intervalOverride[ch.name] or ch.intervalMs
+end
+
+-- Writable = registered, user-enabled, and its data source is available. selectDirty and the stale-
+-- file cleanup both key off this, so a user-disabled channel is neither written nor left on disk.
+local function isWritable(name)
+  local ch = channels[name]
+  return ch ~= nil and channelEnabled(name) and ch.isAvailable()
+end
+
+---Apply user config (from the settings XML) to a registered channel: an enable toggle and, for
+---interval-driven channels, an interval override (clamped to MIN_INTERVAL_MS). A nil field leaves that
+---setting at its default; an unknown channel id (a stale entry from a since-removed mod) is ignored.
+---@param name string channel id
+---@param opts table { enabled: boolean?, intervalMs: number? }
+function VDT.ExportChannels.configure(name, opts)
+  local ch = channels[name]
+  if ch == nil then
+    return
+  end
+  if opts.enabled ~= nil then
+    enabledOverride[name] = opts.enabled and true or false
+  end
+  if opts.intervalMs ~= nil and ch.intervalMs ~= nil then
+    intervalOverride[name] = math.max(opts.intervalMs, VDT.ExportChannels.MIN_INTERVAL_MS)
+  end
+end
+
+---Enumerate the user-configurable channels — everything except the latency-critical live-telemetry
+---channel — in registration order, with their current effective config. Drives the settings XML
+---read/write so VDTelemetry never hardcodes the channel list. `intervalMs` is nil for event-driven
+---channels (no cadence to tune).
+---@return table[] { name, enabled, intervalMs } per channel
+function VDT.ExportChannels.configurableChannels()
+  local out = {}
+  for _, name in ipairs(order) do
+    local ch = channels[name]
+    if not ch.latencyCritical then
+      out[#out + 1] = {
+        name = name,
+        enabled = channelEnabled(name),
+        intervalMs = ch.intervalMs ~= nil and channelInterval(ch) or nil,
+      }
+    end
+  end
+  return out
+end
+
 -- Test seam: drop all registrations + dirty state (busted insulates _G per block, but the module
 -- upvalues persist within a block, so specs call this between cases).
 function VDT.ExportChannels.reset()
@@ -63,6 +128,8 @@ function VDT.ExportChannels.reset()
   timers = {}
   nowMs = 0
   intervalChannelCount = 0
+  enabledOverride = {}
+  intervalOverride = {}
 end
 
 ---Mark every registered channel dirty — used when export is re-enabled to repopulate all files at
@@ -83,17 +150,17 @@ function VDT.ExportChannels.fileNames()
   return names
 end
 
----File names of the channels that are currently unavailable, i.e. that will never be written. The
----app reads a channel file's *absence* as "that mod isn't installed", so a file left behind by a
----session where the mod WAS installed keeps it showing stale data — the caller deletes these once at
----startup. Only meaningful once every mod has loaded (isAvailable() is false until its mod is up).
+---File names of the channels that will never be written this session — either their data source is
+---unavailable (mod not installed) OR the user disabled the channel in the settings. The app reads a
+---channel file's *absence* as "off / not installed", so a file left behind by a session where the
+---channel WAS written keeps it showing stale data — the caller deletes these once at startup. Only
+---meaningful once every mod has loaded (isAvailable() is false until its mod is up).
 ---@return string[]
 function VDT.ExportChannels.unavailableFileNames()
   local names = {}
   for _, name in ipairs(order) do
-    local ch = channels[name]
-    if not ch.isAvailable() then
-      names[#names + 1] = ch.fileName
+    if not isWritable(name) then
+      names[#names + 1] = channels[name].fileName
     end
   end
   return names
@@ -113,9 +180,11 @@ function VDT.ExportChannels.tick(debugger, dt)
   end
   for _, name in ipairs(order) do
     local ch = channels[name]
-    if ch.intervalMs ~= nil and type(dt) == "number" then
+    -- A user-disabled interval channel doesn't accumulate: skip it so it never queues a write that
+    -- selectDirty would only drop again (which would also leave a dangling dirty flag).
+    if ch.intervalMs ~= nil and type(dt) == "number" and channelEnabled(name) then
       timers[name] = (timers[name] or 0) + dt
-      if timers[name] >= ch.intervalMs then
+      if timers[name] >= channelInterval(ch) then
         timers[name] = 0
         VDT.ExportChannels.markDirty(name)
       end
@@ -126,15 +195,14 @@ function VDT.ExportChannels.tick(debugger, dt)
   end
 end
 
----Channels that are both dirty and available, in registration order. Pure (no IO) so it's
----unit-testable; writeDirty() is the thin IO wrapper around it.
+---Channels that are dirty and writable (registered, user-enabled, data available), in registration
+---order. Pure (no IO) so it's unit-testable; writeDirty() is the thin IO wrapper around it.
 ---@return table[] channels to write
 function VDT.ExportChannels.selectDirty()
   local out = {}
   for _, name in ipairs(order) do
-    local ch = channels[name]
-    if dirty[name] and ch ~= nil and ch.isAvailable() then
-      out[#out + 1] = ch
+    if dirty[name] and isWritable(name) then
+      out[#out + 1] = channels[name]
     end
   end
   return out

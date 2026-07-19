@@ -332,3 +332,80 @@ describe("ExportChannels.writeDirty spreading", function()
     assert.are.equal("H2", readFile(dir .. "h2.json"))
   end)
 end)
+
+describe("ExportChannels per-channel config", function()
+  before_each(function()
+    VDT.ExportChannels.reset()
+  end)
+
+  it("a user-disabled channel is neither written nor listed as writable", function()
+    VDT.ExportChannels.register(channel("prod", true, { body = "P" }))
+    VDT.ExportChannels.markDirty("prod")
+    assert.are.equal(1, #VDT.ExportChannels.selectDirty()) -- enabled by default
+
+    VDT.ExportChannels.configure("prod", { enabled = false })
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty()) -- disabled -> excluded even though dirty
+  end)
+
+  it("a disabled channel's file is cleaned (appears in unavailableFileNames)", function()
+    VDT.ExportChannels.register(channel("on", true, { body = "1" }))
+    VDT.ExportChannels.register(channel("off", true, { body = "2" }))
+    VDT.ExportChannels.configure("off", { enabled = false })
+    -- 'on' is available + enabled -> not listed; 'off' is disabled -> listed for deletion
+    assert.are.same({ "off.json" }, VDT.ExportChannels.unavailableFileNames())
+  end)
+
+  it("re-enabling restores writability", function()
+    VDT.ExportChannels.register(channel("prod", true, { body = "P" }))
+    VDT.ExportChannels.configure("prod", { enabled = false })
+    VDT.ExportChannels.markDirty("prod")
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty())
+    VDT.ExportChannels.configure("prod", { enabled = true })
+    assert.are.equal(1, #VDT.ExportChannels.selectDirty())
+  end)
+
+  it("an interval override changes the cadence used by tick", function()
+    VDT.ExportChannels.register(intervalChannel("prod", 2000)) -- default: ~1750 ms to first fire
+    VDT.ExportChannels.configure("prod", { intervalMs = 500 })
+
+    VDT.ExportChannels.tick(debugger, 300) -- 250 stagger seed + 300 = 550 >= 500 -> fires early
+    assert.are.equal(1, #VDT.ExportChannels.selectDirty())
+  end)
+
+  it("clamps an interval override to MIN_INTERVAL_MS", function()
+    VDT.ExportChannels.register(intervalChannel("prod", 2000))
+    VDT.ExportChannels.configure("prod", { intervalMs = 5 }) -- absurdly low
+
+    local cfg = VDT.ExportChannels.configurableChannels()[1]
+    assert.are.equal(VDT.ExportChannels.MIN_INTERVAL_MS, cfg.intervalMs)
+  end)
+
+  it("ignores an interval override on an event-driven channel (no intervalMs)", function()
+    VDT.ExportChannels.register(channel("map", true, { body = "M" })) -- no intervalMs
+    VDT.ExportChannels.configure("map", { intervalMs = 500 })
+    local cfg = VDT.ExportChannels.configurableChannels()[1]
+    assert.is_nil(cfg.intervalMs) -- event-driven: no cadence to tune
+  end)
+
+  it("ignores config for an unknown channel id without erroring", function()
+    VDT.ExportChannels.register(channel("prod", true, { body = "P" }))
+    assert.has_no.errors(function()
+      VDT.ExportChannels.configure("ghost", { enabled = false, intervalMs = 500 })
+    end)
+    assert.are.equal(1, #VDT.ExportChannels.configurableChannels()) -- only the real channel
+  end)
+
+  it("configurableChannels excludes the latencyCritical channel and reflects overrides", function()
+    local core = channel("telemetry", true, { body = "T" })
+    core.latencyCritical = true
+    VDT.ExportChannels.register(core)
+    VDT.ExportChannels.register(intervalChannel("prod", 2000))
+    VDT.ExportChannels.register(channel("map", true, { body = "M" }))
+    VDT.ExportChannels.configure("prod", { enabled = false, intervalMs = 1500 })
+
+    local list = VDT.ExportChannels.configurableChannels()
+    assert.are.equal(2, #list) -- telemetry excluded
+    assert.are.same({ name = "prod", enabled = false, intervalMs = 1500 }, list[1])
+    assert.are.same({ name = "map", enabled = true, intervalMs = nil }, list[2])
+  end)
+end)
