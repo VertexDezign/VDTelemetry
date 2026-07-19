@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import net.vertexdezign.vdt.ChannelStatsData
 import org.slf4j.LoggerFactory
 import java.nio.file.FileSystems
 import java.nio.file.Path
@@ -19,6 +20,7 @@ import java.nio.file.StandardWatchEventKinds.ENTRY_DELETE
 import java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.exists
+import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.readText
 
 /**
@@ -58,6 +60,17 @@ class TelemetryWatcher(
   ) {
     val flow = MutableStateFlow<T?>(null)
 
+    // Observed write cadence for the diagnostics channel (see snapshotCadence). Only successful
+    // content parses feed it; an absent/torn-read reparse is not a write.
+    val cadence = CadenceTracker(fileName)
+
+    // mtime of the last write we successfully parsed. A single logical write surfaces as several
+    // filesystem events (truncate + write + close), and the debounce doesn't fully coalesce them —
+    // so without this guard we'd parse, and count in the cadence, the same write two or three times,
+    // reporting a cadence near the debounce interval rather than the mod's real write rate. Committed
+    // only on a successful parse, so a torn read (mid-write) is still retried on the next event.
+    private var lastGoodMtimeMs: Long? = null
+
     fun reparse() {
       val path = dir.resolve(fileName)
       try {
@@ -69,7 +82,12 @@ class TelemetryWatcher(
           }
           return
         }
+        val mtimeMs = path.getLastModifiedTime().toMillis()
+        if (mtimeMs == lastGoodMtimeMs) return // duplicate event for a write we already processed
         flow.value = parse(path.readText())
+        lastGoodMtimeMs = mtimeMs
+        // Record the file mtime, not now(): it's the true write instant, free of the debounce offset.
+        cadence.recordWrite(mtimeMs)
         log.debug("Parsed {}", path)
       } catch (e: Exception) {
         log.error("Failed to parse {}; keeping last good state", path, e)
@@ -90,6 +108,14 @@ class TelemetryWatcher(
     channels.add(channel)
     return channel.flow.asStateFlow()
   }
+
+  /**
+   * Snapshot the observed write cadence of every registered file, in registration order, tagged with
+   * [nowMs] (server epoch ms) so the app can compute per-channel staleness against one consistent
+   * clock. Broadcast to clients as [net.vertexdezign.vdt.ServerMessage.ChannelStats].
+   */
+  fun snapshotCadence(nowMs: Long = System.currentTimeMillis()): ChannelStatsData =
+    ChannelStatsData(serverNowEpochMs = nowMs, channels = channels.map { it.cadence.snapshot() })
 
   /**
    * Watch until cancelled, restarting the [java.nio.file.WatchService] if it fails.

@@ -30,9 +30,6 @@ VDT.StorageExporter.VERSION = 1
 -- at most, so a 2 s refresh keeps the overview live without churn.
 VDT.StorageExporter.INTERVAL_MS = 2000
 
--- Accumulated ms since the last markDirty; on the table so specs can reset it.
-VDT.StorageExporter.timerMs = 0
-
 local function num(v)
   return type(v) == "number" and v or 0
 end
@@ -185,25 +182,13 @@ function VDT.StorageExporter.collect()
   }
 end
 
--- Interval-driven: accumulate the frame delta and queue a write every INTERVAL_MS. markDirty on an
--- unavailable channel stays pending (selectDirty skips it without clearing), so ticking before the
--- placeable system is up costs nothing.
-function VDT.StorageExporter.tick(_, dt)
-  if type(dt) ~= "number" then
-    return
-  end
-  VDT.StorageExporter.timerMs = VDT.StorageExporter.timerMs + dt
-  if VDT.StorageExporter.timerMs >= VDT.StorageExporter.INTERVAL_MS then
-    VDT.StorageExporter.timerMs = 0
-    VDT.ExportChannels.markDirty(VDT.StorageExporter.CHANNEL)
-  end
-end
-
--- Self-register the channel (see ExportChannels).
+-- Self-register the channel (see ExportChannels). Interval-driven: the registry owns the cadence.
+-- markDirty on an unavailable channel stays pending (selectDirty skips it without clearing), so
+-- ticking before the placeable system is up costs nothing.
 VDT.ExportChannels.register({
   name = VDT.StorageExporter.CHANNEL,
   fileName = VDT.StorageExporter.FILE_NAME,
   isAvailable = VDT.StorageExporter.isAvailable,
   collect = VDT.StorageExporter.collect,
-  tick = VDT.StorageExporter.tick,
+  intervalMs = VDT.StorageExporter.INTERVAL_MS,
 })

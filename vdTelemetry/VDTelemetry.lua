@@ -102,7 +102,7 @@ VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 VDTelemetry.VERSION = 1
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
-VDTelemetry.SETTINGS_XML_VERSION = 2
+VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
 -- JSON in a telemetry/ subfolder (a future command channel gets its own sibling folder). The
 -- subfolder matters because the engine only permits deleteFile() inside modSettings/<modName>/.
@@ -209,6 +209,10 @@ function VDTelemetry:loadMap(filename)
     VDT.ExportChannels.register({
       name = VDTelemetry.TELEMETRY_CHANNEL,
       fileName = VDTelemetry.STATE_FILE_NAME,
+      -- The live-dashboard channel bypasses ExportChannels' one-heavy-channel-per-frame spread: it's
+      -- cheap and latency-sensitive (10 Hz), so it must flush on its own interval regardless of the
+      -- heavy channels' backlog. The main loop marks it dirty every write interval.
+      latencyCritical = true,
       isAvailable = function()
         return true
       end,
@@ -267,6 +271,22 @@ function VDTelemetry:saveSettingsToFile()
   xml:setString("VDTS.logging.specLevel", self.specLevelString)
   xml:setBool("VDTS.json.pretty", self.prettyJson)
 
+  -- Performance profile: preset that scales the secondary channels' cadence (or "custom" to honour the
+  -- per-channel intervals below). Owned by ExportChannels; the in-game selector drives it.
+  xml:setString("VDTS.profile", VDT.ExportChannels.getProfile())
+
+  -- Per-channel config (enable toggle + interval override). Enumerated from the registry so the
+  -- channel list isn't duplicated here; event-driven channels have no intervalMs. Fine-tuned via the
+  -- app / this XML only (there's no in-game per-channel UI); applied at load, see loadSettingsFromFile.
+  for i, cfg in ipairs(VDT.ExportChannels.configurableChannels()) do
+    local key = string.format("VDTS.channels.channel(%d)", i - 1)
+    xml:setString(key .. "#id", cfg.name)
+    xml:setBool(key .. "#enabled", cfg.enabled)
+    if cfg.intervalMs ~= nil then
+      xml:setInt(key .. "#intervalMs", cfg.intervalMs)
+    end
+  end
+
   xml:save()
   xml:delete()
 end
@@ -296,6 +316,23 @@ function VDTelemetry:loadSettingsFromFile()
   self.logLevelString = xml:getString("VDTS.logging.level", "INFO")
   self.specLevelString = xml:getString("VDTS.logging.specLevel", "INFO")
   self.prettyJson = xml:getBool("VDTS.json.pretty", false)
+
+  -- Performance profile: set it before applying channel config below (channelInterval resolves against
+  -- it). An unknown/absent value falls back to the default.
+  VDT.ExportChannels.setProfile(xml:getString("VDTS.profile", VDT.ExportChannels.DEFAULT_PROFILE))
+
+  -- Per-channel config: apply each entry to its registered channel (all configurable channels have
+  -- self-registered by now, since this runs from init() after the sourceFiles loop). Unknown ids and
+  -- nil fields are ignored by configure(), so a stale/partial entry falls back to the channel default.
+  xml:iterate("VDTS.channels.channel", function(_, key)
+    local id = xml:getString(key .. "#id")
+    if id ~= nil then
+      VDT.ExportChannels.configure(id, {
+        enabled = xml:getBool(key .. "#enabled"),
+        intervalMs = xml:getInt(key .. "#intervalMs"),
+      })
+    end
+  end)
 
   self.debugger:setLogLvl(GrisuDebug.parseLogLevel(self.logLevelString))
   self.specLogLevel = GrisuDebug.parseLogLevel(self.specLevelString)
@@ -341,6 +378,24 @@ function VDTelemetry:setWriteIntervalMs(intervalMs)
   self.commandsPolledThisCycle = false
   self:saveSettingsToFile()
   self.debugger:info("Write interval set to %d ms", intervalMs)
+end
+
+---Live-apply a performance-profile change from the settings UI and persist it. The profile lives in
+---ExportChannels (it resolves the per-channel cadence); this just applies + persists + refreshes.
+---@param name string one of VDT.ExportChannels.PROFILES
+function VDTelemetry:setProfile(name)
+  if VDT.ExportChannels.getProfile() == name then
+    return
+  end
+  if not VDT.ExportChannels.setProfile(name) then
+    self.debugger:warn("ignoring unknown profile '%s'", tostring(name))
+    return
+  end
+  -- refresh promptly so the new cadence's first samples land without waiting a full (possibly long)
+  -- interval; each channel is still gated by its own availability + enabled at write time
+  VDT.ExportChannels.markAllDirty()
+  self:saveSettingsToFile()
+  self.debugger:info("Profile set to %s", name)
 end
 
 -- Delete the named files from the telemetry folder. deleteFile is permitted under

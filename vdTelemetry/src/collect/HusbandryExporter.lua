@@ -24,8 +24,6 @@ VDT.HusbandryExporter.VERSION = 1
 -- Write cadence in ms. Husbandry state changes over in-game hours, so a 5 s refresh is plenty.
 VDT.HusbandryExporter.INTERVAL_MS = 5000
 
-VDT.HusbandryExporter.timerMs = 0
-
 local function num(v)
   return type(v) == "number" and v or 0
 end
@@ -181,23 +179,11 @@ function VDT.HusbandryExporter.collect()
   }
 end
 
--- Interval-driven: accumulate the frame delta and queue a write every INTERVAL_MS.
-function VDT.HusbandryExporter.tick(_, dt)
-  if type(dt) ~= "number" then
-    return
-  end
-  VDT.HusbandryExporter.timerMs = VDT.HusbandryExporter.timerMs + dt
-  if VDT.HusbandryExporter.timerMs >= VDT.HusbandryExporter.INTERVAL_MS then
-    VDT.HusbandryExporter.timerMs = 0
-    VDT.ExportChannels.markDirty(VDT.HusbandryExporter.CHANNEL)
-  end
-end
-
--- Self-register the channel (see ExportChannels).
+-- Self-register the channel (see ExportChannels). Interval-driven: the registry owns the cadence.
 VDT.ExportChannels.register({
   name = VDT.HusbandryExporter.CHANNEL,
   fileName = VDT.HusbandryExporter.FILE_NAME,
   isAvailable = VDT.HusbandryExporter.isAvailable,
   collect = VDT.HusbandryExporter.collect,
-  tick = VDT.HusbandryExporter.tick,
+  intervalMs = VDT.HusbandryExporter.INTERVAL_MS,
 })

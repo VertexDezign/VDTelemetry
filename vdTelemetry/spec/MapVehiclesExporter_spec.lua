@@ -30,39 +30,9 @@ describe("MapVehicles.typeToken", function()
   end)
 end)
 
-describe("MapVehicles.tick", function()
-  local markDirtyOrig, marked
-
-  before_each(function()
-    VDT.MapVehicles.timerMs = 0
-    marked = 0
-    markDirtyOrig = VDT.ExportChannels.markDirty
-    VDT.ExportChannels.markDirty = function(name)
-      assert.are.equal(VDT.MapVehicles.CHANNEL, name)
-      marked = marked + 1
-    end
-  end)
-
-  after_each(function()
-    VDT.ExportChannels.markDirty = markDirtyOrig
-  end)
-
-  it("marks dirty once per INTERVAL_MS of accumulated frame time", function()
-    local interval = VDT.MapVehicles.INTERVAL_MS
-    for _ = 1, 3 do
-      VDT.MapVehicles.tick(nil, interval / 2)
-    end
-    assert.are.equal(1, marked) -- 1.5 intervals -> exactly one write queued
-    VDT.MapVehicles.tick(nil, interval)
-    assert.are.equal(2, marked)
-  end)
-
-  it("ignores a tick without dt (older framework caller)", function()
-    VDT.MapVehicles.tick(nil, nil)
-    assert.are.equal(0, marked)
-    assert.are.equal(0, VDT.MapVehicles.timerMs)
-  end)
-end)
+-- The interval cadence (accumulate dt -> markDirty every intervalMs) is owned by ExportChannels now,
+-- not this exporter; it's covered generically in ExportChannels_spec. Here we just register with
+-- intervalMs = INTERVAL_MS.
 
 describe("MapVehicles.collect", function()
   local function vehicle(over)

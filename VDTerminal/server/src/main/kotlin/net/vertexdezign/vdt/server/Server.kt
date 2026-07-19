@@ -22,13 +22,20 @@ import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.VdtParser
 import org.slf4j.LoggerFactory
+
+// How often the observed-cadence diagnostics snapshot is taken + broadcast. Slow on purpose: it's a
+// diagnostics feed, and staleness only needs second-ish resolution.
+private const val CHANNEL_STATS_INTERVAL_MS = 1000L
 
 fun main() {
   val log = LoggerFactory.getLogger("VDTerminal")
@@ -67,6 +74,17 @@ fun main() {
   // husbandry.json is interval-driven too (own animal pens); same absence rule.
   val husbandryState = watcher.register("husbandry.json", nullOnAbsent = true) { VdtParser.parseHusbandry(it) }
   watcher.launchIn(appScope)
+
+  // Diagnostics: sample every channel's observed write cadence on a slow timer (independent of the
+  // channels' own updates, so an idle channel's staleness keeps advancing). One shared flow; each
+  // session collects it, same as the data channels.
+  val channelStatsState = MutableStateFlow(watcher.snapshotCadence())
+  appScope.launch {
+    while (isActive) {
+      delay(CHANNEL_STATS_INTERVAL_MS)
+      channelStatsState.value = watcher.snapshotCadence()
+    }
+  }
 
   val commandWriter = CommandWriter(Config.commandPath())
   log.info("Command file: {}", Config.commandPath())
@@ -157,6 +175,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val channelStatsJob =
+          launch {
+            channelStatsState.collect { data ->
+              val message: ServerMessage = ServerMessage.ChannelStats(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         // Incoming: app -> mod commands. Decode and hand to the writer; ignore anything unparseable
         // so a bad frame can't kill the session. Reading `incoming` also keeps the socket alive.
         try {
@@ -180,6 +205,7 @@ fun main() {
           productionJob.cancel()
           storageJob.cancel()
           husbandryJob.cancel()
+          channelStatsJob.cancel()
         }
       }
 

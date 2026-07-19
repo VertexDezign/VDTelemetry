@@ -3,6 +3,7 @@ package net.vertexdezign.vdt.app.state
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.StateFlow
+import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.WakeLockStatus
 import net.vertexdezign.vdt.app.alerts.AlertEngine
@@ -39,6 +40,8 @@ class VdtStore(
   val production: StateFlow<ProductionData?>,
   val storage: StateFlow<StorageData?>,
   val husbandry: StateFlow<HusbandriesData?>,
+  /** Server-measured observed cadence of each channel file (diagnostics app); null until first frame. */
+  val channelStats: StateFlow<ChannelStatsData?>,
   val wakeLock: StateFlow<WakeLockStatus>,
   val mapUrl: String,
   val settings: Settings,

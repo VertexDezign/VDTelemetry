@@ -128,12 +128,60 @@ sealed interface ServerMessage {
     val data: HusbandriesData? = null,
   ) : ServerMessage
 
+  /**
+   * Diagnostics: the **observed** write cadence of each channel file, as measured server-side (how
+   * often the file actually changes on disk — what the consumer receives, independent of what the mod
+   * intends). Broadcast on its own slow timer, not tied to any channel's data. Feeds the app's
+   * diagnostics panel so the configured intervals/profile can be verified end to end.
+   *
+   * Resolution is floored by the file-watch debounce (`VDT_DEBOUNCE_MS`, 40 ms default), so it can't
+   * distinguish cadences faster than ~25 Hz — fine for the 100 ms telemetry tick and the 1–5 s
+   * secondary channels.
+   */
+  @Serializable
+  @SerialName("channelStats")
+  data class ChannelStats(
+    val data: ChannelStatsData,
+  ) : ServerMessage
+
   @Serializable
   @SerialName("error")
   data class Error(
     val message: String,
   ) : ServerMessage
 }
+
+/** A snapshot of every channel's observed cadence, plus the server clock it was taken at. */
+@Serializable
+data class ChannelStatsData(
+  /**
+   * The server wall clock (epoch ms) at snapshot time. Paired with [ChannelStat.lastWriteEpochMs] —
+   * both on the server clock — the app computes each channel's staleness as `serverNowEpochMs -
+   * lastWriteEpochMs` without any client/server clock-skew.
+   */
+  val serverNowEpochMs: Long,
+  val channels: List<ChannelStat>,
+)
+
+/**
+ * Observed cadence of one channel file. All interval fields are null until at least two writes have
+ * been seen (one write gives a baseline but no interval). [name] is the file name (e.g.
+ * `production.json`); the app maps it to a friendly label.
+ */
+@Serializable
+data class ChannelStat(
+  val name: String,
+  /** Successful (content) reparses seen this session — the initial read counts as the first. */
+  val writes: Long,
+  /** Server-clock epoch ms of the last write, or null if never written. */
+  val lastWriteEpochMs: Long? = null,
+  /** The most recent write-to-write interval (ms). */
+  val lastIntervalMs: Long? = null,
+  /** EMA-smoothed write interval (ms) — the headline "observed cadence". */
+  val meanIntervalMs: Double? = null,
+  val minIntervalMs: Long? = null,
+  val maxIntervalMs: Long? = null,
+)
 
 /**
  * Messages sent client -> server over the WebSocket (app -> mod back-channel), JSON-encoded. The

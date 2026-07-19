@@ -27,9 +27,6 @@ VDT.MapVehicles.VERSION = 1
 -- Write cadence in ms. Deliberately its own constant (not the main telemetry interval).
 VDT.MapVehicles.INTERVAL_MS = 1000
 
--- Accumulated ms since the last markDirty; on the table so specs can reset it.
-VDT.MapVehicles.timerMs = 0
-
 local tokenByType, tokenSource -- lazy reverse map of VehicleHotspot.TYPE, value -> token
 
 ---Wire token for a VehicleHotspot.TYPE value ("tractor", "harvester", "toolTrailed", ...);
@@ -138,25 +135,13 @@ function VDT.MapVehicles.collect()
   }
 end
 
--- Interval-driven, unlike the event-driven channels: accumulate the frame delta and queue a write
--- every INTERVAL_MS. markDirty on an unavailable channel stays pending (selectDirty skips it
--- without clearing), so ticking before the vehicle system is up costs nothing.
-function VDT.MapVehicles.tick(_, dt)
-  if type(dt) ~= "number" then
-    return
-  end
-  VDT.MapVehicles.timerMs = VDT.MapVehicles.timerMs + dt
-  if VDT.MapVehicles.timerMs >= VDT.MapVehicles.INTERVAL_MS then
-    VDT.MapVehicles.timerMs = 0
-    VDT.ExportChannels.markDirty(VDT.MapVehicles.CHANNEL)
-  end
-end
-
--- Self-register the channel (see ExportChannels).
+-- Self-register the channel (see ExportChannels). Interval-driven, unlike the event-driven channels:
+-- the registry owns the cadence. markDirty on an unavailable channel stays pending (selectDirty skips
+-- it without clearing), so ticking before the vehicle system is up costs nothing.
 VDT.ExportChannels.register({
   name = VDT.MapVehicles.CHANNEL,
   fileName = VDT.MapVehicles.FILE_NAME,
   isAvailable = VDT.MapVehicles.isAvailable,
   collect = VDT.MapVehicles.collect,
-  tick = VDT.MapVehicles.tick,
+  intervalMs = VDT.MapVehicles.INTERVAL_MS,
 })
