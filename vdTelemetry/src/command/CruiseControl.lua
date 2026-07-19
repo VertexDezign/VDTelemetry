@@ -11,6 +11,31 @@
 VDT = VDT or {}
 VDT.CruiseControl = {}
 
+---Multiplayer sync for the target speed. Unlike setCruiseControlState (which sends its own
+---SetCruiseControlStateEvent internally), setCruiseControlMaxSpeed only mutates local state and the
+---local, non-authoritative motor speed limit -- so on a client the UI updates but the *server* never
+---learns the new speed and keeps driving at the old one. Drivable's own +/- input handler works
+---because it broadcasts/sends SetCruiseControlSpeedEvent right after setCruiseControlMaxSpeed; we do
+---the same. Reads back spec.cruiseControl.speed so the wire value is the engine-clamped one.
+---No-op off-engine (unit tests) where the event class / g_server / g_client don't exist.
+---@param vehicle Vehicle
+local function syncCruiseSpeed(vehicle)
+  if SetCruiseControlSpeedEvent == nil then
+    return
+  end
+  local spec = vehicle.spec_drivable
+  local cc = spec ~= nil and spec.cruiseControl or nil
+  if cc == nil then
+    return
+  end
+  local event = SetCruiseControlSpeedEvent.new(vehicle, cc.speed, cc.speedReverse)
+  if g_server ~= nil then
+    g_server:broadcastEvent(event, nil, nil, vehicle)
+  elseif g_client ~= nil then
+    g_client:getServerConnection():sendEvent(event)
+  end
+end
+
 ---Apply a cruise-control action.
 ---@param vehicle Vehicle
 ---@param action string enable|disable|setSpeed
@@ -34,6 +59,7 @@ function VDT.CruiseControl.apply(vehicle, action, speed, debugger)
       return
     end
     vehicle:setCruiseControlMaxSpeed(speed)
+    syncCruiseSpeed(vehicle)
     debugger:debug("cruise setSpeed=%s", tostring(speed))
   else
     debugger:warn("cruise: unknown action '%s'", tostring(action))
