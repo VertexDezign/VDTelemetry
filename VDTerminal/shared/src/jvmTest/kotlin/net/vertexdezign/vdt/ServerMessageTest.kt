@@ -45,9 +45,12 @@ class ServerMessageTest {
   }
 
   @Test
-  fun `the app's lenient decoder also reads channel stats`() {
+  fun `the app's lenient decoder ignores an unknown property`() {
+    // A newer server could add a field the app doesn't know yet; the app decodes with
+    // ignoreUnknownKeys = true so that stays forward-compatible. Inject one to actually exercise it.
     val lenient = Json { ignoreUnknownKeys = true }
     val encoded = json.encodeToString(ServerMessage.serializer(), sample)
-    assertEquals(sample, lenient.decodeFromString(ServerMessage.serializer(), encoded))
+    val withUnknown = encoded.replaceFirst("{", """{"futureField":123,""")
+    assertEquals(sample, lenient.decodeFromString(ServerMessage.serializer(), withUnknown))
   }
 }
