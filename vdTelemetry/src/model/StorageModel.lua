@@ -1,0 +1,32 @@
+-- Model definitions for the storage export channel (storage.json,
+-- src/collect/StorageExporter.lua).
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Storage.kt) and the fixtures in
+-- examples/json/storage/*.
+--
+-- Scope: the LOCAL player's farm only (see g_localPlayer.farmId) — the owned standalone storages with
+-- no production: liter silos and object storages (bales/pallets). Split off the sibling production
+-- channel (src/model/ProductionModel.lua); the per-row ProductionFillModel is defined there and
+-- reused here for a silo's fills (a silo's rows look exactly like a production point's internal
+-- storage rows).
+
+---@class StoredObjectModel a group of identical stored objects in an object storage
+---@field index number the group's objectInfoIndex (1-based) — the unload command's addressing key
+---@field title string display name (the abstract object's dialog text, e.g. "Round bale (Straw)")
+---@field count number number of that object currently stored
+
+---@class StandaloneStorageModel an owned storage placeable with no production
+---@field id string stable id for app selection (placeable uniqueId, else a synthesized fallback)
+---@field name string display name (owning placeable's name)
+---@field kind string "fill" (liter silo) or "object" (object storage: bales/pallets, count-based)
+---@field fills ProductionFillModel[]? kind=="fill": one row per stored fill type
+---@field objects StoredObjectModel[]? kind=="object": per-type item counts (may be partial on MP clients)
+---@field count number? kind=="object": total number of objects currently stored
+---@field capacity number? kind=="object": maximum number of objects
+---@field maxUnloadAmount number? kind=="object": per-action unload cap (the effective max per type is
+---  min(this, that group's count))
+
+---@class StorageModel
+---@field version string channel version, independent of VDTelemetry.VERSION
+---@field storages StandaloneStorageModel[]?

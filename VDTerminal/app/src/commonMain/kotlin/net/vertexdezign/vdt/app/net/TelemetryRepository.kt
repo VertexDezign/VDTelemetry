@@ -17,8 +17,11 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.ProductionData
+import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 import kotlin.math.roundToInt
@@ -77,6 +80,20 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // rows back to the map geometry alone.
   private val _fieldInfo = MutableStateFlow<FieldInfoData?>(null)
   val fieldInfo: StateFlow<FieldInfoData?> = _fieldInfo.asStateFlow()
+
+  // Production overview (own-farm production points + factories), on the mod's own ~2 s interval;
+  // same null-when-absent contract as mapData (export off / no data yet clears the app view).
+  private val _production = MutableStateFlow<ProductionData?>(null)
+  val production: StateFlow<ProductionData?> = _production.asStateFlow()
+
+  // Storage overview (own-farm standalone silos + object storages), on its own ~2 s interval; same
+  // null-when-absent contract as production.
+  private val _storage = MutableStateFlow<StorageData?>(null)
+  val storage: StateFlow<StorageData?> = _storage.asStateFlow()
+
+  // Owned animal pens, on the mod's own interval; same null-when-absent contract as production.
+  private val _husbandry = MutableStateFlow<HusbandriesData?>(null)
+  val husbandry: StateFlow<HusbandriesData?> = _husbandry.asStateFlow()
 
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
@@ -144,6 +161,18 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.FieldInfo -> {
                       _fieldInfo.value = msg.data
+                    }
+
+                    is ServerMessage.Production -> {
+                      _production.value = msg.data
+                    }
+
+                    is ServerMessage.Storage -> {
+                      _storage.value = msg.data
+                    }
+
+                    is ServerMessage.Husbandry -> {
+                      _husbandry.value = msg.data
                     }
 
                     is ServerMessage.Error -> {

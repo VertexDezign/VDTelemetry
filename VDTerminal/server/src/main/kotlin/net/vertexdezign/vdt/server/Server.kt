@@ -59,6 +59,13 @@ fun main() {
   // fieldInfo.json is interval-driven (per-field agronomy, resampled as crops grow); same "absence
   // means no data / export off" rule as map.json — the app drops back to the geometry rows.
   val fieldInfoState = watcher.register("fieldInfo.json", nullOnAbsent = true) { VdtParser.parseFieldInfo(it) }
+  // production.json / storage.json rewrite on the mod's own ~2 s interval; same absence rule as map.json.
+  val productionState =
+    watcher.register("production.json", nullOnAbsent = true) { VdtParser.parseProduction(it) }
+  val storageState =
+    watcher.register("storage.json", nullOnAbsent = true) { VdtParser.parseStorage(it) }
+  // husbandry.json is interval-driven too (own animal pens); same absence rule.
+  val husbandryState = watcher.register("husbandry.json", nullOnAbsent = true) { VdtParser.parseHusbandry(it) }
   watcher.launchIn(appScope)
 
   val commandWriter = CommandWriter(Config.commandPath())
@@ -129,6 +136,27 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val productionJob =
+          launch {
+            productionState.collect { data ->
+              val message: ServerMessage = ServerMessage.Production(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
+        val storageJob =
+          launch {
+            storageState.collect { data ->
+              val message: ServerMessage = ServerMessage.Storage(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
+        val husbandryJob =
+          launch {
+            husbandryState.collect { data ->
+              val message: ServerMessage = ServerMessage.Husbandry(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         // Incoming: app -> mod commands. Decode and hand to the writer; ignore anything unparseable
         // so a bad frame can't kill the session. Reading `incoming` also keeps the socket alive.
         try {
@@ -149,6 +177,9 @@ fun main() {
           mapJob.cancel()
           mapVehiclesJob.cancel()
           fieldInfoJob.cancel()
+          productionJob.cancel()
+          storageJob.cancel()
+          husbandryJob.cancel()
         }
       }
 

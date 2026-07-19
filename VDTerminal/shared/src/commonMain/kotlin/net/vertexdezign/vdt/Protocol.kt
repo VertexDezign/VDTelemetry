@@ -4,8 +4,11 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.ProductionData
+import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -86,6 +89,43 @@ sealed interface ServerMessage {
   @SerialName("fieldInfo")
   data class FieldInfo(
     val data: FieldInfoData? = null,
+  ) : ServerMessage
+
+  /**
+   * The production channel (own-farm production points + factories, `production.json`).
+   * Interval-driven on the mod's own ~2 s cadence (fill levels drift as material is
+   * delivered/consumed) — its own cadence besides the telemetry tick, so it is its own message.
+   * [data] is **null when `production.json` is absent** (export disabled / no data yet): the app
+   * clears its overview then rather than freezing the last state.
+   */
+  @Serializable
+  @SerialName("production")
+  data class Production(
+    val data: ProductionData? = null,
+  ) : ServerMessage
+
+  /**
+   * The storage channel (own-farm standalone storages — silos + object storages, `storage.json`).
+   * A sibling of [Production] split onto its own channel; interval-driven on the same ~2 s cadence,
+   * so it is its own message. [data] is **null when `storage.json` is absent** (export disabled /
+   * no data yet): the app clears its overview then rather than freezing the last state.
+   */
+  @Serializable
+  @SerialName("storage")
+  data class Storage(
+    val data: StorageData? = null,
+  ) : ServerMessage
+
+  /**
+   * The husbandry channel (own-farm animal pens, `husbandry.json`). Interval-driven on the mod's own
+   * cadence (condition/productivity drift over in-game hours), so it is its own message. [data] is
+   * **null when `husbandry.json` is absent** (export disabled / no data yet): the app clears its
+   * overview then rather than freezing the last state.
+   */
+  @Serializable
+  @SerialName("husbandry")
+  data class Husbandry(
+    val data: HusbandriesData? = null,
   ) : ServerMessage
 
   @Serializable
@@ -284,6 +324,73 @@ sealed interface ClientMessage {
   data class DeleteRotation(
     val rotationIndex: Int,
   ) : ClientMessage
+
+  // ---- Production write-back (production app). Both drive the base-game ProductionPoint setters
+  // via their MP events, so they run with no current vehicle (requiresVehicle = false mod-side).
+  // `pointId` is the production point's exported id; own-farm ownership is enforced mod-side. ----
+
+  /**
+   * Switch production line `productionId` of point `pointId` on (`enabled = true`) or off. Absolute
+   * state (idempotent), matching the mod's `setProductionState`.
+   */
+  @Serializable
+  @SerialName("setProductionEnabled")
+  data class SetProductionEnabled(
+    val pointId: String,
+    val productionId: String,
+    val enabled: Boolean,
+  ) : ClientMessage
+
+  /**
+   * Set the distribution [mode] of buffered output [fillType] (its internal name) in point `pointId`.
+   * Absolute state (idempotent), matching the mod's `setOutputDistributionMode`. Direct-sell outputs
+   * have no mode and are not targeted here.
+   */
+  @Serializable
+  @SerialName("setProductionOutputMode")
+  data class SetProductionOutputMode(
+    val pointId: String,
+    val fillType: String,
+    val mode: OutputMode,
+  ) : ClientMessage
+
+  /**
+   * Unload [amount] stored objects (bales/pallets) of one group out of object storage [storageId] —
+   * the same action as the in-game trigger dialog (the mod spawns them at the storage's spawn area).
+   * The group is addressed by its [index] (`objectInfoIndex`); [title] rides along so the mod can
+   * re-resolve the group if the index shifted since the read snapshot. Not idempotent (it's an
+   * action, like `createTask`): the amount is clamped mod-side to the live limits, and the server
+   * refuses more than is stored, so a stale value can't over-unload — but it must not be blindly
+   * resent, so it carries no target-state and is never replayed on reconnect.
+   */
+  @Serializable
+  @SerialName("unloadObjectStorage")
+  data class UnloadObjectStorage(
+    val storageId: String,
+    val index: Int,
+    val title: String,
+    val amount: Int,
+  ) : ClientMessage
+}
+
+/**
+ * A production output's distribution mode. [token] is the wire vocabulary (the `mode=` attribute in
+ * `commands.xml`, and the same token the read model's [net.vertexdezign.vdt.model.ProductionIo.mode]
+ * carries), kept explicit so the enum can be renamed without breaking the contract.
+ */
+@Serializable
+enum class OutputMode(
+  val token: String,
+) {
+  KEEP("keep"),
+  DIRECT_SELL("directSell"),
+  AUTO_DELIVER("autoDeliver"),
+  ;
+
+  companion object {
+    /** The [OutputMode] for a read-model token, or null for an unknown/absent one (e.g. direct-sell). */
+    fun fromToken(token: String?): OutputMode? = entries.firstOrNull { it.token == token }
+  }
 }
 
 /**

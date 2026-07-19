@@ -137,6 +137,28 @@ class CommandWriter(
       is ClientMessage.DeleteRotation -> {
         """<command id="$id" type="deleteRotation" rotationIndex="${message.rotationIndex}"/>"""
       }
+
+      // Productions writes. pointId is a placeable uniqueId and fillType an internal name (escaped for
+      // safety); productionId is likewise passed through esc(). enabled is a bool, mode a fixed token.
+      is ClientMessage.SetProductionEnabled -> {
+        """<command id="$id" type="setProductionEnabled" pointId="${esc(
+          message.pointId,
+        )}" productionId="${esc(message.productionId)}" enabled="${message.enabled}"/>"""
+      }
+
+      is ClientMessage.SetProductionOutputMode -> {
+        """<command id="$id" type="setProductionOutputMode" pointId="${esc(
+          message.pointId,
+        )}" fillType="${esc(message.fillType)}" mode="${message.mode.token}"/>"""
+      }
+
+      // storageId is a placeable uniqueId and title the object dialog text (both escaped); index and
+      // amount are ints.
+      is ClientMessage.UnloadObjectStorage -> {
+        """<command id="$id" type="unloadObjectStorage" storageId="${esc(
+          message.storageId,
+        )}" index="${message.index}" title="${esc(message.title)}" amount="${message.amount}"/>"""
+      }
     }
 
   /** The shared `TaskInput` attributes for createTask / editTask (detail is user text → escaped). */
