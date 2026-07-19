@@ -9,10 +9,12 @@
 -- condition bars (getConditionInfos: food, water, straw, milk/manure/wool outputs, cleanliness), the
 -- overall productivity, and the per-group animal breakdown.
 
----@class HusbandryConditionModel one condition bar (food, water, straw, an output, cleanliness, ...)
----@field title string localized label (from the game's getConditionInfos)
----@field ratio number fill/level ratio in [0,1]
----@field inverted boolean? true when the bar reads inversely (a high value is bad, e.g. dirtiness)
+---@class HusbandryConditionModel one condition/food bar (food group, water, straw, an output, ...)
+---@field title string localized label (from getFoodInfos / getConditionInfos)
+---@field ratio number fill/level ratio in [0,1] (for the bar)
+---@field value number current fill level in liters
+---@field capacity number? storage capacity in liters, when the info carries one (food does)
+---@field inverted boolean? true when the bar reads inversely (a high value is bad, e.g. an output)
 
 ---@class HusbandryAnimalGroupModel one cluster of identical animals (same breed + age)
 ---@field name string breed/age label (the animal store name for that subtype at that age)

@@ -153,11 +153,30 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun ConditionBar(condition: HusbandryCondition) {
-  ProgressBar(
-    fraction = condition.ratio,
-    leftLabel = condition.title,
-    rightLabel = "${(condition.ratio * 100).roundToInt()}%",
-  )
+  // Actual liters rather than a bare % — with the capacity when known (food groups carry one).
+  val right =
+    if (condition.capacity > 0) {
+      "${fmtLiters(condition.value)} / ${fmtLiters(condition.capacity)} L"
+    } else {
+      "${fmtLiters(condition.value)} L"
+    }
+  ProgressBar(fraction = condition.ratio, leftLabel = condition.title, rightLabel = right)
+}
+
+/** Group a non-negative liter count with thousands separators (e.g. 145000 -> "145,000"). */
+private fun fmtLiters(value: Int): String {
+  val digits = value.toString()
+  if (digits.length <= 3) return digits
+  val sb = StringBuilder()
+  val firstGroup = digits.length % 3
+  if (firstGroup > 0) sb.append(digits, 0, firstGroup)
+  var i = firstGroup
+  while (i < digits.length) {
+    if (sb.isNotEmpty()) sb.append(',')
+    sb.append(digits, i, i + 3)
+    i += 3
+  }
+  return sb.toString()
 }
 
 @Composable

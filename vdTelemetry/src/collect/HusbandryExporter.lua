@@ -36,6 +36,22 @@ local function ratio(value)
   return math.floor(r * 10000 + 0.5) / 10000
 end
 
+-- One bar row from a condition/food info: the localized title, its [0,1] fill ratio (for the bar),
+-- the current liters (info.value) and the capacity when the info carries one (food does; the
+-- condition bars don't). invertedBar rides along for the output bars (high = needs emptying).
+local function barRow(info)
+  local row = {
+    title = info.title,
+    ratio = ratio(info.ratio),
+    value = math.floor(num(info.value)),
+    inverted = info.invertedBar == true or nil,
+  }
+  if type(info.capacity) == "number" and info.capacity > 0 then
+    row.capacity = math.floor(info.capacity)
+  end
+  return row
+end
+
 -- Breed label for a cluster: the title of the subtype's fill type. Each breed is its own fill type,
 -- so its title is the breed name ("Angus", "Holstein", ...) -- exactly what the game's AnimalScreen,
 -- shop and cluster info box use. (The animal visual's store carries only a description like "for
@@ -92,7 +108,7 @@ local function collectHusbandry(husbandry, fallbackId)
   if okFood and type(foodInfos) == "table" then
     for _, info in ipairs(foodInfos) do
       if type(info.title) == "string" and info.title ~= "" then
-        food[#food + 1] = { title = info.title, ratio = ratio(info.ratio) }
+        food[#food + 1] = barRow(info)
       end
     end
   end
@@ -101,12 +117,11 @@ local function collectHusbandry(husbandry, fallbackId)
   local okCond, infos = pcall(husbandry.getConditionInfos, husbandry)
   if okCond and type(infos) == "table" then
     for _, info in ipairs(infos) do
-      if type(info.title) == "string" and info.title ~= "" then
-        conditions[#conditions + 1] = {
-          title = info.title,
-          ratio = ratio(info.ratio),
-          inverted = info.invertedBar == true or nil,
-        }
+      -- Skip the productivity bar (the only conditionInfo carrying a valueText, and a 0..1 fraction
+      -- rather than liters): it's already shown as the headline productivity bar. Everything left is
+      -- a liter fill level.
+      if type(info.title) == "string" and info.title ~= "" and info.valueText == nil then
+        conditions[#conditions + 1] = barRow(info)
       end
     end
   end

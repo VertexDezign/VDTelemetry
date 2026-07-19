@@ -34,13 +34,17 @@ data class Husbandry(
   val animals: List<HusbandryAnimalGroup> = emptyList(),
 )
 
-/** One condition bar of a husbandry. */
+/** One condition/food bar of a husbandry. */
 @Serializable
 data class HusbandryCondition(
   val title: String = "",
-  /** Fill/level ratio in `[0,1]`. */
+  /** Fill/level ratio in `[0,1]` (drives the bar). */
   val ratio: Float = 0f,
-  /** True when the bar reads inversely (a high value is bad, e.g. dirtiness). */
+  /** Current fill level in liters. */
+  val value: Int = 0,
+  /** Storage capacity in liters, or 0 when the info carries none (the condition bars don't). */
+  val capacity: Int = 0,
+  /** True when the bar reads inversely (a high value is bad, e.g. an output awaiting collection). */
   val inverted: Boolean = false,
 )
 

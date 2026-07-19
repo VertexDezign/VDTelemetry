@@ -48,17 +48,22 @@ class HusbandryModelTest {
     assertEquals(20, pen.maxNumAnimals)
     assertEquals(0.82f, pen.productivity)
 
-    // Food is its own list (getFoodInfos), separate from the condition bars.
+    // Food is its own list (getFoodInfos), separate from the condition bars — with liters + capacity.
     assertEquals(2, pen.food.size)
     assertEquals("Total Mixed Ration (100%)", pen.food[0].title)
     assertEquals(0.55f, pen.food[0].ratio)
+    assertEquals(2750, pen.food[0].value)
+    assertEquals(5000, pen.food[0].capacity)
 
-    assertEquals(5, pen.conditions.size)
-    assertEquals("Food", pen.conditions[0].title)
-    assertEquals(0.65f, pen.conditions[0].ratio)
+    assertEquals(4, pen.conditions.size)
+    assertEquals("Water", pen.conditions[0].title)
+    assertEquals(0.9f, pen.conditions[0].ratio)
+    assertEquals(4500, pen.conditions[0].value)
+    // Condition bars carry no capacity (only food groups do) -> defaults to 0.
+    assertEquals(0, pen.conditions[0].capacity)
     assertFalse(pen.conditions[0].inverted)
-    // The cleanliness bar is inverted; the omitted `inverted` on the others defaults to false.
-    assertTrue(pen.conditions[4].inverted)
+    // The manure output bar is inverted; the omitted `inverted` on the others defaults to false.
+    assertTrue(pen.conditions[3].inverted)
 
     assertEquals(2, pen.animals.size)
     val holstein = pen.animals[0]

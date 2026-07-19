@@ -102,12 +102,13 @@ describe("HusbandryExporter.collect", function()
       maxNumAnimals = 20,
       productivity = 0.82,
       food = {
-        { title = "Grass (30%)", ratio = 0.2 },
+        { title = "Grass (30%)", ratio = 0.2, value = 1000, capacity = 5000 },
         { title = "", ratio = 1 }, -- untitled -> skipped
       },
       conditions = {
-        { title = "Water", ratio = 0.65, invertedBar = false },
-        { title = "Cleanliness", ratio = 0.7, invertedBar = true },
+        { title = "Water", ratio = 0.65, value = 4500, invertedBar = false },
+        { title = "Milk", ratio = 0.7, value = 8000, invertedBar = true },
+        { title = "Productivity", ratio = 0.82, value = 0.82, valueText = "82 %" }, -- skipped (valueText)
         { title = "", ratio = 1 }, -- untitled -> skipped
       },
       clusters = {
@@ -128,15 +129,20 @@ describe("HusbandryExporter.collect", function()
     assert.are.equal(20, h.maxNumAnimals)
     assert.are.equal(0.82, h.productivity)
 
-    -- food comes from getFoodInfos (separate from conditions); untitled entry skipped
+    -- food comes from getFoodInfos (separate from conditions), with liters + capacity; untitled skipped
     assert.are.equal(1, #h.food)
     assert.are.equal("Grass (30%)", h.food[1].title)
     assert.are.equal(0.2, h.food[1].ratio)
+    assert.are.equal(1000, h.food[1].value)
+    assert.are.equal(5000, h.food[1].capacity)
 
-    -- untitled condition skipped; invertedBar mapped to inverted (true only)
+    -- untitled + the productivity valueText bar skipped; invertedBar -> inverted; value is liters,
+    -- condition bars carry no capacity
     assert.are.equal(2, #h.conditions)
     assert.are.equal("Water", h.conditions[1].title)
     assert.are.equal(0.65, h.conditions[1].ratio)
+    assert.are.equal(4500, h.conditions[1].value)
+    assert.is_nil(h.conditions[1].capacity)
     assert.is_nil(h.conditions[1].inverted)
     assert.is_true(h.conditions[2].inverted)
 
