@@ -20,6 +20,7 @@ import java.nio.file.StandardWatchEventKinds.ENTRY_DELETE
 import java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.exists
+import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.readText
 
 /**
@@ -63,6 +64,13 @@ class TelemetryWatcher(
     // content parses feed it; an absent/torn-read reparse is not a write.
     val cadence = CadenceTracker(fileName)
 
+    // mtime of the last write we successfully parsed. A single logical write surfaces as several
+    // filesystem events (truncate + write + close), and the debounce doesn't fully coalesce them —
+    // so without this guard we'd parse, and count in the cadence, the same write two or three times,
+    // reporting a cadence near the debounce interval rather than the mod's real write rate. Committed
+    // only on a successful parse, so a torn read (mid-write) is still retried on the next event.
+    private var lastGoodMtimeMs: Long? = null
+
     fun reparse() {
       val path = dir.resolve(fileName)
       try {
@@ -74,8 +82,12 @@ class TelemetryWatcher(
           }
           return
         }
+        val mtimeMs = path.getLastModifiedTime().toMillis()
+        if (mtimeMs == lastGoodMtimeMs) return // duplicate event for a write we already processed
         flow.value = parse(path.readText())
-        cadence.recordWrite(System.currentTimeMillis())
+        lastGoodMtimeMs = mtimeMs
+        // Record the file mtime, not now(): it's the true write instant, free of the debounce offset.
+        cadence.recordWrite(mtimeMs)
         log.debug("Parsed {}", path)
       } catch (e: Exception) {
         log.error("Failed to parse {}; keeping last good state", path, e)

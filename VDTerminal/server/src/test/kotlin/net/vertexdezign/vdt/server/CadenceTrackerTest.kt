@@ -55,6 +55,19 @@ class CadenceTrackerTest {
   }
 
   @Test
+  fun `a repeated mtime (duplicate filesystem event) is not counted as a new write`() {
+    val t = CadenceTracker("x.json")
+    t.recordWrite(1_000)
+    t.recordWrite(3_000) // real write, +2000
+    t.recordWrite(3_000) // duplicate FS event for the same write -> ignored
+    val snap = t.snapshot()
+    assertEquals(2L, snap.writes)
+    assertEquals(2_000, snap.lastIntervalMs)
+    assertEquals(2_000, snap.minIntervalMs)
+    assertEquals(2_000, snap.maxIntervalMs)
+  }
+
+  @Test
   fun `a backwards clock step does not produce a negative interval`() {
     val t = CadenceTracker("x.json")
     t.recordWrite(5_000)
