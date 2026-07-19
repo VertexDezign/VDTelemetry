@@ -17,6 +17,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.ProductionsData
@@ -83,6 +84,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // interval; same null-when-absent contract as mapData (export off / no data yet clears the app view).
   private val _productions = MutableStateFlow<ProductionsData?>(null)
   val productions: StateFlow<ProductionsData?> = _productions.asStateFlow()
+
+  // Owned animal pens, on the mod's own interval; same null-when-absent contract as productions.
+  private val _husbandry = MutableStateFlow<HusbandriesData?>(null)
+  val husbandry: StateFlow<HusbandriesData?> = _husbandry.asStateFlow()
 
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
@@ -154,6 +159,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.Productions -> {
                       _productions.value = msg.data
+                    }
+
+                    is ServerMessage.Husbandry -> {
+                      _husbandry.value = msg.data
                     }
 
                     is ServerMessage.Error -> {

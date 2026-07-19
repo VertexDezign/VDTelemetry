@@ -73,6 +73,7 @@ fun main() {
       mapVehicles = repository.mapVehicles,
       fieldInfo = repository.fieldInfo,
       productions = repository.productions,
+      husbandry = repository.husbandry,
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,
       settings = settings,

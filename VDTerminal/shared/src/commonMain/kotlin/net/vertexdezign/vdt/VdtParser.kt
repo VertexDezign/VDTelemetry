@@ -3,6 +3,7 @@ package net.vertexdezign.vdt
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.ProductionsData
@@ -46,4 +47,7 @@ object VdtParser {
 
   /** Parse the `productionStorage.json` channel (production points + standalone storages) into [ProductionsData]. */
   fun parseProductions(text: String): ProductionsData = json.decodeFromString(ProductionsData.serializer(), text)
+
+  /** Parse the `husbandry.json` channel (owned animal pens) into [HusbandriesData]. */
+  fun parseHusbandry(text: String): HusbandriesData = json.decodeFromString(HusbandriesData.serializer(), text)
 }

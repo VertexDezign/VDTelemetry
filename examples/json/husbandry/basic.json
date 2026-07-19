@@ -1,0 +1,23 @@
+{
+  "version": "1",
+  "husbandries": [
+    {
+      "id": "CowBarn_1",
+      "name": "Cow Barn (medium)",
+      "numAnimals": 12,
+      "maxNumAnimals": 20,
+      "productivity": 0.82,
+      "conditions": [
+        { "title": "Food", "ratio": 0.65 },
+        { "title": "Water", "ratio": 0.9 },
+        { "title": "Straw", "ratio": 0.3 },
+        { "title": "Milk", "ratio": 0.4 },
+        { "title": "Cleanliness", "ratio": 0.7, "inverted": true }
+      ],
+      "animals": [
+        { "name": "Holstein", "count": 8, "age": 24, "health": 95, "reproduction": 60, "supportsReproduction": true },
+        { "name": "Calf", "count": 4, "age": 3, "health": 88 }
+      ]
+    }
+  ]
+}

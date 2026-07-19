@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.ProductionsData
@@ -100,6 +101,18 @@ sealed interface ServerMessage {
   @SerialName("productionStorage")
   data class Productions(
     val data: ProductionsData? = null,
+  ) : ServerMessage
+
+  /**
+   * The husbandry channel (own-farm animal pens, `husbandry.json`). Interval-driven on the mod's own
+   * cadence (condition/productivity drift over in-game hours), so it is its own message. [data] is
+   * **null when `husbandry.json` is absent** (export disabled / no data yet): the app clears its
+   * overview then rather than freezing the last state.
+   */
+  @Serializable
+  @SerialName("husbandry")
+  data class Husbandry(
+    val data: HusbandriesData? = null,
   ) : ServerMessage
 
   @Serializable

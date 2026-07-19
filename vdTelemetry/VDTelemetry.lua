@@ -41,6 +41,8 @@ local sourceFiles = {
   -- Productions channel: own-farm production points + standalone storages (own interval, base-game
   -- state only, self-registers into the channel registry)
   "src/collect/ProductionExporter.lua",
+  -- Husbandry channel: own-farm animal pens (reuses ProductionExporter's own-farm + id helpers)
+  "src/collect/HusbandryExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",
