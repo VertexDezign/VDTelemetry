@@ -99,7 +99,6 @@ local function collectHusbandry(husbandry, fallbackId)
   local okName, name = pcall(husbandry.getName, husbandry)
   local okNum, numAnimals = pcall(husbandry.getNumOfAnimals, husbandry)
   local okMax, maxAnimals = pcall(husbandry.getMaxNumOfAnimals, husbandry)
-  local okProd, productivity = pcall(husbandry.getGlobalProductionFactor, husbandry)
 
   -- Food is a SEPARATE method from getConditionInfos (which covers water/straw/outputs/cleanliness);
   -- getFoodInfos returns one bar per food group ("Grass (30%)", "Total Mixed Ration (100%)", ...).
@@ -113,14 +112,18 @@ local function collectHusbandry(husbandry, fallbackId)
     end
   end
 
+  -- The productivity bar is the game's real productivity (globalProductionFactor * productionFactor):
+  -- it's the one conditionInfo carrying a valueText, and a 0..1 fraction rather than liters. Extract
+  -- it as the headline `productivity` (getGlobalProductionFactor alone reads too high). It's absent
+  -- for animals the game doesn't show it for (horses/pigs) -> productivity stays nil -> no top bar.
+  local productivity = nil
   local conditions = {}
   local okCond, infos = pcall(husbandry.getConditionInfos, husbandry)
   if okCond and type(infos) == "table" then
     for _, info in ipairs(infos) do
-      -- Skip the productivity bar (the only conditionInfo carrying a valueText, and a 0..1 fraction
-      -- rather than liters): it's already shown as the headline productivity bar. Everything left is
-      -- a liter fill level.
-      if type(info.title) == "string" and info.title ~= "" and info.valueText == nil then
+      if type(info.valueText) == "string" then
+        productivity = ratio(info.ratio)
+      elseif type(info.title) == "string" and info.title ~= "" then
         conditions[#conditions + 1] = barRow(info)
       end
     end
@@ -139,7 +142,7 @@ local function collectHusbandry(husbandry, fallbackId)
     name = (okName and type(name) == "string" and name ~= "") and name or "Husbandry",
     numAnimals = math.floor(okNum and num(numAnimals) or 0),
     maxNumAnimals = math.floor(okMax and num(maxAnimals) or 0),
-    productivity = ratio(okProd and productivity or 0),
+    productivity = productivity, -- nil (omitted) for animals with no productivity bar, e.g. horses
     -- omit empty arrays (nil, not {}): an empty Lua table encodes as {} which the Kotlin lists reject
     food = #food > 0 and food or nil,
     conditions = #conditions > 0 and conditions or nil,

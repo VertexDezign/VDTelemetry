@@ -24,8 +24,11 @@ data class Husbandry(
   val name: String = "",
   val numAnimals: Int = 0,
   val maxNumAnimals: Int = 0,
-  /** Overall production factor in `[0,1]` (the game's global production factor). */
-  val productivity: Float = 0f,
+  /**
+   * The game's productivity in `[0,1]` — `globalProductionFactor * productionFactor`, taken from its
+   * productivity condition bar. Null for animals the game shows no productivity for (e.g. horses).
+   */
+  val productivity: Float? = null,
   /** Food-group bars (the game's `getFoodInfos`, separate from [conditions]), already localized. */
   val food: List<HusbandryCondition> = emptyList(),
   /** Condition bars — water, straw, milk/manure/wool outputs, cleanliness (already localized). */

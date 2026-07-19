@@ -117,11 +117,13 @@ private fun HusbandryDetail(pen: Husbandry) {
   ) {
     Text(pen.name, color = VdtColors.TextDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
 
-    ProgressBar(
-      fraction = pen.productivity,
-      leftLabel = "Productivity",
-      rightLabel = "${(pen.productivity * 100).roundToInt()}%",
-    )
+    pen.productivity?.let { productivity ->
+      ProgressBar(
+        fraction = productivity,
+        leftLabel = "Productivity",
+        rightLabel = "${(productivity * 100).roundToInt()}%",
+      )
+    }
     val animalFraction = if (pen.maxNumAnimals > 0) pen.numAnimals.toFloat() / pen.maxNumAnimals.toFloat() else 0f
     ProgressBar(
       fraction = animalFraction,

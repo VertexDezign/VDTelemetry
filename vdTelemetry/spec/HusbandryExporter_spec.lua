@@ -108,7 +108,9 @@ describe("HusbandryExporter.collect", function()
       conditions = {
         { title = "Water", ratio = 0.65, value = 4500, invertedBar = false },
         { title = "Milk", ratio = 0.7, value = 8000, invertedBar = true },
-        { title = "Productivity", ratio = 0.82, value = 0.82, valueText = "82 %" }, -- skipped (valueText)
+        -- the game's productivity bar (the valueText info) -> extracted as h.productivity, not a
+        -- condition; its ratio (0.89), NOT getGlobalProductionFactor (0.82), is the productivity
+        { title = "Productivity", ratio = 0.89, value = 0.89, valueText = "89 %" },
         { title = "", ratio = 1 }, -- untitled -> skipped
       },
       clusters = {
@@ -127,7 +129,8 @@ describe("HusbandryExporter.collect", function()
     assert.are.equal("Cow Barn", h.name)
     assert.are.equal(12, h.numAnimals)
     assert.are.equal(20, h.maxNumAnimals)
-    assert.are.equal(0.82, h.productivity)
+    -- productivity comes from the game's productivity conditionInfo (0.89), not the 0.82 global factor
+    assert.are.equal(0.89, h.productivity)
 
     -- food comes from getFoodInfos (separate from conditions), with liters + capacity; untitled skipped
     assert.are.equal(1, #h.food)
@@ -170,6 +173,8 @@ describe("HusbandryExporter.collect", function()
     installWorld({ bare }, 1, {})
 
     local model = VDT.HusbandryExporter.collect()
+    -- no productivity conditionInfo (like a horse pen) -> productivity omitted
+    assert.is_nil(model.husbandries[1].productivity)
     assert.is_nil(model.husbandries[1].food)
     assert.is_nil(model.husbandries[1].conditions)
     assert.is_nil(model.husbandries[1].animals)
