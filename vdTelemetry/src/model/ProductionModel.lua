@@ -40,6 +40,7 @@
 ---@field storage ProductionFillModel[] the point's shared internal storage, one row per fill type
 
 ---@class StoredObjectModel a group of identical stored objects in an object storage
+---@field index number the group's objectInfoIndex (1-based) — the unload command's addressing key
 ---@field title string display name (the abstract object's dialog text, e.g. "Round bale (Straw)")
 ---@field count number number of that object currently stored
 
@@ -51,6 +52,8 @@
 ---@field objects StoredObjectModel[]? kind=="object": per-type item counts (may be partial on MP clients)
 ---@field count number? kind=="object": total number of objects currently stored
 ---@field capacity number? kind=="object": maximum number of objects
+---@field maxUnloadAmount number? kind=="object": per-action unload cap (the effective max per type is
+---  min(this, that group's count))
 
 ---@class ProductionsModel
 ---@field version string channel version, independent of VDTelemetry.VERSION

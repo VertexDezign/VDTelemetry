@@ -59,6 +59,7 @@ class ClientMessageTest {
         ClientMessage.SetProductionEnabled("point-1", "line2", enabled = false),
         ClientMessage.SetProductionOutputMode("point-1", "MANURE", OutputMode.DIRECT_SELL),
         ClientMessage.SetProductionOutputMode("point-1", "FERMENTERMANURE", OutputMode.AUTO_DELIVER),
+        ClientMessage.UnloadObjectStorage("barn-1", index = 2, title = "Round bale (Straw)", amount = 10),
       )
     for (message in messages) {
       val encoded = json.encodeToString(ClientMessage.serializer(), message)

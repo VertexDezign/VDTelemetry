@@ -56,9 +56,10 @@
       "kind": "object",
       "count": 32,
       "capacity": 250,
+      "maxUnloadAmount": 25,
       "objects": [
-        { "title": "Round bale (Straw)", "count": 20 },
-        { "title": "Square bale (Hay)", "count": 12 }
+        { "index": 1, "title": "Round bale (Straw)", "count": 20 },
+        { "index": 2, "title": "Square bale (Hay)", "count": 12 }
       ]
     }
   ]

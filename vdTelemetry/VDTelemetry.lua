@@ -65,6 +65,8 @@ local sourceFiles = {
   -- Productions write-back (line on/off + output mode); depends on ProductionExporter (own-farm +
   -- id helpers) sourced with the collectors above
   "src/command/ProductionControl.lua",
+  -- Object-storage unload (bales/pallets); same ProductionExporter helpers
+  "src/command/ObjectStorageControl.lua",
   -- GUI: injects settings controls into the in-game menu
   "src/gui/SettingsFrame.lua",
 }

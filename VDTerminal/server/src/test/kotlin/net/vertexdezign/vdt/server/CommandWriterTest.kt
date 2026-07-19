@@ -72,6 +72,21 @@ class CommandWriterTest {
   }
 
   @Test
+  fun `writes an object-storage unload command with escaped title`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    CommandWriter(path).submit(
+      ClientMessage.UnloadObjectStorage("barn-1", index = 2, title = "Round bale <Straw>", amount = 10),
+    )
+    val xml = path.readText()
+    assertTrue(
+      xml.contains(
+        """type="unloadObjectStorage" storageId="barn-1" index="2" title="Round bale &lt;Straw&gt;" amount="10"""",
+      ),
+      xml,
+    )
+  }
+
+  @Test
   fun `xml-escapes the rotation name`() {
     val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
     CommandWriter(path).submit(ClientMessage.CreateRotation("""Heavy & "wet" <soil>"""))

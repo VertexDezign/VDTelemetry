@@ -151,6 +151,14 @@ class CommandWriter(
           message.pointId,
         )}" fillType="${esc(message.fillType)}" mode="${message.mode.token}"/>"""
       }
+
+      // storageId is a placeable uniqueId and title the object dialog text (both escaped); index and
+      // amount are ints.
+      is ClientMessage.UnloadObjectStorage -> {
+        """<command id="$id" type="unloadObjectStorage" storageId="${esc(
+          message.storageId,
+        )}" index="${message.index}" title="${esc(message.title)}" amount="${message.amount}"/>"""
+      }
     }
 
   /** The shared `TaskInput` attributes for createTask / editTask (detail is user text → escaped). */

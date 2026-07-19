@@ -277,14 +277,21 @@ local function collectObjectStorage(placeable, farmId, fallbackIndex)
   if capacity <= 0 then
     return nil
   end
+  -- The per-action unload cap (XML default 25); the effective max per type is min(this, count).
+  local maxUnload = math.floor(num(spec.maxUnloadAmount))
+  if maxUnload <= 0 then
+    maxUnload = 25
+  end
   local objects = {}
-  for _, info in ipairs(spec.objectInfos or {}) do
+  -- `index` is the objectInfoIndex (position in spec.objectInfos) the unload command addresses; keep
+  -- the true index even though title-less groups are skipped, so the mapping stays correct.
+  for index, info in ipairs(spec.objectInfos or {}) do
     local count = math.floor(num(info.numObjects))
     local first = type(info.objects) == "table" and info.objects[1] or nil
     if count > 0 and first ~= nil then
       local okText, title = pcall(first.getDialogText, first)
       if okText and type(title) == "string" and title ~= "" then
-        objects[#objects + 1] = { title = title, count = count }
+        objects[#objects + 1] = { index = index, title = title, count = count }
       end
     end
   end
@@ -294,6 +301,7 @@ local function collectObjectStorage(placeable, farmId, fallbackIndex)
     kind = "object",
     count = math.floor(num(spec.numStoredObjects)),
     capacity = capacity,
+    maxUnloadAmount = maxUnload,
     -- omit when empty: an empty Lua table encodes as {} which the Kotlin List<StoredObject> rejects
     objects = #objects > 0 and objects or nil,
   }

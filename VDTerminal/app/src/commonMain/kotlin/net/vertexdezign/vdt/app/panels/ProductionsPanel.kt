@@ -17,13 +17,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Factory
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Warehouse
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.OutputMode
+import net.vertexdezign.vdt.app.components.ActionIcon
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
@@ -50,6 +56,8 @@ import net.vertexdezign.vdt.model.ProductionLine
 import net.vertexdezign.vdt.model.ProductionPoint
 import net.vertexdezign.vdt.model.ProductionsData
 import net.vertexdezign.vdt.model.StandaloneStorage
+import net.vertexdezign.vdt.model.StoredObject
+import kotlin.math.roundToInt
 
 /**
  * The Productions app full page: a master/detail over the own-farm [ProductionsData] channel. The
@@ -98,7 +106,7 @@ private fun ProductionsMasterDetail(data: ProductionsData, onCommand: (ClientMes
       val storage = data.storages.firstOrNull { it.id == currentId }
       when {
         point != null -> ProductionPointDetail(point, onCommand)
-        storage != null -> StandaloneStorageDetail(storage)
+        storage != null -> StandaloneStorageDetail(storage, onCommand)
         else -> Centered("Select an entry")
       }
     }
@@ -318,7 +326,7 @@ private fun IoRow(entry: ProductionIo, fill: ProductionFill?, onSetMode: ((Strin
 // ---- Standalone storage detail -------------------------------------------------------------------
 
 @Composable
-private fun StandaloneStorageDetail(storage: StandaloneStorage) {
+private fun StandaloneStorageDetail(storage: StandaloneStorage, onCommand: (ClientMessage) -> Unit) {
   val isObject = storage.kind == "object"
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -334,7 +342,7 @@ private fun StandaloneStorageDetail(storage: StandaloneStorage) {
       Text(storage.name, color = VdtColors.TextDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
     if (isObject) {
-      ObjectStorageBody(storage)
+      ObjectStorageBody(storage, onCommand)
     } else {
       if (storage.fills.isEmpty()) {
         Text("This storage is empty", color = VdtColors.Gray, fontSize = 11.sp)
@@ -344,9 +352,14 @@ private fun StandaloneStorageDetail(storage: StandaloneStorage) {
   }
 }
 
-/** Object storage: a total count/capacity bar, then the per-type breakdown (title × count). */
+/**
+ * Object storage: a total count/capacity bar, then the per-type breakdown (title × count) with an
+ * unload action per group. Unloading opens a dialog to pick the amount (1..min(count, cap)) and sends
+ * the command to spawn that many objects out of the storage, the same as the in-game trigger.
+ */
 @Composable
-private fun ObjectStorageBody(storage: StandaloneStorage) {
+private fun ObjectStorageBody(storage: StandaloneStorage, onCommand: (ClientMessage) -> Unit) {
+  var pending by remember { mutableStateOf<StoredObject?>(null) }
   val fraction = if (storage.capacity > 0) storage.count.toFloat() / storage.capacity.toFloat() else 0f
   ProgressBar(
     fraction = fraction,
@@ -359,7 +372,7 @@ private fun ObjectStorageBody(storage: StandaloneStorage) {
   storage.objects.forEach { obj ->
     Row(
       Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.SpaceBetween,
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
@@ -370,9 +383,57 @@ private fun ObjectStorageBody(storage: StandaloneStorage) {
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f, fill = false),
       )
+      Box(Modifier.weight(1f))
       Text("×${formatInt(obj.count)}", color = VdtColors.DarkGray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+      ActionIcon(Icons.Filled.Download, "unload ${obj.title}", VdtColors.Green, onClick = { pending = obj })
     }
   }
+
+  pending?.let { obj ->
+    // Effective cap: the per-action limit and how many are actually stored (server refuses more).
+    val max = minOf(obj.count, if (storage.maxUnloadAmount > 0) storage.maxUnloadAmount else obj.count)
+    UnloadDialog(
+      obj = obj,
+      max = max,
+      onConfirm = { amount ->
+        onCommand(ClientMessage.UnloadObjectStorage(storage.id, obj.index, obj.title, amount))
+        pending = null
+      },
+      onDismiss = { pending = null },
+    )
+  }
+}
+
+/** Amount picker for unloading one object group — a slider and a synced numeric field, capped at [max]. */
+@Composable
+private fun UnloadDialog(obj: StoredObject, max: Int, onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
+  val cap = max.coerceAtLeast(1)
+  var amount by remember(obj, cap) { mutableStateOf(cap) }
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("Unload ${obj.title}") },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("$amount of $cap", color = VdtColors.DarkGray, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        if (cap > 1) {
+          Slider(
+            value = amount.toFloat(),
+            onValueChange = { amount = it.roundToInt().coerceIn(1, cap) },
+            valueRange = 1f..cap.toFloat(),
+          )
+        }
+        OutlinedTextField(
+          value = amount.toString(),
+          onValueChange = { s -> s.toIntOrNull()?.let { amount = it.coerceIn(1, cap) } },
+          label = { Text("Amount") },
+          singleLine = true,
+          modifier = Modifier.fillMaxWidth(),
+        )
+      }
+    },
+    confirmButton = { TextButton(onClick = { onConfirm(amount) }) { Text("Unload") } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+  )
 }
 
 @Composable

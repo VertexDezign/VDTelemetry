@@ -327,6 +327,24 @@ sealed interface ClientMessage {
     val fillType: String,
     val mode: OutputMode,
   ) : ClientMessage
+
+  /**
+   * Unload [amount] stored objects (bales/pallets) of one group out of object storage [storageId] —
+   * the same action as the in-game trigger dialog (the mod spawns them at the storage's spawn area).
+   * The group is addressed by its [index] (`objectInfoIndex`); [title] rides along so the mod can
+   * re-resolve the group if the index shifted since the read snapshot. Not idempotent (it's an
+   * action, like `createTask`): the amount is clamped mod-side to the live limits, and the server
+   * refuses more than is stored, so a stale value can't over-unload — but it must not be blindly
+   * resent, so it carries no target-state and is never replayed on reconnect.
+   */
+  @Serializable
+  @SerialName("unloadObjectStorage")
+  data class UnloadObjectStorage(
+    val storageId: String,
+    val index: Int,
+    val title: String,
+    val amount: Int,
+  ) : ClientMessage
 }
 
 /**

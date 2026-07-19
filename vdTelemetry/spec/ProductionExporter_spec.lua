@@ -100,7 +100,7 @@ end
 
 -- An object-storage placeable (spec_objectStorage). `groups` is a list of { title, count } modelled
 -- as the game's objectInfos (each with an abstract object exposing getDialogText).
-local function makeObjectStorage(name, owner, uniqueId, capacity, numStored, groups)
+local function makeObjectStorage(name, owner, uniqueId, capacity, numStored, groups, maxUnload)
   local objectInfos = {}
   for _, g in ipairs(groups or {}) do
     objectInfos[#objectInfos + 1] = {
@@ -116,7 +116,12 @@ local function makeObjectStorage(name, owner, uniqueId, capacity, numStored, gro
   end
   return {
     uniqueId = uniqueId,
-    spec_objectStorage = { capacity = capacity, numStoredObjects = numStored, objectInfos = objectInfos },
+    spec_objectStorage = {
+      capacity = capacity,
+      numStoredObjects = numStored,
+      objectInfos = objectInfos,
+      maxUnloadAmount = maxUnload,
+    },
     getName = function()
       return name
     end,
@@ -312,7 +317,7 @@ describe("ProductionExporter.collect", function()
     local mine = makeObjectStorage("Bale barn", 1, "barn-1", 250, 32, {
       { title = "Round bale (Straw)", count = 20 },
       { title = "Square bale (Hay)", count = 12 },
-    })
+    }, 30)
     local theirs = makeObjectStorage("Neighbour barn", 2, "barn-2", 250, 5, { { title = "Pallet", count = 5 } })
     setupWorld({}, { mine, theirs }, 1)
 
@@ -323,9 +328,12 @@ describe("ProductionExporter.collect", function()
     assert.are.equal("object", s.kind)
     assert.are.equal(32, s.count)
     assert.are.equal(250, s.capacity)
+    assert.are.equal(30, s.maxUnloadAmount)
     assert.are.equal(2, #s.objects)
+    assert.are.equal(1, s.objects[1].index)
     assert.are.equal("Round bale (Straw)", s.objects[1].title)
     assert.are.equal(20, s.objects[1].count)
+    assert.are.equal(2, s.objects[2].index)
   end)
 
   it("shows an empty object storage with no breakdown rows", function()

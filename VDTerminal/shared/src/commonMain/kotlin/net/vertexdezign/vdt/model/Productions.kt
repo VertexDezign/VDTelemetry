@@ -107,11 +107,18 @@ data class StandaloneStorage(
   val objects: List<StoredObject> = emptyList(),
   val count: Int = 0,
   val capacity: Int = 0,
+  /**
+   * `object` kind: the per-action unload cap (the game's per-building `maxUnloadAmount`, usually 25).
+   * The effective max for a given type is `min(maxUnloadAmount, that group's count)`.
+   */
+  val maxUnloadAmount: Int = 0,
 )
 
 /** A group of identical stored objects in an object storage. */
 @Serializable
 data class StoredObject(
+  /** The group's `objectInfoIndex` (1-based) — the addressing key for the unload command. */
+  val index: Int = 0,
   val title: String = "",
   val count: Int = 0,
 )

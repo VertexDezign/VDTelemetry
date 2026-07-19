@@ -96,8 +96,10 @@ class ProductionsModelTest {
     assertEquals("object", barn.kind)
     assertEquals(32, barn.count)
     assertEquals(250, barn.capacity)
+    assertEquals(25, barn.maxUnloadAmount)
     assertTrue(barn.fills.isEmpty())
     assertEquals(2, barn.objects.size)
+    assertEquals(1, barn.objects[0].index)
     assertEquals("Round bale (Straw)", barn.objects[0].title)
     assertEquals(20, barn.objects[0].count)
 
