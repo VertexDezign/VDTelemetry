@@ -112,6 +112,26 @@ describe("unloadObjectStorage", function()
     assert.are.equal(4, sent.amount)
   end)
 
+  it("does not unload the wrong group when the requested type is gone", function()
+    -- The app selected "Hay" (index 1), but Hay was fully unloaded since the snapshot; index 1 now
+    -- points at a different type. Resolving must fail safe (no send), not unload the wrong group.
+    local os = makeObjectStorage(1, "barn-1", {
+      { title = "Straw", count = 5 },
+      { title = "Wheat", count = 3 },
+    }, 25)
+    installWorld({ os }, 1)
+    run({ storageId = "barn-1", index = 1, title = "Hay", amount = 2 })
+    assert.is_nil(sent)
+  end)
+
+  it("does nothing (and does not error) on a dedicated server with no g_client", function()
+    local os = makeObjectStorage(1, "barn-1", { { title = "Bale", count = 5 } }, 25)
+    installWorld({ os }, 1)
+    _G.g_client = nil
+    run({ storageId = "barn-1", index = 1, title = "Bale", amount = 2 })
+    assert.is_nil(sent)
+  end)
+
   it("ignores a storage owned by another farm", function()
     local os = makeObjectStorage(2, "barn-2", { { title = "Bale", count = 5 } }, 25)
     installWorld({ os }, 1)

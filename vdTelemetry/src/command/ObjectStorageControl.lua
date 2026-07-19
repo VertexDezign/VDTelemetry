@@ -71,8 +71,10 @@ local function resolveStorage(storageId, debugger, label)
 end
 
 -- Re-resolve the addressed group against the CURRENT objectInfos: keep the sent index when it still
--- carries the sent title (or when titles aren't available), else search by title, else fall back to
--- the raw index. Returns nil when nothing matches.
+-- carries the sent title, or when titles aren't available (an MP client streams only counts -- then
+-- the index is authoritative), else search by title. Returns nil when a titled index no longer
+-- matches the requested title and nothing else does either: that means the selected group was
+-- depleted/removed since the snapshot, so we fail safe rather than unload the wrong fill type.
 local function resolveObjectInfoIndex(infos, index, title)
   local atIndex = infos[index]
   if atIndex ~= nil then
@@ -87,9 +89,6 @@ local function resolveObjectInfoIndex(infos, index, title)
         return i
       end
     end
-  end
-  if atIndex ~= nil then
-    return index
   end
   return nil
 end
@@ -142,13 +141,22 @@ VDT.CommandRegistry.register("unloadObjectStorage", {
       return
     end
     -- Same client -> server send the trigger dialog uses (loopback in singleplayer); the server then
-    -- runs removeAbstractObjectsFromStorage. Contained so a send failure can't take down the poll.
-    local okConn, conn = pcall(g_client.getServerConnection, g_client)
-    if not okConn or conn == nil then
+    -- runs removeAbstractObjectsFromStorage. g_client is nil on a dedicated server (no local client),
+    -- so guard it before use -- indexing it inside pcall's argument list would throw *before* pcall
+    -- could catch it.
+    if g_client == nil then
       debugger:warn("unloadObjectStorage: no server connection")
       return
     end
-    local okSend = pcall(conn.sendEvent, conn, PlaceableObjectStorageUnloadEvent.new(placeable, idx, amount))
+    -- One protected call around the whole send (connection lookup + event construction + send), so a
+    -- failure at any step is contained rather than taking down the command poll.
+    local okSend = pcall(function()
+      local conn = g_client:getServerConnection()
+      if conn == nil then
+        error("no server connection", 0)
+      end
+      conn:sendEvent(PlaceableObjectStorageUnloadEvent.new(placeable, idx, amount))
+    end)
     if not okSend then
       debugger:warn("unloadObjectStorage: failed to send unload event for %s", tostring(params.storageId))
       return
