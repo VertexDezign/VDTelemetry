@@ -4,6 +4,7 @@
     {
       "id": "ZentralesGuellelager_1",
       "name": "Zentrales Güllelager",
+      "kind": "fill",
       "fills": [
         { "type": "LIQUIDMANURE", "title": "Gülle", "level": 145000, "capacity": 300000 }
       ]

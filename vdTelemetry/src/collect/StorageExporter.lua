@@ -57,8 +57,12 @@ local function collectSilo(placeable, farmId, fallbackIndex)
     local sOwner = storage.ownerFarmId
     if sOwner == nil or sOwner == farmId then
       for _, row in ipairs(VDT.ProductionExporter.storageRows(storage)) do
-        if not seen[row.type] then
-          seen[row.type] = true
+        local existing = seen[row.type]
+        if existing then
+          existing.level = existing.level + row.level
+          existing.capacity = existing.capacity + row.capacity
+        else
+          seen[row.type] = row
           rows[#rows + 1] = row
         end
       end
