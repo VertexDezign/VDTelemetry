@@ -75,6 +75,7 @@ fun main() {
       production = repository.production,
       storage = repository.storage,
       husbandry = repository.husbandry,
+      channelStats = repository.channelStats,
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,
       settings = settings,

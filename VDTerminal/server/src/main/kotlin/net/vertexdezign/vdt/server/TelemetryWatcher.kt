@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import net.vertexdezign.vdt.ChannelStatsData
 import org.slf4j.LoggerFactory
 import java.nio.file.FileSystems
 import java.nio.file.Path
@@ -58,6 +59,10 @@ class TelemetryWatcher(
   ) {
     val flow = MutableStateFlow<T?>(null)
 
+    // Observed write cadence for the diagnostics channel (see snapshotCadence). Only successful
+    // content parses feed it; an absent/torn-read reparse is not a write.
+    val cadence = CadenceTracker(fileName)
+
     fun reparse() {
       val path = dir.resolve(fileName)
       try {
@@ -70,6 +75,7 @@ class TelemetryWatcher(
           return
         }
         flow.value = parse(path.readText())
+        cadence.recordWrite(System.currentTimeMillis())
         log.debug("Parsed {}", path)
       } catch (e: Exception) {
         log.error("Failed to parse {}; keeping last good state", path, e)
@@ -90,6 +96,14 @@ class TelemetryWatcher(
     channels.add(channel)
     return channel.flow.asStateFlow()
   }
+
+  /**
+   * Snapshot the observed write cadence of every registered file, in registration order, tagged with
+   * [nowMs] (server epoch ms) so the app can compute per-channel staleness against one consistent
+   * clock. Broadcast to clients as [net.vertexdezign.vdt.ServerMessage.ChannelStats].
+   */
+  fun snapshotCadence(nowMs: Long = System.currentTimeMillis()): ChannelStatsData =
+    ChannelStatsData(serverNowEpochMs = nowMs, channels = channels.map { it.cadence.snapshot() })
 
   /**
    * Watch until cancelled, restarting the [java.nio.file.WatchService] if it fails.

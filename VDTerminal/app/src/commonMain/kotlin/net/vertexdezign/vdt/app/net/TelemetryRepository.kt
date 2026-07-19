@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.model.CropRotationData
@@ -95,6 +96,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   private val _husbandry = MutableStateFlow<HusbandriesData?>(null)
   val husbandry: StateFlow<HusbandriesData?> = _husbandry.asStateFlow()
 
+  // Server-measured observed cadence of every channel file (diagnostics), refreshed on the server's
+  // own slow timer. Null until the first stats frame arrives.
+  private val _channelStats = MutableStateFlow<ChannelStatsData?>(null)
+  val channelStats: StateFlow<ChannelStatsData?> = _channelStats.asStateFlow()
+
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
 
@@ -173,6 +179,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.Husbandry -> {
                       _husbandry.value = msg.data
+                    }
+
+                    is ServerMessage.ChannelStats -> {
+                      _channelStats.value = msg.data
                     }
 
                     is ServerMessage.Error -> {
