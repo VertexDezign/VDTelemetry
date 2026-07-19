@@ -404,9 +404,9 @@ describe("ExportChannels per-channel config", function()
     VDT.ExportChannels.register(core)
     VDT.ExportChannels.register(intervalChannel("prod", 2000))
     VDT.ExportChannels.register(channel("map", true, { body = "M" }))
-    VDT.ExportChannels.setProfile("custom") -- so the per-channel interval override is honoured
     VDT.ExportChannels.configure("prod", { enabled = false, intervalMs = 1500 })
 
+    -- configurableChannels reports the STORED interval (the override), independent of the active profile
     local list = VDT.ExportChannels.configurableChannels()
     assert.are.equal(2, #list) -- telemetry excluded
     assert.are.same({ name = "prod", enabled = false, intervalMs = 1500 }, list[1])
@@ -425,21 +425,27 @@ describe("ExportChannels performance profiles", function()
     assert.are.equal(2000, VDT.ExportChannels.configurableChannels()[1].intervalMs)
   end)
 
-  it("scales interval channels by the active profile", function()
+  it("scales the effective cadence by the active profile", function()
     VDT.ExportChannels.register(intervalChannel("prod", 2000))
 
     VDT.ExportChannels.setProfile("low") -- 4x
-    assert.are.equal(8000, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+    assert.are.equal(8000, VDT.ExportChannels.effectiveInterval("prod"))
     VDT.ExportChannels.setProfile("medium") -- 2x
-    assert.are.equal(4000, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+    assert.are.equal(4000, VDT.ExportChannels.effectiveInterval("prod"))
     VDT.ExportChannels.setProfile("veryHigh") -- 0.5x
-    assert.are.equal(1000, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+    assert.are.equal(1000, VDT.ExportChannels.effectiveInterval("prod"))
   end)
 
-  it("clamps a scaled interval to MIN_INTERVAL_MS", function()
+  it("clamps a scaled effective interval to MIN_INTERVAL_MS", function()
     VDT.ExportChannels.register(intervalChannel("fast", 150)) -- 150 * 0.5 = 75 < 100
     VDT.ExportChannels.setProfile("veryHigh")
-    assert.are.equal(VDT.ExportChannels.MIN_INTERVAL_MS, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+    assert.are.equal(VDT.ExportChannels.MIN_INTERVAL_MS, VDT.ExportChannels.effectiveInterval("fast"))
+  end)
+
+  it("effectiveInterval is nil for an event-driven or unknown channel", function()
+    VDT.ExportChannels.register(channel("map", true, { body = "M" })) -- no intervalMs
+    assert.is_nil(VDT.ExportChannels.effectiveInterval("map"))
+    assert.is_nil(VDT.ExportChannels.effectiveInterval("ghost"))
   end)
 
   it("the scaled cadence drives tick", function()
@@ -456,7 +462,20 @@ describe("ExportChannels performance profiles", function()
 
     VDT.ExportChannels.setProfile("low") -- scaling ignored under custom
     VDT.ExportChannels.setProfile("custom")
-    assert.are.equal(750, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+    assert.are.equal(750, VDT.ExportChannels.effectiveInterval("prod"))
+  end)
+
+  it("persists the stored override, not the profile-scaled interval", function()
+    -- Regression: saving under a preset must not clobber a custom override. Switching to a preset
+    -- scales the *effective* cadence, but configurableChannels (what gets written to the XML) must
+    -- still report the stored 750 so switching back to custom restores the right cadence.
+    VDT.ExportChannels.register(intervalChannel("prod", 2000))
+    VDT.ExportChannels.setProfile("custom")
+    VDT.ExportChannels.configure("prod", { intervalMs = 750 })
+
+    VDT.ExportChannels.setProfile("low")
+    assert.are.equal(8000, VDT.ExportChannels.effectiveInterval("prod")) -- runs scaled
+    assert.are.equal(750, VDT.ExportChannels.configurableChannels()[1].intervalMs) -- persists override
   end)
 
   it("rejects an unknown profile and keeps the current one", function()

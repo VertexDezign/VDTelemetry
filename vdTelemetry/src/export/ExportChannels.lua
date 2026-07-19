@@ -77,12 +77,20 @@ local function channelEnabled(name)
   return v == nil or v
 end
 
--- Effective cadence for an interval channel. Under a preset profile it's the registered default scaled
--- by the profile (clamped to the floor); under "custom" it's the user's per-channel override, else the
--- default. Only called where ch.intervalMs ~= nil.
+-- The STORED interval for a channel: the user's override, else the registered default. This is the
+-- value that persists to the settings XML and round-trips through "custom" -- it's independent of the
+-- active profile, so saving under a preset never clobbers a custom override (see configurableChannels).
+local function channelStoredInterval(ch)
+  return intervalOverride[ch.name] or ch.intervalMs
+end
+
+-- The EFFECTIVE cadence for an interval channel -- what the tick scheduler actually uses. Under "custom"
+-- it's the stored interval; under a preset it's the registered default scaled by the profile (clamped to
+-- the floor). Deliberately scales the *default*, not the stored override, so a preset ignores custom
+-- values (they're preserved for when the user switches back). Only called where ch.intervalMs ~= nil.
 local function channelInterval(ch)
   if profile == "custom" then
-    return intervalOverride[ch.name] or ch.intervalMs
+    return channelStoredInterval(ch)
   end
   local scaled = math.floor(ch.intervalMs * PROFILE_SCALE[profile] + 0.5)
   return math.max(scaled, VDT.ExportChannels.MIN_INTERVAL_MS)
@@ -111,6 +119,20 @@ function VDT.ExportChannels.getProfile()
   return profile
 end
 
+---The effective cadence (ms) a registered interval channel currently runs at -- the active profile's
+---scaling of its default, or its stored override under "custom". This is what the tick scheduler uses;
+---configurableChannels() by contrast reports the *stored* interval that persists to the settings XML.
+---nil for an event-driven channel (no interval) or an unknown name.
+---@param name string
+---@return number|nil
+function VDT.ExportChannels.effectiveInterval(name)
+  local ch = channels[name]
+  if ch == nil or ch.intervalMs == nil then
+    return nil
+  end
+  return channelInterval(ch)
+end
+
 -- Writable = registered, user-enabled, and its data source is available. selectDirty and the stale-
 -- file cleanup both key off this, so a user-disabled channel is neither written nor left on disk.
 local function isWritable(name)
@@ -137,9 +159,11 @@ function VDT.ExportChannels.configure(name, opts)
 end
 
 ---Enumerate the user-configurable channels — everything except the latency-critical live-telemetry
----channel — in registration order, with their current effective config. Drives the settings XML
----read/write so VDTelemetry never hardcodes the channel list. `intervalMs` is nil for event-driven
----channels (no cadence to tune).
+---channel — in registration order, for the settings XML read/write (so VDTelemetry never hardcodes the
+---channel list). `intervalMs` is the STORED interval (override or default), NOT the profile-scaled
+---effective cadence: persisting the scaled value would overwrite a custom override whenever settings
+---are saved under a preset, and switching back to "custom" would restore the wrong cadence. It's nil
+---for event-driven channels (no cadence to tune).
 ---@return table[] { name, enabled, intervalMs } per channel
 function VDT.ExportChannels.configurableChannels()
   local out = {}
@@ -149,7 +173,7 @@ function VDT.ExportChannels.configurableChannels()
       out[#out + 1] = {
         name = name,
         enabled = channelEnabled(name),
-        intervalMs = ch.intervalMs ~= nil and channelInterval(ch) or nil,
+        intervalMs = ch.intervalMs ~= nil and channelStoredInterval(ch) or nil,
       }
     end
   end
