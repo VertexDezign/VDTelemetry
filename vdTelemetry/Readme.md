@@ -126,10 +126,15 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
         <!-- Pretty-print the json output (indented + sorted keys) for easier live inspection during development -->
         <pretty>false</pretty>
     </json>
+    <!-- Performance profile for the secondary channels below: low | medium | high | veryHigh | custom.
+         A preset scales every interval-driven channel's cadence (low = 4x slower … veryHigh = 2x faster than the
+         defaults shown below); "custom" instead uses the per-channel intervalMs values. Switch presets in-game
+         (General Settings); VDTerminal writes "custom" when you fine-tune a single channel. -->
+    <profile>high</profile>
     <!-- Per-channel config for the secondary export channels (the live vehicle telemetry above is always on).
          `enabled` turns a channel off entirely if you don't use that base-game feature — no file is written and any
-         existing one is deleted. `intervalMs` (interval-driven channels only) sets how often it refreshes, clamped to
-         a 100 ms floor. Applied at load; edit here (or from VDTerminal) and restart the game. -->
+         existing one is deleted. `intervalMs` (interval-driven channels only) is the channel's cadence under the
+         "custom" profile, clamped to a 100 ms floor. Applied at load; edit here (or from VDTerminal) and restart. -->
     <channels>
         <channel id="map" enabled="true"/>
         <channel id="mapVehicles" enabled="true" intervalMs="1000"/>

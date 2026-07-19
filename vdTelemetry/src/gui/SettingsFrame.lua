@@ -61,6 +61,48 @@ function SettingsFrame.getEnabledTexts()
   return { getText("vdt_ui_off"), getText("vdt_ui_on") }
 end
 
+-- l10n key per profile id (the selector order comes from VDT.ExportChannels.PROFILES).
+local PROFILE_LABEL_KEY = {
+  low = "vdt_profile_low",
+  medium = "vdt_profile_medium",
+  high = "vdt_profile_high",
+  veryHigh = "vdt_profile_veryHigh",
+  custom = "vdt_profile_custom",
+}
+
+function SettingsFrame.getProfileTexts()
+  if SettingsFrame.profileTexts == nil then
+    SettingsFrame.profileTexts = {}
+    for i, id in ipairs(VDT.ExportChannels.PROFILES) do
+      SettingsFrame.profileTexts[i] = getText(PROFILE_LABEL_KEY[id] or id)
+    end
+  end
+  return SettingsFrame.profileTexts
+end
+
+---1-based selector index for a profile id; falls back to the default profile's index for an unknown
+---value (e.g. an id from a newer mod version).
+---@param profile string
+---@return number state
+function SettingsFrame.getStateFromProfile(profile)
+  local fallback = 1
+  for i, id in ipairs(VDT.ExportChannels.PROFILES) do
+    if id == profile then
+      return i
+    end
+    if id == VDT.ExportChannels.DEFAULT_PROFILE then
+      fallback = i
+    end
+  end
+  return fallback
+end
+
+---@param state number
+---@return string profile id
+function SettingsFrame.getProfileFromState(state)
+  return VDT.ExportChannels.PROFILES[tonumber(state) or 1] or VDT.ExportChannels.DEFAULT_PROFILE
+end
+
 ---Nearest preset index for a (possibly hand-edited) interval value.
 ---@param intervalMs number
 ---@return number state
@@ -152,6 +194,9 @@ function SettingsFrame.refreshGui()
   end
   if elements.interval ~= nil then
     elements.interval:setState(SettingsFrame.getStateFromInterval(vdt.writeIntervalMs))
+  end
+  if elements.profile ~= nil then
+    elements.profile:setState(SettingsFrame.getStateFromProfile(VDT.ExportChannels.getProfile()))
   end
 end
 
@@ -248,6 +293,13 @@ function SettingsFrame.initSettingsGui(frame)
       tooltip = "vdt_setting_writeInterval_tooltip",
       texts = SettingsFrame.getIntervalTexts(),
     },
+    {
+      id = "vdtProfile",
+      key = "profile",
+      title = "vdt_setting_profile",
+      tooltip = "vdt_setting_profile_tooltip",
+      texts = SettingsFrame.getProfileTexts(),
+    },
   }
 
   for _, option in ipairs(options) do
@@ -287,6 +339,8 @@ function SettingsFrame.onSettingChanged(element, state)
     vdt:setExportEnabled((state or element.state) == 2)
   elseif element == elements.interval then
     vdt:setWriteIntervalMs(SettingsFrame.getIntervalFromState(state or element.state))
+  elseif element == elements.profile then
+    vdt:setProfile(SettingsFrame.getProfileFromState(state or element.state))
   end
 end
 

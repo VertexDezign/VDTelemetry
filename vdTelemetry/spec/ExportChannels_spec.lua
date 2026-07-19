@@ -364,8 +364,9 @@ describe("ExportChannels per-channel config", function()
     assert.are.equal(1, #VDT.ExportChannels.selectDirty())
   end)
 
-  it("an interval override changes the cadence used by tick", function()
+  it("an interval override changes the cadence used by tick (under custom)", function()
     VDT.ExportChannels.register(intervalChannel("prod", 2000)) -- default: ~1750 ms to first fire
+    VDT.ExportChannels.setProfile("custom")
     VDT.ExportChannels.configure("prod", { intervalMs = 500 })
 
     VDT.ExportChannels.tick(debugger, 300) -- 250 stagger seed + 300 = 550 >= 500 -> fires early
@@ -374,6 +375,7 @@ describe("ExportChannels per-channel config", function()
 
   it("clamps an interval override to MIN_INTERVAL_MS", function()
     VDT.ExportChannels.register(intervalChannel("prod", 2000))
+    VDT.ExportChannels.setProfile("custom")
     VDT.ExportChannels.configure("prod", { intervalMs = 5 }) -- absurdly low
 
     local cfg = VDT.ExportChannels.configurableChannels()[1]
@@ -382,6 +384,7 @@ describe("ExportChannels per-channel config", function()
 
   it("ignores an interval override on an event-driven channel (no intervalMs)", function()
     VDT.ExportChannels.register(channel("map", true, { body = "M" })) -- no intervalMs
+    VDT.ExportChannels.setProfile("custom")
     VDT.ExportChannels.configure("map", { intervalMs = 500 })
     local cfg = VDT.ExportChannels.configurableChannels()[1]
     assert.is_nil(cfg.intervalMs) -- event-driven: no cadence to tune
@@ -401,11 +404,64 @@ describe("ExportChannels per-channel config", function()
     VDT.ExportChannels.register(core)
     VDT.ExportChannels.register(intervalChannel("prod", 2000))
     VDT.ExportChannels.register(channel("map", true, { body = "M" }))
+    VDT.ExportChannels.setProfile("custom") -- so the per-channel interval override is honoured
     VDT.ExportChannels.configure("prod", { enabled = false, intervalMs = 1500 })
 
     local list = VDT.ExportChannels.configurableChannels()
     assert.are.equal(2, #list) -- telemetry excluded
     assert.are.same({ name = "prod", enabled = false, intervalMs = 1500 }, list[1])
     assert.are.same({ name = "map", enabled = true, intervalMs = nil }, list[2])
+  end)
+end)
+
+describe("ExportChannels performance profiles", function()
+  before_each(function()
+    VDT.ExportChannels.reset()
+  end)
+
+  it("defaults to the high profile (registered intervals unchanged)", function()
+    assert.are.equal("high", VDT.ExportChannels.getProfile())
+    VDT.ExportChannels.register(intervalChannel("prod", 2000))
+    assert.are.equal(2000, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+  end)
+
+  it("scales interval channels by the active profile", function()
+    VDT.ExportChannels.register(intervalChannel("prod", 2000))
+
+    VDT.ExportChannels.setProfile("low") -- 4x
+    assert.are.equal(8000, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+    VDT.ExportChannels.setProfile("medium") -- 2x
+    assert.are.equal(4000, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+    VDT.ExportChannels.setProfile("veryHigh") -- 0.5x
+    assert.are.equal(1000, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+  end)
+
+  it("clamps a scaled interval to MIN_INTERVAL_MS", function()
+    VDT.ExportChannels.register(intervalChannel("fast", 150)) -- 150 * 0.5 = 75 < 100
+    VDT.ExportChannels.setProfile("veryHigh")
+    assert.are.equal(VDT.ExportChannels.MIN_INTERVAL_MS, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+  end)
+
+  it("the scaled cadence drives tick", function()
+    VDT.ExportChannels.register(intervalChannel("prod", 2000))
+    VDT.ExportChannels.setProfile("veryHigh") -- 2000 -> 1000 effective
+
+    VDT.ExportChannels.tick(debugger, 800) -- 250 stagger seed + 800 = 1050 >= 1000 -> fires
+    assert.are.equal(1, #VDT.ExportChannels.selectDirty())
+  end)
+
+  it("custom honours the per-channel override instead of scaling", function()
+    VDT.ExportChannels.register(intervalChannel("prod", 2000))
+    VDT.ExportChannels.configure("prod", { intervalMs = 750 })
+
+    VDT.ExportChannels.setProfile("low") -- scaling ignored under custom
+    VDT.ExportChannels.setProfile("custom")
+    assert.are.equal(750, VDT.ExportChannels.configurableChannels()[1].intervalMs)
+  end)
+
+  it("rejects an unknown profile and keeps the current one", function()
+    assert.is_true(VDT.ExportChannels.setProfile("low"))
+    assert.is_false(VDT.ExportChannels.setProfile("ludicrous"))
+    assert.are.equal("low", VDT.ExportChannels.getProfile())
   end)
 end)

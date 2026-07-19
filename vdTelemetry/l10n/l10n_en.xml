@@ -6,6 +6,13 @@
         <text name="vdt_setting_exportEnabled_tooltip" text="Enable or disable writing telemetry to vdTelemetry.json. Disabling also removes the file."/>
         <text name="vdt_setting_writeInterval" text="Write interval"/>
         <text name="vdt_setting_writeInterval_tooltip" text="How often telemetry is written. Shorter intervals are smoother but write more often."/>
+        <text name="vdt_setting_profile" text="Performance profile"/>
+        <text name="vdt_setting_profile_tooltip" text="Preset update rates for the secondary channels (map, productions, animals, ...). Higher means more frequent updates and more load. Fine-tune individual channels from VDTerminal (shown here as Custom)."/>
+        <text name="vdt_profile_low" text="Low"/>
+        <text name="vdt_profile_medium" text="Medium"/>
+        <text name="vdt_profile_high" text="High"/>
+        <text name="vdt_profile_veryHigh" text="Very high"/>
+        <text name="vdt_profile_custom" text="Custom"/>
         <text name="vdt_ui_on" text="On"/>
         <text name="vdt_ui_off" text="Off"/>
     </texts>

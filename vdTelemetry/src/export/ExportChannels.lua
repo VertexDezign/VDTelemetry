@@ -38,6 +38,15 @@ local intervalChannelCount = 0 -- running count of interval channels; drives the
 -- interval near frame time would reintroduce the per-frame cost this module exists to spread out.
 VDT.ExportChannels.MIN_INTERVAL_MS = 100
 
+-- Performance profiles: a preset that scales every interval channel's registered default cadence. A
+-- higher profile means more frequent updates (and more load); "custom" instead honours the per-channel
+-- interval overrides (see configure). Enable toggles are independent of the profile. Order is the
+-- in-game selector order. See setProfile / channelInterval.
+VDT.ExportChannels.PROFILES = { "low", "medium", "high", "veryHigh", "custom" }
+VDT.ExportChannels.DEFAULT_PROFILE = "high" -- scale 1.0 == the registered defaults
+local PROFILE_SCALE = { low = 4.0, medium = 2.0, high = 1.0, veryHigh = 0.5 }
+local profile = VDT.ExportChannels.DEFAULT_PROFILE
+
 ---Register an export channel. Registration order is the write order.
 ---@param channel table { name, fileName, isAvailable, collect, intervalMs?, tick?, latencyCritical? }
 function VDT.ExportChannels.register(channel)
@@ -68,9 +77,38 @@ local function channelEnabled(name)
   return v == nil or v
 end
 
--- Effective cadence: the user's interval override if set, else the channel's registered default.
+-- Effective cadence for an interval channel. Under a preset profile it's the registered default scaled
+-- by the profile (clamped to the floor); under "custom" it's the user's per-channel override, else the
+-- default. Only called where ch.intervalMs ~= nil.
 local function channelInterval(ch)
-  return intervalOverride[ch.name] or ch.intervalMs
+  if profile == "custom" then
+    return intervalOverride[ch.name] or ch.intervalMs
+  end
+  local scaled = math.floor(ch.intervalMs * PROFILE_SCALE[profile] + 0.5)
+  return math.max(scaled, VDT.ExportChannels.MIN_INTERVAL_MS)
+end
+
+-- A profile id is valid if it's a known preset or the "custom" sentinel.
+local function isValidProfile(name)
+  return name == "custom" or PROFILE_SCALE[name] ~= nil
+end
+
+---Set the active performance profile. Unknown ids are rejected (returns false) so a stale settings
+---value falls back to whatever's current. Takes effect immediately -- channelInterval reads it live,
+---so the tick scheduler picks up the new cadence on the next frame.
+---@param name string one of PROFILES
+---@return boolean applied
+function VDT.ExportChannels.setProfile(name)
+  if not isValidProfile(name) then
+    return false
+  end
+  profile = name
+  return true
+end
+
+---@return string the active profile id
+function VDT.ExportChannels.getProfile()
+  return profile
 end
 
 -- Writable = registered, user-enabled, and its data source is available. selectDirty and the stale-
@@ -130,6 +168,7 @@ function VDT.ExportChannels.reset()
   intervalChannelCount = 0
   enabledOverride = {}
   intervalOverride = {}
+  profile = VDT.ExportChannels.DEFAULT_PROFILE
 end
 
 ---Mark every registered channel dirty — used when export is re-enabled to repopulate all files at
