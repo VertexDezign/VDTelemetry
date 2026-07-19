@@ -129,6 +129,11 @@ private fun HusbandryDetail(pen: Husbandry) {
       rightLabel = "${pen.numAnimals} / ${pen.maxNumAnimals}",
     )
 
+    if (pen.food.isNotEmpty()) {
+      SectionLabel("Food")
+      pen.food.forEach { ConditionBar(it) }
+    }
+
     if (pen.conditions.isNotEmpty()) {
       SectionLabel("Conditions")
       pen.conditions.forEach { ConditionBar(it) }

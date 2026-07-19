@@ -36,26 +36,25 @@ local function ratio(value)
   return math.floor(r * 10000 + 0.5) / 10000
 end
 
--- Breed/age label for a cluster: the animal store item for its subtype at its age. Falls back to a
--- generic label when the visual/store can't be resolved.
+-- Breed label for a cluster: the title of the subtype's fill type. Each breed is its own fill type,
+-- so its title is the breed name ("Angus", "Holstein", ...) -- exactly what the game's AnimalScreen,
+-- shop and cluster info box use. (The animal visual's store carries only a description like "for
+-- beef", which is why that isn't the name.) Falls back to a generic label when unresolvable.
 local function clusterName(cluster)
   local system = g_currentMission ~= nil and g_currentMission.animalSystem or nil
-  if system == nil then
+  local ftManager = g_fillTypeManager
+  if system == nil or ftManager == nil then
     return "Animal"
   end
-  local okAge, age = pcall(cluster.getAge, cluster)
   local okSub, subTypeIndex = pcall(cluster.getSubTypeIndex, cluster)
   if not okSub then
     return "Animal"
   end
-  local okVis, visual = pcall(system.getVisualByAge, system, subTypeIndex, okAge and age or 0)
-  if okVis and type(visual) == "table" and type(visual.store) == "table" then
-    local store = visual.store
-    if type(store.name) == "string" and store.name ~= "" then
-      return store.name
-    end
-    if type(store.description) == "string" and store.description ~= "" then
-      return store.description
+  local okType, subType = pcall(system.getSubTypeByIndex, system, subTypeIndex)
+  if okType and type(subType) == "table" and subType.fillTypeIndex ~= nil then
+    local okTitle, title = pcall(ftManager.getFillTypeTitleByIndex, ftManager, subType.fillTypeIndex)
+    if okTitle and type(title) == "string" and title ~= "" then
+      return title
     end
   end
   return "Animal"
@@ -86,6 +85,18 @@ local function collectHusbandry(husbandry, fallbackId)
   local okMax, maxAnimals = pcall(husbandry.getMaxNumOfAnimals, husbandry)
   local okProd, productivity = pcall(husbandry.getGlobalProductionFactor, husbandry)
 
+  -- Food is a SEPARATE method from getConditionInfos (which covers water/straw/outputs/cleanliness);
+  -- getFoodInfos returns one bar per food group ("Grass (30%)", "Total Mixed Ration (100%)", ...).
+  local food = {}
+  local okFood, foodInfos = pcall(husbandry.getFoodInfos, husbandry)
+  if okFood and type(foodInfos) == "table" then
+    for _, info in ipairs(foodInfos) do
+      if type(info.title) == "string" and info.title ~= "" then
+        food[#food + 1] = { title = info.title, ratio = ratio(info.ratio) }
+      end
+    end
+  end
+
   local conditions = {}
   local okCond, infos = pcall(husbandry.getConditionInfos, husbandry)
   if okCond and type(infos) == "table" then
@@ -115,6 +126,7 @@ local function collectHusbandry(husbandry, fallbackId)
     maxNumAnimals = math.floor(okMax and num(maxAnimals) or 0),
     productivity = ratio(okProd and productivity or 0),
     -- omit empty arrays (nil, not {}): an empty Lua table encodes as {} which the Kotlin lists reject
+    food = #food > 0 and food or nil,
     conditions = #conditions > 0 and conditions or nil,
     animals = #animals > 0 and animals or nil,
   }

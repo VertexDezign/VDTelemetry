@@ -48,6 +48,11 @@ class HusbandryModelTest {
     assertEquals(20, pen.maxNumAnimals)
     assertEquals(0.82f, pen.productivity)
 
+    // Food is its own list (getFoodInfos), separate from the condition bars.
+    assertEquals(2, pen.food.size)
+    assertEquals("Total Mixed Ration (100%)", pen.food[0].title)
+    assertEquals(0.55f, pen.food[0].ratio)
+
     assertEquals(5, pen.conditions.size)
     assertEquals("Food", pen.conditions[0].title)
     assertEquals(0.65f, pen.conditions[0].ratio)

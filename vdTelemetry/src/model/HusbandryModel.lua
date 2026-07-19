@@ -28,7 +28,8 @@
 ---@field numAnimals number current animal count
 ---@field maxNumAnimals number capacity
 ---@field productivity number overall production factor in [0,1] (getGlobalProductionFactor)
----@field conditions HusbandryConditionModel[]?
+---@field food HusbandryConditionModel[]? food-group bars (getFoodInfos), separate from conditions
+---@field conditions HusbandryConditionModel[]? water/straw/output/cleanliness bars (getConditionInfos)
 ---@field animals HusbandryAnimalGroupModel[]?
 
 ---@class HusbandriesModel

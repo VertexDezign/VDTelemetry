@@ -7,6 +7,10 @@
       "numAnimals": 12,
       "maxNumAnimals": 20,
       "productivity": 0.82,
+      "food": [
+        { "title": "Total Mixed Ration (100%)", "ratio": 0.55 },
+        { "title": "Grass (30%)", "ratio": 0.2 }
+      ],
       "conditions": [
         { "title": "Food", "ratio": 0.65 },
         { "title": "Water", "ratio": 0.9 },

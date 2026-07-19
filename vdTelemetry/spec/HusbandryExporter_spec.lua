@@ -51,6 +51,9 @@ local function makeHusbandry(opts)
     getGlobalProductionFactor = function()
       return opts.productivity
     end,
+    getFoodInfos = function()
+      return opts.food or {}
+    end,
     getConditionInfos = function()
       return opts.conditions or {}
     end,
@@ -60,8 +63,16 @@ local function makeHusbandry(opts)
   }
 end
 
-local function installWorld(husbandries, farmId, subtypeNames)
+-- `breedNames` maps a subtype index -> the breed title. The stubbed subtype's fillTypeIndex equals
+-- its subtype index, and the fill-type-title lookup uses the same key, mirroring the real chain
+-- getSubTypeByIndex(idx).fillTypeIndex -> getFillTypeTitleByIndex(...).
+local function installWorld(husbandries, farmId, breedNames)
   _G.g_localPlayer = farmId ~= nil and { farmId = farmId } or nil
+  _G.g_fillTypeManager = {
+    getFillTypeTitleByIndex = function(_, fillTypeIndex)
+      return breedNames and breedNames[fillTypeIndex] or nil
+    end,
+  }
   _G.g_currentMission = {
     husbandrySystem = {
       getPlaceablesByFarm = function()
@@ -69,12 +80,8 @@ local function installWorld(husbandries, farmId, subtypeNames)
       end,
     },
     animalSystem = {
-      getVisualByAge = function(_, subTypeIndex)
-        local n = subtypeNames and subtypeNames[subTypeIndex] or nil
-        if n == nil then
-          return nil
-        end
-        return { store = { name = n } }
+      getSubTypeByIndex = function(_, subTypeIndex)
+        return { fillTypeIndex = subTypeIndex }
       end,
     },
   }
@@ -83,6 +90,7 @@ end
 after_each(function()
   _G.g_currentMission = nil
   _G.g_localPlayer = nil
+  _G.g_fillTypeManager = nil
 end)
 
 describe("HusbandryExporter.collect", function()
@@ -93,8 +101,12 @@ describe("HusbandryExporter.collect", function()
       numAnimals = 12,
       maxNumAnimals = 20,
       productivity = 0.82,
+      food = {
+        { title = "Grass (30%)", ratio = 0.2 },
+        { title = "", ratio = 1 }, -- untitled -> skipped
+      },
       conditions = {
-        { title = "Food", ratio = 0.65, invertedBar = false },
+        { title = "Water", ratio = 0.65, invertedBar = false },
         { title = "Cleanliness", ratio = 0.7, invertedBar = true },
         { title = "", ratio = 1 }, -- untitled -> skipped
       },
@@ -103,7 +115,7 @@ describe("HusbandryExporter.collect", function()
         makeCluster(6, 4, 3, 88, 0, false),
       },
     })
-    installWorld({ pen }, 1, { [5] = "Holstein", [6] = "Calf" })
+    installWorld({ pen }, 1, { [5] = "Angus", [6] = "Holstein" })
 
     local model = VDT.HusbandryExporter.collect()
 
@@ -116,15 +128,21 @@ describe("HusbandryExporter.collect", function()
     assert.are.equal(20, h.maxNumAnimals)
     assert.are.equal(0.82, h.productivity)
 
+    -- food comes from getFoodInfos (separate from conditions); untitled entry skipped
+    assert.are.equal(1, #h.food)
+    assert.are.equal("Grass (30%)", h.food[1].title)
+    assert.are.equal(0.2, h.food[1].ratio)
+
     -- untitled condition skipped; invertedBar mapped to inverted (true only)
     assert.are.equal(2, #h.conditions)
-    assert.are.equal("Food", h.conditions[1].title)
+    assert.are.equal("Water", h.conditions[1].title)
     assert.are.equal(0.65, h.conditions[1].ratio)
     assert.is_nil(h.conditions[1].inverted)
     assert.is_true(h.conditions[2].inverted)
 
+    -- breed name is the subtype fill-type title, not the visual's "for beef" description
     assert.are.equal(2, #h.animals)
-    assert.are.equal("Holstein", h.animals[1].name)
+    assert.are.equal("Angus", h.animals[1].name)
     assert.are.equal(8, h.animals[1].count)
     assert.are.equal(24, h.animals[1].age)
     assert.are.equal(95, h.animals[1].health)
@@ -146,12 +164,13 @@ describe("HusbandryExporter.collect", function()
     installWorld({ bare }, 1, {})
 
     local model = VDT.HusbandryExporter.collect()
+    assert.is_nil(model.husbandries[1].food)
     assert.is_nil(model.husbandries[1].conditions)
     assert.is_nil(model.husbandries[1].animals)
     assert.is_nil(string.find(Json.encode(model), "{}", 1, true))
   end)
 
-  it("falls back to a generic name when the animal visual can't be resolved", function()
+  it("falls back to a generic name when the breed fill-type title can't be resolved", function()
     local pen = makeHusbandry({
       uniqueId = "cowbarn-1",
       name = "Cow Barn",
