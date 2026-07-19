@@ -120,8 +120,10 @@ describe("ExportChannels.writeDirty", function()
         errors = errors + 1
       end,
     }
+    local core = channel("core", true, { body = "telemetry" })
+    core.latencyCritical = true -- always flushes, so a throwing heavy channel can't starve it
     VDT.ExportChannels.register(boom)
-    VDT.ExportChannels.register(channel("core", true, { body = "telemetry" }))
+    VDT.ExportChannels.register(core)
     VDT.ExportChannels.markAllDirty()
 
     VDT.ExportChannels.writeDirty(dir, encode, loud)
@@ -206,5 +208,127 @@ describe("ExportChannels.markAllDirty / fileNames / unavailableFileNames / tick"
 
     VDT.ExportChannels.tick(debugger)
     assert.are.equal(1, ticked)
+  end)
+end)
+
+-- An interval-driven channel: the registry accumulates dt and marks it dirty every intervalMs.
+local function intervalChannel(name, interval)
+  local ch = channel(name, true, { body = name })
+  ch.intervalMs = interval
+  return ch
+end
+
+describe("ExportChannels interval cadence + stagger", function()
+  local dir
+
+  before_each(function()
+    VDT.ExportChannels.reset()
+    dir = os.tmpname()
+    os.remove(dir)
+    dir = dir .. "_"
+  end)
+
+  it("marks an interval channel dirty once its intervalMs of frame time has accumulated", function()
+    -- First interval channel is seeded with a 250 ms stagger phase, so it fires 250 ms early.
+    VDT.ExportChannels.register(intervalChannel("prod", 1000))
+
+    VDT.ExportChannels.tick(debugger, 500)
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty()) -- 500 + 250 phase = 750 < 1000
+    VDT.ExportChannels.tick(debugger, 500)
+    assert.are.equal(1, #VDT.ExportChannels.selectDirty()) -- 1250 >= 1000 -> queued
+  end)
+
+  it("ignores a tick without dt (older framework caller)", function()
+    VDT.ExportChannels.register(intervalChannel("prod", 1000))
+    VDT.ExportChannels.tick(debugger, nil)
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty())
+  end)
+
+  it("staggers channels sharing an interval so they don't fire on the same frame", function()
+    -- phases: prod = 1*250 = 250, storage = 2*250 = 500 (both mod 1000).
+    VDT.ExportChannels.register(intervalChannel("prod", 1000))
+    VDT.ExportChannels.register(intervalChannel("storage", 1000))
+
+    VDT.ExportChannels.tick(debugger, 500) -- prod 750 (<1000), storage 1000 (fires)
+    local dirty = VDT.ExportChannels.selectDirty()
+    assert.are.equal(1, #dirty)
+    assert.are.equal("storage", dirty[1].name) -- prod did NOT fire on this frame
+    VDT.ExportChannels.writeDirty(dir, encode, debugger) -- drain storage
+
+    VDT.ExportChannels.tick(debugger, 500) -- prod 1250 (fires), storage reset -> 500 (<1000)
+    dirty = VDT.ExportChannels.selectDirty()
+    assert.are.equal(1, #dirty)
+    assert.are.equal("prod", dirty[1].name) -- prod fires on its own later frame
+  end)
+end)
+
+describe("ExportChannels.writeDirty spreading", function()
+  local dir
+
+  before_each(function()
+    VDT.ExportChannels.reset()
+    dir = os.tmpname()
+    os.remove(dir)
+    dir = dir .. "_"
+  end)
+
+  it("writes at most one non-critical channel per flush, draining the rest on later frames", function()
+    local a = channel("a", true, { body = "A" })
+    local b = channel("b", true, { body = "B" })
+    local c = channel("c", true, { body = "C" })
+    VDT.ExportChannels.register(a)
+    VDT.ExportChannels.register(b)
+    VDT.ExportChannels.register(c)
+    VDT.ExportChannels.markAllDirty() -- all dirty at the same nowMs -> registration order breaks the tie
+
+    VDT.ExportChannels.writeDirty(dir, encode, debugger)
+    assert.are.equal("A", readFile(dir .. "a.json"))
+    assert.is_nil(readFile(dir .. "b.json"))
+    assert.is_nil(readFile(dir .. "c.json"))
+    assert.are.equal(1, a.collects)
+    assert.are.equal(0, b.collects) -- not even collected: spread caps the per-frame work
+    assert.are.equal(0, c.collects)
+
+    VDT.ExportChannels.writeDirty(dir, encode, debugger)
+    assert.are.equal("B", readFile(dir .. "b.json"))
+    assert.is_nil(readFile(dir .. "c.json"))
+
+    VDT.ExportChannels.writeDirty(dir, encode, debugger)
+    assert.are.equal("C", readFile(dir .. "c.json"))
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty()) -- fully drained
+  end)
+
+  it("drains the longest-waiting channel first, regardless of registration order", function()
+    local x = channel("x", true, { body = "X" })
+    local y = channel("y", true, { body = "Y" })
+    VDT.ExportChannels.register(x)
+    VDT.ExportChannels.register(y)
+
+    VDT.ExportChannels.markDirty("y") -- y goes dirty at nowMs = 0
+    VDT.ExportChannels.tick(debugger, 100) -- clock advances to 100
+    VDT.ExportChannels.markDirty("x") -- x goes dirty later, at nowMs = 100
+
+    VDT.ExportChannels.writeDirty(dir, encode, debugger)
+    assert.are.equal("Y", readFile(dir .. "y.json")) -- older wins over earlier-registered x
+    assert.is_nil(readFile(dir .. "x.json"))
+  end)
+
+  it("always flushes a latencyCritical channel alongside the single spread pick", function()
+    local core = channel("core", true, { body = "T" })
+    core.latencyCritical = true
+    local h1 = channel("h1", true, { body = "H1" })
+    local h2 = channel("h2", true, { body = "H2" })
+    VDT.ExportChannels.register(core)
+    VDT.ExportChannels.register(h1)
+    VDT.ExportChannels.register(h2)
+    VDT.ExportChannels.markAllDirty()
+
+    VDT.ExportChannels.writeDirty(dir, encode, debugger)
+    assert.are.equal("T", readFile(dir .. "core.json")) -- exempt: always written
+    assert.are.equal("H1", readFile(dir .. "h1.json")) -- one heavy channel
+    assert.is_nil(readFile(dir .. "h2.json")) -- the other waits a frame
+
+    VDT.ExportChannels.writeDirty(dir, encode, debugger)
+    assert.are.equal("H2", readFile(dir .. "h2.json"))
   end)
 end)

@@ -209,6 +209,10 @@ function VDTelemetry:loadMap(filename)
     VDT.ExportChannels.register({
       name = VDTelemetry.TELEMETRY_CHANNEL,
       fileName = VDTelemetry.STATE_FILE_NAME,
+      -- The live-dashboard channel bypasses ExportChannels' one-heavy-channel-per-frame spread: it's
+      -- cheap and latency-sensitive (10 Hz), so it must flush on its own interval regardless of the
+      -- heavy channels' backlog. The main loop marks it dirty every write interval.
+      latencyCritical = true,
       isAvailable = function()
         return true
       end,

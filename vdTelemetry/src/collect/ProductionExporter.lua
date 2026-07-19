@@ -30,9 +30,6 @@ VDT.ProductionExporter.VERSION = 1
 -- change on the order of seconds at most, so a 2 s refresh keeps the overview live without churn.
 VDT.ProductionExporter.INTERVAL_MS = 2000
 
--- Accumulated ms since the last markDirty; on the table so specs can reset it.
-VDT.ProductionExporter.timerMs = 0
-
 -- "MISSING_INPUTS" -> "missingInputs": the wire vocabulary is the game's enum key, camelCased.
 local function camelToken(key)
   local lower = string.lower(key)
@@ -279,25 +276,14 @@ function VDT.ProductionExporter.collect()
   }
 end
 
--- Interval-driven: accumulate the frame delta and queue a write every INTERVAL_MS. markDirty on an
--- unavailable channel stays pending (selectDirty skips it without clearing), so ticking before the
--- chain manager is up costs nothing.
-function VDT.ProductionExporter.tick(_, dt)
-  if type(dt) ~= "number" then
-    return
-  end
-  VDT.ProductionExporter.timerMs = VDT.ProductionExporter.timerMs + dt
-  if VDT.ProductionExporter.timerMs >= VDT.ProductionExporter.INTERVAL_MS then
-    VDT.ProductionExporter.timerMs = 0
-    VDT.ExportChannels.markDirty(VDT.ProductionExporter.CHANNEL)
-  end
-end
-
--- Self-register the channel (see ExportChannels).
+-- Self-register the channel (see ExportChannels). Interval-driven: the registry owns the cadence
+-- (accumulates the frame delta and queues a write every intervalMs). markDirty on an unavailable
+-- channel stays pending (selectDirty skips it without clearing), so ticking before the chain manager
+-- is up costs nothing.
 VDT.ExportChannels.register({
   name = VDT.ProductionExporter.CHANNEL,
   fileName = VDT.ProductionExporter.FILE_NAME,
   isAvailable = VDT.ProductionExporter.isAvailable,
   collect = VDT.ProductionExporter.collect,
-  tick = VDT.ProductionExporter.tick,
+  intervalMs = VDT.ProductionExporter.INTERVAL_MS,
 })
