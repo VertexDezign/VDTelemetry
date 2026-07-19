@@ -131,7 +131,6 @@ describe("FieldInfoExporter.collect", function()
     })
     rawset(_G, "g_fieldManager", { fields = {} })
     VDT.FieldInfoExporter.started = nil
-    VDT.FieldInfoExporter.accMs = nil
   end)
 
   after_each(function()
@@ -268,7 +267,6 @@ describe("FieldInfoExporter.tick", function()
     rawset(_G, "g_currentMission", { isMissionStarted = true })
     rawset(_G, "g_fieldManager", { fields = { {} } })
     VDT.FieldInfoExporter.started = nil
-    VDT.FieldInfoExporter.accMs = nil
   end)
 
   after_each(function()
@@ -282,13 +280,13 @@ describe("FieldInfoExporter.tick", function()
     info = function() end,
   }
 
-  it("populates once on first availability, then re-marks every REFRESH_MS", function()
-    VDT.FieldInfoExporter.tick(debugger, 100) -- first tick: immediate populate
+  it("populates once on first availability, then leaves the periodic resample to the registry", function()
+    VDT.FieldInfoExporter.tick(debugger, 100) -- first tick: immediate one-shot populate
     assert.are.equal(1, marks)
-    VDT.FieldInfoExporter.tick(debugger, 100) -- accumulating, below the interval
+    -- Subsequent ticks do nothing: the registry's intervalMs owns the periodic resample now, not tick.
+    VDT.FieldInfoExporter.tick(debugger, 100)
+    VDT.FieldInfoExporter.tick(debugger, VDT.FieldInfoExporter.REFRESH_MS)
     assert.are.equal(1, marks)
-    VDT.FieldInfoExporter.tick(debugger, VDT.FieldInfoExporter.REFRESH_MS) -- crosses the interval
-    assert.are.equal(2, marks)
   end)
 
   it("does nothing while the channel is unavailable", function()

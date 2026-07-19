@@ -143,7 +143,7 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
         <channel id="husbandry" enabled="true" intervalMs="5000"/>
         <channel id="taskList" enabled="true"/>
         <channel id="cropRotation" enabled="true"/>
-        <channel id="fieldInfo" enabled="true"/>
+        <channel id="fieldInfo" enabled="true" intervalMs="30000"/>
     </channels>
 </VDTS>
 

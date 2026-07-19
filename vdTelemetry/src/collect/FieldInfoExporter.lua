@@ -25,9 +25,10 @@ VDT.FieldInfoExporter.FILE_NAME = "fieldInfo.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin FieldInfoData.
 VDT.FieldInfoExporter.VERSION = 1
 
--- Resample cadence (ms). Growth advances on the in-game clock (day/period), far slower than the
--- 100 ms telemetry tick, so a periodic re-collect is plenty and cheap (a handful of density-map
--- reads per field); markDirty only queues a write, the actual work runs on the export flush.
+-- Default resample cadence (ms), handed to ExportChannels as this channel's intervalMs — so it's
+-- user-configurable + profile-scaled like the other interval channels. Growth advances on the in-game
+-- clock (day/period), far slower than the 100 ms telemetry tick, so a periodic re-collect is plenty
+-- and cheap (a handful of density-map reads per field); the write runs on the export flush.
 VDT.FieldInfoExporter.REFRESH_MS = 30000
 
 ---Round to the nearest integer (percentages are shown whole).
@@ -260,33 +261,26 @@ function VDT.FieldInfoExporter.isAvailable()
   return (fields ~= nil and #fields > 0) or g_currentMission.isMissionStarted == true
 end
 
--- Interval-driven tick (see the header note on cadence): populate once as soon as the channel is
--- available, then re-mark dirty every REFRESH_MS. dt is the frame delta in ms accumulated across
--- ticks; the export flush does the actual re-collect and write.
-function VDT.FieldInfoExporter.tick(debugger, dt)
-  if not VDT.FieldInfoExporter.isAvailable() then
+-- Prompt initial populate. The registry's intervalMs (below) owns the periodic resample now — but its
+-- first fire is a whole interval away, too long to wait at 30 s — so this one-shot markDirty fills the
+-- channel the moment the field manager is up. Fires once; the registry handles every refresh after.
+function VDT.FieldInfoExporter.tick(debugger, _)
+  if VDT.FieldInfoExporter.started == true or not VDT.FieldInfoExporter.isAvailable() then
     return
   end
-  if VDT.FieldInfoExporter.started ~= true then
-    VDT.FieldInfoExporter.started = true
-    VDT.FieldInfoExporter.accMs = 0
-    debugger:info("FieldInfo channel active (resampling every %d s)", VDT.FieldInfoExporter.REFRESH_MS / 1000)
-    VDT.ExportChannels.markDirty(VDT.FieldInfoExporter.CHANNEL)
-    return
-  end
-  local acc = (VDT.FieldInfoExporter.accMs or 0) + (dt or 0)
-  if acc >= VDT.FieldInfoExporter.REFRESH_MS then
-    acc = 0
-    VDT.ExportChannels.markDirty(VDT.FieldInfoExporter.CHANNEL)
-  end
-  VDT.FieldInfoExporter.accMs = acc
+  VDT.FieldInfoExporter.started = true
+  debugger:info("FieldInfo channel active")
+  VDT.ExportChannels.markDirty(VDT.FieldInfoExporter.CHANNEL)
 end
 
--- Self-register the channel (see ExportChannels).
+-- Self-register the channel (see ExportChannels). Interval-driven: the registry owns the cadence
+-- (REFRESH_MS as the default, then user-configurable + profile-scaled like the other interval
+-- channels); the tick above only does the one-shot initial populate.
 VDT.ExportChannels.register({
   name = VDT.FieldInfoExporter.CHANNEL,
   fileName = VDT.FieldInfoExporter.FILE_NAME,
   isAvailable = VDT.FieldInfoExporter.isAvailable,
   collect = VDT.FieldInfoExporter.collect,
+  intervalMs = VDT.FieldInfoExporter.REFRESH_MS,
   tick = VDT.FieldInfoExporter.tick,
 })
