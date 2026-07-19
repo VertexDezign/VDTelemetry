@@ -23,16 +23,21 @@ local function installDrivable()
 end
 
 -- A vehicle stub that records cruise setter calls; spec_drivable present only when drivable.
+-- setCruiseControlMaxSpeed mirrors the engine by writing the (here unclamped) value into
+-- spec.cruiseControl.speed, which the MP sync event reads back.
 local function fakeVehicle(drivable)
   local v = { calls = {} }
   if drivable then
-    v.spec_drivable = {}
+    v.spec_drivable = { cruiseControl = { speed = 0, speedReverse = 0 } }
   end
   function v:setCruiseControlState(state)
     self.calls[#self.calls + 1] = { "state", state }
   end
   function v:setCruiseControlMaxSpeed(speed)
     self.calls[#self.calls + 1] = { "speed", speed }
+    if self.spec_drivable ~= nil and self.spec_drivable.cruiseControl ~= nil then
+      self.spec_drivable.cruiseControl.speed = speed
+    end
   end
   return v
 end
@@ -57,6 +62,62 @@ describe("CruiseControl.apply", function()
     local v = fakeVehicle(true)
     VDT.CruiseControl.apply(v, "setSpeed", 15.5, debugger)
     assert.are.same({ { "speed", 15.5 } }, v.calls)
+  end)
+
+  it("setSpeed broadcasts SetCruiseControlSpeedEvent on the server", function()
+    installDrivable()
+    local sent = {}
+    rawset(_G, "SetCruiseControlSpeedEvent", {
+      new = function(vehicle, speed, speedReverse)
+        return { vehicle = vehicle, speed = speed, speedReverse = speedReverse }
+      end,
+    })
+    rawset(_G, "g_server", {
+      broadcastEvent = function(_, event)
+        sent[#sent + 1] = event
+      end,
+    })
+    rawset(_G, "g_client", nil)
+
+    local v = fakeVehicle(true)
+    VDT.CruiseControl.apply(v, "setSpeed", 15.5, debugger)
+
+    assert.are.same({ { "speed", 15.5 } }, v.calls)
+    assert.are.equal(1, #sent)
+    assert.are.equal(15.5, sent[1].speed)
+    assert.are.equal(v, sent[1].vehicle)
+
+    rawset(_G, "SetCruiseControlSpeedEvent", nil)
+    rawset(_G, "g_server", nil)
+  end)
+
+  it("setSpeed sends SetCruiseControlSpeedEvent to the server from a client", function()
+    installDrivable()
+    local sent = {}
+    rawset(_G, "SetCruiseControlSpeedEvent", {
+      new = function(vehicle, speed, speedReverse)
+        return { vehicle = vehicle, speed = speed, speedReverse = speedReverse }
+      end,
+    })
+    rawset(_G, "g_server", nil)
+    rawset(_G, "g_client", {
+      getServerConnection = function()
+        return {
+          sendEvent = function(_, event)
+            sent[#sent + 1] = event
+          end,
+        }
+      end,
+    })
+
+    local v = fakeVehicle(true)
+    VDT.CruiseControl.apply(v, "setSpeed", 20, debugger)
+
+    assert.are.equal(1, #sent)
+    assert.are.equal(20, sent[1].speed)
+
+    rawset(_G, "SetCruiseControlSpeedEvent", nil)
+    rawset(_G, "g_client", nil)
   end)
 
   it("setSpeed with no speed is ignored", function()
