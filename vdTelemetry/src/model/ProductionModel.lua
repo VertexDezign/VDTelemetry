@@ -1,13 +1,14 @@
--- Model definitions for the production & storage export channel (productionStorage.json,
+-- Model definitions for the production export channel (production.json,
 -- src/collect/ProductionExporter.lua).
 --
 -- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
--- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Productions.kt) and the
--- fixtures in examples/json/productionStorage/*.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Production.kt) and the
+-- fixtures in examples/json/production/*.
 --
--- Scope: the LOCAL player's farm only (see g_localPlayer.farmId). Two sibling lists — production
--- points (with their production lines) and standalone storages (owned silos with no production).
--- Fill levels/capacities are liters; the app derives the fill percentage from level/capacity.
+-- Scope: the LOCAL player's farm only (see g_localPlayer.farmId) — the owned production points (with
+-- their production lines + shared internal storage) and factories. Standalone storages live on the
+-- sibling storage channel (src/model/StorageModel.lua). Fill levels/capacities are liters; the app
+-- derives the fill percentage from level/capacity. ProductionFillModel is shared with that channel.
 
 ---@class ProductionFillModel a fill-type row in a shared storage (input, output, or a standalone silo)
 ---@field type string fill type internal name, stable token (g_fillTypeManager name, e.g. "MANURE")
@@ -39,23 +40,6 @@
 ---@field lines ProductionLineModel[]
 ---@field storage ProductionFillModel[] the point's shared internal storage, one row per fill type
 
----@class StoredObjectModel a group of identical stored objects in an object storage
----@field index number the group's objectInfoIndex (1-based) — the unload command's addressing key
----@field title string display name (the abstract object's dialog text, e.g. "Round bale (Straw)")
----@field count number number of that object currently stored
-
----@class StandaloneStorageModel an owned storage placeable with no production
----@field id string stable id for app selection (placeable uniqueId, else a synthesized fallback)
----@field name string display name (owning placeable's name)
----@field kind string "fill" (liter silo) or "object" (object storage: bales/pallets, count-based)
----@field fills ProductionFillModel[]? kind=="fill": one row per stored fill type
----@field objects StoredObjectModel[]? kind=="object": per-type item counts (may be partial on MP clients)
----@field count number? kind=="object": total number of objects currently stored
----@field capacity number? kind=="object": maximum number of objects
----@field maxUnloadAmount number? kind=="object": per-action unload cap (the effective max per type is
----  min(this, that group's count))
-
----@class ProductionsModel
+---@class ProductionModel
 ---@field version string channel version, independent of VDTelemetry.VERSION
 ---@field productionPoints ProductionPointModel[]?
----@field storages StandaloneStorageModel[]?

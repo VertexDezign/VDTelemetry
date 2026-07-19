@@ -17,18 +17,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Factory
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Warehouse
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,155 +31,71 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.OutputMode
-import net.vertexdezign.vdt.app.components.ActionIcon
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.ProductionFill
 import net.vertexdezign.vdt.model.ProductionIo
 import net.vertexdezign.vdt.model.ProductionLine
 import net.vertexdezign.vdt.model.ProductionPoint
-import net.vertexdezign.vdt.model.ProductionsData
-import net.vertexdezign.vdt.model.StandaloneStorage
-import net.vertexdezign.vdt.model.StoredObject
-import kotlin.math.roundToInt
 
 /**
- * The Productions app full page: a master/detail over the own-farm [ProductionsData] channel. The
- * left column lists owned production points and standalone storages (two sections, mirroring the
- * game's own "Im Besitz" list); selecting one shows its detail on the right — a production point's
- * lines (status, output mode, per-line input/output storage bars, cycles/costs), or a standalone
- * storage's fill levels.
+ * The Production app full page: a master/detail over the own-farm [ProductionData] channel. The left
+ * column lists owned production points (incl. factories, mirroring the game's own "Im Besitz" list);
+ * selecting one shows its detail on the right — its lines (status, output mode, per-line input/output
+ * storage bars, cycles/costs).
  *
  * Production lines can be switched on/off and buffered outputs' distribution mode changed, via
- * [onCommand] (absolute-state commands over the mod command channel). A null [data] means the
- * channel is absent (export off / no data yet) — distinct from an owned-nothing farm, which shows
- * the empty state.
+ * [onCommand] (absolute-state commands over the mod command channel). A null [data] means the channel
+ * is absent (export off / no data yet) — distinct from an owned-nothing farm, which shows the empty
+ * state. Standalone storages live on the sibling [StoragePanel].
  */
 @Composable
-fun ProductionsPanel(data: ProductionsData?, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
-  Panel(title = "Production & Storage", icon = Icons.Filled.Factory, modifier = modifier) {
+fun ProductionPanel(data: ProductionData?, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
+  Panel(title = "Production", icon = Icons.Filled.Factory, modifier = modifier) {
     when {
       data == null -> Centered("Waiting for production data…")
-
-      data.productionPoints.isEmpty() && data.storages.isEmpty() ->
-        Centered("No owned productions or storages")
-
-      else -> ProductionsMasterDetail(data, onCommand)
+      data.productionPoints.isEmpty() -> Centered("No owned productions")
+      else -> ProductionMasterDetail(data, onCommand)
     }
   }
 }
 
 @Composable
-private fun ProductionsMasterDetail(data: ProductionsData, onCommand: (ClientMessage) -> Unit) {
+private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessage) -> Unit) {
   // Selection is by id so it survives the ~2 s refreshes; falls back to the first entry when the
   // selected placeable disappears (sold / demolished) or on first render.
   var selectedId by remember { mutableStateOf<String?>(null) }
-  val ids = remember(data) { data.productionPoints.map { it.id } + data.storages.map { it.id } }
+  val ids = remember(data) { data.productionPoints.map { it.id } }
   val currentId = selectedId.takeIf { it in ids } ?: ids.firstOrNull()
 
   Row(Modifier.fillMaxSize()) {
-    OwnedList(
-      data = data,
-      selectedId = currentId,
-      onSelect = { selectedId = it },
-      modifier = Modifier.width(240.dp).fillMaxHeight(),
-    )
-    Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
-    Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
-      val point = data.productionPoints.firstOrNull { it.id == currentId }
-      val storage = data.storages.firstOrNull { it.id == currentId }
-      when {
-        point != null -> ProductionPointDetail(point, onCommand)
-        storage != null -> StandaloneStorageDetail(storage, onCommand)
-        else -> Centered("Select an entry")
-      }
-    }
-  }
-}
-
-// ---- Master list ---------------------------------------------------------------------------------
-
-@Composable
-private fun OwnedList(
-  data: ProductionsData,
-  selectedId: String?,
-  onSelect: (String) -> Unit,
-  modifier: Modifier = Modifier,
-) {
-  Column(
-    modifier.verticalScroll(rememberScrollState()).padding(end = 10.dp),
-    verticalArrangement = Arrangement.spacedBy(4.dp),
-  ) {
-    if (data.productionPoints.isNotEmpty()) {
-      SectionHeader("Productions")
+    Column(
+      Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 10.dp),
+      verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
       data.productionPoints.forEach { point ->
         OwnedRow(
           name = point.name,
           subtitle = lineCountLabel(point.lines.size),
-          selected = point.id == selectedId,
-          onClick = { onSelect(point.id) },
+          selected = point.id == currentId,
+          onClick = { selectedId = point.id },
         )
       }
     }
-    if (data.storages.isNotEmpty()) {
-      SectionHeader("Storages")
-      data.storages.forEach { storage ->
-        OwnedRow(
-          name = storage.name,
-          subtitle = storageSubtitle(storage),
-          selected = storage.id == selectedId,
-          onClick = { onSelect(storage.id) },
-        )
-      }
+    Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
+    Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
+      val point = data.productionPoints.firstOrNull { it.id == currentId }
+      if (point != null) ProductionPointDetail(point, onCommand) else Centered("Select an entry")
     }
-  }
-}
-
-@Composable
-private fun SectionHeader(text: String) {
-  Text(
-    text.uppercase(),
-    color = VdtColors.Gray,
-    fontSize = 10.sp,
-    fontWeight = FontWeight.Bold,
-    modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
-  )
-}
-
-@Composable
-private fun OwnedRow(name: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
-  val bg = if (selected) VdtColors.Green else VdtColors.TrackGray
-  val fg = if (selected) VdtColors.White else VdtColors.TextDark
-  Column(
-    Modifier
-      .fillMaxWidth()
-      .clip(RoundedCornerShape(4.dp))
-      .background(bg)
-      .clickable(onClick = onClick)
-      .padding(horizontal = 10.dp, vertical = 8.dp),
-  ) {
-    Text(
-      name,
-      color = fg,
-      fontSize = 13.sp,
-      fontWeight = FontWeight.SemiBold,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-    )
-    Text(
-      subtitle,
-      color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.Gray,
-      fontSize = 10.sp,
-    )
   }
 }
 
@@ -323,130 +232,7 @@ private fun IoRow(entry: ProductionIo, fill: ProductionFill?, onSetMode: ((Strin
   }
 }
 
-// ---- Standalone storage detail -------------------------------------------------------------------
-
-@Composable
-private fun StandaloneStorageDetail(storage: StandaloneStorage, onCommand: (ClientMessage) -> Unit) {
-  val isObject = storage.kind == "object"
-  Column(
-    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-    verticalArrangement = Arrangement.spacedBy(10.dp),
-  ) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-      Icon(
-        if (isObject) Icons.Filled.Inventory2 else Icons.Filled.Warehouse,
-        contentDescription = null,
-        tint = VdtColors.DarkGray,
-        modifier = Modifier.size(16.dp),
-      )
-      Text(storage.name, color = VdtColors.TextDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-    }
-    if (isObject) {
-      ObjectStorageBody(storage, onCommand)
-    } else {
-      if (storage.fills.isEmpty()) {
-        Text("This storage is empty", color = VdtColors.Gray, fontSize = 11.sp)
-      }
-      storage.fills.forEach { fill -> FillRow(fill) }
-    }
-  }
-}
-
-/**
- * Object storage: a total count/capacity bar, then the per-type breakdown (title × count) with an
- * unload action per group. Unloading opens a dialog to pick the amount (1..min(count, cap)) and sends
- * the command to spawn that many objects out of the storage, the same as the in-game trigger.
- */
-@Composable
-private fun ObjectStorageBody(storage: StandaloneStorage, onCommand: (ClientMessage) -> Unit) {
-  var pending by remember { mutableStateOf<StoredObject?>(null) }
-  val fraction = if (storage.capacity > 0) storage.count.toFloat() / storage.capacity.toFloat() else 0f
-  ProgressBar(
-    fraction = fraction,
-    leftLabel = "Objects",
-    rightLabel = "${formatInt(storage.count)} / ${formatInt(storage.capacity)}",
-  )
-  if (storage.count == 0) {
-    Text("This storage is empty", color = VdtColors.Gray, fontSize = 11.sp)
-  }
-  storage.objects.forEach { obj ->
-    Row(
-      Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      Text(
-        obj.title,
-        color = VdtColors.TextDark,
-        fontSize = 12.sp,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.weight(1f, fill = false),
-      )
-      Box(Modifier.weight(1f))
-      Text("×${formatInt(obj.count)}", color = VdtColors.DarkGray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-      ActionIcon(Icons.Filled.Download, "unload ${obj.title}", VdtColors.Green, onClick = { pending = obj })
-    }
-  }
-
-  pending?.let { obj ->
-    // Effective cap: the per-action limit and how many are actually stored (server refuses more).
-    val max = minOf(obj.count, if (storage.maxUnloadAmount > 0) storage.maxUnloadAmount else obj.count)
-    UnloadDialog(
-      obj = obj,
-      max = max,
-      onConfirm = { amount ->
-        onCommand(ClientMessage.UnloadObjectStorage(storage.id, obj.index, obj.title, amount))
-        pending = null
-      },
-      onDismiss = { pending = null },
-    )
-  }
-}
-
-/** Amount picker for unloading one object group — a slider and a synced numeric field, capped at [max]. */
-@Composable
-private fun UnloadDialog(obj: StoredObject, max: Int, onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
-  val cap = max.coerceAtLeast(1)
-  var amount by remember(obj, cap) { mutableStateOf(cap) }
-  AlertDialog(
-    onDismissRequest = onDismiss,
-    title = { Text("Unload ${obj.title}") },
-    text = {
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("$amount of $cap", color = VdtColors.DarkGray, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        if (cap > 1) {
-          Slider(
-            value = amount.toFloat(),
-            onValueChange = { amount = it.roundToInt().coerceIn(1, cap) },
-            valueRange = 1f..cap.toFloat(),
-          )
-        }
-        OutlinedTextField(
-          value = amount.toString(),
-          onValueChange = { s -> s.toIntOrNull()?.let { amount = it.coerceIn(1, cap) } },
-          label = { Text("Amount") },
-          singleLine = true,
-          modifier = Modifier.fillMaxWidth(),
-        )
-      }
-    },
-    confirmButton = { TextButton(onClick = { onConfirm(amount) }) { Text("Unload") } },
-    dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-  )
-}
-
-@Composable
-private fun FillRow(fill: ProductionFill) {
-  val fraction = if (fill.capacity > 0) fill.level.toFloat() / fill.capacity.toFloat() else 0f
-  ProgressBar(
-    fraction = fraction,
-    leftLabel = fill.title,
-    rightLabel = "${formatInt(fill.level)} / ${formatInt(fill.capacity)} L",
-  )
-}
-
-// ---- Small shared pieces -------------------------------------------------------------------------
+// ---- Small pieces --------------------------------------------------------------------------------
 
 /** Tappable on/off chip for a production line — green ON / gray OFF; a tap requests the opposite. */
 @Composable
@@ -555,26 +341,3 @@ private fun modeLabel(mode: String): String = when (mode) {
 }
 
 private fun lineCountLabel(n: Int): String = if (n == 1) "1 line" else "$n lines"
-
-private fun typeCountLabel(n: Int): String = if (n == 1) "1 fill type" else "$n fill types"
-
-private fun storageSubtitle(storage: StandaloneStorage): String =
-  if (storage.kind == "object") "${storage.count} / ${storage.capacity}" else typeCountLabel(storage.fills.size)
-
-/** Group a non-negative liter count with thousands separators (e.g. 145000 -> "145,000"). */
-private fun formatInt(value: Int): String {
-  val digits = value.toString()
-  if (digits.length <= 3) return digits
-  val sb = StringBuilder()
-  val firstGroup = digits.length % 3
-  if (firstGroup > 0) {
-    sb.append(digits, 0, firstGroup)
-  }
-  var i = firstGroup
-  while (i < digits.length) {
-    if (sb.isNotEmpty()) sb.append(',')
-    sb.append(digits, i, i + 3)
-    i += 3
-  }
-  return sb.toString()
-}

@@ -13,7 +13,8 @@ import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
-import net.vertexdezign.vdt.model.ProductionsData
+import net.vertexdezign.vdt.model.ProductionData
+import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -35,7 +36,8 @@ class VdtStore(
   val mapData: StateFlow<MapData?>,
   val mapVehicles: StateFlow<MapVehiclesData?>,
   val fieldInfo: StateFlow<FieldInfoData?>,
-  val productions: StateFlow<ProductionsData?>,
+  val production: StateFlow<ProductionData?>,
+  val storage: StateFlow<StorageData?>,
   val husbandry: StateFlow<HusbandriesData?>,
   val wakeLock: StateFlow<WakeLockStatus>,
   val mapUrl: String,

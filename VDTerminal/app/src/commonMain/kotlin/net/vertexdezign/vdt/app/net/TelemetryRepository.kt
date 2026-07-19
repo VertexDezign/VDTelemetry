@@ -20,7 +20,8 @@ import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
-import net.vertexdezign.vdt.model.ProductionsData
+import net.vertexdezign.vdt.model.ProductionData
+import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 import kotlin.math.roundToInt
@@ -80,12 +81,17 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   private val _fieldInfo = MutableStateFlow<FieldInfoData?>(null)
   val fieldInfo: StateFlow<FieldInfoData?> = _fieldInfo.asStateFlow()
 
-  // Productions overview (own-farm production points + standalone storages), on the mod's own ~2 s
-  // interval; same null-when-absent contract as mapData (export off / no data yet clears the app view).
-  private val _productions = MutableStateFlow<ProductionsData?>(null)
-  val productions: StateFlow<ProductionsData?> = _productions.asStateFlow()
+  // Production overview (own-farm production points + factories), on the mod's own ~2 s interval;
+  // same null-when-absent contract as mapData (export off / no data yet clears the app view).
+  private val _production = MutableStateFlow<ProductionData?>(null)
+  val production: StateFlow<ProductionData?> = _production.asStateFlow()
 
-  // Owned animal pens, on the mod's own interval; same null-when-absent contract as productions.
+  // Storage overview (own-farm standalone silos + object storages), on its own ~2 s interval; same
+  // null-when-absent contract as production.
+  private val _storage = MutableStateFlow<StorageData?>(null)
+  val storage: StateFlow<StorageData?> = _storage.asStateFlow()
+
+  // Owned animal pens, on the mod's own interval; same null-when-absent contract as production.
   private val _husbandry = MutableStateFlow<HusbandriesData?>(null)
   val husbandry: StateFlow<HusbandriesData?> = _husbandry.asStateFlow()
 
@@ -157,8 +163,12 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
                       _fieldInfo.value = msg.data
                     }
 
-                    is ServerMessage.Productions -> {
-                      _productions.value = msg.data
+                    is ServerMessage.Production -> {
+                      _production.value = msg.data
+                    }
+
+                    is ServerMessage.Storage -> {
+                      _storage.value = msg.data
                     }
 
                     is ServerMessage.Husbandry -> {

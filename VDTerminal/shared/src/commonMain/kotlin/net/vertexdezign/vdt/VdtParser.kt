@@ -6,7 +6,8 @@ import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
-import net.vertexdezign.vdt.model.ProductionsData
+import net.vertexdezign.vdt.model.ProductionData
+import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -45,8 +46,11 @@ object VdtParser {
   /** Parse the `mapVehicles.json` channel (vehicle markers) into [MapVehiclesData]. */
   fun parseMapVehicles(text: String): MapVehiclesData = json.decodeFromString(MapVehiclesData.serializer(), text)
 
-  /** Parse the `productionStorage.json` channel (production points + standalone storages) into [ProductionsData]. */
-  fun parseProductions(text: String): ProductionsData = json.decodeFromString(ProductionsData.serializer(), text)
+  /** Parse the `production.json` channel (own-farm production points + factories) into [ProductionData]. */
+  fun parseProduction(text: String): ProductionData = json.decodeFromString(ProductionData.serializer(), text)
+
+  /** Parse the `storage.json` channel (own-farm standalone silos + object storages) into [StorageData]. */
+  fun parseStorage(text: String): StorageData = json.decodeFromString(StorageData.serializer(), text)
 
   /** Parse the `husbandry.json` channel (owned animal pens) into [HusbandriesData]. */
   fun parseHusbandry(text: String): HusbandriesData = json.decodeFromString(HusbandriesData.serializer(), text)

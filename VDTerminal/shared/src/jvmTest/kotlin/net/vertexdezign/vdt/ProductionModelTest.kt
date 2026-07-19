@@ -1,7 +1,7 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
-import net.vertexdezign.vdt.model.ProductionsData
+import net.vertexdezign.vdt.model.ProductionData
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,33 +11,33 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Decodes the committed `examples/json/productionStorage` fixtures through the real server path
- * ([VdtParser.parseProductions]) and asserts the field mapping, the omission defaults (empty
- * lists, absent output `mode`), and a lossless JSON round-trip — the productions channel's half of
- * the mod↔Kotlin contract.
+ * Decodes the committed `examples/json/production` fixtures through the real server path
+ * ([VdtParser.parseProduction]) and asserts the field mapping, the omission defaults (empty lists,
+ * absent output `mode`), and a lossless JSON round-trip — the production channel's half of the
+ * mod↔Kotlin contract. Standalone storages are covered by [StorageModelTest].
  */
-class ProductionsModelTest {
+class ProductionModelTest {
   private val json = Json { encodeDefaults = true }
 
   private fun example(name: String): String {
     var dir: File? = File(".").absoluteFile
     while (dir != null) {
-      val candidate = File(dir, "examples/json/productionStorage/$name")
+      val candidate = File(dir, "examples/json/production/$name")
       if (candidate.exists()) return candidate.readText()
       dir = dir.parentFile
     }
-    error("Could not locate examples/json/productionStorage/$name from ${File(".").absolutePath}")
+    error("Could not locate examples/json/production/$name from ${File(".").absolutePath}")
   }
 
-  private fun assertRoundTrips(data: ProductionsData) {
-    val encoded = json.encodeToString(ProductionsData.serializer(), data)
-    val decoded = json.decodeFromString(ProductionsData.serializer(), encoded)
+  private fun assertRoundTrips(data: ProductionData) {
+    val encoded = json.encodeToString(ProductionData.serializer(), data)
+    val decoded = json.decodeFromString(ProductionData.serializer(), encoded)
     assertEquals(data, decoded, "JSON round-trip should be lossless")
   }
 
   @Test
-  fun parsesBasicProductions() {
-    val data = VdtParser.parseProductions(example("basic.json"))
+  fun parsesBasicProduction() {
+    val data = VdtParser.parseProduction(example("basic.json"))
 
     assertEquals("1", data.version)
     assertEquals(1, data.productionPoints.size)
@@ -82,66 +82,44 @@ class ProductionsModelTest {
     assertEquals(0, assertNotNull(manureStore).level)
     assertEquals(20000, manureStore.capacity)
 
-    assertEquals(2, data.storages.size)
-    val silo = data.storages[0]
-    assertEquals("Zentrales Güllelager", silo.name)
-    // No `kind` in the fixture -> the liter-silo default.
-    assertEquals("fill", silo.kind)
-    assertEquals(1, silo.fills.size)
-    assertEquals("LIQUIDMANURE", silo.fills[0].type)
-    assertEquals(145000, silo.fills[0].level)
-
-    // Object storage: count-based, with a per-type breakdown instead of liter fills.
-    val barn = data.storages[1]
-    assertEquals("object", barn.kind)
-    assertEquals(32, barn.count)
-    assertEquals(250, barn.capacity)
-    assertEquals(25, barn.maxUnloadAmount)
-    assertTrue(barn.fills.isEmpty())
-    assertEquals(2, barn.objects.size)
-    assertEquals(1, barn.objects[0].index)
-    assertEquals("Round bale (Straw)", barn.objects[0].title)
-    assertEquals(20, barn.objects[0].count)
-
     assertRoundTrips(data)
   }
 
   @Test
-  fun parsesEmptyProductionsWithOmittedArrays() {
+  fun parsesEmptyProductionWithOmittedArrays() {
     // Own-farm-with-nothing / spectator: the mod writes just the version, so the Kotlin defaults must
-    // fill the missing productionPoints / storages arrays.
-    val data = VdtParser.parseProductions(example("empty.json"))
+    // fill the missing productionPoints array.
+    val data = VdtParser.parseProduction(example("empty.json"))
 
     assertEquals("1", data.version)
     assertTrue(data.productionPoints.isEmpty())
-    assertTrue(data.storages.isEmpty())
     assertRoundTrips(data)
   }
 
   @Test
-  fun productionsRidesTheServerMessageDiscriminator() {
-    val data = VdtParser.parseProductions(example("basic.json"))
-    val message: ServerMessage = ServerMessage.Productions(data)
+  fun productionRidesTheServerMessageDiscriminator() {
+    val data = VdtParser.parseProduction(example("basic.json"))
+    val message: ServerMessage = ServerMessage.Production(data)
     val encoded = json.encodeToString(ServerMessage.serializer(), message)
 
     assertTrue(
-      encoded.contains("\"type\":\"productionStorage\""),
-      "expected the productionStorage discriminator in $encoded",
+      encoded.contains("\"type\":\"production\""),
+      "expected the production discriminator in $encoded",
     )
     val decoded = json.decodeFromString(ServerMessage.serializer(), encoded)
-    assertEquals(message, assertNotNull(decoded as? ServerMessage.Productions))
+    assertEquals(message, assertNotNull(decoded as? ServerMessage.Production))
   }
 
   /**
-   * "File gone" has to be expressible on the wire: the server sends it when `productionStorage.json` is
+   * "File gone" has to be expressible on the wire: the server sends it when `production.json` is
    * absent (export disabled) and the app clears its overview on it.
    */
   @Test
-  fun productionsCarriesTheAbsentFileNull() {
-    val message: ServerMessage = ServerMessage.Productions(null)
+  fun productionCarriesTheAbsentFileNull() {
+    val message: ServerMessage = ServerMessage.Production(null)
     val encoded = json.encodeToString(ServerMessage.serializer(), message)
 
     val decoded = json.decodeFromString(ServerMessage.serializer(), encoded)
-    assertNull(assertNotNull(decoded as? ServerMessage.Productions).data)
+    assertNull(assertNotNull(decoded as? ServerMessage.Production).data)
   }
 }

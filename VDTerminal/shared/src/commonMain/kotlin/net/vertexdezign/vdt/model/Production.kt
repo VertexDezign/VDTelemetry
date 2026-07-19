@@ -3,10 +3,12 @@ package net.vertexdezign.vdt.model
 import kotlinx.serialization.Serializable
 
 /**
- * Typed model of the **production & storage** channel the mod writes to `productionStorage.json` (separate file,
+ * Typed model of the **production** channel the mod writes to `production.json` (separate file,
  * interval-driven cadence — see the mod's `src/collect/ProductionExporter.lua`): the local farm's
- * owned production points (with their production lines + shared internal storage) and standalone
- * storages (owned silos with no production).
+ * owned production points (with their production lines + shared internal storage) and factories.
+ *
+ * Standalone storages (owned silos + object storages) live on the sibling **storage** channel
+ * ([StorageData], `storage.json`) — the two were split so each app/channel can evolve on its own.
  *
  * Scope is own-farm only. Fill levels/capacities are liters; the app derives the fill percentage
  * from [ProductionFill.level] / [ProductionFill.capacity].
@@ -15,10 +17,9 @@ import kotlinx.serialization.Serializable
  * model: omitted keys fall back to these defaults, so the mod can add fields ahead of the client.
  */
 @Serializable
-data class ProductionsData(
+data class ProductionData(
   val version: String = "",
   val productionPoints: List<ProductionPoint> = emptyList(),
-  val storages: List<StandaloneStorage> = emptyList(),
 )
 
 /** One owned production point (greenhouse, biogas plant, ...) or a factory. */
@@ -80,7 +81,11 @@ data class ProductionIo(
   val sellDirectly: Boolean = false,
 )
 
-/** A fill-type row in a shared storage (a production point's internal storage, or a standalone silo). */
+/**
+ * A fill-type row in a shared storage. Used by a production point's internal storage here, and also
+ * by a standalone silo on the sibling storage channel ([StandaloneStorage.fills]) — the shape is
+ * identical, so the type is shared rather than duplicated.
+ */
 @Serializable
 data class ProductionFill(
   val type: String = "",
@@ -89,36 +94,4 @@ data class ProductionFill(
   val level: Int = 0,
   /** Storage capacity in liters. */
   val capacity: Int = 0,
-)
-
-/**
- * An owned storage placeable with no production. Two kinds, distinguished by [kind]:
- * - `fill` — a liter silo: contents in [fills] (per fill type, level/capacity).
- * - `object` — an object storage (bales/pallets, count-based): total [count] / [capacity] objects,
- *   with a per-type breakdown in [objects] (which may be partial on a multiplayer client, where only
- *   counts are synced — the total is always accurate).
- */
-@Serializable
-data class StandaloneStorage(
-  val id: String = "",
-  val name: String = "",
-  val kind: String = "fill",
-  val fills: List<ProductionFill> = emptyList(),
-  val objects: List<StoredObject> = emptyList(),
-  val count: Int = 0,
-  val capacity: Int = 0,
-  /**
-   * `object` kind: the per-action unload cap (the game's per-building `maxUnloadAmount`, usually 25).
-   * The effective max for a given type is `min(maxUnloadAmount, that group's count)`.
-   */
-  val maxUnloadAmount: Int = 0,
-)
-
-/** A group of identical stored objects in an object storage. */
-@Serializable
-data class StoredObject(
-  /** The group's `objectInfoIndex` (1-based) — the addressing key for the unload command. */
-  val index: Int = 0,
-  val title: String = "",
-  val count: Int = 0,
 )

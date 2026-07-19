@@ -38,9 +38,12 @@ local sourceFiles = {
   -- both self-register into the registry above, MapVehicles reuses MapExporter's normalization
   "src/collect/MapExporter.lua",
   "src/collect/MapVehiclesExporter.lua",
-  -- Productions channel: own-farm production points + standalone storages (own interval, base-game
-  -- state only, self-registers into the channel registry)
+  -- Production channel: own-farm production points + factories (own interval, base-game state only,
+  -- self-registers into the channel registry)
   "src/collect/ProductionExporter.lua",
+  -- Storage channel: own-farm standalone silos + object storages (reuses ProductionExporter's
+  -- own-farm / id / storage-row helpers, so it is sourced after it)
+  "src/collect/StorageExporter.lua",
   -- Husbandry channel: own-farm animal pens (reuses ProductionExporter's own-farm + id helpers)
   "src/collect/HusbandryExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files

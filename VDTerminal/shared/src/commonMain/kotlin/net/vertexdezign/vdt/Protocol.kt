@@ -7,7 +7,8 @@ import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapVehiclesData
-import net.vertexdezign.vdt.model.ProductionsData
+import net.vertexdezign.vdt.model.ProductionData
+import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -91,16 +92,28 @@ sealed interface ServerMessage {
   ) : ServerMessage
 
   /**
-   * The production & storage channel (own-farm production points + standalone storages,
-   * `productionStorage.json`). Interval-driven on the mod's own ~2 s cadence (fill levels drift as
-   * material is delivered/consumed) — its own cadence besides the telemetry tick, so it is its own
-   * message. [data] is **null when `productionStorage.json` is absent** (export disabled / no data
-   * yet): the app clears its overview then rather than freezing the last state.
+   * The production channel (own-farm production points + factories, `production.json`).
+   * Interval-driven on the mod's own ~2 s cadence (fill levels drift as material is
+   * delivered/consumed) — its own cadence besides the telemetry tick, so it is its own message.
+   * [data] is **null when `production.json` is absent** (export disabled / no data yet): the app
+   * clears its overview then rather than freezing the last state.
    */
   @Serializable
-  @SerialName("productionStorage")
-  data class Productions(
-    val data: ProductionsData? = null,
+  @SerialName("production")
+  data class Production(
+    val data: ProductionData? = null,
+  ) : ServerMessage
+
+  /**
+   * The storage channel (own-farm standalone storages — silos + object storages, `storage.json`).
+   * A sibling of [Production] split onto its own channel; interval-driven on the same ~2 s cadence,
+   * so it is its own message. [data] is **null when `storage.json` is absent** (export disabled /
+   * no data yet): the app clears its overview then rather than freezing the last state.
+   */
+  @Serializable
+  @SerialName("storage")
+  data class Storage(
+    val data: StorageData? = null,
   ) : ServerMessage
 
   /**
@@ -312,7 +325,7 @@ sealed interface ClientMessage {
     val rotationIndex: Int,
   ) : ClientMessage
 
-  // ---- Productions write-back (production & storage app). Both drive the base-game ProductionPoint setters
+  // ---- Production write-back (production app). Both drive the base-game ProductionPoint setters
   // via their MP events, so they run with no current vehicle (requiresVehicle = false mod-side).
   // `pointId` is the production point's exported id; own-farm ownership is enforced mod-side. ----
 

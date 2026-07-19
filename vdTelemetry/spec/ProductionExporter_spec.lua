@@ -1,9 +1,10 @@
--- Unit tests for the productions export channel (src/collect/ProductionExporter.lua).
+-- Unit tests for the production export channel (src/collect/ProductionExporter.lua).
 --
 -- Run with `busted` from the vdTelemetry/ directory. The collector reads FS globals
 -- (g_currentMission / g_fillTypeManager / g_localPlayer / ProductionPoint), so the tests stub just
 -- enough of those to drive collect() offline. ExportChannels must exist first — the collector calls
--- register() at load time.
+-- register() at load time. Standalone storages are the sibling StorageExporter's job (see
+-- StorageExporter_spec.lua).
 
 if VDT == nil or VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
@@ -65,22 +66,6 @@ local function makePoint(opts)
   return pp
 end
 
--- A silo placeable (spec_silo) owned by `owner`, with a single storage set of level/cap maps.
-local function makeSilo(name, owner, uniqueId, levels, caps)
-  local storage = makeStorage(levels, caps)
-  storage.ownerFarmId = owner
-  return {
-    uniqueId = uniqueId,
-    spec_silo = { storages = { storage } },
-    getOwnerFarmId = function()
-      return owner
-    end,
-    getName = function()
-      return name
-    end,
-  }
-end
-
 -- A factory (PlaceableFactory) stub: it IS the placeable, its input storage lives on
 -- spec_factory.storage, its lone production has no id/status, and it has neither
 -- getIsProductionEnabled nor getOutputDistributionMode.
@@ -98,40 +83,7 @@ local function makeFactory(name, owner, uniqueId, opts)
   }
 end
 
--- An object-storage placeable (spec_objectStorage). `groups` is a list of { title, count } modelled
--- as the game's objectInfos (each with an abstract object exposing getDialogText).
-local function makeObjectStorage(name, owner, uniqueId, capacity, numStored, groups, maxUnload)
-  local objectInfos = {}
-  for _, g in ipairs(groups or {}) do
-    objectInfos[#objectInfos + 1] = {
-      numObjects = g.count,
-      objects = {
-        {
-          getDialogText = function()
-            return g.title
-          end,
-        },
-      },
-    }
-  end
-  return {
-    uniqueId = uniqueId,
-    spec_objectStorage = {
-      capacity = capacity,
-      numStoredObjects = numStored,
-      objectInfos = objectInfos,
-      maxUnloadAmount = maxUnload,
-    },
-    getName = function()
-      return name
-    end,
-    getOwnerFarmId = function()
-      return owner
-    end,
-  }
-end
-
-local function setupWorld(points, placeables, farmId, factories)
+local function setupWorld(points, farmId, factories)
   _G.ProductionPoint = { PROD_STATUS = PROD_STATUS, OUTPUT_MODE = OUTPUT_MODE }
   _G.g_fillTypeManager = {
     getFillTypeByIndex = function(_, idx)
@@ -141,12 +93,6 @@ local function setupWorld(points, placeables, farmId, factories)
   _G.g_localPlayer = farmId ~= nil and { farmId = farmId } or nil
   _G.g_currentMission = {
     productionChainManager = { productionPoints = points, factories = factories or {} },
-    placeableSystem = { placeables = placeables or {} },
-    storageSystem = {
-      getStorages = function()
-        return {}
-      end,
-    },
   }
 end
 
@@ -203,7 +149,7 @@ describe("ProductionExporter.collect", function()
       },
       storage = makeStorage({ [10] = 0, [11] = 5000 }, { [10] = 20000, [11] = 15000 }),
     })
-    setupWorld({ point }, {}, 1)
+    setupWorld({ point }, 1)
 
     local model = VDT.ProductionExporter.collect()
 
@@ -232,14 +178,12 @@ describe("ProductionExporter.collect", function()
     assert.are.equal(5000, p.storage[1].level)
     assert.are.equal("MANURE", p.storage[2].type)
     assert.are.equal(20000, p.storage[2].capacity)
-
-    assert.is_nil(model.storages) -- no standalone storages in this world
   end)
 
   it("excludes other farms' production points", function()
     local mine = makePoint({ name = "Mine", owner = 1, owningPlaceable = { uniqueId = "a" } })
     local theirs = makePoint({ name = "Theirs", owner = 2, owningPlaceable = { uniqueId = "b" } })
-    setupWorld({ mine, theirs }, {}, 1)
+    setupWorld({ mine, theirs }, 1)
 
     local model = VDT.ProductionExporter.collect()
     assert.are.equal(1, #model.productionPoints)
@@ -260,7 +204,7 @@ describe("ProductionExporter.collect", function()
       storage = makeStorage({ [10] = 1000 }, { [10] = 5000 }),
     })
     local otherFarm = makeFactory("Neighbour mill", 2, "mill-2", { productions = {} })
-    setupWorld({}, {}, 1, { factory, otherFarm })
+    setupWorld({}, 1, { factory, otherFarm })
 
     local model = VDT.ProductionExporter.collect()
     assert.are.equal(1, #model.productionPoints)
@@ -284,89 +228,29 @@ describe("ProductionExporter.collect", function()
   it("merges production points and factories into one list", function()
     local point = makePoint({ name = "Bakery", owner = 1, owningPlaceable = { uniqueId = "p" } })
     local factory = makeFactory("Mill", 1, "f", { productions = {} })
-    setupWorld({ point }, {}, 1, { factory })
+    setupWorld({ point }, 1, { factory })
 
     local model = VDT.ProductionExporter.collect()
     assert.are.equal(2, #model.productionPoints)
   end)
 
-  it("reports owned silo placeables as standalone storages, skipping other farms and non-silos", function()
-    local mine = makeSilo("Central slurry store", 1, "silo-1", { [12] = 145000 }, { [12] = 300000 })
-    local theirs = makeSilo("Neighbour silo", 2, "silo-2", { [12] = 5000 }, { [12] = 100000 })
-    -- A production placeable is not a silo (no spec_silo) and its storage is reported under
-    -- productionPoints — it must never appear in the standalone storages list.
-    local prod = {
-      spec_productionPoint = {},
-      getOwnerFarmId = function()
-        return 1
-      end,
-    }
-    setupWorld({}, { mine, theirs, prod }, 1)
-
-    local model = VDT.ProductionExporter.collect()
-    assert.is_nil(model.productionPoints)
-    assert.are.equal(1, #model.storages)
-    assert.are.equal("silo-1", model.storages[1].id)
-    assert.are.equal("fill", model.storages[1].kind)
-    assert.are.equal("Central slurry store", model.storages[1].name)
-    assert.are.equal("LIQUIDMANURE", model.storages[1].fills[1].type)
-    assert.are.equal(145000, model.storages[1].fills[1].level)
-  end)
-
-  it("reports object storages with a per-type breakdown, skipping other farms", function()
-    local mine = makeObjectStorage("Bale barn", 1, "barn-1", 250, 32, {
-      { title = "Round bale (Straw)", count = 20 },
-      { title = "Square bale (Hay)", count = 12 },
-    }, 30)
-    local theirs = makeObjectStorage("Neighbour barn", 2, "barn-2", 250, 5, { { title = "Pallet", count = 5 } })
-    setupWorld({}, { mine, theirs }, 1)
-
-    local model = VDT.ProductionExporter.collect()
-    assert.are.equal(1, #model.storages)
-    local s = model.storages[1]
-    assert.are.equal("barn-1", s.id)
-    assert.are.equal("object", s.kind)
-    assert.are.equal(32, s.count)
-    assert.are.equal(250, s.capacity)
-    assert.are.equal(30, s.maxUnloadAmount)
-    assert.are.equal(2, #s.objects)
-    assert.are.equal(1, s.objects[1].index)
-    assert.are.equal("Round bale (Straw)", s.objects[1].title)
-    assert.are.equal(20, s.objects[1].count)
-    assert.are.equal(2, s.objects[2].index)
-  end)
-
-  it("shows an empty object storage with no breakdown rows", function()
-    local empty = makeObjectStorage("Empty barn", 1, "barn-3", 100, 0, {})
-    setupWorld({}, { empty }, 1)
-
-    local model = VDT.ProductionExporter.collect()
-    assert.are.equal(1, #model.storages)
-    assert.are.equal("object", model.storages[1].kind)
-    assert.are.equal(0, model.storages[1].count)
-    -- empty arrays are omitted (nil), never {} — the encoder would emit {} which Kotlin rejects
-    assert.is_nil(model.storages[1].objects)
-  end)
-
   it("never encodes an empty array as {} (would break the Kotlin parse)", function()
     -- Regression for the reported crash: the Json encoder writes {} for an empty Lua table, which
     -- Kotlin rejects ("expected ["). Every array field must be omitted when empty, so the encoded
-    -- model must contain no {} at all. Exercises the widest set of would-be-empty fields at once: an
-    -- empty object storage (objects), a production point with no lines (lines/storage).
-    local empty = makeObjectStorage("Empty barn", 1, "barn-3", 100, 0, {})
+    -- model must contain no {} at all. A production point with no lines exercises the widest set of
+    -- would-be-empty fields at once (lines / storage, and the top-level productionPoints stays a list).
     local point = makePoint({ name = "P", owner = 1, owningPlaceable = { uniqueId = "p" }, productions = {} })
-    setupWorld({ point }, { empty }, 1)
+    setupWorld({ point }, 1)
 
     local encoded = Json.encode(VDT.ProductionExporter.collect())
     assert.is_nil(string.find(encoded, "{}", 1, true))
   end)
 
   it("returns just the version while spectating (no local farm)", function()
-    setupWorld({ makePoint({ name = "X", owner = 1 }) }, {}, nil)
+    setupWorld({ makePoint({ name = "X", owner = 1 }) }, nil)
 
     local model = VDT.ProductionExporter.collect()
     assert.are.equal("1", model.version)
     assert.is_nil(model.productionPoints)
-    assert.is_nil(model.storages)
   end)
 end)

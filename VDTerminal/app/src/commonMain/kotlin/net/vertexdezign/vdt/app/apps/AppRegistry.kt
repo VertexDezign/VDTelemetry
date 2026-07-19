@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
  * the launcher lists it and its [VdtApp.widgets] flow into `WidgetRegistry`.
  */
 object AppRegistry {
-  val apps: List<VdtApp> = listOf(VehicleApp, MapApp, ProductionsApp, AnimalsApp, TasksApp, CropRotationApp)
+  val apps: List<VdtApp> = listOf(VehicleApp, MapApp, ProductionApp, StorageApp, AnimalsApp, TasksApp, CropRotationApp)
 
   fun byId(id: String): VdtApp? = apps.firstOrNull { it.id == id }
 }
