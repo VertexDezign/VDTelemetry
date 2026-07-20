@@ -597,6 +597,25 @@ describe("MapLayers.tick sweep", function()
     assert.are.equal("", growth.rows[1])
   end)
 
+  it("does not rewrite when a patch re-samples unchanged cells", function()
+    for _ = 1, 4 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
+    assert.are.equal(1, marked)
+
+    -- A controlled vehicle sits on the same bare ground the sweep already recorded; re-sampling
+    -- produces identical rows, so nothing is rewritten and the channel is not re-marked.
+    VDT.MapLayers.PATCH_RADIUS_M = 1
+    g_currentMission.vehicleSystem = {
+      vehicles = { { rootNode = 1, spec_enterable = { isControlled = true } } },
+    }
+    rawset(_G, "getWorldTranslation", function()
+      return 0, 0, 0
+    end)
+    VDT.MapLayers.tick(stubDebugger(), 4000)
+    assert.are.equal(1, marked)
+  end)
+
   it("does not patch until a sweep has completed, and no-ops with no active vehicles", function()
     -- No completed sweep yet -> patchCtx nil -> a long idle tick can't patch.
     VDT.MapLayers.dirty = false

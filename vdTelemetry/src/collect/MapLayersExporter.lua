@@ -795,10 +795,23 @@ local function runPatch(ctx)
       growthBuf[col + 1] = growthV
       soilBuf[col + 1] = soilV
     end
-    ctx.cropsRows[row + 1] = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
-    ctx.growthRows[row + 1] = VDT.MapLayers.encodeRow(growthBuf, gridSize)
-    ctx.soilRows[row + 1] = VDT.MapLayers.encodeRow(soilBuf, gridSize)
-    patched = true
+    -- Only overwrite (and flag a write) when a cell actually changed: a vehicle driving over a road or
+    -- already-classified field re-samples the same values, and re-encoding/rewriting/re-rendering the
+    -- whole file for an unchanged raster is exactly the cost that shows up in the profiler. Comparing
+    -- the re-encoded row to the stored one costs one string compare per touched row.
+    local newCrops = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
+    local newGrowth = VDT.MapLayers.encodeRow(growthBuf, gridSize)
+    local newSoil = VDT.MapLayers.encodeRow(soilBuf, gridSize)
+    if
+      newCrops ~= ctx.cropsRows[row + 1]
+      or newGrowth ~= ctx.growthRows[row + 1]
+      or newSoil ~= ctx.soilRows[row + 1]
+    then
+      ctx.cropsRows[row + 1] = newCrops
+      ctx.growthRows[row + 1] = newGrowth
+      ctx.soilRows[row + 1] = newSoil
+      patched = true
+    end
   end
 
   if patched then

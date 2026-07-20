@@ -35,6 +35,12 @@ local function escapeChar(c)
 end
 
 local function encodeString(s)
+  -- Fast path when there's nothing to escape: skip the gsub (and the buffer it builds) entirely. This
+  -- is the common case and the hot one -- the mapLayers channel emits long hex-string rows that never
+  -- contain a control char / quote / backslash, so escaping them was pure scan-and-copy overhead.
+  if string.find(s, '[%c"\\]') == nil then
+    return '"' .. s .. '"'
+  end
   return '"' .. string.gsub(s, '[%c"\\]', escapeChar) .. '"'
 end
 
