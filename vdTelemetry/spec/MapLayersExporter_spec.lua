@@ -12,6 +12,7 @@ end
 if VDT.MapExporter == nil then
   dofile("src/collect/MapExporter.lua")
 end
+dofile("src/integrations/PrecisionFarming.lua")
 dofile("src/collect/MapLayersExporter.lua")
 
 local function stubDebugger()
@@ -341,6 +342,34 @@ describe("MapLayers.classifyCell soil", function()
         getValueAtWorldPos = function(_, densityType)
           if densityType == FieldDensityMap.GROUND_TYPE then
             return 0 -- off-field
+          end
+          return 0
+        end,
+      },
+    })
+    local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+    assert.are.equal(0, soilV)
+  end)
+
+  it("under Precision Farming, drops the lime + fertilized layers but keeps plowing", function()
+    -- PF supersedes the base lime/fertilizer model with its own soil maps, so those two layers are
+    -- omitted; plowing (which PF leaves alone) still classifies.
+    local _, _, plowV = VDT.MapLayers.classifyCell(ctx({ precisionFarming = true }), 0, 0)
+    assert.are.equal(20, plowV) -- default ctx reads plow level 0 -> SOIL_NEEDS_PLOWING, unaffected by PF
+
+    -- plow satisfied, lime needed, spray present -- without PF this is needs-lime; with PF, SOIL_NONE.
+    local c = ctx({
+      precisionFarming = true,
+      fieldGroundSystem = {
+        getValueAtWorldPos = function(_, densityType)
+          if densityType == FieldDensityMap.GROUND_TYPE then
+            return 3
+          elseif densityType == FieldDensityMap.PLOW_LEVEL then
+            return 5
+          elseif densityType == FieldDensityMap.LIME_LEVEL then
+            return 0
+          elseif densityType == FieldDensityMap.SPRAY_LEVEL then
+            return 2
           end
           return 0
         end,

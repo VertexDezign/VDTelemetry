@@ -72,18 +72,11 @@ end
 -- The tokens the game treats as "growing" (yield bonus is shown for these), per fieldAddField.
 local GROWING_TOKENS = { growing = true, readyToPrepare = true, readyToHarvest = true }
 
--- FS25_precisionFarming (the Precision Farming mod), keyed by its mod name in the shared
--- g_modIsLoaded table — the exact gate the game's own HUD uses (PlayerHUDUpdater vs.
--- PrecisionFarming's MOD_NAME check). When it's loaded PF swaps the base FELDINFO box for its soil
--- model and, in FieldInfoDisplayExtension, deactivates three of the vanilla lines: yield bonus
--- (fieldInfo_yieldBonus), fertilized (ui_growthMapFertilized) and needs-lime (ui_growthMapNeedsLime).
--- We mirror the base HUD, so with PF installed those three are stale/superseded and must be omitted
--- to match what the player actually sees. We don't (yet) surface PF's own soil data — this only
--- suppresses what PF removes; the remaining lines (crop, growth, weeds, plowing, rolling) are untouched.
-local PRECISION_FARMING_MOD = "FS25_precisionFarming"
-local function precisionFarmingActive()
-  return type(g_modIsLoaded) == "table" and g_modIsLoaded[PRECISION_FARMING_MOD] == true
-end
+-- Precision Farming, when installed, swaps the base FELDINFO box for its soil model and deactivates
+-- three of the vanilla lines (yield bonus, fertilized, needs-lime). We mirror the base HUD, so those
+-- three are stale/superseded under PF and get omitted below. Detection lives in the shared
+-- VDT.PrecisionFarming module (also gated by MapLayersExporter). The remaining lines (crop, growth,
+-- weeds, plowing, rolling) are untouched.
 
 ---Fertilized percentage from a field state, or nil when it can't be resolved (spray level / max
 ---value unreadable). Matches PlayerHUDUpdater:fieldAddField's `sprayLevel / maxSprayLevel`.
@@ -177,7 +170,7 @@ local function collectField(field)
 
   -- Precision Farming, when installed, hides yield bonus / fertilized / needs-lime from the game's own
   -- panel and shows its soil model instead — so we omit those same three to match (see the note above).
-  local pfActive = precisionFarmingActive()
+  local pfActive = VDT.PrecisionFarming.isActive()
 
   local fruitIndex = state.fruitTypeIndex
   local unknown = (FruitType ~= nil and FruitType.UNKNOWN) or 0

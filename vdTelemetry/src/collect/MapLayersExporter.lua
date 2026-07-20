@@ -359,14 +359,17 @@ local function classifySoil(ctx, x, z, groundTypeValue)
     end
   end
 
-  if ctx.limeRequired then
+  -- Lime + fertilizer are the two layers Precision Farming supersedes with its own soil maps, so skip
+  -- them (and their reads) when PF is installed -- as the game's own HUD does. Plowing/weeds/stones,
+  -- which PF leaves alone, are unaffected.
+  if ctx.limeRequired and not ctx.precisionFarming then
     local limeLevel = getValueAtWorldPos(fgs, FDM.LIME_LEVEL, x, 0, z)
     if limeLevel == 0 then
       return SOIL_NEEDS_LIME
     end
   end
 
-  if ctx.maxSprayLevel > 0 then
+  if ctx.maxSprayLevel > 0 and not ctx.precisionFarming then
     local sprayLevel = getValueAtWorldPos(fgs, FDM.SPRAY_LEVEL, x, 0, z)
     if type(sprayLevel) == "number" and sprayLevel >= 1 then
       return SOIL_FERTILIZED_BASE + sprayLevel
@@ -613,6 +616,9 @@ local function startSweep()
     plowingRequiredEnabled = missionInfo.plowingRequiredEnabled == true,
     limeRequired = missionInfo.limeRequired == true,
     maxSprayLevel = maxSprayLevel,
+    -- Precision Farming replaces the base lime + fertilizer model with its own soil maps, so drop
+    -- those two soil layers when it's installed (see VDT.PrecisionFarming). Captured once per sweep.
+    precisionFarming = VDT.PrecisionFarming.isActive(),
     weedSystem = weedSystem,
     weedAvailable = weedAvailable,
     weedStateToGroup = weedStateToGroup,

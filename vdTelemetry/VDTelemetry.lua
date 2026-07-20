@@ -34,6 +34,9 @@ local sourceFiles = {
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
+  -- Precision Farming detection (shared gate; sourced before the collectors that read it —
+  -- MapLayers + FieldInfo suppress the fertilizer/lime data PF supersedes)
+  "src/integrations/PrecisionFarming.lua",
   -- Map channels: base-game POIs + fields (event-driven), vehicle markers (own interval), and the
   -- ground-layer raster (own sweep cadence); all self-register into the registry above, and both
   -- MapVehicles and MapLayers reuse MapExporter's normalization/world-size helpers

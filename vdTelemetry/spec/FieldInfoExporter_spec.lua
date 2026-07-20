@@ -13,6 +13,7 @@ if VDT == nil or VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 dofile("src/integrations/CropRotation.lua")
+dofile("src/integrations/PrecisionFarming.lua")
 dofile("src/collect/FieldInfoExporter.lua")
 
 describe("FieldInfoExporter.growthToken", function()
