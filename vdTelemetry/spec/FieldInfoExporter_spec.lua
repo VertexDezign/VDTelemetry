@@ -191,6 +191,40 @@ describe("FieldInfoExporter.collect", function()
     assert.is_nil(f.cropRotation)
   end)
 
+  it("omits yield bonus / fertilized / needs-lime when Precision Farming is loaded", function()
+    -- FS25_precisionFarming hides exactly these three vanilla lines and shows its soil model instead,
+    -- so we mirror that: with the mod loaded (g_modIsLoaded), those three are dropped and the rest stay.
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    g_currentMission.missionInfo.limeRequired = true
+    stateByPos = {
+      [100] = {
+        groundType = 1,
+        fruitTypeIndex = 3,
+        growthState = 5,
+        sprayLevel = 2,
+        plowLevel = 0,
+        weedState = 1,
+        rollerLevel = 0,
+        limeLevel = 0,
+        _mult = 1.12,
+      },
+    }
+    g_fieldManager.fields = { field(49, 100, 200) }
+
+    local f = VDT.FieldInfoExporter.collect().fields[1]
+    -- suppressed by Precision Farming
+    assert.is_nil(f.yieldBonusPercent)
+    assert.is_nil(f.sprayLevelPercent)
+    assert.is_nil(f.needsLime)
+    -- everything else the base HUD shows is untouched
+    assert.are.equal("Wheat", f.crop)
+    assert.are.equal("growing", f.growth)
+    assert.are.equal("Weeds (light)", f.weed)
+    assert.is_true(f.needsPlowing)
+
+    rawset(_G, "g_modIsLoaded", nil)
+  end)
+
   it("skips fields on non-field ground (groundType NONE)", function()
     stateByPos = { [100] = { groundType = 0, fruitTypeIndex = 3 } }
     g_fieldManager.fields = { field(1, 100, 100) }
