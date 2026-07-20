@@ -29,6 +29,7 @@ fun main() {
   val wsProtocol = if (location.protocol == "https:") "wss:" else "ws:"
   val wsUrl = "$wsProtocol//${location.host}/ws"
   val mapUrl = "${location.protocol}//${location.host}/api/map-image"
+  val mapLayerUrl = "${location.protocol}//${location.host}/api/map-layer"
 
   val repository = TelemetryRepository(scope, wsUrl)
   repository.start()
@@ -71,6 +72,7 @@ fun main() {
       cropRotation = repository.cropRotation,
       mapData = repository.mapData,
       mapVehicles = repository.mapVehicles,
+      mapLayers = repository.mapLayers,
       fieldInfo = repository.fieldInfo,
       production = repository.production,
       storage = repository.storage,
@@ -78,6 +80,7 @@ fun main() {
       channelStats = repository.channelStats,
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,
+      mapLayerUrl = mapLayerUrl,
       settings = settings,
       pages = PageStore(settings),
       alerts = alerts,

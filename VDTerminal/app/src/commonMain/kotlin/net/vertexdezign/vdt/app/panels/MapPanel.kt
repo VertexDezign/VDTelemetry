@@ -59,6 +59,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
@@ -93,6 +94,8 @@ import net.vertexdezign.vdt.model.FieldInfoEntry
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapFarm
 import net.vertexdezign.vdt.model.MapField
+import net.vertexdezign.vdt.model.MapLayerLegendEntry
+import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehicle
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.Pda
@@ -119,6 +122,7 @@ private const val KEY_AUTO_CENTER = "vdt.autoCenter"
 private const val KEY_SHOW_FIELDS = "vdt.showFields"
 private const val KEY_POI_CATS = "vdt.poiCats"
 private const val KEY_VEH_STATES = "vdt.vehStates"
+private const val KEY_GROUND_LAYER = "vdt.groundLayer"
 
 /**
  * Decoded map images, held outside composition and keyed by request URL + PDA filename.
@@ -131,7 +135,15 @@ private const val KEY_VEH_STATES = "vdt.vehStates"
  */
 private val mapImageCache = mutableMapOf<String, ImageBitmap>()
 
-/** Shared with the cache above: outliving the panel is the whole point, so it can't be `remember`ed. */
+/**
+ * Last-rendered ground-layer PNG, keyed by `"$mapLayerUrl/$id|$version"`. Separate from
+ * [mapImageCache] on purpose: the base map has one entry for the life of a save, but a layer key
+ * churns every sweep (a new [MapLayersInfo.version]), so folding it into the same map would leak
+ * unboundedly across a session instead of just holding the one most-recently-shown layer.
+ */
+private var layerImageCache: Pair<String, ImageBitmap>? = null
+
+/** Shared with the caches above: outliving the panel is the whole point, so it can't be `remember`ed. */
 private val mapImageClient by lazy { HttpClient() }
 
 /**
@@ -139,9 +151,10 @@ private val mapImageClient by lazy { HttpClient() }
  * (position + heading), and auto-centers on the player until the user pans. On top of the image it
  * overlays the map channels' data: field outlines + number labels ([MapData]), POI dots, and
  * vehicle markers ([MapVehiclesData]), filtered per category/state through the filter popover
- * (Tune button), which also hosts a field/POI search that pans the map to a hit. Zoom, auto-center
- * and the filter selections are persisted. Port of the React `MapPanel` (no map library — a single
- * custom composable).
+ * (Tune button), which also hosts a field/POI search that pans the map to a hit, plus an optional
+ * ground-layer raster ([MapLayersInfo]: crops/growth/soil, single-select, with its own legend).
+ * Zoom, auto-center, the filter selections, and the selected ground layer are persisted. Port of
+ * the React `MapPanel` (no map library — a single custom composable).
  */
 @Composable
 fun MapPanel(
@@ -154,12 +167,15 @@ fun MapPanel(
   mapData: MapData? = null,
   mapVehicles: MapVehiclesData? = null,
   fieldInfo: FieldInfoData? = null,
+  mapLayerUrl: String = "",
+  mapLayers: MapLayersInfo? = null,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
   var showFields by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_FIELDS, true)) }
   var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
   var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
+  var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, "none")) }
   var filterOpen by remember { mutableStateOf(false) }
   // The field whose info popup is open (its id / farmland number), or null when none. Set by tapping
   // a field label, cleared by tapping empty map or the popup's close button.
@@ -226,13 +242,42 @@ fun MapPanel(
   LaunchedEffect(showFields) { settings.putBoolean(KEY_SHOW_FIELDS, showFields) }
   LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
   LaunchedEffect(vehStates) { settings.putString(KEY_VEH_STATES, vehStates.joinToString(",")) }
+  LaunchedEffect(groundLayer) { settings.putString(KEY_GROUND_LAYER, groundLayer) }
+
+  // The selected layer's slim info (legend + version), or null when unselected / not offered by the
+  // current data -- the persisted id simply draws nothing until it reappears (edge case in the plan).
+  val activeLayerInfo = mapLayers?.layers?.find { it.id == groundLayer }
+  val layerKey = activeLayerInfo?.let { "$mapLayerUrl/$groundLayer|${mapLayers.version}" }
+  // NOT keyed on layerKey: a layer switch or a new sweep's version must keep showing the previous
+  // bitmap until the new one has fetched, not flash blank in between.
+  var layerBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+  LaunchedEffect(layerKey) {
+    if (layerKey == null) {
+      layerBitmap = null // deselected, or this layer id isn't present in the current data
+      return@LaunchedEffect
+    }
+    layerImageCache?.let { (cachedKey, cachedBitmap) ->
+      if (cachedKey == layerKey) {
+        layerBitmap = cachedBitmap
+        return@LaunchedEffect
+      }
+    }
+    runCatching {
+      val bytes = mapImageClient.get("$mapLayerUrl/$groundLayer?v=${mapLayers.version}").readRawBytes()
+      Image.makeFromEncoded(bytes).toComposeImageBitmap()
+    }.onSuccess {
+      layerImageCache = layerKey to it
+      layerBitmap = it
+    }
+    // On failure the previous layerBitmap is left in place -- no flicker to blank on a transient miss.
+  }
 
   Panel(
     title = "Map",
     icon = Icons.Filled.Map,
     modifier = modifier,
     headerActions = {
-      if (mapData != null || mapVehicles != null) {
+      if (mapData != null || mapVehicles != null || mapLayers != null) {
         Icon(
           Icons.Filled.Tune,
           "filters & search",
@@ -381,6 +426,19 @@ fun MapPanel(
             contentScale = ContentScale.FillBounds,
           )
         }
+        // Ground-layer raster: unlike MapDataOverlay's vectors, this IS pixel data that must scale
+        // exactly with the base map image, so it belongs inside the same zoom-scaled layer rather
+        // than outside it. FilterQuality.None keeps grid cells crisp instead of smearing colors
+        // together at high zoom (the whole point of a legend-driven raster).
+        layerBitmap?.let {
+          Image(
+            it,
+            contentDescription = "ground layer",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds,
+            filterQuality = FilterQuality.None,
+          )
+        }
       }
 
       // Map-data overlay (field outlines/labels + POI markers): like the player marker it lives
@@ -443,11 +501,19 @@ fun MapPanel(
         }
       }
 
+      // Ground-layer legend, only while a layer is actually selected and showing.
+      if (activeLayerInfo != null && layerBitmap != null) {
+        GroundLayerLegend(activeLayerInfo.legend, side)
+      }
+
       // Filter & search popover, on top of everything map-related.
-      if (filterOpen && (mapData != null || mapVehicles != null)) {
+      if (filterOpen && (mapData != null || mapVehicles != null || mapLayers != null)) {
         MapFilterPanel(
           mapData = mapData,
           mapVehicles = mapVehicles,
+          mapLayers = mapLayers,
+          groundLayer = groundLayer,
+          onGroundLayer = { groundLayer = it },
           showFields = showFields,
           onShowFields = { showFields = it },
           poiCats = poiCats,
@@ -641,6 +707,35 @@ private fun BoxScope.MapDataOverlay(
 }
 
 /**
+ * Legend for the active ground layer: one row per legend entry, deduped by label (the growth
+ * gradient's 8 steps all share the "Growing" label, so this collapses them to a single swatch).
+ * Capped at ~40% of the map's side so a long soil/crop legend doesn't dominate the panel.
+ */
+@Composable
+private fun BoxScope.GroundLayerLegend(legend: List<MapLayerLegendEntry>, side: Float) {
+  val density = LocalDensity.current
+  Column(
+    Modifier
+      .align(Alignment.BottomStart)
+      .padding(6.dp)
+      .clip(RoundedCornerShape(4.dp))
+      .background(VdtColors.Panel)
+      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
+      .heightIn(max = with(density) { (side * 0.4f).toDp() })
+      .verticalScroll(rememberScrollState())
+      .padding(6.dp),
+    verticalArrangement = Arrangement.spacedBy(3.dp),
+  ) {
+    for (entry in legend.distinctBy { it.label }) {
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        parseHexColor(entry.color)?.let { color -> Box(Modifier.size(8.dp).clip(CircleShape).background(color)) }
+        Text(entry.label, fontSize = 11.sp, color = VdtColors.TextDark)
+      }
+    }
+  }
+}
+
+/**
  * Vehicle marker tint: the owning farm's in-game map color, same lookup as [fieldTint] so land and
  * machines read consistently; the own/other fallback applies when the color table is missing, and
  * an unowned vehicle stays gray.
@@ -698,6 +793,13 @@ private fun vehicleStateLabel(state: String): String = when (state) {
   else -> "Parked"
 }
 
+private fun groundLayerLabel(id: String): String = when (id) {
+  "crops" -> "Crops"
+  "growth" -> "Growth"
+  "soil" -> "Soil"
+  else -> id
+}
+
 /**
  * Legend category per POI type token (the mod's camelCased `PlaceableHotspot.TYPE` key), grouped
  * the way the in-game map legend groups them. Shops render under "Sonstiges" in the game (despite
@@ -746,13 +848,17 @@ private data class SearchHit(val label: String, val pos: Offset)
 /**
  * The filter & search popover: a search box over fields/POIs (a hit pans+zooms the map onto it),
  * then per-section filters — fields on/off, POIs per legend category (with the category's color
- * dot), vehicles per state. Sections only show while their channel is live. Anchored top-end over
- * the map; the root tap handler keeps clicks from falling through to the map gestures.
+ * dot), vehicles per state, and a single-select ground layer (None/Crops/Growth/Soil). Sections
+ * only show while their channel is live. Anchored top-end over the map; the root tap handler keeps
+ * clicks from falling through to the map gestures.
  */
 @Composable
 private fun BoxScope.MapFilterPanel(
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
+  mapLayers: MapLayersInfo?,
+  groundLayer: String,
+  onGroundLayer: (String) -> Unit,
   showFields: Boolean,
   onShowFields: (Boolean) -> Unit,
   poiCats: Set<String>,
@@ -843,6 +949,16 @@ private fun BoxScope.MapFilterPanel(
         FilterRow(vehicleStateLabel(state), checked = state in vehStates) { on ->
           onVehStates(if (on) vehStates + state else vehStates - state)
         }
+      }
+    }
+
+    // Single-select, unlike the sections above: FilterRow's checkbox is reused purely as a
+    // "selected" indicator, and each row's tap sets groundLayer directly rather than toggling.
+    if (mapLayers != null) {
+      Text("Ground layer", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
+      FilterRow("None", checked = groundLayer == "none") { onGroundLayer("none") }
+      for (layer in mapLayers.layers) {
+        FilterRow(groundLayerLabel(layer.id), checked = groundLayer == layer.id) { onGroundLayer(layer.id) }
       }
     }
   }

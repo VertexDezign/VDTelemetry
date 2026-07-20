@@ -40,6 +40,7 @@ object MapWidget : Widget {
     val sampleIntervalMs by store.sampleIntervalMs.collectAsState()
     val mapData by store.mapData.collectAsState()
     val mapVehicles by store.mapVehicles.collectAsState()
+    val mapLayers by store.mapLayers.collectAsState()
     val fieldInfo by store.fieldInfo.collectAsState()
 
     val pda = telemetry?.environment?.pda
@@ -56,6 +57,8 @@ object MapWidget : Widget {
       mapData = mapData,
       mapVehicles = mapVehicles,
       fieldInfo = fieldInfo,
+      mapLayerUrl = store.mapLayerUrl,
+      mapLayers = mapLayers,
     )
   }
 }

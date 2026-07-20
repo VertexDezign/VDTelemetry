@@ -20,6 +20,7 @@ import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
@@ -100,6 +101,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // own slow timer. Null until the first stats frame arrives.
   private val _channelStats = MutableStateFlow<ChannelStatsData?>(null)
   val channelStats: StateFlow<ChannelStatsData?> = _channelStats.asStateFlow()
+
+  // Ground-layer legends (crops/growth/soil), on the mod's sweep cadence; same null-when-absent
+  // contract as mapData/mapVehicles. Raster rows never cross the WebSocket -- only legends.
+  private val _mapLayers = MutableStateFlow<MapLayersInfo?>(null)
+  val mapLayers: StateFlow<MapLayersInfo?> = _mapLayers.asStateFlow()
 
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
@@ -183,6 +189,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.ChannelStats -> {
                       _channelStats.value = msg.data
+                    }
+
+                    is ServerMessage.MapLayers -> {
+                      _mapLayers.value = msg.data
                     }
 
                     is ServerMessage.Error -> {
