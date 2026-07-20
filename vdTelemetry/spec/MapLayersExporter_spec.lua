@@ -333,6 +333,32 @@ describe("MapLayers.classifyCell soil", function()
     local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
     assert.are.equal(0, soilV)
   end)
+
+  it("skips every soil density read off-field, including weeds/stones", function()
+    local soilReads = 0
+    local c = ctx({
+      fieldGroundSystem = {
+        getValueAtWorldPos = function(_, densityType)
+          if densityType == FieldDensityMap.GROUND_TYPE then
+            return 0 -- off-field: classifySoil must bail before any other read
+          end
+          soilReads = soilReads + 1
+          return 2
+        end,
+      },
+      weedAvailable = true,
+      weedSystem = {
+        getWeedStateAtWorldPos = function()
+          soilReads = soilReads + 1
+          return 2 -- would classify as a weed if it were ever consulted off-field
+        end,
+      },
+      weedStateToGroup = { [2] = 1 },
+    })
+    local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+    assert.are.equal(0, soilV)
+    assert.are.equal(0, soilReads)
+  end)
 end)
 
 describe("MapLayers.tick sweep", function()
@@ -341,9 +367,9 @@ describe("MapLayers.tick sweep", function()
   before_each(function()
     VDT.MapLayers.GRID_SIZE = 8
     VDT.MapLayers.CELLS_PER_FRAME = 16
-    VDT.MapLayers.SWEEP_PAUSE_MS = 1000
     VDT.MapLayers.sweep = nil
-    VDT.MapLayers.pauseMs = VDT.MapLayers.SWEEP_PAUSE_MS
+    VDT.MapLayers.dirty = true
+    VDT.MapLayers.subscribed = false
     VDT.MapLayers.model = nil
 
     marked = 0
@@ -407,11 +433,13 @@ describe("MapLayers.tick sweep", function()
     VDT.ExportChannels.markDirty = markDirtyOrig
     VDT.MapLayers.GRID_SIZE = 512
     VDT.MapLayers.CELLS_PER_FRAME = 1024
-    VDT.MapLayers.SWEEP_PAUSE_MS = 60000
     VDT.MapLayers.sweep = nil
-    VDT.MapLayers.pauseMs = VDT.MapLayers.SWEEP_PAUSE_MS
+    VDT.MapLayers.dirty = true
+    VDT.MapLayers.subscribed = false
     VDT.MapLayers.model = nil
     rawset(_G, "FieldDensityMap", nil)
+    rawset(_G, "MessageType", nil)
+    rawset(_G, "g_messageCenter", nil)
     rawset(_G, "FieldGroundType", nil)
     rawset(_G, "g_fruitTypeManager", nil)
     rawset(_G, "getDensityTypeIndexAtWorldPos", nil)
@@ -439,13 +467,44 @@ describe("MapLayers.tick sweep", function()
     end
   end)
 
-  it("does not mark dirty again during the pause after a completed sweep", function()
+  it("stays idle after a completed sweep until something re-dirties it", function()
     for _ = 1, 4 do
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
     assert.are.equal(1, marked)
-    VDT.MapLayers.tick(stubDebugger(), 16) -- well within the (shrunk) 1000 ms pause
+    -- No resweep event fired, so further ticks do nothing (no wall-clock timer to elapse).
+    for _ = 1, 10 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
     assert.are.equal(1, marked)
+    assert.is_nil(VDT.MapLayers.sweep)
+  end)
+
+  it("re-sweeps after being marked dirty again (a day / period change)", function()
+    for _ = 1, 4 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
+    assert.are.equal(1, marked)
+    -- A new in-game day/period fires markDirty; the next batch of ticks runs a fresh sweep.
+    VDT.MapLayers.markDirty()
+    for _ = 1, 4 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
+    assert.are.equal(2, marked)
+  end)
+
+  it("subscribes to PERIOD_CHANGED and DAY_CHANGED once, when the message center is up", function()
+    local subscribed = {}
+    rawset(_G, "MessageType", { PERIOD_CHANGED = 11, DAY_CHANGED = 12 })
+    rawset(_G, "g_messageCenter", {
+      subscribe = function(_, msgType, cb)
+        subscribed[#subscribed + 1] = msgType
+        assert.are.equal(VDT.MapLayers.markDirty, cb)
+      end,
+    })
+    VDT.MapLayers.tick(stubDebugger(), 16)
+    VDT.MapLayers.tick(stubDebugger(), 16) -- idempotent: no re-subscribe
+    assert.are.same({ 11, 12 }, subscribed)
   end)
 
   it("does not progress a sweep while export is disabled", function()

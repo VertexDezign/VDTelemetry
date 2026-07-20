@@ -9,8 +9,13 @@
 -- Sampling is spread over many frames (CELLS_PER_FRAME per tick) rather than done in one pass, since a
 -- full GRID_SIZE^2 sweep is tens of thousands of engine density-map reads. tick() runs every frame
 -- (ExportChannels.tick has no pcall around channel ticks), so the sweep batch is pcall'd here -- an
--- engine hiccup mid-sweep aborts that sweep and enters the pause phase, rather than killing the whole
--- mod's update loop.
+-- engine hiccup mid-sweep aborts that sweep (retried on the next resweep event), rather than killing
+-- the whole mod's update loop.
+--
+-- Cadence is event-driven, not a wall-clock timer: the overlay only meaningfully changes when growth
+-- advances (MessageType.PERIOD_CHANGED, GrowthSystem's own trigger) and, for player tillage/harvest,
+-- across a day (DAY_CHANGED). We resweep on those, so an idle map costs nothing between in-game days
+-- instead of a full sweep every real-time minute. See tick()/subscribeEvents().
 --
 -- Wire format: three one-byte-per-cell planes, rows as right-trimmed hex strings (see encodeRow).
 -- Legends list only values actually seen during the sweep, so the file (and the app's PNG fetch) never
@@ -31,13 +36,13 @@ VDT.MapLayers.VERSION = 1
 VDT.MapLayers.GRID_SIZE = 512
 -- ~256 frames per full sweep at this budget (512*512/1024), roughly 4-9s depending on frame rate.
 VDT.MapLayers.CELLS_PER_FRAME = 1024
--- Idle time between completed sweeps.
-VDT.MapLayers.SWEEP_PAUSE_MS = 60000
 
--- Mutable state, on the table so specs can reset it (see MapVehicles.timerMs). pauseMs starts already
--- past the threshold so the first sweep begins on the first available tick, not after an initial wait.
-VDT.MapLayers.sweep = nil -- in-progress sweep context, nil when idle/paused
-VDT.MapLayers.pauseMs = VDT.MapLayers.SWEEP_PAUSE_MS
+-- Mutable state, on the table so specs can reset it (see MapVehicles.timerMs).
+VDT.MapLayers.sweep = nil -- in-progress sweep context, nil when idle
+-- A resweep is wanted. True on startup so the first available tick populates the channel; re-armed by
+-- the PERIOD_CHANGED / DAY_CHANGED subscriptions (see tick). Cleared the moment a sweep is started.
+VDT.MapLayers.dirty = true
+VDT.MapLayers.subscribed = false -- one-shot guard for the message-center subscription
 VDT.MapLayers.model = nil -- last completed sweep's model; collect() returns this
 
 -- Wire values for the "growth" plane. These are our own wire vocabulary, not
@@ -271,7 +276,15 @@ end
 ---@param groundTypeValue number raw FieldDensityMap.GROUND_TYPE value
 ---@return number
 local function classifySoil(ctx, x, z, groundTypeValue)
-  local onField = groundTypeValue ~= nil and groundTypeValue ~= 0
+  -- Every soil layer is a field-ground phenomenon, so a cell off any field (groundType 0) has no soil
+  -- state and needs no density reads at all -- and most of the map isn't field, so this early-out is
+  -- the bulk of the sweep's read savings. Faithful to the game: it masks plow/lime/spray to the
+  -- groundType field mask (see MapOverlayGenerator:buildSoilStateMapOverlay), and while it doesn't
+  -- field-mask weeds/stones, those density maps are only ever nonzero on fields in practice (never
+  -- observed off-field). If a counterexample ever turns up, move the weed/stone blocks above this guard.
+  if groundTypeValue == nil or groundTypeValue == 0 then
+    return SOIL_NONE
+  end
 
   -- No per-cell pcall on the weed/stone reads: runBatch is already pcall'd at the tick (see tick()), so
   -- an engine hiccup still aborts the sweep rather than the mod -- the per-cell guard was redundant
@@ -297,19 +310,21 @@ local function classifySoil(ctx, x, z, groundTypeValue)
   end
 
   -- The remaining checks all read the field-ground system; resolve the method + density-map ids once
-  -- here rather than re-indexing ctx/FieldDensityMap on every read in the hot loop.
+  -- here rather than re-indexing ctx/FieldDensityMap on every read in the hot loop. All are past the
+  -- on-field guard above, so no per-check onField test is needed (and spray, which the game also masks
+  -- to fields, is now correctly field-gated too).
   local fgs = ctx.fieldGroundSystem
   local getValueAtWorldPos = fgs.getValueAtWorldPos
   local FDM = FieldDensityMap
 
-  if onField and ctx.plowingRequiredEnabled then
+  if ctx.plowingRequiredEnabled then
     local plowLevel = getValueAtWorldPos(fgs, FDM.PLOW_LEVEL, x, 0, z)
     if plowLevel == 0 then
       return SOIL_NEEDS_PLOWING
     end
   end
 
-  if onField and ctx.limeRequired then
+  if ctx.limeRequired then
     local limeLevel = getValueAtWorldPos(fgs, FDM.LIME_LEVEL, x, 0, z)
     if limeLevel == 0 then
       return SOIL_NEEDS_LIME
@@ -652,15 +667,38 @@ local function finishSweep(ctx)
   VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
 end
 
----Advance the current sweep (or start one after the pause), one CELLS_PER_FRAME batch per tick. Gated
----on export being enabled -- tick still runs while export is off (ExportChannels.tick has no such
----gate), so this bails early rather than burning CPU on a sweep whose result is never written.
----@param debugger GrisuDebug
----@param dt number? frame delta in ms
-function VDT.MapLayers.tick(debugger, dt)
-  if type(dt) ~= "number" then
+-- MessageCenter invokes callback(target, ...); flag that a resweep is wanted. The sweep itself runs
+-- over the following ticks (not synchronously here), so it doesn't matter that our PERIOD_CHANGED
+-- handler may run before GrowthSystem's -- by the time the sweep reads the maps, growth has advanced.
+function VDT.MapLayers.markDirty()
+  VDT.MapLayers.dirty = true
+end
+
+-- Lazy subscribe to the events that change this channel's data: growth advances on PERIOD_CHANGED
+-- (GrowthSystem's own trigger), and DAY_CHANGED gives a regular in-game cadence so player tillage /
+-- harvest during a day is picked up at the next day rollover. Both are base-game messages, guarded
+-- anyway (fail-soft house rule). One-shot: the message ids exist once the game is loaded.
+local function subscribeEvents()
+  if VDT.MapLayers.subscribed then
     return
   end
+  if MessageType == nil or g_messageCenter == nil then
+    return
+  end
+  for _, message in ipairs({ "PERIOD_CHANGED", "DAY_CHANGED" }) do
+    if MessageType[message] ~= nil then
+      g_messageCenter:subscribe(MessageType[message], VDT.MapLayers.markDirty, VDT.MapLayers)
+    end
+  end
+  VDT.MapLayers.subscribed = true
+end
+
+---Advance the current sweep, one CELLS_PER_FRAME batch per tick, starting a fresh sweep when one is
+---wanted (dirty). Gated on export being enabled -- tick still runs while export is off (ExportChannels
+---.tick has no such gate), so this bails early rather than burning CPU on a sweep never written.
+---@param debugger GrisuDebug
+---@param _dt number? frame delta in ms (unused: cadence is event-driven, see subscribeEvents)
+function VDT.MapLayers.tick(debugger, _dt)
   if g_vdTelemetry == nil or g_vdTelemetry.exportEnabled ~= true then
     return
   end
@@ -668,28 +706,30 @@ function VDT.MapLayers.tick(debugger, dt)
     return
   end
 
+  subscribeEvents()
+
   if VDT.MapLayers.sweep == nil then
-    if VDT.MapLayers.pauseMs < VDT.MapLayers.SWEEP_PAUSE_MS then
-      VDT.MapLayers.pauseMs = VDT.MapLayers.pauseMs + dt
-      return
+    if not VDT.MapLayers.dirty then
+      return -- nothing changed since the last sweep; stay idle until a resweep event
     end
     VDT.MapLayers.sweep = startSweep()
     if VDT.MapLayers.sweep == nil then
-      return -- world size not resolvable yet; retry next frame
+      return -- world size not resolvable yet; still dirty, retry next frame
     end
+    VDT.MapLayers.dirty = false -- claimed; a later event re-arms it
   end
 
   local ok, doneOrErr = pcall(runBatch, VDT.MapLayers.sweep, VDT.MapLayers.CELLS_PER_FRAME)
   if not ok then
     debugger:error("mapLayers channel: sweep batch failed (%s)", tostring(doneOrErr))
     VDT.MapLayers.sweep = nil
-    VDT.MapLayers.pauseMs = 0
+    -- Leave dirty false: a deterministic per-cell error would otherwise tight-loop restarting the
+    -- sweep every frame. The next PERIOD/DAY event re-arms it.
     return
   end
   if doneOrErr then
     finishSweep(VDT.MapLayers.sweep)
     VDT.MapLayers.sweep = nil
-    VDT.MapLayers.pauseMs = 0
   end
 end
 
