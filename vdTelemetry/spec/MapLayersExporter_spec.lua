@@ -40,6 +40,22 @@ describe("MapLayers.encodeRow", function()
   end)
 end)
 
+describe("MapLayers.decodeRow", function()
+  it("round-trips with encodeRow, keeping interior zeros", function()
+    local buf = {}
+    VDT.MapLayers.decodeRow("01000203", 4, buf)
+    assert.are.same({ 1, 0, 2, 3 }, buf)
+  end)
+
+  it("zero-pads the trailing cells encodeRow trimmed", function()
+    local buf = {}
+    VDT.MapLayers.decodeRow("", 3, buf)
+    assert.are.same({ 0, 0, 0 }, buf)
+    VDT.MapLayers.decodeRow("ff", 3, buf)
+    assert.are.same({ 255, 0, 0 }, buf)
+  end)
+end)
+
 describe("MapLayers.classifyCell growth", function()
   local desc
 
@@ -371,6 +387,8 @@ describe("MapLayers.tick sweep", function()
     VDT.MapLayers.dirty = true
     VDT.MapLayers.subscribed = false
     VDT.MapLayers.model = nil
+    VDT.MapLayers.patchCtx = nil
+    VDT.MapLayers.patchTimerMs = 0
 
     marked = 0
     markDirtyOrig = VDT.ExportChannels.markDirty
@@ -433,13 +451,17 @@ describe("MapLayers.tick sweep", function()
     VDT.ExportChannels.markDirty = markDirtyOrig
     VDT.MapLayers.GRID_SIZE = 512
     VDT.MapLayers.CELLS_PER_FRAME = 1024
+    VDT.MapLayers.PATCH_RADIUS_M = 32
     VDT.MapLayers.sweep = nil
     VDT.MapLayers.dirty = true
     VDT.MapLayers.subscribed = false
     VDT.MapLayers.model = nil
+    VDT.MapLayers.patchCtx = nil
+    VDT.MapLayers.patchTimerMs = 0
     rawset(_G, "FieldDensityMap", nil)
     rawset(_G, "MessageType", nil)
     rawset(_G, "g_messageCenter", nil)
+    rawset(_G, "getWorldTranslation", nil)
     rawset(_G, "FieldGroundType", nil)
     rawset(_G, "g_fruitTypeManager", nil)
     rawset(_G, "getDensityTypeIndexAtWorldPos", nil)
@@ -505,6 +527,52 @@ describe("MapLayers.tick sweep", function()
     VDT.MapLayers.tick(stubDebugger(), 16)
     VDT.MapLayers.tick(stubDebugger(), 16) -- idempotent: no re-subscribe
     assert.are.same({ 11, 12 }, subscribed)
+  end)
+
+  it("patches cells around an active vehicle between full sweeps, on the throttle", function()
+    -- Complete the initial bare-ground sweep (all rows "").
+    for _ = 1, 4 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
+    assert.are.equal(1, marked)
+
+    -- A controlled vehicle now sits at world origin on plowed ground; a patch should re-sample the
+    -- cells around it (radius 1 here) to GROWTH_PLOWED, leaving far rows untouched.
+    VDT.MapLayers.PATCH_RADIUS_M = 1
+    g_currentMission.fieldGroundSystem.getValueAtWorldPos = function(_, densityType)
+      if densityType == FieldDensityMap.GROUND_TYPE then
+        return 5 -- FieldGroundType.PLOWED's stubbed value
+      end
+      return 0
+    end
+    g_currentMission.vehicleSystem = {
+      vehicles = { { rootNode = 1, spec_enterable = { isControlled = true } } },
+    }
+    rawset(_G, "getWorldTranslation", function()
+      return 0, 0, 0
+    end)
+
+    VDT.MapLayers.tick(stubDebugger(), 1000) -- below the 4000 ms throttle: no patch yet
+    assert.are.equal(1, marked)
+    VDT.MapLayers.tick(stubDebugger(), 3000) -- crosses 4000 ms: patch runs
+    assert.are.equal(2, marked)
+
+    local growth
+    for _, layer in ipairs(VDT.MapLayers.collect().layers) do
+      if layer.id == "growth" then
+        growth = layer
+      end
+    end
+    -- Vehicle at origin -> center row 4 (0-based) on an 8-grid; rows 3..5 patched, row 0 untouched.
+    assert.is_true(#growth.rows[5] > 0)
+    assert.are.equal("", growth.rows[1])
+  end)
+
+  it("does not patch until a sweep has completed, and no-ops with no active vehicles", function()
+    -- No completed sweep yet -> patchCtx nil -> a long idle tick can't patch.
+    VDT.MapLayers.dirty = false
+    VDT.MapLayers.tick(stubDebugger(), 10000)
+    assert.are.equal(0, marked)
   end)
 
   it("does not progress a sweep while export is disabled", function()

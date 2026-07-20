@@ -17,6 +17,11 @@
 -- across a day (DAY_CHANGED). We resweep on those, so an idle map costs nothing between in-game days
 -- instead of a full sweep every real-time minute. See tick()/subscribeEvents().
 --
+-- Between full sweeps, the cells around active (player/AI) vehicles -- the only places the field state
+-- changes -- are re-sampled every PATCH_INTERVAL_MS and patched into the retained model in place, so
+-- mid-day tillage/harvest/fertilizing shows up promptly at a fraction of a full sweep's cost. Growth
+-- advance stays on the full-sweep path (it's global, not local to a vehicle). See runPatch()/maybePatch().
+--
 -- Wire format: three one-byte-per-cell planes, rows as right-trimmed hex strings (see encodeRow).
 -- Legends list only values actually seen during the sweep, so the file (and the app's PNG fetch) never
 -- carries color/label data for fruit types or states that don't exist on this map.
@@ -37,6 +42,13 @@ VDT.MapLayers.GRID_SIZE = 512
 -- ~256 frames per full sweep at this budget (512*512/1024), roughly 4-9s depending on frame rate.
 VDT.MapLayers.CELLS_PER_FRAME = 1024
 
+-- Localized between-sweep refresh: how often to re-sample around active vehicles, and how many meters
+-- around each to cover (implement working width + how far it moves in that interval). The radius is
+-- converted to a cell radius per map (cells scale with map size); kept modest so a patch stays far
+-- cheaper than a full sweep -- cost is #activeVehicles * (2r+1)^2 classifyCells.
+VDT.MapLayers.PATCH_INTERVAL_MS = 4000
+VDT.MapLayers.PATCH_RADIUS_M = 32
+
 -- Mutable state, on the table so specs can reset it (see MapVehicles.timerMs).
 VDT.MapLayers.sweep = nil -- in-progress sweep context, nil when idle
 -- A resweep is wanted. True on startup so the first available tick populates the channel; re-armed by
@@ -44,6 +56,10 @@ VDT.MapLayers.sweep = nil -- in-progress sweep context, nil when idle
 VDT.MapLayers.dirty = true
 VDT.MapLayers.subscribed = false -- one-shot guard for the message-center subscription
 VDT.MapLayers.model = nil -- last completed sweep's model; collect() returns this
+-- Retained after each full sweep so between-sweep patches reuse its classification state + row tables;
+-- patchTimerMs accumulates dt toward PATCH_INTERVAL_MS. nil until the first sweep completes.
+VDT.MapLayers.patchCtx = nil
+VDT.MapLayers.patchTimerMs = 0
 
 -- Wire values for the "growth" plane. These are our own wire vocabulary, not
 -- MapOverlayGenerator.GROWTH_STATE_INDEX (that enum keys the game's own UI filter checkboxes and has
@@ -172,6 +188,25 @@ function VDT.MapLayers.encodeRow(buf, n)
     parts[i] = HEX[buf[i] % 256]
   end
   return table.concat(parts)
+end
+
+---Decode a right-trimmed hex row (encodeRow's inverse) into buf[1..n] (0..255 each), zero-padding the
+---trailing cells that encodeRow trimmed. Fills a caller-supplied buffer so scratch tables are reused.
+---@param row string
+---@param n number
+---@param buf number[]
+---@return number[] buf
+function VDT.MapLayers.decodeRow(row, n, buf)
+  local len = #row
+  for i = 1, n do
+    local p = (i - 1) * 2
+    if p + 2 <= len then
+      buf[i] = tonumber(string.sub(row, p + 1, p + 2), 16) or 0
+    else
+      buf[i] = 0
+    end
+  end
+  return buf
 end
 
 ---Color groups for a weed/stone system: state -> 1-based group index, and group index -> color
@@ -654,7 +689,7 @@ local function toLegend(seen)
 end
 
 local function finishSweep(ctx)
-  VDT.MapLayers.model = {
+  local model = {
     version = tostring(VDT.MapLayers.VERSION),
     terrainSize = g_currentMission.terrainSize or ctx.sizeX,
     gridSize = VDT.MapLayers.GRID_SIZE,
@@ -664,7 +699,135 @@ local function finishSweep(ctx)
       { id = "soil", legend = toLegend(ctx.soilSeen), rows = ctx.soilRows },
     },
   }
+  ctx.model = model
+  VDT.MapLayers.model = model
+  -- Retain the completed context so between-sweep patches reuse its classification state (ground-type
+  -- values, weed/stone systems, fruit memo) and its row tables -- the model's `rows` are those same
+  -- tables, so a patch updates the live model in place. Reset the patch timer off the fresh baseline.
+  VDT.MapLayers.patchCtx = ctx
+  VDT.MapLayers.patchTimerMs = 0
   VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
+end
+
+---World positions {x, z} of vehicles actively working the ground -- controlled (the player's rig) or
+---AI-active -- i.e. the only places the field state changes between full sweeps. Guarded/pcall'd like
+---the collectors; an unreadable vehicle is just skipped.
+---@return table[] list of { x = number, z = number }
+local function activeVehiclePositions()
+  local system = g_currentMission ~= nil and g_currentMission.vehicleSystem or nil
+  if system == nil then
+    return {}
+  end
+  local positions = {}
+  for _, vehicle in ipairs(system.vehicles or {}) do
+    local spec = vehicle.spec_enterable
+    local active = spec ~= nil and spec.isControlled == true
+    if not active then
+      local okAi, isAi = pcall(vehicle.getIsAIActive, vehicle)
+      active = okAi and isAi == true
+    end
+    if active and vehicle.rootNode ~= nil then
+      local okPos, x, _, z = pcall(getWorldTranslation, vehicle.rootNode)
+      if okPos and type(x) == "number" and type(z) == "number" then
+        positions[#positions + 1] = { x = x, z = z }
+      end
+    end
+  end
+  return positions
+end
+
+---Re-sample the cells within PATCH_RADIUS_M of each active vehicle and patch them into the retained
+---model in place, re-encoding only the touched rows. Catches player/AI tillage/harvest/fertilizing
+---between full sweeps; growth advance is global and stays on the full-sweep path. Legends are refreshed
+---additively (a value that vanished from a patched region lingers until the next full sweep -- harmless
+----- rather than pay a full-grid rescan to prune it).
+---@param ctx table the retained sweep context (VDT.MapLayers.patchCtx)
+---@return boolean patched true when at least one cell region was re-sampled
+local function runPatch(ctx)
+  local positions = activeVehiclePositions()
+  if #positions == 0 then
+    return false
+  end
+
+  local gridSize = VDT.MapLayers.GRID_SIZE
+  local halfX, halfZ = ctx.sizeX / 2, ctx.sizeZ / 2
+  local cellSize = ctx.cellSize
+  local radius = math.max(1, math.ceil(VDT.MapLayers.PATCH_RADIUS_M / cellSize))
+
+  -- Union of affected columns per row, so overlapping vehicle boxes re-sample each cell only once.
+  local byRow = {}
+  for _, p in ipairs(positions) do
+    local centerCol = math.floor((p.x + halfX) / cellSize)
+    local centerRow = math.floor((p.z + halfZ) / cellSize)
+    for row = centerRow - radius, centerRow + radius do
+      if row >= 0 and row < gridSize then
+        local cols = byRow[row]
+        if cols == nil then
+          cols = {}
+          byRow[row] = cols
+        end
+        for col = centerCol - radius, centerCol + radius do
+          if col >= 0 and col < gridSize then
+            cols[col] = true
+          end
+        end
+      end
+    end
+  end
+
+  local cropsBuf, growthBuf, soilBuf = ctx.cropsBuf, ctx.growthBuf, ctx.soilBuf
+  local patched = false
+  for row, cols in pairs(byRow) do
+    VDT.MapLayers.decodeRow(ctx.cropsRows[row + 1] or "", gridSize, cropsBuf)
+    VDT.MapLayers.decodeRow(ctx.growthRows[row + 1] or "", gridSize, growthBuf)
+    VDT.MapLayers.decodeRow(ctx.soilRows[row + 1] or "", gridSize, soilBuf)
+    local worldZ = -halfZ + (row + 0.5) * cellSize
+    for col in pairs(cols) do
+      local worldX = -halfX + (col + 0.5) * cellSize
+      local cropsV, growthV, soilV = VDT.MapLayers.classifyCell(ctx, worldX, worldZ)
+      cropsBuf[col + 1] = cropsV
+      growthBuf[col + 1] = growthV
+      soilBuf[col + 1] = soilV
+    end
+    ctx.cropsRows[row + 1] = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
+    ctx.growthRows[row + 1] = VDT.MapLayers.encodeRow(growthBuf, gridSize)
+    ctx.soilRows[row + 1] = VDT.MapLayers.encodeRow(soilBuf, gridSize)
+    patched = true
+  end
+
+  if patched then
+    ctx.model.layers[1].legend = toLegend(ctx.cropsSeen)
+    ctx.model.layers[2].legend = toLegend(ctx.growthSeen)
+    ctx.model.layers[3].legend = toLegend(ctx.soilSeen)
+  end
+  return patched
+end
+
+---Throttled between-sweep patch: accumulate dt, and every PATCH_INTERVAL_MS re-sample around active
+---vehicles. Contained in a pcall (like the sweep batch) so an engine read can't take down the update
+---loop. Only marks the channel dirty when something was actually patched.
+---@param debugger GrisuDebug
+---@param dt number? frame delta in ms
+local function maybePatch(debugger, dt)
+  if VDT.MapLayers.patchCtx == nil then
+    return -- no completed sweep to patch yet
+  end
+  if type(dt) == "number" then
+    VDT.MapLayers.patchTimerMs = VDT.MapLayers.patchTimerMs + dt
+  end
+  if VDT.MapLayers.patchTimerMs < VDT.MapLayers.PATCH_INTERVAL_MS then
+    return
+  end
+  VDT.MapLayers.patchTimerMs = 0
+
+  local ok, patched = pcall(runPatch, VDT.MapLayers.patchCtx)
+  if not ok then
+    debugger:error("mapLayers channel: patch failed (%s)", tostring(patched))
+    return
+  end
+  if patched then
+    VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
+  end
 end
 
 -- MessageCenter invokes callback(target, ...); flag that a resweep is wanted. The sweep itself runs
@@ -697,8 +860,9 @@ end
 ---wanted (dirty). Gated on export being enabled -- tick still runs while export is off (ExportChannels
 ---.tick has no such gate), so this bails early rather than burning CPU on a sweep never written.
 ---@param debugger GrisuDebug
----@param _dt number? frame delta in ms (unused: cadence is event-driven, see subscribeEvents)
-function VDT.MapLayers.tick(debugger, _dt)
+---@param dt number? frame delta in ms (drives only the between-sweep patch throttle; full-sweep cadence
+---is event-driven, see subscribeEvents)
+function VDT.MapLayers.tick(debugger, dt)
   if g_vdTelemetry == nil or g_vdTelemetry.exportEnabled ~= true then
     return
   end
@@ -710,7 +874,9 @@ function VDT.MapLayers.tick(debugger, _dt)
 
   if VDT.MapLayers.sweep == nil then
     if not VDT.MapLayers.dirty then
-      return -- nothing changed since the last sweep; stay idle until a resweep event
+      -- No full sweep wanted; keep the overlay fresh around active vehicles between sweeps.
+      maybePatch(debugger, dt)
+      return
     end
     VDT.MapLayers.sweep = startSweep()
     if VDT.MapLayers.sweep == nil then
