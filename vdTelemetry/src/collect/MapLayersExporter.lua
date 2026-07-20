@@ -273,9 +273,12 @@ end
 local function classifySoil(ctx, x, z, groundTypeValue)
   local onField = groundTypeValue ~= nil and groundTypeValue ~= 0
 
+  -- No per-cell pcall on the weed/stone reads: runBatch is already pcall'd at the tick (see tick()), so
+  -- an engine hiccup still aborts the sweep rather than the mod -- the per-cell guard was redundant
+  -- overhead across ~GRID^2 cells. The type-checks below still degrade a garbage return to "no group".
   if ctx.weedAvailable then
-    local ok, state = pcall(ctx.weedSystem.getWeedStateAtWorldPos, ctx.weedSystem, x, z)
-    if ok and type(state) == "number" then
+    local state = ctx.weedSystem:getWeedStateAtWorldPos(x, z)
+    if type(state) == "number" then
       local group = ctx.weedStateToGroup[state]
       if group ~= nil then
         return SOIL_WEED_BASE + group - 1
@@ -284,8 +287,8 @@ local function classifySoil(ctx, x, z, groundTypeValue)
   end
 
   if ctx.stoneAvailable then
-    local ok, state = pcall(ctx.stoneSystem.getStoneStateAtWorldPos, ctx.stoneSystem, x, z)
-    if ok and type(state) == "number" then
+    local state = ctx.stoneSystem:getStoneStateAtWorldPos(x, z)
+    if type(state) == "number" then
       local group = ctx.stoneStateToGroup[state]
       if group ~= nil then
         return SOIL_STONE_BASE + group - 1
@@ -293,22 +296,28 @@ local function classifySoil(ctx, x, z, groundTypeValue)
     end
   end
 
+  -- The remaining checks all read the field-ground system; resolve the method + density-map ids once
+  -- here rather than re-indexing ctx/FieldDensityMap on every read in the hot loop.
+  local fgs = ctx.fieldGroundSystem
+  local getValueAtWorldPos = fgs.getValueAtWorldPos
+  local FDM = FieldDensityMap
+
   if onField and ctx.plowingRequiredEnabled then
-    local plowLevel = ctx.fieldGroundSystem:getValueAtWorldPos(FieldDensityMap.PLOW_LEVEL, x, 0, z)
+    local plowLevel = getValueAtWorldPos(fgs, FDM.PLOW_LEVEL, x, 0, z)
     if plowLevel == 0 then
       return SOIL_NEEDS_PLOWING
     end
   end
 
   if onField and ctx.limeRequired then
-    local limeLevel = ctx.fieldGroundSystem:getValueAtWorldPos(FieldDensityMap.LIME_LEVEL, x, 0, z)
+    local limeLevel = getValueAtWorldPos(fgs, FDM.LIME_LEVEL, x, 0, z)
     if limeLevel == 0 then
       return SOIL_NEEDS_LIME
     end
   end
 
   if ctx.maxSprayLevel > 0 then
-    local sprayLevel = ctx.fieldGroundSystem:getValueAtWorldPos(FieldDensityMap.SPRAY_LEVEL, x, 0, z)
+    local sprayLevel = getValueAtWorldPos(fgs, FDM.SPRAY_LEVEL, x, 0, z)
     if type(sprayLevel) == "number" and sprayLevel >= 1 then
       return SOIL_FERTILIZED_BASE + sprayLevel
     end
@@ -412,15 +421,51 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
   local cropsV = 0
   local growthV = nil
   local desc = nil
-  if ctx.dataPlaneId ~= nil then
-    local densityTypeIndex = getDensityTypeIndexAtWorldPos(ctx.dataPlaneId, x, 0, z)
-    desc = g_fruitTypeManager:getFruitTypeByDensityTypeIndex(densityTypeIndex)
-  end
-  if desc ~= nil and desc.shownOnMap then
-    cropsV = desc.index or 0
-    local state = getDensityStatesAtWorldPos(ctx.dataPlaneId, x, 0, z)
-    local growthState = desc:getGrowthStateByDensityState(state)
-    growthV = classifyGrowthFromFruit(desc, growthState)
+  local dataPlaneId = ctx.dataPlaneId
+  if dataPlaneId ~= nil then
+    local densityTypeIndex = getDensityTypeIndexAtWorldPos(dataPlaneId, x, 0, z)
+    -- Memoize per raw fruit density-type: getFruitTypeByDensityTypeIndex + shownOnMap/index are pure
+    -- functions of it, so each distinct fruit resolves once per sweep instead of once per cell (there
+    -- are a few dozen fruit types but ~GRID^2 cells). Lazily created so a direct classifyCell call
+    -- (the specs) works without a startSweep-built ctx.
+    local fruitCache = ctx.fruitCache
+    if fruitCache == nil then
+      fruitCache = {}
+      ctx.fruitCache = fruitCache
+    end
+    local fruit = densityTypeIndex ~= nil and fruitCache[densityTypeIndex] or nil
+    if fruit == nil and densityTypeIndex ~= nil then
+      local d = g_fruitTypeManager:getFruitTypeByDensityTypeIndex(densityTypeIndex)
+      fruit = {
+        desc = d,
+        shown = d ~= nil and d.shownOnMap == true,
+        index = (d ~= nil and d.index) or 0,
+        growthByState = {},
+      }
+      fruitCache[densityTypeIndex] = fruit
+    end
+    if fruit ~= nil then
+      desc = fruit.desc
+      if fruit.shown then
+        cropsV = fruit.index
+        local state = getDensityStatesAtWorldPos(dataPlaneId, x, 0, z)
+        if type(state) == "number" then
+          -- Memoize growth per (fruit, raw state): classifyGrowthFromFruit walks harvestTransitions on
+          -- every call, so caching collapses it to a table hit for repeat pairs. `false` stores a nil
+          -- result (meaning "fall through to ground-type classification"), which a table can't hold.
+          local gv = fruit.growthByState[state]
+          if gv == nil then
+            local growthState = desc:getGrowthStateByDensityState(state)
+            local computed = classifyGrowthFromFruit(desc, growthState)
+            gv = computed == nil and false or computed
+            fruit.growthByState[state] = gv
+          end
+          if gv ~= false then
+            growthV = gv
+          end
+        end
+      end
+    end
   end
   if growthV == nil then
     growthV = classifyGrowthFromGround(ctx, groundTypeValue)
@@ -537,6 +582,8 @@ local function startSweep()
     cropsSeen = {},
     growthSeen = {},
     soilSeen = {},
+    -- Per-sweep classification memo: raw fruit density-type -> resolved fruit info (see classifyCell).
+    fruitCache = {},
   }
 end
 

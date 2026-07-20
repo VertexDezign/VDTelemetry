@@ -155,6 +155,26 @@ describe("MapLayers.classifyCell growth", function()
     assert.are.equal(20, growthV) -- GROWTH_TOPPING
   end)
 
+  it("resolves each fruit density-type once per ctx, memoized across cells", function()
+    local calls = 0
+    rawset(_G, "g_fruitTypeManager", {
+      getFruitTypeByDensityTypeIndex = function()
+        calls = calls + 1
+        return desc
+      end,
+    })
+    rawset(_G, "getDensityStatesAtWorldPos", function()
+      return 6
+    end)
+    -- All three cells read the same density-type index (the stub returns 1), so the fruit is resolved
+    -- once and reused -- not re-fetched from the manager per cell.
+    local c = ctx()
+    VDT.MapLayers.classifyCell(c, 0, 0)
+    VDT.MapLayers.classifyCell(c, 10, 10)
+    VDT.MapLayers.classifyCell(c, 20, 20)
+    assert.are.equal(1, calls)
+  end)
+
   it("falls back to ground-type classification when the fruit isn't shownOnMap", function()
     desc.shownOnMap = false
     rawset(_G, "getDensityStatesAtWorldPos", function()
