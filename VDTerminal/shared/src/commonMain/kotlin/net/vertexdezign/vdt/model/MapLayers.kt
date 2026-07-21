@@ -34,19 +34,38 @@ data class MapLayer(
 ) {
   /**
    * Decode [rows] into a flat `gridSize * gridSize` array of cell values (row-major, 0..255 each).
-   * A short or entirely missing row zero-pads; a malformed byte pair decodes as 0 — junk degrades to
-   * blank rather than throwing.
+   * A short or entirely missing row zero-pads; a malformed byte pair decodes as 0, and a [gridSize]
+   * outside `1..`[MAX_GRID_SIZE] decodes as empty — junk degrades to blank rather than throwing.
    */
   fun decodeCells(gridSize: Int): IntArray {
+    // Guard before allocating: gridSize comes from the file, and a corrupt one is either negative
+    // (gridSize * gridSize is then positive again, so the loops would run off the array) or large
+    // enough that the product silently overflows Int into a bogus size — or doesn't, and asks for
+    // tens of gigabytes. Blank is the documented answer for junk input.
+    if (gridSize <= 0 || gridSize > MAX_GRID_SIZE) return IntArray(0)
     val cells = IntArray(gridSize * gridSize)
     for (row in 0 until gridSize) {
       val hex = rows.getOrNull(row) ?: continue
       val cellCount = minOf(gridSize, hex.length / 2)
       for (col in 0 until cellCount) {
-        cells[row * gridSize + col] = hex.substring(col * 2, col * 2 + 2).toIntOrNull(16) ?: 0
+        // Both nibbles parsed as digits rather than substring().toIntOrNull(16): that accepts a sign,
+        // so a "-1" pair decoded to -1 and escaped the documented 0..255. Also saves a String per
+        // cell — a 512² grid ran that a quarter of a million times per render.
+        val high = hex[col * 2].digitToIntOrNull(16)
+        val low = hex[col * 2 + 1].digitToIntOrNull(16)
+        cells[row * gridSize + col] = if (high == null || low == null) 0 else high * 16 + low
       }
     }
     return cells
+  }
+
+  companion object {
+    /**
+     * Largest grid the decoder will allocate for. The mod samples at the game's own overlay
+     * resolution (512), so this is generous headroom for a future bump while still refusing a
+     * corrupt size that would otherwise mean a multi-gigabyte array.
+     */
+    const val MAX_GRID_SIZE = 2048
   }
 }
 

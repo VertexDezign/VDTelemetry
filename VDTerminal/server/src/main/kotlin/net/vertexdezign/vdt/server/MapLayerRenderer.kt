@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.server
 
+import net.vertexdezign.vdt.model.MapLayer
 import net.vertexdezign.vdt.model.MapLayersData
 import net.vertexdezign.vdt.model.contentVersion
 import java.awt.image.BufferedImage
@@ -54,7 +55,9 @@ object MapLayerRenderer {
   ): ByteArray? {
     val layer = data.layers.firstOrNull { it.id == layerId } ?: return null
     val gridSize = data.gridSize
-    if (gridSize <= 0) return null
+    // Same bound decodeCells enforces: past it decodeCells returns blank, and setRGB would then be
+    // handed a pixel array that doesn't match the image it was told to fill.
+    if (gridSize <= 0 || gridSize > MapLayer.MAX_GRID_SIZE) return null
 
     val colors = layer.legend.associate { it.v to parseArgb(it.color) }
     val cells = layer.decodeCells(gridSize)

@@ -261,18 +261,23 @@ fun MapPanel(
       layerBitmap = null // deselected, or this layer id isn't present in the current data
       return@LaunchedEffect
     }
+    // Capture the layer this fetch is FOR. groundLayer is mutable state, and selecting another layer
+    // writes it immediately while this coroutine is only cancelled at the next recomposition -- an
+    // in-flight fetch can therefore resume in between and would otherwise file the bitmap it just
+    // decoded under whatever layer is selected by then.
+    val requestedLayer = groundLayer
     layerImageCache?.let { (cachedKey, cachedBitmap) ->
       if (cachedKey == layerKey) {
-        layerBitmap = groundLayer to cachedBitmap
+        layerBitmap = requestedLayer to cachedBitmap
         return@LaunchedEffect
       }
     }
     runCatching {
-      val bytes = mapImageClient.get("$mapLayerUrl/$groundLayer?v=${mapLayers.version}").readRawBytes()
+      val bytes = mapImageClient.get("$mapLayerUrl/$requestedLayer?v=${mapLayers.version}").readRawBytes()
       Image.makeFromEncoded(bytes).toComposeImageBitmap()
     }.onSuccess {
       layerImageCache = layerKey to it
-      layerBitmap = groundLayer to it
+      layerBitmap = requestedLayer to it
     }
     // On failure the previous layerBitmap is left in place -- no flicker to blank on a transient miss.
   }

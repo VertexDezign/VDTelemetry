@@ -115,6 +115,29 @@ class MapLayersModelTest {
     assertEquals(2, cells[3])
   }
 
+  /** A signed pair parses as a number but isn't a cell value — the decoder's contract is 0..255. */
+  @Test
+  fun decodeCellsTreatsSignedPairsAsZero() {
+    val cells = MapLayer(id = "growth", rows = listOf("-1+2 3ff")).decodeCells(gridSize = 4)
+
+    assertEquals(0, cells[0]) // "-1" would parse as -1 with a signed parse
+    assertEquals(0, cells[1]) // "+2" likewise
+    assertEquals(0, cells[2]) // " 3" is not two hex digits
+    assertEquals(255, cells[3])
+    assertTrue(cells.all { it in 0..255 }, "every decoded cell must stay in 0..255")
+  }
+
+  /** A corrupt grid size must degrade to blank like any other junk, not allocate or throw. */
+  @Test
+  fun decodeCellsRejectsAnOutOfRangeGridSize() {
+    val layer = MapLayer(id = "crops", rows = listOf("0102"))
+
+    assertEquals(0, layer.decodeCells(gridSize = 0).size)
+    assertEquals(0, layer.decodeCells(gridSize = -4).size)
+    assertEquals(0, layer.decodeCells(gridSize = MapLayer.MAX_GRID_SIZE + 1).size)
+    assertEquals(0, layer.decodeCells(gridSize = 100_000).size) // gridSize² overflows Int
+  }
+
   @Test
   fun mapLayersRideTheServerMessageDiscriminator() {
     val data = VdtParser.parseMapLayers(example("basic.json"))

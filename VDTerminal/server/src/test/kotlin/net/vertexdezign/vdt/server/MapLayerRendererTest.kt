@@ -71,6 +71,16 @@ class MapLayerRendererTest {
     assertNull(MapLayerRenderer.render(data, "nope"))
   }
 
+  /** A corrupt grid size renders nothing (404) rather than allocating for it or throwing. */
+  @Test
+  fun returnsNullForAnOutOfRangeGridSize() {
+    val data = VdtParser.parseMapLayers(example("basic.json"))
+
+    assertNull(MapLayerRenderer.render(data.copy(gridSize = 0), "crops"))
+    assertNull(MapLayerRenderer.render(data.copy(gridSize = -8), "crops"))
+    assertNull(MapLayerRenderer.render(data.copy(gridSize = 100_000), "crops"))
+  }
+
   @Test
   fun renderedIsMemoizedUntilTheDataChanges() {
     val data = VdtParser.parseMapLayers(example("basic.json"))
