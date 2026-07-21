@@ -192,6 +192,32 @@ class MapLayersModelTest {
     assertNotEquals(version, reordered.contentVersion(), "reordered rows must change the version")
   }
 
+  /**
+   * The hash input is length-prefixed per list, so values can't drift across a list boundary: a
+   * legend entry's three values must not hash the same as three rows in an otherwise empty layer.
+   */
+  @Test
+  fun contentVersionEncodesStructureNotJustValues() {
+    fun layerOf(
+      legend: List<MapLayerLegendEntry>,
+      rows: List<String>,
+    ) = MapLayersData(gridSize = 2, layers = listOf(MapLayer(id = "crops", legend = legend, rows = rows)))
+
+    val asLegend = layerOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = "c")), emptyList())
+    val asRows = layerOf(emptyList(), listOf("1", "x", "c"))
+    assertNotEquals(
+      asLegend.contentVersion(),
+      asRows.contentVersion(),
+      "the same values in different structures must not share a version",
+    )
+
+    // A resolved-but-empty color and an unresolved one are different data, even though both happen to
+    // render transparent today.
+    val nullColor = layerOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = null)), emptyList())
+    val emptyColor = layerOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = "")), emptyList())
+    assertNotEquals(nullColor.contentVersion(), emptyColor.contentVersion(), "null and \"\" must differ")
+  }
+
   @Test
   fun infoStripsRowsButKeepsLegends() {
     val data = VdtParser.parseMapLayers(example("basic.json"))

@@ -96,24 +96,38 @@ data class MapLayersInfo(
  */
 fun MapLayersData.contentVersion(): String {
   var hash = 0xcbf29ce484222325UL // FNV-1a 64-bit offset basis
+  val prime = 0x100000001b3UL
 
-  fun mix(s: String) {
-    for (c in s) {
-      hash = (hash xor (c.code.toULong() and 0xffffUL)) * 0x100000001b3UL
+  // Each value is terminated by a marker, so ("ab", "c") and ("a", "bc") don't hash alike, and null
+  // gets a different marker than "" so the two stay distinguishable.
+  fun mix(s: String?) {
+    if (s == null) {
+      hash = (hash xor 0xfeUL) * prime
+      return
     }
-    // Separator, so that ("ab", "c") and ("a", "bc") don't hash alike.
-    hash = (hash xor 0xffUL) * 0x100000001b3UL
+    for (c in s) {
+      hash = (hash xor (c.code.toULong() and 0xffffUL)) * prime
+    }
+    hash = (hash xor 0xffUL) * prime
   }
   mix(version)
   mix(terrainSize.toRawBits().toString())
   mix(gridSize.toString())
+  // Every list is length-prefixed. Terminating each string is not enough on its own: without the
+  // counts, the flat sequence of values carries no list boundaries, so a legend entry's three values
+  // could line up with three rows of another layout and hash identically. Unreachable from anything
+  // the mod emits (rows are hex, labels are not), but this is the input to an immutable-for-a-year
+  // cache key, and a length-prefixed encoding is unambiguous by construction rather than by argument.
+  mix(layers.size.toString())
   for (layer in layers) {
     mix(layer.id)
+    mix(layer.legend.size.toString())
     for (entry in layer.legend) {
       mix(entry.v.toString())
       mix(entry.label)
-      mix(entry.color ?: "")
+      mix(entry.color)
     }
+    mix(layer.rows.size.toString())
     for (row in layer.rows) {
       mix(row)
     }
