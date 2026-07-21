@@ -38,6 +38,7 @@ rarely, so they are written only when their data actually changes — they never
 | `vdTelemetry.json` | vehicle + environment (core) | every interval |
 | `map.json` | map overlay: POIs + fields + farms (core, `src/collect/MapExporter.lua`) | on farmland/placeable/farm change |
 | `mapVehicles.json` | vehicle markers (core, `src/collect/MapVehiclesExporter.lua`) | own interval (1 s) |
+| `mapLayers.json` | ground layers: crops/growth/soil rasters (core, `src/collect/MapLayersExporter.lua`) | own sweep cadence |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
 | `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
 
@@ -65,6 +66,19 @@ frame, owning farm, and AI/controlled/entered flags. It rewrites on its own 1 s 
 change constantly, but a map overview needs neither the 100 ms telemetry cadence nor event-driven
 writes.
 
+`mapLayers.json` carries three grid-sampled ground rasters — what's planted (crops), growth state, and
+soil condition — at the in-game map overlay's own 512² resolution, classified and colored to match
+`MapOverlayGenerator` exactly (fruit colors, growth-state gradient, weed/stone/fertilizer/plow/lime
+legends). Sampling one world position per grid cell is expensive, so a sweep is spread over many
+frames (a few thousand cells per tick) rather than done in one pass, then paused for a while before the
+next sweep. Each layer is a one-byte-per-cell plane, encoded as right-trimmed hex row strings, with a
+legend of only the values actually seen on this map.
+
+It is by far the mod's most expensive channel, so it is the one channel tied to the performance profile:
+**under the `low` preset it is switched off entirely** — no sampling, no file — and `mapLayers.json` is
+deleted so VDTerminal drops the overlays. It runs from `medium` upwards, and under `custom` your own
+`enabled` toggle decides.
+
 ### Linux: keep telemetry writes off the SSD (optional)
 
 The json is rewritten every interval (100 ms by default), so on Linux you can back the `telemetry/`
@@ -90,7 +104,8 @@ printf 'tmpfs  %s  tmpfs  rw,size=16M,uid=%s,gid=%s,mode=0755,noatime  0  0\n' \
 
 Add that line to `/etc/fstab`, then `sudo mount -a` (no error = valid fstab). Verify with
 `findmnt --target "<real path with a normal space>"` — it should show `tmpfs` as the source.
-16M is far more than enough; the json is a few KB.
+16M leaves plenty of room: the telemetry json is a few KB, and the largest channel by far —
+`mapLayers.json` at roughly 1.5 MB for a 512² grid — is rewritten in place, not accumulated.
 
 ## Configuration
 
@@ -129,7 +144,10 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
     <!-- Performance profile for the secondary channels below: low | medium | high | veryHigh | custom.
          A preset scales every interval-driven channel's cadence (low = 4x slower … veryHigh = 2x faster than the
          defaults shown below); "custom" instead uses the per-channel intervalMs values. Switch presets in-game
-         (General Settings); VDTerminal writes "custom" when you fine-tune a single channel. -->
+         (General Settings); VDTerminal writes "custom" when you fine-tune a single channel.
+         A preset can also switch a channel off outright when it is too expensive for that tier: "low" disables
+         the mapLayers channel (its file is deleted, like any disabled channel). Your own per-channel `enabled`
+         toggles are kept as you set them, so raising the profile again brings the channel back. -->
     <profile>high</profile>
     <!-- Per-channel config for the secondary export channels (the live vehicle telemetry above is always on).
          `enabled` turns a channel off entirely if you don't use that base-game feature — no file is written and any
@@ -138,6 +156,7 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
     <channels>
         <channel id="map" enabled="true"/>
         <channel id="mapVehicles" enabled="true" intervalMs="1000"/>
+        <channel id="mapLayers" enabled="true"/>
         <channel id="production" enabled="true" intervalMs="2000"/>
         <channel id="storage" enabled="true" intervalMs="2000"/>
         <channel id="husbandry" enabled="true" intervalMs="5000"/>

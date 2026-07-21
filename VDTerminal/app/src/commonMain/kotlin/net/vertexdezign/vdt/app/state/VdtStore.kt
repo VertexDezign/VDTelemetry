@@ -13,6 +13,7 @@ import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
@@ -36,6 +37,8 @@ class VdtStore(
   val cropRotation: StateFlow<CropRotationData?>,
   val mapData: StateFlow<MapData?>,
   val mapVehicles: StateFlow<MapVehiclesData?>,
+  /** Ground-layer legends (crops/growth/soil); the raster PNG is fetched from [mapLayerUrl] on demand. */
+  val mapLayers: StateFlow<MapLayersInfo?>,
   val fieldInfo: StateFlow<FieldInfoData?>,
   val production: StateFlow<ProductionData?>,
   val storage: StateFlow<StorageData?>,
@@ -44,6 +47,8 @@ class VdtStore(
   val channelStats: StateFlow<ChannelStatsData?>,
   val wakeLock: StateFlow<WakeLockStatus>,
   val mapUrl: String,
+  /** Base URL for ground-layer raster PNGs; the map widget appends `/{layerId}` (see [mapLayers]). */
+  val mapLayerUrl: String,
   val settings: Settings,
   /** The user's pages (created/edited at runtime, persisted); see [PageStore]. */
   val pages: PageStore,

@@ -72,6 +72,12 @@ end
 -- The tokens the game treats as "growing" (yield bonus is shown for these), per fieldAddField.
 local GROWING_TOKENS = { growing = true, readyToPrepare = true, readyToHarvest = true }
 
+-- Precision Farming, when installed, swaps the base FELDINFO box for its soil model and deactivates
+-- three of the vanilla lines (yield bonus, fertilized, needs-lime). We mirror the base HUD, so those
+-- three are stale/superseded under PF and get omitted below. Detection lives in the shared
+-- VDT.PrecisionFarming module (also gated by MapLayersExporter). The remaining lines (crop, growth,
+-- weeds, plowing, rolling) are untouched.
+
 ---Fertilized percentage from a field state, or nil when it can't be resolved (spray level / max
 ---value unreadable). Matches PlayerHUDUpdater:fieldAddField's `sprayLevel / maxSprayLevel`.
 ---@param state table FieldState
@@ -162,6 +168,10 @@ local function collectField(field)
   ---@type FieldInfoEntryModel
   local entry = { id = id }
 
+  -- Precision Farming, when installed, hides yield bonus / fertilized / needs-lime from the game's own
+  -- panel and shows its soil model instead — so we omit those same three to match (see the note above).
+  local pfActive = VDT.PrecisionFarming.isActive()
+
   local fruitIndex = state.fruitTypeIndex
   local unknown = (FruitType ~= nil and FruitType.UNKNOWN) or 0
   local desc = nil
@@ -184,7 +194,12 @@ local function collectField(field)
     if token ~= nil then
       entry.growth = token
     end
-    if token ~= nil and GROWING_TOKENS[token] and type(state.getHarvestScaleMultiplier) == "function" then
+    if
+      not pfActive
+      and token ~= nil
+      and GROWING_TOKENS[token]
+      and type(state.getHarvestScaleMultiplier) == "function"
+    then
       local okMul, multiplier = pcall(state.getHarvestScaleMultiplier, state)
       if okMul and type(multiplier) == "number" then
         entry.yieldBonusPercent = round((multiplier - 1) * 100)
@@ -192,7 +207,9 @@ local function collectField(field)
     end
   end
 
-  entry.sprayLevelPercent = sprayLevelPercent(state)
+  if not pfActive then
+    entry.sprayLevelPercent = sprayLevelPercent(state)
+  end
   entry.weed = weedTitle(state)
 
   local missionInfo = g_currentMission ~= nil and g_currentMission.missionInfo or nil
@@ -200,7 +217,7 @@ local function collectField(field)
     if state.plowLevel == 0 and missionInfo.plowingRequiredEnabled == true then
       entry.needsPlowing = true
     end
-    if state.limeLevel == 0 and missionInfo.limeRequired == true then
+    if state.limeLevel == 0 and missionInfo.limeRequired == true and not pfActive then
       entry.needsLime = true
     end
   end
