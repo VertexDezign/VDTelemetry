@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.server
 
 import net.vertexdezign.vdt.model.MapLayersData
+import net.vertexdezign.vdt.model.contentVersion
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
@@ -18,20 +19,24 @@ object MapLayerRenderer {
   private const val ALPHA = 0x99
 
   /**
-   * Per-id cache of the last rendered PNG, keyed on `data.hashCode()` so a new sweep invalidates it.
+   * Per-id cache of the last rendered PNG, keyed on [contentVersion] so a new sweep invalidates it.
    * Capped at 3 entries (one per real layer id today) as a safety net against unbounded growth if
    * layer ids ever churn. A concurrent duplicate render on a miss is benign — both requests compute
    * and store the same bytes for the same key — so this only needs a thread-safe map, not a lock.
    */
-  private val cache = ConcurrentHashMap<String, Pair<Int, ByteArray>>()
+  private val cache = ConcurrentHashMap<String, Pair<String, ByteArray>>()
   private const val MAX_CACHE_ENTRIES = 3
 
-  /** Rendered PNG for [layerId], memoized on `(layerId, data.hashCode())`. Null for an unknown id. */
+  /**
+   * Rendered PNG for [layerId], memoized on `(layerId, contentVersion)`. Null for an unknown id.
+   * [version] is the caller's already-computed [contentVersion] of [data], so the route can validate
+   * the request against it without hashing the rows twice.
+   */
   fun rendered(
     data: MapLayersData,
     layerId: String,
+    version: String = data.contentVersion(),
   ): ByteArray? {
-    val version = data.hashCode()
     cache[layerId]?.let { (cachedVersion, bytes) -> if (cachedVersion == version) return bytes }
 
     val bytes = render(data, layerId) ?: return null

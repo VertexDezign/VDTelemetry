@@ -63,22 +63,62 @@ data class MapLayerLegendEntry(
  * itself is fetched separately as a PNG (`GET /api/map-layer/{id}?v={version}`), never over the
  * WebSocket, since a 512x512 grid x 3 layers is far too heavy to push on every sweep.
  *
- * [version] is content-derived ([MapLayersData.hashCode] of the **full** data, including [MapLayer.rows]),
- * so a changed cell always changes the version even though the cells themselves never cross the wire —
- * that's what tells the app to refetch the PNG.
+ * [version] is content-derived from the **full** data including [MapLayer.rows], so a changed cell
+ * always changes the version even though the cells themselves never cross the wire — that's what
+ * tells the app to refetch the PNG. Deliberately content-derived rather than a counter: a sweep that
+ * re-samples an unchanged map produces the same version, so the app keeps the PNG it already has
+ * instead of refetching a megabyte of identical raster.
+ *
+ * The version is an opaque string — see [contentVersion] for why it isn't `hashCode()`.
  */
 @Serializable
 data class MapLayersInfo(
-  val version: Int = 0,
+  val version: String = "",
   val layers: List<MapLayerInfo> = emptyList(),
 ) {
   companion object {
     fun from(data: MapLayersData): MapLayersInfo =
       MapLayersInfo(
-        version = data.hashCode(),
+        version = data.contentVersion(),
         layers = data.layers.map { MapLayerInfo(it.id, it.legend) },
       )
   }
+}
+
+/**
+ * Opaque content version of the full raster data: 64-bit FNV-1a over everything that affects the
+ * rendered PNG, as hex.
+ *
+ * Not `hashCode()`: 32 bits is small enough that two different rasters can collide, and the PNG for
+ * a version is served under `Cache-Control: immutable` for a year — a collision would pin the wrong
+ * overlay in the browser's cache with no way to invalidate it. 64 bits makes that vanishingly
+ * unlikely, at about the cost the data class's own `hashCode()` already paid (both walk the rows).
+ */
+fun MapLayersData.contentVersion(): String {
+  var hash = 0xcbf29ce484222325UL // FNV-1a 64-bit offset basis
+
+  fun mix(s: String) {
+    for (c in s) {
+      hash = (hash xor (c.code.toULong() and 0xffffUL)) * 0x100000001b3UL
+    }
+    // Separator, so that ("ab", "c") and ("a", "bc") don't hash alike.
+    hash = (hash xor 0xffUL) * 0x100000001b3UL
+  }
+  mix(version)
+  mix(terrainSize.toRawBits().toString())
+  mix(gridSize.toString())
+  for (layer in layers) {
+    mix(layer.id)
+    for (entry in layer.legend) {
+      mix(entry.v.toString())
+      mix(entry.label)
+      mix(entry.color ?: "")
+    }
+    for (row in layer.rows) {
+      mix(row)
+    }
+  }
+  return hash.toString(16)
 }
 
 @Serializable

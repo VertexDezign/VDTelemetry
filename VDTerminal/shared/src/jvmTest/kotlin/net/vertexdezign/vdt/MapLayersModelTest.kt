@@ -5,6 +5,7 @@ import net.vertexdezign.vdt.model.MapLayer
 import net.vertexdezign.vdt.model.MapLayerLegendEntry
 import net.vertexdezign.vdt.model.MapLayersData
 import net.vertexdezign.vdt.model.MapLayersInfo
+import net.vertexdezign.vdt.model.contentVersion
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -155,6 +156,40 @@ class MapLayersModelTest {
           },
       )
     assertNotEquals(versionA, MapLayersInfo.from(changed).version, "a changed cell must change the version")
+  }
+
+  /**
+   * The version is what the immutable PNG cache is keyed on, so anything that alters the rendered
+   * image has to move it — including the legend, which decides the colors — and row content must be
+   * hashed positionally rather than as a bag of strings.
+   */
+  @Test
+  fun contentVersionCoversLegendsAndRowOrder() {
+    val data = VdtParser.parseMapLayers(example("basic.json"))
+    val version = data.contentVersion()
+    assertTrue(version.isNotEmpty(), "version must be a non-empty opaque string")
+
+    val recolored =
+      data.copy(
+        layers =
+          data.layers.map { layer ->
+            if (layer.id == "crops") {
+              layer.copy(legend = layer.legend.map { it.copy(color = "#000000") })
+            } else {
+              layer
+            }
+          },
+      )
+    assertNotEquals(version, recolored.contentVersion(), "a legend color change must change the version")
+
+    val reordered =
+      data.copy(
+        layers =
+          data.layers.map { layer ->
+            if (layer.id == "crops") layer.copy(rows = layer.rows.reversed()) else layer
+          },
+      )
+    assertNotEquals(version, reordered.contentVersion(), "reordered rows must change the version")
   }
 
   @Test

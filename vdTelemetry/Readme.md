@@ -104,7 +104,8 @@ printf 'tmpfs  %s  tmpfs  rw,size=16M,uid=%s,gid=%s,mode=0755,noatime  0  0\n' \
 
 Add that line to `/etc/fstab`, then `sudo mount -a` (no error = valid fstab). Verify with
 `findmnt --target "<real path with a normal space>"` — it should show `tmpfs` as the source.
-16M is far more than enough; the json is a few KB.
+16M leaves plenty of room: the telemetry json is a few KB, and the largest channel by far —
+`mapLayers.json` at roughly 1.5 MB for a 512² grid — is rewritten in place, not accumulated.
 
 ## Configuration
 

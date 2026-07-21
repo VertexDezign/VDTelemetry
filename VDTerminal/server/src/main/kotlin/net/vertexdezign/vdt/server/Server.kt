@@ -222,23 +222,7 @@ fun main() {
         }
       }
 
-      get("/api/map-layer/{id}") {
-        val data = mapLayersState.value
-        val layerId = call.parameters["id"]
-        if (data == null || layerId == null) {
-          call.respondText("Ground layer not available", status = HttpStatusCode.NotFound)
-          return@get
-        }
-        val bytes = MapLayerRenderer.rendered(data, layerId)
-        if (bytes == null) {
-          call.respondText("Unknown ground layer: $layerId", status = HttpStatusCode.NotFound)
-          return@get
-        }
-        // Content-addressed via the ?v= query param (MapLayersInfo.version): the bytes at this exact
-        // URL never change, unlike /api/map-image which has no such versioning.
-        call.response.headers.append(HttpHeaders.CacheControl, "max-age=31536000, immutable")
-        call.respondBytes(bytes, ContentType.Image.PNG)
-      }
+      mapLayerRoute { mapLayersState.value }
 
       get("/api/map-image") {
         val pda =

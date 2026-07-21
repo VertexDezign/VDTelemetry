@@ -248,9 +248,14 @@ fun MapPanel(
   // current data -- the persisted id simply draws nothing until it reappears (edge case in the plan).
   val activeLayerInfo = mapLayers?.layers?.find { it.id == groundLayer }
   val layerKey = activeLayerInfo?.let { "$mapLayerUrl/$groundLayer|${mapLayers.version}" }
-  // NOT keyed on layerKey: a layer switch or a new sweep's version must keep showing the previous
-  // bitmap until the new one has fetched, not flash blank in between.
-  var layerBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+  // Held WITH the layer id it was rendered from, and NOT cleared when layerKey changes: a new sweep's
+  // version must keep showing the previous bitmap until the new one has fetched, rather than flashing
+  // blank in between. Pairing it with the id is what keeps that from spilling across a layer *switch* --
+  // the legend swaps the instant groundLayer changes, so painting the previous layer's raster under it
+  // would label crops pixels as growth. Rendering is gated on the id matching (see below), so a switch
+  // shows nothing until its own PNG lands, while a same-layer refresh still holds the old image.
+  var layerBitmap by remember { mutableStateOf<Pair<String, ImageBitmap>?>(null) }
+  val shownLayerBitmap = layerBitmap?.takeIf { it.first == groundLayer }?.second
   LaunchedEffect(layerKey) {
     if (layerKey == null) {
       layerBitmap = null // deselected, or this layer id isn't present in the current data
@@ -258,7 +263,7 @@ fun MapPanel(
     }
     layerImageCache?.let { (cachedKey, cachedBitmap) ->
       if (cachedKey == layerKey) {
-        layerBitmap = cachedBitmap
+        layerBitmap = groundLayer to cachedBitmap
         return@LaunchedEffect
       }
     }
@@ -267,7 +272,7 @@ fun MapPanel(
       Image.makeFromEncoded(bytes).toComposeImageBitmap()
     }.onSuccess {
       layerImageCache = layerKey to it
-      layerBitmap = it
+      layerBitmap = groundLayer to it
     }
     // On failure the previous layerBitmap is left in place -- no flicker to blank on a transient miss.
   }
@@ -430,7 +435,7 @@ fun MapPanel(
         // exactly with the base map image, so it belongs inside the same zoom-scaled layer rather
         // than outside it. FilterQuality.None keeps grid cells crisp instead of smearing colors
         // together at high zoom (the whole point of a legend-driven raster).
-        layerBitmap?.let {
+        shownLayerBitmap?.let {
           Image(
             it,
             contentDescription = "ground layer",
@@ -501,8 +506,8 @@ fun MapPanel(
         }
       }
 
-      // Ground-layer legend, only while a layer is actually selected and showing.
-      if (activeLayerInfo != null && layerBitmap != null) {
+      // Ground-layer legend, only while a layer is actually selected and its own raster is showing.
+      if (activeLayerInfo != null && shownLayerBitmap != null) {
         GroundLayerLegend(activeLayerInfo.legend, side)
       }
 
