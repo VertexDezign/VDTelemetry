@@ -15,10 +15,33 @@
 --                           deterministic and diff-stable even as optional keys appear/disappear.
 --                           For watching the file live during development.
 -- JSON objects are unordered, so sorting is purely cosmetic and the consumer (kotlinx) ignores it.
+--
+-- Shape of the implementation, driven by the heavy channels (mapLayers writes ~1.5 MB of hex rows):
+--   * every encoder appends its pieces to one flat buffer that is table.concat'd once at the end,
+--     instead of returning a string per level. Concatenating per level re-copies the whole payload
+--     at every nesting depth (row -> rows array -> layer -> layers -> root).
+--   * the escape scan is memoized for long strings -- see CLEAN_MIN_LEN below.
+--   * pretty and minified are separate walkers so the hot (minified) one carries no indent
+--     bookkeeping and no per-value mode check.
 
 Json = {}
 
 local INDENT = "  "
+
+-- Library functions used per value; upvalues instead of global/table lookups in the walk.
+local concat = table.concat
+local sort = table.sort
+local format = string.format
+local find = string.find
+local gsub = string.gsub
+local byte = string.byte
+local rep = string.rep
+local floor = math.floor
+local abs = math.abs
+local huge = math.huge
+local type = type
+local pairs = pairs
+local tostring = tostring
 
 local ESCAPES = {
   ['"'] = '\\"',
@@ -31,94 +54,210 @@ local ESCAPES = {
 }
 
 local function escapeChar(c)
-  return ESCAPES[c] or string.format("\\u%04x", string.byte(c))
+  return ESCAPES[c] or format("\\u%04x", byte(c))
+end
+
+-- Memo of strings already known to need no escaping. Lua's pattern matcher runs at roughly 10 ns per
+-- character, so the scan -- not the tree walk -- dominates a mapLayers encode: 1.5 MB of hex rows is
+-- ~15 ms of scanning per write, every write, for a verdict that is almost always the same one as last
+-- time. A table lookup on an already-interned string is O(1) (Lua caches the hash in the string
+-- itself), so memoizing the verdict turns that 15 ms into well under 1 ms.
+--
+-- The memo survives a full sweep rebuilding its row tables: Lua interns strings, so a row whose
+-- content did not change encodes to the *same* string object and hits the memo. Only genuinely
+-- changed rows pay the scan.
+--
+-- Short strings (names, ids, enum labels) are scanned every time instead: a 20-character scan costs
+-- ~0.2 us, and memoizing them would fill the memo with entries that never pay for themselves.
+local CLEAN_MIN_LEN = 24
+local CLEAN_MAX = 4096
+local clean = {}
+local cleanCount = 0
+
+---Append the JSON form of a string as buffer pieces (quote, body, quote -- the body goes in as-is when
+---it needs no escaping, so a clean string is never copied).
+---@param s string
+---@param out string[] output buffer
+---@param n number pieces written so far
+---@return number n
+local function pushString(s, out, n)
+  local safe
+  if #s >= CLEAN_MIN_LEN then
+    safe = clean[s]
+    if safe == nil then
+      safe = find(s, '[%c"\\]') == nil
+      -- Bounded: drop the whole memo rather than grow without limit on a map whose rows keep changing.
+      if cleanCount >= CLEAN_MAX then
+        clean = {}
+        cleanCount = 0
+      end
+      clean[s] = safe
+      cleanCount = cleanCount + 1
+    end
+  else
+    safe = find(s, '[%c"\\]') == nil
+  end
+  out[n + 1] = '"'
+  out[n + 2] = safe and s or gsub(s, '[%c"\\]', escapeChar)
+  out[n + 3] = '"'
+  return n + 3
 end
 
 local function encodeString(s)
-  -- Fast path when there's nothing to escape: skip the gsub (and the buffer it builds) entirely. This
-  -- is the common case and the hot one -- the mapLayers channel emits long hex-string rows that never
-  -- contain a control char / quote / backslash, so escaping them was pure scan-and-copy overhead.
-  if string.find(s, '[%c"\\]') == nil then
+  if find(s, '[%c"\\]') == nil then
     return '"' .. s .. '"'
   end
-  return '"' .. string.gsub(s, '[%c"\\]', escapeChar) .. '"'
+  return '"' .. gsub(s, '[%c"\\]', escapeChar) .. '"'
 end
 
 local function encodeNumber(n)
-  if n ~= n or n == math.huge or n == -math.huge then
+  if n ~= n or n == huge or n == -huge then
     return "null"
   end
-  if math.floor(n) == n and math.abs(n) < 1e15 then
-    return string.format("%.0f", n)
+  if floor(n) == n and abs(n) < 1e15 then
+    return format("%.0f", n)
   end
-  return string.format("%.14g", n)
+  return format("%.14g", n)
 end
 
--- forward declaration so the container encoders can recurse through it
-local encodeValue
+-- Encoded object keys ('"name":'), cached: the model's key set is small and fixed, but the same keys
+-- are re-encoded on every write of every channel. Minified only -- pretty sorts and spaces its keys.
+local keys = {}
 
-local function encodeArray(t, n, pretty, level)
-  local parts = {}
-  for i = 1, n do
-    parts[i] = encodeValue(t[i], pretty, level + 1)
+local function encodeKey(k)
+  local encoded = keys[k]
+  if encoded == nil then
+    encoded = encodeString(type(k) == "string" and k or tostring(k)) .. ":"
+    keys[k] = encoded
   end
-  if not pretty then
-    return "[" .. table.concat(parts, ",") .. "]"
-  end
-  local child = string.rep(INDENT, level + 1)
-  for i = 1, n do
-    parts[i] = child .. parts[i]
-  end
-  return "[\n" .. table.concat(parts, ",\n") .. "\n" .. string.rep(INDENT, level) .. "]"
+  return encoded
 end
 
-local function encodeObject(t, pretty, level)
-  local keys = {}
-  for k in pairs(t) do
-    keys[#keys + 1] = k
-  end
-  if #keys == 0 then
-    return "{}"
-  end
-  if pretty then
-    table.sort(keys, function(a, b)
-      return tostring(a) < tostring(b)
-    end)
-  end
+-- forward declarations so the walkers can recurse through themselves
+local encodeMinified
+local encodePretty
 
-  local colon = pretty and ": " or ":"
-  local parts = {}
-  for i = 1, #keys do
-    local k = keys[i]
-    parts[i] = encodeString(tostring(k)) .. colon .. encodeValue(t[k], pretty, level + 1)
-  end
-  if not pretty then
-    return "{" .. table.concat(parts, ",") .. "}"
-  end
-  local child = string.rep(INDENT, level + 1)
-  for i = 1, #parts do
-    parts[i] = child .. parts[i]
-  end
-  return "{\n" .. table.concat(parts, ",\n") .. "\n" .. string.rep(INDENT, level) .. "}"
-end
-
-encodeValue = function(v, pretty, level)
+---@param v any value to encode
+---@param out string[] output buffer
+---@param n number pieces written so far
+---@return number n
+encodeMinified = function(v, out, n)
   local t = type(v)
   if t == "string" then
-    return encodeString(v)
+    return pushString(v, out, n)
   elseif t == "number" then
-    return encodeNumber(v)
-  elseif t == "boolean" then
-    return v and "true" or "false"
+    n = n + 1
+    out[n] = encodeNumber(v)
   elseif t == "table" then
-    local n = #v
-    if n > 0 then
-      return encodeArray(v, n, pretty, level)
+    local len = #v
+    if len > 0 then
+      n = n + 1
+      out[n] = "["
+      n = encodeMinified(v[1], out, n)
+      for i = 2, len do
+        n = n + 1
+        out[n] = ","
+        n = encodeMinified(v[i], out, n)
+      end
+      n = n + 1
+      out[n] = "]"
+    else
+      n = n + 1
+      out[n] = "{"
+      local first = true
+      for k, value in pairs(v) do
+        if first then
+          first = false
+        else
+          n = n + 1
+          out[n] = ","
+        end
+        n = n + 1
+        out[n] = encodeKey(k)
+        n = encodeMinified(value, out, n)
+      end
+      n = n + 1
+      out[n] = "}"
     end
-    return encodeObject(v, pretty, level)
+  elseif t == "boolean" then
+    n = n + 1
+    out[n] = v and "true" or "false"
   else
-    return "null"
+    n = n + 1
+    out[n] = "null"
   end
+  return n
+end
+
+---@param v any value to encode
+---@param out string[] output buffer
+---@param n number pieces written so far
+---@param level number current nesting depth, for indentation
+---@return number n
+encodePretty = function(v, out, n, level)
+  local t = type(v)
+  if t == "string" then
+    return pushString(v, out, n)
+  elseif t == "number" then
+    n = n + 1
+    out[n] = encodeNumber(v)
+  elseif t == "table" then
+    local len = #v
+    local child = rep(INDENT, level + 1)
+    local close = rep(INDENT, level)
+    if len > 0 then
+      n = n + 1
+      out[n] = "[\n"
+      for i = 1, len do
+        if i > 1 then
+          n = n + 1
+          out[n] = ",\n"
+        end
+        n = n + 1
+        out[n] = child
+        n = encodePretty(v[i], out, n, level + 1)
+      end
+      n = n + 1
+      out[n] = "\n" .. close .. "]"
+    else
+      local sorted, count = {}, 0
+      for k in pairs(v) do
+        count = count + 1
+        sorted[count] = k
+      end
+      if count == 0 then
+        n = n + 1
+        out[n] = "{}"
+        return n
+      end
+      sort(sorted, function(a, b)
+        return tostring(a) < tostring(b)
+      end)
+      n = n + 1
+      out[n] = "{\n"
+      for i = 1, count do
+        local k = sorted[i]
+        if i > 1 then
+          n = n + 1
+          out[n] = ",\n"
+        end
+        n = n + 1
+        out[n] = child
+        n = n + 1
+        out[n] = encodeString(tostring(k)) .. ": "
+        n = encodePretty(v[k], out, n, level + 1)
+      end
+      n = n + 1
+      out[n] = "\n" .. close .. "}"
+    end
+  elseif t == "boolean" then
+    n = n + 1
+    out[n] = v and "true" or "false"
+  else
+    n = n + 1
+    out[n] = "null"
+  end
+  return n
 end
 
 ---Encode a Lua value as a JSON string.
@@ -126,5 +265,12 @@ end
 ---@param pretty boolean? when true, indent output and sort object keys (deterministic, diff-stable). Default minified.
 ---@return string
 function Json.encode(value, pretty)
-  return encodeValue(value, pretty == true, 0)
+  local out = {}
+  local n
+  if pretty == true then
+    n = encodePretty(value, out, 0, 0)
+  else
+    n = encodeMinified(value, out, 0)
+  end
+  return concat(out, "", 1, n)
 end
