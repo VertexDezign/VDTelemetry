@@ -484,3 +484,109 @@ describe("ExportChannels performance profiles", function()
     assert.are.equal("low", VDT.ExportChannels.getProfile())
   end)
 end)
+
+-- A channel that counts its tick() calls, so we can assert that a disabled channel does no work —
+-- for the expensive channels (mapLayers) the tick IS the cost, long before anything is written.
+local function tickingChannel(name)
+  local ch = channel(name, true, { body = name })
+  ch.ticks = 0
+  ch.tick = function()
+    ch.ticks = ch.ticks + 1
+  end
+  return ch
+end
+
+describe("ExportChannels profile gating (minProfile)", function()
+  before_each(function()
+    VDT.ExportChannels.reset()
+  end)
+
+  it("is off below its minProfile and on at or above it", function()
+    local ch = tickingChannel("mapLayers")
+    ch.minProfile = "medium"
+    VDT.ExportChannels.register(ch)
+    VDT.ExportChannels.markDirty("mapLayers")
+
+    VDT.ExportChannels.setProfile("low")
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty())
+    VDT.ExportChannels.setProfile("medium") -- exactly at the floor -> on
+    assert.are.equal(1, #VDT.ExportChannels.selectDirty())
+    VDT.ExportChannels.setProfile("veryHigh")
+    assert.are.equal(1, #VDT.ExportChannels.selectDirty())
+  end)
+
+  it("a channel without a minProfile runs at every profile", function()
+    VDT.ExportChannels.register(channel("prod", true, { body = "P" }))
+    VDT.ExportChannels.markDirty("prod")
+    for _, name in ipairs({ "low", "medium", "high", "veryHigh", "custom" }) do
+      VDT.ExportChannels.setProfile(name)
+      assert.are.equal(1, #VDT.ExportChannels.selectDirty(), "expected prod writable under " .. name)
+    end
+  end)
+
+  it("does not tick a channel the profile disabled", function()
+    -- The regression that motivated the gate: mapLayers grid-samples the whole map from its tick, so a
+    -- channel left ticking while its writes are dropped burns exactly the CPU the low preset exists to
+    -- save.
+    local ch = tickingChannel("mapLayers")
+    ch.minProfile = "medium"
+    VDT.ExportChannels.register(ch)
+
+    VDT.ExportChannels.setProfile("low")
+    VDT.ExportChannels.tick(debugger, 100)
+    assert.are.equal(0, ch.ticks)
+
+    VDT.ExportChannels.setProfile("high")
+    VDT.ExportChannels.tick(debugger, 100)
+    assert.are.equal(1, ch.ticks)
+  end)
+
+  it("does not tick a user-disabled channel either", function()
+    local ch = tickingChannel("map")
+    VDT.ExportChannels.register(ch)
+    VDT.ExportChannels.configure("map", { enabled = false })
+
+    VDT.ExportChannels.tick(debugger, 100)
+    assert.are.equal(0, ch.ticks)
+  end)
+
+  it("lists a profile-disabled channel's file for cleanup", function()
+    local ch = tickingChannel("mapLayers")
+    ch.minProfile = "medium"
+    VDT.ExportChannels.register(ch)
+    VDT.ExportChannels.register(channel("prod", true, { body = "P" }))
+
+    VDT.ExportChannels.setProfile("low")
+    -- the app reads a channel file's absence as "off", so the low preset must drop mapLayers.json
+    assert.are.same({ "mapLayers.json" }, VDT.ExportChannels.unavailableFileNames())
+  end)
+
+  it("custom ignores minProfile and honours the user toggle", function()
+    local ch = tickingChannel("mapLayers")
+    ch.minProfile = "veryHigh"
+    VDT.ExportChannels.register(ch)
+    VDT.ExportChannels.markDirty("mapLayers")
+
+    VDT.ExportChannels.setProfile("custom")
+    assert.are.equal(1, #VDT.ExportChannels.selectDirty()) -- gating opted out of
+
+    VDT.ExportChannels.configure("mapLayers", { enabled = false })
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty()) -- the user's toggle still decides
+  end)
+
+  it("persists the user's toggle, not the profile's verdict", function()
+    -- Same regression as the interval overrides: saving settings under a preset that disables the
+    -- channel must not write enabled=false, or the channel stays off after switching back up.
+    local ch = tickingChannel("mapLayers")
+    ch.minProfile = "medium"
+    VDT.ExportChannels.register(ch)
+
+    VDT.ExportChannels.setProfile("low")
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty()) -- off right now
+    assert.is_true(VDT.ExportChannels.configurableChannels()[1].enabled) -- but stored as the user left it
+
+    VDT.ExportChannels.setProfile("high")
+    VDT.ExportChannels.markDirty("mapLayers")
+    assert.are.equal(1, #VDT.ExportChannels.selectDirty()) -- back on, toggle intact
+  end)
+end)

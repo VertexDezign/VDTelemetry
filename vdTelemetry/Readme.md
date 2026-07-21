@@ -74,6 +74,11 @@ frames (a few thousand cells per tick) rather than done in one pass, then paused
 next sweep. Each layer is a one-byte-per-cell plane, encoded as right-trimmed hex row strings, with a
 legend of only the values actually seen on this map.
 
+It is by far the mod's most expensive channel, so it is the one channel tied to the performance profile:
+**under the `low` preset it is switched off entirely** — no sampling, no file — and `mapLayers.json` is
+deleted so VDTerminal drops the overlays. It runs from `medium` upwards, and under `custom` your own
+`enabled` toggle decides.
+
 ### Linux: keep telemetry writes off the SSD (optional)
 
 The json is rewritten every interval (100 ms by default), so on Linux you can back the `telemetry/`
@@ -138,7 +143,10 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
     <!-- Performance profile for the secondary channels below: low | medium | high | veryHigh | custom.
          A preset scales every interval-driven channel's cadence (low = 4x slower … veryHigh = 2x faster than the
          defaults shown below); "custom" instead uses the per-channel intervalMs values. Switch presets in-game
-         (General Settings); VDTerminal writes "custom" when you fine-tune a single channel. -->
+         (General Settings); VDTerminal writes "custom" when you fine-tune a single channel.
+         A preset can also switch a channel off outright when it is too expensive for that tier: "low" disables
+         the mapLayers channel (its file is deleted, like any disabled channel). Your own per-channel `enabled`
+         toggles are kept as you set them, so raising the profile again brings the channel back. -->
     <profile>high</profile>
     <!-- Per-channel config for the secondary export channels (the live vehicle telemetry above is always on).
          `enabled` turns a channel off entirely if you don't use that base-game feature — no file is written and any
@@ -147,6 +155,7 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
     <channels>
         <channel id="map" enabled="true"/>
         <channel id="mapVehicles" enabled="true" intervalMs="1000"/>
+        <channel id="mapLayers" enabled="true"/>
         <channel id="production" enabled="true" intervalMs="2000"/>
         <channel id="storage" enabled="true" intervalMs="2000"/>
         <channel id="husbandry" enabled="true" intervalMs="5000"/>

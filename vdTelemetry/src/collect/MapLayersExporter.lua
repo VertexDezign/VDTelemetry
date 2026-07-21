@@ -923,11 +923,15 @@ function VDT.MapLayers.collect()
   return VDT.MapLayers.model
 end
 
--- Self-register the channel (see ExportChannels).
+-- Self-register the channel (see ExportChannels). This is the mod's most expensive channel by a wide
+-- margin -- a full sweep is GRID_SIZE^2 engine density-map reads, and the write is ~1.5 MB of raster --
+-- so it's the one channel gated on the performance profile: off under "low", where the whole point of
+-- the preset is to keep the mod out of the frame budget.
 VDT.ExportChannels.register({
   name = VDT.MapLayers.CHANNEL,
   fileName = VDT.MapLayers.FILE_NAME,
   isAvailable = VDT.MapLayers.isAvailable,
   collect = VDT.MapLayers.collect,
   tick = VDT.MapLayers.tick,
+  minProfile = "medium",
 })

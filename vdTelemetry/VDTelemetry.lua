@@ -399,6 +399,11 @@ function VDTelemetry:setProfile(name)
   -- refresh promptly so the new cadence's first samples land without waiting a full (possibly long)
   -- interval; each channel is still gated by its own availability + enabled at write time
   VDT.ExportChannels.markAllDirty()
+  -- A profile can switch a channel off outright (minProfile), and the app reads a channel file's
+  -- absence as "off" -- so drop the files of everything the new profile won't write. Same call the
+  -- startup cleanup makes, for the same reason: otherwise the last profile's mapLayers.json sits there
+  -- and the app keeps rendering an overlay that is no longer being updated.
+  self:deleteStaleChannelFiles()
   self:saveSettingsToFile()
   self.debugger:info("Profile set to %s", name)
 end

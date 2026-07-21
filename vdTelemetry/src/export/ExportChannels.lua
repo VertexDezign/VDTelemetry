@@ -11,6 +11,9 @@
 --   collect     fun(): table|nil  builds the model to serialize; nil => skip this flush
 --   tick        fun(debugger, dt)?  optional per-tick hook; event-driven channels subscribe lazily
 --                                 here, interval-driven ones accumulate dt (ms) and mark themselves
+--   minProfile  string?           lowest performance profile this channel runs at (see PROFILES);
+--                                 below it the channel is off entirely -- for channels too expensive
+--                                 to justify on a low-end machine. nil => runs at every profile
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
@@ -40,11 +43,18 @@ VDT.ExportChannels.MIN_INTERVAL_MS = 100
 
 -- Performance profiles: a preset that scales every interval channel's registered default cadence. A
 -- higher profile means more frequent updates (and more load); "custom" instead honours the per-channel
--- interval overrides (see configure). Enable toggles are independent of the profile. Order is the
--- in-game selector order. See setProfile / channelInterval.
+-- interval overrides (see configure). Order is the in-game selector order. See setProfile /
+-- channelInterval.
+--
+-- A preset can also switch a channel off outright, for work too expensive to scale into acceptability
+-- on a weak machine: a channel registered with `minProfile` is off under any preset below it (see
+-- profileAllows). The user's own enable toggle is independent of the profile in both directions -- a
+-- preset can disable a channel the user enabled, and "custom" honours the user's toggles alone.
 VDT.ExportChannels.PROFILES = { "low", "medium", "high", "veryHigh", "custom" }
 VDT.ExportChannels.DEFAULT_PROFILE = "high" -- scale 1.0 == the registered defaults
 local PROFILE_SCALE = { low = 4.0, medium = 2.0, high = 1.0, veryHigh = 0.5 }
+-- Ranking for minProfile comparisons; "custom" has no rank (it opts out of profile gating entirely).
+local PROFILE_RANK = { low = 1, medium = 2, high = 3, veryHigh = 4 }
 local profile = VDT.ExportChannels.DEFAULT_PROFILE
 
 ---Register an export channel. Registration order is the write order.
@@ -71,10 +81,29 @@ function VDT.ExportChannels.markDirty(name)
   end
 end
 
--- A channel is enabled unless the user turned it off in the settings XML (default true).
-local function channelEnabled(name)
+-- The STORED enable toggle: on unless the user turned it off in the settings XML (default true). This
+-- is the value that persists (see configurableChannels) -- deliberately NOT the profile's verdict, for
+-- the same reason channelStoredInterval isn't the scaled one: saving settings under a preset that
+-- disables a channel would otherwise clobber the user's toggle and lose it on the way back up.
+local function channelStoredEnabled(name)
   local v = enabledOverride[name]
   return v == nil or v
+end
+
+-- Whether the active profile permits this channel at all -- true unless it registered a minProfile the
+-- current preset ranks below. "custom" opts out of profile gating: there the user's toggles decide.
+local function profileAllows(ch)
+  if ch.minProfile == nil or profile == "custom" then
+    return true
+  end
+  return (PROFILE_RANK[profile] or 0) >= (PROFILE_RANK[ch.minProfile] or 0)
+end
+
+-- The EFFECTIVE enable state -- what the scheduler and the writer actually gate on: the user's toggle
+-- AND the profile's verdict. Both must say yes.
+local function channelEnabled(name)
+  local ch = channels[name]
+  return ch ~= nil and channelStoredEnabled(name) and profileAllows(ch)
 end
 
 -- The STORED interval for a channel: the user's override, else the registered default. This is the
@@ -160,9 +189,11 @@ end
 
 ---Enumerate the user-configurable channels — everything except the latency-critical live-telemetry
 ---channel — in registration order, for the settings XML read/write (so VDTelemetry never hardcodes the
----channel list). `intervalMs` is the STORED interval (override or default), NOT the profile-scaled
----effective cadence: persisting the scaled value would overwrite a custom override whenever settings
----are saved under a preset, and switching back to "custom" would restore the wrong cadence. It's nil
+---channel list). Both fields are the STORED user config, NOT the profile's verdict: `intervalMs` is the
+---override-or-default rather than the scaled cadence, and `enabled` is the user's toggle rather than
+---the effective state. Persisting the profile's view would overwrite the user's settings whenever
+---settings are saved under a preset -- switching back to "custom" would restore the wrong cadence, and
+---a preset that disables a channel via minProfile would permanently turn it off. `intervalMs` is nil
 ---for event-driven channels (no cadence to tune).
 ---@return table[] { name, enabled, intervalMs } per channel
 function VDT.ExportChannels.configurableChannels()
@@ -172,7 +203,7 @@ function VDT.ExportChannels.configurableChannels()
     if not ch.latencyCritical then
       out[#out + 1] = {
         name = name,
-        enabled = channelEnabled(name),
+        enabled = channelStoredEnabled(name),
         intervalMs = ch.intervalMs ~= nil and channelStoredInterval(ch) or nil,
       }
     end
@@ -243,17 +274,21 @@ function VDT.ExportChannels.tick(debugger, dt)
   end
   for _, name in ipairs(order) do
     local ch = channels[name]
-    -- A user-disabled interval channel doesn't accumulate: skip it so it never queues a write that
-    -- selectDirty would only drop again (which would also leave a dangling dirty flag).
-    if ch.intervalMs ~= nil and type(dt) == "number" and channelEnabled(name) then
-      timers[name] = (timers[name] or 0) + dt
-      if timers[name] >= channelInterval(ch) then
-        timers[name] = 0
-        VDT.ExportChannels.markDirty(name)
+    -- A disabled channel (user toggle or profile) does nothing at all: it neither accumulates -- which
+    -- would queue a write selectDirty only drops again, leaving a dangling dirty flag -- nor ticks. The
+    -- tick is where the expensive work lives (mapLayers grid-samples the map from its tick), so running
+    -- it for a channel that will never be written is pure waste; "off" has to mean off.
+    if channelEnabled(name) then
+      if ch.intervalMs ~= nil and type(dt) == "number" then
+        timers[name] = (timers[name] or 0) + dt
+        if timers[name] >= channelInterval(ch) then
+          timers[name] = 0
+          VDT.ExportChannels.markDirty(name)
+        end
       end
-    end
-    if ch.tick ~= nil then
-      ch.tick(debugger, dt)
+      if ch.tick ~= nil then
+        ch.tick(debugger, dt)
+      end
     end
   end
 end
