@@ -1,7 +1,9 @@
 # Ground-layer overlay — follow-ups (per-layer files + layer visibility)
 
 Two deferred improvements to the `mapLayers` ground overlay, written 2026-07-20 on branch
-`map-layers-revive` for a later session. **Status: proposed, not started.**
+`map-layers-revive` for a later session. **Status: proposed, not started.** Both become load-bearing
+if the Precision Farming layers are ever exported — see "Why this matters more once Precision Farming
+lands" below.
 
 ## Where this stands (recap)
 
@@ -16,13 +18,42 @@ instance — content-derived, so any change refetches). The app
 shows **one layer at a time** (single-select in the map filter popover).
 
 Cadence: full sweep on `PERIOD_CHANGED` / `DAY_CHANGED`; between sweeps, cells around active vehicles
-are re-sampled every 4 s and patched in place. Recent perf work on this branch:
-`8786cd1` per-cell memo, `dc9049d` off-field skip + event cadence, `ef7d158` vehicle patching,
-`6fb7819` PF gating, `c726a01` skip-unchanged patch writes + faster `encodeString`.
+are re-sampled every 4 s and patched in place; in multiplayer only, a stratified staleness audit
+(256 cells / 10 s idle) arms a resweep when the world stops matching the model. Recent perf work on
+this branch: `8786cd1` per-cell memo, `dc9049d` off-field skip + event cadence, `ef7d158` vehicle
+patching, `6fb7819` PF gating, `c726a01` skip-unchanged patch writes + faster `encodeString`.
 
 **The remaining pain:** during *active farming*, cells change every patch, so `c726a01`'s
 skip-unchanged doesn't help — the mod re-encodes and rewrites the full 1.3 MB every 4 s, which shows up
 as `Json.lua` high in the in-game script profiler.
+
+**Validated:** ~3 h on a solo dedicated server (2026-07-24) with acceptable frame cost at the current
+three layers.
+
+### Why this matters more once Precision Farming lands
+
+PF would add roughly **five more planes** (its soil/nutrient value maps), taking the channel from 3 to
+~8 layers. Nothing in the current shape scales to that:
+
+| | today (3 layers) | with PF (~8 layers) |
+|---|---|---|
+| file size | ~1.3 MB | **~3.5 MB**, one write |
+| `encodeRow` + compare per patch | 3 × touched rows | 8 × touched rows |
+| density reads per cell | ground + fruit + weed/stone/plow/lime/spray | **+5 PF map reads** |
+| sweep cost | the current budget | ~1.5–2× per cell, same cell count |
+
+The per-layer split below stops being an optimisation and becomes the precondition: at 8 layers a
+single-file rewrite on every patch is not viable, and neither is sweeping planes the app isn't showing.
+So when PF layers are picked up, do **1** first, and add a third item alongside it:
+
+- **Sweep only the layers something is subscribed to.** The app shows one layer at a time; with 8
+  planes, classifying and encoding the other 7 every sweep is most of the cost. Needs the app to tell
+  the server which layer is selected and the server to tell the mod (the command channel already goes
+  that direction), with the caveat that switching layers then costs a sweep before the raster appears
+  — probably "sweep the selected layer eagerly, the rest lazily" rather than a hard filter.
+
+PF layer support is its own piece of work and is **not** part of this branch; this section exists so the
+constraint is written down where the split is designed, not rediscovered later.
 
 ---
 
