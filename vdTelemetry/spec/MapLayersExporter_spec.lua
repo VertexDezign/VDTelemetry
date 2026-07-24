@@ -20,6 +20,7 @@ local function stubDebugger()
     error = function() end,
     info = function() end,
     trace = function() end,
+    debug = function() end,
   }
 end
 
@@ -447,6 +448,7 @@ describe("MapLayers.tick sweep", function()
     VDT.MapLayers.model = nil
     VDT.MapLayers.patchCtx = nil
     VDT.MapLayers.patchTimerMs = 0
+    VDT.MapLayers.auditTimerMs = 0
 
     marked = 0
     markDirtyOrig = VDT.ExportChannels.markDirty
@@ -516,6 +518,7 @@ describe("MapLayers.tick sweep", function()
     VDT.MapLayers.model = nil
     VDT.MapLayers.patchCtx = nil
     VDT.MapLayers.patchTimerMs = 0
+    VDT.MapLayers.auditTimerMs = 0
     rawset(_G, "FieldDensityMap", nil)
     rawset(_G, "MessageType", nil)
     rawset(_G, "g_messageCenter", nil)
@@ -572,6 +575,102 @@ describe("MapLayers.tick sweep", function()
     end
     assert.are.equal(1, marked)
     assert.is_not_nil(VDT.MapLayers.collect())
+  end)
+
+  -- The multiplayer staleness audit. A client's density maps arrive in bandwidth-limited batches, so
+  -- the first sweep can read land that hasn't synced yet; nothing else in this module would revisit it.
+  -- On the 8x8 spec grid AUDIT_CELLS clamps to the 64 cells that exist, so every cell is sampled and
+  -- these cases don't depend on which ones the stratified draw picks.
+  describe("staleness audit", function()
+    local function completeSweep()
+      for _ = 1, 4 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+    end
+
+    -- Every cell now classifies as CULTIVATED where the sweep recorded bare ground: the world moved
+    -- under the retained model, exactly as a batch of synced cells landing would look.
+    local function changeTheWorld()
+      g_currentMission.fieldGroundSystem.getValueAtWorldPos = function(_, densityType)
+        return densityType == FieldDensityMap.GROUND_TYPE and 3 or 0
+      end
+    end
+
+    before_each(function()
+      VDT.MapLayers.AUDIT_INTERVAL_MS = 100
+      VDT.MapLayers.AUDIT_BACKOFF_MS = 500
+      g_currentMission.missionDynamicInfo = { isMultiplayer = true }
+    end)
+
+    after_each(function()
+      VDT.MapLayers.AUDIT_INTERVAL_MS = 10000
+      VDT.MapLayers.AUDIT_BACKOFF_MS = 30000
+    end)
+
+    it("leaves an unchanged map alone", function()
+      completeSweep()
+      for _ = 1, 20 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      assert.are.equal(1, marked)
+      assert.is_false(VDT.MapLayers.dirty)
+    end)
+
+    it("resweeps once the world no longer matches the model", function()
+      completeSweep()
+      changeTheWorld()
+      -- Nothing re-dirties the channel on its own: without the audit this stays stale until the next
+      -- PERIOD/DAY event, which is the multiplayer bug.
+      for _ = 1, 7 do
+        VDT.MapLayers.tick(stubDebugger(), 16) -- >= AUDIT_INTERVAL_MS of idle time
+      end
+      assert.is_true(VDT.MapLayers.dirty or VDT.MapLayers.sweep ~= nil)
+
+      completeSweep()
+      assert.are.equal(2, marked)
+      -- The resweep picked the new state up rather than re-publishing the stale raster.
+      assert.are.equal("0101010101010101", VDT.MapLayers.collect().layers[2].rows[1])
+    end)
+
+    it("does not audit in singleplayer", function()
+      g_currentMission.missionDynamicInfo = { isMultiplayer = false }
+      completeSweep()
+      changeTheWorld()
+      for _ = 1, 40 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      assert.are.equal(1, marked)
+      assert.is_false(VDT.MapLayers.dirty)
+    end)
+
+    it("backs off after tripping instead of resweeping back to back", function()
+      completeSweep()
+      changeTheWorld()
+      for _ = 1, 7 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      completeSweep() -- the audit-driven resweep
+      assert.are.equal(2, marked)
+
+      -- The world still disagrees (the sweep re-read it, but changeTheWorld stays in effect and the
+      -- model now matches) -- what's under test is the timer: one interval of idle time must NOT be
+      -- enough for another audit, or a still-streaming client would resweep continuously.
+      g_currentMission.fieldGroundSystem.getValueAtWorldPos = function()
+        return 0 -- flip it back, so any audit that DOES run trips
+      end
+      for _ = 1, 7 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      assert.is_false(VDT.MapLayers.dirty)
+
+      -- ...but the backoff does elapse, rather than switching the audit off for good. Asserted on the
+      -- write count, not on `dirty`: by the end of this run the resweep it triggered has already
+      -- finished, which clears both dirty and sweep again.
+      for _ = 1, 30 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      assert.are.equal(3, marked)
+    end)
   end)
 
   it("stays idle after a completed sweep until something re-dirties it", function()

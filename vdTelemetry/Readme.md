@@ -74,6 +74,17 @@ frames (a few thousand cells per tick) rather than done in one pass, then paused
 next sweep. Each layer is a one-byte-per-cell plane, encoded as right-trimmed hex row strings, with a
 legend of only the values actually seen on this map.
 
+A resweep is triggered by in-game events (growth advancing, the day rolling over) rather than a
+wall-clock timer, and in between, the ground around working vehicles is patched in place — so an idle
+map costs nothing. **In multiplayer that isn't enough on its own:** the server streams the field density
+maps to each client in bandwidth-limited batches, near-to-far, so for the first minutes after joining
+much of the map simply hasn't arrived yet and the first sweep reads it as empty. The game exposes no
+"sync finished" signal, so the mod checks instead — every 10 s of idle time it re-samples a small
+scattered sample of the grid, and if any of it disagrees with what was exported, it schedules a full
+resweep. Once the map has finished syncing this finds nothing and costs nothing. It also means another
+player's work on the far side of the map eventually shows up. Singleplayer skips the check entirely (it
+reads the real maps directly, so there is nothing to catch up with).
+
 It is by far the mod's most expensive channel, so it is the one channel tied to the performance profile:
 **under the `low` preset it is switched off entirely** — no sampling, no file — and `mapLayers.json` is
 deleted so VDTerminal drops the overlays. It runs from `medium` upwards, and under `custom` your own

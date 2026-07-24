@@ -22,6 +22,20 @@
 -- mid-day tillage/harvest/fertilizing shows up promptly at a fraction of a full sweep's cost. Growth
 -- advance stays on the full-sweep path (it's global, not local to a vehicle). See runPatch()/maybePatch().
 --
+-- That whole cadence assumes the density maps we read are the same ones the server has, which is only
+-- true in singleplayer. On a client, FieldGroundSystem/WeedSystem/StoneSystem register their maps with
+-- the shared DensityMapSyncer, and FSBaseMission streams them per connection inside a per-tick packet
+-- budget, prioritised by player position (writeUpdateStream(connection, maxPacketSize, x, y, z,
+-- viewCoeff, ...)). A joining client therefore receives the map near-to-far over minutes: our first
+-- sweep reads land that has not arrived yet, and nothing above would ever revisit it -- the overlay
+-- stays wrong until the next in-game day, or until the player drives the whole map.
+--
+-- The engine offers no "sync complete" signal to Lua (and setDensityMapSyncerCellChangedCallback is a
+-- single per-map callback slot on the shared syncer that VineSystem already owns, opted in cell by
+-- cell, covering only fruit foliage). So instead of asking, we check: maybeAudit() re-samples a small
+-- stratified sample of the grid on an idle timer and compares it to the retained model. Any
+-- disagreement means the world moved under us and arms a full resweep. See runAudit().
+--
 -- Wire format: three one-byte-per-cell planes, rows as right-trimmed hex strings (see encodeRow).
 -- Legends list only values actually seen during the sweep, so the file (and the app's PNG fetch) never
 -- carries color/label data for fruit types or states that don't exist on this map.
@@ -49,6 +63,23 @@ VDT.MapLayers.CELLS_PER_FRAME = 1024
 VDT.MapLayers.PATCH_INTERVAL_MS = 4000
 VDT.MapLayers.PATCH_RADIUS_M = 32
 
+-- Staleness audit (multiplayer only -- see shouldAudit): how often to check, how many cells to sample,
+-- and how long to wait after a check that tripped.
+--
+-- AUDIT_CELLS is a stratified sample: the grid is split into that many equal-area strata and one cell
+-- is drawn at random from each, so a round always spans the whole map and successive rounds look at
+-- different cells. It is a detector, not a survey -- with a fraction f of the map stale, a round
+-- catches it with probability 1-(1-f)^AUDIT_CELLS, which is ~1 for the case that motivates it (a
+-- freshly joined client, where most of the map has not arrived) and merely likely for a small patch,
+-- picked up over a few rounds. Cost is a quarter of ONE sweep frame per round.
+--
+-- BACKOFF is what keeps a still-streaming map from resweeping back to back: the timer only advances
+-- while no sweep is running, so it is a floor on idle time between audit-driven resweeps. Raise it if
+-- the join phase ever feels heavy; that is the knob, not the sample size.
+VDT.MapLayers.AUDIT_INTERVAL_MS = 10000
+VDT.MapLayers.AUDIT_CELLS = 256
+VDT.MapLayers.AUDIT_BACKOFF_MS = 30000
+
 -- Mutable state, on the table so specs can reset it (see MapVehicles.timerMs).
 VDT.MapLayers.sweep = nil -- in-progress sweep context, nil when idle
 -- A resweep is wanted. True on startup so the first available tick populates the channel; re-armed by
@@ -60,6 +91,9 @@ VDT.MapLayers.model = nil -- last completed sweep's model; collect() returns thi
 -- patchTimerMs accumulates dt toward PATCH_INTERVAL_MS. nil until the first sweep completes.
 VDT.MapLayers.patchCtx = nil
 VDT.MapLayers.patchTimerMs = 0
+-- Accumulates dt toward AUDIT_INTERVAL_MS. Driven to a negative value after an audit trips, which is
+-- how AUDIT_BACKOFF_MS is spent (see maybeAudit).
+VDT.MapLayers.auditTimerMs = 0
 
 -- Largest value a cell can carry: one byte per cell on the wire (see encodeRow).
 local MAX_WIRE_VALUE = 255
@@ -869,6 +903,102 @@ local function maybePatch(debugger, dt)
   end
 end
 
+---Value stored for one cell, read straight out of its encoded row. Deliberately not decodeRow: an
+---audit touches scattered single cells, and decoding a whole 512-cell row to look at one of them
+---would cost more than the engine read being verified.
+---@param rows string[] a layer's encoded rows
+---@param row number 0-based
+---@param col number 0-based
+---@return number
+local function storedCell(rows, row, col)
+  local s = rows[row + 1]
+  if s == nil then
+    return 0
+  end
+  local p = col * 2
+  if p + 2 > #s then
+    return 0 -- encodeRow right-trims, so anything past the end is a zero cell
+  end
+  return tonumber(string.sub(s, p + 1, p + 2), 16) or 0
+end
+
+---Re-sample a stratified sample of the grid and report whether the world still matches the retained
+---model. Returns on the FIRST disagreement: the answer is "resweep or not", and one stale cell is
+---already the whole answer -- there is nothing to gain from sampling the rest.
+---@param ctx table the retained sweep context (VDT.MapLayers.patchCtx)
+---@return boolean stale
+local function runAudit(ctx)
+  local gridSize = VDT.MapLayers.GRID_SIZE
+  local total = gridSize * gridSize
+  local budget = math.min(VDT.MapLayers.AUDIT_CELLS, total)
+  local stratum = total / budget
+  local halfX, halfZ = ctx.sizeX / 2, ctx.sizeZ / 2
+  local cellSize = ctx.cellSize
+
+  for i = 0, budget - 1 do
+    local index = math.min(math.floor(i * stratum + math.random() * stratum), total - 1)
+    local row = math.floor(index / gridSize)
+    local col = index % gridSize
+    local worldX = -halfX + (col + 0.5) * cellSize
+    local worldZ = -halfZ + (row + 0.5) * cellSize
+    -- classifyCell records anything newly seen into ctx's legend maps, so a stale cell can leave one
+    -- entry behind that no row references. Harmless (an unlisted value renders transparent, a listed
+    -- one that never appears just isn't drawn) and the resweep this triggers rebuilds them anyway.
+    local cropsV, growthV, soilV = VDT.MapLayers.classifyCell(ctx, worldX, worldZ)
+    if
+      cropsV ~= storedCell(ctx.cropsRows, row, col)
+      or growthV ~= storedCell(ctx.growthRows, row, col)
+      or soilV ~= storedCell(ctx.soilRows, row, col)
+    then
+      return true
+    end
+  end
+  return false
+end
+
+---Whether the staleness audit is worth running. Singleplayer reads the authoritative density maps
+---directly, so the retained model can only go stale where this module already looks (growth, via the
+---event resweep; player/AI work, via the patch) -- an audit there would buy nothing and its cost is a
+---full resweep. A client's maps arrive in bandwidth-limited batches instead, which is the case the
+---audit exists for, and it doubles there as the only thing that notices ANOTHER player's work.
+---@return boolean
+local function shouldAudit()
+  local info = g_currentMission ~= nil and g_currentMission.missionDynamicInfo or nil
+  return info ~= nil and info.isMultiplayer == true
+end
+
+---Throttled staleness audit: every AUDIT_INTERVAL_MS of idle time, verify a sample of the grid and arm
+---a full resweep if the world has moved on. pcall'd like the sweep batch and the patch, so an engine
+---read can't take down the update loop.
+---@param debugger GrisuDebug
+---@param dt number? frame delta in ms
+local function maybeAudit(debugger, dt)
+  if VDT.MapLayers.patchCtx == nil or not shouldAudit() then
+    return -- nothing to compare against yet, or singleplayer
+  end
+  if type(dt) == "number" then
+    VDT.MapLayers.auditTimerMs = VDT.MapLayers.auditTimerMs + dt
+  end
+  if VDT.MapLayers.auditTimerMs < VDT.MapLayers.AUDIT_INTERVAL_MS then
+    return
+  end
+  VDT.MapLayers.auditTimerMs = 0
+
+  local ok, stale = pcall(runAudit, VDT.MapLayers.patchCtx)
+  if not ok then
+    debugger:error("mapLayers channel: audit failed (%s)", tostring(stale))
+    return
+  end
+  if stale then
+    VDT.MapLayers.dirty = true
+    -- Start the next audit a full backoff away, not one interval: on a client that is still streaming
+    -- the map in, the very next audit would trip again the moment this resweep lands, and the channel
+    -- would do nothing but resweep for the whole join phase.
+    VDT.MapLayers.auditTimerMs = VDT.MapLayers.AUDIT_INTERVAL_MS - VDT.MapLayers.AUDIT_BACKOFF_MS
+    debugger:debug("mapLayers channel: audit found stale cells, resweeping")
+  end
+end
+
 -- MessageCenter invokes callback(target, ...); flag that a resweep is wanted. The sweep itself runs
 -- over the following ticks (not synchronously here), so it doesn't matter that our PERIOD_CHANGED
 -- handler may run before GrowthSystem's -- by the time the sweep reads the maps, growth has advanced.
@@ -913,8 +1043,10 @@ function VDT.MapLayers.tick(debugger, dt)
 
   if VDT.MapLayers.sweep == nil then
     if not VDT.MapLayers.dirty then
-      -- No full sweep wanted; keep the overlay fresh around active vehicles between sweeps.
+      -- No full sweep wanted; keep the overlay fresh around active vehicles between sweeps, and check
+      -- (multiplayer only) that the rest of the map still matches what we last read.
       maybePatch(debugger, dt)
+      maybeAudit(debugger, dt)
       return
     end
     VDT.MapLayers.sweep = startSweep()
@@ -951,6 +1083,7 @@ end
 function VDT.MapLayers.onDisabled()
   VDT.MapLayers.sweep = nil
   VDT.MapLayers.dirty = true
+  VDT.MapLayers.auditTimerMs = 0
 end
 
 -- Self-register the channel (see ExportChannels). This is the mod's most expensive channel by a wide
