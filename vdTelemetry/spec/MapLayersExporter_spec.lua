@@ -289,6 +289,35 @@ describe("MapLayers.classifyCell soil", function()
     assert.are.equal(11, soilV) -- SOIL_STONE_BASE + group(2) - 1
   end)
 
+  it("clamps a weed group past its band instead of running into the stone band", function()
+    local c = ctx({
+      weedAvailable = true,
+      weedSystem = {
+        getWeedStateAtWorldPos = function()
+          return 2
+        end,
+      },
+      weedStateToGroup = { [2] = 12 }, -- a soil mod with more color groups than the band reserves
+    })
+    local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+    assert.are.equal(9, soilV) -- clamped to SOIL_WEED_MAX_GROUPS, NOT 12 (which reads as a stone group)
+    assert.is_not_nil(c.soilSeen[9])
+  end)
+
+  it("clamps a stone group past its band instead of colliding with needs-plowing", function()
+    local c = ctx({
+      stoneAvailable = true,
+      stoneSystem = {
+        getStoneStateAtWorldPos = function()
+          return 4
+        end,
+      },
+      stoneStateToGroup = { [4] = 15 },
+    })
+    local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+    assert.are.equal(19, soilV) -- clamped to SOIL_STONE_MAX_GROUPS, NOT 24
+  end)
+
   it("flags needs-plowing when the plow level is 0 and the setting is on", function()
     local _, _, soilV = VDT.MapLayers.classifyCell(ctx(), 0, 0)
     assert.are.equal(20, soilV) -- SOIL_NEEDS_PLOWING
@@ -516,6 +545,33 @@ describe("MapLayers.tick sweep", function()
         assert.are.equal("", row)
       end
     end
+  end)
+
+  it("reports the world size the grid was actually sampled in, not mission.terrainSize", function()
+    -- The two disagree here: resolveWorldSize prefers the HUD map's worldSizeX, and that is the frame
+    -- runBatch walks, so it is the one the file must claim.
+    g_currentMission.terrainSize = 9999
+    for _ = 1, 4 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
+    assert.are.equal(8, VDT.MapLayers.collect().terrainSize)
+  end)
+
+  it("drops a partial sweep when the profile switches the channel off", function()
+    VDT.MapLayers.tick(stubDebugger(), 16) -- one batch in: sweep started, not finished
+    assert.is_not_nil(VDT.MapLayers.sweep)
+
+    VDT.MapLayers.onDisabled()
+
+    -- The half-walked grid is gone rather than parked for a later resume, and a full sweep is armed
+    -- so re-enabling starts clean instead of finishing a raster stitched across the gap.
+    assert.is_nil(VDT.MapLayers.sweep)
+    assert.is_true(VDT.MapLayers.dirty)
+    for _ = 1, 4 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
+    assert.are.equal(1, marked)
+    assert.is_not_nil(VDT.MapLayers.collect())
   end)
 
   it("stays idle after a completed sweep until something re-dirties it", function()

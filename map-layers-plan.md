@@ -11,7 +11,8 @@ The overlay is three raster planes — **crops**, **growth**, **soil** — grid-
 rows (2 hex chars per cell, `""` for an all-zero/off-field row). The server
 (`MapLayerRenderer.kt` / `Server.kt`) decodes rows + legend into a PNG per layer; **only legends cross
 the WebSocket** (`MapLayersInfo`), the app fetches the raster as a PNG from `/api/map-layer/{id}?v=…`,
-and the version is `MapLayersData.hashCode()` (content-derived, so any change refetches). The app
+and the version is `MapLayersData.contentVersion` (64-bit FNV-1a over the full data, memoized per
+instance — content-derived, so any change refetches). The app
 shows **one layer at a time** (single-select in the map filter popover).
 
 Cadence: full sweep on `PERIOD_CHANGED` / `DAY_CHANGED`; between sweeps, cells around active vehicles

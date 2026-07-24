@@ -69,6 +69,12 @@ end
 --
 -- Short strings (names, ids, enum labels) are scanned every time instead: a 20-character scan costs
 -- ~0.2 us, and memoizing them would fill the memo with entries that never pay for themselves.
+--
+-- Cost of the memo, so the trade is explicit: its keys are the strings themselves, so it PINS them.
+-- At CLEAN_MAX and mapLayers' ~1 KB rows that is a few MB held in the game process -- including rows
+-- from earlier sweeps that nothing else still references, until the reset below drops the lot. Sized
+-- against that: a mapLayers write interns ~1.5k rows, so a map whose every row keeps changing cycles
+-- the memo every few writes rather than sitting on a large dead set.
 local CLEAN_MIN_LEN = 24
 local CLEAN_MAX = 4096
 local clean = {}

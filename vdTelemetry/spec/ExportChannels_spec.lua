@@ -515,6 +515,40 @@ describe("ExportChannels profile gating (minProfile)", function()
     assert.are.equal(1, #VDT.ExportChannels.selectDirty())
   end)
 
+  it("calls onDisabled once, only on the transition into a profile that switches the channel off", function()
+    local disabled = 0
+    local ch = tickingChannel("mapLayers")
+    ch.minProfile = "medium"
+    ch.onDisabled = function()
+      disabled = disabled + 1
+    end
+    VDT.ExportChannels.register(ch)
+
+    VDT.ExportChannels.setProfile("high") -- still on: no notification
+    assert.are.equal(0, disabled)
+    VDT.ExportChannels.setProfile("low") -- switched off: told once
+    assert.are.equal(1, disabled)
+    VDT.ExportChannels.setProfile("low") -- already off: not told again
+    assert.are.equal(1, disabled)
+    VDT.ExportChannels.setProfile("high") -- back on
+    assert.are.equal(1, disabled)
+    VDT.ExportChannels.setProfile("low")
+    assert.are.equal(2, disabled)
+  end)
+
+  it("does not call onDisabled for a channel the profile leaves alone", function()
+    local disabled = 0
+    local ch = channel("prod", true, { body = "P" })
+    ch.onDisabled = function()
+      disabled = disabled + 1
+    end
+    VDT.ExportChannels.register(ch)
+    for _, name in ipairs({ "low", "medium", "high", "veryHigh", "custom" }) do
+      VDT.ExportChannels.setProfile(name)
+    end
+    assert.are.equal(0, disabled)
+  end)
+
   it("a channel without a minProfile runs at every profile", function()
     VDT.ExportChannels.register(channel("prod", true, { body = "P" }))
     VDT.ExportChannels.markDirty("prod")

@@ -8,7 +8,6 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import net.vertexdezign.vdt.VdtParser
 import net.vertexdezign.vdt.model.MapLayersData
-import net.vertexdezign.vdt.model.contentVersion
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -43,7 +42,7 @@ class MapLayerRouteTest {
   @Test
   fun servesTheRequestedVersionImmutably() =
     withRoute({ data }) { client ->
-      val response = client.get("/api/map-layer/crops?v=${data.contentVersion()}")
+      val response = client.get("/api/map-layer/crops?v=${data.contentVersion}")
       assertEquals(HttpStatusCode.OK, response.status)
       assertTrue(response.bodyAsBytes().isNotEmpty())
       assertEquals("max-age=31536000, immutable", response.headers[HttpHeaders.CacheControl])

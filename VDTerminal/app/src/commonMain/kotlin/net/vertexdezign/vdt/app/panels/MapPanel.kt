@@ -86,6 +86,10 @@ import com.russhwolf.settings.Settings
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.FieldCropRotation
@@ -123,6 +127,13 @@ private const val KEY_SHOW_FIELDS = "vdt.showFields"
 private const val KEY_POI_CATS = "vdt.poiCats"
 private const val KEY_VEH_STATES = "vdt.vehStates"
 private const val KEY_GROUND_LAYER = "vdt.groundLayer"
+
+/** Ground-layer PNG fetch: total attempts, and the pause before the retry. See the fetch effect. */
+private const val LAYER_FETCH_ATTEMPTS = 2
+private const val LAYER_FETCH_RETRY_MS = 750L
+
+/** A non-2xx from `/api/map-layer`; carries the status so the fetch can tell a 409 from the rest. */
+private class LayerFetchFailed(val status: HttpStatusCode) : Exception("map-layer fetch failed: $status")
 
 /**
  * Decoded map images, held outside composition and keyed by request URL + PDA filename.
@@ -272,12 +283,33 @@ fun MapPanel(
         return@LaunchedEffect
       }
     }
-    runCatching {
-      val bytes = mapImageClient.get("$mapLayerUrl/$requestedLayer?v=${mapLayers.version}").readRawBytes()
-      Image.makeFromEncoded(bytes).toComposeImageBitmap()
-    }.onSuccess {
-      layerImageCache = layerKey to it
-      layerBitmap = requestedLayer to it
+    val url = "$mapLayerUrl/$requestedLayer?v=${mapLayers.version}"
+    // Two attempts, because a transient network failure would otherwise leave the layer stuck on the
+    // previous raster until the mod's next sweep -- which, on an idle map, is an in-game day away.
+    // A 409 is exempt: it means this version has already been superseded server-side, so re-asking
+    // for the same URL can only fail again. The WebSocket is about to deliver the new version, which
+    // re-keys this effect and fetches the URL that matches it.
+    for (attempt in 0 until LAYER_FETCH_ATTEMPTS) {
+      if (attempt > 0) delay(LAYER_FETCH_RETRY_MS)
+      val outcome =
+        runCatching {
+          val response = mapImageClient.get(url)
+          // The status is checked here rather than left to the decoder: an error body would otherwise
+          // reach makeFromEncoded and fail as if the PNG itself were corrupt, which makes a genuine
+          // decode bug indistinguishable from an HTTP one -- and hides the 409 this must not retry.
+          if (!response.status.isSuccess()) throw LayerFetchFailed(response.status)
+          Image.makeFromEncoded(response.readRawBytes()).toComposeImageBitmap()
+        }
+      outcome.onSuccess {
+        layerImageCache = layerKey to it
+        layerBitmap = requestedLayer to it
+        return@LaunchedEffect
+      }
+      val error = outcome.exceptionOrNull()
+      // runCatching catches Throwable, so a cancellation (the layer was switched, or the panel left
+      // composition mid-fetch) lands here as a plain failure. Retrying that would be wrong.
+      if (error is CancellationException) throw error
+      if ((error as? LayerFetchFailed)?.status == HttpStatusCode.Conflict) break
     }
     // On failure the previous layerBitmap is left in place -- no flicker to blank on a transient miss.
   }

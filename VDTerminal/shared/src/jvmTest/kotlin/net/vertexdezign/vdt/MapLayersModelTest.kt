@@ -5,10 +5,10 @@ import net.vertexdezign.vdt.model.MapLayer
 import net.vertexdezign.vdt.model.MapLayerLegendEntry
 import net.vertexdezign.vdt.model.MapLayersData
 import net.vertexdezign.vdt.model.MapLayersInfo
-import net.vertexdezign.vdt.model.contentVersion
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -182,6 +182,26 @@ class MapLayersModelTest {
   }
 
   /**
+   * The memoized version is a derived value, not part of the wire shape: it must not appear in the
+   * serialized form (which would put it in the file contract and in the app's decode), and `copy()`
+   * must re-derive it rather than inherit the receiver's.
+   */
+  @Test
+  fun contentVersionIsDerivedAndNotSerialized() {
+    val data = VdtParser.parseMapLayers(example("basic.json"))
+
+    val encoded = json.encodeToString(MapLayersData.serializer(), data)
+    assertFalse(encoded.contains("contentVersion"), "the memoized version must stay out of the JSON")
+
+    // Same content, independently parsed -> same version (it is content-derived, not per-instance).
+    assertEquals(data.contentVersion, VdtParser.parseMapLayers(example("basic.json")).contentVersion)
+    // Repeated reads are stable (the memo returns what it computed).
+    assertEquals(data.contentVersion, data.contentVersion)
+    // copy() builds a new instance, so its lazy re-derives from the NEW content.
+    assertNotEquals(data.contentVersion, data.copy(gridSize = data.gridSize + 1).contentVersion)
+  }
+
+  /**
    * The version is what the immutable PNG cache is keyed on, so anything that alters the rendered
    * image has to move it — including the legend, which decides the colors — and row content must be
    * hashed positionally rather than as a bag of strings.
@@ -189,7 +209,7 @@ class MapLayersModelTest {
   @Test
   fun contentVersionCoversLegendsAndRowOrder() {
     val data = VdtParser.parseMapLayers(example("basic.json"))
-    val version = data.contentVersion()
+    val version = data.contentVersion
     assertTrue(version.isNotEmpty(), "version must be a non-empty opaque string")
 
     val recolored =
@@ -203,7 +223,7 @@ class MapLayersModelTest {
             }
           },
       )
-    assertNotEquals(version, recolored.contentVersion(), "a legend color change must change the version")
+    assertNotEquals(version, recolored.contentVersion, "a legend color change must change the version")
 
     val reordered =
       data.copy(
@@ -212,7 +232,7 @@ class MapLayersModelTest {
             if (layer.id == "crops") layer.copy(rows = layer.rows.reversed()) else layer
           },
       )
-    assertNotEquals(version, reordered.contentVersion(), "reordered rows must change the version")
+    assertNotEquals(version, reordered.contentVersion, "reordered rows must change the version")
   }
 
   /**
@@ -229,8 +249,8 @@ class MapLayersModelTest {
     val asLegend = layerOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = "c")), emptyList())
     val asRows = layerOf(emptyList(), listOf("1", "x", "c"))
     assertNotEquals(
-      asLegend.contentVersion(),
-      asRows.contentVersion(),
+      asLegend.contentVersion,
+      asRows.contentVersion,
       "the same values in different structures must not share a version",
     )
 
@@ -238,7 +258,7 @@ class MapLayersModelTest {
     // render transparent today.
     val nullColor = layerOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = null)), emptyList())
     val emptyColor = layerOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = "")), emptyList())
-    assertNotEquals(nullColor.contentVersion(), emptyColor.contentVersion(), "null and \"\" must differ")
+    assertNotEquals(nullColor.contentVersion, emptyColor.contentVersion, "null and \"\" must differ")
   }
 
   @Test

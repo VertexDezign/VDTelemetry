@@ -61,6 +61,9 @@ VDT.MapLayers.model = nil -- last completed sweep's model; collect() returns thi
 VDT.MapLayers.patchCtx = nil
 VDT.MapLayers.patchTimerMs = 0
 
+-- Largest value a cell can carry: one byte per cell on the wire (see encodeRow).
+local MAX_WIRE_VALUE = 255
+
 -- Wire values for the "growth" plane. These are our own wire vocabulary, not
 -- MapOverlayGenerator.GROWTH_STATE_INDEX (that enum keys the game's own UI filter checkboxes and has
 -- no bearing on how we encode a cell).
@@ -75,10 +78,16 @@ local GROWTH_HARVEST = 21
 local GROWTH_CUT = 22
 local GROWTH_WITHERED = 23
 
--- Wire values for the "soil" plane.
+-- Wire values for the "soil" plane. Weeds and stones each get a fixed band; a color group beyond its
+-- band is CLAMPED to the last value in it (see classifySoil) rather than allowed to run past, which
+-- would silently re-label a weed cell as a stone one (or as needs-plowing). Base-game weed/stone
+-- systems define ~3 groups each, so the clamp is headroom for a soil mod, not a live concern: the
+-- cost is that the two most severe groups would share the most-severe color.
 local SOIL_NONE = 0
 local SOIL_WEED_BASE = 1 -- + weed color group index (1-based) => 1..9
+local SOIL_WEED_MAX_GROUPS = 9
 local SOIL_STONE_BASE = 10 -- + stone color group index (1-based) => 10..19
+local SOIL_STONE_MAX_GROUPS = 10
 local SOIL_NEEDS_PLOWING = 20
 local SOIL_NEEDS_LIME = 21
 local SOIL_FERTILIZED_BASE = 30 -- + spray level (1..maxSprayLevel) => 31..
@@ -160,9 +169,12 @@ local function l10nText(key, fallback)
   return fallback
 end
 
--- Precomputed 2-char hex for every byte value, for encodeRow. Values are clamped into a byte (wraps
--- past 255) -- extremely unlikely to matter in practice (crops would need 256+ shownOnMap fruit types
--- on one map) but a wraparound is a wrong color, never a crash.
+-- Precomputed 2-char hex for every byte value, for encodeRow. The `% 256` at the call site is a
+-- backstop only: every wire value is already clamped into a byte where it is produced (see
+-- MAX_WIRE_VALUE in classifyCell, and the weed/stone bands in classifySoil), so that the legend is
+-- keyed on exactly the value the row encodes. Letting a value wrap here instead would strand the
+-- cell with no legend entry at all -- the server renders an unlisted value fully transparent, so it
+-- would vanish rather than merely take a wrong color.
 local HEX = {}
 for i = 0, 255 do
   HEX[i] = string.format("%02x", i)
@@ -329,7 +341,7 @@ local function classifySoil(ctx, x, z, groundTypeValue)
     if type(state) == "number" then
       local group = ctx.weedStateToGroup[state]
       if group ~= nil then
-        return SOIL_WEED_BASE + group - 1
+        return SOIL_WEED_BASE + math.min(group, SOIL_WEED_MAX_GROUPS) - 1
       end
     end
   end
@@ -339,7 +351,7 @@ local function classifySoil(ctx, x, z, groundTypeValue)
     if type(state) == "number" then
       local group = ctx.stoneStateToGroup[state]
       if group ~= nil then
-        return SOIL_STONE_BASE + group - 1
+        return SOIL_STONE_BASE + math.min(group, SOIL_STONE_MAX_GROUPS) - 1
       end
     end
   end
@@ -492,7 +504,11 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
       fruit = {
         desc = d,
         shown = d ~= nil and d.shownOnMap == true,
-        index = (d ~= nil and d.index) or 0,
+        -- Clamped to a byte, because that is what encodeRow can carry: the legend is keyed on this
+        -- same number, so letting it exceed the range the row encodes would leave the cell with no
+        -- legend entry (invisible). Needs 256+ shownOnMap fruit types on one map to ever bite; the
+        -- degradation is then that those fruits share the 255th one's color, which is at least drawn.
+        index = math.min((d ~= nil and d.index) or 0, MAX_WIRE_VALUE),
         growthByState = {},
       }
       fruitCache[densityTypeIndex] = fruit
@@ -697,7 +713,11 @@ end
 local function finishSweep(ctx)
   local model = {
     version = tostring(VDT.MapLayers.VERSION),
-    terrainSize = g_currentMission.terrainSize or ctx.sizeX,
+    -- The frame the grid was ACTUALLY sampled in (resolveWorldSize, which prefers the HUD map's
+    -- worldSizeX over mission.terrainSize), not mission.terrainSize -- the contract is "gridSize
+    -- cells span terrainSize meters", so reading it from a second source would be a lie wherever
+    -- the two disagree.
+    terrainSize = ctx.sizeX,
     gridSize = VDT.MapLayers.GRID_SIZE,
     layers = {
       { id = "crops", legend = toLegend(ctx.cropsSeen), rows = ctx.cropsRows },
@@ -923,6 +943,16 @@ function VDT.MapLayers.collect()
   return VDT.MapLayers.model
 end
 
+---The profile switched this channel off (see ExportChannels.setProfile): tick() stops being called,
+---so an in-progress sweep would freeze mid-grid and then resume whenever the profile comes back up,
+---finishing a raster that is half pre-gap and half post-gap. Throw the partial sweep away and re-arm
+---instead, so re-enabling starts a clean one. The completed model + patchCtx are kept: they're the
+---baseline the app is already showing, and they stay valid.
+function VDT.MapLayers.onDisabled()
+  VDT.MapLayers.sweep = nil
+  VDT.MapLayers.dirty = true
+end
+
 -- Self-register the channel (see ExportChannels). This is the mod's most expensive channel by a wide
 -- margin -- a full sweep is GRID_SIZE^2 engine density-map reads, and the write is ~1.5 MB of raster --
 -- so it's the one channel gated on the performance profile: off under "low", where the whole point of
@@ -934,4 +964,5 @@ VDT.ExportChannels.register({
   collect = VDT.MapLayers.collect,
   tick = VDT.MapLayers.tick,
   minProfile = "medium",
+  onDisabled = VDT.MapLayers.onDisabled,
 })

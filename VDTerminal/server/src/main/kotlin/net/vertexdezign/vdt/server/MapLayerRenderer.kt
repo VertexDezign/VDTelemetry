@@ -2,10 +2,8 @@ package net.vertexdezign.vdt.server
 
 import net.vertexdezign.vdt.model.MapLayer
 import net.vertexdezign.vdt.model.MapLayersData
-import net.vertexdezign.vdt.model.contentVersion
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
-import java.util.concurrent.ConcurrentHashMap
 import javax.imageio.ImageIO
 
 /**
@@ -20,31 +18,41 @@ object MapLayerRenderer {
   private const val ALPHA = 0x99
 
   /**
-   * Per-id cache of the last rendered PNG, keyed on [contentVersion] so a new sweep invalidates it.
-   * Capped at 3 entries (one per real layer id today) as a safety net against unbounded growth if
-   * layer ids ever churn. A concurrent duplicate render on a miss is benign — both requests compute
-   * and store the same bytes for the same key — so this only needs a thread-safe map, not a lock.
+   * The rendered PNGs of a single [MapLayersData.contentVersion], held together so the cache is
+   * bounded by the number of layers in one snapshot (three today) with no eviction policy to get
+   * wrong — a version bump drops the whole generation at once rather than picking an entry to
+   * discard.
    */
-  private val cache = ConcurrentHashMap<String, Pair<String, ByteArray>>()
-  private const val MAX_CACHE_ENTRIES = 3
+  private data class Generation(
+    val version: String,
+    val layers: Map<String, ByteArray>,
+  )
+
+  @Volatile private var generation: Generation? = null
 
   /**
-   * Rendered PNG for [layerId], memoized on `(layerId, contentVersion)`. Null for an unknown id.
-   * [version] is the caller's already-computed [contentVersion] of [data], so the route can validate
-   * the request against it without hashing the rows twice.
+   * Rendered PNG for [layerId], memoized on `(layerId, version)`. Null for an unknown id.
+   * [version] is the caller's already-computed [MapLayersData.contentVersion] of [data], so the
+   * route can validate the request against it without re-deriving it here.
+   *
+   * Lock-free, and safe under concurrent requests for different versions: the version is bound to
+   * the map it was rendered from, so a racing older generation can only overwrite a newer one
+   * wholesale — costing a re-render on the next request, never serving one version's bytes under
+   * another's (which is the one thing an immutable-for-a-year cache URL cannot survive).
    */
   fun rendered(
     data: MapLayersData,
     layerId: String,
-    version: String = data.contentVersion(),
+    version: String = data.contentVersion,
   ): ByteArray? {
-    cache[layerId]?.let { (cachedVersion, bytes) -> if (cachedVersion == version) return bytes }
+    val cached = generation
+    if (cached != null && cached.version == version) {
+      cached.layers[layerId]?.let { return it }
+    }
 
     val bytes = render(data, layerId) ?: return null
-    if (cache.size >= MAX_CACHE_ENTRIES && !cache.containsKey(layerId)) {
-      cache.keys.firstOrNull()?.let { cache.remove(it) }
-    }
-    cache[layerId] = version to bytes
+    val base = if (cached != null && cached.version == version) cached.layers else emptyMap()
+    generation = Generation(version, base + (layerId to bytes))
     return bytes
   }
 

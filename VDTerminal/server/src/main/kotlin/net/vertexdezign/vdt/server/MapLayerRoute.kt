@@ -8,7 +8,6 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import net.vertexdezign.vdt.model.MapLayersData
-import net.vertexdezign.vdt.model.contentVersion
 
 /**
  * `GET /api/map-layer/{id}?v={version}` — the rendered ground-layer PNG for one layer id.
@@ -32,7 +31,7 @@ fun Route.mapLayerRoute(currentData: () -> MapLayersData?) {
       return@get
     }
     val requested = call.request.queryParameters["v"]
-    val current = data.contentVersion()
+    val current = data.contentVersion
     // A sweep can land between the WebSocket broadcast that gave the app this version and this
     // request. Rendering the newer raster here would cache it under the older version's URL forever,
     // and since versions are content-derived they recur — that poisoned entry would then be served

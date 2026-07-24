@@ -14,6 +14,8 @@
 --   minProfile  string?           lowest performance profile this channel runs at (see PROFILES);
 --                                 below it the channel is off entirely -- for channels too expensive
 --                                 to justify on a low-end machine. nil => runs at every profile
+--   onDisabled  fun()?            called when a profile change switches this channel off; drop any
+--                                 in-flight work, since tick() stops being called (see setProfile)
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
@@ -133,13 +135,27 @@ end
 ---Set the active performance profile. Unknown ids are rejected (returns false) so a stale settings
 ---value falls back to whatever's current. Takes effect immediately -- channelInterval reads it live,
 ---so the tick scheduler picks up the new cadence on the next frame.
+---
+---A channel the new profile switches off (minProfile) gets its optional onDisabled() called. Its tick
+---simply stops being invoked, so any work it had in flight would otherwise sit frozen and resume,
+---half-stale, whenever the profile comes back up -- the hook is where a channel throws that away.
 ---@param name string one of PROFILES
 ---@return boolean applied
 function VDT.ExportChannels.setProfile(name)
   if not isValidProfile(name) then
     return false
   end
+  local wasEnabled = {}
+  for _, n in ipairs(order) do
+    wasEnabled[n] = channelEnabled(n)
+  end
   profile = name
+  for _, n in ipairs(order) do
+    local ch = channels[n]
+    if wasEnabled[n] and not channelEnabled(n) and ch.onDisabled ~= nil then
+      ch.onDisabled()
+    end
+  end
   return true
 end
 

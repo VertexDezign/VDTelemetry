@@ -21,7 +21,20 @@ data class MapLayersData(
   val terrainSize: Float = 0f,
   val gridSize: Int = 0,
   val layers: List<MapLayer> = emptyList(),
-)
+) {
+  /**
+   * Opaque content version of the full raster data — see [computeContentVersion] for what goes into
+   * it and why.
+   *
+   * Memoized, because it is asked for far more often than it changes: every connected WebSocket
+   * session computes it once per sweep to build its [MapLayersInfo], and the `/api/map-layer` route
+   * computes it again on every PNG request. Each computation walks every character of every row —
+   * over a megabyte on a 512² grid — for an answer that is fixed the moment this instance is
+   * parsed. Delegated (not a constructor property), so it stays out of the serialized form and out
+   * of `equals`/`hashCode`.
+   */
+  val contentVersion: String by lazy { computeContentVersion() }
+}
 
 @Serializable
 data class MapLayer(
@@ -88,7 +101,7 @@ data class MapLayerLegendEntry(
  * re-samples an unchanged map produces the same version, so the app keeps the PNG it already has
  * instead of refetching a megabyte of identical raster.
  *
- * The version is an opaque string — see [contentVersion] for why it isn't `hashCode()`.
+ * The version is an opaque string — see [MapLayersData.contentVersion] for why it isn't `hashCode()`.
  */
 @Serializable
 data class MapLayersInfo(
@@ -98,7 +111,7 @@ data class MapLayersInfo(
   companion object {
     fun from(data: MapLayersData): MapLayersInfo =
       MapLayersInfo(
-        version = data.contentVersion(),
+        version = data.contentVersion,
         layers = data.layers.map { MapLayerInfo(it.id, it.legend) },
       )
   }
@@ -106,14 +119,15 @@ data class MapLayersInfo(
 
 /**
  * Opaque content version of the full raster data: 64-bit FNV-1a over everything that affects the
- * rendered PNG, as hex.
+ * rendered PNG, as hex. Call [MapLayersData.contentVersion] rather than this — it memoizes the
+ * result, and this walk is not cheap.
  *
  * Not `hashCode()`: 32 bits is small enough that two different rasters can collide, and the PNG for
  * a version is served under `Cache-Control: immutable` for a year — a collision would pin the wrong
  * overlay in the browser's cache with no way to invalidate it. 64 bits makes that vanishingly
  * unlikely, at about the cost the data class's own `hashCode()` already paid (both walk the rows).
  */
-fun MapLayersData.contentVersion(): String {
+private fun MapLayersData.computeContentVersion(): String {
   var hash = 0xcbf29ce484222325UL // FNV-1a 64-bit offset basis
   val prime = 0x100000001b3UL
 
