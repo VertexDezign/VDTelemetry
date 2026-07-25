@@ -408,8 +408,15 @@ the intended trade, not a regression — but it does mean the only way to check 
 - Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? (§1 — now visible in
   the exported JSON as `display`, so this is just a matter of looking. Decides whether the stepped bar
   is worth building in the redesign.)
-- **Does a multi-cover trailer or a multi-state pipe report sensibly?** (§2 — read the JSON directly;
-  nothing renders it. A tarp trailer should give `cover.count > 1`, an auger wagon `pipe.numStates > 2`.)
+- **Does a multi-state pipe report sensibly?** (§2 — read the JSON directly; nothing renders it. An
+  auger wagon should give `pipe.numStates > 2`.)
+- Multi-cover (`cover.count > 1`): **not validated, and deliberately parked** (2026-07-25 — no such
+  vehicle to hand). Low risk: a single-cover vehicle only ever has `state` 0 or 1, where the old and
+  new mappers agree exactly, so the only changed behaviour is `state >= 2` — which used to return
+  `UNKNOWN` and was wrong by construction. If one turns up, the tell is the cover action prompt
+  reading **"Next cover"** rather than "Open/Close cover": `Cover:updateActionText` uses that string
+  only while `0 < state < #covers`. Structurally they are vehicles with separately covered
+  compartments, since each cover declares the `fillUnitIndices` it covers.
 - **Does `schema` come out populated on a real rig, and does `jointDescIndex` line up with the parent's
   `attacherJoint` list?** (§3 — the one thing the synthetic tests can't confirm. A capture here is
   wanted as a fixture too.)
