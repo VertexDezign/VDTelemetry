@@ -144,11 +144,15 @@ Five commits on `map-layers-split`, mod first:
    startup write. Only planes the catalogue offers are ever asked for — otherwise a stale persisted
    layer id would be a mismatch the mod could never resolve, restated forever.
 
-**Validated in-game (2026-07-25):** the end-to-end chain works — folder creation, the catalogue, the
-subscription round-trip through `commands.xml` (including the reconciliation fix, on the scenario that
-first exposed the gap: opening the app with a layer already selected), per-plane writes, and the app's
-per-plane fetch. Not yet exercised: multiplayer (the staleness audit's own case), and a long session of
-active farming, which is where the split's write-cost win should show up in the profiler.
+**Validated in-game (2026-07-25, singleplayer):** the end-to-end chain works — folder creation, the
+catalogue, the subscription round-trip through `commands.xml` (including the reconciliation fix, on the
+scenario that first exposed the gap: opening the app with a layer already selected), per-plane writes,
+and the app's per-plane fetch. **All eight planes render**, the five Precision Farming ones included —
+notably yield and seed rate, the two PF exposes no point read for, which are read out of their
+bit-vector maps the way PF's own modifiers do.
+
+Not yet exercised: multiplayer (the staleness audit's own case), and a long session of active farming,
+which is where the split's write-cost win should show up in the profiler.
 
 Consequences for the PF work: a new plane is an entry in `VDT.MapLayers.LAYERS` plus its
 classification in `classifyCell` (under the `wanted` gate), a fixture, and nothing else — no file,
@@ -207,7 +211,7 @@ isn't there. Independent soil sub-toggles therefore need the soil data **de-coll
 2. ~~§1 per-layer file split~~ — **done** (see "How it landed"), with subscription gating alongside it.
 3. ~~In-game validation of the split + gating~~ — **done** (2026-07-25); multiplayer and a profiler
    run during active farming are what's left.
-4. ~~Precision Farming planes~~ — **done** (2026-07-25): PF's five menu-visible value maps (soil type,
+4. ~~Precision Farming planes~~ — **done and working in-game** (2026-07-25): PF's five menu-visible value maps (soil type,
    pH, nitrogen, yield, seed rate) are exported as further planes. It cost one integration file and an
    `ipairs` over `LAYERS` in the sweep, exactly as this plan predicted — no file, dirty, legend,
    watcher, route or app changes. Soil/pH/nitrogen use PF's documented point reads; yield and seed
