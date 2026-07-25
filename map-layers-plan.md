@@ -6,8 +6,8 @@ ever exported — see "Why this matters more once Precision Farming lands" below
 
 **Status (2026-07-25, branch `map-layers-split`):**
 
-- §1 per-layer file split — **done**, together with the "sweep only what's subscribed" item that was
-  filed alongside it. See "How it landed" below.
+- §1 per-layer file split — **done and working in-game**, together with the "sweep only what's
+  subscribed" item that was filed alongside it. See "How it landed" below.
 - §2 show/hide individual sub-values within a layer — **still proposed, not started.**
 
 ## Where this stands (recap)
@@ -144,8 +144,11 @@ Five commits on `map-layers-split`, mod first:
    startup write. Only planes the catalogue offers are ever asked for — otherwise a stale persisted
    layer id would be a mismatch the mod could never resolve, restated forever.
 
-**Not yet validated in-game** — the whole chain (folder creation, subscription round-trip, per-plane
-writes) has only been exercised by the specs and unit tests.
+**Validated in-game (2026-07-25):** the end-to-end chain works — folder creation, the catalogue, the
+subscription round-trip through `commands.xml` (including the reconciliation fix, on the scenario that
+first exposed the gap: opening the app with a layer already selected), per-plane writes, and the app's
+per-plane fetch. Not yet exercised: multiplayer (the staleness audit's own case), and a long session of
+active farming, which is where the split's write-cost win should show up in the profiler.
 
 Consequences for the PF work: a new plane is an entry in `VDT.MapLayers.LAYERS` plus its
 classification in `classifyCell` (under the `wanted` gate), a fixture, and nothing else — no file,
@@ -202,7 +205,8 @@ isn't there. Independent soil sub-toggles therefore need the soil data **de-coll
 
 1. ~~Measure `c726a01` in-game (profiler)~~ → §1 was done regardless, as the precondition for PF.
 2. ~~§1 per-layer file split~~ — **done** (see "How it landed"), with subscription gating alongside it.
-3. **In-game validation of the split + gating** — the next thing to do on this branch.
+3. ~~In-game validation of the split + gating~~ — **done** (2026-07-25); multiplayer and a profiler
+   run during active farming are what's left.
 4. Precision Farming planes (their own piece of work; the plumbing is now generic over `LAYERS`).
 5. §2 crops/growth sub-toggles (server render-filter) — optional polish.
 6. §2 soil sub-layers (option b) — only if independent soil visibility is wanted; combine with §1's
