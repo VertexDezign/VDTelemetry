@@ -83,6 +83,16 @@ VDT.MapLayers.LAYERS = {
   { id = "soil", labelKey = "ui_mapOverviewSoil", labelFallback = "Soil" },
 }
 
+-- Precision Farming's own value maps, appended as further planes (see integrations/PrecisionFarming).
+-- They are ordinary entries from here on: the same files, channels, dirty tracking, subscription gate
+-- and legends -- the only difference is that each carries a `pf` descriptor, which is what says how to
+-- sample it and where its label and legend come from. Registered unconditionally (registration happens
+-- at load, long before the mission knows whether PF is installed); an entry whose value map isn't
+-- there is simply never offered by the catalogue and never swept.
+for _, pfLayer in ipairs(VDT.PrecisionFarming.LAYERS) do
+  VDT.MapLayers.LAYERS[#VDT.MapLayers.LAYERS + 1] = { id = pfLayer.id, pf = pfLayer }
+end
+
 -- The game's own overlay base resolution (MapOverlayGenerator.OVERLAY_RESOLUTION.FOLIAGE_STATE) --
 -- fixed, not terrain-scaled, so a bigger map just means bigger cells.
 VDT.MapLayers.GRID_SIZE = 512
@@ -259,12 +269,23 @@ end
 ---@param layer table an entry of VDT.MapLayers.LAYERS
 ---@return string
 local function layerLabel(layer)
+  if layer.pf ~= nil then
+    return VDT.PrecisionFarming.layerLabel(layer.pf)
+  end
   local text = l10nText(layer.labelKey, layer.labelFallback)
   if layer.labelFormat then
     local ok, formatted = pcall(string.format, text, "")
     text = ok and formatted or layer.labelFallback
   end
   return (string.gsub(text, "^%s*(.-)%s*$", "%1"))
+end
+
+---Whether this plane can be sampled on this map at all. Base-game planes always can; a Precision
+---Farming plane only when PF is installed and has built its value map for this save.
+---@param layer table an entry of VDT.MapLayers.LAYERS
+---@return boolean
+local function layerAvailable(layer)
+  return layer.pf == nil or VDT.PrecisionFarming.isLayerAvailable(layer.pf)
 end
 
 -- Precomputed 2-char hex for every byte value, for encodeRow. The `% 256` at the call site is a
@@ -681,8 +702,12 @@ end
 ---@return table<string, boolean>
 local function wantedSnapshot()
   local wanted = {}
-  for id in pairs(VDT.MapLayers.subscribedLayers) do
-    wanted[id] = true
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    -- Availability is part of "wanted": a subscription naming a plane this map can't produce (an app
+    -- that saw Precision Farming on another save) must not make the sweep try to sample it.
+    if VDT.MapLayers.subscribedLayers[layer.id] and layerAvailable(layer) then
+      wanted[layer.id] = true
+    end
   end
   return wanted
 end
@@ -695,6 +720,58 @@ local function newLayerTables()
     t[layer.id] = {}
   end
   return t
+end
+
+---Resolve the Precision Farming planes this sweep wants into samplers, bound to the row buffers and
+---legend maps they write. Once per sweep, so PF's internals are looked up (and its legend tables
+---walked) once rather than per cell.
+---@param ctx table the sweep context being built
+---@return table[] { id, sample, buf, rows, seen, legend } per wanted, available PF plane
+local function resolvePfLayers(ctx)
+  local resolved = {}
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    if layer.pf ~= nil and ctx.wanted[layer.id] then
+      local built = VDT.PrecisionFarming.resolveLayer(layer.pf)
+      if built ~= nil then
+        resolved[#resolved + 1] = {
+          id = layer.id,
+          sample = built.sample,
+          legend = built.legend,
+          buf = ctx.buf[layer.id],
+          rows = ctx.rows[layer.id],
+          seen = ctx.seen[layer.id],
+        }
+      end
+    end
+  end
+  return resolved
+end
+
+---One cell's value for a PF plane: read, clamped to what a row can carry, with anything unreadable
+---degrading to "no data" rather than throwing. Also records the value's legend entry on first sight,
+---so the file carries only the values this map actually shows -- same rule as every other plane.
+---@param pf table an entry from resolvePfLayers
+---@param x number world x
+---@param z number world z
+---@return number
+local function samplePf(pf, x, z)
+  local value = pf.sample(x, z)
+  if type(value) ~= "number" then
+    return 0
+  end
+  value = math.min(math.max(math.floor(value), 0), MAX_WIRE_VALUE)
+  if value ~= 0 and pf.seen[value] == nil then
+    local entry = pf.legend[value]
+    local color = entry ~= nil and entry.color or nil
+    pf.seen[value] = {
+      v = value,
+      -- A value with no legend entry is data PF knows and we don't (a soil mod's extra type, say):
+      -- exported so the raster stays honest, labelled so it is visibly unnamed rather than absent.
+      label = entry ~= nil and entry.label or "?",
+      color = type(color) == "table" and #color >= 3 and hex(color) or nil,
+    }
+  end
+  return value
 end
 
 ---Snapshot everything a sweep needs once, up front: world size, ground-type values, weed/stone
@@ -751,7 +828,7 @@ local function startSweep()
     maxSprayLevel = value
   end
 
-  return {
+  local ctx = {
     sizeX = sizeX,
     sizeZ = sizeZ,
     cellSize = sizeX / VDT.MapLayers.GRID_SIZE,
@@ -793,6 +870,9 @@ local function startSweep()
     -- Per-sweep classification memo: raw fruit density-type -> resolved fruit info (see classifyCell).
     fruitCache = {},
   }
+  -- Bound after the tables above exist, since each resolved plane holds its own buffer/rows/legend.
+  ctx.pf = resolvePfLayers(ctx)
+  return ctx
 end
 
 ---Run up to `budget` cells of the current sweep, encoding each row as it completes.
@@ -806,7 +886,7 @@ local function runBatch(ctx, budget)
   local row, col = ctx.row, ctx.col
   -- Hoisted out of the per-cell loop: these tables are fixed for the whole sweep, and this loop runs
   -- GRID_SIZE^2 times, so re-indexing ctx per cell is measurable.
-  local buf, rows, wanted = ctx.buf, ctx.rows, ctx.wanted
+  local buf, rows, wanted, pf = ctx.buf, ctx.rows, ctx.wanted, ctx.pf
   local cropsBuf, growthBuf, soilBuf = buf.crops, buf.growth, buf.soil
   local wantCrops, wantGrowth, wantSoil = wanted.crops == true, wanted.growth == true, wanted.soil == true
 
@@ -821,6 +901,10 @@ local function runBatch(ctx, budget)
     cropsBuf[col + 1] = cropsV
     growthBuf[col + 1] = growthV
     soilBuf[col + 1] = soilV
+    for i = 1, #pf do
+      local plane = pf[i]
+      plane.buf[col + 1] = samplePf(plane, worldX, worldZ)
+    end
 
     col = col + 1
     if col >= gridSize then
@@ -835,6 +919,10 @@ local function runBatch(ctx, budget)
       end
       if wantSoil then
         rows.soil[row + 1] = VDT.MapLayers.encodeRow(soilBuf, gridSize)
+      end
+      for i = 1, #pf do
+        local plane = pf[i]
+        plane.rows[row + 1] = VDT.MapLayers.encodeRow(plane.buf, gridSize)
       end
       col = 0
       row = row + 1
@@ -965,13 +1053,17 @@ local function runPatch(ctx)
     end
   end
 
-  local buf, rows, wanted = ctx.buf, ctx.rows, ctx.wanted
+  local buf, rows, wanted, pf = ctx.buf, ctx.rows, ctx.wanted, ctx.pf
   local cropsBuf, growthBuf, soilBuf = buf.crops, buf.growth, buf.soil
   local wantCrops, wantGrowth, wantSoil = wanted.crops == true, wanted.growth == true, wanted.soil == true
   for row, cols in pairs(byRow) do
     VDT.MapLayers.decodeRow(rows.crops[row + 1] or "", gridSize, cropsBuf)
     VDT.MapLayers.decodeRow(rows.growth[row + 1] or "", gridSize, growthBuf)
     VDT.MapLayers.decodeRow(rows.soil[row + 1] or "", gridSize, soilBuf)
+    for i = 1, #pf do
+      local plane = pf[i]
+      VDT.MapLayers.decodeRow(plane.rows[row + 1] or "", gridSize, plane.buf)
+    end
     local worldZ = -halfZ + (row + 0.5) * cellSize
     for col in pairs(cols) do
       local worldX = -halfX + (col + 0.5) * cellSize
@@ -979,6 +1071,10 @@ local function runPatch(ctx)
       cropsBuf[col + 1] = cropsV
       growthBuf[col + 1] = growthV
       soilBuf[col + 1] = soilV
+      for i = 1, #pf do
+        local plane = pf[i]
+        plane.buf[col + 1] = samplePf(plane, worldX, worldZ)
+      end
     end
     -- Only overwrite (and flag a write) when a cell actually changed: a vehicle driving over a road or
     -- already-classified field re-samples the same values, and re-encoding/rewriting/re-rendering the
@@ -1011,6 +1107,17 @@ local function runPatch(ctx)
       if newSoil ~= rows.soil[row + 1] then
         rows.soil[row + 1] = newSoil
         changed.soil = true
+      end
+    end
+    -- The PF planes patch on the same terms. They move for different reasons than the base ones --
+    -- nitrogen on a fertilizer pass, yield only under a harvester, soil type never -- which is exactly
+    -- the case the per-plane comparison exists for.
+    for i = 1, #pf do
+      local plane = pf[i]
+      local encoded = VDT.MapLayers.encodeRow(plane.buf, gridSize)
+      if encoded ~= plane.rows[row + 1] then
+        plane.rows[row + 1] = encoded
+        changed[plane.id] = true
       end
     end
   end
@@ -1106,6 +1213,14 @@ local function runAudit(ctx)
       or (wanted.soil and soilV ~= storedCell(rows.soil, row, col))
     then
       return true
+    end
+    -- The PF planes are streamed to a client like every other density map, so they go stale the same
+    -- way and are audited the same way.
+    for i = 1, #ctx.pf do
+      local plane = ctx.pf[i]
+      if samplePf(plane, worldX, worldZ) ~= storedCell(plane.rows, row, col) then
+        return true
+      end
     end
   end
   return false
@@ -1262,13 +1377,18 @@ local function publishCatalogue()
   if sizeX == nil then
     return
   end
+  -- Only the planes this map can actually produce: with Precision Farming absent (or a value map it
+  -- didn't build for this save) its planes are not layers at all here, so the app never offers them
+  -- and the server never asks for them.
   local layers = {}
   for _, layer in ipairs(VDT.MapLayers.LAYERS) do
-    layers[#layers + 1] = {
-      id = layer.id,
-      label = layerLabel(layer),
-      active = VDT.MapLayers.subscribedLayers[layer.id] == true,
-    }
+    if layerAvailable(layer) then
+      layers[#layers + 1] = {
+        id = layer.id,
+        label = layerLabel(layer),
+        active = VDT.MapLayers.subscribedLayers[layer.id] == true,
+      }
+    end
   end
   VDT.MapLayers.catalogue = {
     version = tostring(VDT.MapLayers.VERSION),

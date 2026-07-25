@@ -207,7 +207,11 @@ isn't there. Independent soil sub-toggles therefore need the soil data **de-coll
 2. ~~§1 per-layer file split~~ — **done** (see "How it landed"), with subscription gating alongside it.
 3. ~~In-game validation of the split + gating~~ — **done** (2026-07-25); multiplayer and a profiler
    run during active farming are what's left.
-4. Precision Farming planes (their own piece of work; the plumbing is now generic over `LAYERS`).
+4. ~~Precision Farming planes~~ — **done** (2026-07-25): PF's five menu-visible value maps (soil type,
+   pH, nitrogen, yield, seed rate) are exported as further planes. It cost one integration file and an
+   `ipairs` over `LAYERS` in the sweep, exactly as this plan predicted — no file, dirty, legend,
+   watcher, route or app changes. Soil/pH/nitrogen use PF's documented point reads; yield and seed
+   rate have none, so they read channel 0 of the bit-vector map the way PF's own modifiers do.
 5. §2 crops/growth sub-toggles (server render-filter) — optional polish.
 6. §2 soil sub-layers (option b) — only if independent soil visibility is wanted; combine with §1's
    re-model.

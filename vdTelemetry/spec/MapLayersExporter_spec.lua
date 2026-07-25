@@ -556,7 +556,9 @@ describe("MapLayers.tick sweep", function()
 
     -- One self-contained model per plane, each carrying the grid geometry: the server parses and
     -- renders these files independently, so none of them may depend on another to be decodable.
-    for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    -- Driven off the catalogue rather than LAYERS: LAYERS also holds the Precision Farming planes,
+    -- which this map (no PF in the spec fixtures) doesn't offer.
+    for _, layer in ipairs(VDT.MapLayers.collect().layers) do
       local model = VDT.MapLayers.collectLayer(layer.id)
       assert.is_not_nil(model)
       assert.are.equal(layer.id, model.id)
@@ -958,6 +960,84 @@ describe("MapLayers.tick sweep", function()
       assert.are.equal(0, marks("crops"))
       assert.are.equal(0, marks("soil"))
       assert.is_nil(VDT.MapLayers.collectLayer("soil"))
+    end)
+  end)
+
+  -- Precision Farming's value maps ride the same machinery as the base planes: same files, same
+  -- subscription gate, same per-plane dirty tracking. What's specific to them is that they only exist
+  -- when PF does, and that they are sampled through PF rather than through the density maps above.
+  describe("precision farming planes", function()
+    before_each(function()
+      rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+      g_currentMission.terrainSize = 8
+      rawset(_G, "g_precisionFarming", {
+        nitrogenMap = {
+          getOverviewLabel = function()
+            return "Stickstoff"
+          end,
+          getLevelAtWorldPos = function(_, x, _)
+            -- Non-uniform, so the encoded row proves the sampler is fed per-cell world positions.
+            return x < 0 and 1 or 2
+          end,
+          nitrogenValues = {
+            { value = 1, realValue = 30, color = { 1, 0, 0 } },
+            { value = 2, realValue = 60, color = { 0, 1, 0 } },
+          },
+        },
+      })
+    end)
+
+    after_each(function()
+      rawset(_G, "g_modIsLoaded", nil)
+      rawset(_G, "g_precisionFarming", nil)
+    end)
+
+    it("offers only the PF planes whose value map exists", function()
+      VDT.MapLayers.tick(stubDebugger(), 16)
+
+      local ids = {}
+      for _, entry in ipairs(VDT.MapLayers.collect().layers) do
+        ids[#ids + 1] = entry.id
+      end
+      -- Nitrogen is the only PF map stubbed here; the other four are not offered at all.
+      assert.are.same({ "crops", "growth", "soil", "pfNitrogen" }, ids)
+      assert.are.equal("Stickstoff", VDT.MapLayers.collect().layers[4].label)
+    end)
+
+    it("sweeps a subscribed PF plane into its own file, with its own legend", function()
+      VDT.MapLayers.subscribedLayers = { pfNitrogen = true }
+      for _ = 1, 4 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+
+      local model = VDT.MapLayers.collectLayer("pfNitrogen")
+      assert.are.equal("pfNitrogen", model.id)
+      -- Cell centers run -3.5 .. 3.5, so the left half reads level 1 and the right half level 2.
+      assert.are.equal("0101010102020202", model.rows[1])
+      -- Only the values actually seen, labelled and colored the way PF displays them.
+      assert.are.equal(2, #model.legend)
+      assert.are.equal(1, model.legend[1].v)
+      assert.are.equal("30 kg/ha", model.legend[1].label)
+      assert.are.equal("60 kg/ha", model.legend[2].label)
+      assert.is_not_nil(model.legend[1].color)
+
+      -- ...and the base planes stay untouched: subscribing to a PF plane sweeps that plane alone.
+      assert.are.equal(1, marks("pfNitrogen"))
+      assert.are.equal(0, marks("crops"))
+    end)
+
+    it("never samples a PF plane whose map is gone, even if something subscribed to it", function()
+      -- The app remembering a layer from a save that had PF, opened on one that doesn't.
+      rawset(_G, "g_precisionFarming", nil)
+      VDT.MapLayers.subscribedLayers = { pfNitrogen = true }
+
+      assert.has_no.errors(function()
+        for _ = 1, 4 do
+          VDT.MapLayers.tick(stubDebugger(), 16)
+        end
+      end)
+      assert.is_nil(VDT.MapLayers.collectLayer("pfNitrogen"))
+      assert.are.equal(0, marks("pfNitrogen"))
     end)
   end)
 

@@ -80,6 +80,12 @@ alone, cultivating leaves crops alone — so writing them separately means a bet
 re-serializes only what actually changed, instead of the whole megabyte every time. `index.json` is
 written without sampling anything, so VDTerminal can offer a layer before its raster has been swept.
 
+**With Precision Farming installed, its own value maps become planes too** — soil type, pH, nitrogen,
+yield and seed rate, the five PF shows in its own map selector, each labelled and colored exactly as PF
+does. They are ordinary planes from there on: one file each, their own legend, and the same
+subscription gate, so they cost nothing until you select one. Without PF they aren't offered at all.
+(The base-game fertilizer + lime soil layers stay suppressed under PF, as before — PF supersedes them.)
+
 **Only what someone is looking at is sampled.** VDTerminal tells the mod which planes its dashboards
 are currently showing, and the sweep classifies, encodes and writes those alone — a dashboard shows one
 overlay at a time, so the planes nobody selected would otherwise be most of the channel's cost. With no
