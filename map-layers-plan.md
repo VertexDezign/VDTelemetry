@@ -8,7 +8,8 @@ ever exported — see "Why this matters more once Precision Farming lands" below
 
 - §1 per-layer file split — **done and working in-game**, together with the "sweep only what's
   subscribed" item that was filed alongside it. See "How it landed" below.
-- §2 show/hide individual sub-values within a layer — **still proposed, not started.**
+- §2 show/hide individual sub-values within a layer — **declined for now** (2026-07-25); kept below as
+  the record of what it would cost, including the soil priority-collapse problem that gates it.
 
 ## Where this stands (recap)
 
@@ -151,8 +152,16 @@ and the app's per-plane fetch. **All eight planes render**, the five Precision F
 notably yield and seed rate, the two PF exposes no point read for, which are read out of their
 bit-vector maps the way PF's own modifiers do.
 
-Not yet exercised: multiplayer (the staleness audit's own case), and a long session of active farming,
-which is where the split's write-cost win should show up in the profiler.
+**Multiplayer: validated (2026-07-25).** **Colorblind mode: validated (2026-07-25, SP).**
+
+**Profiler (2026-07-25):** `Json.lua` is no longer among the top entries — the write cost the split
+existed to remove is gone. What remains visible is VDTelemetry's own tick at **0.5–0.6%** of script
+time, which is the per-frame scheduler itself rather than any one channel. The split had quietly made
+that worse (nine registered channels where there was one, all walked every frame by `tick` and
+`writeDirty`), so `0b391c7` trims the idle path: skip channels with neither cadence nor tick, bail out
+of `writeDirty` while nothing is queued, and throttle the offered-layer recheck to 5 s. Worth
+re-reading the profiler after that, but the mod has to run *something* every frame, so this entry
+never goes away entirely.
 
 Consequences for the PF work: a new plane is an entry in `VDT.MapLayers.LAYERS` plus its
 classification in `classifyCell` (under the `wanted` gate), a fixture, and nothing else — no file,
@@ -216,6 +225,6 @@ isn't there. Independent soil sub-toggles therefore need the soil data **de-coll
    `ipairs` over `LAYERS` in the sweep, exactly as this plan predicted — no file, dirty, legend,
    watcher, route or app changes. Soil/pH/nitrogen use PF's documented point reads; yield and seed
    rate have none, so they read channel 0 of the bit-vector map the way PF's own modifiers do.
-5. §2 crops/growth sub-toggles (server render-filter) — optional polish.
-6. §2 soil sub-layers (option b) — only if independent soil visibility is wanted; combine with §1's
-   re-model.
+5. ~~§2 crops/growth sub-toggles~~ — **not doing this for now** (2026-07-25).
+6. ~~§2 soil sub-layers~~ — same; independent soil visibility isn't wanted, so the priority-collapse
+   re-model it would need stays unbuilt. §2 below is kept as the record of what it would take.
