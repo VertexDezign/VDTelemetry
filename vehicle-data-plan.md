@@ -5,12 +5,15 @@ Written 2026-07-25 on `main`, from a review of the vehicle collectors against th
 
 **Status (2026-07-25, branch `vehicle-data-export`):**
 
-- §1 fill-unit display values — **done, pending in-game validation.** See "How it landed" below. The
-  secondary `showOnHud` filter switch was deliberately **not** taken; it stays open below.
-- §2, §3, §4 — open, nothing started.
+- §1 fill-unit display values — **done and validated in-game** (2026-07-25). The secondary `showOnHud`
+  filter switch was deliberately **not** taken; it stays open below.
+- §2 pipe/cover mappers — **done**, mod + shared only, no app changes. Not yet validated in-game.
+- §3 layout + selected group — **done**, mod + shared only, no app changes. Not yet validated in-game.
+- §4 — open, nothing started.
 
-§1 was the only one that fixed a *wrong number* already on screen; the rest add data that isn't there
-at all.
+§1 was the only one that fixed a *wrong number* already on screen; the rest add data that wasn't there
+at all. The mod's export version is now **4** — one bump per shape change (2 = fill units, 3 = pipe
+and cover objects, 4 = schema and selection).
 
 Every game-source claim below is cited by `file:line` against the bundled source, which is real
 extracted FS25 Lua. What is **not** available in the sandbox is base-game **vehicle XML** — so anything
@@ -229,6 +232,24 @@ nothing breaks.
 implements — and, if the richer fields are used, showing *which* cover of several is open and how far
 along a multi-state pipe is.
 
+### How it landed (2026-07-25)
+
+Both are objects now rather than bare strings, so the mod version went to **3**. `cover` carries
+`{state, index, count}` and `pipe` carries `{state, current, target, numStates}`; the coarse label
+stays as `state` for consumers that only want in/out. `mapCoverState` is now "0 is closed, anything
+else is open" — the `== 1` test was the actual bug. New `spec/PipeCover_spec.lua` covers both,
+including the multi-cover and multi-state cases that used to collapse.
+
+Where a committed fixture predates a field it is left **absent** rather than guessed: `pipe.numStates`
+and `cover.count` are unknowable from a v1 capture, while `current`/`target` are derivable from the
+captured `RETRACTED` label. No app changes — nothing renders these.
+
+One transition note: `ignoreUnknownKeys` covers a *newer mod* against an older terminal, but not the
+reverse. A v2 mod emitting `"pipe": "RETRACTED"` against a v3+ terminal is a string where an object is
+expected, which `coerceInputValues` does not rescue — it fails the whole parse. Mod and terminal ship
+from the same repo so this only bites a half-upgraded install; a union deserializer would fix it if
+that ever proves to be a real support burden.
+
 ### Out of scope unless asked
 
 Making them *controllable*. Every existing command routes through FS25_additionalInputs' `vdAI*`
@@ -300,6 +321,37 @@ redesign can change it without a mod release.
 **Deferred to the redesign:** the rig diagram itself, selection highlighting, the control-group
 readout, and whatever becomes of the front/back columns.
 
+### How it landed (2026-07-25)
+
+Two new aspects, applied to vehicle and implements alike through `Aspects.apply`, plus one field set
+during the tree walk. Mod version **4**.
+
+- **`schema`** (`aspects/Schema.lua`) — `{name, offsetX, offsetY, borderLeft, borderRight,
+  attacherJoint[]}`, each joint `{x, y, rotation, invertX, liftedOffsetX, liftedOffsetY}`, copied
+  verbatim from the engine's `schemaOverlay`. `attacherJoint` is absent when the object has none (the
+  engine leaves the list nil until something registers one).
+- **`selection`** (`aspects/Selection.lua`) — `{selected, controlGroup}`. `selected` is the engine's
+  own per-object flag, so walking the tree finds the selected node without ever touching the root's
+  ordered `selectableObjects`. `controlGroup` is `{current, name, names}` from `spec_cylindered`;
+  `current` is 0 when nothing is active and `name` is then absent.
+- **`jointDescIndex`** on the implement — set in `VehicleExporter.collectImplements`, because it lives
+  on the attacher-joint entry rather than on the object. This is the link that turns the flat
+  per-object schema data into a drawable rig.
+
+**No layout arithmetic in the mod, by design** — composing offsets, rotations and `invertX` down the
+tree stays app-side, so the diagram can change without a mod release. `InputHelpDisplay
+.collectVehicleSchemaDisplayOverlays` is the reference algorithm, and its depth cap (5) is worth
+mirroring.
+
+Deliberately skipped: `getUseTurnedOnSchema()`, which the HUD uses only to tint the silhouette and
+which duplicates the `isTurnedOn` we already export. Eligibility (`getCanBeSelected`) is likewise not
+recomputed — specializations override it, so the engine's flag is the only correct answer.
+
+Tests: `spec/SchemaSelection_spec.lua` plus a Kotlin decode case. Both are synthetic for the same
+reason as §2 — the committed captures predate all of this, and joint offsets are per-vehicle XML data
+that would be invented if hand-written into `examples/json`. **A fresh capture with a real rig is the
+main thing this needs**, and it would be the first fixture to exercise `jointDescIndex` end to end.
+
 ---
 
 ## 4. Backlog — other specs worth exporting
@@ -336,26 +388,33 @@ Ordered so the app is touched once, early, and then left alone until the redesig
 1. ~~**§1 fill-unit display values.**~~ — **done** (see "How it landed"), minus the `showOnHud` filter
    switch, which stays open pending an in-game check. Still needs validating against a real baler,
    and a captured baler fixture would be worth adding when one exists.
-2. **§2 pipe + cover mappers** and **§3 layout + selected group**. Both are mod + shared only, they
-   don't interact, and either order works — §3 is the bigger one and the one the redesign leans on
-   hardest, so start it first if only one gets done.
+2. ~~**§2 pipe + cover mappers** and **§3 layout + selected group**.~~ — **both done** (see their "How
+   it landed" sections), mod + shared only as predicted, no app changes in either. Both still want
+   in-game validation, and §3 wants a captured fixture with a real implement rig.
 3. **§4 as far as appetite allows, `Dischargeable` first** — still before the redesign, for the reason
    given in §4.
 4. **Then the UI redesign**, against a data layer that is already correct and already complete enough
    to design against. Each item above leaves a "deferred to the redesign" note; together those are the
    redesign's inbox.
 
-One consequence worth accepting up front: between step 1 and the redesign, the dashboard shows *more
-correct* data but not *more* data — pipe, cover, layout and selection will be in the JSON and visible
-in `examples/json/` well before anything renders them. That's the intended trade, not a regression.
+One consequence, now real rather than anticipated: the dashboard shows *more correct* data but not
+*more* data. Pipe, cover, schema and selection are all in the JSON and nothing renders them. That's
+the intended trade, not a regression — but it does mean the only way to check §2 and §3 is to read
+`vdTelemetry.json` directly (or the `examples/json` fixtures) rather than to look at the app.
 
 ### In-game checks this plan depends on
 
-- **Does a baler now report its consumables correctly?** (§1 — the fix is shipped but unvalidated. One
-  spare roll plus a part-used one should read ~1.5 of 2, not 1.)
+- ~~Does a baler now report its consumables correctly?~~ — **confirmed working in-game** (2026-07-25).
 - Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? (§1 — now visible in
   the exported JSON as `display`, so this is just a matter of looking. Decides whether the stepped bar
   is worth building in the redesign.)
+- **Does a multi-cover trailer or a multi-state pipe report sensibly?** (§2 — read the JSON directly;
+  nothing renders it. A tarp trailer should give `cover.count > 1`, an auger wagon `pipe.numStates > 2`.)
+- **Does `schema` come out populated on a real rig, and does `jointDescIndex` line up with the parent's
+  `attacherJoint` list?** (§3 — the one thing the synthetic tests can't confirm. A capture here is
+  wanted as a fixture too.)
+- Does `controlGroup` populate on a front loader or crane, with sensible `names`? (§3 — the names come
+  from XML and may be i18n keys rather than resolved text on some mods.)
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does
   a forage/carrot harvester's pass-through output carry `showOnHud="true"`? (§1 secondary — gates the
   filter switch, which was deliberately not taken.)

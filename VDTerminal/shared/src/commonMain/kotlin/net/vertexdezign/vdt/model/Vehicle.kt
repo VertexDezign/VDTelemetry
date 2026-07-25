@@ -21,6 +21,8 @@ data class Vehicle(
   val pipe: Pipe? = null,
   val cover: Cover? = null,
   val wearable: Wearable? = null,
+  val schema: Schema? = null,
+  val selection: Selection? = null,
   val implement: List<Implement> = emptyList(),
   val combined: Combined? = null,
 )
@@ -247,6 +249,65 @@ data class Cover(
 )
 
 // ---------------------------------------------------------------------------
+// Schema (rig diagram) + selection
+// ---------------------------------------------------------------------------
+
+/**
+ * The object's silhouette in the game's rig diagram, and where children hang off it.
+ *
+ * These are the engine's raw values — the mod does no layout arithmetic, so composing offsets,
+ * rotations and [SchemaJoint.invertX] down the implement tree is this side's job. The game's own
+ * implementation (`InputHelpDisplay.collectVehicleSchemaDisplayOverlays`) is the reference: each
+ * child indexes its parent's [attacherJoint] list via [Implement.jointDescIndex], and the walk is
+ * depth-capped at 5.
+ */
+@Serializable
+data class Schema(
+  /** `VEHICLE` / `HARVESTER` / `TRAILER` / … — mod-prefixed for modded silhouettes, `""` if unnamed. */
+  val name: String = "",
+  val offsetX: Float = 0f,
+  val offsetY: Float = 0f,
+  /** Share of the silhouette's width that is padding, so neighbours can be butted up against it. */
+  val borderLeft: Float? = null,
+  val borderRight: Float? = null,
+  val attacherJoint: List<SchemaJoint> = emptyList(),
+)
+
+/** One attachment point in a [Schema]: where a child sits relative to this object. */
+@Serializable
+data class SchemaJoint(
+  val x: Float = 0f,
+  val y: Float = 0f,
+  val rotation: Float = 0f,
+  val invertX: Boolean = false,
+  /** Extra offset applied while the child is raised rather than lowered. */
+  val liftedOffsetX: Float = 0f,
+  val liftedOffsetY: Float = 0f,
+)
+
+/**
+ * What the player's controls are currently acting on. [selected] is the engine's own flag, mirrored
+ * onto every object in the rig, so exactly one node in the tree is normally true.
+ */
+@Serializable
+data class Selection(
+  val selected: Boolean = false,
+  val controlGroup: ControlGroup? = null,
+)
+
+/**
+ * The moving-tool group being cycled on a `Cylindered` object (a crane or front loader splits its
+ * controls into named groups). [current] is `0` when none is active, otherwise a 1-based index into
+ * [names]; [name] is the resolved entry. The game's HUD only ever shows the number.
+ */
+@Serializable
+data class ControlGroup(
+  val current: Int = 0,
+  val name: String? = null,
+  val names: List<String> = emptyList(),
+)
+
+// ---------------------------------------------------------------------------
 // Implements (recursive) + combined
 // ---------------------------------------------------------------------------
 
@@ -262,6 +323,10 @@ data class Implement(
   val pipe: Pipe? = null,
   val cover: Cover? = null,
   val wearable: Wearable? = null,
+  val schema: Schema? = null,
+  val selection: Selection? = null,
+  /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
+  val jointDescIndex: Int? = null,
   val implement: List<Implement> = emptyList(),
 )
 

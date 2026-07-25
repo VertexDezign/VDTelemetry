@@ -44,7 +44,7 @@ class VdtModelTest {
   fun parsesTractorWithCultivator() {
     val data = model("tractor_with_cultivator.json")
 
-    assertEquals("3", data.version)
+    assertEquals("4", data.version)
     assertEquals("01.08.2024", data.environment?.date)
 
     // weather
@@ -235,6 +235,46 @@ class VdtModelTest {
     assertEquals(4, unit.capacity)
     assertEquals(FillDisplayType.STEP, unit.display)
     assertEquals(0, unit.precision)
+  }
+
+  @Test
+  fun decodesSchemaAndSelection() {
+    // The rig diagram: each object names a silhouette and lists where children hang off it, and the
+    // child points back with jointDescIndex. Inline rather than a fixture — the committed captures
+    // predate the mod exporting any of this, and the offsets are per-vehicle XML data that would be
+    // invented if hand-written into examples/json.
+    val text =
+      """{"version":"4","vehicle":{"schema":{"name":"HARVESTER","offsetX":0.25,"offsetY":0.5,""" +
+        """"attacherJoint":[{"x":0.1,"y":0.2,"rotation":0,"invertX":false},""" +
+        """{"x":0.9,"y":0.3,"rotation":1.5,"invertX":true,"liftedOffsetY":5}]},""" +
+        """"selection":{"selected":false},""" +
+        """"implement":[{"position":"FRONT","jointDescIndex":2,"schema":{"name":"COMBINE_HEADER"},""" +
+        """"selection":{"selected":true,"controlGroup":{"current":2,"name":"Greifer",""" +
+        """"names":["Kran","Greifer"]}}}]}}"""
+    val v = assertNotNull(VdtParser.parseJson(text).vehicle)
+
+    val schema = assertNotNull(v.schema)
+    assertEquals("HARVESTER", schema.name)
+    assertEquals(0.25f, schema.offsetX)
+    assertEquals(2, schema.attacherJoint.size)
+    assertTrue(schema.attacherJoint[1].invertX)
+    assertEquals(5f, schema.attacherJoint[1].liftedOffsetY)
+    // absent border fields stay null rather than defaulting to a misleading 0
+    assertEquals(null, schema.borderLeft)
+
+    val imp = assertNotNull(v.implement.singleOrNull())
+    // the child indexes into the *parent's* joint list
+    assertEquals(2, imp.jointDescIndex)
+    assertEquals("COMBINE_HEADER", imp.schema?.name)
+    assertTrue(imp.schema?.attacherJoint?.isEmpty() == true)
+
+    // exactly one node in the rig is selected, and it carries the control group
+    assertEquals(false, v.selection?.selected)
+    assertEquals(true, imp.selection?.selected)
+    val group = assertNotNull(imp.selection?.controlGroup)
+    assertEquals(2, group.current)
+    assertEquals("Greifer", group.name)
+    assertEquals(listOf("Kran", "Greifer"), group.names)
   }
 
   @Test

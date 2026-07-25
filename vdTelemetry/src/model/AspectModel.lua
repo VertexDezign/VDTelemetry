@@ -38,3 +38,33 @@
 ---@field state string CLOSED | OPEN
 ---@field index number
 ---@field count number
+
+-- Where a child hangs off this object in the schema diagram. Raw engine values -- composing them
+-- down the tree is the consumer's job (see collect/aspects/Schema.lua).
+---@class SchemaJointModel
+---@field x number
+---@field y number
+---@field rotation number
+---@field invertX boolean
+---@field liftedOffsetX number
+---@field liftedOffsetY number
+
+-- The object's silhouette in the game's rig diagram. `attacherJoint` is absent when it has none.
+---@class SchemaModel
+---@field name string VEHICLE | HARVESTER | TRAILER | ... (mod-prefixed for modded silhouettes)
+---@field offsetX number
+---@field offsetY number
+---@field borderLeft number?
+---@field borderRight number?
+---@field attacherJoint SchemaJointModel[]?
+
+-- The moving-tool group the player is cycling through on a Cylindered object (crane, front loader).
+-- `current` is 0 when none is active; `name` is names[current], absent when current is 0.
+---@class ControlGroupModel
+---@field current number
+---@field name string?
+---@field names string[]
+
+---@class SelectionModel
+---@field selected boolean
+---@field controlGroup ControlGroupModel?

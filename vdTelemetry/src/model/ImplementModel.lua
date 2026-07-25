@@ -14,4 +14,7 @@
 ---@field pipe PipeModel?
 ---@field cover CoverModel?
 ---@field wearable WearableModel?
+---@field schema SchemaModel?
+---@field selection SelectionModel?
+---@field jointDescIndex number?
 ---@field implement ImplementModel[]?

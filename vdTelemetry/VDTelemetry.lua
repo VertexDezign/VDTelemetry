@@ -31,6 +31,8 @@ local sourceFiles = {
   "src/collect/aspects/Pipe.lua",
   "src/collect/aspects/Cover.lua",
   "src/collect/aspects/Wearable.lua",
+  "src/collect/aspects/Schema.lua",
+  "src/collect/aspects/Selection.lua",
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
@@ -112,7 +114,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    plus the optional `precision` / `display` hints. See vehicle-data-plan.md §1.
 -- 3: `pipe` and `cover` are objects rather than bare state strings — multi-state pipes and
 --    multi-cover vehicles could not be expressed as one label. See vehicle-data-plan.md §2.
-VDTelemetry.VERSION = 3
+-- 4: `schema` (the rig-diagram silhouette + attacher joints), `selection` (what the player's
+--    controls act on, plus the Cylindered control group) and the implement's `jointDescIndex`.
+--    See vehicle-data-plan.md §3.
+VDTelemetry.VERSION = 4
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

@@ -3,8 +3,8 @@
 -- key out of the Lua table, so absent aspects become absent JSON keys (Model.kt supplies defaults).
 -- Namespaced under VDT.* (see TurnOn.lua).
 --
--- Field order follows Model.kt (isTurnedOn, foldable, lowered, fillUnits, pipe, cover, wearable);
--- JSON is key-addressed so order is cosmetic.
+-- Field order follows Model.kt (isTurnedOn, foldable, lowered, fillUnits, pipe, cover, wearable,
+-- schema, selection); JSON is key-addressed so order is cosmetic.
 
 VDT = VDT or {}
 VDT.Aspects = {}
@@ -19,4 +19,6 @@ function VDT.Aspects.apply(object, model)
   model.pipe = VDT.Pipe.collect(object)
   model.cover = VDT.Cover.collect(object)
   model.wearable = VDT.Wearable.collect(object)
+  model.schema = VDT.Schema.collect(object)
+  model.selection = VDT.Selection.collect(object)
 end
