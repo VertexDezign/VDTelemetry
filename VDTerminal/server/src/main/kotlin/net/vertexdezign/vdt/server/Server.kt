@@ -109,6 +109,20 @@ fun main() {
   val commandWriter = CommandWriter(Config.commandPath())
   log.info("Command file: {}", Config.commandPath())
 
+  // Which ground-layer planes the connected dashboards are showing; the mod sweeps only those.
+  val mapLayerSubscriptions =
+    MapLayerSubscriptions { ids ->
+      log.info("Ground-layer subscription: {}", if (ids.isEmpty()) "(none)" else ids.joinToString(","))
+      commandWriter.submit(ClientMessage.SetMapLayers(ids))
+    }
+  // Say so once at startup, before any dashboard connects. A mod that outlived a previous server
+  // process still holds that process's last subscription, and would otherwise keep sweeping for a
+  // dashboard that no longer exists -- nothing else would ever tell it the watchers are gone.
+  commandWriter.submit(ClientMessage.SetMapLayers(emptyList()))
+  val sessionIds =
+    java.util.concurrent.atomic
+      .AtomicLong()
+
   log.info("Server starting on port {}", Config.port)
   embeddedServer(Netty, port = Config.port) {
     install(WebSockets)
@@ -125,6 +139,9 @@ fun main() {
       get("/health") { call.respondText("OK") }
 
       webSocket("/ws") {
+        // Identifies this session for as long as its socket lives -- see mapLayerSubscriptions, the one
+        // piece of per-session state the server keeps.
+        val sessionId = sessionIds.incrementAndGet()
         // Outgoing: push each StateFlow's current value on connect + every subsequent update. One job
         // per channel so the slow taskList feed broadcasts on its own cadence, not the telemetry tick.
         val sendJob =
@@ -221,14 +238,23 @@ fun main() {
           for (frame in incoming) {
             if (frame is Frame.Text) {
               try {
-                val message = json.decodeFromString(ClientMessage.serializer(), frame.readText())
-                commandWriter.submit(message)
+                when (val message = json.decodeFromString(ClientMessage.serializer(), frame.readText())) {
+                  // Session-scoped: what THIS dashboard is showing. The mod gets the union across all
+                  // of them, which the registry submits when it changes -- so this one is not written
+                  // through as sent.
+                  is ClientMessage.SetMapLayers -> mapLayerSubscriptions.show(sessionId, message.ids)
+
+                  else -> commandWriter.submit(message)
+                }
               } catch (e: Exception) {
                 log.warn("Ignoring unparseable client message", e)
               }
             }
           }
         } finally {
+          // This dashboard is gone, so its planes stop counting toward the union: the last one to
+          // leave takes the mod's sweep with it.
+          mapLayerSubscriptions.forget(sessionId)
           sendJob.cancel()
           taskListJob.cancel()
           cropRotationJob.cancel()

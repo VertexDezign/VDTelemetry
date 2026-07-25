@@ -40,6 +40,19 @@ class CommandWriterTest {
   }
 
   @Test
+  fun `writes the ground-layer subscription as a comma-separated set`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    val writer = CommandWriter(path)
+    writer.submit(ClientMessage.SetMapLayers(listOf("crops", "growth")))
+    assertTrue(path.readText().contains("type=\"setMapLayers\" ids=\"crops,growth\""), path.readText())
+
+    // The empty set is the "nobody is looking" state, not a missing attribute -- the mod parses it as
+    // an explicit "sweep nothing".
+    writer.submit(ClientMessage.SetMapLayers(emptyList()))
+    assertTrue(path.readText().contains("type=\"setMapLayers\" ids=\"\""), path.readText())
+  }
+
+  @Test
   fun `writes crop rotation slot edits with int attributes`() {
     val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
     val writer = CommandWriter(path)

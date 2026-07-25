@@ -436,6 +436,24 @@ sealed interface ClientMessage {
     val title: String,
     val amount: Int,
   ) : ClientMessage
+
+  /**
+   * The ground-layer raster planes this dashboard is currently showing (empty = none). The mod
+   * grid-samples only what someone is looking at — its most expensive channel by far — so this is
+   * what causes a plane to be swept at all.
+   *
+   * The only **session-scoped** message: every other command describes the world and is forwarded
+   * to the mod as sent, but this one describes a viewer. The server keeps it per WebSocket session,
+   * drops it when that session closes, and sends the mod the union across connected dashboards — so
+   * this exact type also carries that union onward to `commands.xml`, with the scope being the only
+   * difference. Absolute state, and re-sent by the client on reconnect (the server can only forget
+   * a session's selection, never inherit it).
+   */
+  @Serializable
+  @SerialName("setMapLayers")
+  data class SetMapLayers(
+    val ids: List<String> = emptyList(),
+  ) : ClientMessage
 }
 
 /**

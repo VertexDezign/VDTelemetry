@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
@@ -59,6 +60,7 @@ object MapWidget : Widget {
       fieldInfo = fieldInfo,
       mapLayerUrl = store.mapLayerUrl,
       mapLayers = mapLayers,
+      onShowLayers = { ids -> store.onCommand(ClientMessage.SetMapLayers(ids)) },
     )
   }
 }

@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -129,6 +130,9 @@ private const val KEY_POI_CATS = "vdt.poiCats"
 private const val KEY_VEH_STATES = "vdt.vehStates"
 private const val KEY_GROUND_LAYER = "vdt.groundLayer"
 
+/** The "no overlay" selection — persisted like a layer id, and the one that subscribes to nothing. */
+private const val NO_GROUND_LAYER = "none"
+
 /** Ground-layer PNG fetch: total attempts, and the pause before the retry. See the fetch effect. */
 private const val LAYER_FETCH_ATTEMPTS = 2
 private const val LAYER_FETCH_RETRY_MS = 750L
@@ -154,6 +158,22 @@ private val mapImageCache = mutableMapOf<String, ImageBitmap>()
  * unboundedly across a session instead of just holding the one most-recently-shown layer.
  */
 private var layerImageCache: Pair<String, ImageBitmap>? = null
+
+/**
+ * Every live map panel's ground-layer selection, keyed by panel instance, so what the app tells the
+ * server is the union across them. A dashboard can hold two map widgets showing different planes, and
+ * one of them leaving composition must not report "nobody is looking" while the other still is.
+ *
+ * Module-level for the same reason the caches above are: it has to outlive any one panel. Only touched
+ * from the composition, which is single-threaded, so no synchronization is needed.
+ */
+private val liveLayerSelections = mutableMapOf<Any, List<String>>()
+
+/** Record (or, with a null selection, drop) one panel's choice and return the union to report. */
+private fun layerUnion(panel: Any, selection: List<String>?): List<String> {
+  if (selection == null) liveLayerSelections.remove(panel) else liveLayerSelections[panel] = selection
+  return liveLayerSelections.values.flatten().distinct().sorted()
+}
 
 /** Shared with the caches above: outliving the panel is the whole point, so it can't be `remember`ed. */
 private val mapImageClient by lazy { HttpClient() }
@@ -181,13 +201,14 @@ fun MapPanel(
   fieldInfo: FieldInfoData? = null,
   mapLayerUrl: String = "",
   mapLayers: MapLayersInfo? = null,
+  onShowLayers: (List<String>) -> Unit = {},
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
   var showFields by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_FIELDS, true)) }
   var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
   var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
-  var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, "none")) }
+  var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, NO_GROUND_LAYER)) }
   var filterOpen by remember { mutableStateOf(false) }
   // The field whose info popup is open (its id / farmland number), or null when none. Set by tapping
   // a field label, cleared by tapping empty map or the popup's close button.
@@ -255,6 +276,20 @@ fun MapPanel(
   LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
   LaunchedEffect(vehStates) { settings.putString(KEY_VEH_STATES, vehStates.joinToString(",")) }
   LaunchedEffect(groundLayer) { settings.putString(KEY_GROUND_LAYER, groundLayer) }
+
+  // Tell the mod which plane to sweep: it grid-samples only what a dashboard is actually showing, so
+  // the selection is what causes a raster to exist at all. Cleared when the panel leaves composition
+  // (page switch, tab closed), which is what makes a map nobody is looking at cost the mod nothing.
+  val panelToken = remember { Any() }
+  // rememberUpdatedState, so the dispose path reports through the CURRENT sink rather than the one
+  // captured when the panel first composed.
+  val showLayers by rememberUpdatedState(onShowLayers)
+  LaunchedEffect(groundLayer) {
+    showLayers(layerUnion(panelToken, if (groundLayer == NO_GROUND_LAYER) emptyList() else listOf(groundLayer)))
+  }
+  DisposableEffect(panelToken) {
+    onDispose { showLayers(layerUnion(panelToken, null)) }
+  }
 
   // The selected layer's slim info (legend + version), or null when unselected / not offered by the
   // current data -- the persisted id simply draws nothing until it reappears (edge case in the plan).
@@ -1004,7 +1039,7 @@ private fun BoxScope.MapFilterPanel(
     // "selected" indicator, and each row's tap sets groundLayer directly rather than toggling.
     if (mapLayers != null) {
       Text("Ground layer", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
-      FilterRow("None", checked = groundLayer == "none") { onGroundLayer("none") }
+      FilterRow("None", checked = groundLayer == NO_GROUND_LAYER) { onGroundLayer(NO_GROUND_LAYER) }
       for (layer in mapLayers.layers) {
         // The mod labels each plane from the game's own overlay selector, so a plane this app has
         // never heard of (Precision Farming's) still gets a proper, localized name.
