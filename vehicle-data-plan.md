@@ -9,11 +9,13 @@ Written 2026-07-25 on `main`, from a review of the vehicle collectors against th
   filter switch was deliberately **not** taken; it stays open below.
 - §2 pipe/cover mappers — **done**, mod + shared only, no app changes. Not yet validated in-game.
 - §3 layout + selected group — **done**, mod + shared only, no app changes. Not yet validated in-game.
-- §4 — open, nothing started.
+- §4 backlog — **done bar one conditional item.** Six new aspects landed; the `Consumable` block stays
+  open because it was always gated on wanting the "last roll" alert. Two of the eight listed items
+  turned out to be **non-issues** — see §4.
 
 §1 was the only one that fixed a *wrong number* already on screen; the rest add data that wasn't there
-at all. The mod's export version is now **4** — one bump per shape change (2 = fill units, 3 = pipe
-and cover objects, 4 = schema and selection).
+at all. The mod's export version is now **5** — one bump per shape change (2 = fill units, 3 = pipe
+and cover objects, 4 = schema and selection, 5 = the §4 aspects).
 
 Every game-source claim below is cited by `file:line` against the bundled source, which is real
 extracted FS25 Lua. What is **not** available in the sandbox is base-game **vehicle XML** — so anything
@@ -375,9 +377,51 @@ core vehicle state that any new dashboard would want on day one.
   if that alert is wanted; §1 is enough for correct levels.
 - **`BaleCounter`** — total and session bale counts.
 - **`WorkMode` / `VariableWorkWidth`** — current mode name, live working width.
-- **`Motorized`** fuel *consumption rate* (we export levels, not usage).
-- **`spec_washable`** — it's in the mod's spec list but dirt currently arrives via `Wearable`; worth
-  confirming which source is actually being read.
+
+### How it landed (2026-07-25)
+
+Six aspects, all through `Aspects.apply`, all valid on vehicle *and* implement. Mod version **5**.
+
+| aspect | from | carries |
+|---|---|---|
+| `discharge` | `Dischargeable` | `state` (OFF/OBJECT/GROUND), `allowed`, node + fill-unit index, `hasObject`, `hitTerrain`, `reason` |
+| `tipping` | `Trailer` | `state` (CLOSED/OPENING/OPEN/CLOSING), `side`, `preferredSide`, `count` |
+| `harvest` | `Combine` | `swathActive` plus `swathAvailable` / `chopperAvailable` |
+| `workMode` | `WorkMode` | `current`, `count`, resolved `name` |
+| `workWidth` | `VariableWorkWidth` | per-side `left`/`right` and their maxima, plus `total` |
+| `baleCounter` | `BaleCounter` | `session`, `lifetime` |
+
+`discharge.reason` is the pick of these — the engine's own verdict on why unloading is refused
+(`NO_FREE_CAPACITY`, `NO_ACCESS_LAND`, …), the same code behind its on-screen warning, and nothing a
+dashboard could work out for itself.
+
+**Deliberately field-reads only.** `Dischargeable` also exposes `getCanDischargeToGround` /
+`AtPosition` / `ToObject`, but those run terrain and fill-type queries — they are not called on the
+export path. Everything collected here is engine-maintained state the discharge raycast already
+updated.
+
+Two design notes worth keeping: `discharge` and `tipping` are separate because a tipper sits in
+`OPENING` with nothing discharging yet, and `tipping.side` / `preferredSide` stay distinct because the
+first is nil until a side is in use while the second is always set. Collapsing either pair would be
+the same mistake §2 had to undo.
+
+Tests: `spec/WorkAspects_spec.lua` plus a Kotlin decode case; the Lua suite is at 340. Synthetic
+again, for the sharpest reason yet — these aspects only appear on an auger wagon, a tipper and a
+baler, and **none of the four committed fixtures contains any such machine**. A capture from a tipping
+trailer and one from a baler would cover most of this in one go.
+
+**Deferred to the redesign:** every one of these. Nothing renders them.
+
+**Still open from this section:** the `Consumable` first-class block, which was always conditional on
+wanting a "you're on your last roll" alert. §1 already makes the *level* correct, so this would only
+add the loaded variation, the storage/consuming split and the warning flags. Say if the alert is
+wanted.
+- ~~**`Motorized`** fuel *consumption rate*~~ — **wrong, already exported.** `Motor.lua:13-25` passes
+  `lastFuelUsage` / `lastDefUsage` / `lastAirUsage` through as `usage`, and `combine.json` carries
+  `"usage": 216.71` on the fuel unit. This item should never have been on the list.
+- ~~**`spec_washable`**~~ — **non-issue, already correct.** `aspects/Wearable.lua` reads damage/wear
+  from `spec_wearable` and dirt from `spec_washable` via `getDirtAmount()`, exactly as it should. The
+  two specs share one output block, which is what made it look like one source.
 
 ---
 
@@ -391,11 +435,11 @@ Ordered so the app is touched once, early, and then left alone until the redesig
 2. ~~**§2 pipe + cover mappers** and **§3 layout + selected group**.~~ — **both done** (see their "How
    it landed" sections), mod + shared only as predicted, no app changes in either. Both still want
    in-game validation, and §3 wants a captured fixture with a real implement rig.
-3. **§4 as far as appetite allows, `Dischargeable` first** — still before the redesign, for the reason
-   given in §4.
+3. ~~**§4 as far as appetite allows, `Dischargeable` first**~~ — **done** bar the conditional
+   `Consumable` block; two of the listed items turned out to be non-issues. See "How it landed".
 4. **Then the UI redesign**, against a data layer that is already correct and already complete enough
    to design against. Each item above leaves a "deferred to the redesign" note; together those are the
-   redesign's inbox.
+   redesign's inbox. **This is now the next step** — the export side is done.
 
 One consequence, now real rather than anticipated: the dashboard shows *more correct* data but not
 *more* data. Pipe, cover, schema and selection are all in the JSON and nothing renders them. That's
@@ -422,6 +466,14 @@ the intended trade, not a regression — but it does mean the only way to check 
   wanted as a fixture too.)
 - Does `controlGroup` populate on a front loader or crane, with sensible `names`? (§3 — the names come
   from XML and may be i18n keys rather than resolved text on some mods.)
+- **Do the §4 aspects populate on the machines that have them?** None of the four fixtures contains an
+  auger wagon, a tipper or a baler, so every §4 test is synthetic. The highest-value single check is
+  `discharge.reason` on a trailer the game is refusing to unload — back up to a full silo and confirm
+  it reads `NO_FREE_CAPACITY`. `workMode.name` is the other one worth a look, since it may come
+  through as an unresolved i18n key on some mods.
+- Captures wanted as fixtures: a **tipping trailer** and a **baler**. Between them they would cover
+  `tipping`, `discharge`, `baleCounter`, the `STEP` consumable bar from §1, and give §3 its first real
+  `jointDescIndex` chain.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does
   a forage/carrot harvester's pass-through output carry `showOnHud="true"`? (§1 secondary — gates the
   filter switch, which was deliberately not taken.)

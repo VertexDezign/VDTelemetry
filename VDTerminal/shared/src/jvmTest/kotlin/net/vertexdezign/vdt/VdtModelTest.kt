@@ -1,11 +1,14 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.DischargeReason
+import net.vertexdezign.vdt.model.DischargeState
 import net.vertexdezign.vdt.model.DriveDirection
 import net.vertexdezign.vdt.model.FillDisplayType
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PipeState
+import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.VdtData
 import java.io.File
 import kotlin.test.Test
@@ -44,7 +47,7 @@ class VdtModelTest {
   fun parsesTractorWithCultivator() {
     val data = model("tractor_with_cultivator.json")
 
-    assertEquals("4", data.version)
+    assertEquals("5", data.version)
     assertEquals("01.08.2024", data.environment?.date)
 
     // weather
@@ -275,6 +278,48 @@ class VdtModelTest {
     assertEquals(2, group.current)
     assertEquals("Greifer", group.name)
     assertEquals(listOf("Kran", "Greifer"), group.names)
+  }
+
+  @Test
+  fun decodesUnloadingAndWorkAspects() {
+    // The §4 aspects. Inline for the same reason as the schema case: the committed captures predate
+    // all of them, and they only appear on machines (auger wagon, tipper, baler) none of the four
+    // fixtures contain.
+    val text =
+      """{"version":"5","vehicle":{"discharge":{"state":"GROUND","allowed":true,"nodeIndex":1,""" +
+        """"fillUnitIndex":2,"hasObject":false,"hitTerrain":true},""" +
+        """"harvest":{"swathActive":true,"swathAvailable":true,"chopperAvailable":false},""" +
+        """"implement":[{"position":"BACK","tipping":{"state":"OPENING","preferredSide":3,"count":3},""" +
+        """"discharge":{"state":"OFF","allowed":true,"reason":"NO_FREE_CAPACITY"},""" +
+        """"workMode":{"current":2,"count":2,"name":"Arbeit"},""" +
+        """"workWidth":{"left":3.0,"leftMax":3.0,"right":1.5,"rightMax":3.0,"total":4.5,"unit":"m"},""" +
+        """"baleCounter":{"session":12,"lifetime":480}}]}}"""
+    val v = assertNotNull(VdtParser.parseJson(text).vehicle)
+
+    val discharge = assertNotNull(v.discharge)
+    assertEquals(DischargeState.GROUND, discharge.state)
+    assertEquals(1, discharge.nodeIndex)
+    assertTrue(discharge.hitTerrain == true)
+    // nothing wrong -> no reason at all, rather than a "fine" sentinel
+    assertEquals(null, discharge.reason)
+
+    assertEquals(true, v.harvest?.swathActive)
+    assertEquals(false, v.harvest?.chopperAvailable)
+
+    val imp = assertNotNull(v.implement.singleOrNull())
+    // a tipper can be mid-OPENING with nothing discharging yet, and with a side chosen but not in use
+    assertEquals(TipState.OPENING, imp.tipping?.state)
+    assertEquals(null, imp.tipping?.side)
+    assertEquals(3, imp.tipping?.preferredSide)
+    assertEquals(DischargeState.OFF, imp.discharge?.state)
+    assertEquals(DischargeReason.NO_FREE_CAPACITY, imp.discharge?.reason)
+
+    assertEquals("Arbeit", imp.workMode?.name)
+    // sides are independent: right folded to half width
+    assertEquals(3f, imp.workWidth?.left)
+    assertEquals(1.5f, imp.workWidth?.right)
+    assertEquals(4.5f, imp.workWidth?.total)
+    assertEquals(480, imp.baleCounter?.lifetime)
   }
 
   @Test

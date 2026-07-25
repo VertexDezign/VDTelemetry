@@ -23,6 +23,12 @@ data class Vehicle(
   val wearable: Wearable? = null,
   val schema: Schema? = null,
   val selection: Selection? = null,
+  val discharge: Discharge? = null,
+  val tipping: Tipping? = null,
+  val harvest: Harvest? = null,
+  val workMode: WorkMode? = null,
+  val workWidth: WorkWidth? = null,
+  val baleCounter: BaleCounter? = null,
   val implement: List<Implement> = emptyList(),
   val combined: Combined? = null,
 )
@@ -308,6 +314,105 @@ data class ControlGroup(
 )
 
 // ---------------------------------------------------------------------------
+// Unloading / tipping / work configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * Unloading state — trailers, combines, auger wagons.
+ *
+ * Distinct from [Pipe], which only says where the spout is: this says whether material is actually
+ * moving and, via [reason], why it isn't. That reason is the engine's own verdict, the same one
+ * behind its on-screen warning, and is not something a dashboard could derive for itself.
+ */
+@Serializable
+data class Discharge(
+  val state: DischargeState = DischargeState.OFF,
+  /** Whether unloading is permitted at all; some specs latch this off (e.g. while folding). */
+  val allowed: Boolean = true,
+  val nodeIndex: Int? = null,
+  val fillUnitIndex: Int? = null,
+  /** Something fillable is under the discharge node right now. */
+  val hasObject: Boolean? = null,
+  /** The node is pointed at terrain, i.e. tipping on the ground is physically possible here. */
+  val hitTerrain: Boolean? = null,
+  val reason: DischargeReason? = null,
+)
+
+@Serializable
+enum class DischargeState { OFF, OBJECT, GROUND }
+
+/** Why the game is refusing to unload. `null` means nothing is wrong. */
+@Serializable
+enum class DischargeReason {
+  NOT_ALLOWED_HERE,
+  NO_FREE_CAPACITY,
+  FILLTYPE_NOT_SUPPORTED,
+  TOOLTYPE_NOT_SUPPORTED,
+  NO_ACCESS,
+  NO_ACCESS_LAND,
+}
+
+/**
+ * The trough itself moving, as opposed to material leaving it ([Discharge]). A tipper can sit in
+ * [TipState.OPENING] with nothing coming out yet.
+ *
+ * [side] is which tip side is in use on a multi-way tipper and is null until one is chosen;
+ * [preferredSide] is the one the next tip will use, so it is always set.
+ */
+@Serializable
+data class Tipping(
+  val state: TipState = TipState.CLOSED,
+  val side: Int? = null,
+  val preferredSide: Int? = null,
+  val count: Int? = null,
+)
+
+@Serializable
+enum class TipState { CLOSED, OPENING, OPEN, CLOSING }
+
+/**
+ * Combine straw handling: drop a swath to bale later, or chop it back onto the field. The
+ * `*Available` flags say whether this machine offers the choice at all, which is what tells a
+ * consumer whether to show a toggle or nothing.
+ */
+@Serializable
+data class Harvest(
+  val swathActive: Boolean = false,
+  val swathAvailable: Boolean? = null,
+  val chopperAvailable: Boolean? = null,
+)
+
+/** The discrete mode a tool is switched to. [name] comes from the vehicle XML and may be absent. */
+@Serializable
+data class WorkMode(
+  val current: Int = 0,
+  val count: Int = 0,
+  val name: String? = null,
+)
+
+/**
+ * Live working width of a tool with retractable sections — it changes as sections are switched off,
+ * so it is not a static spec value. The two sides are independent (half-width on one side is a normal
+ * headland technique).
+ */
+@Serializable
+data class WorkWidth(
+  val left: Float = 0f,
+  val leftMax: Float = 0f,
+  val right: Float = 0f,
+  val rightMax: Float = 0f,
+  val total: Float = 0f,
+  val unit: String = "",
+)
+
+/** [session] is resettable from the vehicle's own action; [lifetime] is not. */
+@Serializable
+data class BaleCounter(
+  val session: Int = 0,
+  val lifetime: Int = 0,
+)
+
+// ---------------------------------------------------------------------------
 // Implements (recursive) + combined
 // ---------------------------------------------------------------------------
 
@@ -325,6 +430,12 @@ data class Implement(
   val wearable: Wearable? = null,
   val schema: Schema? = null,
   val selection: Selection? = null,
+  val discharge: Discharge? = null,
+  val tipping: Tipping? = null,
+  val harvest: Harvest? = null,
+  val workMode: WorkMode? = null,
+  val workWidth: WorkWidth? = null,
+  val baleCounter: BaleCounter? = null,
   /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
   val jointDescIndex: Int? = null,
   val implement: List<Implement> = emptyList(),

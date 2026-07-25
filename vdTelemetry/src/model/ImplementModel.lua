@@ -16,5 +16,11 @@
 ---@field wearable WearableModel?
 ---@field schema SchemaModel?
 ---@field selection SelectionModel?
+---@field discharge DischargeModel?
+---@field tipping TippingModel?
+---@field harvest HarvestModel?
+---@field workMode WorkModeModel?
+---@field workWidth WorkWidthModel?
+---@field baleCounter BaleCounterModel?
 ---@field jointDescIndex number?
 ---@field implement ImplementModel[]?

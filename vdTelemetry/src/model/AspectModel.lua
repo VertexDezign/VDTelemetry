@@ -68,3 +68,45 @@
 ---@class SelectionModel
 ---@field selected boolean
 ---@field controlGroup ControlGroupModel?
+
+-- `reason` is the engine's own code for why unloading is blocked; absent when nothing is wrong.
+---@class DischargeModel
+---@field state string OFF | OBJECT | GROUND
+---@field allowed boolean
+---@field nodeIndex number?
+---@field fillUnitIndex number?
+---@field hasObject boolean?
+---@field hitTerrain boolean?
+---@field reason string? NOT_ALLOWED_HERE | NO_FREE_CAPACITY | FILLTYPE_NOT_SUPPORTED | TOOLTYPE_NOT_SUPPORTED | NO_ACCESS | NO_ACCESS_LAND
+
+-- The trough moving, as opposed to material leaving it (see DischargeModel). `side` is nil until a
+-- tip side is picked; `preferredSide` is what the next tip will use.
+---@class TippingModel
+---@field state string CLOSED | OPENING | OPEN | CLOSING
+---@field side number?
+---@field preferredSide number?
+---@field count number?
+
+-- Straw handling on a combine: swath it for baling, or chop it back onto the field.
+---@class HarvestModel
+---@field swathActive boolean
+---@field swathAvailable boolean?
+---@field chopperAvailable boolean?
+
+---@class WorkModeModel
+---@field current number
+---@field count number
+---@field name string?
+
+-- Live width of a tool with retractable sections; sides are independent.
+---@class WorkWidthModel
+---@field left number
+---@field leftMax number
+---@field right number
+---@field rightMax number
+---@field total number
+---@field unit string
+
+---@class BaleCounterModel
+---@field session number
+---@field lifetime number

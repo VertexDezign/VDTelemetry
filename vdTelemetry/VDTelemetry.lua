@@ -33,6 +33,11 @@ local sourceFiles = {
   "src/collect/aspects/Wearable.lua",
   "src/collect/aspects/Schema.lua",
   "src/collect/aspects/Selection.lua",
+  "src/collect/aspects/Discharge.lua",
+  "src/collect/aspects/Tipping.lua",
+  "src/collect/aspects/Harvest.lua",
+  "src/collect/aspects/Work.lua",
+  "src/collect/aspects/BaleCounter.lua",
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
@@ -117,7 +122,9 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 4: `schema` (the rig-diagram silhouette + attacher joints), `selection` (what the player's
 --    controls act on, plus the Cylindered control group) and the implement's `jointDescIndex`.
 --    See vehicle-data-plan.md §3.
-VDTelemetry.VERSION = 4
+-- 5: `discharge`, `tipping`, `harvest`, `workMode`, `workWidth` and `baleCounter` aspects.
+--    See vehicle-data-plan.md §4.
+VDTelemetry.VERSION = 5
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
