@@ -18,6 +18,7 @@ import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.net.TelemetryRepository
 import net.vertexdezign.vdt.app.pages.PageStore
+import net.vertexdezign.vdt.app.state.FavouritesStore
 import net.vertexdezign.vdt.app.state.VdtStore
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -84,6 +85,7 @@ fun main() {
       settings = settings,
       pages = PageStore(settings),
       alerts = alerts,
+      favourites = FavouritesStore(settings),
       onToggleWakeLock = {
         WakeLock.toggle()
         wakeLock.value = currentWakeStatus()

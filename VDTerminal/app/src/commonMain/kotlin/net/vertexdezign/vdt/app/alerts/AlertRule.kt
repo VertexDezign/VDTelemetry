@@ -65,5 +65,9 @@ class KeyedAlertRule(
 /**
  * A raised [rule] with its [message] snapshotted at raise time. Identity (not value) equality is
  * intentional: the same rule re-raised later is a distinct alert to the banner surface.
+ *
+ * [at] is the **in-game** clock when the alert fired ("08:41"), taken from the telemetry rather than
+ * the wall clock: an alert here is about something that happened in the game's day, and the player
+ * reads their own time from the header. Null when it fired before any telemetry arrived.
  */
-class ActiveAlert(val rule: AlertRule, val message: String)
+class ActiveAlert(val rule: AlertRule, val message: String, val at: String? = null)

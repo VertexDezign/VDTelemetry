@@ -19,6 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,6 +64,9 @@ fun Launcher(
   onReorder: (fromIndex: Int, toIndex: Int) -> Unit,
   onRestoreDefaults: () -> Unit,
   onDismiss: () -> Unit,
+  pinned: Set<Screen>,
+  canPinMore: Boolean,
+  onTogglePin: (Screen) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   Box(
@@ -83,7 +88,14 @@ fun Launcher(
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       Section("APPS") {
-        Tiles(apps.map { Entry(it.icon, it.title, Screen.OpenApp(it.id)) }, screen, onOpen)
+        Tiles(
+          apps.map { Entry(it.icon, it.title, Screen.OpenApp(it.id)) },
+          screen,
+          onOpen,
+          pinned,
+          canPinMore,
+          onTogglePin,
+        )
       }
       Section("PAGES") {
         // Long-press a page tile to drag it into a new slot; the order is what drives both the swipe
@@ -93,6 +105,9 @@ fun Launcher(
           screen,
           onOpen,
           onReorder,
+          pinned,
+          canPinMore,
+          onTogglePin,
           trailing = { Tile(Icons.Filled.Add, "New page", active = false, onClick = onCreatePage) },
         )
         // With every page gone there's no path back to the seeded dashboards — offer to restore them.
@@ -142,6 +157,9 @@ private fun Tiles(
   entries: List<Entry>,
   screen: Screen,
   onOpen: (Screen) -> Unit,
+  pinned: Set<Screen>,
+  canPinMore: Boolean,
+  onTogglePin: (Screen) -> Unit,
   trailing: (@Composable () -> Unit)? = null,
 ) {
   // Reserve a slot for the trailing tile so it wraps with the rest instead of overflowing a row.
@@ -152,7 +170,15 @@ private fun Tiles(
         for (i in start until minOf(start + TILES_PER_ROW, slots)) {
           if (i < entries.size) {
             val entry = entries[i]
-            Tile(entry.icon, entry.title, active = entry.target == screen, onClick = { onOpen(entry.target) })
+            Tile(
+              entry.icon,
+              entry.title,
+              active = entry.target == screen,
+              onClick = { onOpen(entry.target) },
+              pinned = entry.target in pinned,
+              canPin = canPinMore,
+              onTogglePin = { onTogglePin(entry.target) },
+            )
           } else {
             trailing?.invoke()
           }
@@ -170,13 +196,54 @@ private fun Tile(
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
   highlighted: Boolean = false,
+  /** Null hides the pin control entirely (the "New page" tile has nothing to pin). */
+  pinned: Boolean? = null,
+  /** False greys an *unpinned* tile's star: the bar is full, so there's no slot to pin into. */
+  canPin: Boolean = true,
+  onTogglePin: (() -> Unit)? = null,
 ) {
+  Box(modifier) {
+    TileBody(icon, title, active, onClick, highlighted)
+    // The launcher is the "everything else" drawer, which makes it the natural place to choose what
+    // gets promoted out of it and into the bar.
+    if (pinned != null && onTogglePin != null) {
+      PinStar(pinned, canPin, onTogglePin, Modifier.align(Alignment.TopEnd))
+    }
+  }
+}
+
+@Composable
+private fun PinStar(pinned: Boolean, canPin: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+  val enabled = pinned || canPin
+  val tint = when {
+    pinned -> VdtColors.Green
+    enabled -> VdtColors.PanelBorder
+    else -> VdtColors.PanelBorder.copy(alpha = 0.4f)
+  }
+  Box(
+    modifier
+      .padding(2.dp)
+      .size(26.dp)
+      .clickable(enabled = enabled, onClick = onToggle),
+    contentAlignment = Alignment.Center,
+  ) {
+    Icon(
+      if (pinned) Icons.Filled.Star else Icons.Filled.StarBorder,
+      if (pinned) "unpin from bar" else "pin to bar",
+      tint = tint,
+      modifier = Modifier.size(16.dp),
+    )
+  }
+}
+
+@Composable
+private fun TileBody(icon: ImageVector, title: String, active: Boolean, onClick: () -> Unit, highlighted: Boolean) {
   val accent = if (active) VdtColors.Green else VdtColors.DarkGray
   // A drop-target tile borrows the green accent (bolder border) so the user sees where a dragged page
   // will land; otherwise the tile falls back to its active/idle look.
   val borderColor = if (highlighted || active) VdtColors.Green else VdtColors.PanelBorder
   Column(
-    modifier
+    Modifier
       .width(96.dp)
       .clip(RoundedCornerShape(6.dp))
       .background(
@@ -218,6 +285,9 @@ private fun ReorderablePageGrid(
   screen: Screen,
   onOpen: (Screen) -> Unit,
   onReorder: (fromIndex: Int, toIndex: Int) -> Unit,
+  pinned: Set<Screen>,
+  canPinMore: Boolean,
+  onTogglePin: (Screen) -> Unit,
   trailing: @Composable () -> Unit,
 ) {
   var gridCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -252,6 +322,9 @@ private fun ReorderablePageGrid(
             active = Screen.OpenPage(page.id) == screen,
             onClick = { onOpen(Screen.OpenPage(page.id)) },
             highlighted = !dragging && dropTarget == i,
+            pinned = Screen.OpenPage(page.id) in pinned,
+            canPin = canPinMore,
+            onTogglePin = { onTogglePin(Screen.OpenPage(page.id)) },
             modifier =
             Modifier
               .zIndex(if (dragging) 1f else 0f)

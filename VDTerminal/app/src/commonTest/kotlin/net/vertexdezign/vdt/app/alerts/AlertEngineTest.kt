@@ -2,6 +2,7 @@ package net.vertexdezign.vdt.app.alerts
 
 import net.vertexdezign.vdt.app.apps.TasksApp
 import net.vertexdezign.vdt.app.apps.VehicleApp
+import net.vertexdezign.vdt.model.Environment
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.Motor
 import net.vertexdezign.vdt.model.MotorFillUnits
@@ -30,6 +31,44 @@ class AlertEngineTest {
       ),
     ),
   )
+
+  @Test
+  fun historyKeepsAlertsAfterTheirConditionClears() {
+    val engine = engine()
+    engine.process(fuelData(50))
+    assertEquals(0, engine.history.value.size)
+
+    engine.process(fuelData(9))
+    assertEquals(1, engine.history.value.size)
+
+    // Refuelling clears the *active* set, but the history is a log of what happened.
+    engine.process(fuelData(80))
+    assertEquals(0, engine.active.value.size)
+    assertEquals(1, engine.history.value.size)
+
+    // A second dip is a second entry, newest first.
+    engine.process(fuelData(8))
+    assertEquals(2, engine.history.value.size)
+  }
+
+  @Test
+  fun historyStampsTheInGameClock() {
+    val engine = engine()
+    engine.process(fuelData(50, time = "08:41"))
+    engine.process(fuelData(9))
+    // The clock is held across ticks, so a tick without an environment doesn't blank the stamp.
+    assertEquals("08:41", engine.history.value.single().at)
+  }
+
+  @Test
+  fun clearHistoryLeavesTheActiveSetAlone() {
+    val engine = engine()
+    engine.process(fuelData(9))
+    engine.clearHistory()
+    assertEquals(0, engine.history.value.size)
+    // The tank is still low; forgetting the log must not un-raise the condition.
+    assertEquals(1, engine.active.value.size)
+  }
 
   @Test
   fun firesOnceOnTheTransitionNotPerTick() {
@@ -149,9 +188,10 @@ class AlertEngineTest {
   }
 }
 
-private fun fuelData(percent: Int) = AlertInputs(
+private fun fuelData(percent: Int, time: String? = null) = AlertInputs(
   telemetry =
   VdtData(
+    environment = time?.let { Environment(time = it) },
     vehicle =
     Vehicle(
       motor = Motor(fillUnits = MotorFillUnits(fuel = FillUnit(fillLevelPercentage = percent))),

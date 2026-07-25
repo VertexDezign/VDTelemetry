@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -24,12 +25,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.Screen
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
+import net.vertexdezign.vdt.app.apps.availableApps
 import net.vertexdezign.vdt.app.pages.Page
+import net.vertexdezign.vdt.app.state.Favourite
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
 
@@ -55,11 +60,18 @@ private val Gray600 = Color(0xFF4B5563)
 fun Footer(
   pages: List<Page>,
   currentPageId: String?,
+  screen: Screen?,
   modifier: Modifier = Modifier,
   onOpenLauncher: () -> Unit = {},
   onSelectPage: (String) -> Unit = {},
+  onOpenScreen: (Screen) -> Unit = {},
+  onOpenNotifications: () -> Unit = {},
 ) {
-  val alerts by LocalVdtStore.current.alerts.active.collectAsState()
+  val store = LocalVdtStore.current
+  val alerts by store.alerts.active.collectAsState()
+  val history by store.alerts.history.collectAsState()
+  val favourites by store.favourites.favourites.collectAsState()
+  val apps = availableApps()
 
   Row(
     modifier
@@ -69,8 +81,8 @@ fun Footer(
       .padding(horizontal = 14.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    // Left — navigation. The launcher is pinned to the edge so it never moves; pinned favourites are
-    // meant to grow rightward from it rather than displace it.
+    // Left — navigation. The launcher is pinned to the edge so it never moves; favourites grow
+    // rightward from it, so nothing displaces the one control whose position must be learnable.
     Row(
       Modifier.weight(1f),
       verticalAlignment = Alignment.CenterVertically,
@@ -85,6 +97,23 @@ fun Footer(
         contentAlignment = Alignment.Center,
       ) {
         Icon(Icons.Filled.Menu, "open app launcher", tint = VdtColors.White, modifier = Modifier.size(20.dp))
+      }
+
+      // Resolved against what exists *now*: a pin whose page was deleted or whose mod was removed
+      // renders as nothing rather than as a dead button, and comes back if the target does.
+      for (favourite in favourites) {
+        val target = favourite.toScreen()
+        when (favourite.kind) {
+          Favourite.Kind.App ->
+            apps.firstOrNull { it.id == favourite.id }?.let { app ->
+              FavouriteButton(app.icon, app.title, target == screen) { onOpenScreen(target) }
+            }
+
+          Favourite.Kind.Page ->
+            pages.firstOrNull { it.id == favourite.id }?.let { page ->
+              FavouriteButton(page.icon.vector, page.title, target == screen) { onOpenScreen(target) }
+            }
+        }
       }
     }
 
@@ -106,14 +135,78 @@ fun Footer(
       }
     }
 
-    // Right — what's wrong. Empty is the good case, and the usual one.
+    // Right — what's wrong, and the way into the log of what was. The chip is the live condition; the
+    // bell is history, and stays put whether or not anything is active so it has a fixed home.
     Row(
       Modifier.weight(1f),
       horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
       verticalAlignment = Alignment.CenterVertically,
     ) {
       alerts.maxByOrNull { it.rule.severity.ordinal }?.let { top ->
-        AlertChip(top.rule.title, top.rule.severity, extra = alerts.size - 1)
+        AlertChip(
+          top.rule.title,
+          top.rule.severity,
+          extra = alerts.size - 1,
+          onClick = onOpenNotifications,
+        )
+      }
+      NotificationBell(count = history.size, onClick = onOpenNotifications)
+    }
+  }
+}
+
+/** A pinned screen. Filled when it's the one open, so the row shows where you are as well as where you can go. */
+@Composable
+private fun FavouriteButton(icon: ImageVector, label: String, current: Boolean, onClick: () -> Unit) {
+  Box(
+    Modifier
+      .size(38.dp)
+      .clip(RoundedCornerShape(9.dp))
+      .background(if (current) VdtColors.Accent else VdtColors.White.copy(alpha = 0.08f))
+      .clickable(onClick = onClick),
+    contentAlignment = Alignment.Center,
+  ) {
+    Icon(
+      icon,
+      label,
+      tint = if (current) VdtColors.Black else VdtColors.White.copy(alpha = 0.8f),
+      modifier = Modifier.size(19.dp),
+    )
+  }
+}
+
+/** Opens the notification centre. The badge counts the session log, not the active set. */
+@Composable
+private fun NotificationBell(count: Int, onClick: () -> Unit) {
+  Box(contentAlignment = Alignment.TopEnd) {
+    Box(
+      Modifier
+        .size(38.dp)
+        .clip(RoundedCornerShape(9.dp))
+        .background(VdtColors.White.copy(alpha = 0.08f))
+        .clickable(onClick = onClick),
+      contentAlignment = Alignment.Center,
+    ) {
+      Icon(
+        Icons.Filled.Notifications,
+        "open notifications",
+        tint = VdtColors.White.copy(alpha = 0.8f),
+        modifier = Modifier.size(19.dp),
+      )
+    }
+    if (count > 0) {
+      Box(
+        Modifier
+          .clip(CircleShape)
+          .background(VdtColors.Red)
+          .padding(horizontal = 5.dp, vertical = 1.dp),
+      ) {
+        Text(
+          if (count > 9) "9+" else "$count",
+          color = VdtColors.White,
+          fontSize = 9.sp,
+          fontWeight = FontWeight.Bold,
+        )
       }
     }
   }
@@ -145,7 +238,7 @@ private fun PageDots(pages: List<Page>, currentPageId: String?, onSelectPage: (S
  * condition and never disagrees with the banner that announced it.
  */
 @Composable
-private fun AlertChip(title: String, severity: AlertSeverity, extra: Int) {
+private fun AlertChip(title: String, severity: AlertSeverity, extra: Int, onClick: () -> Unit) {
   val background = when (severity) {
     AlertSeverity.Critical -> VdtColors.Red
     AlertSeverity.Warning -> VdtColors.Amber
@@ -155,6 +248,7 @@ private fun AlertChip(title: String, severity: AlertSeverity, extra: Int) {
     Modifier
       .clip(RoundedCornerShape(100.dp))
       .background(background)
+      .clickable(onClick = onClick)
       .padding(horizontal = 12.dp, vertical = 6.dp),
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(7.dp),
