@@ -44,7 +44,7 @@ class VdtModelTest {
   fun parsesTractorWithCultivator() {
     val data = model("tractor_with_cultivator.json")
 
-    assertEquals("2", data.version)
+    assertEquals("3", data.version)
     assertEquals("01.08.2024", data.environment?.date)
 
     // weather
@@ -92,7 +92,11 @@ class VdtModelTest {
     assertEquals("combineDrivable", v.type)
     assertEquals(3.92f, v.speed?.value)
     assertEquals(FoldableState.EXTENDED, v.foldable)
-    assertEquals(PipeState.RETRACTED, v.pipe)
+    // `numStates` is absent from this fixture (it was captured before the mod exported it) and so
+    // falls back to 0; current == target == 1 is implied by the captured RETRACTED label.
+    assertEquals(PipeState.RETRACTED, v.pipe?.state)
+    assertEquals(1, v.pipe?.current)
+    assertEquals(1, v.pipe?.target)
 
     // combine motor has fuel + def but no air
     assertEquals(

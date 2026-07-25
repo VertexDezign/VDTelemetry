@@ -18,8 +18,8 @@ data class Vehicle(
   val foldable: FoldableState? = null,
   val lowered: Boolean? = null,
   val fillUnits: FillUnits? = null,
-  val pipe: PipeState? = null,
-  val cover: CoverType? = null,
+  val pipe: Pipe? = null,
+  val cover: Cover? = null,
   val wearable: Wearable? = null,
   val implement: List<Implement> = emptyList(),
   val combined: Combined? = null,
@@ -216,6 +216,37 @@ data class Wearable(
 )
 
 // ---------------------------------------------------------------------------
+// Pipe / cover
+// ---------------------------------------------------------------------------
+
+/**
+ * Unloading pipe (combines, auger wagons).
+ *
+ * The game reads positions from the vehicle's XML, so [numStates] is often greater than 2 and
+ * [state] alone can't distinguish "half out" from "fully out". [current] is `0` *while the pipe is
+ * moving* and `1..numStates` once it settles, where `1` is fully retracted; [target] is where it is
+ * heading, so `current != target` means it is still travelling.
+ */
+@Serializable
+data class Pipe(
+  val state: PipeState = PipeState.RETRACTED,
+  val current: Int = 0,
+  val target: Int = 0,
+  val numStates: Int = 0,
+)
+
+/**
+ * Tarp / cover. A vehicle can have several (a trailer with separate sections): [index] is `0` when
+ * everything is closed, otherwise the 1-based index of the open one, out of [count].
+ */
+@Serializable
+data class Cover(
+  val state: CoverType = CoverType.CLOSED,
+  val index: Int = 0,
+  val count: Int = 0,
+)
+
+// ---------------------------------------------------------------------------
 // Implements (recursive) + combined
 // ---------------------------------------------------------------------------
 
@@ -228,8 +259,8 @@ data class Implement(
   val foldable: FoldableState? = null,
   val lowered: Boolean? = null,
   val fillUnits: FillUnits? = null,
-  val pipe: PipeState? = null,
-  val cover: CoverType? = null,
+  val pipe: Pipe? = null,
+  val cover: Cover? = null,
   val wearable: Wearable? = null,
   val implement: List<Implement> = emptyList(),
 )

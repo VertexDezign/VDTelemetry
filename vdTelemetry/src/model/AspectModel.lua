@@ -25,3 +25,16 @@
 ---@field wear number?
 ---@field dirt number?
 ---@field unit string
+
+-- `current` is 0 while moving, else 1..numStates (1 = retracted). `target` is where it is heading.
+---@class PipeModel
+---@field state string RETRACTED | EXTENDED | MOVING
+---@field current number
+---@field target number
+---@field numStates number
+
+-- `index` is 0 when closed, else which of `count` covers is open.
+---@class CoverModel
+---@field state string CLOSED | OPEN
+---@field index number
+---@field count number

@@ -31,7 +31,7 @@
 ---@field foldable string?
 ---@field lowered boolean?
 ---@field fillUnits FillUnitsModel?
----@field pipe string?
----@field cover string?
+---@field pipe PipeModel?
+---@field cover CoverModel?
 ---@field wearable WearableModel?
 ---@field implement ImplementModel[]?

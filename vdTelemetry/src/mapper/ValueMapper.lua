@@ -132,7 +132,11 @@ function ValueMapper.calculateHeading(vehicle)
   return ValueMapper.headingFromYRotation(MathUtil.getYRotationFromDirection(dx, dz))
 end
 
----@param state number
+-- spec_pipe.currentState is 0 *only while the pipe is moving*; otherwise it is 1..numStates, where 1
+-- is fully retracted and numStates is fully extended. A pipe can have more than two states (see
+-- spec.numStates, read from the XML), so anything past 1 collapses to EXTENDED here — the exact
+-- position rides along as the numeric current/target fields on the pipe model.
+---@param state number spec_pipe.currentState
 ---@return string
 function ValueMapper.mapPipeState(state)
   if state == 1 then
@@ -144,15 +148,16 @@ function ValueMapper.mapPipeState(state)
   end
 end
 
----@param state number
+-- spec_cover.state is 0 when closed, otherwise the 1-based index of the cover that is open — a
+-- vehicle can have several (#spec.covers). So "not zero" is the only correct test for open; keying on
+-- == 1 mis-reported every cover but the first.
+---@param state number spec_cover.state
 ---@return string
 function ValueMapper.mapCoverState(state)
-  if state == 1 then
-    return "OPEN"
-  elseif state == 0 then
+  if state == 0 then
     return "CLOSED"
   else
-    return "UNKNOWN"
+    return "OPEN"
   end
 end
 

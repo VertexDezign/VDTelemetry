@@ -92,7 +92,10 @@
           "name": "RUDOLPH",
           "title": "Rudolph"
         },
-        "cover": "CLOSED",
+        "cover": {
+          "index": 0,
+          "state": "CLOSED"
+        },
         "fillUnits": {
           "fillUnit": [
             {
@@ -111,7 +114,10 @@
               "name": "RUDOLPH",
               "title": "Rudolph"
             },
-            "cover": "CLOSED",
+            "cover": {
+              "index": 0,
+              "state": "CLOSED"
+            },
             "fillUnits": {
               "fillUnit": [
                 {
@@ -235,5 +241,5 @@
       "wear": 0
     }
   },
-  "version": "2"
+  "version": "3"
 }

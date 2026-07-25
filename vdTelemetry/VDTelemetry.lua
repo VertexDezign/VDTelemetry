@@ -110,7 +110,9 @@ VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 2: fill-unit `value` is fractional (consumables are measured in slots and report the part-used one),
 --    plus the optional `precision` / `display` hints. See vehicle-data-plan.md §1.
-VDTelemetry.VERSION = 2
+-- 3: `pipe` and `cover` are objects rather than bare state strings — multi-state pipes and
+--    multi-cover vehicles could not be expressed as one label. See vehicle-data-plan.md §2.
+VDTelemetry.VERSION = 3
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
