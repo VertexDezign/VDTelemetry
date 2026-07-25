@@ -1,21 +1,25 @@
 # Ground-layer overlay — follow-ups (per-layer files + layer visibility)
 
 Two deferred improvements to the `mapLayers` ground overlay, written 2026-07-20 on branch
-`map-layers-revive` for a later session. **Status: proposed, not started.** Both become load-bearing
-if the Precision Farming layers are ever exported — see "Why this matters more once Precision Farming
-lands" below.
+`map-layers-revive` for a later session. Both become load-bearing if the Precision Farming layers are
+ever exported — see "Why this matters more once Precision Farming lands" below.
+
+**Status (2026-07-25, branch `map-layers-split`):**
+
+- §1 per-layer file split — **done**, together with the "sweep only what's subscribed" item that was
+  filed alongside it. See "How it landed" below.
+- §2 show/hide individual sub-values within a layer — **still proposed, not started.**
 
 ## Where this stands (recap)
 
 The overlay is three raster planes — **crops**, **growth**, **soil** — grid-sampled at `GRID_SIZE`
-(512²). The mod (`vdTelemetry/src/collect/MapLayersExporter.lua`) writes one file, `mapLayers.json`
-(~**1.3 MB**, minified single line), holding all three planes as arrays of right-trimmed hex-string
-rows (2 hex chars per cell, `""` for an all-zero/off-field row). The server
-(`MapLayerRenderer.kt` / `Server.kt`) decodes rows + legend into a PNG per layer; **only legends cross
-the WebSocket** (`MapLayersInfo`), the app fetches the raster as a PNG from `/api/map-layer/{id}?v=…`,
-and the version is `MapLayersData.contentVersion` (64-bit FNV-1a over the full data, memoized per
-instance — content-derived, so any change refetches). The app
-shows **one layer at a time** (single-select in the map filter popover).
+(512²). *(Before the split: the mod wrote one file, `mapLayers.json`, ~**1.3 MB** minified, holding
+all three planes.)* Each plane is an array of right-trimmed hex-string rows (2 hex chars per cell,
+`""` for an all-zero/off-field row). The server (`MapLayerRenderer.kt` / `Server.kt`) decodes rows +
+legend into a PNG per layer; **only legends cross the WebSocket** (`MapLayersInfo`), the app fetches
+the raster as a PNG from `/api/map-layer/{id}?v=…`, and the version is `contentVersion` (64-bit
+FNV-1a, memoized per instance — content-derived, so any change refetches). The app shows **one layer
+at a time** (single-select in the map filter popover).
 
 Cadence: full sweep on `PERIOD_CHANGED` / `DAY_CHANGED`; between sweeps, cells around active vehicles
 are re-sampled every 4 s and patched in place; in multiplayer only, a stratified staleness audit
@@ -103,6 +107,42 @@ version (hash of just that layer) and legend — per-layer refetch without three
 short bursts between driving, it may already be tolerable. If active farming still pins `Json.lua`, do
 the split.
 
+### How it landed (2026-07-25)
+
+Five commits on `map-layers-split`, mod first:
+
+1. **`mapLayers/<plane>.json` per plane, plus `mapLayers/index.json`** (the catalogue: which planes
+   this map offers, with labels from the game's own overlay selector). Each plane is its own export
+   channel with its own dirty flag, so a patch republishes only the planes whose rows actually moved —
+   fertilizing rewrites soil alone. The per-plane channels are `hidden` (a new `ExportChannels` flag)
+   so the settings UI still offers "mapLayers" once and they follow its toggle via `isEnabled()`;
+   `subDirs()` reports the folders registered channels name, so the entry point creates
+   `telemetry/mapLayers/` without knowing which channel wanted it.
+2. **Subscription gating.** The mod sweeps, patches and audits only the planes the terminal says it is
+   showing (the absolute `setMapLayers` command). An unsubscribed plane costs nothing — not even its
+   engine reads: crops stops at the fruit plane, growth's second density read is skipped, and soil's
+   weed/stone/plow/lime/spray reads only happen when soil is wanted. **Nothing subscribed = no sweep
+   at all.** Subscribing arms a resweep at once, and a dropped plane keeps its last file, so switching
+   back paints immediately and the fresh raster lands a few seconds later.
+3. **Kotlin model + server.** `MapLayerData` is one plane's file, `MapLayersCatalog` is `index.json`,
+   and `MapLayersInfo` combines them — so the app is offered every plane, including unswept ones (null
+   version). Each plane versions independently, which is the half the user sees: the overlay on screen
+   refetches only when *it* changed. `TelemetryWatcher.registerRest()` takes the whole `mapLayers/`
+   directory as a keyed map, so **adding a PF plane needs no server change at all**.
+4. **App + server subscription wiring.** The map panel reports what it shows, the server unions that
+   across connected dashboards (`MapLayerSubscriptions`) and writes the union to `commands.xml`.
+   `SetMapLayers` is the first session-scoped client message: held per WebSocket session, dropped when
+   the socket closes. Handled: reconnects (the repository restates it at the top of each session), two
+   map widgets on one page (the app reports the union over live panels), and a server restart under a
+   running game (the empty union is stated once at startup).
+
+**Not yet validated in-game** — the whole chain (folder creation, subscription round-trip, per-plane
+writes) has only been exercised by the specs and unit tests.
+
+Consequences for the PF work: a new plane is an entry in `VDT.MapLayers.LAYERS` plus its
+classification in `classifyCell` (under the `wanted` gate), a fixture, and nothing else — no file,
+dirty, legend, watcher, route or app changes.
+
 ---
 
 ## 2. Show / hide individual layers in the app
@@ -152,8 +192,10 @@ isn't there. Independent soil sub-toggles therefore need the soil data **de-coll
 
 ## Suggested sequencing
 
-1. Measure `c726a01` in-game (profiler). If still heavy →
-2. §1 per-layer file split (biggest, most certain win for the write cost).
-3. §2 crops/growth sub-toggles (server render-filter) — optional polish.
-4. §2 soil sub-layers (option b) — only if independent soil visibility is wanted; combine with §1's
+1. ~~Measure `c726a01` in-game (profiler)~~ → §1 was done regardless, as the precondition for PF.
+2. ~~§1 per-layer file split~~ — **done** (see "How it landed"), with subscription gating alongside it.
+3. **In-game validation of the split + gating** — the next thing to do on this branch.
+4. Precision Farming planes (their own piece of work; the plumbing is now generic over `LAYERS`).
+5. §2 crops/growth sub-toggles (server render-filter) — optional polish.
+6. §2 soil sub-layers (option b) — only if independent soil visibility is wanted; combine with §1's
    re-model.
