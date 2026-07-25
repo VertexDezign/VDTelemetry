@@ -77,6 +77,63 @@ class MapLayerSubscriptionsTest {
     assertEquals(listOf(listOf("crops", "soil"), listOf("crops", "growth", "soil")), published)
   }
 
+  /**
+   * The bug this exists for: the mod deletes commands.xml at every map load, so a subscription sent
+   * before the game reached the map was thrown away unread — and since the dashboards' desire never
+   * changed, nothing would ever restate it. The overlay just never appeared.
+   */
+  @Test
+  fun `restates the subscription when the mod reports it never got it`() {
+    subscriptions.show(1, listOf("crops"))
+    published.clear()
+
+    subscriptions.reconcile(modActive = emptyList(), offered = listOf("crops", "growth", "soil"))
+
+    assertEquals(listOf(listOf("crops")), published)
+  }
+
+  @Test
+  fun `stays quiet when the mod is already sweeping what is wanted`() {
+    subscriptions.show(1, listOf("crops"))
+    published.clear()
+
+    subscriptions.reconcile(modActive = listOf("crops"), offered = listOf("crops", "growth", "soil"))
+
+    assertEquals(emptyList(), published)
+  }
+
+  /** A server restart under a running game: the mod sweeps for dashboards that no longer exist. */
+  @Test
+  fun `tells a mod sweeping for nobody to stop`() {
+    subscriptions.reconcile(modActive = listOf("crops"), offered = listOf("crops", "growth", "soil"))
+
+    assertEquals(listOf(emptyList()), published)
+  }
+
+  /**
+   * A layer id the app persisted from a map that offered it must never be asked for here: the mod
+   * would ignore it, keep reporting it inactive, and this would restate the command on every
+   * catalogue write for the rest of the session.
+   */
+  @Test
+  fun `never asks for a plane this map does not offer`() {
+    subscriptions.show(1, listOf("nutrients"))
+    published.clear()
+
+    subscriptions.reconcile(modActive = emptyList(), offered = listOf("crops", "growth", "soil"))
+
+    assertEquals(emptyList(), published, "an unofferable selection is not a mismatch to fix")
+  }
+
+  @Test
+  fun `reconciling does not disturb the desired set`() {
+    subscriptions.show(1, listOf("crops", "nutrients"))
+    subscriptions.reconcile(modActive = emptyList(), offered = listOf("crops"))
+
+    // The unofferable id is still wanted -- a later map (or mod) that offers it gets it.
+    assertEquals(listOf("crops", "nutrients"), subscriptions.current())
+  }
+
   @Test
   fun `an empty selection is a legitimate state, not a no-op`() {
     subscriptions.show(1, listOf("crops"))

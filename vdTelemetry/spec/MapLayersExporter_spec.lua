@@ -587,6 +587,12 @@ describe("MapLayers.tick sweep", function()
     })
     -- Labels come from the game's own overlay selector; with no g_i18n in the spec they fall back.
     assert.are.equal("Crops", catalogue.layers[1].label)
+    -- Each entry reports whether the mod is currently sweeping that plane (all three here, per this
+    -- block's before_each) -- the readable half of the subscription, which is what lets the server
+    -- notice one that never arrived. The "subscription" block below covers the unsubscribed case.
+    for _, entry in ipairs(catalogue.layers) do
+      assert.is_true(entry.active)
+    end
 
     -- Published once, not once per tick: the catalogue is fixed for the session.
     for _ = 1, 4 do
@@ -870,6 +876,37 @@ describe("MapLayers.tick sweep", function()
       completeSweep()
       assert.are.equal(1, marks("crops"))
       assert.are.equal(1, marks("soil"))
+    end)
+
+    it("reports the subscribed planes in the catalogue, and republishes when it changes", function()
+      VDT.MapLayers.tick(stubDebugger(), 16) -- builds the catalogue
+      local writes = markedByChannel[VDT.MapLayers.CHANNEL]
+
+      VDT.MapLayers.setSubscription({ "growth" }, stubDebugger())
+
+      local catalogue = VDT.MapLayers.collect()
+      assert.are.same({ false, true, false }, {
+        catalogue.layers[1].active,
+        catalogue.layers[2].active,
+        catalogue.layers[3].active,
+      })
+      -- Rewritten, not just mutated in memory: the file is the only thing the server can read this
+      -- from, and it is how a subscription lost with the command file gets noticed.
+      assert.are.equal(writes + 1, markedByChannel[VDT.MapLayers.CHANNEL])
+
+      -- ...and back to nothing when the last dashboard stops looking.
+      VDT.MapLayers.setSubscription({}, stubDebugger())
+      assert.is_false(VDT.MapLayers.collect().layers[2].active)
+      assert.are.equal(writes + 2, markedByChannel[VDT.MapLayers.CHANNEL])
+    end)
+
+    it("carries a subscription that arrived before the catalogue existed", function()
+      -- The order the mod can't control: the terminal's command can land before the world size
+      -- resolves, so the catalogue must be born with the subscription already applied.
+      VDT.MapLayers.setSubscription({ "soil" }, stubDebugger())
+      VDT.MapLayers.tick(stubDebugger(), 16)
+
+      assert.is_true(VDT.MapLayers.collect().layers[3].active)
     end)
 
     it("ignores an unchanged set, so a repeated command doesn't restart the sweep", function()

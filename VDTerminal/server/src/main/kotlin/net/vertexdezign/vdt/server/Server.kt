@@ -115,10 +115,22 @@ fun main() {
       log.info("Ground-layer subscription: {}", if (ids.isEmpty()) "(none)" else ids.joinToString(","))
       commandWriter.submit(ClientMessage.SetMapLayers(ids))
     }
-  // Say so once at startup, before any dashboard connects. A mod that outlived a previous server
-  // process still holds that process's last subscription, and would otherwise keep sweeping for a
-  // dashboard that no longer exists -- nothing else would ever tell it the watchers are gone.
-  commandWriter.submit(ClientMessage.SetMapLayers(emptyList()))
+  // The mod reports which planes it is actually sweeping in its catalogue, so every time it says so,
+  // check that against what the dashboards want and restate the command when they disagree. That is
+  // what makes the subscription survive a lossy channel: the mod deletes commands.xml at every map
+  // load, so a subscription sent while the game was at a menu or loading never arrived -- and since
+  // the desire itself never changed, nothing else would ever send it again. It covers the reverse
+  // too (a server restart under a running game, where the mod is still sweeping for dashboards that
+  // are gone), which is why there is no separate startup write.
+  appScope.launch {
+    mapLayerCatalogState.collect { catalog ->
+      if (catalog == null) return@collect // channel off / no map loaded: nothing to reconcile against
+      mapLayerSubscriptions.reconcile(
+        modActive = catalog.layers.filter { it.active }.map { it.id },
+        offered = catalog.layers.map { it.id },
+      )
+    }
+  }
   val sessionIds =
     java.util.concurrent.atomic
       .AtomicLong()

@@ -118,6 +118,17 @@ data class MapLayerCatalogEntry(
    * what the player sees in-game). Present so the app can name a plane it has never heard of.
    */
   val label: String = "",
+  /**
+   * Whether the mod is currently sweeping this plane — i.e. whether it believes something is
+   * subscribed to it.
+   *
+   * The command channel that carries subscriptions is one-way and lossy by design: the mod deletes
+   * `commands.xml` at every map load, so a subscription sent before this game session existed was
+   * thrown away unread. Reporting what the mod actually has makes that recoverable — the server
+   * compares this against the union it wants and restates the command when they disagree, instead
+   * of assuming an edge landed. See `MapLayerSubscriptions.reconcile`.
+   */
+  val active: Boolean = false,
 )
 
 /**

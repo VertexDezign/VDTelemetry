@@ -132,9 +132,17 @@ Five commits on `map-layers-split`, mod first:
 4. **App + server subscription wiring.** The map panel reports what it shows, the server unions that
    across connected dashboards (`MapLayerSubscriptions`) and writes the union to `commands.xml`.
    `SetMapLayers` is the first session-scoped client message: held per WebSocket session, dropped when
-   the socket closes. Handled: reconnects (the repository restates it at the top of each session), two
-   map widgets on one page (the app reports the union over live panels), and a server restart under a
-   running game (the empty union is stated once at startup).
+   the socket closes. Handled: reconnects (the repository restates it at the top of each session) and
+   two map widgets on one page (the app reports the union over live panels).
+5. **Reconciliation, because the command channel is lossy.** The mod deletes `commands.xml` at every
+   map load, so a subscription sent while the game was at a menu or loading is thrown away unread —
+   and since the dashboards' desire never changed, a publish-on-change server would never say it
+   again. The overlay simply never appeared. So the mod reports what it is actually sweeping
+   (`active` per entry in `index.json`) and the server compares that against its union on every
+   catalogue write, restating the command when they disagree. Level-triggered, so it also covers a
+   server restart under a running game (mod sweeping for dashboards that are gone) without a separate
+   startup write. Only planes the catalogue offers are ever asked for — otherwise a stale persisted
+   layer id would be a mismatch the mod could never resolve, restated forever.
 
 **Not yet validated in-game** — the whole chain (folder creation, subscription round-trip, per-plane
 writes) has only been exercised by the specs and unit tests.

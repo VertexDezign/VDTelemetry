@@ -35,6 +35,31 @@ class MapLayerSubscriptions(
     if (bySession.remove(session) != null) recompute()
   }
 
+  /**
+   * Compare what the mod says it is sweeping ([modActive]) against what the dashboards want, and
+   * restate the command when they disagree. Called whenever the mod republishes its catalogue.
+   *
+   * This is what makes the subscription survive the things a fire-and-forget command cannot: the mod
+   * deletes `commands.xml` at every map load (so anything sent while the game was at a menu or
+   * loading is gone unread), and a server restart leaves the mod sweeping for dashboards that no
+   * longer exist. Publishing only on change can't recover from either — the desire never changed,
+   * only the mod's memory of it.
+   *
+   * Compared against [offered], the planes this map actually has, so a stale selection the mod
+   * doesn't know (a layer id persisted by the app from a map that had it) is never asked for — that
+   * would be a mismatch the mod could never resolve, and this would restate it on every catalogue
+   * write forever.
+   */
+  @Synchronized
+  fun reconcile(
+    modActive: Collection<String>,
+    offered: Collection<String>,
+  ) {
+    val want = union.intersect(offered.toSet())
+    if (want == modActive.toSet()) return
+    publish(want.sorted())
+  }
+
   /** The union as last published; for tests and diagnostics. */
   @Synchronized
   fun current(): List<String> = union.sorted()

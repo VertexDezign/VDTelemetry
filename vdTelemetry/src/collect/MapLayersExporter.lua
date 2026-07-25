@@ -1168,6 +1168,25 @@ local function anySubscribed()
   return next(VDT.MapLayers.subscribedLayers) ~= nil
 end
 
+---Republish the catalogue with the current subscription, so what this mod is sweeping is READABLE
+---rather than only ever told to it.
+---
+---The subscription is session state that starts empty, and the command channel is one-way and lossy
+---by design: the mod deletes commands.xml at every map load (see VDTelemetry:loadMap), so a
+---subscription the server sent before this session started was thrown away unread -- and the server,
+---which only writes when its side changes, would have no reason to ever say it again. Reporting the
+---active set turns that into something the server can reconcile against.
+local function republishCatalogue()
+  local catalogue = VDT.MapLayers.catalogue
+  if catalogue == nil then
+    return -- not built yet; publishCatalogue will pick the current subscription up
+  end
+  for _, entry in ipairs(catalogue.layers) do
+    entry.active = VDT.MapLayers.subscribedLayers[entry.id] == true
+  end
+  VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
+end
+
 ---Set which planes are being looked at (the setMapLayers command, carrying the server's union over its
 ---connected dashboards). Absolute, not a delta -- like every other control, so a lost or duplicated
 ---command is self-correcting rather than leaving the mod sweeping a plane nobody asked for.
@@ -1201,6 +1220,7 @@ function VDT.MapLayers.setSubscription(ids, debugger)
   VDT.MapLayers.subscribedLayers = wanted
   VDT.MapLayers.sweep = nil
   VDT.MapLayers.dirty = anySubscribed()
+  republishCatalogue()
   if debugger ~= nil then
     local names = {}
     for id in pairs(wanted) do
@@ -1244,7 +1264,11 @@ local function publishCatalogue()
   end
   local layers = {}
   for _, layer in ipairs(VDT.MapLayers.LAYERS) do
-    layers[#layers + 1] = { id = layer.id, label = layerLabel(layer) }
+    layers[#layers + 1] = {
+      id = layer.id,
+      label = layerLabel(layer),
+      active = VDT.MapLayers.subscribedLayers[layer.id] == true,
+    }
   end
   VDT.MapLayers.catalogue = {
     version = tostring(VDT.MapLayers.VERSION),

@@ -72,6 +72,9 @@ class MapLayersModelTest {
     assertEquals(8, catalog.gridSize)
     assertEquals(listOf("crops", "growth", "soil"), catalog.layers.map { it.id })
     assertEquals("Crops", catalog.layers[0].label)
+    // Which planes the mod is actually sweeping -- what the server reconciles the dashboards' union
+    // against, since the command that carries the subscription can be lost with the command file.
+    assertEquals(listOf(true, false, false), catalog.layers.map { it.active })
   }
 
   /** Every field is optional on the wire — the mod writes only what it has. */
