@@ -146,10 +146,14 @@ sealed interface ServerMessage {
   ) : ServerMessage
 
   /**
-   * The ground-layer channel (`mapLayers.json`): crops / growth / soil raster overlays. Carries only
-   * legends — the raster itself is fetched separately as a PNG, never over the WebSocket (see
-   * [MapLayersInfo]). [data] is **null when `mapLayers.json` is absent** (export disabled): same
-   * "the absence must be broadcast, not swallowed" rule as [MapVehicles].
+   * The ground-layer channel (`mapLayers/`): the raster overlays this map offers — crops / growth /
+   * soil today. Carries only each plane's legend and content version; the raster itself is fetched
+   * separately as a PNG, never over the WebSocket (see [MapLayersInfo]). A plane the mod hasn't
+   * swept (nobody has selected it) is still listed, with a null version.
+   *
+   * [data] is **null when `mapLayers/index.json` is absent** (export disabled, or the channel is off
+   * under the current performance profile): same "the absence must be broadcast, not swallowed"
+   * rule as [MapVehicles].
    */
   @Serializable
   @SerialName("mapLayers")

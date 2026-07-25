@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import net.vertexdezign.vdt.ChannelStatsData
 import org.slf4j.LoggerFactory
 import java.nio.file.FileSystems
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardWatchEventKinds.ENTRY_CREATE
 import java.nio.file.StandardWatchEventKinds.ENTRY_DELETE
@@ -21,6 +22,7 @@ import java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.exists
 import kotlin.io.path.getLastModifiedTime
+import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
 
 /**
@@ -31,9 +33,10 @@ import kotlin.io.path.readText
  * the broadcast hub for that data (every WebSocket session collects it). One [java.nio.file.WatchService]
  * over the shared directory dispatches by filename rather than one watcher per file.
  *
- * Register the files with [register] before [launchIn]. Parse/read failures are logged and the last
- * good value is kept, so a torn read (the mod mid-write) simply fails to parse and the next write
- * recovers.
+ * Register the files with [register] before [launchIn] — or, for a folder whose file set is the mod's
+ * to decide rather than ours (`mapLayers/`, one file per raster plane), take the whole directory as a
+ * keyed map with [registerRest]. Parse/read failures are logged and the last good value is kept, so a
+ * torn read (the mod mid-write) simply fails to parse and the next write recovers.
  *
  * Ports + generalizes the old single-file `TelemetrySource` (`watcher.go` + `parser.go`).
  */
@@ -96,6 +99,75 @@ class TelemetryWatcher(
   }
 
   /**
+   * Every `*.json` in [dir] that no [register] call claimed, parsed and keyed by base name.
+   *
+   * The mod's `mapLayers/` folder is one file per raster plane, and which planes exist is the mod's
+   * to decide — base game today, plus whatever Precision Farming adds. Naming them here would mean
+   * editing the server every time that set changes, so this discovers them instead: the map gains an
+   * entry when a file appears and loses it when the file goes.
+   */
+  private inner class WatchedRest<T>(
+    val claimed: () -> Set<String>,
+    val parse: (String) -> T,
+  ) {
+    val flow = MutableStateFlow<Map<String, T>>(emptyMap())
+
+    // One tracker per discovered file, created on first sight. Same duplicate-event guard as
+    // WatchedFile, per file: a single logical write surfaces as several filesystem events.
+    private val trackers = mutableMapOf<String, CadenceTracker>()
+    private val lastGoodMtimeMs = mutableMapOf<String, Long>()
+
+    fun trackerSnapshots() = trackers.toSortedMap().values.map { it.snapshot() }
+
+    /** Rescan the directory: parse what changed, drop what's gone, keep the rest untouched. */
+    fun reparse() {
+      val present =
+        try {
+          if (!dir.exists()) {
+            emptyList()
+          } else {
+            Files.list(dir).use { stream ->
+              stream
+                .toList()
+                .filter { it.isRegularFile() && it.fileName.toString().endsWith(".json") }
+            }
+          }
+        } catch (e: Exception) {
+          log.error("Failed to list {}; keeping last good state", dir, e)
+          return
+        }
+
+      val names = present.map { it.fileName.toString() }.filterNot { it in claimed() }
+      val next = flow.value.toMutableMap()
+      // Dropped first, so a file that vanished stops being served even if a later parse throws.
+      val gone = next.keys - names.map { it.removeSuffix(".json") }.toSet()
+      for (id in gone) {
+        next.remove(id)
+        lastGoodMtimeMs.remove("$id.json")
+      }
+      for (name in names) {
+        val path = dir.resolve(name)
+        val id = name.removeSuffix(".json")
+        try {
+          val mtimeMs = path.getLastModifiedTime().toMillis()
+          if (mtimeMs == lastGoodMtimeMs[name]) continue
+          next[id] = parse(path.readText())
+          lastGoodMtimeMs[name] = mtimeMs
+          // Named with the folder, so the diagnostics feed distinguishes mapLayers/crops.json from a
+          // top-level channel file -- the two watchers' snapshots are merged into one list.
+          trackers.getOrPut(name) { CadenceTracker("${dir.fileName}/$name") }.recordWrite(mtimeMs)
+          log.debug("Parsed {}", path)
+        } catch (e: Exception) {
+          log.error("Failed to parse {}; keeping last good state", path, e)
+        }
+      }
+      flow.value = next
+    }
+  }
+
+  private var rest: WatchedRest<*>? = null
+
+  /**
    * Register a file to watch; returns the [StateFlow] carrying its latest parsed value (null until the
    * first successful parse, and — for [nullOnAbsent] files — again whenever the file is absent).
    */
@@ -110,12 +182,36 @@ class TelemetryWatcher(
   }
 
   /**
+   * Watch every other `*.json` in the directory as one keyed map — see [WatchedRest]. At most one
+   * per watcher, and files claimed by [register] are excluded however late they are registered.
+   */
+  fun <T> registerRest(parse: (String) -> T): StateFlow<Map<String, T>> {
+    check(rest == null) { "registerRest already called for $dir" }
+    val watched = WatchedRest({ channels.map { it.fileName }.toSet() }, parse)
+    rest = watched
+    return watched.flow.asStateFlow()
+  }
+
+  /**
+   * Read every registered file (and rescan the catch-all directory) once, as [launchIn] does before
+   * it starts watching. Also the test seam for the directory scan, which is otherwise only reachable
+   * through a real filesystem event.
+   */
+  internal fun reparseAll() {
+    channels.forEach { it.reparse() }
+    rest?.reparse()
+  }
+
+  /**
    * Snapshot the observed write cadence of every registered file, in registration order, tagged with
    * [nowMs] (server epoch ms) so the app can compute per-channel staleness against one consistent
    * clock. Broadcast to clients as [net.vertexdezign.vdt.ServerMessage.ChannelStats].
    */
   fun snapshotCadence(nowMs: Long = System.currentTimeMillis()): ChannelStatsData =
-    ChannelStatsData(serverNowEpochMs = nowMs, channels = channels.map { it.cadence.snapshot() })
+    ChannelStatsData(
+      serverNowEpochMs = nowMs,
+      channels = channels.map { it.cadence.snapshot() } + (rest?.trackerSnapshots() ?: emptyList()),
+    )
 
   /**
    * Watch until cancelled, restarting the [java.nio.file.WatchService] if it fails.
@@ -129,7 +225,7 @@ class TelemetryWatcher(
    */
   fun launchIn(scope: CoroutineScope): Job =
     scope.launch(Dispatchers.IO) {
-      channels.forEach { it.reparse() } // initial read of whatever is already present
+      reparseAll() // initial read of whatever is already present
 
       while (isActive) {
         try {
@@ -159,17 +255,27 @@ class TelemetryWatcher(
       while (currentCoroutineContext().isActive) {
         // Poll (rather than take()) so the coroutine stays cancellable.
         val key = ws.poll(1, TimeUnit.SECONDS) ?: continue
-        val changed =
-          key.pollEvents().mapNotNullTo(mutableSetOf()) { event ->
-            val name = (event.context() as? Path)?.fileName?.toString()
-            channels.firstOrNull { it.fileName == name }
+        val changed = mutableSetOf<WatchedFile<*>>()
+        var restChanged = false
+        for (event in key.pollEvents()) {
+          val name = (event.context() as? Path)?.fileName?.toString()
+          val claimed = channels.firstOrNull { it.fileName == name }
+          when {
+            claimed != null -> changed.add(claimed)
+
+            // Anything else in the directory belongs to the catch-all, which rescans as a whole:
+            // it has no registered name to match against, and a delete event names a file that is
+            // already gone.
+            rest != null && name != null && name.endsWith(".json") -> restChanged = true
           }
+        }
         // A key that can't be reset is no longer valid — the directory was deleted or replaced (a
         // tmpfs remount does exactly this). Leave, so the caller re-registers on the new directory.
         val valid = key.reset()
-        if (changed.isNotEmpty()) {
+        if (changed.isNotEmpty() || restChanged) {
           delay(debounceMs) // coalesce the burst of events from one write
           changed.forEach { it.reparse() }
+          if (restChanged) rest?.reparse()
         }
         if (!valid) {
           log.warn("Watch key for {} is no longer valid (directory replaced?); re-registering", dir)

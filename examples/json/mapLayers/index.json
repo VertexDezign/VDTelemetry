@@ -1,0 +1,10 @@
+{
+  "version": "2",
+  "terrainSize": 2048,
+  "gridSize": 8,
+  "layers": [
+    { "id": "crops", "label": "Crops" },
+    { "id": "growth", "label": "Growth" },
+    { "id": "soil", "label": "Soil" }
+  ]
+}

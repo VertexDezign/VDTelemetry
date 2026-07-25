@@ -7,7 +7,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import net.vertexdezign.vdt.VdtParser
-import net.vertexdezign.vdt.model.MapLayersData
+import net.vertexdezign.vdt.model.MapLayerData
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,10 +29,11 @@ class MapLayerRouteTest {
     error("Could not locate examples/json/mapLayers/$name from ${File(".").absolutePath}")
   }
 
-  private val data: MapLayersData = VdtParser.parseMapLayers(example("basic.json"))
+  private val data: MapLayerData = VdtParser.parseMapLayer(example("crops.json"))
+  private val layers = mapOf("crops" to data)
 
   private fun withRoute(
-    current: () -> MapLayersData?,
+    current: () -> Map<String, MapLayerData>,
     block: suspend (io.ktor.client.HttpClient) -> Unit,
   ) = testApplication {
     application { routing { mapLayerRoute(current) } }
@@ -41,7 +42,7 @@ class MapLayerRouteTest {
 
   @Test
   fun servesTheRequestedVersionImmutably() =
-    withRoute({ data }) { client ->
+    withRoute({ layers }) { client ->
       val response = client.get("/api/map-layer/crops?v=${data.contentVersion}")
       assertEquals(HttpStatusCode.OK, response.status)
       assertTrue(response.bodyAsBytes().isNotEmpty())
@@ -50,7 +51,7 @@ class MapLayerRouteTest {
 
   @Test
   fun rejectsAStaleVersionInsteadOfServingCurrentBytesUnderIt() =
-    withRoute({ data }) { client ->
+    withRoute({ layers }) { client ->
       // The regression: a sweep landing between the WebSocket broadcast and this request must not
       // cause the new raster to be cached for a year under the old version's URL.
       val response = client.get("/api/map-layer/crops?v=deadbeef")
@@ -60,7 +61,7 @@ class MapLayerRouteTest {
 
   @Test
   fun servesAnUnversionedRequestWithoutImmutableCaching() =
-    withRoute({ data }) { client ->
+    withRoute({ layers }) { client ->
       val response = client.get("/api/map-layer/crops")
       assertEquals(HttpStatusCode.OK, response.status)
       assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
@@ -68,13 +69,27 @@ class MapLayerRouteTest {
 
   @Test
   fun unknownLayerIsNotFound() =
-    withRoute({ data }) { client ->
+    withRoute({ layers }) { client ->
       assertEquals(HttpStatusCode.NotFound, client.get("/api/map-layer/nope").status)
     }
 
+  /**
+   * A plane the app is offered but the mod hasn't swept yet (nobody had subscribed to it) simply has
+   * no file, so there is nothing to render until the sweep its selection triggers lands.
+   */
   @Test
-  fun missingDataIsNotFound() =
-    withRoute({ null }) { client ->
+  fun anOfferedButUnsweptLayerIsNotFound() =
+    withRoute({ emptyMap() }) { client ->
       assertEquals(HttpStatusCode.NotFound, client.get("/api/map-layer/crops").status)
     }
+
+  /** Each plane is versioned on its own, so another plane's version must not open this one's URL. */
+  @Test
+  fun aVersionFromAnotherPlaneIsRejected() {
+    val growth = VdtParser.parseMapLayer(example("growth.json"))
+    withRoute({ mapOf("crops" to data, "growth" to growth) }) { client ->
+      val response = client.get("/api/map-layer/crops?v=${growth.contentVersion}")
+      assertEquals(HttpStatusCode.Conflict, response.status)
+    }
+  }
 }

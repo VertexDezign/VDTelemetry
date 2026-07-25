@@ -116,7 +116,14 @@ private fun isStale(channel: ChannelStat, ageMs: Long?): Boolean {
   return ageMs > threshold
 }
 
-private fun friendlyName(fileName: String): String = FRIENDLY_NAMES[fileName] ?: fileName
+// The ground-layer rasters are one file per plane inside mapLayers/, and which planes exist is the
+// mod's to decide (Precision Farming will add more), so they are named by their folder rather than
+// listed above.
+private fun friendlyName(fileName: String): String = FRIENDLY_NAMES[fileName]
+  ?: fileName.substringAfter("mapLayers/", "").takeIf { it.isNotEmpty() }?.let {
+    "Map layer: ${it.removeSuffix(".json")}"
+  }
+  ?: fileName
 
 /** ms interval -> "980 ms" / "2.0 s"; null (no interval yet) -> em dash. */
 private fun formatInterval(ms: Double?): String {
@@ -154,7 +161,7 @@ private val FRIENDLY_NAMES =
   mapOf(
     "vdTelemetry.json" to "Vehicle telemetry",
     "map.json" to "Map",
-    "mapLayers.json" to "Map layers",
+    "index.json" to "Map layers (catalogue)", // mapLayers/index.json; the only index.json there is
     "mapVehicles.json" to "Map vehicles",
     "production.json" to "Production",
     "storage.json" to "Storage",

@@ -7,27 +7,30 @@ import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import net.vertexdezign.vdt.model.MapLayersData
+import net.vertexdezign.vdt.model.MapLayerData
 
 /**
  * `GET /api/map-layer/{id}?v={version}` — the rendered ground-layer PNG for one layer id.
  *
- * The raster never crosses the WebSocket (a 512² grid × 3 layers is far too heavy to push on every
- * sweep); the app is told only the legends plus a content version, and fetches the pixels here.
+ * The raster never crosses the WebSocket (a 512² grid per plane is far too heavy to push on every
+ * sweep); the app is told only the legends plus a per-plane content version, and fetches the pixels
+ * here.
  *
  * That `?v=` is a promise: the bytes at this exact URL never change, which is what lets the response
  * be cached immutably for a year (unlike `/api/map-image`, which has no versioning). Keeping the
  * promise means checking it — see the mismatch branch below.
  *
- * Takes the current data as a supplier rather than a value so the route reads whatever the file
+ * Takes the current rasters as a supplier rather than a value so the route reads whatever the file
  * watcher last parsed, and so tests can drive it without standing up the watcher.
  */
-fun Route.mapLayerRoute(currentData: () -> MapLayersData?) {
+fun Route.mapLayerRoute(currentLayers: () -> Map<String, MapLayerData>) {
   get("/api/map-layer/{id}") {
-    val data = currentData()
     val layerId = call.parameters["id"]
-    if (data == null || layerId == null) {
-      call.respondText("Ground layer not available", status = HttpStatusCode.NotFound)
+    // A plane the mod hasn't swept has no file, so it isn't in the map: the app is told about it (the
+    // catalogue lists it) but there is nothing to render until something subscribes to it.
+    val data = layerId?.let { currentLayers()[it] }
+    if (data == null) {
+      call.respondText("Ground layer not available: $layerId", status = HttpStatusCode.NotFound)
       return@get
     }
     val requested = call.request.queryParameters["v"]
@@ -41,9 +44,9 @@ fun Route.mapLayerRoute(currentData: () -> MapLayersData?) {
       call.respondText("Stale ground-layer version: $requested", status = HttpStatusCode.Conflict)
       return@get
     }
-    val bytes = MapLayerRenderer.rendered(data, layerId, current)
+    val bytes = MapLayerRenderer.rendered(data, current)
     if (bytes == null) {
-      call.respondText("Unknown ground layer: $layerId", status = HttpStatusCode.NotFound)
+      call.respondText("Unrenderable ground layer: $layerId", status = HttpStatusCode.NotFound)
       return@get
     }
     // Only a version-pinned URL is immutable. A bare /api/map-layer/{id} (hand-typed, or a probe)

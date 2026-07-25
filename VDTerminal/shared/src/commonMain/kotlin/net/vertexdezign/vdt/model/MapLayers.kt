@@ -3,48 +3,51 @@ package net.vertexdezign.vdt.model
 import kotlinx.serialization.Serializable
 
 /**
- * Typed model of the **mapLayers** channel the mod writes to `mapLayers.json` (separate file, its
- * own sweep cadence — see the mod's `src/collect/MapLayersExporter.lua`): three grid-sampled ground
- * rasters (crops planted, growth state, soil condition), colored and classified to match the
- * in-game map's own overlay exactly.
+ * Typed model of ONE ground-layer raster file — the mod writes `mapLayers/<id>.json` per plane
+ * (crops planted, growth state, soil condition, and whatever else the map offers), each on its own
+ * sweep cadence; see the mod's `src/collect/MapLayersExporter.lua`. The planes are colored and
+ * classified to match the in-game map's own overlay exactly.
+ *
+ * Each file repeats the grid geometry rather than referring to [MapLayersCatalog], because the
+ * server parses and renders it on its own: a raster whose cell size lived in another file would be
+ * undecodable whenever the two disagreed.
  *
  * [gridSize] cells span [terrainSize] meters in both axes, same world origin (terrain center) as
- * [MapData]'s coordinates. Each [MapLayer.rows] entry is a right-trimmed hex string, 2 chars per
- * cell — see [MapLayer.decodeCells].
+ * [MapData]'s coordinates. Each [rows] entry is a right-trimmed hex string, 2 chars per cell — see
+ * [decodeCells].
  *
  * Its own [version], independent of [VdtData.version]. Same tolerance rules as the rest of the
  * model: omitted keys fall back to these defaults.
  */
 @Serializable
-data class MapLayersData(
+data class MapLayerData(
   val version: String = "",
   val terrainSize: Float = 0f,
   val gridSize: Int = 0,
-  val layers: List<MapLayer> = emptyList(),
-) {
-  /**
-   * Opaque content version of the full raster data — see [computeContentVersion] for what goes into
-   * it and why.
-   *
-   * Memoized, because it is asked for far more often than it changes: every connected WebSocket
-   * session computes it once per sweep to build its [MapLayersInfo], and the `/api/map-layer` route
-   * computes it again on every PNG request. Each computation walks every character of every row —
-   * over a megabyte on a 512² grid — for an answer that is fixed the moment this instance is
-   * parsed. Delegated (not a constructor property), so it stays out of the serialized form and out
-   * of `equals`/`hashCode`.
-   */
-  val contentVersion: String by lazy { computeContentVersion() }
-}
-
-@Serializable
-data class MapLayer(
-  /** "crops", "growth", or "soil" — also the `/api/map-layer/{id}` path segment. */
+  /** "crops", "growth", "soil", … — also the `/api/map-layer/{id}` path segment. */
   val id: String = "",
-  /** Values actually seen in [rows] during the sweep that produced this layer, sorted by [MapLayerLegendEntry.v]. */
+  /** Values actually seen in [rows] during the sweep that produced this plane, sorted by [MapLayerLegendEntry.v]. */
   val legend: List<MapLayerLegendEntry> = emptyList(),
   /** One right-trimmed hex string per grid row (2 chars/cell); an all-zero row is `""`. */
   val rows: List<String> = emptyList(),
 ) {
+  /**
+   * Opaque content version of THIS plane's raster — see [computeContentVersion] for what goes into
+   * it and why.
+   *
+   * Per plane, not per snapshot: the app displays one overlay at a time and refetches when its
+   * version changes, so a version covering every plane made it refetch a megabyte of identical
+   * raster whenever some other plane moved.
+   *
+   * Memoized, because it is asked for far more often than it changes: every connected WebSocket
+   * session computes it once per sweep to build its [MapLayersInfo], and the `/api/map-layer` route
+   * computes it again on every PNG request. Each computation walks every character of every row —
+   * hundreds of kilobytes on a 512² grid — for an answer that is fixed the moment this instance is
+   * parsed. Delegated (not a constructor property), so it stays out of the serialized form and out
+   * of `equals`/`hashCode`.
+   */
+  val contentVersion: String by lazy { computeContentVersion() }
+
   /**
    * Decode [rows] into a flat `gridSize * gridSize` array of cell values (row-major, 0..255 each).
    * A short or entirely missing row zero-pads; a malformed byte pair decodes as 0, and a [gridSize]
@@ -91,35 +94,92 @@ data class MapLayerLegendEntry(
 )
 
 /**
- * Slim broadcast variant of [MapLayersData]: legends only, never [MapLayer.rows] — the raster
- * itself is fetched separately as a PNG (`GET /api/map-layer/{id}?v={version}`), never over the
- * WebSocket, since a 512x512 grid x 3 layers is far too heavy to push on every sweep.
+ * Typed model of `mapLayers/index.json`: which raster planes this map offers, and the grid geometry
+ * they share.
  *
- * [version] is content-derived from the **full** data including [MapLayer.rows], so a changed cell
- * always changes the version even though the cells themselves never cross the wire — that's what
- * tells the app to refetch the PNG. Deliberately content-derived rather than a counter: a sweep that
- * re-samples an unchanged map produces the same version, so the app keeps the PNG it already has
- * instead of refetching a megabyte of identical raster.
+ * Written by the mod **without sampling anything**, which is what makes it the catalogue rather than
+ * a summary of the rasters: the mod only sweeps planes something is subscribed to, so a plane is
+ * normally listed here before (and while) it has no file of its own. The app offers exactly these,
+ * and selecting one is what causes it to be swept.
+ */
+@Serializable
+data class MapLayersCatalog(
+  val version: String = "",
+  val terrainSize: Float = 0f,
+  val gridSize: Int = 0,
+  val layers: List<MapLayerCatalogEntry> = emptyList(),
+)
+
+@Serializable
+data class MapLayerCatalogEntry(
+  val id: String = "",
+  /**
+   * Display name, taken from the game's own map overlay selector (so it is localized, and matches
+   * what the player sees in-game). Present so the app can name a plane it has never heard of.
+   */
+  val label: String = "",
+)
+
+/**
+ * Slim broadcast variant: what the map panel needs to offer the layers and draw their legends, never
+ * [MapLayerData.rows] — the raster itself is fetched separately as a PNG
+ * (`GET /api/map-layer/{id}?v={version}`), never over the WebSocket, since a 512x512 grid per plane
+ * is far too heavy to push on every sweep.
  *
- * The version is an opaque string — see [MapLayersData.contentVersion] for why it isn't `hashCode()`.
+ * Built from the catalogue, so it lists every plane the map offers — including the ones with no
+ * raster yet, which carry a null [MapLayerInfo.version] and simply draw nothing until selected.
  */
 @Serializable
 data class MapLayersInfo(
-  val version: String = "",
   val layers: List<MapLayerInfo> = emptyList(),
 ) {
   companion object {
-    fun from(data: MapLayersData): MapLayersInfo =
+    /**
+     * Combine the catalogue with whichever plane files have been parsed so far, keyed by layer id.
+     * A plane in [rasters] that the catalogue doesn't list is ignored: the catalogue is the mod's
+     * statement of what this map has, and an unlisted file is last session's leftover.
+     */
+    fun from(
+      catalog: MapLayersCatalog,
+      rasters: Map<String, MapLayerData>,
+    ): MapLayersInfo =
       MapLayersInfo(
-        version = data.contentVersion,
-        layers = data.layers.map { MapLayerInfo(it.id, it.legend) },
+        layers =
+          catalog.layers.map { entry ->
+            val raster = rasters[entry.id]
+            MapLayerInfo(
+              id = entry.id,
+              label = entry.label,
+              version = raster?.contentVersion,
+              legend = raster?.legend ?: emptyList(),
+            )
+          },
       )
   }
 }
 
 /**
- * Opaque content version of the full raster data: 64-bit FNV-1a over everything that affects the
- * rendered PNG, as hex. Call [MapLayersData.contentVersion] rather than this — it memoizes the
+ * One offered plane. [version] is content-derived from that plane's **full** data including
+ * [MapLayerData.rows], so a changed cell always changes the version even though the cells themselves
+ * never cross the wire — that's what tells the app to refetch the PNG. Deliberately content-derived
+ * rather than a counter: a sweep that re-samples an unchanged map produces the same version, so the
+ * app keeps the PNG it already has instead of refetching hundreds of kilobytes of identical raster.
+ *
+ * Null [version] means "offered, but not swept yet" — nothing to fetch, and nothing to draw.
+ *
+ * The version is an opaque string — see [MapLayerData.contentVersion] for why it isn't `hashCode()`.
+ */
+@Serializable
+data class MapLayerInfo(
+  val id: String = "",
+  val label: String = "",
+  val version: String? = null,
+  val legend: List<MapLayerLegendEntry> = emptyList(),
+)
+
+/**
+ * Opaque content version of one plane's raster: 64-bit FNV-1a over everything that affects the
+ * rendered PNG, as hex. Call [MapLayerData.contentVersion] rather than this — it memoizes the
  * result, and this walk is not cheap.
  *
  * Not `hashCode()`: 32 bits is small enough that two different rasters can collide, and the PNG for
@@ -127,7 +187,7 @@ data class MapLayersInfo(
  * overlay in the browser's cache with no way to invalidate it. 64 bits makes that vanishingly
  * unlikely, at about the cost the data class's own `hashCode()` already paid (both walk the rows).
  */
-private fun MapLayersData.computeContentVersion(): String {
+private fun MapLayerData.computeContentVersion(): String {
   var hash = 0xcbf29ce484222325UL // FNV-1a 64-bit offset basis
   val prime = 0x100000001b3UL
 
@@ -146,30 +206,21 @@ private fun MapLayersData.computeContentVersion(): String {
   mix(version)
   mix(terrainSize.toRawBits().toString())
   mix(gridSize.toString())
+  mix(id)
   // Every list is length-prefixed. Terminating each string is not enough on its own: without the
   // counts, the flat sequence of values carries no list boundaries, so a legend entry's three values
   // could line up with three rows of another layout and hash identically. Unreachable from anything
   // the mod emits (rows are hex, labels are not), but this is the input to an immutable-for-a-year
   // cache key, and a length-prefixed encoding is unambiguous by construction rather than by argument.
-  mix(layers.size.toString())
-  for (layer in layers) {
-    mix(layer.id)
-    mix(layer.legend.size.toString())
-    for (entry in layer.legend) {
-      mix(entry.v.toString())
-      mix(entry.label)
-      mix(entry.color)
-    }
-    mix(layer.rows.size.toString())
-    for (row in layer.rows) {
-      mix(row)
-    }
+  mix(legend.size.toString())
+  for (entry in legend) {
+    mix(entry.v.toString())
+    mix(entry.label)
+    mix(entry.color)
+  }
+  mix(rows.size.toString())
+  for (row in rows) {
+    mix(row)
   }
   return hash.toString(16)
 }
-
-@Serializable
-data class MapLayerInfo(
-  val id: String = "",
-  val legend: List<MapLayerLegendEntry> = emptyList(),
-)

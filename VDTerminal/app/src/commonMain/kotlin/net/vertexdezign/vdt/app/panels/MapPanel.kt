@@ -98,6 +98,7 @@ import net.vertexdezign.vdt.model.FieldInfoEntry
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapFarm
 import net.vertexdezign.vdt.model.MapField
+import net.vertexdezign.vdt.model.MapLayerInfo
 import net.vertexdezign.vdt.model.MapLayerLegendEntry
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehicle
@@ -149,7 +150,7 @@ private val mapImageCache = mutableMapOf<String, ImageBitmap>()
 /**
  * Last-rendered ground-layer PNG, keyed by `"$mapLayerUrl/$id|$version"`. Separate from
  * [mapImageCache] on purpose: the base map has one entry for the life of a save, but a layer key
- * churns every sweep (a new [MapLayersInfo.version]), so folding it into the same map would leak
+ * churns every sweep of that plane (a new [MapLayerInfo.version]), so folding it into the same map would leak
  * unboundedly across a session instead of just holding the one most-recently-shown layer.
  */
 private var layerImageCache: Pair<String, ImageBitmap>? = null
@@ -163,7 +164,7 @@ private val mapImageClient by lazy { HttpClient() }
  * overlays the map channels' data: field outlines + number labels ([MapData]), POI dots, and
  * vehicle markers ([MapVehiclesData]), filtered per category/state through the filter popover
  * (Tune button), which also hosts a field/POI search that pans the map to a hit, plus an optional
- * ground-layer raster ([MapLayersInfo]: crops/growth/soil, single-select, with its own legend).
+ * ground-layer raster ([MapLayersInfo]: the planes the map offers, single-select, each with its own legend).
  * Zoom, auto-center, the filter selections, and the selected ground layer are persisted. Port of
  * the React `MapPanel` (no map library — a single custom composable).
  */
@@ -258,7 +259,11 @@ fun MapPanel(
   // The selected layer's slim info (legend + version), or null when unselected / not offered by the
   // current data -- the persisted id simply draws nothing until it reappears (edge case in the plan).
   val activeLayerInfo = mapLayers?.layers?.find { it.id == groundLayer }
-  val layerKey = activeLayerInfo?.let { "$mapLayerUrl/$groundLayer|${mapLayers.version}" }
+  // Keyed on THIS layer's version, so a sweep of some other plane no longer refetches the overlay on
+  // screen. A null version means the mod hasn't swept this plane (nobody had it selected until now):
+  // there is nothing to fetch yet, and the sweep our selection just triggered will bring one.
+  val activeLayerVersion = activeLayerInfo?.version
+  val layerKey = activeLayerVersion?.let { "$mapLayerUrl/$groundLayer|$it" }
   // Held WITH the layer id it was rendered from, and NOT cleared when layerKey changes: a new sweep's
   // version must keep showing the previous bitmap until the new one has fetched, rather than flashing
   // blank in between. Pairing it with the id is what keeps that from spilling across a layer *switch* --
@@ -283,7 +288,7 @@ fun MapPanel(
         return@LaunchedEffect
       }
     }
-    val url = "$mapLayerUrl/$requestedLayer?v=${mapLayers.version}"
+    val url = "$mapLayerUrl/$requestedLayer?v=$activeLayerVersion"
     // Two attempts, because a transient network failure would otherwise leave the layer stuck on the
     // previous raster until the mod's next sweep -- which, on an idle map, is an in-game day away.
     // A 409 is exempt: it means this version has already been superseded server-side, so re-asking
@@ -835,6 +840,7 @@ private fun vehicleStateLabel(state: String): String = when (state) {
   else -> "Parked"
 }
 
+/** Fallback name for a plane the mod didn't label (an older mod version). */
 private fun groundLayerLabel(id: String): String = when (id) {
   "crops" -> "Crops"
   "growth" -> "Growth"
@@ -1000,7 +1006,11 @@ private fun BoxScope.MapFilterPanel(
       Text("Ground layer", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
       FilterRow("None", checked = groundLayer == "none") { onGroundLayer("none") }
       for (layer in mapLayers.layers) {
-        FilterRow(groundLayerLabel(layer.id), checked = groundLayer == layer.id) { onGroundLayer(layer.id) }
+        // The mod labels each plane from the game's own overlay selector, so a plane this app has
+        // never heard of (Precision Farming's) still gets a proper, localized name.
+        FilterRow(layer.label.ifBlank { groundLayerLabel(layer.id) }, checked = groundLayer == layer.id) {
+          onGroundLayer(layer.id)
+        }
       }
     }
   }

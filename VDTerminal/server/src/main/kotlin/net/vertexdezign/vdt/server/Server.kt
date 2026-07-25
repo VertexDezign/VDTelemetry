@@ -25,9 +25,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.VdtParser
@@ -74,18 +76,33 @@ fun main() {
     watcher.register("storage.json", nullOnAbsent = true) { VdtParser.parseStorage(it) }
   // husbandry.json is interval-driven too (own animal pens); same absence rule.
   val husbandryState = watcher.register("husbandry.json", nullOnAbsent = true) { VdtParser.parseHusbandry(it) }
-  // mapLayers.json rewrites on the mod's own multi-second sweep cadence; same absence rule.
-  val mapLayersState = watcher.register("mapLayers.json", nullOnAbsent = true) { VdtParser.parseMapLayers(it) }
   watcher.launchIn(appScope)
+
+  // The ground-layer rasters live in their own folder, one file per plane plus index.json naming the
+  // planes this map offers. Which planes exist is the mod's to decide (base game today, Precision
+  // Farming later), so the planes are taken as a keyed map rather than registered by name -- see
+  // TelemetryWatcher.registerRest. Its own watcher because it is its own directory; the folder appears
+  // when the mod loads a map, which the watcher's retry loop already handles.
+  val layerWatcher = TelemetryWatcher(telemetryPath.parent.resolve("mapLayers"), Config.debounceMs())
+  val mapLayerCatalogState =
+    layerWatcher.register("index.json", nullOnAbsent = true) { VdtParser.parseMapLayerCatalog(it) }
+  val mapLayerState = layerWatcher.registerRest { VdtParser.parseMapLayer(it) }
+  layerWatcher.launchIn(appScope)
 
   // Diagnostics: sample every channel's observed write cadence on a slow timer (independent of the
   // channels' own updates, so an idle channel's staleness keeps advancing). One shared flow; each
   // session collects it, same as the data channels.
-  val channelStatsState = MutableStateFlow(watcher.snapshotCadence())
+  // Both watchers' files, in one feed: the panel lists channels, not directories.
+  fun cadenceSnapshot(): ChannelStatsData {
+    val telemetry = watcher.snapshotCadence()
+    return telemetry.copy(channels = telemetry.channels + layerWatcher.snapshotCadence().channels)
+  }
+
+  val channelStatsState = MutableStateFlow(cadenceSnapshot())
   appScope.launch {
     while (isActive) {
       delay(CHANNEL_STATS_INTERVAL_MS)
-      channelStatsState.value = watcher.snapshotCadence()
+      channelStatsState.value = cadenceSnapshot()
     }
   }
 
@@ -189,8 +206,12 @@ fun main() {
         // the app knows when to refetch the PNG from /api/map-layer/{id}.
         val mapLayersJob =
           launch {
-            mapLayersState.collect { data ->
-              val message: ServerMessage = ServerMessage.MapLayers(data?.let { MapLayersInfo.from(it) })
+            // The catalogue decides whether there is anything to announce at all; the rasters fill in
+            // each plane's legend + version as they are swept, so both feed one broadcast.
+            combine(mapLayerCatalogState, mapLayerState) { catalog, rasters ->
+              catalog?.let { MapLayersInfo.from(it, rasters) }
+            }.collect { info ->
+              val message: ServerMessage = ServerMessage.MapLayers(info)
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
@@ -222,7 +243,7 @@ fun main() {
         }
       }
 
-      mapLayerRoute { mapLayersState.value }
+      mapLayerRoute { mapLayerState.value }
 
       get("/api/map-image") {
         val pda =
