@@ -438,6 +438,47 @@ describe("ExportChannels per-channel config", function()
   end)
 end)
 
+describe("ExportChannels per-frame cost", function()
+  before_each(function()
+    VDT.ExportChannels.reset()
+  end)
+
+  -- tick() and writeDirty() both run every frame. mapLayers alone registers one channel per raster
+  -- plane (nine with Precision Farming), so what these two do for a channel with nothing to do is
+  -- multiplied by every channel there is.
+  it("does not evaluate a channel that has neither a cadence nor a tick", function()
+    local ch = channel("mapLayersCrops", true, { body = "C" })
+    local availabilityChecks = 0
+    ch.isAvailable = function()
+      availabilityChecks = availabilityChecks + 1
+      return true
+    end
+    VDT.ExportChannels.register(ch)
+
+    VDT.ExportChannels.tick(debugger, 16)
+    assert.are.equal(0, ch.collects)
+    assert.are.equal(0, availabilityChecks)
+  end)
+
+  it("writeDirty does nothing, and asks nothing, while no channel is dirty", function()
+    local ch = channel("a", true, { body = "A" })
+    local availabilityChecks = 0
+    ch.isAvailable = function()
+      availabilityChecks = availabilityChecks + 1
+      return true
+    end
+    VDT.ExportChannels.register(ch)
+
+    VDT.ExportChannels.writeDirty("/tmp/vdt-unused-", encode, debugger)
+    assert.are.equal(0, availabilityChecks)
+
+    -- ...and still writes normally once something is queued.
+    VDT.ExportChannels.markDirty("a")
+    VDT.ExportChannels.writeDirty(os.tmpname() .. "-", encode, debugger)
+    assert.are.equal(1, ch.collects)
+  end)
+end)
+
 describe("ExportChannels.subDirs", function()
   before_each(function()
     VDT.ExportChannels.reset()

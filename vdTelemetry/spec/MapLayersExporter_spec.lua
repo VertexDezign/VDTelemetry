@@ -1063,6 +1063,8 @@ describe("MapLayers.tick sweep", function()
       rawset(_G, "g_modIsLoaded", nil)
       rawset(_G, "FS25_precisionFarming", nil)
       VDT.MapLayers.warnedPfUnreachable = false
+      VDT.MapLayers.CATALOGUE_RECHECK_MS = 5000
+      VDT.MapLayers.catalogueTimerMs = 0
     end)
 
     it("offers only the PF planes whose value map exists", function()
@@ -1107,6 +1109,10 @@ describe("MapLayers.tick sweep", function()
       assert.are.equal(3, #VDT.MapLayers.collect().layers)
       local writes = markedByChannel[VDT.MapLayers.CHANNEL]
 
+      -- The recheck is throttled (it would otherwise walk every layer through PF's env every frame),
+      -- so the tick below has to carry enough dt to reach it.
+      VDT.MapLayers.CATALOGUE_RECHECK_MS = 100
+
       rawset(_G, "FS25_precisionFarming", {
         g_precisionFarming = {
           nitrogenMap = {
@@ -1117,15 +1123,15 @@ describe("MapLayers.tick sweep", function()
           },
         },
       })
-      VDT.MapLayers.tick(stubDebugger(), 16)
+      VDT.MapLayers.tick(stubDebugger(), 200)
 
       assert.are.equal(4, #VDT.MapLayers.collect().layers)
       assert.are.equal("pfNitrogen", VDT.MapLayers.collect().layers[4].id)
       assert.are.equal(writes + 1, markedByChannel[VDT.MapLayers.CHANNEL]) -- republished, once
 
-      -- ...and stable from there: an unchanged offer is not rewritten every tick.
+      -- ...and stable from there: an unchanged offer is not rewritten, however often it is rechecked.
       for _ = 1, 5 do
-        VDT.MapLayers.tick(stubDebugger(), 16)
+        VDT.MapLayers.tick(stubDebugger(), 200)
       end
       assert.are.equal(writes + 1, markedByChannel[VDT.MapLayers.CHANNEL])
     end)

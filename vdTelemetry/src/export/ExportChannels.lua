@@ -323,20 +323,27 @@ function VDT.ExportChannels.tick(debugger, dt)
   end
   for _, name in ipairs(order) do
     local ch = channels[name]
-    -- A disabled channel (user toggle or profile) does nothing at all: it neither accumulates -- which
-    -- would queue a write selectDirty only drops again, leaving a dangling dirty flag -- nor ticks. The
-    -- tick is where the expensive work lives (mapLayers grid-samples the map from its tick), so running
-    -- it for a channel that will never be written is pure waste; "off" has to mean off.
-    if channelEnabled(name) then
-      if ch.intervalMs ~= nil and type(dt) == "number" then
-        timers[name] = (timers[name] or 0) + dt
-        if timers[name] >= channelInterval(ch) then
-          timers[name] = 0
-          VDT.ExportChannels.markDirty(name)
+    -- Channels with neither a cadence nor a tick have nothing to do here, and this loop runs every
+    -- frame over every channel: mapLayers alone registers one per raster plane (nine with Precision
+    -- Farming), none of which tick -- the driver does. Checked before channelEnabled, which is the
+    -- more expensive of the two tests.
+    if ch.intervalMs ~= nil or ch.tick ~= nil then
+      -- A disabled channel (user toggle or profile) does nothing at all: it neither accumulates --
+      -- which would queue a write selectDirty only drops again, leaving a dangling dirty flag -- nor
+      -- ticks. The tick is where the expensive work lives (mapLayers grid-samples the map from its
+      -- tick), so running it for a channel that will never be written is pure waste; "off" has to
+      -- mean off.
+      if channelEnabled(name) then
+        if ch.intervalMs ~= nil and type(dt) == "number" then
+          timers[name] = (timers[name] or 0) + dt
+          if timers[name] >= channelInterval(ch) then
+            timers[name] = 0
+            VDT.ExportChannels.markDirty(name)
+          end
         end
-      end
-      if ch.tick ~= nil then
-        ch.tick(debugger, dt)
+        if ch.tick ~= nil then
+          ch.tick(debugger, dt)
+        end
       end
     end
   end
@@ -418,6 +425,12 @@ end
 ---@param encode fun(model: table): string serializer, e.g. Json.encode bound to prettyJson
 ---@param debugger GrisuDebug
 function VDT.ExportChannels.writeDirty(dir, encode, debugger)
+  -- The overwhelmingly common case, every frame between writes: nothing is queued. Bail before
+  -- selectDirty walks every channel (calling each one's isAvailable) and allocates a list to hold
+  -- what it found.
+  if next(dirty) == nil then
+    return
+  end
   local oldest -- the single longest-waiting non-critical channel to flush this frame
   for _, ch in ipairs(VDT.ExportChannels.selectDirty()) do
     if ch.latencyCritical then

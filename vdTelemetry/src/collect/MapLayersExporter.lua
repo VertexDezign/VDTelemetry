@@ -119,6 +119,11 @@ VDT.MapLayers.PATCH_RADIUS_M = 32
 -- BACKOFF is what keeps a still-streaming map from resweeping back to back: the timer only advances
 -- while no sweep is running, so it is a floor on idle time between audit-driven resweeps. Raise it if
 -- the join phase ever feels heavy; that is the knob, not the sample size.
+-- How often the set of offered planes is re-examined once a catalogue exists. Only a load-time race
+-- can change it (a Precision Farming value map built after our first tick), so this is slow on
+-- purpose: the check itself is the per-frame cost, not the rebuild it almost never triggers.
+VDT.MapLayers.CATALOGUE_RECHECK_MS = 5000
+
 VDT.MapLayers.AUDIT_INTERVAL_MS = 10000
 VDT.MapLayers.AUDIT_CELLS = 256
 VDT.MapLayers.AUDIT_BACKOFF_MS = 30000
@@ -134,6 +139,7 @@ VDT.MapLayers.subscribed = false -- one-shot guard for the message-center subscr
 -- leave the rest -- including their files -- exactly as they were.
 VDT.MapLayers.models = {}
 VDT.MapLayers.catalogue = nil -- index.json's model; built once the world size resolves (see tick)
+VDT.MapLayers.catalogueTimerMs = 0 -- accumulates dt toward the next offered-layer recheck
 VDT.MapLayers.warnedPfUnreachable = false -- one-shot guard for the Precision Farming visibility warning
 -- Layer ids something is actually looking at (id -> true), set by the setMapLayers command -- the
 -- server sends the union of what its connected dashboards have selected. EMPTY BY DEFAULT, and empty
@@ -1471,7 +1477,21 @@ local function catalogueLists(ids)
 end
 
 ---@param debugger GrisuDebug
-local function publishCatalogue(debugger)
+---@param dt number? frame delta in ms
+local function publishCatalogue(debugger, dt)
+  -- Once a catalogue is out, the recheck below is throttled: it exists only to catch a value map that
+  -- appears late (Precision Farming building its maps after our first tick), which is a one-off during
+  -- load, while this runs on every frame for the rest of the session. Walking eight layers through
+  -- PF's env every frame is exactly the kind of idle cost that shows up in the script profiler.
+  if VDT.MapLayers.catalogue ~= nil then
+    if type(dt) == "number" then
+      VDT.MapLayers.catalogueTimerMs = VDT.MapLayers.catalogueTimerMs + dt
+    end
+    if VDT.MapLayers.catalogueTimerMs < VDT.MapLayers.CATALOGUE_RECHECK_MS then
+      return
+    end
+    VDT.MapLayers.catalogueTimerMs = 0
+  end
   -- Rechecked every tick rather than built once, because we don't control when a plane's data source
   -- appears: Precision Farming builds its value maps during mission load, and taking the first tick's
   -- answer as final would mean a plane that wasn't ready yet is missing for the whole session -- with
@@ -1534,7 +1554,7 @@ function VDT.MapLayers.tick(debugger, dt)
   subscribeEvents()
   -- Before the subscription gate: the catalogue is what tells the app which layers it CAN subscribe
   -- to, so waiting for a subscription to publish it would deadlock the two.
-  publishCatalogue(debugger)
+  publishCatalogue(debugger, dt)
 
   if not anySubscribed() then
     -- Nothing is looking at any plane. Not a pause -- there is no work to catch up on later, since a
