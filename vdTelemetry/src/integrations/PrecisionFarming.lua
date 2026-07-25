@@ -112,13 +112,17 @@ end
 ---@param values table[] PF's per-value table (soilTypes / pHValues / nitrogenValues / ...)
 ---@param keyField string|nil
 ---@param label fun(entry: table): string
+---@param colorBlind boolean use PF's colorblind palette
 ---@return table<number, table> value -> { label, color }
-local function legendFrom(values, keyField, label)
+local function legendFrom(values, keyField, label, colorBlind)
   local legend = {}
   for index, entry in ipairs(values) do
     local value = keyField ~= nil and entry[keyField] or index
     if type(value) == "number" and value > 0 then
-      legend[value] = { label = label(entry), color = entry.color }
+      -- PF carries a colorblind variant next to every color, exactly as the base game does; fall back
+      -- to the default when a value has none (PF leaves it nil in places).
+      local color = (colorBlind and entry.colorBlind) or entry.color
+      legend[value] = { label = label(entry), color = color }
     end
   end
   return legend
@@ -128,7 +132,7 @@ end
 --   id        wire id, also the file name (mapLayers/<id>.json) and the /api/map-layer path segment
 --   mapName   PF's field name for the value map
 --   fallback  label when PF's own l10n can't be reached (its keys live in the mod's namespace)
---   build     (map) -> { sample = fun(x, z): number, legend = { [value] = { label, color } } }
+--   build     (map, colorBlind) -> { sample = fun(x, z): number, legend = { [value] = { label, color } } }
 --
 -- A cell value of 0 means "no data here" in every plane -- ground the cover map hasn't uncovered,
 -- never-sampled farmland, a field never harvested -- and renders transparent, like every other plane.
@@ -137,7 +141,7 @@ VDT.PrecisionFarming.LAYERS = {
     id = "pfSoilType",
     mapName = "soilMap",
     fallback = "Soil type",
-    build = function(map)
+    build = function(map, colorBlind)
       return {
         sample = function(x, z)
           return map:getTypeIndexAtWorldPos(x, z) or 0
@@ -145,7 +149,7 @@ VDT.PrecisionFarming.LAYERS = {
         -- The point read returns a 1-based index into soilTypes, not a stored "value" field.
         legend = legendFrom(map.soilTypes, nil, function(entry)
           return entry.name
-        end),
+        end, colorBlind),
       }
     end,
   },
@@ -153,14 +157,14 @@ VDT.PrecisionFarming.LAYERS = {
     id = "pfPh",
     mapName = "pHMap",
     fallback = "pH",
-    build = function(map)
+    build = function(map, colorBlind)
       return {
         sample = function(x, z)
           return map:getLevelAtWorldPos(x, z) or 0
         end,
         legend = legendFrom(map.pHValues, "value", function(entry)
           return string.format("%.1f", entry.realValue or 0)
-        end),
+        end, colorBlind),
       }
     end,
   },
@@ -168,14 +172,14 @@ VDT.PrecisionFarming.LAYERS = {
     id = "pfNitrogen",
     mapName = "nitrogenMap",
     fallback = "Nitrogen",
-    build = function(map)
+    build = function(map, colorBlind)
       return {
         sample = function(x, z)
           return map:getLevelAtWorldPos(x, z) or 0
         end,
         legend = legendFrom(map.nitrogenValues, "value", function(entry)
           return string.format("%d kg/ha", entry.realValue or 0)
-        end),
+        end, colorBlind),
       }
     end,
   },
@@ -183,12 +187,12 @@ VDT.PrecisionFarming.LAYERS = {
     id = "pfYield",
     mapName = "yieldMap",
     fallback = "Yield",
-    build = function(map)
+    build = function(map, colorBlind)
       return {
         sample = bitVectorReader(map),
         legend = legendFrom(map.yieldValues, "value", function(entry)
           return string.format("%d%%", entry.displayValue or 0)
-        end),
+        end, colorBlind),
       }
     end,
   },
@@ -196,12 +200,12 @@ VDT.PrecisionFarming.LAYERS = {
     id = "pfSeedRate",
     mapName = "seedRateMap",
     fallback = "Seed rate",
-    build = function(map)
+    build = function(map, colorBlind)
       return {
         sample = bitVectorReader(map),
         legend = legendFrom(map.rateValues, "value", function(entry)
           return entry.text or "?"
-        end),
+        end, colorBlind),
       }
     end,
   },
@@ -236,13 +240,14 @@ end
 ---unavailable or its internals no longer look like this. Called once per sweep, so the cost of the
 ---pcall + the legend build is paid once, not per cell.
 ---@param layer table an entry of LAYERS
+---@param colorBlind boolean|nil use PF's colorblind palette for the legend
 ---@return table|nil { sample = fun(x, z): number, legend = table<number, table> }
-function VDT.PrecisionFarming.resolveLayer(layer)
+function VDT.PrecisionFarming.resolveLayer(layer, colorBlind)
   local map = valueMap(layer.mapName)
   if map == nil then
     return nil
   end
-  local ok, built = pcall(layer.build, map)
+  local ok, built = pcall(layer.build, map, colorBlind == true)
   if not ok or type(built) ~= "table" or type(built.sample) ~= "function" then
     return nil
   end

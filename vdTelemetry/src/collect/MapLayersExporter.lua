@@ -186,33 +186,56 @@ local SOIL_NEEDS_PLOWING = 20
 local SOIL_NEEDS_LIME = 21
 local SOIL_FERTILIZED_BASE = 30 -- + spray level (1..maxSprayLevel) => 31..
 
--- Non-colorblind color constants transcribed from MapOverlayGenerator.lua (linear RGB, the [false]
--- variant -- see the plan's Context for the exact source lines this was read from). Converted to sRGB
--- hex on use via VDT.MapExporter.linearToSrgbHex, same as every other color this mod exports.
+-- Color constants transcribed from MapOverlayGenerator.lua (linear RGB), keyed [false]/[true] exactly
+-- as the game keys them: the game ships a second palette for its colorblind mode, and the overlay is
+-- supposed to look like the in-game map whichever the player has chosen. Which set a sweep uses is
+-- snapshotted on its ctx (see startSweep); converted to sRGB hex on use via
+-- VDT.MapExporter.linearToSrgbHex, same as every other color this mod exports.
+--
+-- Note the colorblind growing gradient is SHORTER (4 steps, not 8) -- the game trades resolution for
+-- distinguishability there, and so do we: the gradient's wire values are computed against whichever
+-- palette is active (see classifyGrowthFromFruit), which is why changing the setting re-sweeps rather
+-- than just re-coloring.
 local GROWTH_GRADIENT_COLORS = {
-  { 0.227, 0.5711, 0.0176 },
-  { 0.1683, 0.4678, 0.0152 },
-  { 0.1221, 0.3813, 0.013 },
-  { 0.0823, 0.3006, 0.011 },
-  { 0.0529, 0.2346, 0.0091 },
-  { 0.0296, 0.1746, 0.0075 },
-  { 0.0144, 0.1248, 0.006 },
-  { 0.0048, 0.0844, 0.0048 },
+  [false] = {
+    { 0.227, 0.5711, 0.0176 },
+    { 0.1683, 0.4678, 0.0152 },
+    { 0.1221, 0.3813, 0.013 },
+    { 0.0823, 0.3006, 0.011 },
+    { 0.0529, 0.2346, 0.0091 },
+    { 0.0296, 0.1746, 0.0075 },
+    { 0.0144, 0.1248, 0.006 },
+    { 0.0048, 0.0844, 0.0048 },
+  },
+  [true] = {
+    { 1, 0.9473, 0.227 },
+    { 1, 0.9046, 0.013 },
+    { 0.5583, 0.4735, 0.007 },
+    { 0.2122, 0.1779, 0.0027 },
+  },
 }
-local COLOR_HARVEST_READY = { 0.7758, 0.3095, 0.013 }
-local COLOR_CUT = { 0.2647, 0.1038, 0.358 }
-local COLOR_WITHERED = { 0.1441, 0.0452, 0.0123 }
-local COLOR_TOPPING = { 0.7011, 0.0452, 0.0123 }
-local COLOR_CULTIVATED = { 0.0967, 0.3758, 0.7084 }
-local COLOR_STUBBLE_TILLAGE = { 0.1967, 0.4758, 0.3084 }
-local COLOR_SEEDBED = { 0.0815, 0.6584, 0.4198 }
-local COLOR_PLOWED = { 0.0908, 0.0467, 0.0865 }
-local COLOR_NEEDS_PLOWING = { 0.6172, 0.051, 0.051 }
-local COLOR_NEEDS_LIME = { 0.0815, 0.6584, 0.4198 }
+local COLOR_HARVEST_READY = { [false] = { 0.7758, 0.3095, 0.013 }, [true] = { 0.0561, 0.1384, 0.5841 } }
+-- The one color the game does NOT vary: getDisplayGrowthStates hands FRUIT_COLOR_CUT to both modes.
+local COLOR_CUT = { [false] = { 0.2647, 0.1038, 0.358 }, [true] = { 0.2647, 0.1038, 0.358 } }
+local COLOR_WITHERED = { [false] = { 0.1441, 0.0452, 0.0123 }, [true] = { 0.1195, 0.1144, 0.0908 } }
+local COLOR_TOPPING = { [false] = { 0.7011, 0.0452, 0.0123 }, [true] = { 0.3231, 0.3467, 0.4621 } }
+local COLOR_CULTIVATED = { [false] = { 0.0967, 0.3758, 0.7084 }, [true] = { 0.2918, 0.3564, 0.7011 } }
+local COLOR_STUBBLE_TILLAGE = { [false] = { 0.1967, 0.4758, 0.3084 }, [true] = { 0.3918, 0.4564, 0.3011 } }
+local COLOR_SEEDBED = { [false] = { 0.0815, 0.6584, 0.4198 }, [true] = { 0.6795, 0.6867, 0.7231 } }
+local COLOR_PLOWED = { [false] = { 0.0908, 0.0467, 0.0865 }, [true] = { 0.0469, 0.0484, 0.0597 } }
+local COLOR_NEEDS_PLOWING = { [false] = { 0.6172, 0.051, 0.051 }, [true] = { 1, 0.8632, 0.0232 } }
+local COLOR_NEEDS_LIME = { [false] = { 0.0815, 0.6584, 0.4198 }, [true] = { 0.6795, 0.6867, 0.7231 } }
 local FERTILIZED_COLORS = {
-  { 0.0595, 0.2086, 0.8227 },
-  { 0.0091, 0.0931, 0.5841 },
-  { 0.0018, 0.0382, 0.2961 },
+  [false] = {
+    { 0.0595, 0.2086, 0.8227 },
+    { 0.0091, 0.0931, 0.5841 },
+    { 0.0018, 0.0382, 0.2961 },
+  },
+  [true] = {
+    { 0.0976, 0.2086, 0.8148 },
+    { 0.0086, 0.0976, 0.5776 },
+    { 0, 0.0409, 0.2918 },
+  },
 }
 
 -- Fixed-value legend entries: l10n key (mirrors MapOverlayGenerator.L10N_SYMBOL), an English fallback
@@ -246,6 +269,26 @@ local SOIL_LABELS = {
 ---@return string
 local function hex(color)
   return VDT.MapExporter.linearToSrgbHex(color[1], color[2], color[3])
+end
+
+---sRGB hex for one of the [false]/[true] keyed constants above, in the mode this sweep is exporting.
+---@param colors table { [false] = {r,g,b}, [true] = {r,g,b} }
+---@param colorBlind boolean
+---@return string
+local function modeHex(colors, colorBlind)
+  return hex(colors[colorBlind == true])
+end
+
+---Whether the player has the game's colorblind mode on. Read per sweep (and snapshotted on the ctx),
+---so every color in one file comes from one palette; a change re-arms a sweep (see subscribeEvents),
+---because the growing gradient's wire values depend on which palette is active.
+---@return boolean
+local function colorBlindEnabled()
+  if g_gameSettings == nil or GameSettings == nil or GameSettings.SETTING == nil then
+    return false
+  end
+  local ok, value = pcall(g_gameSettings.getValue, g_gameSettings, GameSettings.SETTING.USE_COLORBLIND_MODE)
+  return ok and value == true
 end
 
 ---Localized text for an l10n key, or fallback when g_i18n is unavailable / doesn't know the key
@@ -345,10 +388,16 @@ end
 ---({r,g,b,a} table, not a Color object -- these come straight from XML VECTOR_4 parsing). nil when the
 ---system doesn't expose a states/color table (unavailable / malformed data).
 ---@param system table weedSystem or stoneSystem
+---@param colorBlind boolean use the system's colorblind palette
 ---@return table<number, number>|nil stateToGroup
 ---@return table<number, number[]>|nil groupColors
-local function buildColorGroups(system)
-  local ok, mapColor = pcall(system.getColors, system)
+local function buildColorGroups(system, colorBlind)
+  -- getColors returns BOTH palettes, the colorblind one second -- the same pair the game's own
+  -- getDisplaySoilStates picks from.
+  local ok, mapColor, mapColorBlind = pcall(system.getColors, system)
+  if colorBlind and type(mapColorBlind) == "table" then
+    mapColor = mapColorBlind
+  end
   if not ok or type(mapColor) ~= "table" then
     return nil, nil
   end
@@ -374,8 +423,9 @@ end
 ---ground-type classification, matching "no shown fruit" behavior).
 ---@param desc table fruitTypeDesc
 ---@param growthState number
+---@param gradientCount number steps in the active growing gradient (4 colorblind, 8 otherwise)
 ---@return number|nil
-local function classifyGrowthFromFruit(desc, growthState)
+local function classifyGrowthFromFruit(desc, growthState, gradientCount)
   if type(desc.harvestTransitions) == "table" then
     for _, cutState in pairs(desc.harvestTransitions) do
       if cutState == growthState then
@@ -405,7 +455,7 @@ local function classifyGrowthFromFruit(desc, growthState)
     maxGrowing = math.min(maxGrowing, desc.minPreparingGrowthState - 1)
   end
   if maxGrowing > 0 and growthState >= 1 and growthState <= maxGrowing then
-    local index = math.max(math.floor(#GROWTH_GRADIENT_COLORS / maxGrowing * growthState), 1)
+    local index = math.max(math.floor(gradientCount / maxGrowing * growthState), 1)
     return GROWTH_GRADIENT_BASE + index
   end
   return nil
@@ -530,9 +580,12 @@ end
 ---{r,g,b} constants), so it needs :unpack() rather than index access.
 ---@param desc table fruitTypeDesc
 ---@return string|nil
-local function fruitColorHex(desc)
+local function fruitColorHex(desc, colorBlind)
   local ok, r, g, b = pcall(function()
-    return desc.defaultMapColor:unpack()
+    -- Fruit types carry both, exactly like the constants above (MapOverlayGenerator reads
+    -- defaultMapColor / colorBlindMapColor into its [false] / [true] entries).
+    local color = colorBlind and desc.colorBlindMapColor or nil
+    return (color or desc.defaultMapColor):unpack()
   end)
   if ok and type(r) == "number" then
     return VDT.MapExporter.linearToSrgbHex(r, g, b)
@@ -542,18 +595,20 @@ end
 
 ---Legend entry for a growth wire value: the gradient range shares one label/color-per-step, everything
 ---else is a fixed lookup.
+---@param ctx table sweep context (for the active palette)
 ---@param value number
 ---@return table
-local function growthLegendEntry(value)
-  if value > GROWTH_GRADIENT_BASE and value <= GROWTH_GRADIENT_BASE + #GROWTH_GRADIENT_COLORS then
+local function growthLegendEntry(ctx, value)
+  local gradient = GROWTH_GRADIENT_COLORS[ctx.colorBlind == true]
+  if value > GROWTH_GRADIENT_BASE and value <= GROWTH_GRADIENT_BASE + #gradient then
     local index = value - GROWTH_GRADIENT_BASE
-    return { v = value, label = l10nText("ui_growthMapGrowing", "Growing"), color = hex(GROWTH_GRADIENT_COLORS[index]) }
+    return { v = value, label = l10nText("ui_growthMapGrowing", "Growing"), color = hex(gradient[index]) }
   end
   local entry = GROWTH_LABELS[value]
   if entry == nil then
     return { v = value, label = "?" }
   end
-  return { v = value, label = l10nText(entry.key, entry.fallback), color = hex(entry.color) }
+  return { v = value, label = l10nText(entry.key, entry.fallback), color = modeHex(entry.color, ctx.colorBlind) }
 end
 
 ---Legend entry for a soil wire value: weed/stone groups take their label from the system's title
@@ -583,14 +638,15 @@ local function soilLegendEntry(ctx, value)
   end
   if value >= SOIL_FERTILIZED_BASE then
     local level = value - SOIL_FERTILIZED_BASE
-    local color = FERTILIZED_COLORS[math.min(level, #FERTILIZED_COLORS)]
+    local fertilized = FERTILIZED_COLORS[ctx.colorBlind == true]
+    local color = fertilized[math.min(level, #fertilized)]
     return { v = value, label = l10nText("ui_growthMapFertilized", "Fertilized"), color = hex(color) }
   end
   local entry = SOIL_LABELS[value]
   if entry == nil then
     return { v = value, label = "?" }
   end
-  return { v = value, label = l10nText(entry.key, entry.fallback), color = hex(entry.color) }
+  return { v = value, label = l10nText(entry.key, entry.fallback), color = modeHex(entry.color, ctx.colorBlind) }
 end
 
 ---Classify one world cell into (crops, growth, soil) wire values, and record any newly-seen legend
@@ -659,7 +715,8 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
           local gv = fruit.growthByState[state]
           if gv == nil then
             local growthState = desc:getGrowthStateByDensityState(state)
-            local computed = classifyGrowthFromFruit(desc, growthState)
+            local computed =
+              classifyGrowthFromFruit(desc, growthState, ctx.gradientCount or #GROWTH_GRADIENT_COLORS[false])
             gv = computed == nil and false or computed
             fruit.growthByState[state] = gv
           end
@@ -680,10 +737,10 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
 
   local seen = ctx.seen
   if cropsV ~= 0 and seen.crops[cropsV] == nil then
-    seen.crops[cropsV] = { v = cropsV, label = fruitLabel(desc), color = fruitColorHex(desc) }
+    seen.crops[cropsV] = { v = cropsV, label = fruitLabel(desc), color = fruitColorHex(desc, ctx.colorBlind) }
   end
   if growthV ~= GROWTH_NONE and seen.growth[growthV] == nil then
-    seen.growth[growthV] = growthLegendEntry(growthV)
+    seen.growth[growthV] = growthLegendEntry(ctx, growthV)
   end
   if soilV ~= SOIL_NONE and seen.soil[soilV] == nil then
     seen.soil[soilV] = soilLegendEntry(ctx, soilV)
@@ -732,7 +789,7 @@ local function resolvePfLayers(ctx)
   local resolved = {}
   for _, layer in ipairs(VDT.MapLayers.LAYERS) do
     if layer.pf ~= nil and ctx.wanted[layer.id] then
-      local built = VDT.PrecisionFarming.resolveLayer(layer.pf)
+      local built = VDT.PrecisionFarming.resolveLayer(layer.pf, ctx.colorBlind)
       if built ~= nil then
         resolved[#resolved + 1] = {
           id = layer.id,
@@ -788,6 +845,9 @@ local function startSweep()
   local mission = g_currentMission
   local fieldGroundSystem = mission.fieldGroundSystem
   local missionInfo = mission.missionInfo or {}
+  -- Snapshotted once so every color in this sweep's files -- and the gradient's wire values, which
+  -- depend on the palette's length -- come from one palette.
+  local colorBlind = colorBlindEnabled()
 
   local weedSystem = mission.weedSystem
   local weedAvailable = weedSystem ~= nil and missionInfo.weedsEnabled == true
@@ -798,7 +858,7 @@ local function startSweep()
   local weedStateToGroup, weedGroupColors
   local weedTitle = "Weeds"
   if weedAvailable then
-    weedStateToGroup, weedGroupColors = buildColorGroups(weedSystem)
+    weedStateToGroup, weedGroupColors = buildColorGroups(weedSystem, colorBlind)
     weedAvailable = weedStateToGroup ~= nil
     local ok, title = pcall(weedSystem.getTitle, weedSystem)
     if ok and type(title) == "string" and title ~= "" then
@@ -815,7 +875,7 @@ local function startSweep()
   local stoneStateToGroup, stoneGroupColors
   local stoneTitle = "Stones"
   if stoneAvailable then
-    stoneStateToGroup, stoneGroupColors = buildColorGroups(stoneSystem)
+    stoneStateToGroup, stoneGroupColors = buildColorGroups(stoneSystem, colorBlind)
     stoneAvailable = stoneStateToGroup ~= nil
     local ok, title = pcall(stoneSystem.getTitle, stoneSystem)
     if ok and type(title) == "string" and title ~= "" then
@@ -842,6 +902,9 @@ local function startSweep()
     stubbleTillageValue = FieldGroundType.getValueByType(FieldGroundType.STUBBLE_TILLAGE),
     seedbedValue = FieldGroundType.getValueByType(FieldGroundType.SEEDBED),
     rolledSeedbedValue = FieldGroundType.getValueByType(FieldGroundType.ROLLED_SEEDBED),
+    colorBlind = colorBlind,
+    -- Steps in the active growing gradient, read by classifyGrowthFromFruit for every fruit cell.
+    gradientCount = #GROWTH_GRADIENT_COLORS[colorBlind],
     plowingRequiredEnabled = missionInfo.plowingRequiredEnabled == true,
     limeRequired = missionInfo.limeRequired == true,
     maxSprayLevel = maxSprayLevel,
@@ -1361,6 +1424,15 @@ local function subscribeEvents()
   for _, message in ipairs({ "PERIOD_CHANGED", "DAY_CHANGED" }) do
     if MessageType[message] ~= nil then
       g_messageCenter:subscribe(MessageType[message], VDT.MapLayers.markDirty, VDT.MapLayers)
+    end
+  end
+  -- Colorblind mode decides both the colors and (through the gradient's length) the growth plane's
+  -- wire values, so a toggle has to re-sweep rather than wait for the next in-game day -- the player
+  -- flipped that switch to see a difference now. SETTING_CHANGED is a table keyed by setting id.
+  if type(MessageType.SETTING_CHANGED) == "table" and GameSettings ~= nil and GameSettings.SETTING ~= nil then
+    local message = MessageType.SETTING_CHANGED[GameSettings.SETTING.USE_COLORBLIND_MODE]
+    if message ~= nil then
+      g_messageCenter:subscribe(message, VDT.MapLayers.markDirty, VDT.MapLayers)
     end
   end
   VDT.MapLayers.subscribed = true

@@ -963,6 +963,75 @@ describe("MapLayers.tick sweep", function()
     end)
   end)
 
+  -- The game's colorblind mode. It is not only a recolor: the growing gradient is shorter in that
+  -- mode, so the growth plane's wire values change with it too, and both have to move together.
+  describe("colorblind mode", function()
+    local function setColorBlind(on)
+      rawset(_G, "GameSettings", { SETTING = { USE_COLORBLIND_MODE = "useColorblindMode" } })
+      rawset(_G, "g_gameSettings", {
+        getValue = function(_, setting)
+          return setting == "useColorblindMode" and on or nil
+        end,
+      })
+    end
+
+    local function sweepPlowedGround()
+      -- Plowed ground gives the soil-less growth plane one legend entry with a fixed color.
+      g_currentMission.fieldGroundSystem.getValueAtWorldPos = function(_, densityType)
+        return densityType == FieldDensityMap.GROUND_TYPE and 5 or 0
+      end
+      for _ = 1, 4 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      return VDT.MapLayers.collectLayer("growth").legend[1]
+    end
+
+    after_each(function()
+      rawset(_G, "GameSettings", nil)
+      rawset(_G, "g_gameSettings", nil)
+    end)
+
+    it("exports the game's default palette when the setting is off or unavailable", function()
+      -- No g_gameSettings at all (a dedicated server, an early tick) must not throw.
+      assert.are.equal("#553d53", sweepPlowedGround().color)
+    end)
+
+    it("exports the game's colorblind palette when the setting is on", function()
+      setColorBlind(true)
+      local plowed = sweepPlowedGround()
+      assert.are.equal(4, plowed.v) -- same wire value: only the color moved
+      assert.are.equal("#3d3e45", plowed.color)
+    end)
+
+    -- The setting is a display choice the player expects to see immediately; without this the overlay
+    -- would keep the old palette until the next in-game day.
+    it("re-sweeps when the player toggles the setting mid-session", function()
+      rawset(_G, "MessageType", { PERIOD_CHANGED = 11, DAY_CHANGED = 12, SETTING_CHANGED = { useColorblindMode = 77 } })
+      setColorBlind(false)
+      local subscribed = {}
+      rawset(_G, "g_messageCenter", {
+        subscribe = function(_, msgType, cb)
+          subscribed[#subscribed + 1] = msgType
+          assert.are.equal(VDT.MapLayers.markDirty, cb)
+        end,
+      })
+
+      for _ = 1, 4 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      assert.are.same({ 11, 12, 77 }, subscribed)
+      assert.are.equal(1, marked())
+
+      -- What the message center would do on the toggle, plus the new setting value.
+      setColorBlind(true)
+      VDT.MapLayers.markDirty()
+      for _ = 1, 4 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      assert.are.equal(2, marked())
+    end)
+  end)
+
   -- Precision Farming's value maps ride the same machinery as the base planes: same files, same
   -- subscription gate, same per-plane dirty tracking. What's specific to them is that they only exist
   -- when PF does, and that they are sampled through PF rather than through the density maps above.

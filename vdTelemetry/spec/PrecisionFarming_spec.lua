@@ -216,6 +216,17 @@ describe("PrecisionFarming layers", function()
     assert.are.equal("high", seedRate.legend[7].label)
   end)
 
+  it("takes PF's colorblind palette when the player has that mode on", function()
+    pf.soilMap.soilTypes[2].colorBlind = { 0, 0, 1 }
+    assert.are.same({ 0, 1, 0 }, VDT.PrecisionFarming.resolveLayer(layer("pfSoilType")).legend[2].color)
+    assert.are.same({ 0, 0, 1 }, VDT.PrecisionFarming.resolveLayer(layer("pfSoilType"), true).legend[2].color)
+  end)
+
+  it("falls back to the default color for a value PF gives no colorblind variant", function()
+    -- PF leaves colorBlind nil in places; a missing variant must not mean a missing color.
+    assert.are.same({ 0, 1, 0 }, VDT.PrecisionFarming.resolveLayer(layer("pfSoilType"), true).legend[2].color)
+  end)
+
   it("resolves to nil rather than throwing when PF's internals have moved", function()
     pf.nitrogenMap.nitrogenValues = nil -- a rename in a PF update
     assert.is_nil(VDT.PrecisionFarming.resolveLayer(layer("pfNitrogen")))

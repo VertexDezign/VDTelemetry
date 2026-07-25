@@ -80,6 +80,11 @@ alone, cultivating leaves crops alone — so writing them separately means a bet
 re-serializes only what actually changed, instead of the whole megabyte every time. `index.json` is
 written without sampling anything, so VDTerminal can offer a layer before its raster has been swept.
 
+**The game's colorblind mode is respected.** Both the base game and Precision Farming ship a second
+palette for it, and the overlay uses whichever one the player has selected — so it keeps matching the
+in-game map. Toggling the setting re-sweeps immediately rather than waiting for the next in-game day,
+because in that mode the growth gradient has fewer steps, so the raster changes and not just its colors.
+
 **With Precision Farming installed, its own value maps become planes too** — soil type, pH, nitrogen,
 yield and seed rate, the five PF shows in its own map selector, each labelled and colored exactly as PF
 does. They are ordinary planes from there on: one file each, their own legend, and the same
