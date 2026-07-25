@@ -1159,6 +1159,11 @@ describe("MapLayers.tick sweep", function()
       -- The app remembering a layer from a save that had PF, opened on one that doesn't.
       rawset(_G, "FS25_precisionFarming", nil)
       VDT.MapLayers.subscribedLayers = { pfNitrogen = true }
+      local reads = 0
+      g_currentMission.fieldGroundSystem.getValueAtWorldPos = function()
+        reads = reads + 1
+        return 0
+      end
 
       assert.has_no.errors(function()
         for _ = 1, 4 do
@@ -1167,6 +1172,9 @@ describe("MapLayers.tick sweep", function()
       end)
       assert.is_nil(VDT.MapLayers.collectLayer("pfNitrogen"))
       assert.are.equal(0, marks("pfNitrogen"))
+      -- ...and it doesn't walk the grid to classify nothing: subscribed-but-unavailable is not work.
+      assert.are.equal(0, reads)
+      assert.is_nil(VDT.MapLayers.sweep)
     end)
   end)
 

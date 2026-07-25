@@ -114,10 +114,23 @@ class TelemetryWatcher(
 
     // One tracker per discovered file, created on first sight. Same duplicate-event guard as
     // WatchedFile, per file: a single logical write surfaces as several filesystem events.
+    //
+    // Unlike the registered channels' trackers, this map GROWS after startup — a file appearing adds
+    // an entry — and it is written on the watcher's IO coroutine while the stats timer reads it from
+    // another dispatcher. So every touch of the map itself goes through this lock; CadenceTracker
+    // keeps its own synchronization for the counters inside.
     private val trackers = mutableMapOf<String, CadenceTracker>()
     private val lastGoodMtimeMs = mutableMapOf<String, Long>()
 
-    fun trackerSnapshots() = trackers.toSortedMap().values.map { it.snapshot() }
+    private fun tracker(name: String): CadenceTracker =
+      synchronized(trackers) { trackers.getOrPut(name) { CadenceTracker("${dir.fileName}/$name") } }
+
+    fun trackerSnapshots(): List<net.vertexdezign.vdt.ChannelStat> {
+      // Snapshot the map under the lock, then read the trackers outside it: each one synchronizes on
+      // itself, and holding two locks at once is how this would deadlock later.
+      val current = synchronized(trackers) { trackers.toSortedMap().values.toList() }
+      return current.map { it.snapshot() }
+    }
 
     /** Rescan the directory: parse what changed, drop what's gone, keep the rest untouched. */
     fun reparse() {
@@ -155,7 +168,7 @@ class TelemetryWatcher(
           lastGoodMtimeMs[name] = mtimeMs
           // Named with the folder, so the diagnostics feed distinguishes mapLayers/crops.json from a
           // top-level channel file -- the two watchers' snapshots are merged into one list.
-          trackers.getOrPut(name) { CadenceTracker("${dir.fileName}/$name") }.recordWrite(mtimeMs)
+          tracker(name).recordWrite(mtimeMs)
           log.debug("Parsed {}", path)
         } catch (e: Exception) {
           log.error("Failed to parse {}; keeping last good state", path, e)

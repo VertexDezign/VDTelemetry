@@ -227,6 +227,16 @@ describe("PrecisionFarming layers", function()
     assert.are.same({ 0, 1, 0 }, VDT.PrecisionFarming.resolveLayer(layer("pfSoilType"), true).legend[2].color)
   end)
 
+  -- The sweep walks the frame the HUD map reports, which can be bigger than the terrain, so a sampled
+  -- position can fall outside the value map. "Nothing here" is the honest answer for it.
+  it("reads a position outside the value map as no data", function()
+    local yield = VDT.PrecisionFarming.resolveLayer(layer("pfYield"))
+    reads = {}
+    assert.are.equal(0, yield.sample(5000, 0))
+    assert.are.equal(0, yield.sample(0, -5000))
+    assert.are.equal(0, #reads, "an out-of-range cell must not reach the engine call")
+  end)
+
   it("resolves to nil rather than throwing when PF's internals have moved", function()
     pf.nitrogenMap.nitrogenValues = nil -- a rename in a PF update
     assert.is_nil(VDT.PrecisionFarming.resolveLayer(layer("pfNitrogen")))

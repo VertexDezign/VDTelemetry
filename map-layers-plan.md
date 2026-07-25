@@ -57,8 +57,10 @@ So when PF layers are picked up, do **1** first, and add a third item alongside 
   that direction), with the caveat that switching layers then costs a sweep before the raster appears
   — probably "sweep the selected layer eagerly, the rest lazily" rather than a hard filter.
 
-PF layer support is its own piece of work and is **not** part of this branch; this section exists so the
-constraint is written down where the split is designed, not rediscovered later.
+PF layer support was its own piece of work, taken up right after the split on this same branch and
+**done** (2026-07-25) — see "How it landed" below. This section is kept as written, because it is the
+reasoning that made the split a precondition rather than an optimisation, and the estimate above is
+worth comparing against what the planes actually cost.
 
 ---
 
@@ -218,8 +220,8 @@ isn't there. Independent soil sub-toggles therefore need the soil data **de-coll
 
 1. ~~Measure `c726a01` in-game (profiler)~~ → §1 was done regardless, as the precondition for PF.
 2. ~~§1 per-layer file split~~ — **done** (see "How it landed"), with subscription gating alongside it.
-3. ~~In-game validation of the split + gating~~ — **done** (2026-07-25); multiplayer and a profiler
-   run during active farming are what's left.
+3. ~~In-game validation of the split + gating~~ — **done** (2026-07-25), singleplayer, multiplayer and
+   the profiler read included; see "Validated in-game" above.
 4. ~~Precision Farming planes~~ — **done and working in-game** (2026-07-25): PF's five menu-visible value maps (soil type,
    pH, nitrogen, yield, seed rate) are exported as further planes. It cost one integration file and an
    `ipairs` over `LAYERS` in the sweep, exactly as this plan predicted — no file, dirty, legend,

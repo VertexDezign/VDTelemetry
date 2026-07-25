@@ -84,6 +84,11 @@ end
 ---Cell coordinates for a world position on a PF value map, transcribed from the maps' own point reads
 ---(NitrogenMap:getLevelAtWorldPos and friends, which all repeat this). Only needed for the two maps
 ---that expose no point read of their own.
+---
+---Deliberately `g_currentMission.terrainSize`, NOT the frame the sweep walks (which prefers the HUD
+---map's worldSizeX): this has to land on the same cell PF's own reads would, and every one of them
+---uses terrainSize. Deriving it from the sweep's frame instead would silently disagree with the
+---soil/pH/nitrogen planes right next to these, which go through PF's readers.
 ---@param map table a PF value map
 ---@param x number world x
 ---@param z number world z
@@ -97,11 +102,20 @@ end
 ---A point read for a map that has none: pull the cell straight out of its bit-vector map. PF's own
 ---modifiers for these maps are built as DensityMapModifier.new(bitVectorMap, 0, numChannels), so the
 ---values live in channels 0..numChannels-1.
+---
+---Out-of-range cells read as 0 ("no data") rather than being clamped to the edge. The sweep walks the
+---frame the HUD map reports, which can be larger than mission.terrainSize (they disagree on some
+---maps), so a position past the terrain is possible -- and the honest answer for it is "nothing here",
+---not a copy of the border cell smeared outwards. It also keeps the engine call off out-of-range
+---coordinates, whose behaviour isn't documented.
 ---@param map table a PF value map
 ---@return fun(x: number, z: number): number
 local function bitVectorReader(map)
   return function(x, z)
     local cellX, cellZ = mapCell(map, x, z)
+    if cellX < 0 or cellZ < 0 or cellX >= map.sizeX or cellZ >= map.sizeY then
+      return 0
+    end
     return getBitVectorMapPoint(map.bitVectorMap, cellX, cellZ, 0, map.numChannels) or 0
   end
 end

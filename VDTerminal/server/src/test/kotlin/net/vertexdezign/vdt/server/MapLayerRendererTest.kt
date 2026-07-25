@@ -7,6 +7,7 @@ import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 
@@ -78,12 +79,14 @@ class MapLayerRendererTest {
   fun renderedIsMemoizedUntilTheDataChanges() {
     val data = plane("crops")
     val first = MapLayerRenderer.rendered(data)
-    val second = MapLayerRenderer.rendered(data)
-    assertEquals(first!!.toList(), second!!.toList())
+    // Same instance, not merely equal bytes: equal pixels would also be what a re-render produces, so
+    // identity is the only assertion that distinguishes a cache hit from a miss.
+    assertSame(first, MapLayerRenderer.rendered(data))
 
     val changed = data.copy(terrainSize = data.terrainSize + 1)
     val third = MapLayerRenderer.rendered(changed)
-    assertEquals(first.toList(), third!!.toList()) // same pixels, but recomputed under a new cache key
+    assertNotSame(first, third, "a new version must re-render rather than serve the old entry")
+    assertEquals(first!!.toList(), third!!.toList()) // same pixels here; only the cache key moved
   }
 
   /**

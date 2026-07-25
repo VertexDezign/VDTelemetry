@@ -1576,6 +1576,14 @@ function VDT.MapLayers.tick(debugger, dt)
       return -- world size not resolvable yet; still dirty, retry next frame
     end
     VDT.MapLayers.dirty = false -- claimed; a later event re-arms it
+    if next(VDT.MapLayers.sweep.wanted) == nil then
+      -- Subscribed, but to nothing this map can produce (a Precision Farming plane on a save without
+      -- PF). anySubscribed() above can't see that -- it doesn't know availability, and asking it to
+      -- would put a walk of every layer back on the per-frame path. Caught here instead, once per
+      -- dirty event, before the sweep walks GRID_SIZE^2 cells to classify nothing.
+      VDT.MapLayers.sweep = nil
+      return
+    end
   end
 
   local ok, doneOrErr = pcall(runBatch, VDT.MapLayers.sweep, VDT.MapLayers.CELLS_PER_FRAME)
