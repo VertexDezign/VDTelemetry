@@ -582,17 +582,60 @@ describe("MapLayers.tick sweep", function()
   -- On the 8x8 spec grid AUDIT_CELLS clamps to the 64 cells that exist, so every cell is sampled and
   -- these cases don't depend on which ones the stratified draw picks.
   describe("staleness audit", function()
+    -- A striped world instead of the uniform bare ground the sweep cases run on. The audit compares the
+    -- engine against values it reads back out of the ENCODED rows (storedCell), and over an all-zero
+    -- raster every wrong byte offset -- and every read of the wrong row, or of something that isn't the
+    -- row string at all -- still yields 0 and agrees with a bare-ground world. Here ground type varies
+    -- by column and fertilizer level by row, so the retained rows differ both from each other and
+    -- within themselves, and only an exact extraction leaves the unchanged case quiet.
+    local GROUND_BY_COL = { 3, 3, 0, 5, 0, 2, 0, 0 } -- CULTIVATED, off-field, PLOWED, STUBBLE_TILLAGE
+    local SPRAY_BY_ROW = { 1, 0, 2, 3, 0, 1, 2, 3 }
+    -- Growth from ground type: 01 cultivated, 04 plowed, 02 stubble tillage, off-field cells zero, and
+    -- the trailing two columns trimmed. Same for every row (ground type here depends only on column).
+    local BASE_GROWTH_ROW = "010100040002"
+    -- Soil is SOIL_FERTILIZED_BASE + spray level, and only on the on-field columns: 0x1f at level 1,
+    -- 0x20 at level 2. A row whose level is 0 has no soil state at all and encodes empty.
+    local BASE_SOIL_ROW_1 = "1f1f001f001f"
+    local BASE_SOIL_ROW_2 = ""
+    local BASE_SOIL_ROW_3 = "202000200020"
+
+    -- The 8x8 grid spans an 8m world, so cells are 1m and their centers sit at -3.5 .. 3.5.
+    local function cellIndex(world)
+      return math.floor(world + 4) + 1
+    end
+
+    local function stripeTheWorld()
+      g_currentMission.fieldGroundSystem.getValueAtWorldPos = function(_, densityType, x, _, z)
+        if densityType == FieldDensityMap.GROUND_TYPE then
+          return GROUND_BY_COL[cellIndex(x)]
+        end
+        if densityType == FieldDensityMap.SPRAY_LEVEL then
+          return SPRAY_BY_ROW[cellIndex(z)]
+        end
+        return 0
+      end
+      g_currentMission.fieldGroundSystem.getMaxValue = function(_, densityType)
+        return densityType == FieldDensityMap.SPRAY_LEVEL and 3 or 0
+      end
+    end
+
     local function completeSweep()
       for _ = 1, 4 do
         VDT.MapLayers.tick(stubDebugger(), 16)
       end
     end
 
-    -- Every cell now classifies as CULTIVATED where the sweep recorded bare ground: the world moved
-    -- under the retained model, exactly as a batch of synced cells landing would look.
+    -- Every cell now classifies as CULTIVATED and fertilized where the sweep recorded the stripes: the
+    -- world moved under the retained model, exactly as a batch of synced cells landing would look.
     local function changeTheWorld()
       g_currentMission.fieldGroundSystem.getValueAtWorldPos = function(_, densityType)
-        return densityType == FieldDensityMap.GROUND_TYPE and 3 or 0
+        if densityType == FieldDensityMap.GROUND_TYPE then
+          return 3
+        end
+        if densityType == FieldDensityMap.SPRAY_LEVEL then
+          return 2
+        end
+        return 0
       end
     end
 
@@ -600,6 +643,7 @@ describe("MapLayers.tick sweep", function()
       VDT.MapLayers.AUDIT_INTERVAL_MS = 100
       VDT.MapLayers.AUDIT_BACKOFF_MS = 500
       g_currentMission.missionDynamicInfo = { isMultiplayer = true }
+      stripeTheWorld()
     end)
 
     after_each(function()
@@ -614,6 +658,15 @@ describe("MapLayers.tick sweep", function()
       end
       assert.are.equal(1, marked)
       assert.is_false(VDT.MapLayers.dirty)
+
+      -- ...over a raster that is exactly the striped one, byte for byte. The audit staying quiet only
+      -- means anything if what it compared the engine against is what the sweep really stored.
+      local model = VDT.MapLayers.collect()
+      assert.are.equal(BASE_GROWTH_ROW, model.layers[2].rows[1])
+      assert.are.equal(BASE_GROWTH_ROW, model.layers[2].rows[8])
+      assert.are.equal(BASE_SOIL_ROW_1, model.layers[3].rows[1])
+      assert.are.equal(BASE_SOIL_ROW_2, model.layers[3].rows[2])
+      assert.are.equal(BASE_SOIL_ROW_3, model.layers[3].rows[3])
     end)
 
     it("resweeps once the world no longer matches the model", function()
@@ -628,8 +681,11 @@ describe("MapLayers.tick sweep", function()
 
       completeSweep()
       assert.are.equal(2, marked)
-      -- The resweep picked the new state up rather than re-publishing the stale raster.
-      assert.are.equal("0101010101010101", VDT.MapLayers.collect().layers[2].rows[1])
+      -- The resweep picked the new state up rather than re-publishing the stale striped raster.
+      local model = VDT.MapLayers.collect()
+      assert.are.equal("0101010101010101", model.layers[2].rows[1])
+      assert.are.equal("2020202020202020", model.layers[3].rows[1])
+      assert.are.equal("2020202020202020", model.layers[3].rows[2]) -- was empty before the change
     end)
 
     it("does not audit in singleplayer", function()
