@@ -34,10 +34,15 @@ local sourceFiles = {
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
-  -- Map channels: base-game POIs + fields (event-driven) and vehicle markers (own interval);
-  -- both self-register into the registry above, MapVehicles reuses MapExporter's normalization
+  -- Precision Farming detection (shared gate; sourced before the collectors that read it —
+  -- MapLayers + FieldInfo suppress the fertilizer/lime data PF supersedes)
+  "src/integrations/PrecisionFarming.lua",
+  -- Map channels: base-game POIs + fields (event-driven), vehicle markers (own interval), and the
+  -- ground-layer raster (own sweep cadence); all self-register into the registry above, and both
+  -- MapVehicles and MapLayers reuse MapExporter's normalization/world-size helpers
   "src/collect/MapExporter.lua",
   "src/collect/MapVehiclesExporter.lua",
+  "src/collect/MapLayersExporter.lua",
   -- Production channel: own-farm production points + factories (own interval, base-game state only,
   -- self-registers into the channel registry)
   "src/collect/ProductionExporter.lua",
@@ -394,6 +399,11 @@ function VDTelemetry:setProfile(name)
   -- refresh promptly so the new cadence's first samples land without waiting a full (possibly long)
   -- interval; each channel is still gated by its own availability + enabled at write time
   VDT.ExportChannels.markAllDirty()
+  -- A profile can switch a channel off outright (minProfile), and the app reads a channel file's
+  -- absence as "off" -- so drop the files of everything the new profile won't write. Same call the
+  -- startup cleanup makes, for the same reason: otherwise the last profile's mapLayers.json sits there
+  -- and the app keeps rendering an overlay that is no longer being updated.
+  self:deleteStaleChannelFiles()
   self:saveSettingsToFile()
   self.debugger:info("Profile set to %s", name)
 end

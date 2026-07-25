@@ -154,6 +154,7 @@ private val FRIENDLY_NAMES =
   mapOf(
     "vdTelemetry.json" to "Vehicle telemetry",
     "map.json" to "Map",
+    "mapLayers.json" to "Map layers",
     "mapVehicles.json" to "Map vehicles",
     "production.json" to "Production",
     "storage.json" to "Storage",

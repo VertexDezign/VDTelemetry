@@ -6,6 +6,7 @@ import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
@@ -142,6 +143,18 @@ sealed interface ServerMessage {
   @SerialName("channelStats")
   data class ChannelStats(
     val data: ChannelStatsData,
+  ) : ServerMessage
+
+  /**
+   * The ground-layer channel (`mapLayers.json`): crops / growth / soil raster overlays. Carries only
+   * legends — the raster itself is fetched separately as a PNG, never over the WebSocket (see
+   * [MapLayersInfo]). [data] is **null when `mapLayers.json` is absent** (export disabled): same
+   * "the absence must be broadcast, not swallowed" rule as [MapVehicles].
+   */
+  @Serializable
+  @SerialName("mapLayers")
+  data class MapLayers(
+    val data: MapLayersInfo? = null,
   ) : ServerMessage
 
   @Serializable

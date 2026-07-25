@@ -31,6 +31,7 @@ import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.VdtParser
+import net.vertexdezign.vdt.model.MapLayersInfo
 import org.slf4j.LoggerFactory
 
 // How often the observed-cadence diagnostics snapshot is taken + broadcast. Slow on purpose: it's a
@@ -73,6 +74,8 @@ fun main() {
     watcher.register("storage.json", nullOnAbsent = true) { VdtParser.parseStorage(it) }
   // husbandry.json is interval-driven too (own animal pens); same absence rule.
   val husbandryState = watcher.register("husbandry.json", nullOnAbsent = true) { VdtParser.parseHusbandry(it) }
+  // mapLayers.json rewrites on the mod's own multi-second sweep cadence; same absence rule.
+  val mapLayersState = watcher.register("mapLayers.json", nullOnAbsent = true) { VdtParser.parseMapLayers(it) }
   watcher.launchIn(appScope)
 
   // Diagnostics: sample every channel's observed write cadence on a slow timer (independent of the
@@ -182,6 +185,15 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        // The raster rows never cross the WebSocket -- only legends + a content-derived version, so
+        // the app knows when to refetch the PNG from /api/map-layer/{id}.
+        val mapLayersJob =
+          launch {
+            mapLayersState.collect { data ->
+              val message: ServerMessage = ServerMessage.MapLayers(data?.let { MapLayersInfo.from(it) })
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         // Incoming: app -> mod commands. Decode and hand to the writer; ignore anything unparseable
         // so a bad frame can't kill the session. Reading `incoming` also keeps the socket alive.
         try {
@@ -206,8 +218,11 @@ fun main() {
           storageJob.cancel()
           husbandryJob.cancel()
           channelStatsJob.cancel()
+          mapLayersJob.cancel()
         }
       }
+
+      mapLayerRoute { mapLayersState.value }
 
       get("/api/map-image") {
         val pda =

@@ -7,7 +7,7 @@
         <text name="vdt_setting_writeInterval" text="Schreibintervall"/>
         <text name="vdt_setting_writeInterval_tooltip" text="Wie oft die Telemetrie geschrieben wird. Kürzere Intervalle sind flüssiger, schreiben aber häufiger."/>
         <text name="vdt_setting_profile" text="Leistungsprofil"/>
-        <text name="vdt_setting_profile_tooltip" text="Voreingestellte Aktualisierungsraten für die Nebenkanäle (Karte, Produktionen, Tiere, ...). Höher bedeutet häufigere Updates und mehr Last. Einzelne Kanäle über VDTerminal feinjustieren (wird hier als Benutzerdefiniert angezeigt)."/>
+        <text name="vdt_setting_profile_tooltip" text="Voreingestellte Aktualisierungsraten für die Nebenkanäle (Karte, Produktionen, Tiere, ...). Höher bedeutet häufigere Updates und mehr Last. Niedrig schaltet zusätzlich die Bodenkarten-Overlays komplett ab. Einzelne Kanäle über VDTerminal feinjustieren (wird hier als Benutzerdefiniert angezeigt)."/>
         <text name="vdt_profile_low" text="Niedrig"/>
         <text name="vdt_profile_medium" text="Mittel"/>
         <text name="vdt_profile_high" text="Hoch"/>

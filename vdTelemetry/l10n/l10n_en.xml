@@ -7,7 +7,7 @@
         <text name="vdt_setting_writeInterval" text="Write interval"/>
         <text name="vdt_setting_writeInterval_tooltip" text="How often telemetry is written. Shorter intervals are smoother but write more often."/>
         <text name="vdt_setting_profile" text="Performance profile"/>
-        <text name="vdt_setting_profile_tooltip" text="Preset update rates for the secondary channels (map, productions, animals, ...). Higher means more frequent updates and more load. Fine-tune individual channels from VDTerminal (shown here as Custom)."/>
+        <text name="vdt_setting_profile_tooltip" text="Preset update rates for the secondary channels (map, productions, animals, ...). Higher means more frequent updates and more load. Low also turns the ground-layer map overlays off completely. Fine-tune individual channels from VDTerminal (shown here as Custom)."/>
         <text name="vdt_profile_low" text="Low"/>
         <text name="vdt_profile_medium" text="Medium"/>
         <text name="vdt_profile_high" text="High"/>

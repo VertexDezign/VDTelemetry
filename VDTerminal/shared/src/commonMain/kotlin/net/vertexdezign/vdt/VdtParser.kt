@@ -5,6 +5,7 @@ import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
+import net.vertexdezign.vdt.model.MapLayersData
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
@@ -54,4 +55,7 @@ object VdtParser {
 
   /** Parse the `husbandry.json` channel (owned animal pens) into [HusbandriesData]. */
   fun parseHusbandry(text: String): HusbandriesData = json.decodeFromString(HusbandriesData.serializer(), text)
+
+  /** Parse the `mapLayers.json` channel (ground-layer rasters) into [MapLayersData]. */
+  fun parseMapLayers(text: String): MapLayersData = json.decodeFromString(MapLayersData.serializer(), text)
 }

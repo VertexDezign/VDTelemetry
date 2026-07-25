@@ -1,0 +1,31 @@
+{
+  "version": "1",
+  "terrainSize": 2048,
+  "gridSize": 8,
+  "layers": [
+    {
+      "id": "crops",
+      "legend": [
+        { "v": 1, "label": "Weizen", "color": "#c8b262" },
+        { "v": 2, "label": "Mais", "color": "#f5d743" }
+      ],
+      "rows": ["", "0101", "0202020202020202", "", "", "", "", ""]
+    },
+    {
+      "id": "growth",
+      "legend": [
+        { "v": 1, "label": "Cultivated", "color": "#4d78b8" },
+        { "v": 11, "label": "Growing", "color": "#2b7a06" }
+      ],
+      "rows": ["", "0101", "0b0b0b0b0b0b0b0b", "", "", "", "", ""]
+    },
+    {
+      "id": "soil",
+      "legend": [
+        { "v": 21, "label": "Needs lime", "color": "#15a86c" },
+        { "v": 31, "label": "Fertilized", "color": "#1a4dd1" }
+      ],
+      "rows": ["", "1515", "1f1f1f1f1f1f1f1f", "", "", "", "", ""]
+    }
+  ]
+}
