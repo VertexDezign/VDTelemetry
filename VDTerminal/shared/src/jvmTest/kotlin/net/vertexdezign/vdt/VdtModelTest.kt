@@ -2,6 +2,7 @@ package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.model.DriveDirection
+import net.vertexdezign.vdt.model.FillDisplayType
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PipeState
@@ -43,7 +44,7 @@ class VdtModelTest {
   fun parsesTractorWithCultivator() {
     val data = model("tractor_with_cultivator.json")
 
-    assertEquals("1", data.version)
+    assertEquals("2", data.version)
     assertEquals("01.08.2024", data.environment?.date)
 
     // weather
@@ -95,14 +96,14 @@ class VdtModelTest {
 
     // combine motor has fuel + def but no air
     assertEquals(
-      947,
+      947f,
       v.motor
         ?.fillUnits
         ?.fuel
         ?.value,
     )
     assertEquals(
-      110,
+      110f,
       v.motor
         ?.fillUnits
         ?.def
@@ -114,8 +115,11 @@ class VdtModelTest {
     val fillUnits = assertNotNull(v.fillUnits)
     assertEquals(1, fillUnits.fillUnit.size)
     assertEquals(13500, fillUnits.fillUnit[0].capacity)
-    assertEquals(5054, fillUnits.fillUnit[0].value)
+    assertEquals(5054f, fillUnits.fillUnit[0].value)
     assertEquals(37, fillUnits.fillUnit[0].fillLevelPercentage)
+    // display hints are absent at their engine defaults
+    assertEquals(0, fillUnits.fillUnit[0].precision)
+    assertEquals(FillDisplayType.BAR, fillUnits.fillUnit[0].display)
 
     assertEquals(1, v.implement.size)
     assertEquals("cutter", v.implement[0].type)
@@ -145,7 +149,7 @@ class VdtModelTest {
     val back = assertNotNull(v.implement.firstOrNull { it.position == "BACK" })
     assertEquals("trailer", back.type)
     assertEquals(
-      18500,
+      18500f,
       back.fillUnits
         ?.fillUnit
         ?.singleOrNull()
@@ -163,7 +167,7 @@ class VdtModelTest {
         ?.type,
     )
     assertEquals(
-      18500,
+      18500f,
       nested.fillUnits
         ?.fillUnit
         ?.singleOrNull()
@@ -172,9 +176,16 @@ class VdtModelTest {
 
     // the whole BACK chain exposes both fill units — this recursive walk mirrors what the
     // Implements panel's collectFillUnits does (and what its "merged" toggle then sums).
-    fun totalFill(imp: Implement): Int =
-      (imp.fillUnits?.fillUnit?.sumOf { it.value } ?: 0) + imp.implement.sumOf { totalFill(it) }
-    assertEquals(37000, totalFill(back))
+    // `sumOf` has no Float overload, hence map/sum — same as mergeFillUnits.
+    fun totalFill(imp: Implement): Float =
+      (
+        imp.fillUnits
+          ?.fillUnit
+          ?.map { it.value }
+          ?.sum() ?: 0f
+      ) +
+        imp.implement.map { totalFill(it) }.sum()
+    assertEquals(37000f, totalFill(back))
 
     assertJsonRoundTrips(data)
   }
@@ -196,6 +207,30 @@ class VdtModelTest {
           ?.singleOrNull(),
       )
     assertEquals(0, unit.capacity)
+  }
+
+  @Test
+  fun decodesFractionalConsumableFillUnit() {
+    // Bale net/twine/wrap are the game's `Consumable` spec on a fill unit measured in SLOTS: capacity
+    // is the slot count and the level is "spare rolls + how much of the mounted one is left", so it
+    // is fractional. Inline rather than a fixture: no captured baler JSON exists yet, and inventing
+    // one would put made-up fill-type names in examples/json.
+    val text =
+      """{"version":"2","vehicle":{"fillUnits":{"fillUnit":[""" +
+        """{"value":2.4,"capacity":4,"fillLevelPercentage":60,"title":"Netz","unit":"","display":"STEP"}]}}}"""
+    val unit =
+      assertNotNull(
+        VdtParser
+          .parseJson(text)
+          .vehicle
+          ?.fillUnits
+          ?.fillUnit
+          ?.singleOrNull(),
+      )
+    assertEquals(2.4f, unit.value)
+    assertEquals(4, unit.capacity)
+    assertEquals(FillDisplayType.STEP, unit.display)
+    assertEquals(0, unit.precision)
   }
 
   @Test

@@ -108,7 +108,9 @@ VDTelemetry = {}
 VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 -- Registry name of the main telemetry export channel (see src/export/ExportChannels.lua).
 VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
-VDTelemetry.VERSION = 1
+-- 2: fill-unit `value` is fractional (consumables are measured in slots and report the part-used one),
+--    plus the optional `precision` / `display` hints. See vehicle-data-plan.md §1.
+VDTelemetry.VERSION = 2
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

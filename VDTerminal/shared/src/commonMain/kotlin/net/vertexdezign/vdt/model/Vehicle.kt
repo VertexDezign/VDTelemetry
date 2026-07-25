@@ -112,17 +112,36 @@ data class FillUnits(
   val fillUnit: List<FillUnit> = emptyList(),
 )
 
-/** Shared fill-unit shape: an integer fill level plus descriptive attributes. */
+/**
+ * Shared fill-unit shape: a fill level plus descriptive attributes.
+ *
+ * [value] is fractional, not a count of litres. A `Consumable` unit (bale net / twine / wrap) is
+ * measured in **slots**, and the mod reports the game's display level — spare rolls in storage *plus*
+ * the partially-used one on the machine — so one spare and a half-used roll reads `1.5`. Rendering it
+ * as a whole number is a per-unit decision: see [precision] and [display].
+ */
 @Serializable
 data class FillUnit(
-  val value: Int = 0,
+  val value: Float = 0f,
   val type: String? = null,
   val title: String = "",
   val unit: String = "",
   val capacity: Int = 0,
   val fillLevelPercentage: Int = 0,
   val usage: Float? = null,
+  /** Decimals the game prints for this unit. Absent means 0 — *not* a rounding hint for [value]. */
+  val precision: Int = 0,
+  val display: FillDisplayType = FillDisplayType.BAR,
 )
+
+/**
+ * How the game draws this fill unit's level.
+ *
+ * [STEP] means one segment per unit of capacity, with the current segment filled fractionally — how
+ * consumables are shown, where capacity is a slot count. [BAR] is the default continuous bar.
+ */
+@Serializable
+enum class FillDisplayType { BAR, STEP }
 
 // ---------------------------------------------------------------------------
 // Lights

@@ -3,8 +3,14 @@
 Written 2026-07-25 on `main`, from a review of the vehicle collectors against the FS25 game source
 (`fs25-modding-skill/references/lua-source`). Four gaps, in the order they're worth doing.
 
-**Status (2026-07-25):** all four open, nothing started. §1 is the only one that fixes a *wrong number*
-currently on screen; the rest add data that isn't there at all.
+**Status (2026-07-25, branch `vehicle-data-export`):**
+
+- §1 fill-unit display values — **done, pending in-game validation.** See "How it landed" below. The
+  secondary `showOnHud` filter switch was deliberately **not** taken; it stays open below.
+- §2, §3, §4 — open, nothing started.
+
+§1 was the only one that fixed a *wrong number* already on screen; the rest add data that isn't there
+at all.
 
 Every game-source claim below is cited by `file:line` against the bundled source, which is real
 extracted FS25 Lua. What is **not** available in the sandbox is base-game **vehicle XML** — so anything
@@ -128,6 +134,33 @@ unit — the renderer exists and consumables are its obvious consumer, but the X
 **Deferred to the redesign:** the stepped/segmented bar renderer, and the `"2 / 2"`-style label the
 game uses for `STEP` units instead of a percentage.
 
+### How it landed (2026-07-25)
+
+`aspects/FillUnit.lua` now reads `fillLevelToDisplay` / `capacityToDisplay` / `fillTypeToDisplay` with
+a fallback to the raw fields, keeps the level fractional (rounded to 3 decimals so the JSON stays
+diff-stable), and emits `precision` / `display` only when they differ from the engine defaults — the
+house "nil → absent key, `Model.kt` supplies the default" idiom. `FillUnit.value` is `Float` in
+`Model.kt`, alongside `precision: Int` and a new `FillDisplayType` enum. `VDTelemetry.VERSION` is
+**2**, and the four `examples/json` fixtures were bumped to match.
+
+App changes were the four compatibility repairs and nothing else: the skip-empty guard is a tolerance,
+`mergeFillUnits` uses `map/sum` (no Float `sumOf` overload), and the right-hand label formats through
+`precision` with a small wasm-safe formatter (`String.format` is JVM-only). Continuous bars still
+render `STEP` units — flagged with a comment pointing at the redesign.
+
+Tests: a new `spec/FillUnit_spec.lua` (12 cases) covers the display-value preference, the preserved
+fraction, the UNKNOWN-vs-unset `fillTypeToDisplay` distinction, and the default-omission rules — the
+whole Lua suite is 305 green. `VdtModelTest` gained a decode case for the fractional consumable shape.
+That one is **inline JSON, not a fixture**: no captured baler telemetry exists, and the net/twine fill
+*type* names live in `fillTypes.xml`, which isn't readable here — inventing them would put made-up
+game data in `examples/json`. A real baler capture is still wanted.
+
+`./gradlew check` passes (spotless, `:shared:jvmTest`, the app's wasm tests, `:server:test`, and the
+production wasm build), and `stylua --check` is clean.
+
+**Not yet validated in-game** — the whole point of the change is a number that only a running baler
+can confirm.
+
 ### Free wins that ride along
 
 Reading the display values also picks up `parentUnitOnHud` / `childUnitOnHud`
@@ -144,10 +177,16 @@ type.
 show units it doesn't.
 
 This is a genuine divergence but it is **not** what causes the consumable undercount, and the crop
-fill unit on balers is confirmed working, so nothing observed currently depends on it. Worth switching
-to `showOnHud` in the same pass, with the caveat that our deliberate tolerance for zero-capacity units
-(`aspects/FillUnit.lua:56-58`, for mods that ship `capacity = 0`) diverges from the game's
-`0 < capacity` gate and should stay as-is.
+fill unit on balers is confirmed working, so nothing observed currently depends on it.
+
+**Not taken in the §1 pass, deliberately — still open.** Switching the filter is a behaviour change
+whose blast radius can't be checked without the game: the existing `showOnInfoHud` skip was added for
+a real symptom (a forage/carrot harvester's pass-through output showing up), and if those units carry
+`showOnHud="true"` the switch brings them straight back. It buys nothing observable today, so it
+should wait for the in-game check below rather than ride along with a fix that needed no such gamble.
+If it is taken later, note that our deliberate tolerance for zero-capacity units
+(`aspects/FillUnit.lua`, for mods that ship `capacity = 0`) diverges from the game's `0 < capacity`
+gate and should stay as-is.
 
 ---
 
@@ -294,9 +333,9 @@ core vehicle state that any new dashboard would want on day one.
 
 Ordered so the app is touched once, early, and then left alone until the redesign.
 
-1. **§1 fill-unit display values.** The only item fixing a wrong number already on screen, and the
-   only one that touches the app. Land it as one change — the float widening is what makes the fix
-   visible, so splitting it ships a no-op. Bump `VDTelemetry.VERSION` and regenerate fixtures.
+1. ~~**§1 fill-unit display values.**~~ — **done** (see "How it landed"), minus the `showOnHud` filter
+   switch, which stays open pending an in-game check. Still needs validating against a real baler,
+   and a captured baler fixture would be worth adding when one exists.
 2. **§2 pipe + cover mappers** and **§3 layout + selected group**. Both are mod + shared only, they
    don't interact, and either order works — §3 is the bigger one and the one the redesign leans on
    hardest, so start it first if only one gets done.
@@ -312,9 +351,13 @@ in `examples/json/` well before anything renders them. That's the intended trade
 
 ### In-game checks this plan depends on
 
-- Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? (§1 — decides whether
-  the stepped bar is worth building.)
-- Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud`? (§1 secondary —
-  decides whether that switch changes anything observable.)
+- **Does a baler now report its consumables correctly?** (§1 — the fix is shipped but unvalidated. One
+  spare roll plus a part-used one should read ~1.5 of 2, not 1.)
+- Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? (§1 — now visible in
+  the exported JSON as `display`, so this is just a matter of looking. Decides whether the stepped bar
+  is worth building in the redesign.)
+- Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does
+  a forage/carrot harvester's pass-through output carry `showOnHud="true"`? (§1 secondary — gates the
+  filter switch, which was deliberately not taken.)
 - Multi-cover trailer: confirm `spec.state` really does exceed `1`. (§2 — confirms the mapper bug is
   reachable, not just theoretically wrong.)

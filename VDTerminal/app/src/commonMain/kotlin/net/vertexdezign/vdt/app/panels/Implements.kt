@@ -83,7 +83,8 @@ private fun mergeFillUnits(units: List<FillUnit>): List<FillUnit> {
   return groups.values.map { g ->
     val first = g.first()
     first.copy(
-      value = g.sumOf { it.value },
+      // `sumOf` has no Float overload, hence map/sum.
+      value = g.map { it.value }.sum(),
       fillLevelPercentage = (g.sumOf { it.fillLevelPercentage }.toDouble() / g.size).roundToInt(),
     )
   }
