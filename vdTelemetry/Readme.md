@@ -80,6 +80,13 @@ alone, cultivating leaves crops alone — so writing them separately means a bet
 re-serializes only what actually changed, instead of the whole megabyte every time. `index.json` is
 written without sampling anything, so VDTerminal can offer a layer before its raster has been swept.
 
+**Only what someone is looking at is sampled.** VDTerminal tells the mod which planes its dashboards
+are currently showing, and the sweep classifies, encodes and writes those alone — a dashboard shows one
+overlay at a time, so the planes nobody selected would otherwise be most of the channel's cost. With no
+terminal running, or nobody on the map page, the channel does nothing at all: no sampling, no writes.
+Selecting a layer starts a sweep for it right away, and a layer you switch away from keeps its last
+file, so switching back shows that raster immediately while the fresh one is swept.
+
 A resweep is triggered by in-game events (growth advancing, the day rolling over) rather than a
 wall-clock timer, and in between, the ground around working vehicles is patched in place — so an idle
 map costs nothing. **In multiplayer that isn't enough on its own:** the server streams the field density

@@ -12,6 +12,11 @@
 -- engine hiccup mid-sweep aborts that sweep (retried on the next resweep event), rather than killing
 -- the whole mod's update loop.
 --
+-- Nothing here runs unless a plane is SUBSCRIBED: the terminal sends the union of what its connected
+-- dashboards are showing (the setMapLayers command), and only those planes are classified, encoded and
+-- written. A dashboard shows one overlay at a time, so this is most of the channel's cost -- and with
+-- no terminal running, or nobody on the map page, the whole channel is free. See setSubscription().
+--
 -- Cadence is event-driven, not a wall-clock timer: the overlay only meaningfully changes when growth
 -- advances (MessageType.PERIOD_CHANGED, GrowthSystem's own trigger) and, for player tillage/harvest,
 -- across a day (DAY_CHANGED). We resweep on those, so an idle map costs nothing between in-game days
@@ -119,6 +124,12 @@ VDT.MapLayers.subscribed = false -- one-shot guard for the message-center subscr
 -- leave the rest -- including their files -- exactly as they were.
 VDT.MapLayers.models = {}
 VDT.MapLayers.catalogue = nil -- index.json's model; built once the world size resolves (see tick)
+-- Layer ids something is actually looking at (id -> true), set by the setMapLayers command -- the
+-- server sends the union of what its connected dashboards have selected. EMPTY BY DEFAULT, and empty
+-- means this channel does nothing at all: no sweep, no patch, no audit, no writes. The dashboard shows
+-- one overlay at a time, so with the Precision Farming planes on top of these three, classifying and
+-- encoding the ones nobody is looking at would be nearly the whole cost of the channel.
+VDT.MapLayers.subscribedLayers = {}
 -- Retained after each full sweep so between-sweep patches reuse its classification state + row tables;
 -- patchTimerMs accumulates dt toward PATCH_INTERVAL_MS. nil until the first sweep completes.
 VDT.MapLayers.patchCtx = nil
@@ -129,6 +140,12 @@ VDT.MapLayers.auditTimerMs = 0
 
 -- Largest value a cell can carry: one byte per cell on the wire (see encodeRow).
 local MAX_WIRE_VALUE = 255
+
+-- Every plane, as a wanted-set (see classifyCell). Only for a ctx that carries no set of its own.
+local ALL_LAYERS = {}
+for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+  ALL_LAYERS[layer.id] = true
+end
 
 -- Wire values for the "growth" plane. These are our own wire vocabulary, not
 -- MapOverlayGenerator.GROWTH_STATE_INDEX (that enum keys the game's own UI filter checkboxes and has
@@ -562,12 +579,24 @@ end
 ---@param z number world z
 ---@return number cropsV, number growthV, number soilV
 function VDT.MapLayers.classifyCell(ctx, x, z)
-  local groundTypeValue = ctx.fieldGroundSystem:getValueAtWorldPos(FieldDensityMap.GROUND_TYPE, x, 0, z)
+  -- Which planes this cell is being classified FOR (see VDT.MapLayers.subscribedLayers). Skipping a
+  -- plane skips its engine reads, which is where the cost is: crops/growth share the fruit reads and
+  -- soil pays for weed/stone/plow/lime/spray on its own. A ctx with no set classifies everything --
+  -- startSweep always sets one, so that's the direct callers (the specs).
+  local wanted = ctx.wanted or ALL_LAYERS
+  local wantCrops, wantGrowth, wantSoil = wanted.crops == true, wanted.growth == true, wanted.soil == true
+
+  -- Ground type feeds growth's fallback classification and gates every soil read; crops comes from the
+  -- fruit plane alone, so a crops-only sweep never touches it.
+  local groundTypeValue = nil
+  if wantGrowth or wantSoil then
+    groundTypeValue = ctx.fieldGroundSystem:getValueAtWorldPos(FieldDensityMap.GROUND_TYPE, x, 0, z)
+  end
 
   local cropsV = 0
   local growthV = nil
   local desc = nil
-  local dataPlaneId = ctx.dataPlaneId
+  local dataPlaneId = (wantCrops or wantGrowth) and ctx.dataPlaneId or nil
   if dataPlaneId ~= nil then
     local densityTypeIndex = getDensityTypeIndexAtWorldPos(dataPlaneId, x, 0, z)
     -- Memoize per raw fruit density-type: getFruitTypeByDensityTypeIndex + shownOnMap/index are pure
@@ -597,8 +626,10 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
     if fruit ~= nil then
       desc = fruit.desc
       if fruit.shown then
-        cropsV = fruit.index
-        local state = getDensityStatesAtWorldPos(dataPlaneId, x, 0, z)
+        cropsV = wantCrops and fruit.index or 0
+        -- The growth STATE is a second density read, and only the growth plane needs it: a crops-only
+        -- sweep stops at which fruit is planted.
+        local state = wantGrowth and getDensityStatesAtWorldPos(dataPlaneId, x, 0, z) or nil
         if type(state) == "number" then
           -- Memoize growth per (fruit, raw state): classifyGrowthFromFruit walks harvestTransitions on
           -- every call, so caching collapses it to a table hit for repeat pairs. `false` stores a nil
@@ -618,10 +649,12 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
     end
   end
   if growthV == nil then
-    growthV = classifyGrowthFromGround(ctx, groundTypeValue)
+    growthV = wantGrowth and classifyGrowthFromGround(ctx, groundTypeValue) or GROWTH_NONE
   end
 
-  local soilV = classifySoil(ctx, x, z, groundTypeValue)
+  -- An unwanted plane reports its "nothing here" value rather than nil: callers store what they get,
+  -- and the legend guards below are written against those values.
+  local soilV = wantSoil and classifySoil(ctx, x, z, groundTypeValue) or SOIL_NONE
 
   local seen = ctx.seen
   if cropsV ~= 0 and seen.crops[cropsV] == nil then
@@ -642,6 +675,16 @@ VDT.MapLayers.isAvailable = function()
     and g_currentMission.isMissionStarted == true
     and g_currentMission.fieldGroundSystem ~= nil
     and g_fruitTypeManager ~= nil
+end
+
+---A copy of the current subscription, for a sweep to hold onto.
+---@return table<string, boolean>
+local function wantedSnapshot()
+  local wanted = {}
+  for id in pairs(VDT.MapLayers.subscribedLayers) do
+    wanted[id] = true
+  end
+  return wanted
 end
 
 ---A fresh { [layerId] = {} } table, for the per-plane row/buffer/legend state a sweep carries.
@@ -737,6 +780,10 @@ local function startSweep()
     stoneStateToGroup = stoneStateToGroup,
     stoneGroupColors = stoneGroupColors,
     stoneTitle = stoneTitle,
+    -- The planes this sweep is FOR, snapshotted here so the whole sweep -- and the patches and audits
+    -- that run off its retained context afterwards -- works to one consistent set even if the
+    -- subscription changes underneath (which drops the sweep anyway; see setSubscription).
+    wanted = wantedSnapshot(),
     -- Per-plane state, keyed by layer id: the row buffer a row is classified into, the encoded rows
     -- (which the published model points AT, so a patch updates it in place), and the legend values
     -- seen. Keyed rather than named per plane so everything downstream loops over LAYERS.
@@ -759,8 +806,9 @@ local function runBatch(ctx, budget)
   local row, col = ctx.row, ctx.col
   -- Hoisted out of the per-cell loop: these tables are fixed for the whole sweep, and this loop runs
   -- GRID_SIZE^2 times, so re-indexing ctx per cell is measurable.
-  local buf, rows = ctx.buf, ctx.rows
+  local buf, rows, wanted = ctx.buf, ctx.rows, ctx.wanted
   local cropsBuf, growthBuf, soilBuf = buf.crops, buf.growth, buf.soil
+  local wantCrops, wantGrowth, wantSoil = wanted.crops == true, wanted.growth == true, wanted.soil == true
 
   for _ = 1, budget do
     if row >= gridSize then
@@ -776,9 +824,18 @@ local function runBatch(ctx, budget)
 
     col = col + 1
     if col >= gridSize then
-      rows.crops[row + 1] = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
-      rows.growth[row + 1] = VDT.MapLayers.encodeRow(growthBuf, gridSize)
-      rows.soil[row + 1] = VDT.MapLayers.encodeRow(soilBuf, gridSize)
+      -- Only the subscribed planes are encoded: an unwanted plane's buffer holds nothing but the
+      -- "nothing here" values classifyCell returned for it, and its rows table stays empty so the
+      -- model published for it earlier -- pointing at the PREVIOUS sweep's rows -- is left intact.
+      if wantCrops then
+        rows.crops[row + 1] = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
+      end
+      if wantGrowth then
+        rows.growth[row + 1] = VDT.MapLayers.encodeRow(growthBuf, gridSize)
+      end
+      if wantSoil then
+        rows.soil[row + 1] = VDT.MapLayers.encodeRow(soilBuf, gridSize)
+      end
       col = 0
       row = row + 1
     end
@@ -827,8 +884,12 @@ end
 
 local function finishSweep(ctx)
   for _, layer in ipairs(VDT.MapLayers.LAYERS) do
-    VDT.MapLayers.models[layer.id] = layerModel(ctx, layer)
-    VDT.ExportChannels.markDirty(layer.channel)
+    -- Planes this sweep skipped keep the model (and the file) they already had -- stale, but a stale
+    -- overlay the moment you switch to it beats a blank one until the next sweep lands.
+    if ctx.wanted[layer.id] then
+      VDT.MapLayers.models[layer.id] = layerModel(ctx, layer)
+      VDT.ExportChannels.markDirty(layer.channel)
+    end
   end
   -- Retain the completed context so between-sweep patches reuse its classification state (ground-type
   -- values, weed/stone systems, fruit memo) and its row tables -- each model's `rows` are those same
@@ -904,8 +965,9 @@ local function runPatch(ctx)
     end
   end
 
-  local buf, rows = ctx.buf, ctx.rows
+  local buf, rows, wanted = ctx.buf, ctx.rows, ctx.wanted
   local cropsBuf, growthBuf, soilBuf = buf.crops, buf.growth, buf.soil
+  local wantCrops, wantGrowth, wantSoil = wanted.crops == true, wanted.growth == true, wanted.soil == true
   for row, cols in pairs(byRow) do
     VDT.MapLayers.decodeRow(rows.crops[row + 1] or "", gridSize, cropsBuf)
     VDT.MapLayers.decodeRow(rows.growth[row + 1] or "", gridSize, growthBuf)
@@ -927,20 +989,29 @@ local function runPatch(ctx)
     -- or two of the three (fertilizing moves soil alone, cultivating leaves crops alone), so the planes
     -- it didn't touch are neither re-published nor re-rendered. Under one combined file any single
     -- changed cell rewrote all three.
-    local newCrops = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
-    local newGrowth = VDT.MapLayers.encodeRow(growthBuf, gridSize)
-    local newSoil = VDT.MapLayers.encodeRow(soilBuf, gridSize)
-    if newCrops ~= rows.crops[row + 1] then
-      rows.crops[row + 1] = newCrops
-      changed.crops = true
+    --
+    -- Unsubscribed planes are skipped here as they were in the sweep: classifyCell didn't read them,
+    -- so their buffers hold zeros that would encode an empty row over the retained raster.
+    if wantCrops then
+      local newCrops = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
+      if newCrops ~= rows.crops[row + 1] then
+        rows.crops[row + 1] = newCrops
+        changed.crops = true
+      end
     end
-    if newGrowth ~= rows.growth[row + 1] then
-      rows.growth[row + 1] = newGrowth
-      changed.growth = true
+    if wantGrowth then
+      local newGrowth = VDT.MapLayers.encodeRow(growthBuf, gridSize)
+      if newGrowth ~= rows.growth[row + 1] then
+        rows.growth[row + 1] = newGrowth
+        changed.growth = true
+      end
     end
-    if newSoil ~= rows.soil[row + 1] then
-      rows.soil[row + 1] = newSoil
-      changed.soil = true
+    if wantSoil then
+      local newSoil = VDT.MapLayers.encodeRow(soilBuf, gridSize)
+      if newSoil ~= rows.soil[row + 1] then
+        rows.soil[row + 1] = newSoil
+        changed.soil = true
+      end
     end
   end
 
@@ -1025,12 +1096,14 @@ local function runAudit(ctx)
     -- classifyCell records anything newly seen into ctx's legend maps, so a stale cell can leave one
     -- entry behind that no row references. Harmless (an unlisted value renders transparent, a listed
     -- one that never appears just isn't drawn) and the resweep this triggers rebuilds them anyway.
+    -- Only the planes this sweep actually read are compared: classifyCell reports 0 for the rest, and
+    -- an unswept plane's rows are empty, so including them would compare nothing against nothing.
     local cropsV, growthV, soilV = VDT.MapLayers.classifyCell(ctx, worldX, worldZ)
-    local rows = ctx.rows
+    local rows, wanted = ctx.rows, ctx.wanted
     if
-      cropsV ~= storedCell(rows.crops, row, col)
-      or growthV ~= storedCell(rows.growth, row, col)
-      or soilV ~= storedCell(rows.soil, row, col)
+      (wanted.crops and cropsV ~= storedCell(rows.crops, row, col))
+      or (wanted.growth and growthV ~= storedCell(rows.growth, row, col))
+      or (wanted.soil and soilV ~= storedCell(rows.soil, row, col))
     then
       return true
     end
@@ -1086,6 +1159,56 @@ end
 -- handler may run before GrowthSystem's -- by the time the sweep reads the maps, growth has advanced.
 function VDT.MapLayers.markDirty()
   VDT.MapLayers.dirty = true
+end
+
+---Whether any plane is subscribed. Empty means the channel is idle: no viewer, or every viewer with
+---the ground overlay switched off.
+---@return boolean
+local function anySubscribed()
+  return next(VDT.MapLayers.subscribedLayers) ~= nil
+end
+
+---Set which planes are being looked at (the setMapLayers command, carrying the server's union over its
+---connected dashboards). Absolute, not a delta -- like every other control, so a lost or duplicated
+---command is self-correcting rather than leaving the mod sweeping a plane nobody asked for.
+---
+---A change arms a full resweep and drops any sweep in flight: the in-flight one was walking the
+---previous set, so finishing it would publish a plane that is no longer wanted while the newly wanted
+---one waited for the sweep after it. The planes that drop out keep their last model AND their file, so
+---switching back shows that raster immediately while the resweep runs, rather than a blank map.
+---@param ids string[] layer ids
+---@param debugger GrisuDebug
+function VDT.MapLayers.setSubscription(ids, debugger)
+  local wanted = {}
+  for _, id in ipairs(ids or {}) do
+    if ALL_LAYERS[id] then
+      wanted[id] = true
+    elseif debugger ~= nil then
+      debugger:warn("mapLayers channel: ignoring unknown layer id %s", tostring(id))
+    end
+  end
+
+  local changed = false
+  for id in pairs(ALL_LAYERS) do
+    if (wanted[id] == true) ~= (VDT.MapLayers.subscribedLayers[id] == true) then
+      changed = true
+    end
+  end
+  if not changed then
+    return
+  end
+
+  VDT.MapLayers.subscribedLayers = wanted
+  VDT.MapLayers.sweep = nil
+  VDT.MapLayers.dirty = anySubscribed()
+  if debugger ~= nil then
+    local names = {}
+    for id in pairs(wanted) do
+      names[#names + 1] = id
+    end
+    table.sort(names)
+    debugger:debug("mapLayers channel: subscribed to [%s]", table.concat(names, ", "))
+  end
 end
 
 -- Lazy subscribe to the events that change this channel's data: growth advances on PERIOD_CHANGED
@@ -1147,7 +1270,16 @@ function VDT.MapLayers.tick(debugger, dt)
   end
 
   subscribeEvents()
+  -- Before the subscription gate: the catalogue is what tells the app which layers it CAN subscribe
+  -- to, so waiting for a subscription to publish it would deadlock the two.
   publishCatalogue()
+
+  if not anySubscribed() then
+    -- Nothing is looking at any plane. Not a pause -- there is no work to catch up on later, since a
+    -- subscription arriving arms its own resweep (setSubscription). An event that fired meanwhile has
+    -- left `dirty` set, and that resweep will honour it.
+    return
+  end
 
   if VDT.MapLayers.sweep == nil then
     if not VDT.MapLayers.dirty then

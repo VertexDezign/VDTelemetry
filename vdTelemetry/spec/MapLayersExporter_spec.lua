@@ -18,6 +18,7 @@ dofile("src/collect/MapLayersExporter.lua")
 local function stubDebugger()
   return {
     error = function() end,
+    warn = function() end,
     info = function() end,
     trace = function() end,
     debug = function() end,
@@ -461,6 +462,9 @@ describe("MapLayers.tick sweep", function()
     VDT.MapLayers.patchCtx = nil
     VDT.MapLayers.patchTimerMs = 0
     VDT.MapLayers.auditTimerMs = 0
+    -- The channel does nothing at all until something subscribes (see the "subscription" block
+    -- below); these cases are about what a sweep does, so they start with all three planes wanted.
+    VDT.MapLayers.subscribedLayers = { crops = true, growth = true, soil = true }
 
     markedByChannel = {}
     markDirtyOrig = VDT.ExportChannels.markDirty
@@ -531,6 +535,7 @@ describe("MapLayers.tick sweep", function()
     VDT.MapLayers.patchCtx = nil
     VDT.MapLayers.patchTimerMs = 0
     VDT.MapLayers.auditTimerMs = 0
+    VDT.MapLayers.subscribedLayers = {}
     rawset(_G, "FieldDensityMap", nil)
     rawset(_G, "MessageType", nil)
     rawset(_G, "g_messageCenter", nil)
@@ -767,6 +772,155 @@ describe("MapLayers.tick sweep", function()
         VDT.MapLayers.tick(stubDebugger(), 16)
       end
       assert.are.equal(3, marked())
+    end)
+  end)
+
+  -- The subscription gate: the terminal tells the mod which planes its dashboards are showing, and
+  -- everything else -- classification, encoding, writing, patching, auditing -- is skipped for the rest.
+  describe("subscription", function()
+    local function completeSweep()
+      for _ = 1, 4 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+    end
+
+    it("does nothing at all while no plane is subscribed", function()
+      VDT.MapLayers.subscribedLayers = {}
+      local reads = 0
+      g_currentMission.fieldGroundSystem.getValueAtWorldPos = function()
+        reads = reads + 1
+        return 0
+      end
+
+      for _ = 1, 40 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+
+      -- Not one density read, not one sweep, not one queued write: with no terminal running (or the
+      -- map page closed) the mod's most expensive channel costs nothing.
+      assert.are.equal(0, reads)
+      assert.are.equal(0, marked())
+      assert.is_nil(VDT.MapLayers.sweep)
+      -- ...but the catalogue is still published, or the app could never learn what to subscribe TO.
+      assert.are.equal(1, markedByChannel[VDT.MapLayers.CHANNEL])
+      assert.is_not_nil(VDT.MapLayers.collect())
+    end)
+
+    it("sweeps and writes only the subscribed planes", function()
+      VDT.MapLayers.subscribedLayers = { growth = true }
+      completeSweep()
+
+      assert.are.equal(1, marks("growth"))
+      assert.are.equal(0, marks("crops"))
+      assert.are.equal(0, marks("soil"))
+      assert.is_not_nil(VDT.MapLayers.collectLayer("growth"))
+      assert.is_nil(VDT.MapLayers.collectLayer("crops"))
+      assert.is_nil(VDT.MapLayers.collectLayer("soil"))
+    end)
+
+    it("skips the engine reads an unsubscribed plane would need", function()
+      -- Crops comes off the fruit plane alone, so a crops-only sweep must not touch the ground type
+      -- (growth's fallback) or anything soil reads. That skipped work is the point of the gate.
+      VDT.MapLayers.subscribedLayers = { crops = true }
+      local groundReads, stateReads = 0, 0
+      g_currentMission.fieldGroundSystem.getValueAtWorldPos = function()
+        groundReads = groundReads + 1
+        return 0
+      end
+      rawset(_G, "getDensityStatesAtWorldPos", function()
+        stateReads = stateReads + 1
+        return 0
+      end)
+
+      completeSweep()
+
+      assert.are.equal(1, marks("crops"))
+      assert.are.equal(0, groundReads)
+      assert.are.equal(0, stateReads) -- the growth state is a second read on the fruit plane
+    end)
+
+    it("resweeps immediately when a plane is subscribed, and keeps the dropped plane's raster", function()
+      VDT.MapLayers.subscribedLayers = { crops = true }
+      completeSweep()
+      assert.are.equal(1, marks("crops"))
+      assert.is_false(VDT.MapLayers.dirty)
+
+      -- Switching the dashboard to the growth overlay: the mod must not wait for the next in-game day.
+      VDT.MapLayers.setSubscription({ "growth" }, stubDebugger())
+      assert.is_true(VDT.MapLayers.dirty)
+      completeSweep()
+      assert.are.equal(1, marks("growth"))
+
+      -- Crops was published once and then dropped -- its model (and so its file) is left exactly as it
+      -- was, so switching back shows that raster at once instead of a blank map.
+      assert.are.equal(1, marks("crops"))
+      assert.is_not_nil(VDT.MapLayers.collectLayer("crops"))
+    end)
+
+    it("drops a sweep in flight when the subscription changes", function()
+      VDT.MapLayers.subscribedLayers = { crops = true }
+      VDT.MapLayers.tick(stubDebugger(), 16) -- one batch in, 16 of 64 cells
+      assert.is_not_nil(VDT.MapLayers.sweep)
+
+      VDT.MapLayers.setSubscription({ "crops", "soil" }, stubDebugger())
+
+      -- Finishing it would publish a raster for the old set while the newly wanted plane waited for
+      -- the sweep after this one.
+      assert.is_nil(VDT.MapLayers.sweep)
+      completeSweep()
+      assert.are.equal(1, marks("crops"))
+      assert.are.equal(1, marks("soil"))
+    end)
+
+    it("ignores an unchanged set, so a repeated command doesn't restart the sweep", function()
+      VDT.MapLayers.subscribedLayers = { crops = true }
+      completeSweep()
+      VDT.MapLayers.setSubscription({ "crops" }, stubDebugger())
+      assert.is_false(VDT.MapLayers.dirty)
+      assert.are.equal(1, marks("crops"))
+    end)
+
+    it("ignores unknown layer ids rather than sweeping for them", function()
+      VDT.MapLayers.setSubscription({ "growth", "nutrientMap" }, stubDebugger())
+      assert.are.same({ growth = true }, VDT.MapLayers.subscribedLayers)
+    end)
+
+    it("goes idle again on the empty set, without dropping what it already published", function()
+      VDT.MapLayers.subscribedLayers = { growth = true }
+      completeSweep()
+
+      VDT.MapLayers.setSubscription({}, stubDebugger())
+      assert.is_false(VDT.MapLayers.dirty)
+      for _ = 1, 20 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      assert.are.equal(1, marks("growth")) -- nothing further written
+      assert.is_not_nil(VDT.MapLayers.collectLayer("growth")) -- and the last raster stands
+    end)
+
+    it("patches and audits only the subscribed planes", function()
+      VDT.MapLayers.subscribedLayers = { growth = true }
+      g_currentMission.missionDynamicInfo = { isMultiplayer = true }
+      completeSweep()
+
+      -- A vehicle works plowed ground: growth moves, and the planes nobody subscribed to are neither
+      -- re-sampled nor re-encoded over their retained (here: never published) rasters.
+      VDT.MapLayers.PATCH_RADIUS_M = 1
+      g_currentMission.fieldGroundSystem.getValueAtWorldPos = function(_, densityType)
+        return densityType == FieldDensityMap.GROUND_TYPE and 5 or 0
+      end
+      g_currentMission.vehicleSystem = {
+        vehicles = { { rootNode = 1, spec_enterable = { isControlled = true } } },
+      }
+      rawset(_G, "getWorldTranslation", function()
+        return 0, 0, 0
+      end)
+      VDT.MapLayers.tick(stubDebugger(), 4000)
+
+      assert.are.equal(2, marks("growth"))
+      assert.are.equal(0, marks("crops"))
+      assert.are.equal(0, marks("soil"))
+      assert.is_nil(VDT.MapLayers.collectLayer("soil"))
     end)
   end)
 

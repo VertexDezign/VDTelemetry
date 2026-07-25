@@ -77,6 +77,9 @@ local sourceFiles = {
   "src/command/ProductionControl.lua",
   -- Object-storage unload (bales/pallets); same ProductionExporter helpers
   "src/command/ObjectStorageControl.lua",
+  -- Ground-layer subscription: tells the mapLayers channel which raster planes the terminal is
+  -- showing, so it sweeps only those (MapLayersExporter is sourced with the collectors above)
+  "src/command/MapLayersControl.lua",
   -- GUI: injects settings controls into the in-game menu
   "src/gui/SettingsFrame.lua",
 }
