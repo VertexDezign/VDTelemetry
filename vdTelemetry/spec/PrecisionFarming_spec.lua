@@ -30,7 +30,7 @@ end)
 -- The stubs mirror the real shapes (scripts/maps/*.lua in the PF mod) — whether the mod still looks
 -- like this is what the in-game smoke test covers.
 describe("PrecisionFarming layers", function()
-  local reads
+  local reads, pf
 
   local function layer(id)
     for _, entry in ipairs(VDT.PrecisionFarming.LAYERS) do
@@ -54,7 +54,11 @@ describe("PrecisionFarming layers", function()
       reads[#reads + 1] = { map = map, x = x, z = z, firstChannel = firstChannel, numChannels = numChannels }
       return 7
     end)
-    rawset(_G, "g_precisionFarming", {
+    -- Installed under the mod's OWN env global, which is the only place it is readable from: FS25
+    -- gives each mod its own Lua env, so PF's g_precisionFarming is NOT in the shared _G. Stubbing
+    -- the bare global (what an earlier version of this spec did) tests a world that doesn't exist.
+    rawset(_G, "FS25_precisionFarming", {})
+    FS25_precisionFarming.g_precisionFarming = {
       soilMap = {
         getOverviewLabel = function()
           return "Bodentyp"
@@ -105,11 +109,13 @@ describe("PrecisionFarming layers", function()
           { value = 7, text = "high", color = { 0.3, 0.3, 0.3 } },
         },
       },
-    })
+    }
+    pf = FS25_precisionFarming.g_precisionFarming
   end)
 
   after_each(function()
     rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "FS25_precisionFarming", nil)
     rawset(_G, "g_precisionFarming", nil)
     rawset(_G, "g_currentMission", nil)
     rawset(_G, "MathUtil", nil)
@@ -125,10 +131,35 @@ describe("PrecisionFarming layers", function()
     assert.are.same({ "pfSoilType", "pfPh", "pfNitrogen", "pfYield", "pfSeedRate" }, ids)
   end)
 
+  -- The bug a playtest found: reading the bare global instead of the mod's env global, which is nil
+  -- from here, so PF was installed and its layers silently never offered.
+  it("reaches PF through its own env global, not the shared _G", function()
+    assert.is_nil(rawget(_G, "g_precisionFarming"))
+    assert.is_true(VDT.PrecisionFarming.isLayerAvailable(layer("pfSoilType")))
+    assert.is_false(VDT.PrecisionFarming.isUnreachable())
+  end)
+
+  it("reports PF as unreachable when it is loaded but its singleton can't be seen", function()
+    rawset(_G, "FS25_precisionFarming", {}) -- env there, singleton not (or renamed)
+    assert.is_true(VDT.PrecisionFarming.isUnreachable())
+    assert.is_false(VDT.PrecisionFarming.isLayerAvailable(layer("pfSoilType")))
+
+    -- Not installed at all is a different thing, and not a warning.
+    rawset(_G, "g_modIsLoaded", nil)
+    assert.is_false(VDT.PrecisionFarming.isUnreachable())
+  end)
+
+  it("still finds the singleton if a future version does put it in the shared _G", function()
+    local instance = FS25_precisionFarming.g_precisionFarming
+    rawset(_G, "FS25_precisionFarming", nil)
+    rawset(_G, "g_precisionFarming", instance)
+    assert.is_true(VDT.PrecisionFarming.isLayerAvailable(layer("pfSoilType")))
+  end)
+
   it("is unavailable when PF isn't loaded, or hasn't built that map", function()
     assert.is_true(VDT.PrecisionFarming.isLayerAvailable(layer("pfNitrogen")))
 
-    g_precisionFarming.nitrogenMap = nil
+    pf.nitrogenMap = nil
     assert.is_false(VDT.PrecisionFarming.isLayerAvailable(layer("pfNitrogen")))
 
     rawset(_G, "g_modIsLoaded", nil)
@@ -142,9 +173,9 @@ describe("PrecisionFarming layers", function()
   end)
 
   it("falls back to an English label when the map can't be asked", function()
-    g_precisionFarming.soilMap.getOverviewLabel = nil
+    pf.soilMap.getOverviewLabel = nil
     assert.are.equal("Soil type", VDT.PrecisionFarming.layerLabel(layer("pfSoilType")))
-    g_precisionFarming.soilMap = nil
+    pf.soilMap = nil
     assert.are.equal("Soil type", VDT.PrecisionFarming.layerLabel(layer("pfSoilType")))
   end)
 
@@ -186,17 +217,17 @@ describe("PrecisionFarming layers", function()
   end)
 
   it("resolves to nil rather than throwing when PF's internals have moved", function()
-    g_precisionFarming.nitrogenMap.nitrogenValues = nil -- a rename in a PF update
+    pf.nitrogenMap.nitrogenValues = nil -- a rename in a PF update
     assert.is_nil(VDT.PrecisionFarming.resolveLayer(layer("pfNitrogen")))
 
-    g_precisionFarming.yieldMap = nil
+    pf.yieldMap = nil
     assert.is_nil(VDT.PrecisionFarming.resolveLayer(layer("pfYield")))
   end)
 
   -- The sweep reads ~262k cells with no per-cell guard, so a map that throws would abort every sweep
   -- the channel ever runs. One probe read up front demotes that to "plane unavailable".
   it("resolves to nil when the map builds but can't be read", function()
-    g_precisionFarming.pHMap.getLevelAtWorldPos = function()
+    pf.pHMap.getLevelAtWorldPos = function()
       error("PF internals moved")
     end
     assert.is_nil(VDT.PrecisionFarming.resolveLayer(layer("pfPh")))

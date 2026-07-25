@@ -134,6 +134,7 @@ VDT.MapLayers.subscribed = false -- one-shot guard for the message-center subscr
 -- leave the rest -- including their files -- exactly as they were.
 VDT.MapLayers.models = {}
 VDT.MapLayers.catalogue = nil -- index.json's model; built once the world size resolves (see tick)
+VDT.MapLayers.warnedPfUnreachable = false -- one-shot guard for the Precision Farming visibility warning
 -- Layer ids something is actually looking at (id -> true), set by the setMapLayers command -- the
 -- server sends the union of what its connected dashboards have selected. EMPTY BY DEFAULT, and empty
 -- means this channel does nothing at all: no sweep, no patch, no audit, no writes. The dashboard shows
@@ -1369,9 +1370,51 @@ end
 ---grid geometry they share. Deliberately independent of the sweep -- it is what tells the app a layer
 ---EXISTS, so it has to be there before (and whether or not) any raster for that layer has been swept.
 ---Retried every tick until the world size resolves, which is the only thing that can fail here.
-local function publishCatalogue()
-  if VDT.MapLayers.catalogue ~= nil then
+---Ids of every plane this map can currently produce, in wire order.
+---@return string[]
+local function availableLayerIds()
+  local ids = {}
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    if layerAvailable(layer) then
+      ids[#ids + 1] = layer.id
+    end
+  end
+  return ids
+end
+
+---Whether the published catalogue already lists exactly these planes.
+---@param ids string[]
+---@return boolean
+local function catalogueLists(ids)
+  local catalogue = VDT.MapLayers.catalogue
+  if catalogue == nil or #catalogue.layers ~= #ids then
+    return false
+  end
+  for i, id in ipairs(ids) do
+    if catalogue.layers[i].id ~= id then
+      return false
+    end
+  end
+  return true
+end
+
+---@param debugger GrisuDebug
+local function publishCatalogue(debugger)
+  -- Rechecked every tick rather than built once, because we don't control when a plane's data source
+  -- appears: Precision Farming builds its value maps during mission load, and taking the first tick's
+  -- answer as final would mean a plane that wasn't ready yet is missing for the whole session -- with
+  -- no error, and nothing that would ever revisit it. The check is a handful of table reads; the
+  -- rebuild only happens when the offered set actually changes.
+  local ids = availableLayerIds()
+  if catalogueLists(ids) then
     return
+  end
+  -- Said once, because it is the failure that looks like nothing at all: Precision Farming installed,
+  -- its planes silently missing from the app's layer list. The usual cause is mod-environment
+  -- isolation (see VDT.PrecisionFarming), which no amount of staring at the app would reveal.
+  if VDT.PrecisionFarming.isUnreachable() and not VDT.MapLayers.warnedPfUnreachable then
+    VDT.MapLayers.warnedPfUnreachable = true
+    debugger:warn("mapLayers channel: Precision Farming is loaded but unreachable; its layers are off")
   end
   local sizeX = VDT.MapExporter.resolveWorldSize()
   if sizeX == nil then
@@ -1389,6 +1432,9 @@ local function publishCatalogue()
         active = VDT.MapLayers.subscribedLayers[layer.id] == true,
       }
     end
+  end
+  if #layers == 0 then
+    return -- nothing to offer yet; the world size resolved but no plane is readable
   end
   VDT.MapLayers.catalogue = {
     version = tostring(VDT.MapLayers.VERSION),
@@ -1416,7 +1462,7 @@ function VDT.MapLayers.tick(debugger, dt)
   subscribeEvents()
   -- Before the subscription gate: the catalogue is what tells the app which layers it CAN subscribe
   -- to, so waiting for a subscription to publish it would deadlock the two.
-  publishCatalogue()
+  publishCatalogue(debugger)
 
   if not anySubscribed() then
     -- Nothing is looking at any plane. Not a pause -- there is no work to catch up on later, since a

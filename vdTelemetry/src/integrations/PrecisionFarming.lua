@@ -28,6 +28,8 @@
 -- Every read of PF's internals is fail-soft (see the pcall-wrapped resolve below): a PF update is free
 -- to rename any of this, and the cost of being wrong must be a missing overlay, not a broken sweep.
 --
+-- Written against the internal Precision Farming shipped with FS25 (its scripts/maps/*.lua).
+--
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
 VDT = VDT or {}
@@ -43,16 +45,40 @@ function VDT.PrecisionFarming.isActive()
   return type(g_modIsLoaded) == "table" and g_modIsLoaded[VDT.PrecisionFarming.MOD_NAME] == true
 end
 
+---PF's own singleton. **Mod-environment isolation** (see farm-page-plan.md, and CropRotation.lua which
+---resolves the same way): FS25 gives each mod its own Lua env, so PF's `g_precisionFarming` is a global
+---in *its* env, not in the shared `_G` — from here the bare global is nil, and it has to be reached
+---through the env global named after the mod. Only shared engine tables (`g_currentMission`,
+---`g_modIsLoaded`, `MathUtil`) are readable directly.
+---
+---The bare global is still tried as a fallback, so this keeps working if a future version does put it
+---in `_G`.
+---@return table|nil
+local function pfInstance()
+  local env = type(FS25_precisionFarming) == "table" and FS25_precisionFarming or nil
+  local instance = (env ~= nil and env.g_precisionFarming) or g_precisionFarming
+  return type(instance) == "table" and instance or nil
+end
+
 ---The live value map PF registered under `name` (it assigns each one onto itself by name), or nil when
 ---PF isn't loaded / hasn't built it yet.
 ---@param name string PF's own field name, e.g. "soilMap"
 ---@return table|nil
 local function valueMap(name)
-  if not VDT.PrecisionFarming.isActive() or g_precisionFarming == nil then
+  if not VDT.PrecisionFarming.isActive() then
     return nil
   end
-  local map = g_precisionFarming[name]
+  local instance = pfInstance()
+  local map = instance ~= nil and instance[name] or nil
   return type(map) == "table" and map or nil
+end
+
+---True when PF is installed but its singleton can't be reached from here — the mod-environment trap
+---above. Distinguishes "no PF" from "PF, but we can't see it", which is the difference between the
+---layers being correctly absent and being silently broken (see MapLayersExporter's one-shot warning).
+---@return boolean
+function VDT.PrecisionFarming.isUnreachable()
+  return VDT.PrecisionFarming.isActive() and pfInstance() == nil
 end
 
 ---Cell coordinates for a world position on a PF value map, transcribed from the maps' own point reads

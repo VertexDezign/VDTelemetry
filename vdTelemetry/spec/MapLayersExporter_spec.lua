@@ -970,18 +970,21 @@ describe("MapLayers.tick sweep", function()
     before_each(function()
       rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
       g_currentMission.terrainSize = 8
-      rawset(_G, "g_precisionFarming", {
-        nitrogenMap = {
-          getOverviewLabel = function()
-            return "Stickstoff"
-          end,
-          getLevelAtWorldPos = function(_, x, _)
-            -- Non-uniform, so the encoded row proves the sampler is fed per-cell world positions.
-            return x < 0 and 1 or 2
-          end,
-          nitrogenValues = {
-            { value = 1, realValue = 30, color = { 1, 0, 0 } },
-            { value = 2, realValue = 60, color = { 0, 1, 0 } },
+      -- Under PF's own env global: that is the only place it is readable from (see PrecisionFarming_spec).
+      rawset(_G, "FS25_precisionFarming", {
+        g_precisionFarming = {
+          nitrogenMap = {
+            getOverviewLabel = function()
+              return "Stickstoff"
+            end,
+            getLevelAtWorldPos = function(_, x, _)
+              -- Non-uniform, so the encoded row proves the sampler is fed per-cell world positions.
+              return x < 0 and 1 or 2
+            end,
+            nitrogenValues = {
+              { value = 1, realValue = 30, color = { 1, 0, 0 } },
+              { value = 2, realValue = 60, color = { 0, 1, 0 } },
+            },
           },
         },
       })
@@ -989,7 +992,8 @@ describe("MapLayers.tick sweep", function()
 
     after_each(function()
       rawset(_G, "g_modIsLoaded", nil)
-      rawset(_G, "g_precisionFarming", nil)
+      rawset(_G, "FS25_precisionFarming", nil)
+      VDT.MapLayers.warnedPfUnreachable = false
     end)
 
     it("offers only the PF planes whose value map exists", function()
@@ -1026,9 +1030,59 @@ describe("MapLayers.tick sweep", function()
       assert.are.equal(0, marks("crops"))
     end)
 
+    it("picks a PF plane up when its value map appears after the first tick", function()
+      -- We don't control when PF finishes building its maps relative to our first tick, and taking
+      -- that first answer as final would leave the plane missing for the whole session.
+      rawset(_G, "FS25_precisionFarming", nil)
+      VDT.MapLayers.tick(stubDebugger(), 16)
+      assert.are.equal(3, #VDT.MapLayers.collect().layers)
+      local writes = markedByChannel[VDT.MapLayers.CHANNEL]
+
+      rawset(_G, "FS25_precisionFarming", {
+        g_precisionFarming = {
+          nitrogenMap = {
+            getLevelAtWorldPos = function()
+              return 1
+            end,
+            nitrogenValues = { { value = 1, realValue = 30, color = { 1, 0, 0 } } },
+          },
+        },
+      })
+      VDT.MapLayers.tick(stubDebugger(), 16)
+
+      assert.are.equal(4, #VDT.MapLayers.collect().layers)
+      assert.are.equal("pfNitrogen", VDT.MapLayers.collect().layers[4].id)
+      assert.are.equal(writes + 1, markedByChannel[VDT.MapLayers.CHANNEL]) -- republished, once
+
+      -- ...and stable from there: an unchanged offer is not rewritten every tick.
+      for _ = 1, 5 do
+        VDT.MapLayers.tick(stubDebugger(), 16)
+      end
+      assert.are.equal(writes + 1, markedByChannel[VDT.MapLayers.CHANNEL])
+    end)
+
+    it("warns once when PF is loaded but its layers are invisible from here", function()
+      -- The failure that otherwise looks like nothing at all: PF installed, no PF layers offered, no
+      -- error anywhere. Mod-environment isolation is the usual cause.
+      rawset(_G, "FS25_precisionFarming", nil)
+      local warnings = 0
+      local debugger = stubDebugger()
+      debugger.warn = function()
+        warnings = warnings + 1
+      end
+
+      for _ = 1, 5 do
+        VDT.MapLayers.tick(debugger, 16)
+      end
+
+      assert.are.equal(1, warnings)
+      -- ...and the base planes are unaffected: PF being invisible is not a channel failure.
+      assert.are.equal(3, #VDT.MapLayers.collect().layers)
+    end)
+
     it("never samples a PF plane whose map is gone, even if something subscribed to it", function()
       -- The app remembering a layer from a save that had PF, opened on one that doesn't.
-      rawset(_G, "g_precisionFarming", nil)
+      rawset(_G, "FS25_precisionFarming", nil)
       VDT.MapLayers.subscribedLayers = { pfNitrogen = true }
 
       assert.has_no.errors(function()
