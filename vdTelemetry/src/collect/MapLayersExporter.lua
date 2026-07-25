@@ -1,7 +1,7 @@
--- Ground-layer export channel: grid-samples the field/soil state across the whole map (the FieldState
--- per-world-position read pattern) and writes mapLayers.json -- three raster planes (crops planted,
--- growth state, soil condition) the server renders into translucent PNG overlays. Classification and
--- colors replicate the game's own MapOverlayGenerator (gui/base/MapOverlayGenerator.lua) so the
+-- Ground-layer export channels: grid-sample the field/soil state across the whole map (the FieldState
+-- per-world-position read pattern) and write the mapLayers/ folder -- three raster planes (crops
+-- planted, growth state, soil condition) the server renders into translucent PNG overlays.
+-- Classification and colors replicate the game's own MapOverlayGenerator (MapOverlayGenerator.lua) so the
 -- dashboard overlay matches the in-game map overlay exactly; the constants and transition rules below
 -- are transcribed from that class (and from FruitTypeDesc's getIsGrowing/getIsPreparable/etc., which
 -- MapOverlayGenerator itself reimplements inline).
@@ -11,6 +11,11 @@
 -- (ExportChannels.tick has no pcall around channel ticks), so the sweep batch is pcall'd here -- an
 -- engine hiccup mid-sweep aborts that sweep (retried on the next resweep event), rather than killing
 -- the whole mod's update loop.
+--
+-- Nothing here runs unless a plane is SUBSCRIBED: the terminal sends the union of what its connected
+-- dashboards are showing (the setMapLayers command), and only those planes are classified, encoded and
+-- written. A dashboard shows one overlay at a time, so this is most of the channel's cost -- and with
+-- no terminal running, or nobody on the map page, the whole channel is free. See setSubscription().
 --
 -- Cadence is event-driven, not a wall-clock timer: the overlay only meaningfully changes when growth
 -- advances (MessageType.PERIOD_CHANGED, GrowthSystem's own trigger) and, for player tillage/harvest,
@@ -36,19 +41,57 @@
 -- stratified sample of the grid on an idle timer and compares it to the retained model. Any
 -- disagreement means the world moved under us and arms a full resweep. See runAudit().
 --
--- Wire format: three one-byte-per-cell planes, rows as right-trimmed hex strings (see encodeRow).
--- Legends list only values actually seen during the sweep, so the file (and the app's PNG fetch) never
--- carries color/label data for fruit types or states that don't exist on this map.
+-- Wire format: one one-byte-per-cell plane per FILE, rows as right-trimmed hex strings (see
+-- encodeRow). Legends list only values actually seen during the sweep, so the file (and the app's PNG
+-- fetch) never carries color/label data for fruit types or states that don't exist on this map.
+--
+-- The planes are separate files (mapLayers/crops.json, .../growth.json, .../soil.json) plus a small
+-- catalogue (mapLayers/index.json) naming the planes that exist, and each is its own export channel.
+-- One file per plane is what keeps a patch from rewriting planes it did not touch: a fertilizer pass
+-- changes soil and nothing else, but a single combined file re-serializes every plane on every write
+-- (the megabyte-per-patch cost that shows up as Json.lua in the in-game profiler). It also gives each
+-- plane its own content version on the server, so the app refetches the overlay it is showing only
+-- when that overlay actually changed. The catalogue is written without sweeping anything, so the app
+-- can offer a layer before any raster for it exists.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
 VDT = VDT or {}
 VDT.MapLayers = {}
 
+-- The catalogue/driver channel: owns the sweep (tick), the settings toggle and the profile gate, and
+-- writes index.json. The per-plane channels are registered alongside it at the bottom of this file and
+-- are `hidden`, so the settings UI keeps offering "mapLayers" once rather than once per plane.
 VDT.MapLayers.CHANNEL = "mapLayers"
-VDT.MapLayers.FILE_NAME = "mapLayers.json"
+VDT.MapLayers.SUBDIR = "mapLayers/" -- created from ExportChannels.subDirs(); see VDTelemetry:loadMap
+VDT.MapLayers.FILE_NAME = VDT.MapLayers.SUBDIR .. "index.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin MapLayersData.
-VDT.MapLayers.VERSION = 1
+-- 2: one file per plane + the catalogue (was a single mapLayers.json holding all three).
+VDT.MapLayers.VERSION = 2
+
+-- The planes this channel exports, in wire order. `label` mirrors the game's own map overlay selector
+-- (InGameMenuMapFrame's mapSelectorTexts), so the app can name a plane it has never heard of -- which
+-- is what the Precision Farming planes will be when they land: adding one is then an entry here plus
+-- its classification, with the file/channel/dirty plumbing already generic over this list.
+--
+-- `channel` and `fileName` are filled in at registration (see the bottom of this file).
+VDT.MapLayers.LAYERS = {
+  -- The crops label is a format string in the game ("%s" for the fruit filter); formatted empty and
+  -- trimmed, exactly as the game's own selector builds it.
+  { id = "crops", labelKey = "ui_mapOverviewFruitTypes", labelFallback = "Crops", labelFormat = true },
+  { id = "growth", labelKey = "ui_mapOverviewGrowth", labelFallback = "Growth" },
+  { id = "soil", labelKey = "ui_mapOverviewSoil", labelFallback = "Soil" },
+}
+
+-- Precision Farming's own value maps, appended as further planes (see integrations/PrecisionFarming).
+-- They are ordinary entries from here on: the same files, channels, dirty tracking, subscription gate
+-- and legends -- the only difference is that each carries a `pf` descriptor, which is what says how to
+-- sample it and where its label and legend come from. Registered unconditionally (registration happens
+-- at load, long before the mission knows whether PF is installed); an entry whose value map isn't
+-- there is simply never offered by the catalogue and never swept.
+for _, pfLayer in ipairs(VDT.PrecisionFarming.LAYERS) do
+  VDT.MapLayers.LAYERS[#VDT.MapLayers.LAYERS + 1] = { id = pfLayer.id, pf = pfLayer }
+end
 
 -- The game's own overlay base resolution (MapOverlayGenerator.OVERLAY_RESOLUTION.FOLIAGE_STATE) --
 -- fixed, not terrain-scaled, so a bigger map just means bigger cells.
@@ -76,6 +119,11 @@ VDT.MapLayers.PATCH_RADIUS_M = 32
 -- BACKOFF is what keeps a still-streaming map from resweeping back to back: the timer only advances
 -- while no sweep is running, so it is a floor on idle time between audit-driven resweeps. Raise it if
 -- the join phase ever feels heavy; that is the knob, not the sample size.
+-- How often the set of offered planes is re-examined once a catalogue exists. Only a load-time race
+-- can change it (a Precision Farming value map built after our first tick), so this is slow on
+-- purpose: the check itself is the per-frame cost, not the rebuild it almost never triggers.
+VDT.MapLayers.CATALOGUE_RECHECK_MS = 5000
+
 VDT.MapLayers.AUDIT_INTERVAL_MS = 10000
 VDT.MapLayers.AUDIT_CELLS = 256
 VDT.MapLayers.AUDIT_BACKOFF_MS = 30000
@@ -86,7 +134,19 @@ VDT.MapLayers.sweep = nil -- in-progress sweep context, nil when idle
 -- the PERIOD_CHANGED / DAY_CHANGED subscriptions (see tick). Cleared the moment a sweep is started.
 VDT.MapLayers.dirty = true
 VDT.MapLayers.subscribed = false -- one-shot guard for the message-center subscription
-VDT.MapLayers.model = nil -- last completed sweep's model; collect() returns this
+-- Last completed model PER PLANE (layer id -> model); each plane's channel collects its own entry.
+-- Held per plane rather than as one model so a sweep or patch can replace the planes it touched and
+-- leave the rest -- including their files -- exactly as they were.
+VDT.MapLayers.models = {}
+VDT.MapLayers.catalogue = nil -- index.json's model; built once the world size resolves (see tick)
+VDT.MapLayers.catalogueTimerMs = 0 -- accumulates dt toward the next offered-layer recheck
+VDT.MapLayers.warnedPfUnreachable = false -- one-shot guard for the Precision Farming visibility warning
+-- Layer ids something is actually looking at (id -> true), set by the setMapLayers command -- the
+-- server sends the union of what its connected dashboards have selected. EMPTY BY DEFAULT, and empty
+-- means this channel does nothing at all: no sweep, no patch, no audit, no writes. The dashboard shows
+-- one overlay at a time, so with the Precision Farming planes on top of these three, classifying and
+-- encoding the ones nobody is looking at would be nearly the whole cost of the channel.
+VDT.MapLayers.subscribedLayers = {}
 -- Retained after each full sweep so between-sweep patches reuse its classification state + row tables;
 -- patchTimerMs accumulates dt toward PATCH_INTERVAL_MS. nil until the first sweep completes.
 VDT.MapLayers.patchCtx = nil
@@ -97,6 +157,12 @@ VDT.MapLayers.auditTimerMs = 0
 
 -- Largest value a cell can carry: one byte per cell on the wire (see encodeRow).
 local MAX_WIRE_VALUE = 255
+
+-- Every plane, as a wanted-set (see classifyCell). Only for a ctx that carries no set of its own.
+local ALL_LAYERS = {}
+for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+  ALL_LAYERS[layer.id] = true
+end
 
 -- Wire values for the "growth" plane. These are our own wire vocabulary, not
 -- MapOverlayGenerator.GROWTH_STATE_INDEX (that enum keys the game's own UI filter checkboxes and has
@@ -126,33 +192,56 @@ local SOIL_NEEDS_PLOWING = 20
 local SOIL_NEEDS_LIME = 21
 local SOIL_FERTILIZED_BASE = 30 -- + spray level (1..maxSprayLevel) => 31..
 
--- Non-colorblind color constants transcribed from MapOverlayGenerator.lua (linear RGB, the [false]
--- variant -- see the plan's Context for the exact source lines this was read from). Converted to sRGB
--- hex on use via VDT.MapExporter.linearToSrgbHex, same as every other color this mod exports.
+-- Color constants transcribed from MapOverlayGenerator.lua (linear RGB), keyed [false]/[true] exactly
+-- as the game keys them: the game ships a second palette for its colorblind mode, and the overlay is
+-- supposed to look like the in-game map whichever the player has chosen. Which set a sweep uses is
+-- snapshotted on its ctx (see startSweep); converted to sRGB hex on use via
+-- VDT.MapExporter.linearToSrgbHex, same as every other color this mod exports.
+--
+-- Note the colorblind growing gradient is SHORTER (4 steps, not 8) -- the game trades resolution for
+-- distinguishability there, and so do we: the gradient's wire values are computed against whichever
+-- palette is active (see classifyGrowthFromFruit), which is why changing the setting re-sweeps rather
+-- than just re-coloring.
 local GROWTH_GRADIENT_COLORS = {
-  { 0.227, 0.5711, 0.0176 },
-  { 0.1683, 0.4678, 0.0152 },
-  { 0.1221, 0.3813, 0.013 },
-  { 0.0823, 0.3006, 0.011 },
-  { 0.0529, 0.2346, 0.0091 },
-  { 0.0296, 0.1746, 0.0075 },
-  { 0.0144, 0.1248, 0.006 },
-  { 0.0048, 0.0844, 0.0048 },
+  [false] = {
+    { 0.227, 0.5711, 0.0176 },
+    { 0.1683, 0.4678, 0.0152 },
+    { 0.1221, 0.3813, 0.013 },
+    { 0.0823, 0.3006, 0.011 },
+    { 0.0529, 0.2346, 0.0091 },
+    { 0.0296, 0.1746, 0.0075 },
+    { 0.0144, 0.1248, 0.006 },
+    { 0.0048, 0.0844, 0.0048 },
+  },
+  [true] = {
+    { 1, 0.9473, 0.227 },
+    { 1, 0.9046, 0.013 },
+    { 0.5583, 0.4735, 0.007 },
+    { 0.2122, 0.1779, 0.0027 },
+  },
 }
-local COLOR_HARVEST_READY = { 0.7758, 0.3095, 0.013 }
-local COLOR_CUT = { 0.2647, 0.1038, 0.358 }
-local COLOR_WITHERED = { 0.1441, 0.0452, 0.0123 }
-local COLOR_TOPPING = { 0.7011, 0.0452, 0.0123 }
-local COLOR_CULTIVATED = { 0.0967, 0.3758, 0.7084 }
-local COLOR_STUBBLE_TILLAGE = { 0.1967, 0.4758, 0.3084 }
-local COLOR_SEEDBED = { 0.0815, 0.6584, 0.4198 }
-local COLOR_PLOWED = { 0.0908, 0.0467, 0.0865 }
-local COLOR_NEEDS_PLOWING = { 0.6172, 0.051, 0.051 }
-local COLOR_NEEDS_LIME = { 0.0815, 0.6584, 0.4198 }
+local COLOR_HARVEST_READY = { [false] = { 0.7758, 0.3095, 0.013 }, [true] = { 0.0561, 0.1384, 0.5841 } }
+-- The one color the game does NOT vary: getDisplayGrowthStates hands FRUIT_COLOR_CUT to both modes.
+local COLOR_CUT = { [false] = { 0.2647, 0.1038, 0.358 }, [true] = { 0.2647, 0.1038, 0.358 } }
+local COLOR_WITHERED = { [false] = { 0.1441, 0.0452, 0.0123 }, [true] = { 0.1195, 0.1144, 0.0908 } }
+local COLOR_TOPPING = { [false] = { 0.7011, 0.0452, 0.0123 }, [true] = { 0.3231, 0.3467, 0.4621 } }
+local COLOR_CULTIVATED = { [false] = { 0.0967, 0.3758, 0.7084 }, [true] = { 0.2918, 0.3564, 0.7011 } }
+local COLOR_STUBBLE_TILLAGE = { [false] = { 0.1967, 0.4758, 0.3084 }, [true] = { 0.3918, 0.4564, 0.3011 } }
+local COLOR_SEEDBED = { [false] = { 0.0815, 0.6584, 0.4198 }, [true] = { 0.6795, 0.6867, 0.7231 } }
+local COLOR_PLOWED = { [false] = { 0.0908, 0.0467, 0.0865 }, [true] = { 0.0469, 0.0484, 0.0597 } }
+local COLOR_NEEDS_PLOWING = { [false] = { 0.6172, 0.051, 0.051 }, [true] = { 1, 0.8632, 0.0232 } }
+local COLOR_NEEDS_LIME = { [false] = { 0.0815, 0.6584, 0.4198 }, [true] = { 0.6795, 0.6867, 0.7231 } }
 local FERTILIZED_COLORS = {
-  { 0.0595, 0.2086, 0.8227 },
-  { 0.0091, 0.0931, 0.5841 },
-  { 0.0018, 0.0382, 0.2961 },
+  [false] = {
+    { 0.0595, 0.2086, 0.8227 },
+    { 0.0091, 0.0931, 0.5841 },
+    { 0.0018, 0.0382, 0.2961 },
+  },
+  [true] = {
+    { 0.0976, 0.2086, 0.8148 },
+    { 0.0086, 0.0976, 0.5776 },
+    { 0, 0.0409, 0.2918 },
+  },
 }
 
 -- Fixed-value legend entries: l10n key (mirrors MapOverlayGenerator.L10N_SYMBOL), an English fallback
@@ -188,6 +277,26 @@ local function hex(color)
   return VDT.MapExporter.linearToSrgbHex(color[1], color[2], color[3])
 end
 
+---sRGB hex for one of the [false]/[true] keyed constants above, in the mode this sweep is exporting.
+---@param colors table { [false] = {r,g,b}, [true] = {r,g,b} }
+---@param colorBlind boolean
+---@return string
+local function modeHex(colors, colorBlind)
+  return hex(colors[colorBlind == true])
+end
+
+---Whether the player has the game's colorblind mode on. Read per sweep (and snapshotted on the ctx),
+---so every color in one file comes from one palette; a change re-arms a sweep (see subscribeEvents),
+---because the growing gradient's wire values depend on which palette is active.
+---@return boolean
+local function colorBlindEnabled()
+  if g_gameSettings == nil or GameSettings == nil or GameSettings.SETTING == nil then
+    return false
+  end
+  local ok, value = pcall(g_gameSettings.getValue, g_gameSettings, GameSettings.SETTING.USE_COLORBLIND_MODE)
+  return ok and value == true
+end
+
 ---Localized text for an l10n key, or fallback when g_i18n is unavailable / doesn't know the key
 ---(getText echoes unknown keys back verbatim, which is treated the same as "unavailable").
 ---@param key string
@@ -201,6 +310,32 @@ local function l10nText(key, fallback)
     end
   end
   return fallback
+end
+
+---Display name for a plane, taken from the game's own map overlay selector, so a layer is labelled in
+---the app exactly as the player sees it in-game (and localized). The crops entry is a format string
+---there ("%s" carries the fruit filter); it's formatted empty and trimmed, as the game's own selector
+---builds it.
+---@param layer table an entry of VDT.MapLayers.LAYERS
+---@return string
+local function layerLabel(layer)
+  if layer.pf ~= nil then
+    return VDT.PrecisionFarming.layerLabel(layer.pf)
+  end
+  local text = l10nText(layer.labelKey, layer.labelFallback)
+  if layer.labelFormat then
+    local ok, formatted = pcall(string.format, text, "")
+    text = ok and formatted or layer.labelFallback
+  end
+  return (string.gsub(text, "^%s*(.-)%s*$", "%1"))
+end
+
+---Whether this plane can be sampled on this map at all. Base-game planes always can; a Precision
+---Farming plane only when PF is installed and has built its value map for this save.
+---@param layer table an entry of VDT.MapLayers.LAYERS
+---@return boolean
+local function layerAvailable(layer)
+  return layer.pf == nil or VDT.PrecisionFarming.isLayerAvailable(layer.pf)
 end
 
 -- Precomputed 2-char hex for every byte value, for encodeRow. The `% 256` at the call site is a
@@ -259,10 +394,16 @@ end
 ---({r,g,b,a} table, not a Color object -- these come straight from XML VECTOR_4 parsing). nil when the
 ---system doesn't expose a states/color table (unavailable / malformed data).
 ---@param system table weedSystem or stoneSystem
+---@param colorBlind boolean use the system's colorblind palette
 ---@return table<number, number>|nil stateToGroup
 ---@return table<number, number[]>|nil groupColors
-local function buildColorGroups(system)
-  local ok, mapColor = pcall(system.getColors, system)
+local function buildColorGroups(system, colorBlind)
+  -- getColors returns BOTH palettes, the colorblind one second -- the same pair the game's own
+  -- getDisplaySoilStates picks from.
+  local ok, mapColor, mapColorBlind = pcall(system.getColors, system)
+  if colorBlind and type(mapColorBlind) == "table" then
+    mapColor = mapColorBlind
+  end
   if not ok or type(mapColor) ~= "table" then
     return nil, nil
   end
@@ -288,8 +429,9 @@ end
 ---ground-type classification, matching "no shown fruit" behavior).
 ---@param desc table fruitTypeDesc
 ---@param growthState number
+---@param gradientCount number steps in the active growing gradient (4 colorblind, 8 otherwise)
 ---@return number|nil
-local function classifyGrowthFromFruit(desc, growthState)
+local function classifyGrowthFromFruit(desc, growthState, gradientCount)
   if type(desc.harvestTransitions) == "table" then
     for _, cutState in pairs(desc.harvestTransitions) do
       if cutState == growthState then
@@ -319,7 +461,7 @@ local function classifyGrowthFromFruit(desc, growthState)
     maxGrowing = math.min(maxGrowing, desc.minPreparingGrowthState - 1)
   end
   if maxGrowing > 0 and growthState >= 1 and growthState <= maxGrowing then
-    local index = math.max(math.floor(#GROWTH_GRADIENT_COLORS / maxGrowing * growthState), 1)
+    local index = math.max(math.floor(gradientCount / maxGrowing * growthState), 1)
     return GROWTH_GRADIENT_BASE + index
   end
   return nil
@@ -444,9 +586,12 @@ end
 ---{r,g,b} constants), so it needs :unpack() rather than index access.
 ---@param desc table fruitTypeDesc
 ---@return string|nil
-local function fruitColorHex(desc)
+local function fruitColorHex(desc, colorBlind)
   local ok, r, g, b = pcall(function()
-    return desc.defaultMapColor:unpack()
+    -- Fruit types carry both, exactly like the constants above (MapOverlayGenerator reads
+    -- defaultMapColor / colorBlindMapColor into its [false] / [true] entries).
+    local color = colorBlind and desc.colorBlindMapColor or nil
+    return (color or desc.defaultMapColor):unpack()
   end)
   if ok and type(r) == "number" then
     return VDT.MapExporter.linearToSrgbHex(r, g, b)
@@ -456,18 +601,20 @@ end
 
 ---Legend entry for a growth wire value: the gradient range shares one label/color-per-step, everything
 ---else is a fixed lookup.
+---@param ctx table sweep context (for the active palette)
 ---@param value number
 ---@return table
-local function growthLegendEntry(value)
-  if value > GROWTH_GRADIENT_BASE and value <= GROWTH_GRADIENT_BASE + #GROWTH_GRADIENT_COLORS then
+local function growthLegendEntry(ctx, value)
+  local gradient = GROWTH_GRADIENT_COLORS[ctx.colorBlind == true]
+  if value > GROWTH_GRADIENT_BASE and value <= GROWTH_GRADIENT_BASE + #gradient then
     local index = value - GROWTH_GRADIENT_BASE
-    return { v = value, label = l10nText("ui_growthMapGrowing", "Growing"), color = hex(GROWTH_GRADIENT_COLORS[index]) }
+    return { v = value, label = l10nText("ui_growthMapGrowing", "Growing"), color = hex(gradient[index]) }
   end
   local entry = GROWTH_LABELS[value]
   if entry == nil then
     return { v = value, label = "?" }
   end
-  return { v = value, label = l10nText(entry.key, entry.fallback), color = hex(entry.color) }
+  return { v = value, label = l10nText(entry.key, entry.fallback), color = modeHex(entry.color, ctx.colorBlind) }
 end
 
 ---Legend entry for a soil wire value: weed/stone groups take their label from the system's title
@@ -497,14 +644,15 @@ local function soilLegendEntry(ctx, value)
   end
   if value >= SOIL_FERTILIZED_BASE then
     local level = value - SOIL_FERTILIZED_BASE
-    local color = FERTILIZED_COLORS[math.min(level, #FERTILIZED_COLORS)]
+    local fertilized = FERTILIZED_COLORS[ctx.colorBlind == true]
+    local color = fertilized[math.min(level, #fertilized)]
     return { v = value, label = l10nText("ui_growthMapFertilized", "Fertilized"), color = hex(color) }
   end
   local entry = SOIL_LABELS[value]
   if entry == nil then
     return { v = value, label = "?" }
   end
-  return { v = value, label = l10nText(entry.key, entry.fallback), color = hex(entry.color) }
+  return { v = value, label = l10nText(entry.key, entry.fallback), color = modeHex(entry.color, ctx.colorBlind) }
 end
 
 ---Classify one world cell into (crops, growth, soil) wire values, and record any newly-seen legend
@@ -515,12 +663,24 @@ end
 ---@param z number world z
 ---@return number cropsV, number growthV, number soilV
 function VDT.MapLayers.classifyCell(ctx, x, z)
-  local groundTypeValue = ctx.fieldGroundSystem:getValueAtWorldPos(FieldDensityMap.GROUND_TYPE, x, 0, z)
+  -- Which planes this cell is being classified FOR (see VDT.MapLayers.subscribedLayers). Skipping a
+  -- plane skips its engine reads, which is where the cost is: crops/growth share the fruit reads and
+  -- soil pays for weed/stone/plow/lime/spray on its own. A ctx with no set classifies everything --
+  -- startSweep always sets one, so that's the direct callers (the specs).
+  local wanted = ctx.wanted or ALL_LAYERS
+  local wantCrops, wantGrowth, wantSoil = wanted.crops == true, wanted.growth == true, wanted.soil == true
+
+  -- Ground type feeds growth's fallback classification and gates every soil read; crops comes from the
+  -- fruit plane alone, so a crops-only sweep never touches it.
+  local groundTypeValue = nil
+  if wantGrowth or wantSoil then
+    groundTypeValue = ctx.fieldGroundSystem:getValueAtWorldPos(FieldDensityMap.GROUND_TYPE, x, 0, z)
+  end
 
   local cropsV = 0
   local growthV = nil
   local desc = nil
-  local dataPlaneId = ctx.dataPlaneId
+  local dataPlaneId = (wantCrops or wantGrowth) and ctx.dataPlaneId or nil
   if dataPlaneId ~= nil then
     local densityTypeIndex = getDensityTypeIndexAtWorldPos(dataPlaneId, x, 0, z)
     -- Memoize per raw fruit density-type: getFruitTypeByDensityTypeIndex + shownOnMap/index are pure
@@ -550,8 +710,10 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
     if fruit ~= nil then
       desc = fruit.desc
       if fruit.shown then
-        cropsV = fruit.index
-        local state = getDensityStatesAtWorldPos(dataPlaneId, x, 0, z)
+        cropsV = wantCrops and fruit.index or 0
+        -- The growth STATE is a second density read, and only the growth plane needs it: a crops-only
+        -- sweep stops at which fruit is planted.
+        local state = wantGrowth and getDensityStatesAtWorldPos(dataPlaneId, x, 0, z) or nil
         if type(state) == "number" then
           -- Memoize growth per (fruit, raw state): classifyGrowthFromFruit walks harvestTransitions on
           -- every call, so caching collapses it to a table hit for repeat pairs. `false` stores a nil
@@ -559,7 +721,8 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
           local gv = fruit.growthByState[state]
           if gv == nil then
             local growthState = desc:getGrowthStateByDensityState(state)
-            local computed = classifyGrowthFromFruit(desc, growthState)
+            local computed =
+              classifyGrowthFromFruit(desc, growthState, ctx.gradientCount or #GROWTH_GRADIENT_COLORS[false])
             gv = computed == nil and false or computed
             fruit.growthByState[state] = gv
           end
@@ -571,19 +734,22 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
     end
   end
   if growthV == nil then
-    growthV = classifyGrowthFromGround(ctx, groundTypeValue)
+    growthV = wantGrowth and classifyGrowthFromGround(ctx, groundTypeValue) or GROWTH_NONE
   end
 
-  local soilV = classifySoil(ctx, x, z, groundTypeValue)
+  -- An unwanted plane reports its "nothing here" value rather than nil: callers store what they get,
+  -- and the legend guards below are written against those values.
+  local soilV = wantSoil and classifySoil(ctx, x, z, groundTypeValue) or SOIL_NONE
 
-  if cropsV ~= 0 and ctx.cropsSeen[cropsV] == nil then
-    ctx.cropsSeen[cropsV] = { v = cropsV, label = fruitLabel(desc), color = fruitColorHex(desc) }
+  local seen = ctx.seen
+  if cropsV ~= 0 and seen.crops[cropsV] == nil then
+    seen.crops[cropsV] = { v = cropsV, label = fruitLabel(desc), color = fruitColorHex(desc, ctx.colorBlind) }
   end
-  if growthV ~= GROWTH_NONE and ctx.growthSeen[growthV] == nil then
-    ctx.growthSeen[growthV] = growthLegendEntry(growthV)
+  if growthV ~= GROWTH_NONE and seen.growth[growthV] == nil then
+    seen.growth[growthV] = growthLegendEntry(ctx, growthV)
   end
-  if soilV ~= SOIL_NONE and ctx.soilSeen[soilV] == nil then
-    ctx.soilSeen[soilV] = soilLegendEntry(ctx, soilV)
+  if soilV ~= SOIL_NONE and seen.soil[soilV] == nil then
+    seen.soil[soilV] = soilLegendEntry(ctx, soilV)
   end
 
   return cropsV, growthV, soilV
@@ -594,6 +760,82 @@ VDT.MapLayers.isAvailable = function()
     and g_currentMission.isMissionStarted == true
     and g_currentMission.fieldGroundSystem ~= nil
     and g_fruitTypeManager ~= nil
+end
+
+---A copy of the current subscription, for a sweep to hold onto.
+---@return table<string, boolean>
+local function wantedSnapshot()
+  local wanted = {}
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    -- Availability is part of "wanted": a subscription naming a plane this map can't produce (an app
+    -- that saw Precision Farming on another save) must not make the sweep try to sample it.
+    if VDT.MapLayers.subscribedLayers[layer.id] and layerAvailable(layer) then
+      wanted[layer.id] = true
+    end
+  end
+  return wanted
+end
+
+---A fresh { [layerId] = {} } table, for the per-plane row/buffer/legend state a sweep carries.
+---@return table<string, table>
+local function newLayerTables()
+  local t = {}
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    t[layer.id] = {}
+  end
+  return t
+end
+
+---Resolve the Precision Farming planes this sweep wants into samplers, bound to the row buffers and
+---legend maps they write. Once per sweep, so PF's internals are looked up (and its legend tables
+---walked) once rather than per cell.
+---@param ctx table the sweep context being built
+---@return table[] { id, sample, buf, rows, seen, legend } per wanted, available PF plane
+local function resolvePfLayers(ctx)
+  local resolved = {}
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    if layer.pf ~= nil and ctx.wanted[layer.id] then
+      local built = VDT.PrecisionFarming.resolveLayer(layer.pf, ctx.colorBlind)
+      if built ~= nil then
+        resolved[#resolved + 1] = {
+          id = layer.id,
+          sample = built.sample,
+          legend = built.legend,
+          buf = ctx.buf[layer.id],
+          rows = ctx.rows[layer.id],
+          seen = ctx.seen[layer.id],
+        }
+      end
+    end
+  end
+  return resolved
+end
+
+---One cell's value for a PF plane: read, clamped to what a row can carry, with anything unreadable
+---degrading to "no data" rather than throwing. Also records the value's legend entry on first sight,
+---so the file carries only the values this map actually shows -- same rule as every other plane.
+---@param pf table an entry from resolvePfLayers
+---@param x number world x
+---@param z number world z
+---@return number
+local function samplePf(pf, x, z)
+  local value = pf.sample(x, z)
+  if type(value) ~= "number" then
+    return 0
+  end
+  value = math.min(math.max(math.floor(value), 0), MAX_WIRE_VALUE)
+  if value ~= 0 and pf.seen[value] == nil then
+    local entry = pf.legend[value]
+    local color = entry ~= nil and entry.color or nil
+    pf.seen[value] = {
+      v = value,
+      -- A value with no legend entry is data PF knows and we don't (a soil mod's extra type, say):
+      -- exported so the raster stays honest, labelled so it is visibly unnamed rather than absent.
+      label = entry ~= nil and entry.label or "?",
+      color = type(color) == "table" and #color >= 3 and hex(color) or nil,
+    }
+  end
+  return value
 end
 
 ---Snapshot everything a sweep needs once, up front: world size, ground-type values, weed/stone
@@ -609,6 +851,9 @@ local function startSweep()
   local mission = g_currentMission
   local fieldGroundSystem = mission.fieldGroundSystem
   local missionInfo = mission.missionInfo or {}
+  -- Snapshotted once so every color in this sweep's files -- and the gradient's wire values, which
+  -- depend on the palette's length -- come from one palette.
+  local colorBlind = colorBlindEnabled()
 
   local weedSystem = mission.weedSystem
   local weedAvailable = weedSystem ~= nil and missionInfo.weedsEnabled == true
@@ -619,7 +864,7 @@ local function startSweep()
   local weedStateToGroup, weedGroupColors
   local weedTitle = "Weeds"
   if weedAvailable then
-    weedStateToGroup, weedGroupColors = buildColorGroups(weedSystem)
+    weedStateToGroup, weedGroupColors = buildColorGroups(weedSystem, colorBlind)
     weedAvailable = weedStateToGroup ~= nil
     local ok, title = pcall(weedSystem.getTitle, weedSystem)
     if ok and type(title) == "string" and title ~= "" then
@@ -636,7 +881,7 @@ local function startSweep()
   local stoneStateToGroup, stoneGroupColors
   local stoneTitle = "Stones"
   if stoneAvailable then
-    stoneStateToGroup, stoneGroupColors = buildColorGroups(stoneSystem)
+    stoneStateToGroup, stoneGroupColors = buildColorGroups(stoneSystem, colorBlind)
     stoneAvailable = stoneStateToGroup ~= nil
     local ok, title = pcall(stoneSystem.getTitle, stoneSystem)
     if ok and type(title) == "string" and title ~= "" then
@@ -650,7 +895,7 @@ local function startSweep()
     maxSprayLevel = value
   end
 
-  return {
+  local ctx = {
     sizeX = sizeX,
     sizeZ = sizeZ,
     cellSize = sizeX / VDT.MapLayers.GRID_SIZE,
@@ -663,6 +908,9 @@ local function startSweep()
     stubbleTillageValue = FieldGroundType.getValueByType(FieldGroundType.STUBBLE_TILLAGE),
     seedbedValue = FieldGroundType.getValueByType(FieldGroundType.SEEDBED),
     rolledSeedbedValue = FieldGroundType.getValueByType(FieldGroundType.ROLLED_SEEDBED),
+    colorBlind = colorBlind,
+    -- Steps in the active growing gradient, read by classifyGrowthFromFruit for every fruit cell.
+    gradientCount = #GROWTH_GRADIENT_COLORS[colorBlind],
     plowingRequiredEnabled = missionInfo.plowingRequiredEnabled == true,
     limeRequired = missionInfo.limeRequired == true,
     maxSprayLevel = maxSprayLevel,
@@ -679,18 +927,22 @@ local function startSweep()
     stoneStateToGroup = stoneStateToGroup,
     stoneGroupColors = stoneGroupColors,
     stoneTitle = stoneTitle,
-    cropsBuf = {},
-    growthBuf = {},
-    soilBuf = {},
-    cropsRows = {},
-    growthRows = {},
-    soilRows = {},
-    cropsSeen = {},
-    growthSeen = {},
-    soilSeen = {},
+    -- The planes this sweep is FOR, snapshotted here so the whole sweep -- and the patches and audits
+    -- that run off its retained context afterwards -- works to one consistent set even if the
+    -- subscription changes underneath (which drops the sweep anyway; see setSubscription).
+    wanted = wantedSnapshot(),
+    -- Per-plane state, keyed by layer id: the row buffer a row is classified into, the encoded rows
+    -- (which the published model points AT, so a patch updates it in place), and the legend values
+    -- seen. Keyed rather than named per plane so everything downstream loops over LAYERS.
+    buf = newLayerTables(),
+    rows = newLayerTables(),
+    seen = newLayerTables(),
     -- Per-sweep classification memo: raw fruit density-type -> resolved fruit info (see classifyCell).
     fruitCache = {},
   }
+  -- Bound after the tables above exist, since each resolved plane holds its own buffer/rows/legend.
+  ctx.pf = resolvePfLayers(ctx)
+  return ctx
 end
 
 ---Run up to `budget` cells of the current sweep, encoding each row as it completes.
@@ -702,6 +954,11 @@ local function runBatch(ctx, budget)
   local halfX = ctx.sizeX / 2
   local halfZ = ctx.sizeZ / 2
   local row, col = ctx.row, ctx.col
+  -- Hoisted out of the per-cell loop: these tables are fixed for the whole sweep, and this loop runs
+  -- GRID_SIZE^2 times, so re-indexing ctx per cell is measurable.
+  local buf, rows, wanted, pf = ctx.buf, ctx.rows, ctx.wanted, ctx.pf
+  local cropsBuf, growthBuf, soilBuf = buf.crops, buf.growth, buf.soil
+  local wantCrops, wantGrowth, wantSoil = wanted.crops == true, wanted.growth == true, wanted.soil == true
 
   for _ = 1, budget do
     if row >= gridSize then
@@ -711,15 +968,32 @@ local function runBatch(ctx, budget)
     local worldX = -halfX + (col + 0.5) * ctx.cellSize
     local worldZ = -halfZ + (row + 0.5) * ctx.cellSize
     local cropsV, growthV, soilV = VDT.MapLayers.classifyCell(ctx, worldX, worldZ)
-    ctx.cropsBuf[col + 1] = cropsV
-    ctx.growthBuf[col + 1] = growthV
-    ctx.soilBuf[col + 1] = soilV
+    cropsBuf[col + 1] = cropsV
+    growthBuf[col + 1] = growthV
+    soilBuf[col + 1] = soilV
+    for i = 1, #pf do
+      local plane = pf[i]
+      plane.buf[col + 1] = samplePf(plane, worldX, worldZ)
+    end
 
     col = col + 1
     if col >= gridSize then
-      ctx.cropsRows[row + 1] = VDT.MapLayers.encodeRow(ctx.cropsBuf, gridSize)
-      ctx.growthRows[row + 1] = VDT.MapLayers.encodeRow(ctx.growthBuf, gridSize)
-      ctx.soilRows[row + 1] = VDT.MapLayers.encodeRow(ctx.soilBuf, gridSize)
+      -- Only the subscribed planes are encoded: an unwanted plane's buffer holds nothing but the
+      -- "nothing here" values classifyCell returned for it, and its rows table stays empty so the
+      -- model published for it earlier -- pointing at the PREVIOUS sweep's rows -- is left intact.
+      if wantCrops then
+        rows.crops[row + 1] = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
+      end
+      if wantGrowth then
+        rows.growth[row + 1] = VDT.MapLayers.encodeRow(growthBuf, gridSize)
+      end
+      if wantSoil then
+        rows.soil[row + 1] = VDT.MapLayers.encodeRow(soilBuf, gridSize)
+      end
+      for i = 1, #pf do
+        local plane = pf[i]
+        plane.rows[row + 1] = VDT.MapLayers.encodeRow(plane.buf, gridSize)
+      end
       col = 0
       row = row + 1
     end
@@ -744,8 +1018,15 @@ local function toLegend(seen)
   return #list > 0 and list or nil
 end
 
-local function finishSweep(ctx)
-  local model = {
+---Publish one plane's file model from the sweep that just finished. Each file is self-contained --
+---it repeats the grid geometry rather than referring to the catalogue -- because the server parses
+---and renders it on its own, and a raster whose cell size depended on a second file would be
+---undecodable whenever the two disagreed.
+---@param ctx table completed sweep context
+---@param layer table an entry of VDT.MapLayers.LAYERS
+---@return table model
+local function layerModel(ctx, layer)
+  return {
     version = tostring(VDT.MapLayers.VERSION),
     -- The frame the grid was ACTUALLY sampled in (resolveWorldSize, which prefers the HUD map's
     -- worldSizeX over mission.terrainSize), not mission.terrainSize -- the contract is "gridSize
@@ -753,20 +1034,26 @@ local function finishSweep(ctx)
     -- the two disagree.
     terrainSize = ctx.sizeX,
     gridSize = VDT.MapLayers.GRID_SIZE,
-    layers = {
-      { id = "crops", legend = toLegend(ctx.cropsSeen), rows = ctx.cropsRows },
-      { id = "growth", legend = toLegend(ctx.growthSeen), rows = ctx.growthRows },
-      { id = "soil", legend = toLegend(ctx.soilSeen), rows = ctx.soilRows },
-    },
+    id = layer.id,
+    legend = toLegend(ctx.seen[layer.id]),
+    rows = ctx.rows[layer.id],
   }
-  ctx.model = model
-  VDT.MapLayers.model = model
+end
+
+local function finishSweep(ctx)
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    -- Planes this sweep skipped keep the model (and the file) they already had -- stale, but a stale
+    -- overlay the moment you switch to it beats a blank one until the next sweep lands.
+    if ctx.wanted[layer.id] then
+      VDT.MapLayers.models[layer.id] = layerModel(ctx, layer)
+      VDT.ExportChannels.markDirty(layer.channel)
+    end
+  end
   -- Retain the completed context so between-sweep patches reuse its classification state (ground-type
-  -- values, weed/stone systems, fruit memo) and its row tables -- the model's `rows` are those same
+  -- values, weed/stone systems, fruit memo) and its row tables -- each model's `rows` are those same
   -- tables, so a patch updates the live model in place. Reset the patch timer off the fresh baseline.
   VDT.MapLayers.patchCtx = ctx
   VDT.MapLayers.patchTimerMs = 0
-  VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
 end
 
 ---World positions {x, z} of vehicles actively working the ground -- controlled (the player's rig) or
@@ -802,11 +1089,12 @@ end
 ---additively (a value that vanished from a patched region lingers until the next full sweep -- harmless
 ----- rather than pay a full-grid rescan to prune it).
 ---@param ctx table the retained sweep context (VDT.MapLayers.patchCtx)
----@return boolean patched true when at least one cell region was re-sampled
+---@return table<string, boolean> changed layer ids whose rows actually changed (empty when none did)
 local function runPatch(ctx)
+  local changed = {}
   local positions = activeVehiclePositions()
   if #positions == 0 then
-    return false
+    return changed
   end
 
   local gridSize = VDT.MapLayers.GRID_SIZE
@@ -835,12 +1123,17 @@ local function runPatch(ctx)
     end
   end
 
-  local cropsBuf, growthBuf, soilBuf = ctx.cropsBuf, ctx.growthBuf, ctx.soilBuf
-  local patched = false
+  local buf, rows, wanted, pf = ctx.buf, ctx.rows, ctx.wanted, ctx.pf
+  local cropsBuf, growthBuf, soilBuf = buf.crops, buf.growth, buf.soil
+  local wantCrops, wantGrowth, wantSoil = wanted.crops == true, wanted.growth == true, wanted.soil == true
   for row, cols in pairs(byRow) do
-    VDT.MapLayers.decodeRow(ctx.cropsRows[row + 1] or "", gridSize, cropsBuf)
-    VDT.MapLayers.decodeRow(ctx.growthRows[row + 1] or "", gridSize, growthBuf)
-    VDT.MapLayers.decodeRow(ctx.soilRows[row + 1] or "", gridSize, soilBuf)
+    VDT.MapLayers.decodeRow(rows.crops[row + 1] or "", gridSize, cropsBuf)
+    VDT.MapLayers.decodeRow(rows.growth[row + 1] or "", gridSize, growthBuf)
+    VDT.MapLayers.decodeRow(rows.soil[row + 1] or "", gridSize, soilBuf)
+    for i = 1, #pf do
+      local plane = pf[i]
+      VDT.MapLayers.decodeRow(plane.rows[row + 1] or "", gridSize, plane.buf)
+    end
     local worldZ = -halfZ + (row + 0.5) * cellSize
     for col in pairs(cols) do
       local worldX = -halfX + (col + 0.5) * cellSize
@@ -848,32 +1141,66 @@ local function runPatch(ctx)
       cropsBuf[col + 1] = cropsV
       growthBuf[col + 1] = growthV
       soilBuf[col + 1] = soilV
+      for i = 1, #pf do
+        local plane = pf[i]
+        plane.buf[col + 1] = samplePf(plane, worldX, worldZ)
+      end
     end
     -- Only overwrite (and flag a write) when a cell actually changed: a vehicle driving over a road or
     -- already-classified field re-samples the same values, and re-encoding/rewriting/re-rendering the
     -- whole file for an unchanged raster is exactly the cost that shows up in the profiler. Comparing
     -- the re-encoded row to the stored one costs one string compare per touched row.
-    local newCrops = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
-    local newGrowth = VDT.MapLayers.encodeRow(growthBuf, gridSize)
-    local newSoil = VDT.MapLayers.encodeRow(soilBuf, gridSize)
-    if
-      newCrops ~= ctx.cropsRows[row + 1]
-      or newGrowth ~= ctx.growthRows[row + 1]
-      or newSoil ~= ctx.soilRows[row + 1]
-    then
-      ctx.cropsRows[row + 1] = newCrops
-      ctx.growthRows[row + 1] = newGrowth
-      ctx.soilRows[row + 1] = newSoil
-      patched = true
+    --
+    -- Compared and flagged PER PLANE, which is what the file split buys: a field operation touches one
+    -- or two of the three (fertilizing moves soil alone, cultivating leaves crops alone), so the planes
+    -- it didn't touch are neither re-published nor re-rendered. Under one combined file any single
+    -- changed cell rewrote all three.
+    --
+    -- Unsubscribed planes are skipped here as they were in the sweep: classifyCell didn't read them,
+    -- so their buffers hold zeros that would encode an empty row over the retained raster.
+    if wantCrops then
+      local newCrops = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
+      if newCrops ~= rows.crops[row + 1] then
+        rows.crops[row + 1] = newCrops
+        changed.crops = true
+      end
+    end
+    if wantGrowth then
+      local newGrowth = VDT.MapLayers.encodeRow(growthBuf, gridSize)
+      if newGrowth ~= rows.growth[row + 1] then
+        rows.growth[row + 1] = newGrowth
+        changed.growth = true
+      end
+    end
+    if wantSoil then
+      local newSoil = VDT.MapLayers.encodeRow(soilBuf, gridSize)
+      if newSoil ~= rows.soil[row + 1] then
+        rows.soil[row + 1] = newSoil
+        changed.soil = true
+      end
+    end
+    -- The PF planes patch on the same terms. They move for different reasons than the base ones --
+    -- nitrogen on a fertilizer pass, yield only under a harvester, soil type never -- which is exactly
+    -- the case the per-plane comparison exists for.
+    for i = 1, #pf do
+      local plane = pf[i]
+      local encoded = VDT.MapLayers.encodeRow(plane.buf, gridSize)
+      if encoded ~= plane.rows[row + 1] then
+        plane.rows[row + 1] = encoded
+        changed[plane.id] = true
+      end
     end
   end
 
-  if patched then
-    ctx.model.layers[1].legend = toLegend(ctx.cropsSeen)
-    ctx.model.layers[2].legend = toLegend(ctx.growthSeen)
-    ctx.model.layers[3].legend = toLegend(ctx.soilSeen)
+  -- Refresh only the changed planes' legends: they're additive (classifyCell records into ctx.seen as
+  -- it goes), so a plane whose rows didn't move can't have gained an entry that matters.
+  for id in pairs(changed) do
+    local model = VDT.MapLayers.models[id]
+    if model ~= nil then
+      model.legend = toLegend(ctx.seen[id])
+    end
   end
-  return patched
+  return changed
 end
 
 ---Throttled between-sweep patch: accumulate dt, and every PATCH_INTERVAL_MS re-sample around active
@@ -893,13 +1220,15 @@ local function maybePatch(debugger, dt)
   end
   VDT.MapLayers.patchTimerMs = 0
 
-  local ok, patched = pcall(runPatch, VDT.MapLayers.patchCtx)
+  local ok, changed = pcall(runPatch, VDT.MapLayers.patchCtx)
   if not ok then
-    debugger:error("mapLayers channel: patch failed (%s)", tostring(patched))
+    debugger:error("mapLayers channel: patch failed (%s)", tostring(changed))
     return
   end
-  if patched then
-    VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    if changed[layer.id] then
+      VDT.ExportChannels.markDirty(layer.channel)
+    end
   end
 end
 
@@ -944,13 +1273,24 @@ local function runAudit(ctx)
     -- classifyCell records anything newly seen into ctx's legend maps, so a stale cell can leave one
     -- entry behind that no row references. Harmless (an unlisted value renders transparent, a listed
     -- one that never appears just isn't drawn) and the resweep this triggers rebuilds them anyway.
+    -- Only the planes this sweep actually read are compared: classifyCell reports 0 for the rest, and
+    -- an unswept plane's rows are empty, so including them would compare nothing against nothing.
     local cropsV, growthV, soilV = VDT.MapLayers.classifyCell(ctx, worldX, worldZ)
+    local rows, wanted = ctx.rows, ctx.wanted
     if
-      cropsV ~= storedCell(ctx.cropsRows, row, col)
-      or growthV ~= storedCell(ctx.growthRows, row, col)
-      or soilV ~= storedCell(ctx.soilRows, row, col)
+      (wanted.crops and cropsV ~= storedCell(rows.crops, row, col))
+      or (wanted.growth and growthV ~= storedCell(rows.growth, row, col))
+      or (wanted.soil and soilV ~= storedCell(rows.soil, row, col))
     then
       return true
+    end
+    -- The PF planes are streamed to a client like every other density map, so they go stale the same
+    -- way and are audited the same way.
+    for i = 1, #ctx.pf do
+      local plane = ctx.pf[i]
+      if samplePf(plane, worldX, worldZ) ~= storedCell(plane.rows, row, col) then
+        return true
+      end
     end
   end
   return false
@@ -1006,6 +1346,76 @@ function VDT.MapLayers.markDirty()
   VDT.MapLayers.dirty = true
 end
 
+---Whether any plane is subscribed. Empty means the channel is idle: no viewer, or every viewer with
+---the ground overlay switched off.
+---@return boolean
+local function anySubscribed()
+  return next(VDT.MapLayers.subscribedLayers) ~= nil
+end
+
+---Republish the catalogue with the current subscription, so what this mod is sweeping is READABLE
+---rather than only ever told to it.
+---
+---The subscription is session state that starts empty, and the command channel is one-way and lossy
+---by design: the mod deletes commands.xml at every map load (see VDTelemetry:loadMap), so a
+---subscription the server sent before this session started was thrown away unread -- and the server,
+---which only writes when its side changes, would have no reason to ever say it again. Reporting the
+---active set turns that into something the server can reconcile against.
+local function republishCatalogue()
+  local catalogue = VDT.MapLayers.catalogue
+  if catalogue == nil then
+    return -- not built yet; publishCatalogue will pick the current subscription up
+  end
+  for _, entry in ipairs(catalogue.layers) do
+    entry.active = VDT.MapLayers.subscribedLayers[entry.id] == true
+  end
+  VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
+end
+
+---Set which planes are being looked at (the setMapLayers command, carrying the server's union over its
+---connected dashboards). Absolute, not a delta -- like every other control, so a lost or duplicated
+---command is self-correcting rather than leaving the mod sweeping a plane nobody asked for.
+---
+---A change arms a full resweep and drops any sweep in flight: the in-flight one was walking the
+---previous set, so finishing it would publish a plane that is no longer wanted while the newly wanted
+---one waited for the sweep after it. The planes that drop out keep their last model AND their file, so
+---switching back shows that raster immediately while the resweep runs, rather than a blank map.
+---@param ids string[] layer ids
+---@param debugger GrisuDebug
+function VDT.MapLayers.setSubscription(ids, debugger)
+  local wanted = {}
+  for _, id in ipairs(ids or {}) do
+    if ALL_LAYERS[id] then
+      wanted[id] = true
+    elseif debugger ~= nil then
+      debugger:warn("mapLayers channel: ignoring unknown layer id %s", tostring(id))
+    end
+  end
+
+  local changed = false
+  for id in pairs(ALL_LAYERS) do
+    if (wanted[id] == true) ~= (VDT.MapLayers.subscribedLayers[id] == true) then
+      changed = true
+    end
+  end
+  if not changed then
+    return
+  end
+
+  VDT.MapLayers.subscribedLayers = wanted
+  VDT.MapLayers.sweep = nil
+  VDT.MapLayers.dirty = anySubscribed()
+  republishCatalogue()
+  if debugger ~= nil then
+    local names = {}
+    for id in pairs(wanted) do
+      names[#names + 1] = id
+    end
+    table.sort(names)
+    debugger:debug("mapLayers channel: subscribed to [%s]", table.concat(names, ", "))
+  end
+end
+
 -- Lazy subscribe to the events that change this channel's data: growth advances on PERIOD_CHANGED
 -- (GrowthSystem's own trigger), and DAY_CHANGED gives a regular in-game cadence so player tillage /
 -- harvest during a day is picked up at the next day rollover. Both are base-game messages, guarded
@@ -1022,7 +1432,109 @@ local function subscribeEvents()
       g_messageCenter:subscribe(MessageType[message], VDT.MapLayers.markDirty, VDT.MapLayers)
     end
   end
+  -- Colorblind mode decides both the colors and (through the gradient's length) the growth plane's
+  -- wire values, so a toggle has to re-sweep rather than wait for the next in-game day -- the player
+  -- flipped that switch to see a difference now. SETTING_CHANGED is a table keyed by setting id.
+  if type(MessageType.SETTING_CHANGED) == "table" and GameSettings ~= nil and GameSettings.SETTING ~= nil then
+    local message = MessageType.SETTING_CHANGED[GameSettings.SETTING.USE_COLORBLIND_MODE]
+    if message ~= nil then
+      g_messageCenter:subscribe(message, VDT.MapLayers.markDirty, VDT.MapLayers)
+    end
+  end
   VDT.MapLayers.subscribed = true
+end
+
+---Build and publish the catalogue (index.json) once per session: the planes this map offers plus the
+---grid geometry they share. Deliberately independent of the sweep -- it is what tells the app a layer
+---EXISTS, so it has to be there before (and whether or not) any raster for that layer has been swept.
+---Retried every tick until the world size resolves, which is the only thing that can fail here.
+---Ids of every plane this map can currently produce, in wire order.
+---@return string[]
+local function availableLayerIds()
+  local ids = {}
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    if layerAvailable(layer) then
+      ids[#ids + 1] = layer.id
+    end
+  end
+  return ids
+end
+
+---Whether the published catalogue already lists exactly these planes.
+---@param ids string[]
+---@return boolean
+local function catalogueLists(ids)
+  local catalogue = VDT.MapLayers.catalogue
+  if catalogue == nil or #catalogue.layers ~= #ids then
+    return false
+  end
+  for i, id in ipairs(ids) do
+    if catalogue.layers[i].id ~= id then
+      return false
+    end
+  end
+  return true
+end
+
+---@param debugger GrisuDebug
+---@param dt number? frame delta in ms
+local function publishCatalogue(debugger, dt)
+  -- Once a catalogue is out, the recheck below is throttled: it exists only to catch a value map that
+  -- appears late (Precision Farming building its maps after our first tick), which is a one-off during
+  -- load, while this runs on every frame for the rest of the session. Walking eight layers through
+  -- PF's env every frame is exactly the kind of idle cost that shows up in the script profiler.
+  if VDT.MapLayers.catalogue ~= nil then
+    if type(dt) == "number" then
+      VDT.MapLayers.catalogueTimerMs = VDT.MapLayers.catalogueTimerMs + dt
+    end
+    if VDT.MapLayers.catalogueTimerMs < VDT.MapLayers.CATALOGUE_RECHECK_MS then
+      return
+    end
+    VDT.MapLayers.catalogueTimerMs = 0
+  end
+  -- Rechecked every tick rather than built once, because we don't control when a plane's data source
+  -- appears: Precision Farming builds its value maps during mission load, and taking the first tick's
+  -- answer as final would mean a plane that wasn't ready yet is missing for the whole session -- with
+  -- no error, and nothing that would ever revisit it. The check is a handful of table reads; the
+  -- rebuild only happens when the offered set actually changes.
+  local ids = availableLayerIds()
+  if catalogueLists(ids) then
+    return
+  end
+  -- Said once, because it is the failure that looks like nothing at all: Precision Farming installed,
+  -- its planes silently missing from the app's layer list. The usual cause is mod-environment
+  -- isolation (see VDT.PrecisionFarming), which no amount of staring at the app would reveal.
+  if VDT.PrecisionFarming.isUnreachable() and not VDT.MapLayers.warnedPfUnreachable then
+    VDT.MapLayers.warnedPfUnreachable = true
+    debugger:warn("mapLayers channel: Precision Farming is loaded but unreachable; its layers are off")
+  end
+  local sizeX = VDT.MapExporter.resolveWorldSize()
+  if sizeX == nil then
+    return
+  end
+  -- Only the planes this map can actually produce: with Precision Farming absent (or a value map it
+  -- didn't build for this save) its planes are not layers at all here, so the app never offers them
+  -- and the server never asks for them.
+  local layers = {}
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    if layerAvailable(layer) then
+      layers[#layers + 1] = {
+        id = layer.id,
+        label = layerLabel(layer),
+        active = VDT.MapLayers.subscribedLayers[layer.id] == true,
+      }
+    end
+  end
+  if #layers == 0 then
+    return -- nothing to offer yet; the world size resolved but no plane is readable
+  end
+  VDT.MapLayers.catalogue = {
+    version = tostring(VDT.MapLayers.VERSION),
+    terrainSize = sizeX,
+    gridSize = VDT.MapLayers.GRID_SIZE,
+    layers = layers,
+  }
+  VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
 end
 
 ---Advance the current sweep, one CELLS_PER_FRAME batch per tick, starting a fresh sweep when one is
@@ -1040,6 +1552,16 @@ function VDT.MapLayers.tick(debugger, dt)
   end
 
   subscribeEvents()
+  -- Before the subscription gate: the catalogue is what tells the app which layers it CAN subscribe
+  -- to, so waiting for a subscription to publish it would deadlock the two.
+  publishCatalogue(debugger, dt)
+
+  if not anySubscribed() then
+    -- Nothing is looking at any plane. Not a pause -- there is no work to catch up on later, since a
+    -- subscription arriving arms its own resweep (setSubscription). An event that fired meanwhile has
+    -- left `dirty` set, and that resweep will honour it.
+    return
+  end
 
   if VDT.MapLayers.sweep == nil then
     if not VDT.MapLayers.dirty then
@@ -1054,6 +1576,14 @@ function VDT.MapLayers.tick(debugger, dt)
       return -- world size not resolvable yet; still dirty, retry next frame
     end
     VDT.MapLayers.dirty = false -- claimed; a later event re-arms it
+    if next(VDT.MapLayers.sweep.wanted) == nil then
+      -- Subscribed, but to nothing this map can produce (a Precision Farming plane on a save without
+      -- PF). anySubscribed() above can't see that -- it doesn't know availability, and asking it to
+      -- would put a walk of every layer back on the per-frame path. Caught here instead, once per
+      -- dirty event, before the sweep walks GRID_SIZE^2 cells to classify nothing.
+      VDT.MapLayers.sweep = nil
+      return
+    end
   end
 
   local ok, doneOrErr = pcall(runBatch, VDT.MapLayers.sweep, VDT.MapLayers.CELLS_PER_FRAME)
@@ -1070,26 +1600,37 @@ function VDT.MapLayers.tick(debugger, dt)
   end
 end
 
----@return table|nil the last completed sweep's model, nil before the first sweep finishes
+---@return table|nil the catalogue model (index.json), nil until the world size resolves
 function VDT.MapLayers.collect()
-  return VDT.MapLayers.model
+  return VDT.MapLayers.catalogue
+end
+
+---@param id string layer id
+---@return table|nil that plane's last completed model, nil before its first sweep finishes
+function VDT.MapLayers.collectLayer(id)
+  return VDT.MapLayers.models[id]
 end
 
 ---The profile switched this channel off (see ExportChannels.setProfile): tick() stops being called,
 ---so an in-progress sweep would freeze mid-grid and then resume whenever the profile comes back up,
 ---finishing a raster that is half pre-gap and half post-gap. Throw the partial sweep away and re-arm
----instead, so re-enabling starts a clean one. The completed model + patchCtx are kept: they're the
----baseline the app is already showing, and they stay valid.
+---instead, so re-enabling starts a clean one. The completed models + patchCtx are kept: they're the
+---baseline the app is already showing, and they stay valid. Their files go, though -- each plane's
+---isAvailable asks whether this channel is enabled, so the profile change's own cleanup pass drops
+---them (see VDTelemetry:setProfile).
 function VDT.MapLayers.onDisabled()
   VDT.MapLayers.sweep = nil
   VDT.MapLayers.dirty = true
   VDT.MapLayers.auditTimerMs = 0
 end
 
--- Self-register the channel (see ExportChannels). This is the mod's most expensive channel by a wide
--- margin -- a full sweep is GRID_SIZE^2 engine density-map reads, and the write is ~1.5 MB of raster --
--- so it's the one channel gated on the performance profile: off under "low", where the whole point of
--- the preset is to keep the mod out of the frame budget.
+-- Self-register the channels (see ExportChannels). This is the mod's most expensive channel by a wide
+-- margin -- a full sweep is GRID_SIZE^2 engine density-map reads, and each plane's write is ~0.5 MB of
+-- raster -- so it's the one gated on the performance profile: off under "low", where the whole point
+-- of the preset is to keep the mod out of the frame budget.
+--
+-- The driver channel writes the catalogue and owns the tick (i.e. the sweep), so the sweep runs on the
+-- driver's enable state rather than on any one plane's.
 VDT.ExportChannels.register({
   name = VDT.MapLayers.CHANNEL,
   fileName = VDT.MapLayers.FILE_NAME,
@@ -1099,3 +1640,27 @@ VDT.ExportChannels.register({
   minProfile = "medium",
   onDisabled = VDT.MapLayers.onDisabled,
 })
+
+-- One channel per plane, hidden from the settings UI: they are parts of the one "mapLayers" feature,
+-- so they follow the driver's toggle (isEnabled below) instead of offering three more of their own.
+-- No tick and no onDisabled -- the driver owns the sweep for all of them.
+for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+  layer.channel = VDT.MapLayers.CHANNEL .. layer.id:sub(1, 1):upper() .. layer.id:sub(2)
+  layer.fileName = VDT.MapLayers.SUBDIR .. layer.id .. ".json"
+  local id = layer.id
+  VDT.ExportChannels.register({
+    name = layer.channel,
+    fileName = layer.fileName,
+    -- Unavailable until this plane has been swept at least once, which is also what gets a previous
+    -- session's file deleted at startup (see VDTelemetry:deleteStaleChannelFiles) rather than left
+    -- for the app to render as if it were this map's.
+    isAvailable = function()
+      return VDT.MapLayers.models[id] ~= nil and VDT.ExportChannels.isEnabled(VDT.MapLayers.CHANNEL)
+    end,
+    collect = function()
+      return VDT.MapLayers.collectLayer(id)
+    end,
+    minProfile = "medium",
+    hidden = true,
+  })
+end

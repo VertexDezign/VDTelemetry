@@ -25,9 +25,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.VdtParser
@@ -74,23 +76,64 @@ fun main() {
     watcher.register("storage.json", nullOnAbsent = true) { VdtParser.parseStorage(it) }
   // husbandry.json is interval-driven too (own animal pens); same absence rule.
   val husbandryState = watcher.register("husbandry.json", nullOnAbsent = true) { VdtParser.parseHusbandry(it) }
-  // mapLayers.json rewrites on the mod's own multi-second sweep cadence; same absence rule.
-  val mapLayersState = watcher.register("mapLayers.json", nullOnAbsent = true) { VdtParser.parseMapLayers(it) }
   watcher.launchIn(appScope)
+
+  // The ground-layer rasters live in their own folder, one file per plane plus index.json naming the
+  // planes this map offers. Which planes exist is the mod's to decide (base game today, Precision
+  // Farming later), so the planes are taken as a keyed map rather than registered by name -- see
+  // TelemetryWatcher.registerRest. Its own watcher because it is its own directory; the folder appears
+  // when the mod loads a map, which the watcher's retry loop already handles.
+  val layerWatcher = TelemetryWatcher(telemetryPath.parent.resolve("mapLayers"), Config.debounceMs())
+  val mapLayerCatalogState =
+    layerWatcher.register("index.json", nullOnAbsent = true) { VdtParser.parseMapLayerCatalog(it) }
+  val mapLayerState = layerWatcher.registerRest { VdtParser.parseMapLayer(it) }
+  layerWatcher.launchIn(appScope)
 
   // Diagnostics: sample every channel's observed write cadence on a slow timer (independent of the
   // channels' own updates, so an idle channel's staleness keeps advancing). One shared flow; each
   // session collects it, same as the data channels.
-  val channelStatsState = MutableStateFlow(watcher.snapshotCadence())
+  // Both watchers' files, in one feed: the panel lists channels, not directories.
+  fun cadenceSnapshot(): ChannelStatsData {
+    val telemetry = watcher.snapshotCadence()
+    return telemetry.copy(channels = telemetry.channels + layerWatcher.snapshotCadence().channels)
+  }
+
+  val channelStatsState = MutableStateFlow(cadenceSnapshot())
   appScope.launch {
     while (isActive) {
       delay(CHANNEL_STATS_INTERVAL_MS)
-      channelStatsState.value = watcher.snapshotCadence()
+      channelStatsState.value = cadenceSnapshot()
     }
   }
 
   val commandWriter = CommandWriter(Config.commandPath())
   log.info("Command file: {}", Config.commandPath())
+
+  // Which ground-layer planes the connected dashboards are showing; the mod sweeps only those.
+  val mapLayerSubscriptions =
+    MapLayerSubscriptions { ids ->
+      log.info("Ground-layer subscription: {}", if (ids.isEmpty()) "(none)" else ids.joinToString(","))
+      commandWriter.submit(ClientMessage.SetMapLayers(ids))
+    }
+  // The mod reports which planes it is actually sweeping in its catalogue, so every time it says so,
+  // check that against what the dashboards want and restate the command when they disagree. That is
+  // what makes the subscription survive a lossy channel: the mod deletes commands.xml at every map
+  // load, so a subscription sent while the game was at a menu or loading never arrived -- and since
+  // the desire itself never changed, nothing else would ever send it again. It covers the reverse
+  // too (a server restart under a running game, where the mod is still sweeping for dashboards that
+  // are gone), which is why there is no separate startup write.
+  appScope.launch {
+    mapLayerCatalogState.collect { catalog ->
+      if (catalog == null) return@collect // channel off / no map loaded: nothing to reconcile against
+      mapLayerSubscriptions.reconcile(
+        modActive = catalog.layers.filter { it.active }.map { it.id },
+        offered = catalog.layers.map { it.id },
+      )
+    }
+  }
+  val sessionIds =
+    java.util.concurrent.atomic
+      .AtomicLong()
 
   log.info("Server starting on port {}", Config.port)
   embeddedServer(Netty, port = Config.port) {
@@ -108,6 +151,9 @@ fun main() {
       get("/health") { call.respondText("OK") }
 
       webSocket("/ws") {
+        // Identifies this session for as long as its socket lives -- see mapLayerSubscriptions, the one
+        // piece of per-session state the server keeps.
+        val sessionId = sessionIds.incrementAndGet()
         // Outgoing: push each StateFlow's current value on connect + every subsequent update. One job
         // per channel so the slow taskList feed broadcasts on its own cadence, not the telemetry tick.
         val sendJob =
@@ -189,8 +235,12 @@ fun main() {
         // the app knows when to refetch the PNG from /api/map-layer/{id}.
         val mapLayersJob =
           launch {
-            mapLayersState.collect { data ->
-              val message: ServerMessage = ServerMessage.MapLayers(data?.let { MapLayersInfo.from(it) })
+            // The catalogue decides whether there is anything to announce at all; the rasters fill in
+            // each plane's legend + version as they are swept, so both feed one broadcast.
+            combine(mapLayerCatalogState, mapLayerState) { catalog, rasters ->
+              catalog?.let { MapLayersInfo.from(it, rasters) }
+            }.collect { info ->
+              val message: ServerMessage = ServerMessage.MapLayers(info)
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
@@ -200,14 +250,23 @@ fun main() {
           for (frame in incoming) {
             if (frame is Frame.Text) {
               try {
-                val message = json.decodeFromString(ClientMessage.serializer(), frame.readText())
-                commandWriter.submit(message)
+                when (val message = json.decodeFromString(ClientMessage.serializer(), frame.readText())) {
+                  // Session-scoped: what THIS dashboard is showing. The mod gets the union across all
+                  // of them, which the registry submits when it changes -- so this one is not written
+                  // through as sent.
+                  is ClientMessage.SetMapLayers -> mapLayerSubscriptions.show(sessionId, message.ids)
+
+                  else -> commandWriter.submit(message)
+                }
               } catch (e: Exception) {
                 log.warn("Ignoring unparseable client message", e)
               }
             }
           }
         } finally {
+          // This dashboard is gone, so its planes stop counting toward the union: the last one to
+          // leave takes the mod's sweep with it.
+          mapLayerSubscriptions.forget(sessionId)
           sendJob.cancel()
           taskListJob.cancel()
           cropRotationJob.cancel()
@@ -222,7 +281,7 @@ fun main() {
         }
       }
 
-      mapLayerRoute { mapLayersState.value }
+      mapLayerRoute { mapLayerState.value }
 
       get("/api/map-image") {
         val pda =

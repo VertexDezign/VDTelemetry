@@ -146,10 +146,14 @@ sealed interface ServerMessage {
   ) : ServerMessage
 
   /**
-   * The ground-layer channel (`mapLayers.json`): crops / growth / soil raster overlays. Carries only
-   * legends — the raster itself is fetched separately as a PNG, never over the WebSocket (see
-   * [MapLayersInfo]). [data] is **null when `mapLayers.json` is absent** (export disabled): same
-   * "the absence must be broadcast, not swallowed" rule as [MapVehicles].
+   * The ground-layer channel (`mapLayers/`): the raster overlays this map offers — crops / growth /
+   * soil today. Carries only each plane's legend and content version; the raster itself is fetched
+   * separately as a PNG, never over the WebSocket (see [MapLayersInfo]). A plane the mod hasn't
+   * swept (nobody has selected it) is still listed, with a null version.
+   *
+   * [data] is **null when `mapLayers/index.json` is absent** (export disabled, or the channel is off
+   * under the current performance profile): same "the absence must be broadcast, not swallowed"
+   * rule as [MapVehicles].
    */
   @Serializable
   @SerialName("mapLayers")
@@ -431,6 +435,24 @@ sealed interface ClientMessage {
     val index: Int,
     val title: String,
     val amount: Int,
+  ) : ClientMessage
+
+  /**
+   * The ground-layer raster planes this dashboard is currently showing (empty = none). The mod
+   * grid-samples only what someone is looking at — its most expensive channel by far — so this is
+   * what causes a plane to be swept at all.
+   *
+   * The only **session-scoped** message: every other command describes the world and is forwarded
+   * to the mod as sent, but this one describes a viewer. The server keeps it per WebSocket session,
+   * drops it when that session closes, and sends the mod the union across connected dashboards — so
+   * this exact type also carries that union onward to `commands.xml`, with the scope being the only
+   * difference. Absolute state, and re-sent by the client on reconnect (the server can only forget
+   * a session's selection, never inherit it).
+   */
+  @Serializable
+  @SerialName("setMapLayers")
+  data class SetMapLayers(
+    val ids: List<String> = emptyList(),
   ) : ClientMessage
 }
 

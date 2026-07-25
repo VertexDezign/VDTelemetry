@@ -154,6 +154,13 @@ class CommandWriter(
 
       // storageId is a placeable uniqueId and title the object dialog text (both escaped); index and
       // amount are ints.
+      // The ground-layer subscription -- the union across connected dashboards, computed by
+      // MapLayerSubscriptions. The ids come from the mod's own catalogue by way of the app, but they
+      // are still mod-authored strings, so they go through esc() like any other non-fixed value.
+      is ClientMessage.SetMapLayers -> {
+        """<command id="$id" type="setMapLayers" ids="${esc(message.ids.joinToString(","))}"/>"""
+      }
+
       is ClientMessage.UnloadObjectStorage -> {
         """<command id="$id" type="unloadObjectStorage" storageId="${esc(
           message.storageId,

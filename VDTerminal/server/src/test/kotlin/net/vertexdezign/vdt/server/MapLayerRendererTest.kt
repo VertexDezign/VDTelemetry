@@ -7,12 +7,14 @@ import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 /**
- * Renders the committed `examples/json/mapLayers/basic.json` fixture and asserts exact ARGB pixel
+ * Renders the committed `examples/json/mapLayers` plane fixtures and asserts exact ARGB pixel
  * values: a legend-mapped cell gets its color at the fixed alpha, a zero/trimmed-tail cell is fully
- * transparent, and an unknown layer id renders nothing.
+ * transparent, and an unusable grid renders nothing.
  */
 class MapLayerRendererTest {
   private fun example(name: String): String {
@@ -25,13 +27,14 @@ class MapLayerRendererTest {
     error("Could not locate examples/json/mapLayers/$name from ${File(".").absolutePath}")
   }
 
+  private fun plane(id: String) = VdtParser.parseMapLayer(example("$id.json"))
+
   private fun decode(bytes: ByteArray): BufferedImage =
     ImageIO.read(ByteArrayInputStream(bytes)) ?: error("failed to decode rendered PNG")
 
   @Test
   fun rendersLegendColorsAtTheFixedAlpha() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
-    val bytes = MapLayerRenderer.render(data, "crops")!!
+    val bytes = MapLayerRenderer.render(plane("crops"))!!
     val img = decode(bytes)
 
     assertEquals(8, img.width)
@@ -45,8 +48,7 @@ class MapLayerRendererTest {
 
   @Test
   fun rendersZeroAndTrimmedTailCellsAsFullyTransparent() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
-    val img = decode(MapLayerRenderer.render(data, "crops")!!)
+    val img = decode(MapLayerRenderer.render(plane("crops"))!!)
 
     assertEquals(0, img.getRGB(0, 0)) // row 0 is entirely "" (all-zero, right-trimmed)
     assertEquals(0, img.getRGB(2, 1)) // row 1 = "0101": only cols 0-1 are non-zero
@@ -54,42 +56,53 @@ class MapLayerRendererTest {
 
   @Test
   fun rendersGrowthAndSoilLayersAtTheirOwnLegendColors() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
-
-    val growth = decode(MapLayerRenderer.render(data, "growth")!!)
+    val growth = decode(MapLayerRenderer.render(plane("growth"))!!)
     assertEquals(0x994D78B8.toInt(), growth.getRGB(0, 1)) // v=1 "Cultivated"
     assertEquals(0x992B7A06.toInt(), growth.getRGB(0, 2)) // v=11 "Growing"
 
-    val soil = decode(MapLayerRenderer.render(data, "soil")!!)
+    val soil = decode(MapLayerRenderer.render(plane("soil"))!!)
     assertEquals(0x9915A86C.toInt(), soil.getRGB(0, 1)) // v=21 "Needs lime"
     assertEquals(0x991A4DD1.toInt(), soil.getRGB(0, 2)) // v=31 "Fertilized"
-  }
-
-  @Test
-  fun returnsNullForAnUnknownLayerId() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
-    assertNull(MapLayerRenderer.render(data, "nope"))
   }
 
   /** A corrupt grid size renders nothing (404) rather than allocating for it or throwing. */
   @Test
   fun returnsNullForAnOutOfRangeGridSize() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
+    val data = plane("crops")
 
-    assertNull(MapLayerRenderer.render(data.copy(gridSize = 0), "crops"))
-    assertNull(MapLayerRenderer.render(data.copy(gridSize = -8), "crops"))
-    assertNull(MapLayerRenderer.render(data.copy(gridSize = 100_000), "crops"))
+    assertNull(MapLayerRenderer.render(data.copy(gridSize = 0)))
+    assertNull(MapLayerRenderer.render(data.copy(gridSize = -8)))
+    assertNull(MapLayerRenderer.render(data.copy(gridSize = 100_000)))
   }
 
   @Test
   fun renderedIsMemoizedUntilTheDataChanges() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
-    val first = MapLayerRenderer.rendered(data, "crops")
-    val second = MapLayerRenderer.rendered(data, "crops")
-    assertEquals(first!!.toList(), second!!.toList())
+    val data = plane("crops")
+    val first = MapLayerRenderer.rendered(data)
+    // Same instance, not merely equal bytes: equal pixels would also be what a re-render produces, so
+    // identity is the only assertion that distinguishes a cache hit from a miss.
+    assertSame(first, MapLayerRenderer.rendered(data))
 
     val changed = data.copy(terrainSize = data.terrainSize + 1)
-    val third = MapLayerRenderer.rendered(changed, "crops")
-    assertEquals(first.toList(), third!!.toList()) // same pixels, but recomputed under a new cache key
+    val third = MapLayerRenderer.rendered(changed)
+    assertNotSame(first, third, "a new version must re-render rather than serve the old entry")
+    assertEquals(first!!.toList(), third!!.toList()) // same pixels here; only the cache key moved
+  }
+
+  /**
+   * The planes move independently now, so one plane's new version must not evict another's entry --
+   * that would re-render every other overlay on every sweep of the one being watched.
+   */
+  @Test
+  fun eachPlaneIsCachedSeparately() {
+    val crops = plane("crops")
+    val growth = plane("growth")
+    MapLayerRenderer.rendered(crops)
+    val growthPng = MapLayerRenderer.rendered(growth)
+
+    // A new version of crops replaces only the crops entry...
+    MapLayerRenderer.rendered(crops.copy(terrainSize = crops.terrainSize + 1))
+    // ...so growth is still served from cache, byte-identical.
+    assertSame(growthPng, MapLayerRenderer.rendered(growth))
   }
 }

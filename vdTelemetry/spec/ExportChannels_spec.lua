@@ -412,6 +412,94 @@ describe("ExportChannels per-channel config", function()
     assert.are.same({ name = "prod", enabled = false, intervalMs = 1500 }, list[1])
     assert.are.same({ name = "map", enabled = true, intervalMs = nil }, list[2])
   end)
+
+  -- One feature split across several files (mapLayers: a catalogue plus one file per raster plane)
+  -- registers a channel per file. The settings UI must still offer it once.
+  it("configurableChannels excludes hidden channels, which follow their driver's toggle", function()
+    VDT.ExportChannels.register(channel("mapLayers", true, { body = "C" }))
+    local part = channel("mapLayersCrops", true, { body = "P" })
+    part.hidden = true
+    VDT.ExportChannels.register(part)
+
+    local list = VDT.ExportChannels.configurableChannels()
+    assert.are.equal(1, #list)
+    assert.are.equal("mapLayers", list[1].name)
+
+    -- The part is still a real channel: it writes, and isEnabled is what lets its isAvailable follow
+    -- the driver's single toggle rather than needing one of its own.
+    assert.is_true(VDT.ExportChannels.isEnabled("mapLayersCrops"))
+    VDT.ExportChannels.configure("mapLayers", { enabled = false })
+    assert.is_false(VDT.ExportChannels.isEnabled("mapLayers"))
+    assert.is_true(VDT.ExportChannels.isEnabled("mapLayersCrops")) -- its own toggle, still on
+  end)
+
+  it("isEnabled reports false for an unknown channel", function()
+    assert.is_false(VDT.ExportChannels.isEnabled("ghost"))
+  end)
+end)
+
+describe("ExportChannels per-frame cost", function()
+  before_each(function()
+    VDT.ExportChannels.reset()
+  end)
+
+  -- tick() and writeDirty() both run every frame. mapLayers alone registers one channel per raster
+  -- plane (nine with Precision Farming), so what these two do for a channel with nothing to do is
+  -- multiplied by every channel there is.
+  it("does not evaluate a channel that has neither a cadence nor a tick", function()
+    local ch = channel("mapLayersCrops", true, { body = "C" })
+    local availabilityChecks = 0
+    ch.isAvailable = function()
+      availabilityChecks = availabilityChecks + 1
+      return true
+    end
+    VDT.ExportChannels.register(ch)
+
+    VDT.ExportChannels.tick(debugger, 16)
+    assert.are.equal(0, ch.collects)
+    assert.are.equal(0, availabilityChecks)
+  end)
+
+  it("writeDirty does nothing, and asks nothing, while no channel is dirty", function()
+    local ch = channel("a", true, { body = "A" })
+    local availabilityChecks = 0
+    ch.isAvailable = function()
+      availabilityChecks = availabilityChecks + 1
+      return true
+    end
+    VDT.ExportChannels.register(ch)
+
+    VDT.ExportChannels.writeDirty("/tmp/vdt-unused-", encode, debugger)
+    assert.are.equal(0, availabilityChecks)
+
+    -- ...and still writes normally once something is queued.
+    VDT.ExportChannels.markDirty("a")
+    VDT.ExportChannels.writeDirty(os.tmpname() .. "-", encode, debugger)
+    assert.are.equal(1, ch.collects)
+  end)
+end)
+
+describe("ExportChannels.subDirs", function()
+  before_each(function()
+    VDT.ExportChannels.reset()
+  end)
+
+  it("reports each distinct folder a registered fileName names, once, in registration order", function()
+    VDT.ExportChannels.register(channel("telemetry", true, { body = "T" })) -- flat: no folder
+    local crops = channel("mapLayersCrops", true, { body = "C" })
+    crops.fileName = "mapLayers/crops.json"
+    VDT.ExportChannels.register(crops)
+    local growth = channel("mapLayersGrowth", true, { body = "G" })
+    growth.fileName = "mapLayers/growth.json"
+    VDT.ExportChannels.register(growth)
+
+    assert.are.same({ "mapLayers/" }, VDT.ExportChannels.subDirs())
+  end)
+
+  it("is empty when every channel writes a flat file", function()
+    VDT.ExportChannels.register(channel("telemetry", true, { body = "T" }))
+    assert.are.same({}, VDT.ExportChannels.subDirs())
+  end)
 end)
 
 describe("ExportChannels performance profiles", function()

@@ -7,7 +7,8 @@ Multiplatform project (replacing the old React/Vite + Go stack in `../VDTerminal
   protocol (kotlinx.serialization), and the JSON `VdtParser`.
 - **`server`** (Kotlin/JVM, Ktor) — watches `vdTelemetry.json`, parses it, broadcasts over a
   WebSocket, serves the map image (DDS → PNG) and the ground-layer raster PNGs
-  (`/api/map-layer/{id}`), and serves the built web app.
+  (`/api/map-layer/{id}`, one file per plane out of the mod's `mapLayers/` folder — which planes
+  exist is discovered, not hardcoded), and serves the built web app.
 - **`app`** (Compose Multiplatform, `wasmJs`) — the dashboard UI.
 
 ## Requirements

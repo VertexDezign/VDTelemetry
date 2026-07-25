@@ -1,9 +1,8 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
-import net.vertexdezign.vdt.model.MapLayer
+import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayerLegendEntry
-import net.vertexdezign.vdt.model.MapLayersData
 import net.vertexdezign.vdt.model.MapLayersInfo
 import java.io.File
 import kotlin.test.Test
@@ -16,9 +15,9 @@ import kotlin.test.assertTrue
 
 /**
  * Decodes the committed `examples/json/mapLayers` fixtures through the real server path
- * ([VdtParser.parseMapLayers]), asserts a lossless JSON round-trip, [MapLayer.decodeCells]'s
- * padding/junk tolerance, and [MapLayersInfo.from]'s version stability/sensitivity — the ground-layer
- * channel's half of the mod↔Kotlin contract.
+ * ([VdtParser.parseMapLayer] / [VdtParser.parseMapLayerCatalog]), asserts a lossless JSON round-trip,
+ * [MapLayerData.decodeCells]'s padding/junk tolerance, and [MapLayersInfo.from]'s version
+ * stability/sensitivity — the ground-layer channel's half of the mod↔Kotlin contract.
  */
 class MapLayersModelTest {
   private val json = Json { encodeDefaults = true }
@@ -33,52 +32,69 @@ class MapLayersModelTest {
     error("Could not locate examples/json/mapLayers/$name from ${File(".").absolutePath}")
   }
 
-  private fun assertRoundTrips(data: MapLayersData) {
-    val encoded = json.encodeToString(MapLayersData.serializer(), data)
-    val decoded = json.decodeFromString(MapLayersData.serializer(), encoded)
+  private fun crops() = VdtParser.parseMapLayer(example("crops.json"))
+
+  private fun assertRoundTrips(data: MapLayerData) {
+    val encoded = json.encodeToString(MapLayerData.serializer(), data)
+    val decoded = json.decodeFromString(MapLayerData.serializer(), encoded)
     assertEquals(data, decoded, "JSON round-trip should be lossless")
   }
 
   @Test
-  fun parsesBasicMapLayers() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
+  fun parsesOneRasterPlanePerFile() {
+    val data = crops()
 
-    assertEquals("1", data.version)
+    assertEquals("2", data.version)
     assertEquals(2048f, data.terrainSize)
     assertEquals(8, data.gridSize)
-    assertEquals(3, data.layers.size)
+    assertEquals("crops", data.id)
+    assertEquals(2, data.legend.size)
+    assertEquals(MapLayerLegendEntry(1, "Weizen", "#c8b262"), data.legend[0])
+    assertEquals(MapLayerLegendEntry(2, "Mais", "#f5d743"), data.legend[1])
+    assertEquals(8, data.rows.size)
 
-    val crops = data.layers.first { it.id == "crops" }
-    assertEquals(2, crops.legend.size)
-    assertEquals(MapLayerLegendEntry(1, "Weizen", "#c8b262"), crops.legend[0])
-    assertEquals(MapLayerLegendEntry(2, "Mais", "#f5d743"), crops.legend[1])
-    assertEquals(8, crops.rows.size)
-
-    val growth = data.layers.first { it.id == "growth" }
-    assertEquals(2, growth.legend.size)
-
-    val soil = data.layers.first { it.id == "soil" }
-    assertEquals(2, soil.legend.size)
+    // Each plane file repeats the geometry, so it decodes without reference to the catalogue.
+    val growth = VdtParser.parseMapLayer(example("growth.json"))
+    assertEquals("growth", growth.id)
+    assertEquals(8, growth.gridSize)
+    assertEquals(2048f, growth.terrainSize)
 
     assertRoundTrips(data)
+    assertRoundTrips(growth)
   }
 
   @Test
-  fun parsesEmptyMapLayersWithOmittedFields() {
-    // The mod omits every optional field when no sweep has completed yet.
-    val data = VdtParser.parseMapLayers(example("empty.json"))
+  fun parsesTheCatalogue() {
+    val catalog = VdtParser.parseMapLayerCatalog(example("index.json"))
 
-    assertEquals("1", data.version)
+    assertEquals("2", catalog.version)
+    assertEquals(2048f, catalog.terrainSize)
+    assertEquals(8, catalog.gridSize)
+    assertEquals(listOf("crops", "growth", "soil"), catalog.layers.map { it.id })
+    assertEquals("Crops", catalog.layers[0].label)
+    // Which planes the mod is actually sweeping -- what the server reconciles the dashboards' union
+    // against, since the command that carries the subscription can be lost with the command file.
+    assertEquals(listOf(true, false, false), catalog.layers.map { it.active })
+  }
+
+  /** Every field is optional on the wire — the mod writes only what it has. */
+  @Test
+  fun parsesAPlaneWithOmittedFields() {
+    val data = VdtParser.parseMapLayer("""{"version":"2"}""")
+
+    assertEquals("2", data.version)
     assertEquals(0f, data.terrainSize)
     assertEquals(0, data.gridSize)
-    assertTrue(data.layers.isEmpty())
+    assertEquals("", data.id)
+    assertTrue(data.legend.isEmpty())
+    assertTrue(data.rows.isEmpty())
     assertRoundTrips(data)
   }
 
   @Test
   fun decodeCellsHandlesTrimmedShortAndMissingRows() {
     val layer =
-      MapLayer(
+      MapLayerData(
         id = "crops",
         rows = listOf("", "0102", "0102030405060708"),
         // row 3 is entirely missing from the list -> zero-padded
@@ -106,7 +122,7 @@ class MapLayersModelTest {
 
   @Test
   fun decodeCellsTreatsMalformedBytesAsZero() {
-    val layer = MapLayer(id = "growth", rows = listOf("zz01gg02"))
+    val layer = MapLayerData(id = "growth", rows = listOf("zz01gg02"))
     val cells = layer.decodeCells(gridSize = 4)
 
     assertEquals(0, cells[0]) // "zz" isn't valid hex
@@ -118,7 +134,7 @@ class MapLayersModelTest {
   /** A signed pair parses as a number but isn't a cell value — the decoder's contract is 0..255. */
   @Test
   fun decodeCellsTreatsSignedPairsAsZero() {
-    val cells = MapLayer(id = "growth", rows = listOf("-1+2 3ff")).decodeCells(gridSize = 4)
+    val cells = MapLayerData(id = "growth", rows = listOf("-1+2 3ff")).decodeCells(gridSize = 4)
 
     assertEquals(0, cells[0]) // "-1" would parse as -1 with a signed parse
     assertEquals(0, cells[1]) // "+2" likewise
@@ -130,19 +146,17 @@ class MapLayersModelTest {
   /** A corrupt grid size must degrade to blank like any other junk, not allocate or throw. */
   @Test
   fun decodeCellsRejectsAnOutOfRangeGridSize() {
-    val layer = MapLayer(id = "crops", rows = listOf("0102"))
+    val layer = MapLayerData(id = "crops", rows = listOf("0102"))
 
     assertEquals(0, layer.decodeCells(gridSize = 0).size)
     assertEquals(0, layer.decodeCells(gridSize = -4).size)
-    assertEquals(0, layer.decodeCells(gridSize = MapLayer.MAX_GRID_SIZE + 1).size)
+    assertEquals(0, layer.decodeCells(gridSize = MapLayerData.MAX_GRID_SIZE + 1).size)
     assertEquals(0, layer.decodeCells(gridSize = 100_000).size) // gridSize² overflows Int
   }
 
   @Test
   fun mapLayersRideTheServerMessageDiscriminator() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
-    val info = MapLayersInfo.from(data)
-    val message: ServerMessage = ServerMessage.MapLayers(info)
+    val message: ServerMessage = ServerMessage.MapLayers(info())
     val encoded = json.encodeToString(ServerMessage.serializer(), message)
 
     assertTrue(encoded.contains("\"type\":\"mapLayers\""), "expected the mapLayers discriminator in $encoded")
@@ -163,22 +177,69 @@ class MapLayersModelTest {
     assertNull(assertNotNull(decoded as? ServerMessage.MapLayers).data)
   }
 
+  private fun info() =
+    MapLayersInfo.from(
+      VdtParser.parseMapLayerCatalog(example("index.json")),
+      mapOf(
+        "crops" to crops(),
+        "growth" to VdtParser.parseMapLayer(example("growth.json")),
+        "soil" to VdtParser.parseMapLayer(example("soil.json")),
+      ),
+    )
+
+  /**
+   * The catalogue decides what the app is offered, and the rasters only fill in the details — so a
+   * plane the mod hasn't swept is still listed, with nothing to fetch and nothing to draw.
+   */
   @Test
-  fun infoVersionIsStableForIdenticalDataAndSensitiveToChanges() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
+  fun infoListsEveryCataloguedPlaneIncludingUnsweptOnes() {
+    val catalog = VdtParser.parseMapLayerCatalog(example("index.json"))
+    val info = MapLayersInfo.from(catalog, mapOf("crops" to crops()))
 
-    val versionA = MapLayersInfo.from(data).version
-    val versionB = MapLayersInfo.from(data).version
-    assertEquals(versionA, versionB, "identical data must produce the same version")
+    assertEquals(listOf("crops", "growth", "soil"), info.layers.map { it.id })
+    assertEquals(listOf("Crops", "Growth", "Soil"), info.layers.map { it.label })
 
-    val changed =
-      data.copy(
-        layers =
-          data.layers.map {
-            if (it.id == "crops") it.copy(rows = it.rows.toMutableList().also { rows -> rows[0] = "0101" }) else it
-          },
-      )
-    assertNotEquals(versionA, MapLayersInfo.from(changed).version, "a changed cell must change the version")
+    val crops = info.layers.first { it.id == "crops" }
+    assertNotNull(crops.version)
+    assertEquals(crops().legend, crops.legend)
+
+    val growth = info.layers.first { it.id == "growth" }
+    assertNull(growth.version, "an unswept plane has no raster to fetch")
+    assertTrue(growth.legend.isEmpty())
+  }
+
+  /** A file for a plane the catalogue doesn't list is last session's leftover, not an offer. */
+  @Test
+  fun infoIgnoresRastersTheCatalogueDoesNotList() {
+    val catalog = VdtParser.parseMapLayerCatalog(example("index.json"))
+    val info = MapLayersInfo.from(catalog, mapOf("nutrients" to crops().copy(id = "nutrients")))
+
+    assertEquals(listOf("crops", "growth", "soil"), info.layers.map { it.id })
+  }
+
+  /**
+   * Each plane carries its OWN version, which is the point of the split: the app refetches the
+   * overlay it is showing only when that overlay changed, not when some other plane moved.
+   */
+  @Test
+  fun eachPlaneVersionsIndependently() {
+    val catalog = VdtParser.parseMapLayerCatalog(example("index.json"))
+    val growth = VdtParser.parseMapLayer(example("growth.json"))
+    val before = MapLayersInfo.from(catalog, mapOf("crops" to crops(), "growth" to growth))
+
+    val movedGrowth = growth.copy(rows = growth.rows.toMutableList().also { it[0] = "0101" })
+    val after = MapLayersInfo.from(catalog, mapOf("crops" to crops(), "growth" to movedGrowth))
+
+    assertEquals(
+      before.layers.first { it.id == "crops" }.version,
+      after.layers.first { it.id == "crops" }.version,
+      "a change to one plane must not move another plane's version",
+    )
+    assertNotEquals(
+      before.layers.first { it.id == "growth" }.version,
+      after.layers.first { it.id == "growth" }.version,
+      "a changed cell must change that plane's version",
+    )
   }
 
   /**
@@ -188,13 +249,13 @@ class MapLayersModelTest {
    */
   @Test
   fun contentVersionIsDerivedAndNotSerialized() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
+    val data = crops()
 
-    val encoded = json.encodeToString(MapLayersData.serializer(), data)
+    val encoded = json.encodeToString(MapLayerData.serializer(), data)
     assertFalse(encoded.contains("contentVersion"), "the memoized version must stay out of the JSON")
 
     // Same content, independently parsed -> same version (it is content-derived, not per-instance).
-    assertEquals(data.contentVersion, VdtParser.parseMapLayers(example("basic.json")).contentVersion)
+    assertEquals(data.contentVersion, crops().contentVersion)
     // Repeated reads are stable (the memo returns what it computed).
     assertEquals(data.contentVersion, data.contentVersion)
     // copy() builds a new instance, so its lazy re-derives from the NEW content.
@@ -204,50 +265,37 @@ class MapLayersModelTest {
   /**
    * The version is what the immutable PNG cache is keyed on, so anything that alters the rendered
    * image has to move it — including the legend, which decides the colors — and row content must be
-   * hashed positionally rather than as a bag of strings.
+   * hashed positionally rather than as a bag of strings. The id is in there too: the URL it is served
+   * under is `/api/map-layer/{id}?v=`, so two planes must not share a version.
    */
   @Test
-  fun contentVersionCoversLegendsAndRowOrder() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
+  fun contentVersionCoversLegendsRowOrderAndId() {
+    val data = crops()
     val version = data.contentVersion
     assertTrue(version.isNotEmpty(), "version must be a non-empty opaque string")
 
-    val recolored =
-      data.copy(
-        layers =
-          data.layers.map { layer ->
-            if (layer.id == "crops") {
-              layer.copy(legend = layer.legend.map { it.copy(color = "#000000") })
-            } else {
-              layer
-            }
-          },
-      )
-    assertNotEquals(version, recolored.contentVersion, "a legend color change must change the version")
-
-    val reordered =
-      data.copy(
-        layers =
-          data.layers.map { layer ->
-            if (layer.id == "crops") layer.copy(rows = layer.rows.reversed()) else layer
-          },
-      )
-    assertNotEquals(version, reordered.contentVersion, "reordered rows must change the version")
+    assertNotEquals(
+      version,
+      data.copy(legend = data.legend.map { it.copy(color = "#000000") }).contentVersion,
+      "a legend color change must change the version",
+    )
+    assertNotEquals(version, data.copy(rows = data.rows.reversed()).contentVersion, "row order counts")
+    assertNotEquals(version, data.copy(id = "growth").contentVersion, "the id is part of the identity")
   }
 
   /**
    * The hash input is length-prefixed per list, so values can't drift across a list boundary: a
-   * legend entry's three values must not hash the same as three rows in an otherwise empty layer.
+   * legend entry's three values must not hash the same as three rows in an otherwise empty plane.
    */
   @Test
   fun contentVersionEncodesStructureNotJustValues() {
-    fun layerOf(
+    fun planeOf(
       legend: List<MapLayerLegendEntry>,
       rows: List<String>,
-    ) = MapLayersData(gridSize = 2, layers = listOf(MapLayer(id = "crops", legend = legend, rows = rows)))
+    ) = MapLayerData(gridSize = 2, id = "crops", legend = legend, rows = rows)
 
-    val asLegend = layerOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = "c")), emptyList())
-    val asRows = layerOf(emptyList(), listOf("1", "x", "c"))
+    val asLegend = planeOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = "c")), emptyList())
+    val asRows = planeOf(emptyList(), listOf("1", "x", "c"))
     assertNotEquals(
       asLegend.contentVersion,
       asRows.contentVersion,
@@ -256,17 +304,8 @@ class MapLayersModelTest {
 
     // A resolved-but-empty color and an unresolved one are different data, even though both happen to
     // render transparent today.
-    val nullColor = layerOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = null)), emptyList())
-    val emptyColor = layerOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = "")), emptyList())
+    val nullColor = planeOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = null)), emptyList())
+    val emptyColor = planeOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = "")), emptyList())
     assertNotEquals(nullColor.contentVersion, emptyColor.contentVersion, "null and \"\" must differ")
-  }
-
-  @Test
-  fun infoStripsRowsButKeepsLegends() {
-    val data = VdtParser.parseMapLayers(example("basic.json"))
-    val info = MapLayersInfo.from(data)
-
-    assertEquals(data.layers.map { it.id }, info.layers.map { it.id })
-    assertEquals(data.layers.map { it.legend }, info.layers.map { it.legend })
   }
 }

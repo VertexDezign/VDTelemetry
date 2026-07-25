@@ -48,8 +48,16 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   private val commandQueue =
     Channel<ClientMessage>(capacity = 64, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
 
+  // The ground-layer subscription is the one piece of SESSION state the server holds for us: it
+  // unions what each connected dashboard is showing and tells the mod to sweep only that, so a
+  // reconnect leaves the server thinking this dashboard shows nothing (and the mod not sweeping the
+  // overlay on screen). Remembered here and re-sent at the top of every session, where the queue
+  // can't help -- a command already delivered is no longer in it.
+  private var layerSubscription: ClientMessage.SetMapLayers? = null
+
   /** Enqueue a command for delivery to the server (non-blocking; safe to call from the UI). */
   fun send(message: ClientMessage) {
+    if (message is ClientMessage.SetMapLayers) layerSubscription = message
     commandQueue.trySend(message)
   }
 
@@ -139,9 +147,13 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
           _connection.value = ConnectionState.Connecting
           client.webSocket(wsUrl) {
             _connection.value = ConnectionState.Connected
-            // Drain queued outbound commands for the life of this session.
+            // Drain queued outbound commands for the life of this session, after restating the
+            // session-scoped subscription this new server session knows nothing about.
             val sendJob =
               launch {
+                layerSubscription?.let {
+                  send(Frame.Text(json.encodeToString(ClientMessage.serializer(), it)))
+                }
                 for (message in commandQueue) {
                   send(Frame.Text(json.encodeToString(ClientMessage.serializer(), message)))
                 }

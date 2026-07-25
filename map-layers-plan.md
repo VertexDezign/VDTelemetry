@@ -1,21 +1,26 @@
 # Ground-layer overlay — follow-ups (per-layer files + layer visibility)
 
 Two deferred improvements to the `mapLayers` ground overlay, written 2026-07-20 on branch
-`map-layers-revive` for a later session. **Status: proposed, not started.** Both become load-bearing
-if the Precision Farming layers are ever exported — see "Why this matters more once Precision Farming
-lands" below.
+`map-layers-revive` for a later session. Both become load-bearing if the Precision Farming layers are
+ever exported — see "Why this matters more once Precision Farming lands" below.
+
+**Status (2026-07-25, branch `map-layers-split`):**
+
+- §1 per-layer file split — **done and working in-game**, together with the "sweep only what's
+  subscribed" item that was filed alongside it. See "How it landed" below.
+- §2 show/hide individual sub-values within a layer — **declined for now** (2026-07-25); kept below as
+  the record of what it would cost, including the soil priority-collapse problem that gates it.
 
 ## Where this stands (recap)
 
 The overlay is three raster planes — **crops**, **growth**, **soil** — grid-sampled at `GRID_SIZE`
-(512²). The mod (`vdTelemetry/src/collect/MapLayersExporter.lua`) writes one file, `mapLayers.json`
-(~**1.3 MB**, minified single line), holding all three planes as arrays of right-trimmed hex-string
-rows (2 hex chars per cell, `""` for an all-zero/off-field row). The server
-(`MapLayerRenderer.kt` / `Server.kt`) decodes rows + legend into a PNG per layer; **only legends cross
-the WebSocket** (`MapLayersInfo`), the app fetches the raster as a PNG from `/api/map-layer/{id}?v=…`,
-and the version is `MapLayersData.contentVersion` (64-bit FNV-1a over the full data, memoized per
-instance — content-derived, so any change refetches). The app
-shows **one layer at a time** (single-select in the map filter popover).
+(512²). *(Before the split: the mod wrote one file, `mapLayers.json`, ~**1.3 MB** minified, holding
+all three planes.)* Each plane is an array of right-trimmed hex-string rows (2 hex chars per cell,
+`""` for an all-zero/off-field row). The server (`MapLayerRenderer.kt` / `Server.kt`) decodes rows +
+legend into a PNG per layer; **only legends cross the WebSocket** (`MapLayersInfo`), the app fetches
+the raster as a PNG from `/api/map-layer/{id}?v=…`, and the version is `contentVersion` (64-bit
+FNV-1a, memoized per instance — content-derived, so any change refetches). The app shows **one layer
+at a time** (single-select in the map filter popover).
 
 Cadence: full sweep on `PERIOD_CHANGED` / `DAY_CHANGED`; between sweeps, cells around active vehicles
 are re-sampled every 4 s and patched in place; in multiplayer only, a stratified staleness audit
@@ -52,8 +57,10 @@ So when PF layers are picked up, do **1** first, and add a third item alongside 
   that direction), with the caveat that switching layers then costs a sweep before the raster appears
   — probably "sweep the selected layer eagerly, the rest lazily" rather than a hard filter.
 
-PF layer support is its own piece of work and is **not** part of this branch; this section exists so the
-constraint is written down where the split is designed, not rediscovered later.
+PF layer support was its own piece of work, taken up right after the split on this same branch and
+**done** (2026-07-25) — see "How it landed" below. This section is kept as written, because it is the
+reasoning that made the split a precondition rather than an optimisation, and the estimate above is
+worth comparing against what the planes actually cost.
 
 ---
 
@@ -102,6 +109,65 @@ version (hash of just that layer) and legend — per-layer refetch without three
 `c726a01` just landed; measure the profiler in-game before committing to the split. If work happens in
 short bursts between driving, it may already be tolerable. If active farming still pins `Json.lua`, do
 the split.
+
+### How it landed (2026-07-25)
+
+Five commits on `map-layers-split`, mod first:
+
+1. **`mapLayers/<plane>.json` per plane, plus `mapLayers/index.json`** (the catalogue: which planes
+   this map offers, with labels from the game's own overlay selector). Each plane is its own export
+   channel with its own dirty flag, so a patch republishes only the planes whose rows actually moved —
+   fertilizing rewrites soil alone. The per-plane channels are `hidden` (a new `ExportChannels` flag)
+   so the settings UI still offers "mapLayers" once and they follow its toggle via `isEnabled()`;
+   `subDirs()` reports the folders registered channels name, so the entry point creates
+   `telemetry/mapLayers/` without knowing which channel wanted it.
+2. **Subscription gating.** The mod sweeps, patches and audits only the planes the terminal says it is
+   showing (the absolute `setMapLayers` command). An unsubscribed plane costs nothing — not even its
+   engine reads: crops stops at the fruit plane, growth's second density read is skipped, and soil's
+   weed/stone/plow/lime/spray reads only happen when soil is wanted. **Nothing subscribed = no sweep
+   at all.** Subscribing arms a resweep at once, and a dropped plane keeps its last file, so switching
+   back paints immediately and the fresh raster lands a few seconds later.
+3. **Kotlin model + server.** `MapLayerData` is one plane's file, `MapLayersCatalog` is `index.json`,
+   and `MapLayersInfo` combines them — so the app is offered every plane, including unswept ones (null
+   version). Each plane versions independently, which is the half the user sees: the overlay on screen
+   refetches only when *it* changed. `TelemetryWatcher.registerRest()` takes the whole `mapLayers/`
+   directory as a keyed map, so **adding a PF plane needs no server change at all**.
+4. **App + server subscription wiring.** The map panel reports what it shows, the server unions that
+   across connected dashboards (`MapLayerSubscriptions`) and writes the union to `commands.xml`.
+   `SetMapLayers` is the first session-scoped client message: held per WebSocket session, dropped when
+   the socket closes. Handled: reconnects (the repository restates it at the top of each session) and
+   two map widgets on one page (the app reports the union over live panels).
+5. **Reconciliation, because the command channel is lossy.** The mod deletes `commands.xml` at every
+   map load, so a subscription sent while the game was at a menu or loading is thrown away unread —
+   and since the dashboards' desire never changed, a publish-on-change server would never say it
+   again. The overlay simply never appeared. So the mod reports what it is actually sweeping
+   (`active` per entry in `index.json`) and the server compares that against its union on every
+   catalogue write, restating the command when they disagree. Level-triggered, so it also covers a
+   server restart under a running game (mod sweeping for dashboards that are gone) without a separate
+   startup write. Only planes the catalogue offers are ever asked for — otherwise a stale persisted
+   layer id would be a mismatch the mod could never resolve, restated forever.
+
+**Validated in-game (2026-07-25, singleplayer):** the end-to-end chain works — folder creation, the
+catalogue, the subscription round-trip through `commands.xml` (including the reconciliation fix, on the
+scenario that first exposed the gap: opening the app with a layer already selected), per-plane writes,
+and the app's per-plane fetch. **All eight planes render**, the five Precision Farming ones included —
+notably yield and seed rate, the two PF exposes no point read for, which are read out of their
+bit-vector maps the way PF's own modifiers do.
+
+**Multiplayer: validated (2026-07-25).** **Colorblind mode: validated (2026-07-25, SP).**
+
+**Profiler (2026-07-25):** `Json.lua` is no longer among the top entries — the write cost the split
+existed to remove is gone. What remains visible is VDTelemetry's own tick at **0.5–0.6%** of script
+time, which is the per-frame scheduler itself rather than any one channel. The split had quietly made
+that worse (nine registered channels where there was one, all walked every frame by `tick` and
+`writeDirty`), so `0b391c7` trims the idle path: skip channels with neither cadence nor tick, bail out
+of `writeDirty` while nothing is queued, and throttle the offered-layer recheck to 5 s. Worth
+re-reading the profiler after that, but the mod has to run *something* every frame, so this entry
+never goes away entirely.
+
+Consequences for the PF work: a new plane is an entry in `VDT.MapLayers.LAYERS` plus its
+classification in `classifyCell` (under the `wanted` gate), a fixture, and nothing else — no file,
+dirty, legend, watcher, route or app changes.
 
 ---
 
@@ -152,8 +218,15 @@ isn't there. Independent soil sub-toggles therefore need the soil data **de-coll
 
 ## Suggested sequencing
 
-1. Measure `c726a01` in-game (profiler). If still heavy →
-2. §1 per-layer file split (biggest, most certain win for the write cost).
-3. §2 crops/growth sub-toggles (server render-filter) — optional polish.
-4. §2 soil sub-layers (option b) — only if independent soil visibility is wanted; combine with §1's
-   re-model.
+1. ~~Measure `c726a01` in-game (profiler)~~ → §1 was done regardless, as the precondition for PF.
+2. ~~§1 per-layer file split~~ — **done** (see "How it landed"), with subscription gating alongside it.
+3. ~~In-game validation of the split + gating~~ — **done** (2026-07-25), singleplayer, multiplayer and
+   the profiler read included; see "Validated in-game" above.
+4. ~~Precision Farming planes~~ — **done and working in-game** (2026-07-25): PF's five menu-visible value maps (soil type,
+   pH, nitrogen, yield, seed rate) are exported as further planes. It cost one integration file and an
+   `ipairs` over `LAYERS` in the sweep, exactly as this plan predicted — no file, dirty, legend,
+   watcher, route or app changes. Soil/pH/nitrogen use PF's documented point reads; yield and seed
+   rate have none, so they read channel 0 of the bit-vector map the way PF's own modifiers do.
+5. ~~§2 crops/growth sub-toggles~~ — **not doing this for now** (2026-07-25).
+6. ~~§2 soil sub-layers~~ — same; independent soil visibility isn't wanted, so the priority-collapse
+   re-model it would need stays unbuilt. §2 below is kept as the record of what it would take.

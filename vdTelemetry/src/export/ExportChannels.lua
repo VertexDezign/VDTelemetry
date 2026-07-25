@@ -6,7 +6,8 @@
 --
 -- A channel is a table:
 --   name        string           unique id; also the markDirty() key
---   fileName    string           written as <telemetryDir><fileName>
+--   fileName    string           written as <telemetryDir><fileName>; may name a subfolder
+--                                 ("mapLayers/crops.json"), which the caller creates from subDirs()
 --   isAvailable fun(): boolean    false => never written (the mod isn't installed / no data yet)
 --   collect     fun(): table|nil  builds the model to serialize; nil => skip this flush
 --   tick        fun(debugger, dt)?  optional per-tick hook; event-driven channels subscribe lazily
@@ -16,6 +17,11 @@
 --                                 to justify on a low-end machine. nil => runs at every profile
 --   onDisabled  fun()?            called when a profile change switches this channel off; drop any
 --                                 in-flight work, since tick() stops being called (see setProfile)
+--   hidden      boolean?          keep out of configurableChannels: one logical feature split across
+--                                 several files registers a channel per file (mapLayers), and the
+--                                 settings UI should offer the feature once, not once per file. The
+--                                 driver channel carries the toggle; its parts follow it by asking
+--                                 isEnabled(driver) in their own isAvailable
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
@@ -178,6 +184,15 @@ function VDT.ExportChannels.effectiveInterval(name)
   return channelInterval(ch)
 end
 
+---Whether a channel is effectively enabled right now -- the user's toggle AND the active profile's
+---verdict. Public so a channel split across several files can make its parts follow the driver
+---channel's single toggle from their own isAvailable (see the `hidden` flag).
+---@param name string
+---@return boolean
+function VDT.ExportChannels.isEnabled(name)
+  return channelEnabled(name)
+end
+
 -- Writable = registered, user-enabled, and its data source is available. selectDirty and the stale-
 -- file cleanup both key off this, so a user-disabled channel is neither written nor left on disk.
 local function isWritable(name)
@@ -216,7 +231,7 @@ function VDT.ExportChannels.configurableChannels()
   local out = {}
   for _, name in ipairs(order) do
     local ch = channels[name]
-    if not ch.latencyCritical then
+    if not ch.latencyCritical and not ch.hidden then
       out[#out + 1] = {
         name = name,
         enabled = channelStoredEnabled(name),
@@ -248,6 +263,24 @@ function VDT.ExportChannels.markAllDirty()
   for _, name in ipairs(order) do
     VDT.ExportChannels.markDirty(name)
   end
+end
+
+---Distinct subfolders named by registered fileNames ("mapLayers/crops.json" -> "mapLayers/"), in
+---registration order. io.open won't create a missing directory, so the caller creates these under the
+---telemetry dir once at load -- here rather than in the mod's entry point, so adding a channel that
+---writes into a folder needs no edit there.
+---@return string[]
+function VDT.ExportChannels.subDirs()
+  local seen = {}
+  local dirs = {}
+  for _, name in ipairs(order) do
+    local dir = string.match(channels[name].fileName, "^(.*/)")
+    if dir ~= nil and not seen[dir] then
+      seen[dir] = true
+      dirs[#dirs + 1] = dir
+    end
+  end
+  return dirs
 end
 
 ---File names of every registered channel, for bulk cleanup when export is disabled.
@@ -290,20 +323,27 @@ function VDT.ExportChannels.tick(debugger, dt)
   end
   for _, name in ipairs(order) do
     local ch = channels[name]
-    -- A disabled channel (user toggle or profile) does nothing at all: it neither accumulates -- which
-    -- would queue a write selectDirty only drops again, leaving a dangling dirty flag -- nor ticks. The
-    -- tick is where the expensive work lives (mapLayers grid-samples the map from its tick), so running
-    -- it for a channel that will never be written is pure waste; "off" has to mean off.
-    if channelEnabled(name) then
-      if ch.intervalMs ~= nil and type(dt) == "number" then
-        timers[name] = (timers[name] or 0) + dt
-        if timers[name] >= channelInterval(ch) then
-          timers[name] = 0
-          VDT.ExportChannels.markDirty(name)
+    -- Channels with neither a cadence nor a tick have nothing to do here, and this loop runs every
+    -- frame over every channel: mapLayers alone registers one per raster plane (nine with Precision
+    -- Farming), none of which tick -- the driver does. Checked before channelEnabled, which is the
+    -- more expensive of the two tests.
+    if ch.intervalMs ~= nil or ch.tick ~= nil then
+      -- A disabled channel (user toggle or profile) does nothing at all: it neither accumulates --
+      -- which would queue a write selectDirty only drops again, leaving a dangling dirty flag -- nor
+      -- ticks. The tick is where the expensive work lives (mapLayers grid-samples the map from its
+      -- tick), so running it for a channel that will never be written is pure waste; "off" has to
+      -- mean off.
+      if channelEnabled(name) then
+        if ch.intervalMs ~= nil and type(dt) == "number" then
+          timers[name] = (timers[name] or 0) + dt
+          if timers[name] >= channelInterval(ch) then
+            timers[name] = 0
+            VDT.ExportChannels.markDirty(name)
+          end
         end
-      end
-      if ch.tick ~= nil then
-        ch.tick(debugger, dt)
+        if ch.tick ~= nil then
+          ch.tick(debugger, dt)
+        end
       end
     end
   end
@@ -385,6 +425,12 @@ end
 ---@param encode fun(model: table): string serializer, e.g. Json.encode bound to prettyJson
 ---@param debugger GrisuDebug
 function VDT.ExportChannels.writeDirty(dir, encode, debugger)
+  -- The overwhelmingly common case, every frame between writes: nothing is queued. Bail before
+  -- selectDirty walks every channel (calling each one's isAvailable) and allocates a list to hold
+  -- what it found.
+  if next(dirty) == nil then
+    return
+  end
   local oldest -- the single longest-waiting non-critical channel to flush this frame
   for _, ch in ipairs(VDT.ExportChannels.selectDirty()) do
     if ch.latencyCritical then
