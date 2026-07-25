@@ -1,38 +1,31 @@
 package net.vertexdezign.vdt.app
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
 import net.vertexdezign.vdt.app.layout.WidgetDashboard
 import net.vertexdezign.vdt.app.pages.Page
-import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
- * The swipeable stack of the user's [Page]s: a [HorizontalPager] over [pages] with a dot strip below
- * it. Order is the list order (so a reorder in the launcher changes both the swipe order and which
- * page auto-shows). [currentPageId] is the shell's open page; the pager syncs to it in both
- * directions — an external pick (auto-switch, launcher, dot tap) scrolls the pager, and a swipe
- * reports the newly-settled page back through [onPageChange].
+ * The swipeable stack of the user's [Page]s: a [HorizontalPager] over [pages]. Order is the list
+ * order (so a reorder in the launcher changes both the swipe order and which page auto-shows).
+ * [currentPageId] is the shell's open page; the pager syncs to it in both directions — an external
+ * pick (auto-switch, launcher, dot tap) scrolls the pager, and a swipe reports the newly-settled page
+ * back through [onPageChange].
+ *
+ * The position dots used to render here as a strip below the pager. They now live in the bottom bar
+ * (see [net.vertexdezign.vdt.app.panels.Footer]) and read the shell's open page rather than the
+ * pager's live scroll position, so they update when a swipe *settles* instead of when it crosses the
+ * halfway point.
  */
 @Composable
 fun ColumnScope.PagePager(
@@ -78,33 +71,6 @@ fun ColumnScope.PagePager(
     Column(Modifier.fillMaxSize()) {
       // Only the settled page is editable; neighbours stay read-only so a stray toolbar can't flash by.
       WidgetDashboard(page, editing = editing && index == pagerState.currentPage)
-    }
-  }
-
-  if (pages.size > 1) {
-    PageDots(count = pages.size, current = pagerState.currentPage) { idx ->
-      pages.getOrNull(idx)?.let { onPageChange(it.id) }
-    }
-  }
-}
-
-/** The position indicator: one dot per page, the current one filled and larger. Tapping a dot jumps. */
-@Composable
-private fun PageDots(count: Int, current: Int, onSelect: (Int) -> Unit) {
-  Row(
-    Modifier.fillMaxWidth().background(VdtColors.Panel).padding(vertical = 6.dp),
-    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    for (i in 0 until count) {
-      val active = i == current
-      Box(
-        Modifier
-          .size(if (active) 10.dp else 7.dp)
-          .clip(CircleShape)
-          .background(if (active) VdtColors.Green else VdtColors.DarkGray.copy(alpha = 0.4f))
-          .clickable(interactionSource = null, indication = null) { onSelect(i) },
-      )
     }
   }
 }

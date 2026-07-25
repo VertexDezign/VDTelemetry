@@ -195,6 +195,15 @@ fun EngineTransmission(
         )
       }
 
+      // Tank levels, then cargo. The motor's units are a fixed fuel/def/air trio rather than the
+      // repeated form, so they're flattened into the same display. Fuel *level* used to live only in
+      // the bottom bar's little tube gauge; it moved here when that bar became a shell surface, next
+      // to the fuel/hr rate it belongs with.
+      FillUnitsDisplay(
+        listOfNotNull(motor.fuel(), motor.def(), motor.fillUnits?.air),
+        Modifier.fillMaxWidth(),
+        spacing = 4,
+      )
       FillUnitsDisplay(vehicle.fillUnits?.fillUnit ?: emptyList(), Modifier.fillMaxWidth(), spacing = 4)
     }
   }

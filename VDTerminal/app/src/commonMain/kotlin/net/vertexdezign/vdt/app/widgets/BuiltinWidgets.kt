@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Map
@@ -24,6 +25,7 @@ import net.vertexdezign.vdt.app.panels.EngineTransmission
 import net.vertexdezign.vdt.app.panels.Implements
 import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
+import net.vertexdezign.vdt.app.panels.Navigation
 import net.vertexdezign.vdt.app.panels.TaskListPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -100,6 +102,30 @@ object ImplementsWidget : Widget {
       MissingPanel(title, icon, modifier)
     } else {
       Implements(vehicle, modifier, onCommand = store.onCommand)
+    }
+  }
+}
+
+/**
+ * Heading, steering assist, AI helper and the guide-lines toggle — needs a vehicle.
+ *
+ * This is the old bottom bar's navigation cluster. It became a widget when the bar turned into shell
+ * chrome: it's the status of one subsystem, so it belongs on a page you chose to put it on.
+ */
+object NavigationWidget : Widget {
+  override val id = "navigation"
+  override val title = "Navigation"
+  override val icon: ImageVector = Icons.Filled.Explore
+
+  @Composable
+  override fun Content(modifier: Modifier) {
+    val store = LocalVdtStore.current
+    val telemetry by store.telemetry.collectAsState()
+    val vehicle = telemetry?.vehicle
+    if (vehicle == null) {
+      MissingPanel(title, icon, modifier)
+    } else {
+      Navigation(vehicle, modifier, onCommand = store.onCommand)
     }
   }
 }

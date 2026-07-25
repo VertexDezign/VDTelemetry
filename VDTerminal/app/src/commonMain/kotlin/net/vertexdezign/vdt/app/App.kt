@@ -170,7 +170,6 @@ private fun Shell(
       canEdit = screen is Screen.OpenPage,
       onToggleWakeLock = store.onToggleWakeLock,
       onToggleEdit = onToggleEdit,
-      onOpenLauncher = onOpenLauncher,
     )
 
     when (screen) {
@@ -189,6 +188,13 @@ private fun Shell(
       }
     }
 
-    Footer(data.vehicle, onCommand = store.onCommand)
+    // The bar is shell chrome, so it stays put whichever screen is open. While an app is open there
+    // is no current page, so the centre shows dots without a title rather than lying about position.
+    Footer(
+      pages = pages,
+      currentPageId = (screen as? Screen.OpenPage)?.pageId,
+      onOpenLauncher = onOpenLauncher,
+      onSelectPage = { onOpenScreen(Screen.OpenPage(it)) },
+    )
   }
 }
