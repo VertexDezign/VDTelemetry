@@ -412,6 +412,53 @@ describe("ExportChannels per-channel config", function()
     assert.are.same({ name = "prod", enabled = false, intervalMs = 1500 }, list[1])
     assert.are.same({ name = "map", enabled = true, intervalMs = nil }, list[2])
   end)
+
+  -- One feature split across several files (mapLayers: a catalogue plus one file per raster plane)
+  -- registers a channel per file. The settings UI must still offer it once.
+  it("configurableChannels excludes hidden channels, which follow their driver's toggle", function()
+    VDT.ExportChannels.register(channel("mapLayers", true, { body = "C" }))
+    local part = channel("mapLayersCrops", true, { body = "P" })
+    part.hidden = true
+    VDT.ExportChannels.register(part)
+
+    local list = VDT.ExportChannels.configurableChannels()
+    assert.are.equal(1, #list)
+    assert.are.equal("mapLayers", list[1].name)
+
+    -- The part is still a real channel: it writes, and isEnabled is what lets its isAvailable follow
+    -- the driver's single toggle rather than needing one of its own.
+    assert.is_true(VDT.ExportChannels.isEnabled("mapLayersCrops"))
+    VDT.ExportChannels.configure("mapLayers", { enabled = false })
+    assert.is_false(VDT.ExportChannels.isEnabled("mapLayers"))
+    assert.is_true(VDT.ExportChannels.isEnabled("mapLayersCrops")) -- its own toggle, still on
+  end)
+
+  it("isEnabled reports false for an unknown channel", function()
+    assert.is_false(VDT.ExportChannels.isEnabled("ghost"))
+  end)
+end)
+
+describe("ExportChannels.subDirs", function()
+  before_each(function()
+    VDT.ExportChannels.reset()
+  end)
+
+  it("reports each distinct folder a registered fileName names, once, in registration order", function()
+    VDT.ExportChannels.register(channel("telemetry", true, { body = "T" })) -- flat: no folder
+    local crops = channel("mapLayersCrops", true, { body = "C" })
+    crops.fileName = "mapLayers/crops.json"
+    VDT.ExportChannels.register(crops)
+    local growth = channel("mapLayersGrowth", true, { body = "G" })
+    growth.fileName = "mapLayers/growth.json"
+    VDT.ExportChannels.register(growth)
+
+    assert.are.same({ "mapLayers/" }, VDT.ExportChannels.subDirs())
+  end)
+
+  it("is empty when every channel writes a flat file", function()
+    VDT.ExportChannels.register(channel("telemetry", true, { body = "T" }))
+    assert.are.same({}, VDT.ExportChannels.subDirs())
+  end)
 end)
 
 describe("ExportChannels performance profiles", function()

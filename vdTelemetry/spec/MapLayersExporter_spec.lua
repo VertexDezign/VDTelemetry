@@ -81,9 +81,7 @@ describe("MapLayers.classifyCell growth", function()
       stoneAvailable = false,
       weedTitle = "Weeds",
       stoneTitle = "Stones",
-      cropsSeen = {},
-      growthSeen = {},
-      soilSeen = {},
+      seen = { crops = {}, growth = {}, soil = {} },
     }
     for k, v in pairs(overrides or {}) do
       c[k] = v
@@ -244,9 +242,7 @@ describe("MapLayers.classifyCell soil", function()
       stoneAvailable = false,
       weedTitle = "Weeds",
       stoneTitle = "Stones",
-      cropsSeen = {},
-      growthSeen = {},
-      soilSeen = {},
+      seen = { crops = {}, growth = {}, soil = {} },
     }
     for k, v in pairs(overrides or {}) do
       c[k] = v
@@ -302,7 +298,7 @@ describe("MapLayers.classifyCell soil", function()
     })
     local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
     assert.are.equal(9, soilV) -- clamped to SOIL_WEED_MAX_GROUPS, NOT 12 (which reads as a stone group)
-    assert.is_not_nil(c.soilSeen[9])
+    assert.is_not_nil(c.seen.soil[9])
   end)
 
   it("clamps a stone group past its band instead of colliding with needs-plowing", function()
@@ -437,7 +433,22 @@ describe("MapLayers.classifyCell soil", function()
 end)
 
 describe("MapLayers.tick sweep", function()
-  local markDirtyOrig, marked
+  local markDirtyOrig, markedByChannel
+
+  -- Writes queued for one plane's channel. The planes are separate files now, so "the channel
+  -- published" is a per-plane count: a full sweep marks all three, a patch only the planes whose rows
+  -- actually moved, and `marked` below is the count they share whenever a case doesn't care which.
+  local function marks(id)
+    return markedByChannel["mapLayers" .. id:sub(1, 1):upper() .. id:sub(2)] or 0
+  end
+
+  -- The per-plane count when every plane agrees (the usual case: a full sweep publishes all of them).
+  local function marked()
+    local crops, growth, soil = marks("crops"), marks("growth"), marks("soil")
+    assert.are.equal(crops, growth)
+    assert.are.equal(crops, soil)
+    return crops
+  end
 
   before_each(function()
     VDT.MapLayers.GRID_SIZE = 8
@@ -445,16 +456,16 @@ describe("MapLayers.tick sweep", function()
     VDT.MapLayers.sweep = nil
     VDT.MapLayers.dirty = true
     VDT.MapLayers.subscribed = false
-    VDT.MapLayers.model = nil
+    VDT.MapLayers.models = {}
+    VDT.MapLayers.catalogue = nil
     VDT.MapLayers.patchCtx = nil
     VDT.MapLayers.patchTimerMs = 0
     VDT.MapLayers.auditTimerMs = 0
 
-    marked = 0
+    markedByChannel = {}
     markDirtyOrig = VDT.ExportChannels.markDirty
     VDT.ExportChannels.markDirty = function(name)
-      assert.are.equal(VDT.MapLayers.CHANNEL, name)
-      marked = marked + 1
+      markedByChannel[name] = (markedByChannel[name] or 0) + 1
     end
 
     rawset(_G, "FieldDensityMap", { GROUND_TYPE = 1, SPRAY_LEVEL = 4, LIME_LEVEL = 5, PLOW_LEVEL = 6 })
@@ -515,7 +526,8 @@ describe("MapLayers.tick sweep", function()
     VDT.MapLayers.sweep = nil
     VDT.MapLayers.dirty = true
     VDT.MapLayers.subscribed = false
-    VDT.MapLayers.model = nil
+    VDT.MapLayers.models = {}
+    VDT.MapLayers.catalogue = nil
     VDT.MapLayers.patchCtx = nil
     VDT.MapLayers.patchTimerMs = 0
     VDT.MapLayers.auditTimerMs = 0
@@ -531,23 +543,51 @@ describe("MapLayers.tick sweep", function()
     rawset(_G, "g_currentMission", nil)
   end)
 
-  it("completes an 8x8 sweep over 4 ticks of 16 cells and marks dirty exactly once", function()
+  it("completes an 8x8 sweep over 4 ticks of 16 cells and marks each plane dirty exactly once", function()
     for _ = 1, 4 do
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
-    assert.are.equal(1, marked)
+    assert.are.equal(1, marked())
 
-    local model = VDT.MapLayers.collect()
-    assert.is_not_nil(model)
-    assert.are.equal(8, model.gridSize)
-    assert.are.equal(3, #model.layers)
-    for _, layer in ipairs(model.layers) do
-      assert.is_nil(layer.legend) -- bare ground only -> nothing seen -> omitted
-      assert.are.equal(8, #layer.rows)
-      for _, row in ipairs(layer.rows) do
+    -- One self-contained model per plane, each carrying the grid geometry: the server parses and
+    -- renders these files independently, so none of them may depend on another to be decodable.
+    for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+      local model = VDT.MapLayers.collectLayer(layer.id)
+      assert.is_not_nil(model)
+      assert.are.equal(layer.id, model.id)
+      assert.are.equal(8, model.gridSize)
+      assert.are.equal(8, model.terrainSize)
+      assert.is_nil(model.legend) -- bare ground only -> nothing seen -> omitted
+      assert.are.equal(8, #model.rows)
+      for _, row in ipairs(model.rows) do
         assert.are.equal("", row)
       end
     end
+  end)
+
+  it("publishes the catalogue without a sweep, so the app can offer a layer before its raster exists", function()
+    -- One tick is a single 16-cell batch: nowhere near the 64 the 8x8 grid needs, so no plane has
+    -- been published yet -- but the catalogue naming them is already there.
+    VDT.MapLayers.tick(stubDebugger(), 16)
+    assert.is_nil(VDT.MapLayers.collectLayer("crops"))
+    assert.are.equal(1, markedByChannel[VDT.MapLayers.CHANNEL])
+
+    local catalogue = VDT.MapLayers.collect()
+    assert.are.equal(8, catalogue.gridSize)
+    assert.are.equal(8, catalogue.terrainSize)
+    assert.are.same({ "crops", "growth", "soil" }, {
+      catalogue.layers[1].id,
+      catalogue.layers[2].id,
+      catalogue.layers[3].id,
+    })
+    -- Labels come from the game's own overlay selector; with no g_i18n in the spec they fall back.
+    assert.are.equal("Crops", catalogue.layers[1].label)
+
+    -- Published once, not once per tick: the catalogue is fixed for the session.
+    for _ = 1, 4 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
+    assert.are.equal(1, markedByChannel[VDT.MapLayers.CHANNEL])
   end)
 
   it("reports the world size the grid was actually sampled in, not mission.terrainSize", function()
@@ -558,6 +598,7 @@ describe("MapLayers.tick sweep", function()
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
     assert.are.equal(8, VDT.MapLayers.collect().terrainSize)
+    assert.are.equal(8, VDT.MapLayers.collectLayer("growth").terrainSize)
   end)
 
   it("drops a partial sweep when the profile switches the channel off", function()
@@ -573,8 +614,8 @@ describe("MapLayers.tick sweep", function()
     for _ = 1, 4 do
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
-    assert.are.equal(1, marked)
-    assert.is_not_nil(VDT.MapLayers.collect())
+    assert.are.equal(1, marked())
+    assert.is_not_nil(VDT.MapLayers.collectLayer("crops"))
   end)
 
   -- The multiplayer staleness audit. A client's density maps arrive in bandwidth-limited batches, so
@@ -656,17 +697,17 @@ describe("MapLayers.tick sweep", function()
       for _ = 1, 20 do
         VDT.MapLayers.tick(stubDebugger(), 16)
       end
-      assert.are.equal(1, marked)
+      assert.are.equal(1, marked())
       assert.is_false(VDT.MapLayers.dirty)
 
       -- ...over a raster that is exactly the striped one, byte for byte. The audit staying quiet only
       -- means anything if what it compared the engine against is what the sweep really stored.
-      local model = VDT.MapLayers.collect()
-      assert.are.equal(BASE_GROWTH_ROW, model.layers[2].rows[1])
-      assert.are.equal(BASE_GROWTH_ROW, model.layers[2].rows[8])
-      assert.are.equal(BASE_SOIL_ROW_1, model.layers[3].rows[1])
-      assert.are.equal(BASE_SOIL_ROW_2, model.layers[3].rows[2])
-      assert.are.equal(BASE_SOIL_ROW_3, model.layers[3].rows[3])
+      local growth, soil = VDT.MapLayers.collectLayer("growth"), VDT.MapLayers.collectLayer("soil")
+      assert.are.equal(BASE_GROWTH_ROW, growth.rows[1])
+      assert.are.equal(BASE_GROWTH_ROW, growth.rows[8])
+      assert.are.equal(BASE_SOIL_ROW_1, soil.rows[1])
+      assert.are.equal(BASE_SOIL_ROW_2, soil.rows[2])
+      assert.are.equal(BASE_SOIL_ROW_3, soil.rows[3])
     end)
 
     it("resweeps once the world no longer matches the model", function()
@@ -680,12 +721,12 @@ describe("MapLayers.tick sweep", function()
       assert.is_true(VDT.MapLayers.dirty or VDT.MapLayers.sweep ~= nil)
 
       completeSweep()
-      assert.are.equal(2, marked)
+      assert.are.equal(2, marked())
       -- The resweep picked the new state up rather than re-publishing the stale striped raster.
-      local model = VDT.MapLayers.collect()
-      assert.are.equal("0101010101010101", model.layers[2].rows[1])
-      assert.are.equal("2020202020202020", model.layers[3].rows[1])
-      assert.are.equal("2020202020202020", model.layers[3].rows[2]) -- was empty before the change
+      assert.are.equal("0101010101010101", VDT.MapLayers.collectLayer("growth").rows[1])
+      local soil = VDT.MapLayers.collectLayer("soil")
+      assert.are.equal("2020202020202020", soil.rows[1])
+      assert.are.equal("2020202020202020", soil.rows[2]) -- was empty before the change
     end)
 
     it("does not audit in singleplayer", function()
@@ -695,7 +736,7 @@ describe("MapLayers.tick sweep", function()
       for _ = 1, 40 do
         VDT.MapLayers.tick(stubDebugger(), 16)
       end
-      assert.are.equal(1, marked)
+      assert.are.equal(1, marked())
       assert.is_false(VDT.MapLayers.dirty)
     end)
 
@@ -706,7 +747,7 @@ describe("MapLayers.tick sweep", function()
         VDT.MapLayers.tick(stubDebugger(), 16)
       end
       completeSweep() -- the audit-driven resweep
-      assert.are.equal(2, marked)
+      assert.are.equal(2, marked())
 
       -- The world still disagrees (the sweep re-read it, but changeTheWorld stays in effect and the
       -- model now matches) -- what's under test is the timer: one interval of idle time must NOT be
@@ -725,7 +766,7 @@ describe("MapLayers.tick sweep", function()
       for _ = 1, 30 do
         VDT.MapLayers.tick(stubDebugger(), 16)
       end
-      assert.are.equal(3, marked)
+      assert.are.equal(3, marked())
     end)
   end)
 
@@ -733,12 +774,12 @@ describe("MapLayers.tick sweep", function()
     for _ = 1, 4 do
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
-    assert.are.equal(1, marked)
+    assert.are.equal(1, marked())
     -- No resweep event fired, so further ticks do nothing (no wall-clock timer to elapse).
     for _ = 1, 10 do
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
-    assert.are.equal(1, marked)
+    assert.are.equal(1, marked())
     assert.is_nil(VDT.MapLayers.sweep)
   end)
 
@@ -746,13 +787,13 @@ describe("MapLayers.tick sweep", function()
     for _ = 1, 4 do
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
-    assert.are.equal(1, marked)
+    assert.are.equal(1, marked())
     -- A new in-game day/period fires markDirty; the next batch of ticks runs a fresh sweep.
     VDT.MapLayers.markDirty()
     for _ = 1, 4 do
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
-    assert.are.equal(2, marked)
+    assert.are.equal(2, marked())
   end)
 
   it("subscribes to PERIOD_CHANGED and DAY_CHANGED once, when the message center is up", function()
@@ -774,7 +815,7 @@ describe("MapLayers.tick sweep", function()
     for _ = 1, 4 do
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
-    assert.are.equal(1, marked)
+    assert.are.equal(1, marked())
 
     -- A controlled vehicle now sits at world origin on plowed ground; a patch should re-sample the
     -- cells around it (radius 1 here) to GROWTH_PLOWED, leaving far rows untouched.
@@ -793,26 +834,29 @@ describe("MapLayers.tick sweep", function()
     end)
 
     VDT.MapLayers.tick(stubDebugger(), 1000) -- below the 4000 ms throttle: no patch yet
-    assert.are.equal(1, marked)
+    assert.are.equal(1, marked())
     VDT.MapLayers.tick(stubDebugger(), 3000) -- crosses 4000 ms: patch runs
-    assert.are.equal(2, marked)
 
-    local growth
-    for _, layer in ipairs(VDT.MapLayers.collect().layers) do
-      if layer.id == "growth" then
-        growth = layer
-      end
-    end
+    -- Plowing moves the growth plane and nothing else (no fruit here, and soil needs plow/lime/spray
+    -- to be enabled), so ONLY growth is queued for a write. This is what the file split buys: under
+    -- one combined file this patch rewrote the crops raster too, every time.
+    assert.are.equal(2, marks("growth"))
+    assert.are.equal(1, marks("crops"))
+    assert.are.equal(1, marks("soil"))
+
+    local growth = VDT.MapLayers.collectLayer("growth")
     -- Vehicle at origin -> center row 4 (0-based) on an 8-grid; rows 3..5 patched, row 0 untouched.
     assert.is_true(#growth.rows[5] > 0)
     assert.are.equal("", growth.rows[1])
+    -- ...and the planes it did not touch still hold the sweep's rows, not a re-encoded copy.
+    assert.are.equal("", VDT.MapLayers.collectLayer("crops").rows[5])
   end)
 
   it("does not rewrite when a patch re-samples unchanged cells", function()
     for _ = 1, 4 do
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
-    assert.are.equal(1, marked)
+    assert.are.equal(1, marked())
 
     -- A controlled vehicle sits on the same bare ground the sweep already recorded; re-sampling
     -- produces identical rows, so nothing is rewritten and the channel is not re-marked.
@@ -824,20 +868,21 @@ describe("MapLayers.tick sweep", function()
       return 0, 0, 0
     end)
     VDT.MapLayers.tick(stubDebugger(), 4000)
-    assert.are.equal(1, marked)
+    assert.are.equal(1, marked())
   end)
 
   it("does not patch until a sweep has completed, and no-ops with no active vehicles", function()
     -- No completed sweep yet -> patchCtx nil -> a long idle tick can't patch.
     VDT.MapLayers.dirty = false
     VDT.MapLayers.tick(stubDebugger(), 10000)
-    assert.are.equal(0, marked)
+    assert.are.equal(0, marked())
   end)
 
   it("does not progress a sweep while export is disabled", function()
     g_vdTelemetry.exportEnabled = false
     VDT.MapLayers.tick(stubDebugger(), 16)
-    assert.are.equal(0, marked)
+    assert.are.equal(0, marked())
+    assert.is_nil(VDT.MapLayers.collect()) -- not even the catalogue: export off means nothing at all
     assert.is_nil(VDT.MapLayers.sweep)
   end)
 
@@ -848,7 +893,7 @@ describe("MapLayers.tick sweep", function()
     assert.has_no.errors(function()
       VDT.MapLayers.tick(stubDebugger(), 16)
     end)
-    assert.are.equal(0, marked)
+    assert.are.equal(0, marked())
     assert.is_nil(VDT.MapLayers.sweep)
   end)
 
@@ -863,15 +908,12 @@ describe("MapLayers.tick sweep", function()
       VDT.MapLayers.tick(stubDebugger(), 16)
     end
 
-    local model = VDT.MapLayers.collect()
-    local growthLayer
-    for _, layer in ipairs(model.layers) do
-      if layer.id == "growth" then
-        growthLayer = layer
-      end
-    end
-    assert.is_not_nil(growthLayer.legend)
-    assert.are.equal(1, #growthLayer.legend)
-    assert.are.equal(4, growthLayer.legend[1].v) -- GROWTH_PLOWED
+    local growth = VDT.MapLayers.collectLayer("growth")
+    assert.is_not_nil(growth.legend)
+    assert.are.equal(1, #growth.legend)
+    assert.are.equal(4, growth.legend[1].v) -- GROWTH_PLOWED
+    -- Each plane carries only its own legend now, so the crops one stays empty rather than riding
+    -- along in a file the app fetches for the growth overlay.
+    assert.is_nil(VDT.MapLayers.collectLayer("crops").legend)
   end)
 end)

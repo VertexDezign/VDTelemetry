@@ -229,6 +229,14 @@ function VDTelemetry:loadMap(filename)
         }
       end,
     })
+    -- A channel may write into a subfolder of telemetry/ (mapLayers/ holds one file per raster plane);
+    -- io.open does not create one, so every folder the registered channels name is created here. After
+    -- the registration above, so the telemetry channel is included in the walk -- every other channel
+    -- self-registered when its file was sourced.
+    for _, subDir in ipairs(VDT.ExportChannels.subDirs()) do
+      createFolder(self.telemetryDir .. subDir)
+    end
+
     -- Serializer shared by every channel; reads prettyJson live so the settings toggle applies.
     self.encode = function(model)
       return Json.encode(model, self.prettyJson)

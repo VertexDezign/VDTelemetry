@@ -1,7 +1,7 @@
--- Ground-layer export channel: grid-samples the field/soil state across the whole map (the FieldState
--- per-world-position read pattern) and writes mapLayers.json -- three raster planes (crops planted,
--- growth state, soil condition) the server renders into translucent PNG overlays. Classification and
--- colors replicate the game's own MapOverlayGenerator (gui/base/MapOverlayGenerator.lua) so the
+-- Ground-layer export channels: grid-sample the field/soil state across the whole map (the FieldState
+-- per-world-position read pattern) and write the mapLayers/ folder -- three raster planes (crops
+-- planted, growth state, soil condition) the server renders into translucent PNG overlays.
+-- Classification and colors replicate the game's own MapOverlayGenerator (MapOverlayGenerator.lua) so the
 -- dashboard overlay matches the in-game map overlay exactly; the constants and transition rules below
 -- are transcribed from that class (and from FruitTypeDesc's getIsGrowing/getIsPreparable/etc., which
 -- MapOverlayGenerator itself reimplements inline).
@@ -36,19 +36,47 @@
 -- stratified sample of the grid on an idle timer and compares it to the retained model. Any
 -- disagreement means the world moved under us and arms a full resweep. See runAudit().
 --
--- Wire format: three one-byte-per-cell planes, rows as right-trimmed hex strings (see encodeRow).
--- Legends list only values actually seen during the sweep, so the file (and the app's PNG fetch) never
--- carries color/label data for fruit types or states that don't exist on this map.
+-- Wire format: one one-byte-per-cell plane per FILE, rows as right-trimmed hex strings (see
+-- encodeRow). Legends list only values actually seen during the sweep, so the file (and the app's PNG
+-- fetch) never carries color/label data for fruit types or states that don't exist on this map.
+--
+-- The planes are separate files (mapLayers/crops.json, .../growth.json, .../soil.json) plus a small
+-- catalogue (mapLayers/index.json) naming the planes that exist, and each is its own export channel.
+-- One file per plane is what keeps a patch from rewriting planes it did not touch: a fertilizer pass
+-- changes soil and nothing else, but a single combined file re-serializes every plane on every write
+-- (the megabyte-per-patch cost that shows up as Json.lua in the in-game profiler). It also gives each
+-- plane its own content version on the server, so the app refetches the overlay it is showing only
+-- when that overlay actually changed. The catalogue is written without sweeping anything, so the app
+-- can offer a layer before any raster for it exists.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
 VDT = VDT or {}
 VDT.MapLayers = {}
 
+-- The catalogue/driver channel: owns the sweep (tick), the settings toggle and the profile gate, and
+-- writes index.json. The per-plane channels are registered alongside it at the bottom of this file and
+-- are `hidden`, so the settings UI keeps offering "mapLayers" once rather than once per plane.
 VDT.MapLayers.CHANNEL = "mapLayers"
-VDT.MapLayers.FILE_NAME = "mapLayers.json"
+VDT.MapLayers.SUBDIR = "mapLayers/" -- created from ExportChannels.subDirs(); see VDTelemetry:loadMap
+VDT.MapLayers.FILE_NAME = VDT.MapLayers.SUBDIR .. "index.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin MapLayersData.
-VDT.MapLayers.VERSION = 1
+-- 2: one file per plane + the catalogue (was a single mapLayers.json holding all three).
+VDT.MapLayers.VERSION = 2
+
+-- The planes this channel exports, in wire order. `label` mirrors the game's own map overlay selector
+-- (InGameMenuMapFrame's mapSelectorTexts), so the app can name a plane it has never heard of -- which
+-- is what the Precision Farming planes will be when they land: adding one is then an entry here plus
+-- its classification, with the file/channel/dirty plumbing already generic over this list.
+--
+-- `channel` and `fileName` are filled in at registration (see the bottom of this file).
+VDT.MapLayers.LAYERS = {
+  -- The crops label is a format string in the game ("%s" for the fruit filter); formatted empty and
+  -- trimmed, exactly as the game's own selector builds it.
+  { id = "crops", labelKey = "ui_mapOverviewFruitTypes", labelFallback = "Crops", labelFormat = true },
+  { id = "growth", labelKey = "ui_mapOverviewGrowth", labelFallback = "Growth" },
+  { id = "soil", labelKey = "ui_mapOverviewSoil", labelFallback = "Soil" },
+}
 
 -- The game's own overlay base resolution (MapOverlayGenerator.OVERLAY_RESOLUTION.FOLIAGE_STATE) --
 -- fixed, not terrain-scaled, so a bigger map just means bigger cells.
@@ -86,7 +114,11 @@ VDT.MapLayers.sweep = nil -- in-progress sweep context, nil when idle
 -- the PERIOD_CHANGED / DAY_CHANGED subscriptions (see tick). Cleared the moment a sweep is started.
 VDT.MapLayers.dirty = true
 VDT.MapLayers.subscribed = false -- one-shot guard for the message-center subscription
-VDT.MapLayers.model = nil -- last completed sweep's model; collect() returns this
+-- Last completed model PER PLANE (layer id -> model); each plane's channel collects its own entry.
+-- Held per plane rather than as one model so a sweep or patch can replace the planes it touched and
+-- leave the rest -- including their files -- exactly as they were.
+VDT.MapLayers.models = {}
+VDT.MapLayers.catalogue = nil -- index.json's model; built once the world size resolves (see tick)
 -- Retained after each full sweep so between-sweep patches reuse its classification state + row tables;
 -- patchTimerMs accumulates dt toward PATCH_INTERVAL_MS. nil until the first sweep completes.
 VDT.MapLayers.patchCtx = nil
@@ -201,6 +233,21 @@ local function l10nText(key, fallback)
     end
   end
   return fallback
+end
+
+---Display name for a plane, taken from the game's own map overlay selector, so a layer is labelled in
+---the app exactly as the player sees it in-game (and localized). The crops entry is a format string
+---there ("%s" carries the fruit filter); it's formatted empty and trimmed, as the game's own selector
+---builds it.
+---@param layer table an entry of VDT.MapLayers.LAYERS
+---@return string
+local function layerLabel(layer)
+  local text = l10nText(layer.labelKey, layer.labelFallback)
+  if layer.labelFormat then
+    local ok, formatted = pcall(string.format, text, "")
+    text = ok and formatted or layer.labelFallback
+  end
+  return (string.gsub(text, "^%s*(.-)%s*$", "%1"))
 end
 
 -- Precomputed 2-char hex for every byte value, for encodeRow. The `% 256` at the call site is a
@@ -576,14 +623,15 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
 
   local soilV = classifySoil(ctx, x, z, groundTypeValue)
 
-  if cropsV ~= 0 and ctx.cropsSeen[cropsV] == nil then
-    ctx.cropsSeen[cropsV] = { v = cropsV, label = fruitLabel(desc), color = fruitColorHex(desc) }
+  local seen = ctx.seen
+  if cropsV ~= 0 and seen.crops[cropsV] == nil then
+    seen.crops[cropsV] = { v = cropsV, label = fruitLabel(desc), color = fruitColorHex(desc) }
   end
-  if growthV ~= GROWTH_NONE and ctx.growthSeen[growthV] == nil then
-    ctx.growthSeen[growthV] = growthLegendEntry(growthV)
+  if growthV ~= GROWTH_NONE and seen.growth[growthV] == nil then
+    seen.growth[growthV] = growthLegendEntry(growthV)
   end
-  if soilV ~= SOIL_NONE and ctx.soilSeen[soilV] == nil then
-    ctx.soilSeen[soilV] = soilLegendEntry(ctx, soilV)
+  if soilV ~= SOIL_NONE and seen.soil[soilV] == nil then
+    seen.soil[soilV] = soilLegendEntry(ctx, soilV)
   end
 
   return cropsV, growthV, soilV
@@ -594,6 +642,16 @@ VDT.MapLayers.isAvailable = function()
     and g_currentMission.isMissionStarted == true
     and g_currentMission.fieldGroundSystem ~= nil
     and g_fruitTypeManager ~= nil
+end
+
+---A fresh { [layerId] = {} } table, for the per-plane row/buffer/legend state a sweep carries.
+---@return table<string, table>
+local function newLayerTables()
+  local t = {}
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    t[layer.id] = {}
+  end
+  return t
 end
 
 ---Snapshot everything a sweep needs once, up front: world size, ground-type values, weed/stone
@@ -679,15 +737,12 @@ local function startSweep()
     stoneStateToGroup = stoneStateToGroup,
     stoneGroupColors = stoneGroupColors,
     stoneTitle = stoneTitle,
-    cropsBuf = {},
-    growthBuf = {},
-    soilBuf = {},
-    cropsRows = {},
-    growthRows = {},
-    soilRows = {},
-    cropsSeen = {},
-    growthSeen = {},
-    soilSeen = {},
+    -- Per-plane state, keyed by layer id: the row buffer a row is classified into, the encoded rows
+    -- (which the published model points AT, so a patch updates it in place), and the legend values
+    -- seen. Keyed rather than named per plane so everything downstream loops over LAYERS.
+    buf = newLayerTables(),
+    rows = newLayerTables(),
+    seen = newLayerTables(),
     -- Per-sweep classification memo: raw fruit density-type -> resolved fruit info (see classifyCell).
     fruitCache = {},
   }
@@ -702,6 +757,10 @@ local function runBatch(ctx, budget)
   local halfX = ctx.sizeX / 2
   local halfZ = ctx.sizeZ / 2
   local row, col = ctx.row, ctx.col
+  -- Hoisted out of the per-cell loop: these tables are fixed for the whole sweep, and this loop runs
+  -- GRID_SIZE^2 times, so re-indexing ctx per cell is measurable.
+  local buf, rows = ctx.buf, ctx.rows
+  local cropsBuf, growthBuf, soilBuf = buf.crops, buf.growth, buf.soil
 
   for _ = 1, budget do
     if row >= gridSize then
@@ -711,15 +770,15 @@ local function runBatch(ctx, budget)
     local worldX = -halfX + (col + 0.5) * ctx.cellSize
     local worldZ = -halfZ + (row + 0.5) * ctx.cellSize
     local cropsV, growthV, soilV = VDT.MapLayers.classifyCell(ctx, worldX, worldZ)
-    ctx.cropsBuf[col + 1] = cropsV
-    ctx.growthBuf[col + 1] = growthV
-    ctx.soilBuf[col + 1] = soilV
+    cropsBuf[col + 1] = cropsV
+    growthBuf[col + 1] = growthV
+    soilBuf[col + 1] = soilV
 
     col = col + 1
     if col >= gridSize then
-      ctx.cropsRows[row + 1] = VDT.MapLayers.encodeRow(ctx.cropsBuf, gridSize)
-      ctx.growthRows[row + 1] = VDT.MapLayers.encodeRow(ctx.growthBuf, gridSize)
-      ctx.soilRows[row + 1] = VDT.MapLayers.encodeRow(ctx.soilBuf, gridSize)
+      rows.crops[row + 1] = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
+      rows.growth[row + 1] = VDT.MapLayers.encodeRow(growthBuf, gridSize)
+      rows.soil[row + 1] = VDT.MapLayers.encodeRow(soilBuf, gridSize)
       col = 0
       row = row + 1
     end
@@ -744,8 +803,15 @@ local function toLegend(seen)
   return #list > 0 and list or nil
 end
 
-local function finishSweep(ctx)
-  local model = {
+---Publish one plane's file model from the sweep that just finished. Each file is self-contained --
+---it repeats the grid geometry rather than referring to the catalogue -- because the server parses
+---and renders it on its own, and a raster whose cell size depended on a second file would be
+---undecodable whenever the two disagreed.
+---@param ctx table completed sweep context
+---@param layer table an entry of VDT.MapLayers.LAYERS
+---@return table model
+local function layerModel(ctx, layer)
+  return {
     version = tostring(VDT.MapLayers.VERSION),
     -- The frame the grid was ACTUALLY sampled in (resolveWorldSize, which prefers the HUD map's
     -- worldSizeX over mission.terrainSize), not mission.terrainSize -- the contract is "gridSize
@@ -753,20 +819,22 @@ local function finishSweep(ctx)
     -- the two disagree.
     terrainSize = ctx.sizeX,
     gridSize = VDT.MapLayers.GRID_SIZE,
-    layers = {
-      { id = "crops", legend = toLegend(ctx.cropsSeen), rows = ctx.cropsRows },
-      { id = "growth", legend = toLegend(ctx.growthSeen), rows = ctx.growthRows },
-      { id = "soil", legend = toLegend(ctx.soilSeen), rows = ctx.soilRows },
-    },
+    id = layer.id,
+    legend = toLegend(ctx.seen[layer.id]),
+    rows = ctx.rows[layer.id],
   }
-  ctx.model = model
-  VDT.MapLayers.model = model
+end
+
+local function finishSweep(ctx)
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    VDT.MapLayers.models[layer.id] = layerModel(ctx, layer)
+    VDT.ExportChannels.markDirty(layer.channel)
+  end
   -- Retain the completed context so between-sweep patches reuse its classification state (ground-type
-  -- values, weed/stone systems, fruit memo) and its row tables -- the model's `rows` are those same
+  -- values, weed/stone systems, fruit memo) and its row tables -- each model's `rows` are those same
   -- tables, so a patch updates the live model in place. Reset the patch timer off the fresh baseline.
   VDT.MapLayers.patchCtx = ctx
   VDT.MapLayers.patchTimerMs = 0
-  VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
 end
 
 ---World positions {x, z} of vehicles actively working the ground -- controlled (the player's rig) or
@@ -802,11 +870,12 @@ end
 ---additively (a value that vanished from a patched region lingers until the next full sweep -- harmless
 ----- rather than pay a full-grid rescan to prune it).
 ---@param ctx table the retained sweep context (VDT.MapLayers.patchCtx)
----@return boolean patched true when at least one cell region was re-sampled
+---@return table<string, boolean> changed layer ids whose rows actually changed (empty when none did)
 local function runPatch(ctx)
+  local changed = {}
   local positions = activeVehiclePositions()
   if #positions == 0 then
-    return false
+    return changed
   end
 
   local gridSize = VDT.MapLayers.GRID_SIZE
@@ -835,12 +904,12 @@ local function runPatch(ctx)
     end
   end
 
-  local cropsBuf, growthBuf, soilBuf = ctx.cropsBuf, ctx.growthBuf, ctx.soilBuf
-  local patched = false
+  local buf, rows = ctx.buf, ctx.rows
+  local cropsBuf, growthBuf, soilBuf = buf.crops, buf.growth, buf.soil
   for row, cols in pairs(byRow) do
-    VDT.MapLayers.decodeRow(ctx.cropsRows[row + 1] or "", gridSize, cropsBuf)
-    VDT.MapLayers.decodeRow(ctx.growthRows[row + 1] or "", gridSize, growthBuf)
-    VDT.MapLayers.decodeRow(ctx.soilRows[row + 1] or "", gridSize, soilBuf)
+    VDT.MapLayers.decodeRow(rows.crops[row + 1] or "", gridSize, cropsBuf)
+    VDT.MapLayers.decodeRow(rows.growth[row + 1] or "", gridSize, growthBuf)
+    VDT.MapLayers.decodeRow(rows.soil[row + 1] or "", gridSize, soilBuf)
     local worldZ = -halfZ + (row + 0.5) * cellSize
     for col in pairs(cols) do
       local worldX = -halfX + (col + 0.5) * cellSize
@@ -853,27 +922,37 @@ local function runPatch(ctx)
     -- already-classified field re-samples the same values, and re-encoding/rewriting/re-rendering the
     -- whole file for an unchanged raster is exactly the cost that shows up in the profiler. Comparing
     -- the re-encoded row to the stored one costs one string compare per touched row.
+    --
+    -- Compared and flagged PER PLANE, which is what the file split buys: a field operation touches one
+    -- or two of the three (fertilizing moves soil alone, cultivating leaves crops alone), so the planes
+    -- it didn't touch are neither re-published nor re-rendered. Under one combined file any single
+    -- changed cell rewrote all three.
     local newCrops = VDT.MapLayers.encodeRow(cropsBuf, gridSize)
     local newGrowth = VDT.MapLayers.encodeRow(growthBuf, gridSize)
     local newSoil = VDT.MapLayers.encodeRow(soilBuf, gridSize)
-    if
-      newCrops ~= ctx.cropsRows[row + 1]
-      or newGrowth ~= ctx.growthRows[row + 1]
-      or newSoil ~= ctx.soilRows[row + 1]
-    then
-      ctx.cropsRows[row + 1] = newCrops
-      ctx.growthRows[row + 1] = newGrowth
-      ctx.soilRows[row + 1] = newSoil
-      patched = true
+    if newCrops ~= rows.crops[row + 1] then
+      rows.crops[row + 1] = newCrops
+      changed.crops = true
+    end
+    if newGrowth ~= rows.growth[row + 1] then
+      rows.growth[row + 1] = newGrowth
+      changed.growth = true
+    end
+    if newSoil ~= rows.soil[row + 1] then
+      rows.soil[row + 1] = newSoil
+      changed.soil = true
     end
   end
 
-  if patched then
-    ctx.model.layers[1].legend = toLegend(ctx.cropsSeen)
-    ctx.model.layers[2].legend = toLegend(ctx.growthSeen)
-    ctx.model.layers[3].legend = toLegend(ctx.soilSeen)
+  -- Refresh only the changed planes' legends: they're additive (classifyCell records into ctx.seen as
+  -- it goes), so a plane whose rows didn't move can't have gained an entry that matters.
+  for id in pairs(changed) do
+    local model = VDT.MapLayers.models[id]
+    if model ~= nil then
+      model.legend = toLegend(ctx.seen[id])
+    end
   end
-  return patched
+  return changed
 end
 
 ---Throttled between-sweep patch: accumulate dt, and every PATCH_INTERVAL_MS re-sample around active
@@ -893,13 +972,15 @@ local function maybePatch(debugger, dt)
   end
   VDT.MapLayers.patchTimerMs = 0
 
-  local ok, patched = pcall(runPatch, VDT.MapLayers.patchCtx)
+  local ok, changed = pcall(runPatch, VDT.MapLayers.patchCtx)
   if not ok then
-    debugger:error("mapLayers channel: patch failed (%s)", tostring(patched))
+    debugger:error("mapLayers channel: patch failed (%s)", tostring(changed))
     return
   end
-  if patched then
-    VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    if changed[layer.id] then
+      VDT.ExportChannels.markDirty(layer.channel)
+    end
   end
 end
 
@@ -945,10 +1026,11 @@ local function runAudit(ctx)
     -- entry behind that no row references. Harmless (an unlisted value renders transparent, a listed
     -- one that never appears just isn't drawn) and the resweep this triggers rebuilds them anyway.
     local cropsV, growthV, soilV = VDT.MapLayers.classifyCell(ctx, worldX, worldZ)
+    local rows = ctx.rows
     if
-      cropsV ~= storedCell(ctx.cropsRows, row, col)
-      or growthV ~= storedCell(ctx.growthRows, row, col)
-      or soilV ~= storedCell(ctx.soilRows, row, col)
+      cropsV ~= storedCell(rows.crops, row, col)
+      or growthV ~= storedCell(rows.growth, row, col)
+      or soilV ~= storedCell(rows.soil, row, col)
     then
       return true
     end
@@ -1025,6 +1107,31 @@ local function subscribeEvents()
   VDT.MapLayers.subscribed = true
 end
 
+---Build and publish the catalogue (index.json) once per session: the planes this map offers plus the
+---grid geometry they share. Deliberately independent of the sweep -- it is what tells the app a layer
+---EXISTS, so it has to be there before (and whether or not) any raster for that layer has been swept.
+---Retried every tick until the world size resolves, which is the only thing that can fail here.
+local function publishCatalogue()
+  if VDT.MapLayers.catalogue ~= nil then
+    return
+  end
+  local sizeX = VDT.MapExporter.resolveWorldSize()
+  if sizeX == nil then
+    return
+  end
+  local layers = {}
+  for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+    layers[#layers + 1] = { id = layer.id, label = layerLabel(layer) }
+  end
+  VDT.MapLayers.catalogue = {
+    version = tostring(VDT.MapLayers.VERSION),
+    terrainSize = sizeX,
+    gridSize = VDT.MapLayers.GRID_SIZE,
+    layers = layers,
+  }
+  VDT.ExportChannels.markDirty(VDT.MapLayers.CHANNEL)
+end
+
 ---Advance the current sweep, one CELLS_PER_FRAME batch per tick, starting a fresh sweep when one is
 ---wanted (dirty). Gated on export being enabled -- tick still runs while export is off (ExportChannels
 ---.tick has no such gate), so this bails early rather than burning CPU on a sweep never written.
@@ -1040,6 +1147,7 @@ function VDT.MapLayers.tick(debugger, dt)
   end
 
   subscribeEvents()
+  publishCatalogue()
 
   if VDT.MapLayers.sweep == nil then
     if not VDT.MapLayers.dirty then
@@ -1070,26 +1178,37 @@ function VDT.MapLayers.tick(debugger, dt)
   end
 end
 
----@return table|nil the last completed sweep's model, nil before the first sweep finishes
+---@return table|nil the catalogue model (index.json), nil until the world size resolves
 function VDT.MapLayers.collect()
-  return VDT.MapLayers.model
+  return VDT.MapLayers.catalogue
+end
+
+---@param id string layer id
+---@return table|nil that plane's last completed model, nil before its first sweep finishes
+function VDT.MapLayers.collectLayer(id)
+  return VDT.MapLayers.models[id]
 end
 
 ---The profile switched this channel off (see ExportChannels.setProfile): tick() stops being called,
 ---so an in-progress sweep would freeze mid-grid and then resume whenever the profile comes back up,
 ---finishing a raster that is half pre-gap and half post-gap. Throw the partial sweep away and re-arm
----instead, so re-enabling starts a clean one. The completed model + patchCtx are kept: they're the
----baseline the app is already showing, and they stay valid.
+---instead, so re-enabling starts a clean one. The completed models + patchCtx are kept: they're the
+---baseline the app is already showing, and they stay valid. Their files go, though -- each plane's
+---isAvailable asks whether this channel is enabled, so the profile change's own cleanup pass drops
+---them (see VDTelemetry:setProfile).
 function VDT.MapLayers.onDisabled()
   VDT.MapLayers.sweep = nil
   VDT.MapLayers.dirty = true
   VDT.MapLayers.auditTimerMs = 0
 end
 
--- Self-register the channel (see ExportChannels). This is the mod's most expensive channel by a wide
--- margin -- a full sweep is GRID_SIZE^2 engine density-map reads, and the write is ~1.5 MB of raster --
--- so it's the one channel gated on the performance profile: off under "low", where the whole point of
--- the preset is to keep the mod out of the frame budget.
+-- Self-register the channels (see ExportChannels). This is the mod's most expensive channel by a wide
+-- margin -- a full sweep is GRID_SIZE^2 engine density-map reads, and each plane's write is ~0.5 MB of
+-- raster -- so it's the one gated on the performance profile: off under "low", where the whole point
+-- of the preset is to keep the mod out of the frame budget.
+--
+-- The driver channel writes the catalogue and owns the tick (i.e. the sweep), so the sweep runs on the
+-- driver's enable state rather than on any one plane's.
 VDT.ExportChannels.register({
   name = VDT.MapLayers.CHANNEL,
   fileName = VDT.MapLayers.FILE_NAME,
@@ -1099,3 +1218,27 @@ VDT.ExportChannels.register({
   minProfile = "medium",
   onDisabled = VDT.MapLayers.onDisabled,
 })
+
+-- One channel per plane, hidden from the settings UI: they are parts of the one "mapLayers" feature,
+-- so they follow the driver's toggle (isEnabled below) instead of offering three more of their own.
+-- No tick and no onDisabled -- the driver owns the sweep for all of them.
+for _, layer in ipairs(VDT.MapLayers.LAYERS) do
+  layer.channel = VDT.MapLayers.CHANNEL .. layer.id:sub(1, 1):upper() .. layer.id:sub(2)
+  layer.fileName = VDT.MapLayers.SUBDIR .. layer.id .. ".json"
+  local id = layer.id
+  VDT.ExportChannels.register({
+    name = layer.channel,
+    fileName = layer.fileName,
+    -- Unavailable until this plane has been swept at least once, which is also what gets a previous
+    -- session's file deleted at startup (see VDTelemetry:deleteStaleChannelFiles) rather than left
+    -- for the app to render as if it were this map's.
+    isAvailable = function()
+      return VDT.MapLayers.models[id] ~= nil and VDT.ExportChannels.isEnabled(VDT.MapLayers.CHANNEL)
+    end,
+    collect = function()
+      return VDT.MapLayers.collectLayer(id)
+    end,
+    minProfile = "medium",
+    hidden = true,
+  })
+end
