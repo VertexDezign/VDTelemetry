@@ -225,11 +225,11 @@ class VdtModelTest {
     val text =
       """{"version":"2","vehicle":{"fillUnits":{"fillUnit":[""" +
         """{"value":2.4,"capacity":4,"fillLevelPercentage":60,"title":"Netz","unit":"","display":"STEP"}]}}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
     val unit =
       assertNotNull(
-        VdtParser
-          .parseJson(text)
-          .vehicle
+        data.vehicle
           ?.fillUnits
           ?.fillUnit
           ?.singleOrNull(),
@@ -254,7 +254,9 @@ class VdtModelTest {
         """"implement":[{"position":"FRONT","jointDescIndex":2,"schema":{"name":"COMBINE_HEADER"},""" +
         """"selection":{"selected":true,"controlGroup":{"current":2,"name":"Greifer",""" +
         """"names":["Kran","Greifer"]}}}]}}"""
-    val v = assertNotNull(VdtParser.parseJson(text).vehicle)
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+    val v = assertNotNull(data.vehicle)
 
     val schema = assertNotNull(v.schema)
     assertEquals("HARVESTER", schema.name)
@@ -294,7 +296,9 @@ class VdtModelTest {
         """"workMode":{"current":2,"count":2,"name":"Arbeit"},""" +
         """"workWidth":{"left":3.0,"leftMax":3.0,"right":1.5,"rightMax":3.0,"total":4.5,"unit":"m"},""" +
         """"baleCounter":{"session":12,"lifetime":480}}]}}"""
-    val v = assertNotNull(VdtParser.parseJson(text).vehicle)
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+    val v = assertNotNull(data.vehicle)
 
     val discharge = assertNotNull(v.discharge)
     assertEquals(DischargeState.GROUND, discharge.state)
