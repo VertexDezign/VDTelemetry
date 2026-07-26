@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.app.layout.GridLayout
 import net.vertexdezign.vdt.app.layout.LayoutCell
+import net.vertexdezign.vdt.app.widgets.ShortcutWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.random.Random
 
@@ -94,7 +95,7 @@ class PageStore(private val settings: Settings) {
   /**
    * Brings a stored page up to date: drops cells whose widget no longer exists, then re-expresses the
    * layout on the current grid. Pages saved before the grid was frozen carry their own dimensions, so
-   * a 3×2 arrangement scales up to 12×6 rather than being read as a corner of it.
+   * a 3×2 arrangement scales up to fill 12×7 rather than being read as a corner of it.
    *
    * Scaling doesn't know about widget floors — a 1×1 on an old 6×6 page lands as 2×1, under the
    * minimum most widgets now declare — so each undersized tile is then grown back to its floor where
@@ -128,7 +129,8 @@ class PageStore(private val settings: Settings) {
 /**
  * The starter pages: the Vehicle and Farm dashboards, as ordinary user pages. Broadly the
  * arrangement these had when the grid was 3×2 — a fine grid is what lets a *widget* be small, not
- * what makes every tile small.
+ * what makes every tile small — with the extra room 12×7 gives spent on a dock of single-cell
+ * shortcuts rather than on making the readout panels bigger than they need to be.
  */
 private fun seedPages(): List<Page> = listOf(
   Page(
@@ -146,11 +148,18 @@ private fun seedPages(): List<Page> = listOf(
         LayoutCell("map", col = 0, row = 0, colSpan = 4, rowSpan = 4),
         LayoutCell("engine", col = 4, row = 0, colSpan = 4, rowSpan = 4),
         LayoutCell("implements", col = 8, row = 0, colSpan = 4, rowSpan = 4),
-        // Bottom band, 3 rows.
+        // Bottom band, 3 rows: the two you glance at, plus the dock.
         LayoutCell("lighting", col = 0, row = 4, colSpan = 5, rowSpan = 3),
         // Heading / steering assist used to be permanent chrome in the bottom bar. It's a widget now,
         // so the starter page places it — otherwise a fresh install would simply lose it.
         LayoutCell("navigation", col = 5, row = 4, colSpan = 5, rowSpan = 3),
+        // A 2×2 dock of single-cell shortcuts in the corner, showing what they're for: these four
+        // apps contribute no widget of their own, so before this they were only reachable two taps
+        // deep behind the launcher or by spending one of the four pinned slots on the bar.
+        LayoutCell(ShortcutWidget.idFor("production"), col = 10, row = 4),
+        LayoutCell(ShortcutWidget.idFor("storage"), col = 11, row = 4),
+        LayoutCell(ShortcutWidget.idFor("animals"), col = 10, row = 5),
+        LayoutCell(ShortcutWidget.idFor("diagnostics"), col = 11, row = 5),
       ),
     ),
   ),
