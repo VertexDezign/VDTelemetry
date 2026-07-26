@@ -57,7 +57,10 @@ class FavouritesStoreTest {
   @Test
   fun fallsBackToDefaultsOnUnreadableStoredValue() {
     val settings = MapSettings().apply { putString("vdt.favourites", "{not json") }
-    assertEquals(3, FavouritesStore(settings).favourites.value.size)
+    assertEquals(
+      listOf(app("map"), app("production"), app("storage")),
+      FavouritesStore(settings).favourites.value,
+    )
   }
 
   @Test

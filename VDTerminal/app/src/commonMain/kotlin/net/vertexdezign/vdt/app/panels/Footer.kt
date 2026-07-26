@@ -117,8 +117,13 @@ fun Footer(
       }
     }
 
-    // Centre — where you are: page title over the position dots.
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    // Centre — where you are: page title over the position dots. Weighted like the two side zones so
+    // a long page title clips instead of eating the space the launcher and alerts are entitled to.
+    Column(
+      Modifier.weight(1f),
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
       pages.firstOrNull { it.id == currentPageId }?.let { current ->
         Text(
           current.title.uppercase(),

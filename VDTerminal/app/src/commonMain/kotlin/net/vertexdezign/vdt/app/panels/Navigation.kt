@@ -46,23 +46,26 @@ internal fun directionFromHeading(heading: Int): String {
 fun Navigation(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
   Panel("Navigation", modifier, icon = Icons.Filled.Explore) {
     val gps = vehicle.gps
-    val heading = gps?.heading ?: 0
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        // No gps subtree means there is no heading to report — say so rather than reading out a due
+        // north the vehicle never claimed.
         Text(
-          "$heading",
+          gps?.heading?.toString() ?: "--",
           fontSize = 40.sp,
           fontWeight = FontWeight.Black,
           color = VdtColors.TextDark,
         )
-        Text(
-          "${gps?.headingUnit ?: "°"} ${directionFromHeading(heading)}",
-          fontSize = 16.sp,
-          fontWeight = FontWeight.Bold,
-          color = VdtColors.DarkGray,
-          modifier = Modifier.align(Alignment.CenterVertically),
-        )
+        if (gps != null) {
+          Text(
+            "${gps.headingUnit.ifBlank { "°" }} ${directionFromHeading(gps.heading)}",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = VdtColors.DarkGray,
+            modifier = Modifier.align(Alignment.CenterVertically),
+          )
+        }
       }
 
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -74,10 +77,11 @@ fun Navigation(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (Clie
           enabled = gps?.enabled == true,
           active = gps?.active == true,
         )
+        // Same three states: no ai subtree is *absent*, not idle.
         Indicator(
           Icons.Filled.Memory,
           "AI helper",
-          enabled = true,
+          enabled = vehicle.ai != null,
           active = vehicle.ai?.active == true,
         )
       }
