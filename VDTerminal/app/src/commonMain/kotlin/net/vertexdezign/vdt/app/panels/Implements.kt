@@ -81,10 +81,22 @@ private fun mergeFillUnits(units: List<FillUnit>): List<FillUnit> {
       .add(u)
   }
   return groups.values.map { g ->
-    val first = g.first()
-    first.copy(
-      value = g.sumOf { it.value },
-      fillLevelPercentage = (g.sumOf { it.fillLevelPercentage }.toDouble() / g.size).roundToInt(),
+    // `sumOf` has no Float overload, hence map/sum.
+    val value = g.map { it.value }.sum()
+    val capacity = g.sumOf { it.capacity }
+    g.first().copy(
+      value = value,
+      // Capacity has to grow with the level, or the bar (which is driven by value/capacity) reads a
+      // two-trailer 37000/18500 as permanently full.
+      capacity = capacity,
+      // Derive the percentage from the totals so it matches the combined ratio. Pass-through units
+      // report no capacity at all; there the reported percentages are all there is, so average them.
+      fillLevelPercentage =
+      if (capacity > 0) {
+        (value / capacity * 100f).roundToInt()
+      } else {
+        (g.sumOf { it.fillLevelPercentage }.toDouble() / g.size).roundToInt()
+      },
     )
   }
 }

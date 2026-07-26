@@ -31,7 +31,15 @@
 ---@field foldable string?
 ---@field lowered boolean?
 ---@field fillUnits FillUnitsModel?
----@field pipe string?
----@field cover string?
+---@field pipe PipeModel?
+---@field cover CoverModel?
 ---@field wearable WearableModel?
+---@field schema SchemaModel?
+---@field selection SelectionModel?
+---@field discharge DischargeModel?
+---@field tipping TippingModel?
+---@field harvest HarvestModel?
+---@field workMode WorkModeModel?
+---@field workWidth WorkWidthModel?
+---@field baleCounter BaleCounterModel?
 ---@field implement ImplementModel[]?

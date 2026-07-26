@@ -143,7 +143,11 @@
       "unit": "h",
       "value": "0.01"
     },
-    "pipe": "RETRACTED",
+    "pipe": {
+      "current": 1,
+      "state": "RETRACTED",
+      "target": 1
+    },
     "speed": {
       "direction": "FORWARD",
       "unit": "km/h",
@@ -157,5 +161,5 @@
       "wear": 0
     }
   },
-  "version": "1"
+  "version": "5"
 }

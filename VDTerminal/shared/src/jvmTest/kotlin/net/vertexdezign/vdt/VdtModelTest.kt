@@ -1,10 +1,14 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.DischargeReason
+import net.vertexdezign.vdt.model.DischargeState
 import net.vertexdezign.vdt.model.DriveDirection
+import net.vertexdezign.vdt.model.FillDisplayType
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PipeState
+import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.VdtData
 import java.io.File
 import kotlin.test.Test
@@ -43,7 +47,7 @@ class VdtModelTest {
   fun parsesTractorWithCultivator() {
     val data = model("tractor_with_cultivator.json")
 
-    assertEquals("1", data.version)
+    assertEquals("5", data.version)
     assertEquals("01.08.2024", data.environment?.date)
 
     // weather
@@ -91,18 +95,22 @@ class VdtModelTest {
     assertEquals("combineDrivable", v.type)
     assertEquals(3.92f, v.speed?.value)
     assertEquals(FoldableState.EXTENDED, v.foldable)
-    assertEquals(PipeState.RETRACTED, v.pipe)
+    // `numStates` is absent from this fixture (it was captured before the mod exported it) and so
+    // falls back to 0; current == target == 1 is implied by the captured RETRACTED label.
+    assertEquals(PipeState.RETRACTED, v.pipe?.state)
+    assertEquals(1, v.pipe?.current)
+    assertEquals(1, v.pipe?.target)
 
     // combine motor has fuel + def but no air
     assertEquals(
-      947,
+      947f,
       v.motor
         ?.fillUnits
         ?.fuel
         ?.value,
     )
     assertEquals(
-      110,
+      110f,
       v.motor
         ?.fillUnits
         ?.def
@@ -114,8 +122,11 @@ class VdtModelTest {
     val fillUnits = assertNotNull(v.fillUnits)
     assertEquals(1, fillUnits.fillUnit.size)
     assertEquals(13500, fillUnits.fillUnit[0].capacity)
-    assertEquals(5054, fillUnits.fillUnit[0].value)
+    assertEquals(5054f, fillUnits.fillUnit[0].value)
     assertEquals(37, fillUnits.fillUnit[0].fillLevelPercentage)
+    // display hints are absent at their engine defaults
+    assertEquals(0, fillUnits.fillUnit[0].precision)
+    assertEquals(FillDisplayType.BAR, fillUnits.fillUnit[0].display)
 
     assertEquals(1, v.implement.size)
     assertEquals("cutter", v.implement[0].type)
@@ -145,7 +156,7 @@ class VdtModelTest {
     val back = assertNotNull(v.implement.firstOrNull { it.position == "BACK" })
     assertEquals("trailer", back.type)
     assertEquals(
-      18500,
+      18500f,
       back.fillUnits
         ?.fillUnit
         ?.singleOrNull()
@@ -163,7 +174,7 @@ class VdtModelTest {
         ?.type,
     )
     assertEquals(
-      18500,
+      18500f,
       nested.fillUnits
         ?.fillUnit
         ?.singleOrNull()
@@ -172,9 +183,16 @@ class VdtModelTest {
 
     // the whole BACK chain exposes both fill units — this recursive walk mirrors what the
     // Implements panel's collectFillUnits does (and what its "merged" toggle then sums).
-    fun totalFill(imp: Implement): Int =
-      (imp.fillUnits?.fillUnit?.sumOf { it.value } ?: 0) + imp.implement.sumOf { totalFill(it) }
-    assertEquals(37000, totalFill(back))
+    // `sumOf` has no Float overload, hence map/sum — same as mergeFillUnits.
+    fun totalFill(imp: Implement): Float =
+      (
+        imp.fillUnits
+          ?.fillUnit
+          ?.map { it.value }
+          ?.sum() ?: 0f
+      ) +
+        imp.implement.map { totalFill(it) }.sum()
+    assertEquals(37000f, totalFill(back))
 
     assertJsonRoundTrips(data)
   }
@@ -196,6 +214,116 @@ class VdtModelTest {
           ?.singleOrNull(),
       )
     assertEquals(0, unit.capacity)
+  }
+
+  @Test
+  fun decodesFractionalConsumableFillUnit() {
+    // Bale net/twine/wrap are the game's `Consumable` spec on a fill unit measured in SLOTS: capacity
+    // is the slot count and the level is "spare rolls + how much of the mounted one is left", so it
+    // is fractional. Inline rather than a fixture: no captured baler JSON exists yet, and inventing
+    // one would put made-up fill-type names in examples/json.
+    val text =
+      """{"version":"2","vehicle":{"fillUnits":{"fillUnit":[""" +
+        """{"value":2.4,"capacity":4,"fillLevelPercentage":60,"title":"Netz","unit":"","display":"STEP"}]}}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+    val unit =
+      assertNotNull(
+        data.vehicle
+          ?.fillUnits
+          ?.fillUnit
+          ?.singleOrNull(),
+      )
+    assertEquals(2.4f, unit.value)
+    assertEquals(4, unit.capacity)
+    assertEquals(FillDisplayType.STEP, unit.display)
+    assertEquals(0, unit.precision)
+  }
+
+  @Test
+  fun decodesSchemaAndSelection() {
+    // The rig diagram: each object names a silhouette and lists where children hang off it, and the
+    // child points back with jointDescIndex. Inline rather than a fixture — the committed captures
+    // predate the mod exporting any of this, and the offsets are per-vehicle XML data that would be
+    // invented if hand-written into examples/json.
+    val text =
+      """{"version":"4","vehicle":{"schema":{"name":"HARVESTER","offsetX":0.25,"offsetY":0.5,""" +
+        """"attacherJoint":[{"x":0.1,"y":0.2,"rotation":0,"invertX":false},""" +
+        """{"x":0.9,"y":0.3,"rotation":1.5,"invertX":true,"liftedOffsetY":5}]},""" +
+        """"selection":{"selected":false},""" +
+        """"implement":[{"position":"FRONT","jointDescIndex":2,"schema":{"name":"COMBINE_HEADER"},""" +
+        """"selection":{"selected":true,"controlGroup":{"current":2,"name":"Greifer",""" +
+        """"names":["Kran","Greifer"]}}}]}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+    val v = assertNotNull(data.vehicle)
+
+    val schema = assertNotNull(v.schema)
+    assertEquals("HARVESTER", schema.name)
+    assertEquals(0.25f, schema.offsetX)
+    assertEquals(2, schema.attacherJoint.size)
+    assertTrue(schema.attacherJoint[1].invertX)
+    assertEquals(5f, schema.attacherJoint[1].liftedOffsetY)
+    // absent border fields stay null rather than defaulting to a misleading 0
+    assertEquals(null, schema.borderLeft)
+
+    val imp = assertNotNull(v.implement.singleOrNull())
+    // the child indexes into the *parent's* joint list
+    assertEquals(2, imp.jointDescIndex)
+    assertEquals("COMBINE_HEADER", imp.schema?.name)
+    assertTrue(imp.schema?.attacherJoint?.isEmpty() == true)
+
+    // exactly one node in the rig is selected, and it carries the control group
+    assertEquals(false, v.selection?.selected)
+    assertEquals(true, imp.selection?.selected)
+    val group = assertNotNull(imp.selection?.controlGroup)
+    assertEquals(2, group.current)
+    assertEquals("Greifer", group.name)
+    assertEquals(listOf("Kran", "Greifer"), group.names)
+  }
+
+  @Test
+  fun decodesUnloadingAndWorkAspects() {
+    // The §4 aspects. Inline for the same reason as the schema case: the committed captures predate
+    // all of them, and they only appear on machines (auger wagon, tipper, baler) none of the four
+    // fixtures contain.
+    val text =
+      """{"version":"5","vehicle":{"discharge":{"state":"GROUND","allowed":true,"nodeIndex":1,""" +
+        """"fillUnitIndex":2,"hasObject":false,"hitTerrain":true},""" +
+        """"harvest":{"swathActive":true,"swathAvailable":true,"chopperAvailable":false},""" +
+        """"implement":[{"position":"BACK","tipping":{"state":"OPENING","preferredSide":3,"count":3},""" +
+        """"discharge":{"state":"OFF","allowed":true,"reason":"NO_FREE_CAPACITY"},""" +
+        """"workMode":{"current":2,"count":2,"name":"Arbeit"},""" +
+        """"workWidth":{"left":3.0,"leftMax":3.0,"right":1.5,"rightMax":3.0,"total":4.5,"unit":"m"},""" +
+        """"baleCounter":{"session":12,"lifetime":480}}]}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+    val v = assertNotNull(data.vehicle)
+
+    val discharge = assertNotNull(v.discharge)
+    assertEquals(DischargeState.GROUND, discharge.state)
+    assertEquals(1, discharge.nodeIndex)
+    assertTrue(discharge.hitTerrain == true)
+    // nothing wrong -> no reason at all, rather than a "fine" sentinel
+    assertEquals(null, discharge.reason)
+
+    assertEquals(true, v.harvest?.swathActive)
+    assertEquals(false, v.harvest?.chopperAvailable)
+
+    val imp = assertNotNull(v.implement.singleOrNull())
+    // a tipper can be mid-OPENING with nothing discharging yet, and with a side chosen but not in use
+    assertEquals(TipState.OPENING, imp.tipping?.state)
+    assertEquals(null, imp.tipping?.side)
+    assertEquals(3, imp.tipping?.preferredSide)
+    assertEquals(DischargeState.OFF, imp.discharge?.state)
+    assertEquals(DischargeReason.NO_FREE_CAPACITY, imp.discharge?.reason)
+
+    assertEquals("Arbeit", imp.workMode?.name)
+    // sides are independent: right folded to half width
+    assertEquals(3f, imp.workWidth?.left)
+    assertEquals(1.5f, imp.workWidth?.right)
+    assertEquals(4.5f, imp.workWidth?.total)
+    assertEquals(480, imp.baleCounter?.lifetime)
   }
 
   @Test

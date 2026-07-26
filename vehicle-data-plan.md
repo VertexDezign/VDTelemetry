@@ -1,0 +1,481 @@
+# Vehicle telemetry — the data we don't export yet
+
+Written 2026-07-25 on `main`, from a review of the vehicle collectors against the FS25 game source
+(`fs25-modding-skill/references/lua-source`). Four gaps, in the order they're worth doing.
+
+**Status (2026-07-25, branch `vehicle-data-export`):**
+
+- §1 fill-unit display values — **done and validated in-game** (2026-07-25). The secondary `showOnHud`
+  filter switch was deliberately **not** taken; it stays open below.
+- §2 pipe/cover mappers — **done**, mod + shared only, no app changes. Not yet validated in-game.
+- §3 layout + selected group — **done**, mod + shared only, no app changes. Not yet validated in-game.
+- §4 backlog — **done bar one conditional item.** Six new aspects landed; the `Consumable` block stays
+  open because it was always gated on wanting the "last roll" alert. Two of the eight listed items
+  turned out to be **non-issues** — see §4.
+
+§1 was the only one that fixed a *wrong number* already on screen; the rest add data that wasn't there
+at all. The mod's export version is now **5** — one bump per shape change (2 = fill units, 3 = pipe
+and cover objects, 4 = schema and selection, 5 = the §4 aspects).
+
+Every game-source claim below is cited by `file:line` against the bundled source, which is real
+extracted FS25 Lua. What is **not** available in the sandbox is base-game **vehicle XML** — so anything
+that depends on the value a specific machine puts in an attribute is marked as needing an in-game
+check rather than asserted.
+
+## Guiding principle: export first, UI later
+
+A **UI redesign is coming** (scope undecided, possibly large). This plan therefore deliberately stops
+at the data layer: get the telemetry exported and modelled correctly, and let the redesign decide how
+to show it.
+
+So for every item below:
+
+- **Do now** — mod collectors, the Lua model, `Model.kt`, fixtures and tests.
+- **App: compatibility only** — the minimum to keep the current dashboard correct and compiling. A
+  contract change that breaks a panel gets repaired, not improved.
+- **Defer to the redesign** — every new widget, panel or visualisation. Noted per item so the redesign
+  inherits the list rather than rediscovering it.
+
+The practical consequence: **§2 and §3 become pure mod + shared work** with no app changes at all, and
+§1 is the only item that forces the app to move — because widening a field type would otherwise break
+it. That also argues for pulling more of §4 forward (see there), since a redesign is much easier to
+scope against data that already exists than against data someone has to promise.
+
+## Where this stands
+
+`VehicleExporter.collect` (`vdTelemetry/src/collect/VehicleExporter.lua:57`) builds the vehicle header,
+delegates to `VDT.Motor` / `VDT.Lights` / `VDT.SupportSystems`, applies the shared aspects
+(`aspects/Aspects.lua:14` → `isTurnedOn`, `foldable`, `lowered`, `fillUnits`, `pipe`, `cover`,
+`wearable`), then recurses the implement tree. The mod currently reads these game specs, and only
+these:
+
+```
+attacherJoints  cover  drivable  enterable  fillUnit  foldable  lights
+motorized  turnOnVehicle  washable  wearable   (+ the AI/steering ones)
+```
+
+`VDTelemetry.VERSION` is `1` (`VDTelemetry.lua:111`), matching `version: 1` in the fixtures.
+
+---
+
+## 1. Fill units: read the game's *display* values, not the raw ones
+
+**The bug:** for balers (and anything else using consumables) the app reports **less than the machine
+actually holds** — it counts the spare rolls in storage but not the partially-used roll currently
+mounted and being consumed.
+
+### What the game does
+
+In FS25, net / twine / wrap are the `Consumable` spec on top of an ordinary fill unit, and **the unit
+is slots, not litres**:
+
+- `capacity = numStorageSlots + numConsumingSlots` — `Consumable.lua:152`
+- the fill unit's raw `fillLevel` counts **only the spare/storage slots**. A freshly spawned machine
+  gets `addFillUnitFillLevel(..., type.numStorageSlots, ...)` and, *separately*,
+  `type.consumingFillLevel = 1` — `Consumable.lua:214-215`
+- `type.consumingFillLevel` is the mounted roll's own level, clamped to `0..1` — `Consumable.lua:540`
+
+Every update the game computes the real total and publishes it through the fill unit's **display**
+field (`Consumable.lua:645-646`):
+
+```lua
+local totalFillLevel = math.min(fillLevel + type.consumingFillLevel * type.numConsumingSlots,
+                                self:getFillUnitCapacity(type.fillUnitIndex))
+self:setFillUnitFillLevelToDisplay(type.fillUnitIndex, totalFillLevel, true)
+```
+
+`getFillLevelInformation` — the source for the game's own fill bars — then prefers
+`fillLevelToDisplay` over `fillLevel` (`FillUnit.lua:1948-1950`), `capacityToDisplay` over `capacity`
+(`:1952-1953`), and `fillTypeToDisplay` over `fillType` (`:1944-1945`).
+
+**`aspects/FillUnit.lua:46` reads `fillUnit.fillLevel`.** That is the raw spare-slot count. Hence the
+undercount. `Consumable.lua:153` mirrors the capacity into `capacityToDisplay` too, so `capacity`
+should come from the same place for consistency.
+
+### The catch: our model can't represent the answer
+
+`aspects/FillUnit.lua:61` does `value = math.floor(fillLevel)` and `Model.kt` declares
+`FillUnit.value: Int` (`Vehicle.kt:118`). A half-used roll is `1.5` — **flooring it throws away exactly
+the information that's missing.** Switching to `fillLevelToDisplay` alone changes nothing on screen.
+
+So `value` has to become a float (or gain a companion field). That is a mod↔Kotlin contract change:
+Lua model + `Model.kt` + `VDTelemetry.VERSION` + the `examples/json/` fixtures, together.
+
+Knock-on effects in the app — **all compatibility repairs, no new UI** — in
+`components/FillUnitsDisplay.kt` unless noted:
+
+- `:17` the skip-empty guard `fu.value == 0` needs a tolerance, not equality
+- `:22` `fu.value.toFloat() / fu.capacity` still works
+- `:26` `"${fu.value}${fu.unit}"` would print `1.5` — needs formatting driven by `uiPrecision`
+- `panels/Implements.kt:86` `mergeFillUnits` uses `g.sumOf { it.value }`; Kotlin's `sumOf` has no Float
+  overload, so that becomes `map { it.value }.sum()`
+
+That is the whole app-side obligation: the existing continuous bars keep working and start showing the
+right number. Nothing here is a redesign decision.
+
+### The segmented bar is real and exported
+
+`fillUnit.uiDisplayTypeId` comes from the XML attribute `#uiDisplayType`, `BAR` (default) or `STEP`
+(`FillUnit.lua:1434`). `FillLevelsDisplay.lua:157-175` renders `STEP` exactly as described in the
+game: `capacity` discrete segments, whole ones filled, and the **fractional remainder drawn inside
+segment `floor(fillLevel)+1`** — that fraction *is* `consumingFillLevel`. The text label is
+`"%d / %d"` with `math.ceil(fillLevel)` (`:241-242`), so a machine with one spare and a half-used roll
+reads **"2 / 2"**, not "1 / 2". Segment count is clamped by `MAX_NUM_STEPS`.
+
+**Export `uiDisplayTypeId` now, render it later.** Drawing the stepped bar is a redesign decision;
+having the flag in the model is what stops the redesign from being blocked on another mod release.
+*Needs an in-game check:* that base-game balers actually set `uiDisplayType="STEP"` on the consumable
+unit — the renderer exists and consumables are its obvious consumer, but the XML isn't readable here.
+
+### Scope
+
+- **mod** (`aspects/FillUnit.lua`): prefer `fillLevelToDisplay ?? fillLevel`,
+  `capacityToDisplay ?? capacity`, and `fillTypeToDisplay` when it isn't `UNKNOWN`; stop flooring;
+  carry `uiPrecision` and `uiDisplayTypeId`.
+- **shared** (`Model.kt`): `value` → float, add `precision` + a `FillDisplayType` enum (`BAR`/`STEP`).
+- **app**: the four compatibility repairs listed above. Nothing else.
+- **fixtures + tests**: regenerate `examples/json/*`, extend `VdtModelTest`. Bump `VDTelemetry.VERSION`.
+
+**Deferred to the redesign:** the stepped/segmented bar renderer, and the `"2 / 2"`-style label the
+game uses for `STEP` units instead of a percentage.
+
+### How it landed (2026-07-25)
+
+`aspects/FillUnit.lua` now reads `fillLevelToDisplay` / `capacityToDisplay` / `fillTypeToDisplay` with
+a fallback to the raw fields, keeps the level fractional (rounded to 3 decimals so the JSON stays
+diff-stable), and emits `precision` / `display` only when they differ from the engine defaults — the
+house "nil → absent key, `Model.kt` supplies the default" idiom. `FillUnit.value` is `Float` in
+`Model.kt`, alongside `precision: Int` and a new `FillDisplayType` enum. `VDTelemetry.VERSION` is
+**2**, and the four `examples/json` fixtures were bumped to match.
+
+App changes were the four compatibility repairs and nothing else: the skip-empty guard is a tolerance,
+`mergeFillUnits` uses `map/sum` (no Float `sumOf` overload), and the right-hand label formats through
+`precision` with a small wasm-safe formatter (`String.format` is JVM-only). Continuous bars still
+render `STEP` units — flagged with a comment pointing at the redesign.
+
+Tests: a new `spec/FillUnit_spec.lua` (12 cases) covers the display-value preference, the preserved
+fraction, the UNKNOWN-vs-unset `fillTypeToDisplay` distinction, and the default-omission rules — the
+whole Lua suite is 305 green. `VdtModelTest` gained a decode case for the fractional consumable shape.
+That one is **inline JSON, not a fixture**: no captured baler telemetry exists, and the net/twine fill
+*type* names live in `fillTypes.xml`, which isn't readable here — inventing them would put made-up
+game data in `examples/json`. A real baler capture is still wanted.
+
+`./gradlew check` passes (spotless, `:shared:jvmTest`, the app's wasm tests, `:server:test`, and the
+production wasm build), and `stylua --check` is clean.
+
+**Not yet validated in-game** — the whole point of the change is a number that only a running baler
+can confirm.
+
+### Free wins that ride along
+
+Reading the display values also picks up `parentUnitOnHud` / `childUnitOnHud`
+(`FillUnit.lua:1955-1963`), which is how the game folds a combine's buffer unit into the main tank
+(`Combine.lua:263`) — something `mergeFillUnits` currently approximates app-side by grouping on fill
+type.
+
+### Secondary, related, *not* the baler bug
+
+`aspects/FillUnit.lua:36` filters on `showOnInfoHud`. That is the **info-box** flag
+(`FillUnit.lua:2032`, and the game additionally requires `fillLevel > 0` there). The **fill-bar** flag
+— the one a dashboard is mirroring — is `showOnHud` (`FillUnit.lua:1939`, which instead requires
+`capacity > 0`). They're independent attributes, so today we drop units the game shows a bar for and
+show units it doesn't.
+
+This is a genuine divergence but it is **not** what causes the consumable undercount, and the crop
+fill unit on balers is confirmed working, so nothing observed currently depends on it.
+
+**Not taken in the §1 pass, deliberately — still open.** Switching the filter is a behaviour change
+whose blast radius can't be checked without the game: the existing `showOnInfoHud` skip was added for
+a real symptom (a forage/carrot harvester's pass-through output showing up), and if those units carry
+`showOnHud="true"` the switch brings them straight back. It buys nothing observable today, so it
+should wait for the in-game check below rather than ride along with a fix that needed no such gamble.
+If it is taken later, note that our deliberate tolerance for zero-capacity units
+(`aspects/FillUnit.lua`, for mods that ship `capacity = 0`) diverges from the game's `0 < capacity`
+gate and should stay as-is.
+
+---
+
+## 2. Pipe and cover: fix two lossy mappers
+
+Both are already collected (`aspects/Pipe.lua`, `aspects/Cover.lua`), already in `Model.kt`
+(`Vehicle.kt:21-22` and `:212-213`), and already in the fixtures (`combine.json` →
+`"pipe": "RETRACTED"`). **They are simply not rendered anywhere in the app** — the status row in
+`panels/Implements.kt:216-256` shows foldable / turned-on / lowered and stops there.
+
+Surfacing them is the redesign's call. What belongs here is the export fidelity, because both mappers
+silently lose real states today — and a redesign built on lossy data would bake the loss in:
+
+### `mapCoverState` (`ValueMapper.lua:149`) is wrong for multi-cover vehicles
+
+In `Cover.lua`, `spec.state` is `0` = closed and `1..#spec.covers` = **which** cover is open
+(`Cover.lua:228`; `:128` sets `spec.state = #spec.covers`). Our mapper returns `OPEN` only for
+`state == 1` and `UNKNOWN` for everything else — so a trailer with two or three tarp sections reports
+`UNKNOWN` whenever any cover but the first is open.
+
+Fix: `0` → `CLOSED`, anything else → `OPEN`, and carry the index plus `#spec.covers` if the app wants
+to show *which*.
+
+### `mapPipeState` (`ValueMapper.lua:137`) collapses multi-state pipes
+
+`spec.numStates` is read from XML and is frequently `> 2` (`Pipe.lua:166`). `currentState` is `0`
+**only while moving**, and `targetState` is where it's heading (`Pipe.lua:604-605`). So `EXTENDED`
+conflates "half out" with "fully out", and `MOVING` doesn't say which direction.
+
+Fix: keep the derived label for compatibility, add `currentState` / `targetState` / `numStates`.
+
+### Scope
+
+Small, and **mod + shared only**. Mod: two mapper functions plus the extra fields. Shared: widen
+`PipeState.kt` / `CoverType.kt` into small data classes (keep the existing string as one field so the
+current decode stays valid). Fixtures + tests. **No app changes** — nothing renders these today, so
+nothing breaks.
+
+**Deferred to the redesign:** status indicators for pipe and cover, on both the vehicle and its
+implements — and, if the richer fields are used, showing *which* cover of several is open and how far
+along a multi-state pipe is.
+
+### How it landed (2026-07-25)
+
+Both are objects now rather than bare strings, so the mod version went to **3**. `cover` carries
+`{state, index, count}` and `pipe` carries `{state, current, target, numStates}`; the coarse label
+stays as `state` for consumers that only want in/out. `mapCoverState` is now "0 is closed, anything
+else is open" — the `== 1` test was the actual bug. New `spec/PipeCover_spec.lua` covers both,
+including the multi-cover and multi-state cases that used to collapse.
+
+Where a committed fixture predates a field it is left **absent** rather than guessed: `pipe.numStates`
+and `cover.count` are unknowable from a v1 capture, while `current`/`target` are derivable from the
+captured `RETRACTED` label. No app changes — nothing renders these.
+
+One transition note: `ignoreUnknownKeys` covers a *newer mod* against an older terminal, but not the
+reverse. A v2 mod emitting `"pipe": "RETRACTED"` against a v3+ terminal is a string where an object is
+expected, which `coerceInputValues` does not rescue — it fails the whole parse. Mod and terminal ship
+from the same repo so this only bites a half-upgraded install; a union deserializer would fix it if
+that ever proves to be a real support burden.
+
+### Out of scope unless asked
+
+Making them *controllable*. Every existing command routes through FS25_additionalInputs' `vdAI*`
+functions rather than reimplementing spec logic — see the rationale at the top of
+`src/command/ImplementControl.lua`, which is explicit that hand-rolling per-spec control was fragile.
+`Pipe:setPipeState` and `Cover:setCoverState` are simple enough to call directly, but doing so would
+be the first exception to that rule. Decide deliberately.
+
+---
+
+## 3. Vehicle layout and selected group
+
+Nothing exported today. Two separate things, both reachable from the root vehicle.
+
+### Selection
+
+- `rootVehicle.selectableObjects` — the ordered list (`Vehicle.lua:2136-2147`). Note it is only
+  populated **on the root vehicle** (`updateSelectableObjects` early-returns otherwise).
+- `rootVehicle.currentSelection` — `{ object, index, subIndex }` (`Vehicle.lua:797`).
+- per object: `getIsSelected()` (`Vehicle.lua:2280`).
+
+Do **not** reimplement eligibility. Base `Vehicle:getCanBeSelected()` returns `VehicleDebug.state ~= 0`
+(`Vehicle.lua:2155`) and specializations override it (e.g. `Baler.lua:1811`), so `selectableObjects` is
+the only authoritative answer.
+
+### The group
+
+The "selected group" is the Cylindered sub-selection: `spec_cylindered.controlGroupNames` (i18n names
+straight from the XML) and `currentControlGroupIndex`, with `controlGroupMapping[subIndex] → groupIndex`
+(`Cylindered.lua:444-467`, rebuilt live in `updateControlGroups` at `:1539-1566`). Note the game's own
+HUD only renders the group *number* (`Cylindered.lua:2849`) — the names are available to us, so the
+dashboard can do better than the game here.
+
+### The layout
+
+`vehicle.schemaOverlay` (a `VehicleSchemaOverlayData`) gives `schemaName` — `VEHICLE` / `HARVESTER` /
+`TRUCK` / `CAR` / `LOADER` / `IMPLEMENT` / `TRAILER` / `COMBINE_HEADER` / `FRONTLOADER` / `MOTORBIKE` —
+plus `offsetX/Y` and `attacherJoints[]` with `x`, `y`, `rotation`, `invertX`, `liftedOffsetX/Y`
+(`VehicleSchemaOverlayData.lua`).
+
+`InputHelpDisplay:collectVehicleSchemaDisplayOverlays` (`InputHelpDisplay.lua:536-592`) is the exact
+algorithm to mirror: walk `getAttachedImplements()`, index
+`parent.schemaOverlay.attacherJoints[implement.jointDescIndex]`, and per node emit `selected`,
+`turnedOn` (`getUseTurnedOnSchema()`) and `additionalText`. It caps recursion at
+`MAX_SCHEMA_COLLECTION_DEPTH`; ours should too.
+
+### Why this one matters most for the redesign
+
+`panels/Implements.kt` is currently hardcoded to two columns, found by string-matching
+`position == "FRONT"` / `"BACK"` (`:96-97`, via `findImplement` at `:58-64`), where `position` comes from
+FS25_additionalInputs' `vdAIGetAttacherJointPosition` (`VehicleExporter.lua:25-27`). Anything nested or
+sideways is unrepresentable — `nested_trailers.json` exists as a fixture but the panel can't draw it.
+
+That is a **UI limitation caused by a data gap**, which makes this the item the redesign most depends
+on. Exporting the schema up front means the redesign can consider a real rig diagram; not exporting it
+means the redesign re-implements front/back columns and the constraint outlives the rewrite.
+
+### Scope
+
+**Mod + shared only.** `VehicleExporter.collect` already walks the implement tree, so this is mostly
+adding `jointDescIndex`, the schema name and the selection flags per node, plus a small
+selection/control-group block on the vehicle. Fixtures + tests. The current panel ignores unknown
+fields, so nothing breaks.
+
+Keep the layout *arithmetic* (offsets, rotation, `invertX` composition) out of the mod — export the
+raw joint data and let the app place it, as `InputHelpDisplay` does. That keeps the maths where the
+redesign can change it without a mod release.
+
+**Deferred to the redesign:** the rig diagram itself, selection highlighting, the control-group
+readout, and whatever becomes of the front/back columns.
+
+### How it landed (2026-07-25)
+
+Two new aspects, applied to vehicle and implements alike through `Aspects.apply`, plus one field set
+during the tree walk. Mod version **4**.
+
+- **`schema`** (`aspects/Schema.lua`) — `{name, offsetX, offsetY, borderLeft, borderRight,
+  attacherJoint[]}`, each joint `{x, y, rotation, invertX, liftedOffsetX, liftedOffsetY}`, copied
+  verbatim from the engine's `schemaOverlay`. `attacherJoint` is absent when the object has none (the
+  engine leaves the list nil until something registers one).
+- **`selection`** (`aspects/Selection.lua`) — `{selected, controlGroup}`. `selected` is the engine's
+  own per-object flag, so walking the tree finds the selected node without ever touching the root's
+  ordered `selectableObjects`. `controlGroup` is `{current, name, names}` from `spec_cylindered`;
+  `current` is 0 when nothing is active and `name` is then absent.
+- **`jointDescIndex`** on the implement — set in `VehicleExporter.collectImplements`, because it lives
+  on the attacher-joint entry rather than on the object. This is the link that turns the flat
+  per-object schema data into a drawable rig.
+
+**No layout arithmetic in the mod, by design** — composing offsets, rotations and `invertX` down the
+tree stays app-side, so the diagram can change without a mod release. `InputHelpDisplay
+.collectVehicleSchemaDisplayOverlays` is the reference algorithm, and its depth cap (5) is worth
+mirroring.
+
+Deliberately skipped: `getUseTurnedOnSchema()`, which the HUD uses only to tint the silhouette and
+which duplicates the `isTurnedOn` we already export. Eligibility (`getCanBeSelected`) is likewise not
+recomputed — specializations override it, so the engine's flag is the only correct answer.
+
+Tests: `spec/SchemaSelection_spec.lua` plus a Kotlin decode case. Both are synthetic for the same
+reason as §2 — the committed captures predate all of this, and joint offsets are per-vehicle XML data
+that would be invented if hand-written into `examples/json`. **A fresh capture with a real rig is the
+main thing this needs**, and it would be the first fixture to exercise `jointDescIndex` end to end.
+
+---
+
+## 4. Backlog — other specs worth exporting
+
+Not investigated in depth; listed in the order I'd rank them.
+
+**Consider pulling the top of this list forward, before the redesign.** Each of these is
+mod + shared only under the principle above, and a redesign scoped against data that already exists is
+a much better redesign than one scoped against a list of maybes. `Dischargeable` in particular is
+core vehicle state that any new dashboard would want on day one.
+
+- **`Dischargeable`** — the biggest remaining gap. `DISCHARGE_STATE_OFF` / `_OBJECT` / `_GROUND` plus
+  the `DISCHARGE_REASON_*` codes for *why* unloading is blocked (no free capacity, filltype
+  unsupported, no land access, …) — `Dischargeable.lua:3-11`. Covers every trailer, combine and auger
+  wagon, and pairs naturally with pipe state from §2.
+- **`Trailer`** — tip state and tip side.
+- **`Combine`** — threshing active, chopper vs swath, straw output.
+- **`Consumable` as a first-class block** — §1 fixes the *number* via the fill unit. A dedicated block
+  off `spec_consumable.types[]` would add which variation is loaded, `showWarning`, `allowRefillDialog`
+  and the storage/consuming split, which is what a "you're on your last roll" alert needs. Do it only
+  if that alert is wanted; §1 is enough for correct levels.
+- **`BaleCounter`** — total and session bale counts.
+- **`WorkMode` / `VariableWorkWidth`** — current mode name, live working width.
+
+### How it landed (2026-07-25)
+
+Six aspects, all through `Aspects.apply`, all valid on vehicle *and* implement. Mod version **5**.
+
+| aspect | from | carries |
+|---|---|---|
+| `discharge` | `Dischargeable` | `state` (OFF/OBJECT/GROUND), `allowed`, node + fill-unit index, `hasObject`, `hitTerrain`, `reason` |
+| `tipping` | `Trailer` | `state` (CLOSED/OPENING/OPEN/CLOSING), `side`, `preferredSide`, `count` |
+| `harvest` | `Combine` | `swathActive` plus `swathAvailable` / `chopperAvailable` |
+| `workMode` | `WorkMode` | `current`, `count`, resolved `name` |
+| `workWidth` | `VariableWorkWidth` | per-side `left`/`right` and their maxima, plus `total` |
+| `baleCounter` | `BaleCounter` | `session`, `lifetime` |
+
+`discharge.reason` is the pick of these — the engine's own verdict on why unloading is refused
+(`NO_FREE_CAPACITY`, `NO_ACCESS_LAND`, …), the same code behind its on-screen warning, and nothing a
+dashboard could work out for itself.
+
+**Deliberately field-reads only.** `Dischargeable` also exposes `getCanDischargeToGround` /
+`AtPosition` / `ToObject`, but those run terrain and fill-type queries — they are not called on the
+export path. Everything collected here is engine-maintained state the discharge raycast already
+updated.
+
+Two design notes worth keeping: `discharge` and `tipping` are separate because a tipper sits in
+`OPENING` with nothing discharging yet, and `tipping.side` / `preferredSide` stay distinct because the
+first is nil until a side is in use while the second is always set. Collapsing either pair would be
+the same mistake §2 had to undo.
+
+Tests: `spec/WorkAspects_spec.lua` plus a Kotlin decode case; the Lua suite is at 340. Synthetic
+again, for the sharpest reason yet — these aspects only appear on an auger wagon, a tipper and a
+baler, and **none of the four committed fixtures contains any such machine**. A capture from a tipping
+trailer and one from a baler would cover most of this in one go.
+
+**Deferred to the redesign:** every one of these. Nothing renders them.
+
+**Still open from this section:** the `Consumable` first-class block, which was always conditional on
+wanting a "you're on your last roll" alert. §1 already makes the *level* correct, so this would only
+add the loaded variation, the storage/consuming split and the warning flags. Say if the alert is
+wanted.
+- ~~**`Motorized`** fuel *consumption rate*~~ — **wrong, already exported.** `Motor.lua:13-25` passes
+  `lastFuelUsage` / `lastDefUsage` / `lastAirUsage` through as `usage`, and `combine.json` carries
+  `"usage": 216.71` on the fuel unit. This item should never have been on the list.
+- ~~**`spec_washable`**~~ — **non-issue, already correct.** `aspects/Wearable.lua` reads damage/wear
+  from `spec_wearable` and dirt from `spec_washable` via `getDirtAmount()`, exactly as it should. The
+  two specs share one output block, which is what made it look like one source.
+
+---
+
+## Suggested sequencing
+
+Ordered so the app is touched once, early, and then left alone until the redesign.
+
+1. ~~**§1 fill-unit display values.**~~ — **done** (see "How it landed"), minus the `showOnHud` filter
+   switch, which stays open pending an in-game check. Still needs validating against a real baler,
+   and a captured baler fixture would be worth adding when one exists.
+2. ~~**§2 pipe + cover mappers** and **§3 layout + selected group**.~~ — **both done** (see their "How
+   it landed" sections), mod + shared only as predicted, no app changes in either. Both still want
+   in-game validation, and §3 wants a captured fixture with a real implement rig.
+3. ~~**§4 as far as appetite allows, `Dischargeable` first**~~ — **done** bar the conditional
+   `Consumable` block; two of the listed items turned out to be non-issues. See "How it landed".
+4. **Then the UI redesign**, against a data layer that is already correct and already complete enough
+   to design against. Each item above leaves a "deferred to the redesign" note; together those are the
+   redesign's inbox. **This is now the next step** — the export side is done.
+
+One consequence, now real rather than anticipated: the dashboard shows *more correct* data but not
+*more* data. Pipe, cover, schema and selection are all in the JSON and nothing renders them. That's
+the intended trade, not a regression — but it does mean the only way to check §2 and §3 is to read
+`vdTelemetry.json` directly (or the `examples/json` fixtures) rather than to look at the app.
+
+### In-game checks this plan depends on
+
+- ~~Does a baler now report its consumables correctly?~~ — **confirmed working in-game** (2026-07-25).
+- Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? (§1 — now visible in
+  the exported JSON as `display`, so this is just a matter of looking. Decides whether the stepped bar
+  is worth building in the redesign.)
+- **Does a multi-state pipe report sensibly?** (§2 — read the JSON directly; nothing renders it. An
+  auger wagon should give `pipe.numStates > 2`.)
+- Multi-cover (`cover.count > 1`): **not validated, and deliberately parked** (2026-07-25 — no such
+  vehicle to hand). Low risk: a single-cover vehicle only ever has `state` 0 or 1, where the old and
+  new mappers agree exactly, so the only changed behaviour is `state >= 2` — which used to return
+  `UNKNOWN` and was wrong by construction. If one turns up, the tell is the cover action prompt
+  reading **"Next cover"** rather than "Open/Close cover": `Cover:updateActionText` uses that string
+  only while `0 < state < #covers`. Structurally they are vehicles with separately covered
+  compartments, since each cover declares the `fillUnitIndices` it covers.
+- **Does `schema` come out populated on a real rig, and does `jointDescIndex` line up with the parent's
+  `attacherJoint` list?** (§3 — the one thing the synthetic tests can't confirm. A capture here is
+  wanted as a fixture too.)
+- Does `controlGroup` populate on a front loader or crane, with sensible `names`? (§3 — the names come
+  from XML and may be i18n keys rather than resolved text on some mods.)
+- **Do the §4 aspects populate on the machines that have them?** None of the four fixtures contains an
+  auger wagon, a tipper or a baler, so every §4 test is synthetic. The highest-value single check is
+  `discharge.reason` on a trailer the game is refusing to unload — back up to a full silo and confirm
+  it reads `NO_FREE_CAPACITY`. `workMode.name` is the other one worth a look, since it may come
+  through as an unresolved i18n key on some mods.
+- Captures wanted as fixtures: a **tipping trailer** and a **baler**. Between them they would cover
+  `tipping`, `discharge`, `baleCounter`, the `STEP` consumable bar from §1, and give §3 its first real
+  `jointDescIndex` chain.
+- Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does
+  a forage/carrot harvester's pass-through output carry `showOnHud="true"`? (§1 secondary — gates the
+  filter switch, which was deliberately not taken.)
+- Multi-cover trailer: confirm `spec.state` really does exceed `1`. (§2 — confirms the mapper bug is
+  reachable, not just theoretically wrong.)

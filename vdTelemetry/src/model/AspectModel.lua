@@ -3,6 +3,9 @@
 -- ImplementModel; this file holds the structured ones (fill units, wearable).
 
 -- Repeated <fillUnit> form (vehicle / implement / combined). Distinct from MotorFillUnitModel.
+-- `value` is fractional: a consumable unit (bale net/twine/wrap) is measured in slots and reads e.g.
+-- 1.5 for one spare roll plus a half-used one. `precision`/`display` are the game's own display hints
+-- and are absent at their engine defaults (0 / "BAR").
 ---@class FillUnitModel
 ---@field value number
 ---@field type string?
@@ -11,6 +14,8 @@
 ---@field capacity number
 ---@field fillLevelPercentage number
 ---@field usage number?
+---@field precision number?
+---@field display string?
 
 ---@class FillUnitsModel
 ---@field fillUnit FillUnitModel[]
@@ -20,3 +25,88 @@
 ---@field wear number?
 ---@field dirt number?
 ---@field unit string
+
+-- `current` is 0 while moving, else 1..numStates (1 = retracted). `target` is where it is heading.
+---@class PipeModel
+---@field state string RETRACTED | EXTENDED | MOVING
+---@field current number
+---@field target number
+---@field numStates number
+
+-- `index` is 0 when closed, else which of `count` covers is open.
+---@class CoverModel
+---@field state string CLOSED | OPEN
+---@field index number
+---@field count number
+
+-- Where a child hangs off this object in the schema diagram. Raw engine values -- composing them
+-- down the tree is the consumer's job (see collect/aspects/Schema.lua).
+---@class SchemaJointModel
+---@field x number
+---@field y number
+---@field rotation number
+---@field invertX boolean
+---@field liftedOffsetX number
+---@field liftedOffsetY number
+
+-- The object's silhouette in the game's rig diagram. `attacherJoint` is absent when it has none.
+---@class SchemaModel
+---@field name string VEHICLE | HARVESTER | TRAILER | ... (mod-prefixed for modded silhouettes)
+---@field offsetX number
+---@field offsetY number
+---@field borderLeft number?
+---@field borderRight number?
+---@field attacherJoint SchemaJointModel[]?
+
+-- The moving-tool group the player is cycling through on a Cylindered object (crane, front loader).
+-- `current` is 0 when none is active; `name` is names[current], absent when current is 0.
+---@class ControlGroupModel
+---@field current number
+---@field name string?
+---@field names string[]
+
+---@class SelectionModel
+---@field selected boolean
+---@field controlGroup ControlGroupModel?
+
+-- `reason` is the engine's own code for why unloading is blocked; absent when nothing is wrong.
+---@class DischargeModel
+---@field state string OFF | OBJECT | GROUND
+---@field allowed boolean
+---@field nodeIndex number?
+---@field fillUnitIndex number?
+---@field hasObject boolean?
+---@field hitTerrain boolean?
+---@field reason string? NOT_ALLOWED_HERE | NO_FREE_CAPACITY | FILLTYPE_NOT_SUPPORTED | TOOLTYPE_NOT_SUPPORTED | NO_ACCESS | NO_ACCESS_LAND
+
+-- The trough moving, as opposed to material leaving it (see DischargeModel). `side` is nil until a
+-- tip side is picked; `preferredSide` is what the next tip will use.
+---@class TippingModel
+---@field state string CLOSED | OPENING | OPEN | CLOSING
+---@field side number?
+---@field preferredSide number?
+---@field count number?
+
+-- Straw handling on a combine: swath it for baling, or chop it back onto the field.
+---@class HarvestModel
+---@field swathActive boolean
+---@field swathAvailable boolean?
+---@field chopperAvailable boolean?
+
+---@class WorkModeModel
+---@field current number
+---@field count number
+---@field name string?
+
+-- Live width of a tool with retractable sections; sides are independent.
+---@class WorkWidthModel
+---@field left number
+---@field leftMax number
+---@field right number
+---@field rightMax number
+---@field total number
+---@field unit string
+
+---@class BaleCounterModel
+---@field session number
+---@field lifetime number

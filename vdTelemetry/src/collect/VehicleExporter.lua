@@ -29,6 +29,11 @@ local function collectImplements(rootObject)
     ---@type ImplementModel
     local implModel = { position = position }
 
+    -- Which of the PARENT's schema attacher joints this implement hangs off — the link that turns
+    -- the flat per-object schema data into a drawable rig (see aspects/Schema.lua). It lives on the
+    -- attacher-joint entry, not on the object, so it is set here rather than in an aspect.
+    implModel.jointDescIndex = attachedImplement.jointDescIndex
+
     local object = attachedImplement.object
     if object ~= nil then
       implModel.name = object:getFullName()
