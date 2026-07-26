@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.alerts.AlertBannerHost
+import net.vertexdezign.vdt.app.alerts.NotificationCenter
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.apps.availableApps
 import net.vertexdezign.vdt.app.net.ConnectionState
@@ -29,6 +30,8 @@ import net.vertexdezign.vdt.app.pages.AutoShow
 import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.panels.Footer
 import net.vertexdezign.vdt.app.panels.Header
+import net.vertexdezign.vdt.app.state.Favourite
+import net.vertexdezign.vdt.app.state.FavouritesStore
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.state.VdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -40,6 +43,7 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
     val telemetry by store.telemetry.collectAsState()
     val connection by store.connection.collectAsState()
     val pages by store.pages.pages.collectAsState()
+    val favourites by store.favourites.favourites.collectAsState()
 
     // Auto-switch on each enter/leave transition: activate the first page that opts into the new
     // state. Keying the effect on the resolved *id* (which only changes when the state flips) means a
@@ -59,6 +63,7 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
     }
 
     var launcherOpen by remember { mutableStateOf(false) }
+    var notificationsOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
 
     MaterialTheme {
@@ -73,9 +78,15 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
               screen,
               pages,
               editing = editing,
-              onOpenScreen = { screen = it },
+              // Apps aren't editable, so leaving a page ends edit mode — same rule as the launcher,
+              // and now reachable from a favourite in the bar too.
+              onOpenScreen = {
+                if (it is Screen.OpenApp) editing = false
+                screen = it
+              },
               onToggleEdit = { editing = !editing },
               onOpenLauncher = { launcherOpen = true },
+              onOpenNotifications = { notificationsOpen = true },
             )
         }
 
@@ -107,6 +118,17 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
           }
         }
 
+        if (notificationsOpen) {
+          NotificationCenter(
+            history = store.alerts.history.collectAsState().value,
+            // Marks the entries whose condition is still true, so the log reads differently from a
+            // second copy of the active set.
+            activeIds = store.alerts.active.collectAsState().value.mapTo(mutableSetOf()) { it.rule.id },
+            onClear = store.alerts::clearHistory,
+            onDismiss = { notificationsOpen = false },
+          )
+        }
+
         if (launcherOpen) {
           Launcher(
             apps = availableApps(),
@@ -128,6 +150,11 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
             // Keep the launcher open so the restored pages appear in place for the user to pick.
             onRestoreDefaults = { store.pages.restoreDefaults() },
             onDismiss = { launcherOpen = false },
+            // Pinning happens here because the launcher is the drawer everything else lives in —
+            // it's where you decide what gets promoted out of it onto the bar.
+            pinned = favourites.mapTo(mutableSetOf()) { it.toScreen() },
+            canPinMore = favourites.size < FavouritesStore.MAX,
+            onTogglePin = { store.favourites.toggle(Favourite.of(it)) },
           )
         }
       }
@@ -156,6 +183,7 @@ private fun Shell(
   onOpenScreen: (Screen) -> Unit,
   onToggleEdit: () -> Unit,
   onOpenLauncher: () -> Unit,
+  onOpenNotifications: () -> Unit,
 ) {
   val store = LocalVdtStore.current
   val wakeLock by store.wakeLock.collectAsState()
@@ -170,7 +198,6 @@ private fun Shell(
       canEdit = screen is Screen.OpenPage,
       onToggleWakeLock = store.onToggleWakeLock,
       onToggleEdit = onToggleEdit,
-      onOpenLauncher = onOpenLauncher,
     )
 
     when (screen) {
@@ -189,6 +216,16 @@ private fun Shell(
       }
     }
 
-    Footer(data.vehicle, onCommand = store.onCommand)
+    // The bar is shell chrome, so it stays put whichever screen is open. While an app is open there
+    // is no current page, so the centre shows dots without a title rather than lying about position.
+    Footer(
+      pages = pages,
+      currentPageId = (screen as? Screen.OpenPage)?.pageId,
+      screen = screen,
+      onOpenLauncher = onOpenLauncher,
+      onSelectPage = { onOpenScreen(Screen.OpenPage(it)) },
+      onOpenScreen = onOpenScreen,
+      onOpenNotifications = onOpenNotifications,
+    )
   }
 }

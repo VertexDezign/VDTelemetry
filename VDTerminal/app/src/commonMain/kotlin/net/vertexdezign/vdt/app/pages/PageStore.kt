@@ -116,6 +116,9 @@ private fun seedPages(): List<Page> = listOf(
         LayoutCell("engine", col = 1, row = 0),
         LayoutCell("implements", col = 2, row = 0),
         LayoutCell("lighting", col = 0, row = 1),
+        // Heading / steering assist used to be permanent chrome in the bottom bar. It's a widget now,
+        // so the starter page places it — otherwise a fresh install would simply lose it.
+        LayoutCell("navigation", col = 1, row = 1),
       ),
     ),
   ),

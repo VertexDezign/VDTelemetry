@@ -34,6 +34,22 @@ class AlertEngine(private val rules: List<AlertRule>) {
   private val _raised = MutableSharedFlow<ActiveAlert>(extraBufferCapacity = 16)
   val raised: SharedFlow<ActiveAlert> = _raised.asSharedFlow()
 
+  private val _history = MutableStateFlow<List<ActiveAlert>>(emptyList())
+
+  /**
+   * Everything that has fired this session, newest first, capped at [HISTORY_LIMIT].
+   *
+   * Distinct from [active]: an alert stays in the history after its condition clears, which is the
+   * point — it answers "what did I miss while I was driving", the question a banner that has already
+   * faded cannot. Session-scoped and deliberately not persisted; a page reload starts clean.
+   */
+  val history: StateFlow<List<ActiveAlert>> = _history.asStateFlow()
+
+  /** Empties the history. The active set is untouched — those conditions are still true. */
+  fun clearHistory() {
+    _history.value = emptyList()
+  }
+
   /**
    * Advances every rule against one tick of [inputs] and returns the alerts this tick raised (also
    * emitted on [raised]). Rules whose data is absent hold their state (see [AlertInputs]) — a
@@ -42,6 +58,8 @@ class AlertEngine(private val rules: List<AlertRule>) {
   fun process(inputs: AlertInputs): List<ActiveAlert> {
     val raisedNow = mutableListOf<ActiveAlert>()
     var changed = false
+    // Stamped onto anything raised this tick; see ActiveAlert.at for why it's the game clock.
+    gameTime = inputs.telemetry?.environment?.time ?: gameTime
     for (rule in rules) {
       changed = when (rule) {
         is ThresholdAlertRule -> processThreshold(rule, inputs, raisedNow)
@@ -49,6 +67,9 @@ class AlertEngine(private val rules: List<AlertRule>) {
       } || changed
     }
     if (changed) _active.value = activeById.values.toList()
+    if (raisedNow.isNotEmpty()) {
+      _history.value = (raisedNow.asReversed() + _history.value).take(HISTORY_LIMIT)
+    }
     raisedNow.forEach(_raised::tryEmit)
     return raisedNow
   }
@@ -90,8 +111,16 @@ class AlertEngine(private val rules: List<AlertRule>) {
   }
 
   private fun raise(rule: AlertRule, message: String, raisedNow: MutableList<ActiveAlert>) {
-    val alert = ActiveAlert(rule, message)
+    val alert = ActiveAlert(rule, message, gameTime)
     activeById[rule.id] = alert
     raisedNow += alert
+  }
+
+  /** Last in-game clock seen; held across ticks so an absent channel doesn't blank the stamp. */
+  private var gameTime: String? = null
+
+  private companion object {
+    /** Enough to cover a long session's worth of scrollback without growing without bound. */
+    const val HISTORY_LIMIT = 50
   }
 }

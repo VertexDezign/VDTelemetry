@@ -52,8 +52,10 @@ class VdtStore(
   val settings: Settings,
   /** The user's pages (created/edited at runtime, persisted); see [PageStore]. */
   val pages: PageStore,
-  /** Shell-wide alert state (banners + sticky active set); see [AlertEngine]. */
+  /** Shell-wide alert state (banners, sticky active set, session history); see [AlertEngine]. */
   val alerts: AlertEngine,
+  /** Screens pinned to the bottom bar; see [FavouritesStore]. */
+  val favourites: FavouritesStore,
   val onToggleWakeLock: () -> Unit,
   val onCommand: (ClientMessage) -> Unit,
 )

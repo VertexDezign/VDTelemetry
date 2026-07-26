@@ -16,6 +16,7 @@ import net.vertexdezign.vdt.app.alerts.ThresholdAlertRule
 import net.vertexdezign.vdt.app.widgets.EngineWidget
 import net.vertexdezign.vdt.app.widgets.ImplementsWidget
 import net.vertexdezign.vdt.app.widgets.LightingWidget
+import net.vertexdezign.vdt.app.widgets.NavigationWidget
 import net.vertexdezign.vdt.app.widgets.Widget
 
 /**
@@ -35,7 +36,7 @@ object VehicleApp : VdtApp {
   override val id = "vehicle"
   override val title = "Vehicle"
   override val icon: ImageVector = Icons.Filled.Agriculture
-  override val widgets: List<Widget> = listOf(EngineWidget, ImplementsWidget, LightingWidget)
+  override val widgets: List<Widget> = listOf(EngineWidget, ImplementsWidget, NavigationWidget, LightingWidget)
 
   override val alerts: List<AlertRule> =
     listOf(

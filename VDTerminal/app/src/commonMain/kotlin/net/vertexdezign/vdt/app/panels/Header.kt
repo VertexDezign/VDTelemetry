@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material3.Icon
@@ -26,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.WakeLockStatus
@@ -33,7 +33,14 @@ import net.vertexdezign.vdt.app.theme.brandAccentFor
 import net.vertexdezign.vdt.model.Environment
 import net.vertexdezign.vdt.model.Vehicle
 
-/** Top bar: environment stats, brand title, and controls. Port of the React `Header`. */
+/**
+ * Top bar: environment stats, the vehicle's identity, and controls.
+ *
+ * The centre is the *identity* block — brand over model name — because the bottom bar now owns
+ * navigation and page position. On foot there is no vehicle to name, so it falls back to the product
+ * name on a single line. The launcher used to sit at the left of this bar; it moved down beside the
+ * page dots so that pressing to change page and reading which page you're on happen in one corner.
+ */
 @Composable
 fun Header(
   env: Environment?,
@@ -44,7 +51,6 @@ fun Header(
   canEdit: Boolean = true,
   onToggleWakeLock: () -> Unit = {},
   onToggleEdit: () -> Unit = {},
-  onOpenLauncher: () -> Unit = {},
 ) {
   val accent = brandAccentFor(vehicle?.brand?.name)
   val brandName = vehicle?.brand?.title?.takeIf { it.isNotBlank() } ?: "VDTerminal"
@@ -58,29 +64,37 @@ fun Header(
     Row(
       Modifier.weight(1f),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(24.dp),
+      horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-      Icon(
-        Icons.Filled.Menu,
-        "open app launcher",
-        tint = accent.text,
-        modifier = Modifier.size(24.dp).clickable(onClick = onOpenLauncher),
-      )
-      Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Stat(Icons.Filled.Thermostat, if (temp != null) "${temp.current}${temp.unit}" else "--", accent.text)
-        Stat(Icons.Filled.CalendarMonth, env?.date ?: "--", accent.text)
-        Stat(Icons.Filled.Schedule, env?.time ?: "--", accent.text)
-      }
+      Stat(Icons.Filled.Thermostat, if (temp != null) "${temp.current}${temp.unit}" else "--", accent.text)
+      Stat(Icons.Filled.CalendarMonth, env?.date ?: "--", accent.text)
+      Stat(Icons.Filled.Schedule, env?.time ?: "--", accent.text)
     }
-    // Center third — brand title
-    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center) {
+    // Center third — identity: brand over model. Modded vehicle names run long, so both lines clip
+    // rather than pushing the stats and controls out of the bar.
+    Column(
+      Modifier.weight(1f),
+      horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
       Text(
         brandName.uppercase(),
         color = accent.labelText,
         fontSize = 28.sp,
         fontWeight = FontWeight.Black,
         fontStyle = FontStyle.Italic,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
       )
+      vehicle?.name?.takeIf { it.isNotBlank() }?.let { name ->
+        Text(
+          name,
+          color = accent.text.copy(alpha = 0.75f),
+          fontSize = 11.sp,
+          fontWeight = FontWeight.Bold,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
     }
     // Right third — controls
     Row(
