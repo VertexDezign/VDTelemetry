@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -52,28 +53,6 @@ internal val CELL_GAP = 8.dp
 internal val GRID_PADDING = 8.dp
 
 /**
- * Smallest a grid cell may get before its widget stops being readable. The page's column/row count is
- * capped so a cell never shrinks below this in the current viewport — the readability floor is on cell
- * *size*, not on any per-widget span (the grid is freely resizable, so a span floor wouldn't bound the
- * pixels). Tuned by eye; adjust here if tiles feel too dense or too sparse.
- */
-internal val MIN_CELL_WIDTH = 200.dp
-internal val MIN_CELL_HEIGHT = 140.dp
-
-/**
- * The most cells that fit along one axis while keeping each at least [minCellPx] (accounting for the
- * [gapPx] between them), clamped to [GridLayout.MIN_SIDE]..[GridLayout.MAX_SIDE]. Returns the hard
- * ceiling when [availablePx] isn't known yet (not measured), so the control stays usable on first frame.
- *
- * Derivation: `availablePx >= n*minCellPx + (n-1)*gapPx` ⇒ `n <= (availablePx + gapPx)/(minCellPx + gapPx)`.
- */
-internal fun maxGridSide(availablePx: Float, minCellPx: Float, gapPx: Float): Int {
-  if (availablePx <= 0f) return GridLayout.MAX_SIDE
-  val fit = ((availablePx + gapPx) / (minCellPx + gapPx)).toInt()
-  return fit.coerceIn(GridLayout.MIN_SIDE, GridLayout.MAX_SIDE)
-}
-
-/**
  * Renders a [GridLayout]: a `columns × rows` grid of equal cells with [CELL_GAP] gaps, each widget
  * placed at its `col/row` origin spanning `colSpan/rowSpan`. Absolute offsets over a
  * [BoxWithConstraints] do the placement (Compose has no CSS-grid), which also gives the cell geometry
@@ -106,9 +85,14 @@ fun WidgetGrid(
 
     fun spanWidth(cs: Int) = cellW * cs + gapPx * (cs - 1)
     fun spanHeight(rs: Int) = cellH * rs + gapPx * (rs - 1)
-    fun hitTest(center: Offset): GridPos = GridPos(
-      (center.x / strideX).toInt().coerceIn(0, cols - 1),
-      (center.y / strideY).toInt().coerceIn(0, rows - 1),
+
+    // Snap a dragged tile's top-left corner to the nearest grid origin. It has to be the corner, not
+    // the tile's centre: a widget is placed by its origin, so on this grid a centre-based target
+    // would drop every multi-cell tile half its own size down and to the right of where it was let
+    // go. Rounding (not truncating) means the nearest line wins, so a small nudge doesn't move it.
+    fun hitTest(topLeft: Offset): GridPos = GridPos(
+      (topLeft.x / strideX).roundToInt().coerceIn(0, cols - 1),
+      (topLeft.y / strideY).roundToInt().coerceIn(0, rows - 1),
     )
 
     if (editing) {
@@ -165,9 +149,13 @@ private fun WidgetCell(
   val currentOnLayoutChange by rememberUpdatedState(onLayoutChange)
   val currentOriginX by rememberUpdatedState(originX)
   val currentOriginY by rememberUpdatedState(originY)
-  val currentWidthPx by rememberUpdatedState(widthPx)
-  val currentHeightPx by rememberUpdatedState(heightPx)
   val currentHitTest by rememberUpdatedState(hitTest)
+
+  // An unregistered id has no size contract to honour, so it falls back to the 1×1 floor — it renders
+  // as an empty tile anyway and the user's next move is to remove it.
+  val widget = WidgetRegistry.byId(cell.widgetId)
+  val minColSpan = widget?.minColSpan ?: 1
+  val minRowSpan = widget?.minRowSpan ?: 1
 
   Box(
     Modifier
@@ -175,7 +163,6 @@ private fun WidgetCell(
       .offset { IntOffset((originX + drag.x).roundToInt(), (originY + drag.y).roundToInt()) }
       .size(with(density) { widthPx.toDp() }, with(density) { heightPx.toDp() }),
   ) {
-    val widget = WidgetRegistry.byId(cell.widgetId)
     if (widget != null) widget.Content(Modifier.fillMaxSize()) else EmptyPanel(Modifier.fillMaxSize())
 
     if (editing) {
@@ -194,12 +181,7 @@ private fun WidgetCell(
                 drag += delta
               },
               onDragEnd = {
-                val center =
-                  Offset(
-                    currentOriginX + drag.x + currentWidthPx / 2f,
-                    currentOriginY + drag.y + currentHeightPx / 2f,
-                  )
-                val target = currentHitTest(center)
+                val target = currentHitTest(Offset(currentOriginX + drag.x, currentOriginY + drag.y))
                 drag = Offset.Zero
                 currentOnLayoutChange(currentLayout.moveOrSwap(GridPos(cell.col, cell.row), target))
               },
@@ -221,56 +203,72 @@ private fun WidgetCell(
         )
 
         // A resize direction is offered only when it would actually change the layout: shrinking is
-        // blocked at a 1-cell span, growing at the grid edge or against a neighbour. resize() is a
-        // no-op (returns the same layout) in those cases, so that's the signal.
-        fun canResizeTo(colSpan: Int, rowSpan: Int) = layout.resize(cell, colSpan, rowSpan) != layout
+        // blocked at the widget's own span floor, growing at the grid edge or against a neighbour.
+        // resize() is a no-op (returns an equal layout) in those cases, so that's the signal.
+        fun resizedTo(colSpan: Int, rowSpan: Int) = layout.resize(cell, colSpan, rowSpan, minColSpan, minRowSpan)
+        fun canResizeTo(colSpan: Int, rowSpan: Int) = resizedTo(colSpan, rowSpan) != layout
 
-        Row(
+        // Two rows of two rather than one row of four: on the 12×7 grid a minimum-size tile is only
+        // about a cell wide, and four buttons in a line would run off it.
+        Column(
           Modifier.align(Alignment.BottomEnd).padding(4.dp),
-          horizontalArrangement = Arrangement.spacedBy(4.dp),
+          verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-          CtrlButton(
-            Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-            "narrower",
-            enabled = canResizeTo(cell.colSpan - 1, cell.rowSpan),
-            onClick = { onLayoutChange(layout.resize(cell, cell.colSpan - 1, cell.rowSpan)) },
-          )
-          CtrlButton(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            "wider",
-            enabled = canResizeTo(cell.colSpan + 1, cell.rowSpan),
-            onClick = { onLayoutChange(layout.resize(cell, cell.colSpan + 1, cell.rowSpan)) },
-          )
-          CtrlButton(
-            Icons.Filled.KeyboardArrowUp,
-            "shorter",
-            enabled = canResizeTo(cell.colSpan, cell.rowSpan - 1),
-            onClick = { onLayoutChange(layout.resize(cell, cell.colSpan, cell.rowSpan - 1)) },
-          )
-          CtrlButton(
-            Icons.Filled.KeyboardArrowDown,
-            "taller",
-            enabled = canResizeTo(cell.colSpan, cell.rowSpan + 1),
-            onClick = { onLayoutChange(layout.resize(cell, cell.colSpan, cell.rowSpan + 1)) },
-          )
+          Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            CtrlButton(
+              Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+              "narrower",
+              enabled = canResizeTo(cell.colSpan - 1, cell.rowSpan),
+              onClick = { onLayoutChange(resizedTo(cell.colSpan - 1, cell.rowSpan)) },
+            )
+            CtrlButton(
+              Icons.AutoMirrored.Filled.KeyboardArrowRight,
+              "wider",
+              enabled = canResizeTo(cell.colSpan + 1, cell.rowSpan),
+              onClick = { onLayoutChange(resizedTo(cell.colSpan + 1, cell.rowSpan)) },
+            )
+          }
+          Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            CtrlButton(
+              Icons.Filled.KeyboardArrowUp,
+              "shorter",
+              enabled = canResizeTo(cell.colSpan, cell.rowSpan - 1),
+              onClick = { onLayoutChange(resizedTo(cell.colSpan, cell.rowSpan - 1)) },
+            )
+            CtrlButton(
+              Icons.Filled.KeyboardArrowDown,
+              "taller",
+              enabled = canResizeTo(cell.colSpan, cell.rowSpan + 1),
+              onClick = { onLayoutChange(resizedTo(cell.colSpan, cell.rowSpan + 1)) },
+            )
+          }
         }
       }
     }
   }
 }
 
-/** An empty grid slot in edit mode: tap to open the widget picker for this position. */
+/**
+ * An empty grid slot in edit mode: tap to open the widget picker for this position. On the 12×7 grid
+ * an empty page shows 84 of these at once, so it reads as a faint backdrop rather than 84 buttons
+ * competing with the tiles that are actually placed.
+ */
 @Composable
 private fun AddSlot(onClick: () -> Unit, modifier: Modifier = Modifier) {
   Box(
     modifier
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.3f))
-      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
+      .background(VdtColors.White.copy(alpha = 0.22f))
+      .border(1.dp, VdtColors.PanelBorder.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
       .clickable(onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
-    Icon(Icons.Filled.Add, "add widget", tint = VdtColors.DarkGray, modifier = Modifier.size(28.dp))
+    Icon(
+      Icons.Filled.Add,
+      "add widget",
+      tint = VdtColors.DarkGray.copy(alpha = 0.6f),
+      modifier = Modifier.size(18.dp),
+    )
   }
 }
 

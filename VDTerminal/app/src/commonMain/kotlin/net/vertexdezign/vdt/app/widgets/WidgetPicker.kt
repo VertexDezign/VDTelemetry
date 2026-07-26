@@ -28,13 +28,13 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
  * Modal widget picker: a scrim (tap to dismiss) over a card listing the [available] widgets (those
- * not already on the screen). Picking one calls [onPick] with its id. Shown when an empty grid slot
- * is tapped in edit mode.
+ * not already on the screen). Picking one calls [onPick] with the widget itself — placement needs its
+ * declared size, not just its id. Shown when an empty grid slot is tapped in edit mode.
  */
 @Composable
 fun WidgetPicker(
   available: List<Widget>,
-  onPick: (String) -> Unit,
+  onPick: (Widget) -> Unit,
   onDismiss: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -65,7 +65,7 @@ fun WidgetPicker(
           verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           for (widget in available) {
-            WidgetRow(widget, onClick = { onPick(widget.id) })
+            WidgetRow(widget, onClick = { onPick(widget) })
           }
         }
       }

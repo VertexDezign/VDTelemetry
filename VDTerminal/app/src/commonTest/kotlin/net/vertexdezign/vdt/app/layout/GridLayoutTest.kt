@@ -50,27 +50,42 @@ class GridLayoutTest {
   }
 
   @Test
-  fun withGridSizeClampsToTheAllowedRange() {
-    val layout = grid(3, 2)
-    assertEquals(GridLayout.MIN_SIDE, layout.withGridSize(0, 0).columns)
-    assertEquals(GridLayout.MAX_SIDE, layout.withGridSize(99, 99).rows)
+  fun addWidgetPlacesAtTheSizeTheWidgetAsksFor() {
+    // The latent bug this replaced: every add landed 1x1, whatever the widget needed.
+    assertEquals(
+      listOf(cell("a", 1, 0, colSpan = 4, rowSpan = 3)),
+      grid(12, 6).addWidget("a", 1, 0, colSpan = 4, rowSpan = 3, minColSpan = 2, minRowSpan = 2).cells,
+    )
   }
 
   @Test
-  fun withGridSizeGrowingKeepsEveryCell() {
-    val layout = grid(3, 2, cell("a", 2, 1))
-    assertEquals(layout.cells, layout.withGridSize(4, 4).cells)
+  fun addWidgetShrinksTowardsTheMinimumWhenTheDefaultDoesNotFit() {
+    // Only 3 columns left to the edge, so the 4-wide default squeezes to 3 rather than being refused.
+    val placed = grid(12, 6).addWidget("a", 9, 0, colSpan = 4, rowSpan = 3, minColSpan = 2, minRowSpan = 2)
+    assertEquals(cell("a", 9, 0, colSpan = 3, rowSpan = 3), placed.cells.single())
   }
 
   @Test
-  fun withGridSizeShrinkingDropsOnlyOutOfBoundsCells() {
-    val layout = grid(3, 3, cell("keep", 0, 0), cell("drop", 2, 2))
-    assertEquals(listOf(cell("keep", 0, 0)), layout.withGridSize(2, 2).cells)
+  fun addWidgetShrinksAroundANeighbourNotJustTheGridEdge() {
+    val layout = grid(12, 6, cell("b", 4, 0, colSpan = 2, rowSpan = 6))
+    val placed = layout.addWidget("a", 0, 0, colSpan = 6, rowSpan = 3, minColSpan = 2, minRowSpan = 2)
+    assertEquals(cell("a", 0, 0, colSpan = 4, rowSpan = 3), placed.cells.first { it.widgetId == "a" })
   }
 
   @Test
-  fun addWidgetPlacesAOneByOneAtAFreeSlot() {
-    assertEquals(listOf(cell("a", 1, 0)), grid(3, 2).addWidget("a", 1, 0).cells)
+  fun addWidgetPrefersTheLargestFittingSizeAndThenTheWiderOne() {
+    // A single blocker on the diagonal rules out 3x3 but leaves both 3x2 and 2x3 free. Equal area,
+    // so the tie-break decides: the wider one.
+    val layout = grid(12, 6, cell("b", 2, 2))
+    val placed = layout.addWidget("a", 0, 0, colSpan = 3, rowSpan = 3, minColSpan = 2, minRowSpan = 2)
+    assertEquals(cell("a", 0, 0, colSpan = 3, rowSpan = 2), placed.cells.first { it.widgetId == "a" })
+  }
+
+  @Test
+  fun addWidgetRefusedWhenEvenTheMinimumDoesNotFit() {
+    val layout = grid(12, 6, cell("b", 2, 0, colSpan = 10, rowSpan = 6))
+    // Two free columns, but this widget needs three.
+    assertSame(layout, layout.addWidget("a", 0, 0, colSpan = 4, rowSpan = 3, minColSpan = 3, minRowSpan = 2))
   }
 
   @Test
@@ -83,6 +98,13 @@ class GridLayoutTest {
   fun addWidgetRefusesOutOfBounds() {
     val layout = grid(3, 2)
     assertSame(layout, layout.addWidget("a", 3, 0)) // col 3 is outside 0..2
+  }
+
+  @Test
+  fun addWidgetSurvivesAWidgetDeclaringAMinimumAboveItsDefault() {
+    // An authoring slip shouldn't make the widget unplaceable — the default wins.
+    val placed = grid(12, 6).addWidget("a", 0, 0, colSpan = 2, rowSpan = 2, minColSpan = 5, minRowSpan = 5)
+    assertEquals(cell("a", 0, 0, colSpan = 2, rowSpan = 2), placed.cells.single())
   }
 
   @Test
@@ -120,6 +142,29 @@ class GridLayoutTest {
     val a = cell("a", 0, 0)
     val layout = grid(3, 2, a, cell("b", 1, 0))
     assertSame(layout, layout.resize(a, 2, 1)) // widening a would collide with b
+  }
+
+  @Test
+  fun resizeStopsAtTheWidgetsOwnFloorNotAtOneCell() {
+    val a = cell("a", 0, 0, colSpan = 4, rowSpan = 3)
+    val layout = grid(12, 6, a)
+    val shrunk = layout.resize(a, 1, 1, minColSpan = 3, minRowSpan = 2).cells.single()
+    assertEquals(cell("a", 0, 0, colSpan = 3, rowSpan = 2), shrunk)
+  }
+
+  @Test
+  fun resizeAtTheFloorReportsNoChangeSoTheControlCanGreyOut() {
+    // The edit overlay offers a direction only when resize() returns a different layout.
+    val a = cell("a", 0, 0, colSpan = 3, rowSpan = 2)
+    val layout = grid(12, 6, a)
+    assertEquals(layout, layout.resize(a, 2, 2, minColSpan = 3, minRowSpan = 2))
+  }
+
+  @Test
+  fun resizeRefusedWhenTheFloorNoLongerFitsBetweenTheOriginAndTheEdge() {
+    val a = cell("a", 10, 0) // only 2 columns left to the edge
+    val layout = grid(12, 6, a)
+    assertSame(layout, layout.resize(a, 3, 1, minColSpan = 3, minRowSpan = 1))
   }
 
   @Test
@@ -163,5 +208,59 @@ class GridLayoutTest {
     val layout = grid(3, 2, a, b)
     // Swapping would put the 2-wide 'a' at col 2, overflowing the grid.
     assertSame(layout, layout.moveOrSwap(GridPos(0, 0), GridPos(2, 0)))
+  }
+}
+
+/**
+ * [GridLayout.rescaledTo] carries a layout saved under an older grid onto the current one — the
+ * migration that let the per-page grid stepper go away.
+ */
+class GridRescaleTest {
+  @Test
+  fun aWholeMultipleScalesExactly() {
+    // The clean case: 3x2 -> 12x6 is x4 across and x3 down, so no edge rounds. (The live grid is
+    // 12x7, where rows don't divide — anUnevenRatioRoundsAndStillTilesWithoutGaps covers that.)
+    val old = grid(3, 2, cell("map", 0, 0, colSpan = 2, rowSpan = 2), cell("tasks", 2, 0), cell("crops", 2, 1))
+    val next = old.rescaledTo(12, 6)
+    assertEquals(12, next.columns)
+    assertEquals(6, next.rows)
+    assertEquals(
+      listOf(
+        cell("map", 0, 0, colSpan = 8, rowSpan = 6),
+        cell("tasks", 8, 0, colSpan = 4, rowSpan = 3),
+        cell("crops", 8, 3, colSpan = 4, rowSpan = 3),
+      ),
+      next.cells,
+    )
+  }
+
+  @Test
+  fun anUnevenRatioRoundsAndStillTilesWithoutGaps() {
+    // 5 columns into 12 doesn't divide: edges round, but adjacent cells stay adjacent because both
+    // sides of a shared edge round the same way.
+    val old = grid(5, 2, cell("a", 0, 0, colSpan = 2, rowSpan = 1), cell("b", 2, 0, colSpan = 3, rowSpan = 1))
+    val next = old.rescaledTo(12, 6)
+    val a = next.cells.first { it.widgetId == "a" }
+    val b = next.cells.first { it.widgetId == "b" }
+    assertEquals(a.col + a.colSpan, b.col) // no gap and no overlap at the seam
+    assertEquals(12, b.col + b.colSpan) // and the pair still spans the full width
+  }
+
+  @Test
+  fun everyRescaledCellStaysInBoundsAndClearOfTheOthers() {
+    val old = grid(5, 3, cell("a", 0, 0, colSpan = 3, rowSpan = 2), cell("b", 3, 0, colSpan = 2, rowSpan = 3))
+    val next = old.rescaledTo(12, 6)
+    for (c in next.cells) {
+      assertTrue(c.col >= 0 && c.row >= 0)
+      assertTrue(c.col + c.colSpan <= next.columns && c.row + c.rowSpan <= next.rows)
+      assertTrue(c.colSpan >= 1 && c.rowSpan >= 1)
+    }
+    assertFalse(next.cells[0].overlaps(next.cells[1]))
+  }
+
+  @Test
+  fun aLayoutAlreadyOnTheTargetGridIsUntouched() {
+    val layout = grid(12, 6, cell("a", 0, 0, colSpan = 4, rowSpan = 3))
+    assertSame(layout, layout.rescaledTo(12, 6))
   }
 }
