@@ -38,6 +38,7 @@ import net.vertexdezign.vdt.app.pages.PageIcon
 import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.widgets.Widget
 import net.vertexdezign.vdt.app.widgets.WidgetPicker
 import net.vertexdezign.vdt.app.widgets.availableWidgets
 
@@ -75,22 +76,27 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
     val pending = addAt?.takeIf { editing && it in page.layout.freePositions() }
     if (pending != null) {
       val placed = page.layout.cells.map { it.widgetId }.toSet()
+
+      // The widget, not just its id: placement needs the size it asks for and the floor it may be
+      // squeezed to, which is exactly what stops a tile landing as an unreadable single cell.
+      fun place(widget: Widget) = page.layout.addWidget(
+        widget.id,
+        pending.col,
+        pending.row,
+        colSpan = widget.defaultColSpan,
+        rowSpan = widget.defaultRowSpan,
+        minColSpan = widget.minColSpan,
+        minRowSpan = widget.minRowSpan,
+      )
+
       WidgetPicker(
-        available = availableWidgets().filter { it.id !in placed },
-        // The widget, not just its id: placement needs the size it asks for and the floor it may be
-        // squeezed to, which is exactly what stops a tile landing as an unreadable single cell.
+        // An empty slot doesn't mean every widget fits it: one whose floor won't clear the grid edge
+        // or a neighbour is refused, and addWidget is then a no-op — listing it would give a row that
+        // silently does nothing when tapped. Trying the placement is the only honest filter, the same
+        // way the resize controls grey out on `resize() == layout`.
+        available = availableWidgets().filter { it.id !in placed && place(it) != page.layout },
         onPick = { widget ->
-          apply(
-            page.layout.addWidget(
-              widget.id,
-              pending.col,
-              pending.row,
-              colSpan = widget.defaultColSpan,
-              rowSpan = widget.defaultRowSpan,
-              minColSpan = widget.minColSpan,
-              minRowSpan = widget.minRowSpan,
-            ),
-          )
+          apply(place(widget))
           addAt = null
         },
         onDismiss = { addAt = null },
