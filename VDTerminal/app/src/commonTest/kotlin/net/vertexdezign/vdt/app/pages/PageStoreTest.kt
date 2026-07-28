@@ -83,6 +83,14 @@ class SeedPageTest {
   }
 
   @Test
+  fun everySeededInstanceIdIsUniqueWithinItsPage() {
+    for (page in seeds) {
+      val ids = page.layout.cells.map { it.instanceId }
+      assertEquals(ids.size, ids.toSet().size, "${page.id} repeats an instance id: $ids")
+    }
+  }
+
+  @Test
   fun everySeededWidgetIsRegisteredAndPlacedAtOrAboveItsFloor() {
     for (page in seeds) {
       for (cell in page.layout.cells) {
@@ -98,18 +106,27 @@ class SeedPageTest {
   }
 }
 
-/** Loading a page written before the grid was frozen: it is rescaled, not read as a corner of 12×7. */
-class PageStoreMigrationTest {
-  @Test
-  fun aLayoutSavedOnTheOldThreeByTwoGridIsRescaledOnLoad() {
-    val settings = MapSettings()
-    settings.putString(
-      "vdt.pages",
+/** What [PageStore] does with what it finds in storage: rescale it, repair it, or fall back. */
+class PageStoreLoadTest {
+  private fun storedPage(columns: Int, rows: Int, cells: String) = MapSettings().apply {
+    putString(
+      "vdt.pages.v2",
       """
-      [{"id":"old","title":"Old","icon":"Grid","autoShow":"Never","layout":{"columns":3,"rows":2,
-      "cells":[{"widgetId":"map","col":0,"row":0,"colSpan":2,"rowSpan":2},{"widgetId":"tasks","col":2,"row":0}]}}]
+      [{"id":"old","title":"Old","icon":"Grid","autoShow":"Never",
+      "layout":{"columns":$columns,"rows":$rows,"cells":[$cells]}}]
       """.trimIndent().replace("\n", ""),
     )
+  }
+
+  @Test
+  fun aLayoutSavedOnADifferentGridIsRescaledOnLoad() {
+    val settings =
+      storedPage(
+        3,
+        2,
+        """{"instanceId":"i1","widgetId":"map","col":0,"row":0,"colSpan":2,"rowSpan":2},
+        {"instanceId":"i2","widgetId":"tasks","col":2,"row":0}""",
+      )
 
     val layout = PageStore(settings).pages.value.single().layout
     assertEquals(GridLayout.COLUMNS, layout.columns)
@@ -122,14 +139,13 @@ class PageStoreMigrationTest {
 
   @Test
   fun cellsWhoseWidgetIsGoneAreDroppedBeforeRescaling() {
-    val settings = MapSettings()
-    settings.putString(
-      "vdt.pages",
-      """
-      [{"id":"old","title":"Old","icon":"Grid","autoShow":"Never","layout":{"columns":3,"rows":2,
-      "cells":[{"widgetId":"map","col":0,"row":0},{"widgetId":"removedLongAgo","col":1,"row":0}]}}]
-      """.trimIndent().replace("\n", ""),
-    )
+    val settings =
+      storedPage(
+        3,
+        2,
+        """{"instanceId":"i1","widgetId":"map","col":0,"row":0},
+        {"instanceId":"i2","widgetId":"removedLongAgo","col":1,"row":0}""",
+      )
 
     val cells = PageStore(settings).pages.value.single().layout.cells
     assertEquals(listOf("map"), cells.map { it.widgetId })
@@ -137,21 +153,58 @@ class PageStoreMigrationTest {
   }
 
   @Test
+  fun aRepeatedInstanceIdIsDroppedSoTheGridCanKeyOnIt() {
+    // WidgetGrid keys its tiles by instance id and Compose can't tell two apart under one key, so a
+    // hand-edited or half-written file has to lose the duplicate rather than render it.
+    val settings =
+      storedPage(
+        12,
+        7,
+        """{"instanceId":"dup","widgetId":"map","col":0,"row":0,"colSpan":4,"rowSpan":4},
+        {"instanceId":"dup","widgetId":"engine","col":4,"row":0,"colSpan":4,"rowSpan":4}""",
+      )
+
+    val cells = PageStore(settings).pages.value.single().layout.cells
+    assertEquals(listOf("map"), cells.map { it.widgetId }) // the first one wins
+  }
+
+  @Test
+  fun storedConfigSurvivesTheLoad() {
+    val settings =
+      storedPage(
+        12,
+        7,
+        """{"instanceId":"i1","widgetId":"map","col":0,"row":0,"colSpan":4,"rowSpan":4,
+        "config":{"layer":"soil"}}""",
+      )
+
+    assertEquals(mapOf("layer" to "soil"), PageStore(settings).pages.value.single().layout.cells.single().config)
+  }
+
+  @Test
   fun aTileThatScalesUpBelowItsWidgetsFloorIsGrownBackToIt() {
     // 6x6 -> 12x7 doubles the width but barely stretches the height, so a 1x1 lands as 2x1 — under
     // every readout widget's floor.
-    val settings = MapSettings()
-    settings.putString(
-      "vdt.pages",
-      """
-      [{"id":"old","title":"Old","icon":"Grid","autoShow":"Never","layout":{"columns":6,"rows":6,
-      "cells":[{"widgetId":"engine","col":0,"row":0}]}}]
-      """.trimIndent().replace("\n", ""),
-    )
+    val settings = storedPage(6, 6, """{"instanceId":"i1","widgetId":"engine","col":0,"row":0}""")
 
     val engine = PageStore(settings).pages.value.single().layout.cells.single()
     val widget = WidgetRegistry.byId("engine")!!
     assertTrue(engine.colSpan >= widget.minColSpan, "colSpan ${engine.colSpan} < ${widget.minColSpan}")
     assertTrue(engine.rowSpan >= widget.minRowSpan, "rowSpan ${engine.rowSpan} < ${widget.minRowSpan}")
+  }
+
+  @Test
+  fun aPayloadFromBeforeInstanceIdsIsIgnoredAndTheSeedsComeBack() {
+    // v1 cells have no instance id, so they can't be decoded into the current schema. The key bump is
+    // what makes that a clean start rather than a decode error path.
+    val settings = MapSettings()
+    settings.putString(
+      "vdt.pages",
+      """[{"id":"old","title":"Old","icon":"Grid","autoShow":"Never","layout":{"columns":12,"rows":7,
+      "cells":[{"widgetId":"map","col":0,"row":0,"colSpan":4,"rowSpan":4}]}}]
+      """.trimIndent().replace("\n", ""),
+    )
+
+    assertEquals(listOf("vehicle", "farm"), PageStore(settings).pages.value.map { it.id })
   }
 }

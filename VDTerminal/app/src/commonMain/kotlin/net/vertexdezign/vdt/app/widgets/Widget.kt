@@ -33,7 +33,29 @@ interface Widget {
   val minColSpan: Int get() = 3
   val minRowSpan: Int get() = 2
 
-  /** Renders the tile filling [modifier]'s bounds (each widget supplies its own panel chrome). */
+  /**
+   * The per-instance settings this widget accepts, empty (the default) when it takes none. Each
+   * placed tile carries its own answers, so two instances of one widget on the same page can show
+   * different things.
+   *
+   * Declaring an option is all a widget has to do to become configurable: the picker asks for the
+   * answers as it places the tile, the edit overlay grows a gear to change them later, and the values
+   * arrive back through [Content]'s `config`.
+   *
+   * Composable so the choices can react to the session — the same reason
+   * [net.vertexdezign.vdt.app.apps.VdtApp.isAvailable] is.
+   */
   @Composable
-  fun Content(modifier: Modifier)
+  fun configOptions(): List<ConfigOption> = emptyList()
+
+  /**
+   * Renders the tile filling [modifier]'s bounds (each widget supplies its own panel chrome), for
+   * the instance configured by [config] — read through [ConfigOption.resolve], never indexed
+   * directly, so a stale or absent value falls back instead of blanking the tile.
+   *
+   * The default lets the callers that render a widget outside any page — an app's own full-screen
+   * view — say nothing about configuration, which is exactly what they mean.
+   */
+  @Composable
+  fun Content(modifier: Modifier, config: WidgetConfig = emptyMap())
 }

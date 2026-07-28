@@ -44,7 +44,7 @@ object MapWidget : Widget {
   override val minRowSpan = 3
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
     val sampleIntervalMs by store.sampleIntervalMs.collectAsState()
@@ -81,7 +81,7 @@ object EngineWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Agriculture
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
     val sampleIntervalMs by store.sampleIntervalMs.collectAsState()
@@ -101,7 +101,7 @@ object ImplementsWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Anchor
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
     val vehicle = telemetry?.vehicle
@@ -129,7 +129,7 @@ object NavigationWidget : Widget {
   override val minRowSpan = 2
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
     val vehicle = telemetry?.vehicle
@@ -152,7 +152,7 @@ object LightingWidget : Widget {
   override val minRowSpan = 2
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
     val vehicle = telemetry?.vehicle
@@ -171,7 +171,7 @@ object TaskListWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Checklist
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val taskList by store.taskList.collectAsState()
     TaskListPanel(taskList, modifier, onCommand = store.onCommand)
@@ -185,7 +185,7 @@ object CropRotationWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Grass
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val cropRotation by store.cropRotation.collectAsState()
     CropRotationPanel(cropRotation, modifier, onCommand = store.onCommand)

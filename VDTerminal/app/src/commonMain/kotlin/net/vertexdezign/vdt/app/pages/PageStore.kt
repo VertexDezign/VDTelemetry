@@ -93,9 +93,15 @@ class PageStore(private val settings: Settings) {
   }
 
   /**
-   * Brings a stored page up to date: drops cells whose widget no longer exists, then re-expresses the
-   * layout on the current grid. Pages saved before the grid was frozen carry their own dimensions, so
-   * a 3×2 arrangement scales up to fill 12×7 rather than being read as a corner of it.
+   * Brings a stored page up to date: drops cells whose widget no longer exists or whose instance id
+   * repeats one already seen, then re-expresses the layout on the current grid. Pages saved under a
+   * different grid carry their own dimensions, so a 3×2 arrangement scales up to fill 12×7 rather
+   * than being read as a corner of it.
+   *
+   * The duplicate check guards the one invariant the rest of the app now leans on: instance ids are
+   * unique within a page. `WidgetGrid` keys its tiles by them, and Compose can't tell two tiles apart
+   * under one key — a hand-edited or half-written file would otherwise show up as a tile that won't
+   * drag rather than as bad data.
    *
    * Scaling doesn't know about widget floors — a 1×1 on an old 6×6 page lands as 2×1, under the
    * minimum most widgets now declare — so each undersized tile is then grown back to its floor where
@@ -103,7 +109,10 @@ class PageStore(private val settings: Settings) {
    * a tile hemmed in by its neighbours simply stays small until the user rearranges the page.
    */
   private fun sanitize(page: Page): Page {
-    val known = page.layout.cells.filter { WidgetRegistry.byId(it.widgetId) != null }
+    val known =
+      page.layout.cells
+        .filter { WidgetRegistry.byId(it.widgetId) != null }
+        .distinctBy { it.instanceId }
     var layout = page.layout.copy(cells = known).rescaledTo(GridLayout.COLUMNS, GridLayout.ROWS)
     for (cell in layout.cells.toList()) {
       val widget = WidgetRegistry.byId(cell.widgetId) ?: continue
@@ -121,7 +130,13 @@ class PageStore(private val settings: Settings) {
   }
 
   private companion object {
-    const val KEY = "vdt.pages"
+    /**
+     * Bumped from `vdt.pages` when cells gained their [LayoutCell.instanceId]. A v1 payload has no
+     * instance ids and can't be decoded into the current schema; a new key says so outright, instead
+     * of leaning on [load]'s catch-all to quietly hand back the seeds. It also leaves the old value in
+     * storage, so a layout from before the change is still there to read if it's ever wanted.
+     */
+    const val KEY = "vdt.pages.v2"
     val ListSerializer = kotlinx.serialization.builtins.ListSerializer(Page.serializer())
   }
 }
@@ -131,6 +146,10 @@ class PageStore(private val settings: Settings) {
  * arrangement these had when the grid was 3×2 — a fine grid is what lets a *widget* be small, not
  * what makes every tile small — with the extra room 12×7 gives spent on a dock of single-cell
  * shortcuts rather than on making the readout panels bigger than they need to be.
+ *
+ * Seeded instance ids are hand-written and readable rather than generated. They only have to be
+ * unique within their page, and being stable across installs makes them something you can name when
+ * reading a stored layout — which a random id defeats.
  */
 private fun seedPages(): List<Page> = listOf(
   Page(
@@ -145,21 +164,21 @@ private fun seedPages(): List<Page> = listOf(
       cells =
       listOf(
         // Top band, 4 rows: the three readouts you watch while driving.
-        LayoutCell("map", col = 0, row = 0, colSpan = 4, rowSpan = 4),
-        LayoutCell("engine", col = 4, row = 0, colSpan = 4, rowSpan = 4),
-        LayoutCell("implements", col = 8, row = 0, colSpan = 4, rowSpan = 4),
+        LayoutCell("veh-map", "map", col = 0, row = 0, colSpan = 4, rowSpan = 4),
+        LayoutCell("veh-engine", "engine", col = 4, row = 0, colSpan = 4, rowSpan = 4),
+        LayoutCell("veh-implements", "implements", col = 8, row = 0, colSpan = 4, rowSpan = 4),
         // Bottom band, 3 rows: the two you glance at, plus the dock.
-        LayoutCell("lighting", col = 0, row = 4, colSpan = 5, rowSpan = 3),
+        LayoutCell("veh-lighting", "lighting", col = 0, row = 4, colSpan = 5, rowSpan = 3),
         // Heading / steering assist used to be permanent chrome in the bottom bar. It's a widget now,
         // so the starter page places it — otherwise a fresh install would simply lose it.
-        LayoutCell("navigation", col = 5, row = 4, colSpan = 5, rowSpan = 3),
+        LayoutCell("veh-navigation", "navigation", col = 5, row = 4, colSpan = 5, rowSpan = 3),
         // A 2×2 dock of single-cell shortcuts in the corner, showing what they're for: these four
         // apps contribute no widget of their own, so before this they were only reachable two taps
         // deep behind the launcher or by spending one of the four pinned slots on the bar.
-        LayoutCell(ShortcutWidget.idFor("production"), col = 10, row = 4),
-        LayoutCell(ShortcutWidget.idFor("storage"), col = 11, row = 4),
-        LayoutCell(ShortcutWidget.idFor("animals"), col = 10, row = 5),
-        LayoutCell(ShortcutWidget.idFor("diagnostics"), col = 11, row = 5),
+        LayoutCell("veh-sc-production", ShortcutWidget.idFor("production"), col = 10, row = 4),
+        LayoutCell("veh-sc-storage", ShortcutWidget.idFor("storage"), col = 11, row = 4),
+        LayoutCell("veh-sc-animals", ShortcutWidget.idFor("animals"), col = 10, row = 5),
+        LayoutCell("veh-sc-diagnostics", ShortcutWidget.idFor("diagnostics"), col = 11, row = 5),
       ),
     ),
   ),
@@ -174,9 +193,9 @@ private fun seedPages(): List<Page> = listOf(
       rows = GridLayout.ROWS,
       cells =
       listOf(
-        LayoutCell("map", col = 0, row = 0, colSpan = 8, rowSpan = 7),
-        LayoutCell("tasks", col = 8, row = 0, colSpan = 4, rowSpan = 4),
-        LayoutCell("cropRotation", col = 8, row = 4, colSpan = 4, rowSpan = 3),
+        LayoutCell("farm-map", "map", col = 0, row = 0, colSpan = 8, rowSpan = 7),
+        LayoutCell("farm-tasks", "tasks", col = 8, row = 0, colSpan = 4, rowSpan = 4),
+        LayoutCell("farm-cropRotation", "cropRotation", col = 8, row = 4, colSpan = 4, rowSpan = 3),
       ),
     ),
   ),

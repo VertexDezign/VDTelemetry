@@ -54,7 +54,7 @@ class ShortcutWidget(private val app: VdtApp) : Widget {
   override val minRowSpan = 1
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val open = LocalNavigator.current
     ShortcutTile(app.icon, app.title, onClick = { open(Screen.OpenApp(app.id)) }, modifier = modifier)
   }
