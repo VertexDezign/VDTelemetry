@@ -110,7 +110,15 @@ private fun collectFillUnits(imp: Implement?): List<FillUnit> {
   return units
 }
 
-private fun mergeFillUnits(units: List<FillUnit>): List<FillUnit> {
+/**
+ * Folds a chain's fill units into one bar per fill type — what the panel's merge toggle turns on.
+ *
+ * Grouped by [FillUnit.type], falling back to the title for units that report none, and keyed in
+ * encounter order so the merged list keeps the order the rig is hitched in. Internal rather than
+ * private so the arithmetic can be tested directly: getting it wrong looks like a plausible bar
+ * rather than an error.
+ */
+internal fun mergeFillUnits(units: List<FillUnit>): List<FillUnit> {
   val groups = LinkedHashMap<String, MutableList<FillUnit>>()
   for (u in units) {
     groups
