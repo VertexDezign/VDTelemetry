@@ -3,7 +3,9 @@ package net.vertexdezign.vdt.app.pages
 import com.russhwolf.settings.MapSettings
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.layout.GridLayout
+import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.ShortcutWidget
+import net.vertexdezign.vdt.app.widgets.SlotWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -102,6 +104,32 @@ class SeedPageTest {
         assertTrue(
           appId != null && AppRegistry.byId(appId) != null,
           "${page.id}/${cell.instanceId} points at unknown app $appId",
+        )
+      }
+    }
+  }
+
+  @Test
+  fun theVehicleSeedPlacesAllThreeRigPositions() {
+    // The point of the rig-slot rework: front, the machine and rear are each their own tile, so the
+    // page can put them where they actually sit rather than in one fixed two-column panel.
+    val slots =
+      seeds
+        .first { it.id == "vehicle" }
+        .layout.cells
+        .filter { it.widgetId == SlotWidget.id }
+        .mapNotNull { it.config[SlotWidget.SLOT_KEY] }
+    assertEquals(RigSlot.entries.map { it.name }.toSet(), slots.toSet())
+  }
+
+  @Test
+  fun everySeededSlotNamesARigPosition() {
+    for (page in seeds) {
+      for (cell in page.layout.cells.filter { it.widgetId == SlotWidget.id }) {
+        val slot = cell.config[SlotWidget.SLOT_KEY]
+        assertTrue(
+          RigSlot.entries.any { it.name == slot },
+          "${page.id}/${cell.instanceId} points at unknown rig position $slot",
         )
       }
     }

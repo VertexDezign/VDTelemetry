@@ -13,16 +13,16 @@ import net.vertexdezign.vdt.app.alerts.AlertInputs
 import net.vertexdezign.vdt.app.alerts.AlertRule
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.alerts.ThresholdAlertRule
+import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.EngineWidget
-import net.vertexdezign.vdt.app.widgets.ImplementsWidget
 import net.vertexdezign.vdt.app.widgets.LightingWidget
 import net.vertexdezign.vdt.app.widgets.NavigationWidget
+import net.vertexdezign.vdt.app.widgets.SlotWidget
 import net.vertexdezign.vdt.app.widgets.Widget
 
 /**
- * The vehicle itself: owns everything about the machine you're driving. Provides the engine,
- * implements and lighting tiles, and a full page that puts all three side by side for a focused
- * look at the current vehicle.
+ * The vehicle itself: owns everything about the machine you're driving. Provides the engine, rig-slot
+ * and lighting tiles, and a full page laying the rig out the way it sits: front, the machine, rear.
  */
 object VehicleApp : VdtApp {
   /** Below this the low-fuel alert fires… */
@@ -36,7 +36,7 @@ object VehicleApp : VdtApp {
   override val id = "vehicle"
   override val title = "Vehicle"
   override val icon: ImageVector = Icons.Filled.Agriculture
-  override val widgets: List<Widget> = listOf(EngineWidget, ImplementsWidget, NavigationWidget, LightingWidget)
+  override val widgets: List<Widget> = listOf(EngineWidget, SlotWidget, NavigationWidget, LightingWidget)
 
   override val alerts: List<AlertRule> =
     listOf(
@@ -52,12 +52,18 @@ object VehicleApp : VdtApp {
 
   @Composable
   override fun FullPage(modifier: Modifier) {
+    // Front, machine, rear — left to right, the order they're hitched in. The engine and lights sit
+    // outside that run because they belong to the machine rather than to a position on it.
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      SlotWidget.Content(Modifier.weight(1f).fillMaxHeight(), slotConfig(RigSlot.FRONT))
+      SlotWidget.Content(Modifier.weight(1f).fillMaxHeight(), slotConfig(RigSlot.VEHICLE))
+      SlotWidget.Content(Modifier.weight(1f).fillMaxHeight(), slotConfig(RigSlot.REAR))
       EngineWidget.Content(Modifier.weight(1f).fillMaxHeight())
-      ImplementsWidget.Content(Modifier.weight(1f).fillMaxHeight())
       LightingWidget.Content(Modifier.weight(1f).fillMaxHeight())
     }
   }
+
+  private fun slotConfig(slot: RigSlot) = mapOf(SlotWidget.SLOT_KEY to slot.name)
 }
 
 /** Null when on foot or the vehicle reports no fuel unit — the alert then holds its state. */

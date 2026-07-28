@@ -22,10 +22,11 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
-import net.vertexdezign.vdt.app.panels.Implements
 import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
 import net.vertexdezign.vdt.app.panels.Navigation
+import net.vertexdezign.vdt.app.panels.RigSlot
+import net.vertexdezign.vdt.app.panels.SlotPanel
 import net.vertexdezign.vdt.app.panels.TaskListPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -94,21 +95,49 @@ object EngineWidget : Widget {
   }
 }
 
-/** Front/back implements — needs a vehicle. */
-object ImplementsWidget : Widget {
-  override val id = "implements"
-  override val title = "Implements"
+/**
+ * One position on the rig — the vehicle itself, or its front or rear implement. Needs a vehicle.
+ *
+ * Which position is per-instance config, so a page places one of these per slot instead of taking a
+ * fixed two-column panel: front on the left, the map in the middle, rear on the right.
+ */
+object SlotWidget : Widget {
+  override val id = "slot"
+  override val title = "Attachment"
   override val icon: ImageVector = Icons.Filled.Anchor
+
+  // Taller than wide: the panel is a stack (name, condition, controls, load) that reads as a column
+  // beside the map, and it stays legible at two of the grid's cells across.
+  override val defaultColSpan = 3
+  override val defaultRowSpan = 4
+  override val minColSpan = 2
+  override val minRowSpan = 3
+
+  /** The config key naming the position this tile renders. */
+  const val SLOT_KEY = "slot"
+
+  private val slotOption =
+    ConfigOption(
+      key = SLOT_KEY,
+      label = "Position",
+      // Fixed choices — every rig has all three positions, whether or not something is in them — so
+      // unlike the shortcut's apps these never narrow, and resolve()'s default is always meaningful.
+      choices = RigSlot.entries.map { ConfigOption.Choice(it.name, it.label) },
+    )
+
+  @Composable
+  override fun configOptions(): List<ConfigOption> = listOf(slotOption)
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
+    val slot = RigSlot.entries.firstOrNull { it.name == slotOption.resolve(config) } ?: RigSlot.VEHICLE
     val vehicle = telemetry?.vehicle
     if (vehicle == null) {
-      MissingPanel(title, icon, modifier)
+      MissingPanel(slot.label, icon, modifier)
     } else {
-      Implements(vehicle, modifier, onCommand = store.onCommand)
+      SlotPanel(slot, vehicle, modifier, onCommand = store.onCommand)
     }
   }
 }

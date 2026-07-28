@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.app.layout.GridLayout
 import net.vertexdezign.vdt.app.layout.LayoutCell
+import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.ShortcutWidget
+import net.vertexdezign.vdt.app.widgets.SlotWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.random.Random
 
@@ -154,6 +156,9 @@ class PageStore(private val settings: Settings) {
 private fun shortcut(instanceId: String, appId: String, col: Int, row: Int) =
   LayoutCell(instanceId, ShortcutWidget.id, col, row, config = mapOf(ShortcutWidget.APP_KEY to appId))
 
+private fun slot(instanceId: String, slot: RigSlot, col: Int, row: Int, colSpan: Int, rowSpan: Int) =
+  LayoutCell(instanceId, SlotWidget.id, col, row, colSpan, rowSpan, mapOf(SlotWidget.SLOT_KEY to slot.name))
+
 private fun seedPages(): List<Page> = listOf(
   Page(
     id = "vehicle",
@@ -166,15 +171,19 @@ private fun seedPages(): List<Page> = listOf(
       rows = GridLayout.ROWS,
       cells =
       listOf(
-        // Top band, 4 rows: the three readouts you watch while driving.
-        LayoutCell("veh-map", "map", col = 0, row = 0, colSpan = 4, rowSpan = 4),
-        LayoutCell("veh-engine", "engine", col = 4, row = 0, colSpan = 4, rowSpan = 4),
-        LayoutCell("veh-implements", "implements", col = 8, row = 0, colSpan = 4, rowSpan = 4),
-        // Bottom band, 3 rows: the two you glance at, plus the dock.
-        LayoutCell("veh-lighting", "lighting", col = 0, row = 4, colSpan = 5, rowSpan = 3),
+        // Top band, 4 rows: the rig laid out the way it sits — what's on the front, where you are,
+        // what's on the back — with the map filling the space between the two ends.
+        slot("veh-front", RigSlot.FRONT, col = 0, row = 0, colSpan = 2, rowSpan = 4),
+        LayoutCell("veh-map", "map", col = 2, row = 0, colSpan = 8, rowSpan = 4),
+        slot("veh-rear", RigSlot.REAR, col = 10, row = 0, colSpan = 2, rowSpan = 4),
+        // Bottom band, 3 rows: the machine itself and its readouts, plus the dock. The vehicle slot
+        // sits under the front one, so the three rig positions read down-then-across.
+        slot("veh-self", RigSlot.VEHICLE, col = 0, row = 4, colSpan = 2, rowSpan = 3),
+        LayoutCell("veh-engine", "engine", col = 2, row = 4, colSpan = 4, rowSpan = 3),
+        LayoutCell("veh-lighting", "lighting", col = 6, row = 4, colSpan = 2, rowSpan = 3),
         // Heading / steering assist used to be permanent chrome in the bottom bar. It's a widget now,
         // so the starter page places it — otherwise a fresh install would simply lose it.
-        LayoutCell("veh-navigation", "navigation", col = 5, row = 4, colSpan = 5, rowSpan = 3),
+        LayoutCell("veh-navigation", "navigation", col = 8, row = 4, colSpan = 2, rowSpan = 3),
         // A 2×2 dock of single-cell shortcuts in the corner, showing what they're for: these four
         // apps contribute no widget of their own, so before this they were only reachable two taps
         // deep behind the launcher or by spending one of the four pinned slots on the bar.
