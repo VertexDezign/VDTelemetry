@@ -1,7 +1,9 @@
 package net.vertexdezign.vdt.app.pages
 
 import com.russhwolf.settings.MapSettings
+import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.layout.GridLayout
+import net.vertexdezign.vdt.app.widgets.ShortcutWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -87,6 +89,21 @@ class SeedPageTest {
     for (page in seeds) {
       val ids = page.layout.cells.map { it.instanceId }
       assertEquals(ids.size, ids.toSet().size, "${page.id} repeats an instance id: $ids")
+    }
+  }
+
+  @Test
+  fun everySeededShortcutNamesARegisteredApp() {
+    // The dock is hand-authored config, so an app id renamed in code would otherwise show up as four
+    // grey "Unavailable" tiles on a fresh install rather than as a failing build.
+    for (page in seeds) {
+      for (cell in page.layout.cells.filter { it.widgetId == ShortcutWidget.id }) {
+        val appId = cell.config[ShortcutWidget.APP_KEY]
+        assertTrue(
+          appId != null && AppRegistry.byId(appId) != null,
+          "${page.id}/${cell.instanceId} points at unknown app $appId",
+        )
+      }
     }
   }
 

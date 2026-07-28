@@ -5,9 +5,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 /**
- * [ConfigOption.resolve] is the whole contract between a stored config and what a widget renders: a
- * saved value only survives while the widget still offers it, and anything else falls back rather
- * than leaving the tile with nothing to show.
+ * [ConfigOption.resolve] is the whole contract between a stored config and what a widget renders:
+ * what was saved, or the first choice when nothing was.
  */
 class ConfigOptionTest {
   private val option =
@@ -21,7 +20,7 @@ class ConfigOptionTest {
     )
 
   @Test
-  fun aStoredValueStillOnOfferWins() {
+  fun aStoredValueWins() {
     assertEquals("storage", option.resolve(mapOf("app" to "storage")))
   }
 
@@ -31,10 +30,11 @@ class ConfigOptionTest {
   }
 
   @Test
-  fun aValueNoLongerOnOfferFallsBackInsteadOfBlanking() {
-    // The case this exists for: a shortcut pointed at a mod that has since been uninstalled, so the
-    // app it names is no longer among the choices.
-    assertEquals("map", option.resolve(mapOf("app" to "uninstalledMod")))
+  fun aStoredValueIsKeptEvenWhenItIsNoLongerOffered() {
+    // Choices narrow between sessions — an app is unavailable until its channel arrives — so
+    // substituting a different one here would retarget a tile the user placed deliberately. The
+    // widget decides what an unrecognised value means; resolve just hands it back.
+    assertEquals("uninstalledMod", option.resolve(mapOf("app" to "uninstalledMod")))
   }
 
   @Test
@@ -43,8 +43,11 @@ class ConfigOptionTest {
   }
 
   @Test
-  fun nullOnlyWhenThereIsNothingToChooseFrom() {
+  fun nullOnlyWithNothingStoredAndNothingToChooseFrom() {
+    // An option whose choices are all currently unavailable still can't invent a value — but a tile
+    // configured before they went away keeps the one it has.
     val empty = ConfigOption(key = "app", label = "Opens", choices = emptyList())
-    assertNull(empty.resolve(mapOf("app" to "map")))
+    assertNull(empty.resolve(emptyMap()))
+    assertEquals("map", empty.resolve(mapOf("app" to "map")))
   }
 }

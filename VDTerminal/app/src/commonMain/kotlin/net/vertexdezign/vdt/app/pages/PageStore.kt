@@ -151,6 +151,9 @@ class PageStore(private val settings: Settings) {
  * unique within their page, and being stable across installs makes them something you can name when
  * reading a stored layout — which a random id defeats.
  */
+private fun shortcut(instanceId: String, appId: String, col: Int, row: Int) =
+  LayoutCell(instanceId, ShortcutWidget.id, col, row, config = mapOf(ShortcutWidget.APP_KEY to appId))
+
 private fun seedPages(): List<Page> = listOf(
   Page(
     id = "vehicle",
@@ -175,10 +178,10 @@ private fun seedPages(): List<Page> = listOf(
         // A 2×2 dock of single-cell shortcuts in the corner, showing what they're for: these four
         // apps contribute no widget of their own, so before this they were only reachable two taps
         // deep behind the launcher or by spending one of the four pinned slots on the bar.
-        LayoutCell("veh-sc-production", ShortcutWidget.idFor("production"), col = 10, row = 4),
-        LayoutCell("veh-sc-storage", ShortcutWidget.idFor("storage"), col = 11, row = 4),
-        LayoutCell("veh-sc-animals", ShortcutWidget.idFor("animals"), col = 10, row = 5),
-        LayoutCell("veh-sc-diagnostics", ShortcutWidget.idFor("diagnostics"), col = 11, row = 5),
+        shortcut("veh-sc-production", "production", col = 10, row = 4),
+        shortcut("veh-sc-storage", "storage", col = 11, row = 4),
+        shortcut("veh-sc-animals", "animals", col = 10, row = 5),
+        shortcut("veh-sc-diagnostics", "diagnostics", col = 11, row = 5),
       ),
     ),
   ),

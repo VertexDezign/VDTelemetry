@@ -31,13 +31,15 @@ data class ConfigOption(val key: String, val label: String, val choices: List<Ch
   data class Choice(val value: String, val label: String, val icon: ImageVector? = null)
 
   /**
-   * The value in force for [config]: what it stores, or — when that key is unset or holds something
-   * no longer on offer — the first choice.
+   * The value in force for [config]: what it stores, or the first choice when that key is unset.
+   * Null only when the widget offers nothing at all.
    *
-   * Falling back rather than failing is what lets a widget's choices change under a saved page: an
-   * instance pointed at a mod that has since gone away renders the first available option instead of
-   * an empty tile. Null only when the widget currently offers nothing at all.
+   * A stored value is returned **verbatim, even when it is no longer among [choices]** — this
+   * deliberately does not validate. Choices can narrow between sessions (they are composable, and
+   * an app is unavailable until its channel arrives, so a shortcut's list is briefly short right
+   * after connecting), and quietly swapping in a different one would retarget a tile the user placed
+   * on purpose. Only the widget knows whether a value it no longer offers means "fall back" or "say
+   * so", so it gets to decide.
    */
-  fun resolve(config: WidgetConfig): String? =
-    config[key]?.takeIf { stored -> choices.any { it.value == stored } } ?: choices.firstOrNull()?.value
+  fun resolve(config: WidgetConfig): String? = config[key] ?: choices.firstOrNull()?.value
 }

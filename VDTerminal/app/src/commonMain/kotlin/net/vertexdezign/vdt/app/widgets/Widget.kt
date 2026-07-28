@@ -50,8 +50,13 @@ interface Widget {
 
   /**
    * Renders the tile filling [modifier]'s bounds (each widget supplies its own panel chrome), for
-   * the instance configured by [config] — read through [ConfigOption.resolve], never indexed
-   * directly, so a stale or absent value falls back instead of blanking the tile.
+   * the instance configured by [config] — normally read through [ConfigOption.resolve], which
+   * supplies the default for a key that was never set.
+   *
+   * A widget must cope with a value it no longer offers rather than assume one of its current
+   * choices: [resolve][ConfigOption.resolve] hands stored values back untouched precisely so this
+   * decision is the widget's. Falling back to the default is fine where the choices are fixed;
+   * where they come and go, saying so is usually better than quietly showing something else.
    *
    * The default lets the callers that render a widget outside any page — an app's own full-screen
    * view — say nothing about configuration, which is exactly what they mean.

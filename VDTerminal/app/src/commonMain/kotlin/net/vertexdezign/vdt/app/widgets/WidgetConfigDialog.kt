@@ -51,9 +51,10 @@ fun WidgetConfigDialog(
   onDismiss: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  // Seeded through resolve() rather than from `initial` directly, so an instance carrying a value the
-  // widget no longer offers opens showing the fallback that is actually on screen — and saving
-  // without touching anything writes that back instead of silently keeping the dead value.
+  // Seeded through resolve(), which keeps a stored value even when it is not among the choices: no
+  // row is then highlighted, and SAVE without touching anything writes the same value straight back.
+  // Choices narrow whenever an app is briefly unavailable, and opening the dialog in that moment must
+  // not be a way to silently retarget a tile.
   val selection = remember(options) {
     mutableStateMapOf<String, String>().apply {
       for (option in options) option.resolve(initial)?.let { put(option.key, it) }
