@@ -26,7 +26,7 @@ import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
 import net.vertexdezign.vdt.app.panels.Navigation
 import net.vertexdezign.vdt.app.panels.RigSlot
-import net.vertexdezign.vdt.app.panels.SlotPanel
+import net.vertexdezign.vdt.app.panels.RigSlotPanel
 import net.vertexdezign.vdt.app.panels.TaskListPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -101,16 +101,18 @@ object EngineWidget : Widget {
  * Which position is per-instance config, so a page places one of these per slot instead of taking a
  * fixed two-column panel: front on the left, the map in the middle, rear on the right.
  */
-object SlotWidget : Widget {
-  override val id = "slot"
-  override val title = "Attachment"
+object RigSlotWidget : Widget {
+  override val id = "rigSlot"
+  override val title = "Rig Position"
   override val icon: ImageVector = Icons.Filled.Anchor
 
   // Taller than wide: the panel is a stack (name, condition, controls, load) that reads as a column
-  // beside the map, and it stays legible at two of the grid's cells across.
+  // beside the map. It goes down to a single cell, where the panel stacks its controls instead of
+  // rowing them — worth the extra row of height, because a column of these is a layout the two-column
+  // panel this replaced could never have made.
   override val defaultColSpan = 3
   override val defaultRowSpan = 4
-  override val minColSpan = 2
+  override val minColSpan = 1
   override val minRowSpan = 3
 
   /** The config key naming the position this tile renders. */
@@ -137,7 +139,7 @@ object SlotWidget : Widget {
     if (vehicle == null) {
       MissingPanel(slot.label, icon, modifier)
     } else {
-      SlotPanel(slot, vehicle, modifier, onCommand = store.onCommand)
+      RigSlotPanel(slot, vehicle, modifier, onCommand = store.onCommand)
     }
   }
 }

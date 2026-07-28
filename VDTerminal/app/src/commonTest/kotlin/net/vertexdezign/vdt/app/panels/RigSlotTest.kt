@@ -26,7 +26,7 @@ class RigSlotTest {
   @Test
   fun theVehicleIsNotAnImplementPosition() {
     // Looking the vehicle up among the implements would find whatever happens to sit at position "",
-    // so it has no position at all and SlotPanel reads it straight off the vehicle instead.
+    // so it has no position at all and RigSlotPanel reads it straight off the vehicle instead.
     assertNull(RigSlot.VEHICLE.implementPosition)
     assertEquals(ControlTarget.VEHICLE, RigSlot.VEHICLE.target)
   }

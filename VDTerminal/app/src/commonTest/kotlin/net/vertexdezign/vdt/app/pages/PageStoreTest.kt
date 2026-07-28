@@ -4,8 +4,8 @@ import com.russhwolf.settings.MapSettings
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.layout.GridLayout
 import net.vertexdezign.vdt.app.panels.RigSlot
+import net.vertexdezign.vdt.app.widgets.RigSlotWidget
 import net.vertexdezign.vdt.app.widgets.ShortcutWidget
-import net.vertexdezign.vdt.app.widgets.SlotWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -117,16 +117,16 @@ class SeedPageTest {
       seeds
         .first { it.id == "vehicle" }
         .layout.cells
-        .filter { it.widgetId == SlotWidget.id }
-        .mapNotNull { it.config[SlotWidget.SLOT_KEY] }
+        .filter { it.widgetId == RigSlotWidget.id }
+        .mapNotNull { it.config[RigSlotWidget.SLOT_KEY] }
     assertEquals(RigSlot.entries.map { it.name }.toSet(), slots.toSet())
   }
 
   @Test
   fun everySeededSlotNamesARigPosition() {
     for (page in seeds) {
-      for (cell in page.layout.cells.filter { it.widgetId == SlotWidget.id }) {
-        val slot = cell.config[SlotWidget.SLOT_KEY]
+      for (cell in page.layout.cells.filter { it.widgetId == RigSlotWidget.id }) {
+        val slot = cell.config[RigSlotWidget.SLOT_KEY]
         assertTrue(
           RigSlot.entries.any { it.name == slot },
           "${page.id}/${cell.instanceId} points at unknown rig position $slot",

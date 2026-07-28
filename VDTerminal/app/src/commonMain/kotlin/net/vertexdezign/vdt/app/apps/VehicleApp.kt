@@ -17,7 +17,7 @@ import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.EngineWidget
 import net.vertexdezign.vdt.app.widgets.LightingWidget
 import net.vertexdezign.vdt.app.widgets.NavigationWidget
-import net.vertexdezign.vdt.app.widgets.SlotWidget
+import net.vertexdezign.vdt.app.widgets.RigSlotWidget
 import net.vertexdezign.vdt.app.widgets.Widget
 
 /**
@@ -36,7 +36,7 @@ object VehicleApp : VdtApp {
   override val id = "vehicle"
   override val title = "Vehicle"
   override val icon: ImageVector = Icons.Filled.Agriculture
-  override val widgets: List<Widget> = listOf(EngineWidget, SlotWidget, NavigationWidget, LightingWidget)
+  override val widgets: List<Widget> = listOf(EngineWidget, RigSlotWidget, NavigationWidget, LightingWidget)
 
   override val alerts: List<AlertRule> =
     listOf(
@@ -55,15 +55,15 @@ object VehicleApp : VdtApp {
     // Front, machine, rear — left to right, the order they're hitched in. The engine and lights sit
     // outside that run because they belong to the machine rather than to a position on it.
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      SlotWidget.Content(Modifier.weight(1f).fillMaxHeight(), slotConfig(RigSlot.FRONT))
-      SlotWidget.Content(Modifier.weight(1f).fillMaxHeight(), slotConfig(RigSlot.VEHICLE))
-      SlotWidget.Content(Modifier.weight(1f).fillMaxHeight(), slotConfig(RigSlot.REAR))
+      RigSlotWidget.Content(Modifier.weight(1f).fillMaxHeight(), slotConfig(RigSlot.FRONT))
+      RigSlotWidget.Content(Modifier.weight(1f).fillMaxHeight(), slotConfig(RigSlot.VEHICLE))
+      RigSlotWidget.Content(Modifier.weight(1f).fillMaxHeight(), slotConfig(RigSlot.REAR))
       EngineWidget.Content(Modifier.weight(1f).fillMaxHeight())
       LightingWidget.Content(Modifier.weight(1f).fillMaxHeight())
     }
   }
 
-  private fun slotConfig(slot: RigSlot) = mapOf(SlotWidget.SLOT_KEY to slot.name)
+  private fun slotConfig(slot: RigSlot) = mapOf(RigSlotWidget.SLOT_KEY to slot.name)
 }
 
 /** Null when on foot or the vehicle reports no fuel unit — the alert then holds its state. */

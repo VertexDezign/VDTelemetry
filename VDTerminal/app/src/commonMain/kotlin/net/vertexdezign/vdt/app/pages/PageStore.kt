@@ -8,8 +8,8 @@ import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.app.layout.GridLayout
 import net.vertexdezign.vdt.app.layout.LayoutCell
 import net.vertexdezign.vdt.app.panels.RigSlot
+import net.vertexdezign.vdt.app.widgets.RigSlotWidget
 import net.vertexdezign.vdt.app.widgets.ShortcutWidget
-import net.vertexdezign.vdt.app.widgets.SlotWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.random.Random
 
@@ -157,7 +157,7 @@ private fun shortcut(instanceId: String, appId: String, col: Int, row: Int) =
   LayoutCell(instanceId, ShortcutWidget.id, col, row, config = mapOf(ShortcutWidget.APP_KEY to appId))
 
 private fun slot(instanceId: String, slot: RigSlot, col: Int, row: Int, colSpan: Int, rowSpan: Int) =
-  LayoutCell(instanceId, SlotWidget.id, col, row, colSpan, rowSpan, mapOf(SlotWidget.SLOT_KEY to slot.name))
+  LayoutCell(instanceId, RigSlotWidget.id, col, row, colSpan, rowSpan, mapOf(RigSlotWidget.SLOT_KEY to slot.name))
 
 private fun seedPages(): List<Page> = listOf(
   Page(

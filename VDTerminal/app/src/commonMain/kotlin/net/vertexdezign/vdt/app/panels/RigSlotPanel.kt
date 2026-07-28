@@ -5,8 +5,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -81,7 +83,7 @@ enum class RigSlot(val label: String, val target: ControlTarget) {
 }
 
 /** What a slot shows, read off either the vehicle or an implement — the two speak the same shape. */
-private data class SlotState(
+private data class RigSlotState(
   val name: String,
   val type: String,
   val damage: Int,
@@ -138,7 +140,7 @@ private fun mergeFillUnits(units: List<FillUnit>): List<FillUnit> {
   }
 }
 
-private fun Vehicle.slotState() = SlotState(
+private fun Vehicle.slotState() = RigSlotState(
   name = name,
   type = type,
   damage = wearable?.damage ?: 0,
@@ -149,7 +151,7 @@ private fun Vehicle.slotState() = SlotState(
   fillUnits = fillUnits?.fillUnit ?: emptyList(),
 )
 
-private fun Implement.slotState() = SlotState(
+private fun Implement.slotState() = RigSlotState(
   name = name,
   type = type,
   // The mod's old `combined.implement.front/back` was just the first front/back implement's own
@@ -162,13 +164,38 @@ private fun Implement.slotState() = SlotState(
 )
 
 /**
+ * Below this the three controls can no longer sit in a row and still be worth aiming at: they need
+ * roughly 40dp each plus the 8dp gaps between them. A one-cell tile gives the body about 75dp in
+ * landscape, so it stacks; two cells gives about 174dp, so it doesn't.
+ */
+private val STACK_CONTROLS_BELOW = 140.dp
+
+/**
+ * Past this even the panel header can't hold everything: the title, the leading icon and the merge
+ * toggle together overrun a single cell. At that width the header keeps the title alone — it is the
+ * one part that says which slot you're looking at.
+ */
+private val BARE_HEADER_BELOW = 100.dp
+
+/**
+ * Stacked, the three controls are the tallest thing in the panel, and at the default 48dp they take
+ * the whole of a three-row tile before the name and condition get any. 40dp is still a comfortable
+ * target on a tablet and leaves the rest of the panel room to exist.
+ */
+private val STACKED_BUTTON_HEIGHT = 40.dp
+
+/**
  * Renders [slot] of [vehicle]: its name, condition, the fold/power/raise controls, and its load.
  *
  * An empty implement position still draws the panel, greyed — the tile is a fixed place on the page,
  * so it says "nothing attached" rather than vanishing and reflowing everything around it.
+ *
+ * The panel measures itself and thins out as it narrows, rather than taking a "compact" flag: the
+ * grid lets this tile be placed anywhere from one cell to a dozen, and what fits is a fact about the
+ * width it ended up with, not something the page should have to declare.
  */
 @Composable
-fun SlotPanel(
+fun RigSlotPanel(
   slot: RigSlot,
   vehicle: Vehicle,
   modifier: Modifier = Modifier,
@@ -182,56 +209,71 @@ fun SlotPanel(
   }
   val fillUnits = state?.fillUnits.orEmpty().let { if (merged) mergeFillUnits(it) else it }
 
-  Panel(
-    title = slot.label,
-    icon = slot.icon,
-    modifier = modifier,
-    headerActions = {
-      // The vehicle keeps the toggle too. Merging groups by fill type, so on a machine with one unit
-      // of each it simply changes nothing — not worth a second, conditional header layout.
-      Icon(
-        if (merged) Icons.AutoMirrored.Filled.ViewList else Icons.Filled.Layers,
-        contentDescription = "toggle merge",
-        tint = VdtColors.DarkGray,
-        modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { merged = !merged }.padding(2.dp),
-      )
-    },
-  ) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      // The vehicle is always "attached" — it's the thing the implements hang off.
-      if (slot != RigSlot.VEHICLE) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-          Text(slot.label.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+  BoxWithConstraints(modifier) {
+    val stackControls = maxWidth < STACK_CONTROLS_BELOW
+    val bareHeader = maxWidth < BARE_HEADER_BELOW
+
+    Panel(
+      title = slot.label,
+      icon = if (bareHeader) null else slot.icon,
+      modifier = Modifier.fillMaxSize(),
+      headerActions = {
+        // The vehicle keeps the toggle too. Merging groups by fill type, so on a machine with one
+        // unit of each it simply changes nothing — not worth a second, conditional header layout.
+        if (!bareHeader) {
           Icon(
-            Icons.Filled.Link,
-            null,
-            tint = if (state != null) Green600 else Gray400,
-            modifier = Modifier.height(16.dp),
+            if (merged) Icons.AutoMirrored.Filled.ViewList else Icons.Filled.Layers,
+            contentDescription = "toggle merge",
+            tint = VdtColors.DarkGray,
+            modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { merged = !merged }.padding(2.dp),
           )
         }
-      }
-
-      NameBox(state, empty = if (slot == RigSlot.VEHICLE) "No Vehicle" else "No Implement")
-
-      if (state != null) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          Icon(Icons.Filled.Build, null, tint = VdtColors.DarkGray, modifier = Modifier.height(14.dp))
-          Text(
-            "${100 - state.damage}%",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = VdtColors.DarkGray,
-          )
+      },
+    ) {
+      Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // The vehicle is always "attached" — it's the thing the implements hang off. Narrow, the
+        // header already carries the label, so only the attached lamp is worth the row.
+        if (slot != RigSlot.VEHICLE) {
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (!bareHeader) {
+              Text(
+                slot.label.uppercase(),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = VdtColors.DarkGray,
+              )
+            }
+            Icon(
+              Icons.Filled.Link,
+              null,
+              tint = if (state != null) Green600 else Gray400,
+              modifier = Modifier.height(16.dp),
+            )
+          }
         }
+
+        NameBox(state, empty = if (slot == RigSlot.VEHICLE) "No Vehicle" else "No Implement")
+
+        if (state != null) {
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Filled.Build, null, tint = VdtColors.DarkGray, modifier = Modifier.height(14.dp))
+            Text(
+              "${100 - state.damage}%",
+              fontSize = 14.sp,
+              fontWeight = FontWeight.Bold,
+              color = VdtColors.DarkGray,
+            )
+          }
+        }
+
+        // Each control is clickable only when this slot has that aspect; the tap sends the ABSOLUTE
+        // target for the slot's position, computed from the rendered state (idempotent over the lossy
+        // command channel — see ClientMessage). Front/back are routed mod-side through
+        // FS25_additionalInputs.
+        RigSlotControls(state, slot.target, stacked = stackControls, onCommand = onCommand)
+
+        if (state != null) FillUnitsDisplay(fillUnits, Modifier.fillMaxWidth(), spacing = 4)
       }
-
-      // Each control is clickable only when this slot has that aspect; the tap sends the ABSOLUTE
-      // target for the slot's position, computed from the rendered state (idempotent over the lossy
-      // command channel — see ClientMessage). Front/back are routed mod-side through
-      // FS25_additionalInputs.
-      SlotControls(state, slot.target, onCommand)
-
-      if (state != null) FillUnitsDisplay(fillUnits, Modifier.fillMaxWidth(), spacing = 4)
     }
   }
 }
@@ -244,7 +286,7 @@ private val RigSlot.icon: ImageVector
   }
 
 @Composable
-private fun NameBox(state: SlotState?, empty: String) {
+private fun NameBox(state: RigSlotState?, empty: String) {
   // heightIn(min) — not a fixed height — so two lines can never be clipped by the box on devices
   // whose font metrics make the name+type stack taller than the minimum. Line heights are tightened
   // (the old React panel used `leading-tight`) so it normally fits at 34dp.
@@ -288,39 +330,73 @@ private fun NameBox(state: SlotState?, empty: String) {
   }
 }
 
+/**
+ * The fold / power / raise trio, in a row when there is width for it and stacked when there isn't.
+ *
+ * The three buttons are identical either way — only the container changes — so the arrangement can
+ * flip on a resize without the controls themselves knowing. Stacked, they take their natural
+ * full-width height instead of splitting the row three ways.
+ */
 @Composable
-private fun SlotControls(state: SlotState?, target: ControlTarget, onCommand: (ClientMessage) -> Unit) {
-  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    val foldable = state?.foldable
-    StatusIconButton(
-      Icons.Filled.UnfoldMore,
-      Modifier.weight(1f),
-      active = foldable != null,
-      color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
-      onClick =
-      foldable?.let {
-        { onCommand(ClientMessage.SetFolded(target, on = it == FoldableState.EXTENDED)) }
-      },
-    )
-    StatusIconButton(
-      Icons.Filled.PowerSettingsNew,
-      Modifier.weight(1f),
-      active = state?.isTurnedOn != null,
-      color = if (state?.isTurnedOn == true) StatusColor.Green else StatusColor.White,
-      onClick =
-      state?.isTurnedOn?.let {
-        { onCommand(ClientMessage.SetActivated(target, on = !it)) }
-      },
-    )
-    StatusIconButton(
-      if (state?.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
-      Modifier.weight(1f),
-      active = state?.lowered != null,
-      color = if (state?.lowered == true) StatusColor.Green else StatusColor.White,
-      onClick =
-      state?.lowered?.let {
-        { onCommand(ClientMessage.SetLowered(target, on = !it)) }
-      },
-    )
+private fun RigSlotControls(
+  state: RigSlotState?,
+  target: ControlTarget,
+  stacked: Boolean,
+  onCommand: (ClientMessage) -> Unit,
+) {
+  val foldable = state?.foldable
+
+  // Declared once and placed by whichever container wins, so the two arrangements can't drift apart.
+  val height = if (stacked) STACKED_BUTTON_HEIGHT else 48.dp
+  val buttons = listOf<@Composable (Modifier) -> Unit>(
+    { mod ->
+      StatusIconButton(
+        Icons.Filled.UnfoldMore,
+        mod,
+        height = height,
+        active = foldable != null,
+        color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
+        onClick =
+        foldable?.let {
+          { onCommand(ClientMessage.SetFolded(target, on = it == FoldableState.EXTENDED)) }
+        },
+      )
+    },
+    { mod ->
+      StatusIconButton(
+        Icons.Filled.PowerSettingsNew,
+        mod,
+        height = height,
+        active = state?.isTurnedOn != null,
+        color = if (state?.isTurnedOn == true) StatusColor.Green else StatusColor.White,
+        onClick =
+        state?.isTurnedOn?.let {
+          { onCommand(ClientMessage.SetActivated(target, on = !it)) }
+        },
+      )
+    },
+    { mod ->
+      StatusIconButton(
+        if (state?.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
+        mod,
+        height = height,
+        active = state?.lowered != null,
+        color = if (state?.lowered == true) StatusColor.Green else StatusColor.White,
+        onClick =
+        state?.lowered?.let {
+          { onCommand(ClientMessage.SetLowered(target, on = !it)) }
+        },
+      )
+    },
+  )
+
+  if (stacked) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      for (button in buttons) button(Modifier)
+    }
+  } else {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      for (button in buttons) button(Modifier.weight(1f))
+    }
   }
 }
