@@ -7,6 +7,7 @@ import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.RigSlotWidget
 import net.vertexdezign.vdt.app.widgets.ShortcutWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
+import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -148,6 +149,56 @@ class SeedPageTest {
         )
       }
     }
+  }
+}
+
+/**
+ * A removed tile takes its instance-scoped view state with it. Without this a page's worth of zoom
+ * and filter keys would survive every widget that ever sat on it, for the life of the install.
+ */
+class PageStoreInstanceCleanupTest {
+  @Test
+  fun removingATileForgetsItsViewState() {
+    val settings = MapSettings()
+    val store = PageStore(settings)
+    val page = store.pages.value.first { it.id == "vehicle" }
+    val map = page.layout.cells.first { it.widgetId == "map" }
+    WidgetSettings(settings, map.instanceId).putFloat("zoom", 4f)
+
+    store.update(page.copy(layout = page.layout.removeAt(map.col, map.row)))
+
+    assertEquals(1f, WidgetSettings(settings, map.instanceId).getFloat("zoom", 1f))
+  }
+
+  @Test
+  fun deletingAPageForgetsEveryTileOnIt() {
+    val settings = MapSettings()
+    val store = PageStore(settings)
+    val page = store.pages.value.first { it.id == "farm" }
+    for (cell in page.layout.cells) WidgetSettings(settings, cell.instanceId).putFloat("zoom", 4f)
+
+    store.remove("farm")
+
+    for (cell in page.layout.cells) {
+      assertEquals(1f, WidgetSettings(settings, cell.instanceId).getFloat("zoom", 1f), cell.instanceId)
+    }
+  }
+
+  @Test
+  fun movingATileKeepsItsViewState() {
+    // The purge keys on instances that left the layout, not on the cell changing — dragging or
+    // resizing a tile rewrites its cell, and losing the zoom every time you nudged it would be worse
+    // than never having persisted it.
+    val settings = MapSettings()
+    val store = PageStore(settings)
+    val page = store.pages.value.first { it.id == "farm" }
+    val tasks = page.layout.cells.first { it.widgetId == "tasks" }
+    WidgetSettings(settings, tasks.instanceId).putFloat("zoom", 4f)
+
+    val moved = page.layout.resize(tasks, colSpan = tasks.colSpan, rowSpan = tasks.rowSpan - 1)
+    store.update(page.copy(layout = moved))
+
+    assertEquals(4f, WidgetSettings(settings, tasks.instanceId).getFloat("zoom", 1f))
   }
 }
 

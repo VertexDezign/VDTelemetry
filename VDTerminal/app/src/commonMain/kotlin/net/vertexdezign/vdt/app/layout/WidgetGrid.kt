@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import net.vertexdezign.vdt.app.panels.EmptyPanel
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.widgets.LocalWidgetInstance
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.math.roundToInt
 
@@ -177,7 +179,14 @@ private fun WidgetCell(
       .offset { IntOffset((originX + drag.x).roundToInt(), (originY + drag.y).roundToInt()) }
       .size(with(density) { widthPx.toDp() }, with(density) { heightPx.toDp() }),
   ) {
-    if (widget != null) widget.Content(Modifier.fillMaxSize(), cell.config) else EmptyPanel(Modifier.fillMaxSize())
+    if (widget == null) {
+      EmptyPanel(Modifier.fillMaxSize())
+    } else {
+      // Which tile this is, for widgets that keep view state of their own — see WidgetSettings.
+      CompositionLocalProvider(LocalWidgetInstance provides cell.instanceId) {
+        widget.Content(Modifier.fillMaxSize(), cell.config)
+      }
+    }
 
     if (editing) {
       // Full-tile overlay: a scrim that both signals "editable" and masks the widget's own gestures,

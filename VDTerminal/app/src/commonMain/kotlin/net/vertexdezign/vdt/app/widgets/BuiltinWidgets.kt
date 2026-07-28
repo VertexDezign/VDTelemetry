@@ -63,7 +63,9 @@ object MapWidget : Widget {
       pda,
       heading,
       sampleIntervalMs,
-      store.settings,
+      // Scoped to this tile: zoom, filters and the ground layer are per placed map, so a page can
+      // hold an overview and a zoomed-in working view side by side.
+      rememberWidgetSettings(store.settings),
       modifier = modifier,
       mapData = mapData,
       mapVehicles = mapVehicles,

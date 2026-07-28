@@ -83,7 +83,6 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.russhwolf.settings.Settings
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
@@ -93,6 +92,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.FieldCropRotation
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldInfoEntry
@@ -121,14 +121,14 @@ private const val DETAIL_ZOOM = 2f
 // Max on-screen distance from a field's number label at which a tap opens that field's info popup.
 private val FIELD_TAP_RADIUS_DP = 20.dp
 
-// Persistence keys. The `vdt.` prefix namespaces them within the origin's storage, which the whole
-// page is sharing; each is read and written in separate places, so name them once.
-private const val KEY_ZOOM = "vdt.zoom"
-private const val KEY_AUTO_CENTER = "vdt.autoCenter"
-private const val KEY_SHOW_FIELDS = "vdt.showFields"
-private const val KEY_POI_CATS = "vdt.poiCats"
-private const val KEY_VEH_STATES = "vdt.vehStates"
-private const val KEY_GROUND_LAYER = "vdt.groundLayer"
+// Persistence names, scoped per placed tile by WidgetSettings — two maps on one page each keep their
+// own zoom, filters and ground layer. Each is read and written in separate places, so name them once.
+private const val KEY_ZOOM = "zoom"
+private const val KEY_AUTO_CENTER = "autoCenter"
+private const val KEY_SHOW_FIELDS = "showFields"
+private const val KEY_POI_CATS = "poiCats"
+private const val KEY_VEH_STATES = "vehStates"
+private const val KEY_GROUND_LAYER = "groundLayer"
 
 /** The "no overlay" selection — persisted like a layer id, and the one that subscribes to nothing. */
 private const val NO_GROUND_LAYER = "none"
@@ -194,7 +194,7 @@ fun MapPanel(
   pda: Pda?,
   heading: Int,
   sampleIntervalMs: Int,
-  settings: Settings,
+  settings: WidgetSettings,
   modifier: Modifier = Modifier,
   mapData: MapData? = null,
   mapVehicles: MapVehiclesData? = null,
@@ -922,7 +922,7 @@ private fun vehicleStateOf(vehicle: MapVehicle): String = when {
 }
 
 /** Loads a persisted filter set; an unset key defaults to everything enabled. */
-private fun loadFilterSet(settings: Settings, key: String, all: List<String>): Set<String> =
+private fun loadFilterSet(settings: WidgetSettings, key: String, all: List<String>): Set<String> =
   settings.getString(key, all.joinToString(",")).split(",").filter { it.isNotEmpty() }.toSet()
 
 /** A search hit: display label + normalized map position to focus. */

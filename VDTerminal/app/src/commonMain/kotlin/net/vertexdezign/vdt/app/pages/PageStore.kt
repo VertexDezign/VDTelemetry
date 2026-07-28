@@ -11,6 +11,7 @@ import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.RigSlotWidget
 import net.vertexdezign.vdt.app.widgets.ShortcutWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
+import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import kotlin.random.Random
 
 /**
@@ -81,10 +82,22 @@ class PageStore(private val settings: Settings) {
     return page
   }
 
+  /**
+   * Writes [list] and forgets the view state of every instance that just disappeared from it.
+   *
+   * Every mutation funnels through here, so one check covers removing a tile, deleting a whole page
+   * and anything added later. Without it a widget's instance-scoped settings (see [WidgetSettings])
+   * would outlive the tile that owned them, accumulating in storage for the rest of the install.
+   */
   private fun persist(list: List<Page>) {
+    val gone = instanceIds(_pages.value) - instanceIds(list)
     _pages.value = list
     settings.putString(KEY, json.encodeToString(ListSerializer, list))
+    for (instanceId in gone) WidgetSettings.purge(settings, instanceId)
   }
+
+  private fun instanceIds(pages: List<Page>): Set<String> =
+    pages.flatMapTo(mutableSetOf()) { page -> page.layout.cells.map { it.instanceId } }
 
   private fun load(): List<Page> {
     val raw = settings.getStringOrNull(KEY) ?: return seedPages()
