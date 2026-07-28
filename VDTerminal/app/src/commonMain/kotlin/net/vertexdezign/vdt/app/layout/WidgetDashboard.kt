@@ -27,11 +27,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.ConfirmDialog
@@ -41,6 +38,7 @@ import net.vertexdezign.vdt.app.pages.PageIcon
 import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.widgets.Widget
 import net.vertexdezign.vdt.app.widgets.WidgetPicker
 import net.vertexdezign.vdt.app.widgets.availableWidgets
 
@@ -54,44 +52,19 @@ import net.vertexdezign.vdt.app.widgets.availableWidgets
 fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier = Modifier) {
   val store = LocalVdtStore.current
   val pageStore = store.pages
-  var addAt by
-    remember(page.id, editing, page.layout.columns, page.layout.rows) { mutableStateOf<GridPos?>(null) }
-  // A resize that would drop widgets is held here until the user confirms; delete is guarded too.
-  var pendingResize by remember(page.id) { mutableStateOf<GridLayout?>(null) }
+  var addAt by remember(page.id, editing) { mutableStateOf<GridPos?>(null) }
+  // Deleting a page is destructive, so it's held here until the user confirms.
   var confirmDelete by remember(page.id) { mutableStateOf(false) }
 
   fun apply(next: GridLayout) = pageStore.update(page.copy(layout = next))
 
-  // Shrinking is destructive (see GridLayout.withGridSize): apply straight away when nothing is lost,
-  // otherwise stage the new layout and let the user confirm the drop.
-  fun requestGridSize(columns: Int, rows: Int) {
-    val next = page.layout.withGridSize(columns, rows)
-    if (next.cells.size < page.layout.cells.size) pendingResize = next else apply(next)
-  }
-
-  // Cap the grid to what keeps cells readable in the current viewport: measure the body and derive how
-  // many columns/rows fit at MIN_CELL_WIDTH/HEIGHT, so the grid "+" steppers stop before cells go tiny.
-  var bodySize by remember { mutableStateOf(IntSize.Zero) }
-  val density = LocalDensity.current
-  val gapPx = with(density) { CELL_GAP.toPx() }
-  val insetPx = with(density) { (GRID_PADDING * 2).toPx() }
-  val maxColumns = maxGridSide(bodySize.width - insetPx, with(density) { MIN_CELL_WIDTH.toPx() }, gapPx)
-  val maxRows = maxGridSide(bodySize.height - insetPx, with(density) { MIN_CELL_HEIGHT.toPx() }, gapPx)
-
-  // Hide the toolbar while a confirmation is pending: its dialog only scrims the grid area below, so
+  // Hide the toolbar while the confirmation is pending: its dialog only scrims the grid area below, so
   // an exposed toolbar would let a second destructive request stack up behind the modal.
-  if (editing && pendingResize == null && !confirmDelete) {
-    PageEditToolbar(
-      page,
-      pageStore,
-      maxColumns = maxColumns,
-      maxRows = maxRows,
-      onResizeGrid = ::requestGridSize,
-      onDeleteRequest = { confirmDelete = true },
-    )
+  if (editing && !confirmDelete) {
+    PageEditToolbar(page, pageStore, onDeleteRequest = { confirmDelete = true })
   }
 
-  Box(modifier.fillMaxWidth().weight(1f).onSizeChanged { bodySize = it }) {
+  Box(modifier.fillMaxWidth().weight(1f)) {
     WidgetGrid(
       page.layout,
       Modifier.fillMaxSize().padding(GRID_PADDING),
@@ -103,27 +76,30 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
     val pending = addAt?.takeIf { editing && it in page.layout.freePositions() }
     if (pending != null) {
       val placed = page.layout.cells.map { it.widgetId }.toSet()
+
+      // The widget, not just its id: placement needs the size it asks for and the floor it may be
+      // squeezed to, which is exactly what stops a tile landing as an unreadable single cell.
+      fun place(widget: Widget) = page.layout.addWidget(
+        widget.id,
+        pending.col,
+        pending.row,
+        colSpan = widget.defaultColSpan,
+        rowSpan = widget.defaultRowSpan,
+        minColSpan = widget.minColSpan,
+        minRowSpan = widget.minRowSpan,
+      )
+
       WidgetPicker(
-        available = availableWidgets().filter { it.id !in placed },
-        onPick = {
-          apply(page.layout.addWidget(it, pending.col, pending.row))
+        // An empty slot doesn't mean every widget fits it: one whose floor won't clear the grid edge
+        // or a neighbour is refused, and addWidget is then a no-op — listing it would give a row that
+        // silently does nothing when tapped. Trying the placement is the only honest filter, the same
+        // way the resize controls grey out on `resize() == layout`.
+        available = availableWidgets().filter { it.id !in placed && place(it) != page.layout },
+        onPick = { widget ->
+          apply(place(widget))
           addAt = null
         },
         onDismiss = { addAt = null },
-      )
-    }
-
-    pendingResize?.let { next ->
-      val dropped = page.layout.cells.size - next.cells.size
-      ConfirmDialog(
-        title = "SHRINK GRID?",
-        message = "$dropped widget${if (dropped == 1) "" else "s"} won't fit the smaller grid and will be removed.",
-        confirmLabel = "SHRINK",
-        onConfirm = {
-          apply(next)
-          pendingResize = null
-        },
-        onDismiss = { pendingResize = null },
       )
     }
 
@@ -143,20 +119,16 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
 }
 
 /**
- * Page-level editing: rename, icon, when it auto-shows, grid size, and delete. Grid resizes go through
- * [onResizeGrid] and delete through [onDeleteRequest] so the parent can guard the destructive ones;
- * the non-destructive edits write straight back through [store]. The grid steppers won't grow past
- * [maxColumns]/[maxRows] — the point beyond which cells would be too small to read.
+ * Page-level editing: rename, icon, when it auto-shows, and delete. Delete goes through
+ * [onDeleteRequest] so the parent can guard it; the non-destructive edits write straight back through
+ * [store].
+ *
+ * There is no grid-size control: every page is laid out on the same fixed grid
+ * ([GridLayout.COLUMNS] × [GridLayout.ROWS]), and each widget carries its own size, so there is
+ * nothing here for the user to tune.
  */
 @Composable
-private fun PageEditToolbar(
-  page: Page,
-  store: PageStore,
-  maxColumns: Int,
-  maxRows: Int,
-  onResizeGrid: (columns: Int, rows: Int) -> Unit,
-  onDeleteRequest: () -> Unit,
-) {
+private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () -> Unit) {
   Row(
     Modifier
       .fillMaxWidth()
@@ -197,21 +169,6 @@ private fun PageEditToolbar(
       }
     }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-      Label("GRID")
-      Stepper(
-        page.layout.columns,
-        canDecrement = page.layout.columns > GridLayout.MIN_SIDE,
-        canIncrement = page.layout.columns < maxColumns,
-      ) { onResizeGrid(page.layout.columns + it, page.layout.rows) }
-      Text("×", fontSize = 11.sp, color = VdtColors.DarkGray)
-      Stepper(
-        page.layout.rows,
-        canDecrement = page.layout.rows > GridLayout.MIN_SIDE,
-        canIncrement = page.layout.rows < maxRows,
-      ) { onResizeGrid(page.layout.columns, page.layout.rows + it) }
-    }
-
     Spacer(Modifier.weight(1f))
 
     Icon(
@@ -226,36 +183,6 @@ private fun PageEditToolbar(
 @Composable
 private fun Label(text: String) {
   Text(text, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.Gray)
-}
-
-/** `− n +` control; the callback gets the delta. Each button greys out and ignores taps at its bound. */
-@Composable
-private fun Stepper(value: Int, canDecrement: Boolean, canIncrement: Boolean, onStep: (Int) -> Unit) {
-  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-    StepButton("−", enabled = canDecrement) { onStep(-1) }
-    Text("$value", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
-    StepButton("+", enabled = canIncrement) { onStep(+1) }
-  }
-}
-
-@Composable
-private fun StepButton(glyph: String, enabled: Boolean, onClick: () -> Unit) {
-  Box(
-    Modifier
-      .size(16.dp)
-      .clip(RoundedCornerShape(3.dp))
-      .background(VdtColors.White)
-      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(3.dp))
-      .clickableNoRipple(enabled = enabled, onClick = onClick),
-    contentAlignment = Alignment.Center,
-  ) {
-    Text(
-      glyph,
-      fontSize = 11.sp,
-      fontWeight = FontWeight.Bold,
-      color = if (enabled) VdtColors.DarkGray else VdtColors.Gray,
-    )
-  }
 }
 
 @Composable

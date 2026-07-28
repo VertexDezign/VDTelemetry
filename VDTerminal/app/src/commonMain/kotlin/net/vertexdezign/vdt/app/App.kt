@@ -66,6 +66,18 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
     var notificationsOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
 
+    // The one way into a screen change, shared by the shell, the launcher and any widget that
+    // navigates (see LocalNavigator). Remembered so the composition local's value is stable — a
+    // static local recomposes its whole subtree when the value changes, and this one never should.
+    // Apps aren't editable, so opening one ends edit mode.
+    val openScreen =
+      remember {
+        { target: Screen ->
+          if (target is Screen.OpenApp) editing = false
+          screen = target
+        }
+      }
+
     MaterialTheme {
       Box(modifier.fillMaxSize().background(VdtColors.Light)) {
         val data = telemetry
@@ -73,21 +85,18 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
           data == null -> LoadingScreen()
 
           else ->
-            Shell(
-              data,
-              screen,
-              pages,
-              editing = editing,
-              // Apps aren't editable, so leaving a page ends edit mode — same rule as the launcher,
-              // and now reachable from a favourite in the bar too.
-              onOpenScreen = {
-                if (it is Screen.OpenApp) editing = false
-                screen = it
-              },
-              onToggleEdit = { editing = !editing },
-              onOpenLauncher = { launcherOpen = true },
-              onOpenNotifications = { notificationsOpen = true },
-            )
+            CompositionLocalProvider(LocalNavigator provides openScreen) {
+              Shell(
+                data,
+                screen,
+                pages,
+                editing = editing,
+                onOpenScreen = openScreen,
+                onToggleEdit = { editing = !editing },
+                onOpenLauncher = { launcherOpen = true },
+                onOpenNotifications = { notificationsOpen = true },
+              )
+            }
         }
 
         // Shell-level, so banners survive navigation; below the header so they don't cover its
@@ -135,9 +144,7 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
             pages = pages,
             screen = screen,
             onOpen = {
-              // Apps aren't editable, so leaving a page ends edit mode.
-              if (it is Screen.OpenApp) editing = false
-              screen = it
+              openScreen(it)
               launcherOpen = false
             },
             onCreatePage = {

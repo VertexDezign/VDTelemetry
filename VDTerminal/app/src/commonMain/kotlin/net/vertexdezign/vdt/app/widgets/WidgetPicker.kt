@@ -27,14 +27,16 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
- * Modal widget picker: a scrim (tap to dismiss) over a card listing the [available] widgets (those
- * not already on the screen). Picking one calls [onPick] with its id. Shown when an empty grid slot
- * is tapped in edit mode.
+ * Modal widget picker: a scrim (tap to dismiss) over a card listing the [available] widgets — the
+ * caller narrows those to what can actually be placed where the slot was tapped (not already on the
+ * screen, and roomy enough for the widget's floor). Picking one calls [onPick] with the widget
+ * itself — placement needs its declared size, not just its id. Shown when an empty grid slot is
+ * tapped in edit mode.
  */
 @Composable
 fun WidgetPicker(
   available: List<Widget>,
-  onPick: (String) -> Unit,
+  onPick: (Widget) -> Unit,
   onDismiss: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -58,14 +60,16 @@ fun WidgetPicker(
     ) {
       Text("ADD WIDGET", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
       if (available.isEmpty()) {
-        Text("All widgets are already placed.", fontSize = 12.sp, color = VdtColors.DarkGray)
+        // Covers both reasons the list can come back empty: everything is placed already, or nothing
+        // left fits in the room this slot has.
+        Text("No widget fits this slot.", fontSize = 12.sp, color = VdtColors.DarkGray)
       } else {
         Column(
           Modifier.verticalScroll(rememberScrollState()),
           verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           for (widget in available) {
-            WidgetRow(widget, onClick = { onPick(widget.id) })
+            WidgetRow(widget, onClick = { onPick(widget) })
           }
         }
       }

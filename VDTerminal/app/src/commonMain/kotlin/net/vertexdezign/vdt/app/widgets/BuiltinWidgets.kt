@@ -36,6 +36,13 @@ object MapWidget : Widget {
   override val title = "Map"
   override val icon: ImageVector = Icons.Filled.Map
 
+  // The one widget that is mostly picture: it wants area, and below roughly a third of the page the
+  // overlays (vehicles, field info, the layer filter) start covering the terrain they annotate.
+  override val defaultColSpan = 6
+  override val defaultRowSpan = 4
+  override val minColSpan = 4
+  override val minRowSpan = 3
+
   @Composable
   override fun Content(modifier: Modifier) {
     val store = LocalVdtStore.current
@@ -117,6 +124,10 @@ object NavigationWidget : Widget {
   override val title = "Navigation"
   override val icon: ImageVector = Icons.Filled.Explore
 
+  // A heading and a row of status icons — it squeezes further than the readout panels do.
+  override val minColSpan = 2
+  override val minRowSpan = 2
+
   @Composable
   override fun Content(modifier: Modifier) {
     val store = LocalVdtStore.current
@@ -135,6 +146,10 @@ object LightingWidget : Widget {
   override val id = "lighting"
   override val title = "Lighting"
   override val icon: ImageVector = Icons.Filled.Lightbulb
+
+  // A grid of toggle buttons, so it stays usable small — it just fits fewer per row.
+  override val minColSpan = 2
+  override val minRowSpan = 2
 
   @Composable
   override fun Content(modifier: Modifier) {

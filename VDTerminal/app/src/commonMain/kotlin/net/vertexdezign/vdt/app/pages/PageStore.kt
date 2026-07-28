@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.app.layout.GridLayout
 import net.vertexdezign.vdt.app.layout.LayoutCell
+import net.vertexdezign.vdt.app.widgets.ShortcutWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.random.Random
 
@@ -17,7 +18,8 @@ import kotlin.random.Random
  * On first run (or if the stored value is unreadable) the [seedPages] defaults are used, so the
  * terminal is useful out of the box; they are ordinary pages afterwards — editable and deletable
  * like any the user creates. Loading sanitizes away cells whose widget is no longer registered, so
- * removing a widget from the code can't break a page a user saved earlier.
+ * removing a widget from the code can't break a page a user saved earlier, and re-expresses any
+ * layout saved under an older grid in the current one (see [GridLayout.rescaledTo]).
  */
 class PageStore(private val settings: Settings) {
   private val json = Json { ignoreUnknownKeys = true }
@@ -71,7 +73,7 @@ class PageStore(private val settings: Settings) {
         title = "New Page",
         icon = PageIcon.Grid,
         autoShow = AutoShow.Never,
-        layout = GridLayout(columns = 3, rows = 2, cells = emptyList()),
+        layout = GridLayout.empty(),
       )
     persist(_pages.value + page)
     return page
@@ -90,8 +92,33 @@ class PageStore(private val settings: Settings) {
       ?: seedPages()
   }
 
-  private fun sanitize(page: Page): Page =
-    page.copy(layout = page.layout.copy(cells = page.layout.cells.filter { WidgetRegistry.byId(it.widgetId) != null }))
+  /**
+   * Brings a stored page up to date: drops cells whose widget no longer exists, then re-expresses the
+   * layout on the current grid. Pages saved before the grid was frozen carry their own dimensions, so
+   * a 3×2 arrangement scales up to fill 12×7 rather than being read as a corner of it.
+   *
+   * Scaling doesn't know about widget floors — a 1×1 on an old 6×6 page lands as 2×1, under the
+   * minimum most widgets now declare — so each undersized tile is then grown back to its floor where
+   * there's room. Best effort: [GridLayout.resize] refuses anything that would collide or overrun, so
+   * a tile hemmed in by its neighbours simply stays small until the user rearranges the page.
+   */
+  private fun sanitize(page: Page): Page {
+    val known = page.layout.cells.filter { WidgetRegistry.byId(it.widgetId) != null }
+    var layout = page.layout.copy(cells = known).rescaledTo(GridLayout.COLUMNS, GridLayout.ROWS)
+    for (cell in layout.cells.toList()) {
+      val widget = WidgetRegistry.byId(cell.widgetId) ?: continue
+      if (cell.colSpan >= widget.minColSpan && cell.rowSpan >= widget.minRowSpan) continue
+      layout =
+        layout.resize(
+          cell,
+          colSpan = maxOf(cell.colSpan, widget.minColSpan),
+          rowSpan = maxOf(cell.rowSpan, widget.minRowSpan),
+          minColSpan = widget.minColSpan,
+          minRowSpan = widget.minRowSpan,
+        )
+    }
+    return page.copy(layout = layout)
+  }
 
   private companion object {
     const val KEY = "vdt.pages"
@@ -99,7 +126,12 @@ class PageStore(private val settings: Settings) {
   }
 }
 
-/** The starter pages: today's Vehicle and Farm dashboards, reproduced as ordinary user pages. */
+/**
+ * The starter pages: the Vehicle and Farm dashboards, as ordinary user pages. Broadly the
+ * arrangement these had when the grid was 3×2 — a fine grid is what lets a *widget* be small, not
+ * what makes every tile small — with the extra room 12×7 gives spent on a dock of single-cell
+ * shortcuts rather than on making the readout panels bigger than they need to be.
+ */
 private fun seedPages(): List<Page> = listOf(
   Page(
     id = "vehicle",
@@ -108,17 +140,26 @@ private fun seedPages(): List<Page> = listOf(
     autoShow = AutoShow.InVehicle,
     layout =
     GridLayout(
-      columns = 3,
-      rows = 2,
+      columns = GridLayout.COLUMNS,
+      rows = GridLayout.ROWS,
       cells =
       listOf(
-        LayoutCell("map", col = 0, row = 0),
-        LayoutCell("engine", col = 1, row = 0),
-        LayoutCell("implements", col = 2, row = 0),
-        LayoutCell("lighting", col = 0, row = 1),
+        // Top band, 4 rows: the three readouts you watch while driving.
+        LayoutCell("map", col = 0, row = 0, colSpan = 4, rowSpan = 4),
+        LayoutCell("engine", col = 4, row = 0, colSpan = 4, rowSpan = 4),
+        LayoutCell("implements", col = 8, row = 0, colSpan = 4, rowSpan = 4),
+        // Bottom band, 3 rows: the two you glance at, plus the dock.
+        LayoutCell("lighting", col = 0, row = 4, colSpan = 5, rowSpan = 3),
         // Heading / steering assist used to be permanent chrome in the bottom bar. It's a widget now,
         // so the starter page places it — otherwise a fresh install would simply lose it.
-        LayoutCell("navigation", col = 1, row = 1),
+        LayoutCell("navigation", col = 5, row = 4, colSpan = 5, rowSpan = 3),
+        // A 2×2 dock of single-cell shortcuts in the corner, showing what they're for: these four
+        // apps contribute no widget of their own, so before this they were only reachable two taps
+        // deep behind the launcher or by spending one of the four pinned slots on the bar.
+        LayoutCell(ShortcutWidget.idFor("production"), col = 10, row = 4),
+        LayoutCell(ShortcutWidget.idFor("storage"), col = 11, row = 4),
+        LayoutCell(ShortcutWidget.idFor("animals"), col = 10, row = 5),
+        LayoutCell(ShortcutWidget.idFor("diagnostics"), col = 11, row = 5),
       ),
     ),
   ),
@@ -129,13 +170,13 @@ private fun seedPages(): List<Page> = listOf(
     autoShow = AutoShow.OnFoot,
     layout =
     GridLayout(
-      columns = 3,
-      rows = 2,
+      columns = GridLayout.COLUMNS,
+      rows = GridLayout.ROWS,
       cells =
       listOf(
-        LayoutCell("map", col = 0, row = 0, colSpan = 2, rowSpan = 2),
-        LayoutCell("tasks", col = 2, row = 0),
-        LayoutCell("cropRotation", col = 2, row = 1),
+        LayoutCell("map", col = 0, row = 0, colSpan = 8, rowSpan = 7),
+        LayoutCell("tasks", col = 8, row = 0, colSpan = 4, rowSpan = 4),
+        LayoutCell("cropRotation", col = 8, row = 4, colSpan = 4, rowSpan = 3),
       ),
     ),
   ),
