@@ -7,6 +7,7 @@ import net.vertexdezign.vdt.model.DriveDirection
 import net.vertexdezign.vdt.model.FillDisplayType
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
+import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.PipeState
 import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.VdtData
@@ -83,6 +84,13 @@ class VdtModelTest {
     assertEquals(0f, v.speed?.value)
     assertEquals("km/h", v.speed?.unit)
     assertEquals(DriveDirection.STOPPED, v.speed?.direction)
+
+    // Enhanced Vehicle wasn't installed when this was captured, so the drivetrain telltales are
+    // absent from the JSON entirely and stay null — "unknown", which a consumer must not draw as
+    // "off". enhanced_vehicle.json is the counterpart capture, taken with the mod installed.
+    assertEquals(null, v.motor?.diffLock)
+    assertEquals(null, v.motor?.awd)
+    assertEquals(null, v.motor?.parkingBrake)
 
     assertJsonRoundTrips(data)
   }
@@ -243,9 +251,10 @@ class VdtModelTest {
   @Test
   fun decodesSchemaAndSelection() {
     // The rig diagram: each object names a silhouette and lists where children hang off it, and the
-    // child points back with jointDescIndex. Inline rather than a fixture — the committed captures
-    // predate the mod exporting any of this, and the offsets are per-vehicle XML data that would be
-    // invented if hand-written into examples/json.
+    // child points back with jointDescIndex. enhanced_vehicle.json carries the plain shape of this;
+    // what stays inline is what no capture holds — a control group, non-zero silhouette offsets, and
+    // a schema with no borders at all, none of which could be hand-written without inventing
+    // per-vehicle XML data into examples/json.
     val text =
       """{"version":"4","vehicle":{"schema":{"name":"HARVESTER","offsetX":0.25,"offsetY":0.5,""" +
         """"attacherJoint":[{"x":0.1,"y":0.2,"rotation":0,"invertX":false},""" +
@@ -324,6 +333,49 @@ class VdtModelTest {
     assertEquals(1.5f, imp.workWidth?.right)
     assertEquals(4.5f, imp.workWidth?.total)
     assertEquals(480, imp.baleCounter?.lifetime)
+  }
+
+  @Test
+  fun decodesEnhancedVehicleDrivetrainTelltales() {
+    // The one capture taken *with* Enhanced Vehicle installed — the counterpart to the absent case
+    // asserted in parsesTractorWithCultivator. The integration only decorates the controlled
+    // vehicle's motor, so the telltales sit there and nowhere else in the rig.
+    val data = model("enhanced_vehicle.json")
+    val v = assertNotNull(data.vehicle)
+    assertEquals("DEUTZ-FAHR 8280 TTV", v.name)
+
+    val motor = assertNotNull(v.motor)
+    // the core motor subtree still decodes alongside the added fields
+    assertEquals(MotorState.OFF, motor.state)
+    assertEquals(2200, motor.rpm?.max)
+
+    assertEquals(true, motor.awd)
+    assertEquals(false, motor.parkingBrake)
+    // engaged AWD with both diffs open: each of the four is independent, so `false` here has to
+    // decode as a real `false` and not fall in with the never-reported case
+    assertEquals(false, motor.diffLock?.front)
+    assertEquals(false, motor.diffLock?.back)
+
+    assertJsonRoundTrips(data)
+  }
+
+  @Test
+  fun decodesPartialDiffLockWithoutInventingTheOtherSide() {
+    // The integration sets each side only once Enhanced Vehicle hands it a boolean, so a rear-only
+    // lock arrives as `{"back": …}` with no `front` key at all. That has to stay null rather than
+    // collapsing to false, which would read as a front axle that exists and is unlocked. Inline
+    // because enhanced_vehicle.json is a tractor that reports both sides.
+    val text = """{"version":"5","vehicle":{"motor":{"state":"ON","diffLock":{"back":true}}}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+
+    val motor = assertNotNull(data.vehicle?.motor)
+    val diffLock = assertNotNull(motor.diffLock)
+    assertEquals(null, diffLock.front)
+    assertEquals(true, diffLock.back)
+    // awd / parkingBrake are independently optional — Enhanced Vehicle can report one and not others
+    assertEquals(null, motor.awd)
+    assertEquals(null, motor.parkingBrake)
   }
 
   @Test
