@@ -21,13 +21,13 @@ class PageStoreTest {
   fun reorderMovesItemAndPersists() {
     val settings = MapSettings()
     val store = PageStore(settings)
-    assertEquals(listOf("vehicle", "farm"), ids(store)) // the seed order
+    assertEquals(listOf("vehicle", "farm", "pillar"), ids(store)) // the seed order
 
     store.reorder(0, 1)
-    assertEquals(listOf("farm", "vehicle"), ids(store))
+    assertEquals(listOf("farm", "vehicle", "pillar"), ids(store))
 
     // A fresh store over the same settings sees the persisted order.
-    assertEquals(listOf("farm", "vehicle"), ids(PageStore(settings)))
+    assertEquals(listOf("farm", "vehicle", "pillar"), ids(PageStore(settings)))
   }
 
   @Test
@@ -42,13 +42,13 @@ class PageStoreTest {
 
   @Test
   fun moveByIdClampsToEnds() {
-    val store = PageStore(MapSettings()) // [vehicle, farm]
+    val store = PageStore(MapSettings()) // [vehicle, farm, pillar]
     store.move("vehicle", Int.MAX_VALUE) // clamps to the last slot (must not overflow to the front)
-    assertEquals(listOf("farm", "vehicle"), ids(store))
+    assertEquals(listOf("farm", "pillar", "vehicle"), ids(store))
     store.move("vehicle", Int.MIN_VALUE) // clamps back to the first
-    assertEquals(listOf("vehicle", "farm"), ids(store))
+    assertEquals(listOf("vehicle", "farm", "pillar"), ids(store))
     store.move("missing", 1) // unknown id: no-op
-    assertEquals(listOf("vehicle", "farm"), ids(store))
+    assertEquals(listOf("vehicle", "farm", "pillar"), ids(store))
   }
 }
 
@@ -430,6 +430,6 @@ class PageStoreLoadTest {
       """.trimIndent().replace("\n", ""),
     )
 
-    assertEquals(listOf("vehicle", "farm"), PageStore(settings).pages.value.map { it.id })
+    assertEquals(listOf("vehicle", "farm", "pillar"), PageStore(settings).pages.value.map { it.id })
   }
 }

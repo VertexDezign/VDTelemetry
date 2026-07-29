@@ -57,7 +57,13 @@ fun WidgetConfigDialog(
   // not be a way to silently retarget a tile.
   val selection = remember(options) {
     mutableStateMapOf<String, String>().apply {
-      for (option in options) option.resolve(initial)?.let { put(option.key, it) }
+      for (option in options) {
+        if (option.multi) {
+          put(option.key, ConfigOption.join(option.resolveAll(initial)))
+        } else {
+          option.resolve(initial)?.let { put(option.key, it) }
+        }
+      }
     }
   }
 
@@ -92,6 +98,21 @@ fun WidgetConfigDialog(
             Text(option.label.uppercase(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.Gray)
             if (option.choices.isEmpty()) {
               Text("Nothing to choose from right now.", fontSize = 12.sp, color = VdtColors.DarkGray)
+            } else if (option.multi) {
+              // A set rather than a pick: every row toggles independently, and clearing them all is a
+              // legitimate answer (an empty band) rather than a state to guard against.
+              val chosen = selection[option.key].orEmpty().split(ConfigOption.SEPARATOR).toMutableSet()
+              for (choice in option.choices) {
+                ChoiceRow(
+                  choice = choice,
+                  selected = choice.value in chosen,
+                  onClick = {
+                    val next = chosen.toMutableSet()
+                    if (!next.remove(choice.value)) next += choice.value
+                    selection[option.key] = ConfigOption.join(option.choices.map { it.value }.filter { it in next })
+                  },
+                )
+              }
             } else {
               for (choice in option.choices) {
                 ChoiceRow(

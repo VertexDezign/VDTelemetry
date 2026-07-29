@@ -9,8 +9,11 @@ import net.vertexdezign.vdt.app.layout.GridAspect
 import net.vertexdezign.vdt.app.layout.GridLayout
 import net.vertexdezign.vdt.app.layout.LayoutCell
 import net.vertexdezign.vdt.app.panels.RigSlot
+import net.vertexdezign.vdt.app.widgets.ClusterLevelsWidget
+import net.vertexdezign.vdt.app.widgets.ClusterReadoutWidget
 import net.vertexdezign.vdt.app.widgets.RigSlotWidget
 import net.vertexdezign.vdt.app.widgets.ShortcutWidget
+import net.vertexdezign.vdt.app.widgets.TelltaleWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import kotlin.random.Random
@@ -281,6 +284,44 @@ private fun seedPages(): List<Page> = listOf(
         LayoutCell("farm-map", "map", col = 0, row = 0, colSpan = 6, rowSpan = 6),
         LayoutCell("farm-tasks", "tasks", col = 0, row = 6, colSpan = 6, rowSpan = 3),
         LayoutCell("farm-cropRotation", "cropRotation", col = 0, row = 9, colSpan = 6, rowSpan = 3),
+      ),
+    ),
+  ),
+  // The A-pillar cluster, seeded so the feature exists without the user assembling it. It is an
+  // ordinary page — three ordinary widgets stacked in the order a tractor's own pillar display uses:
+  // lamps at the top, the numbers you drive by in the middle, levels along the bottom.
+  //
+  // AutoShow.Never, unlike the other two. This is the page you pin a second device to
+  // (`?display=pillar`, see DisplayStore), and a page that also grabbed the tablet whenever you
+  // climbed into a cab would be fighting the Vehicle page for the screen you are actually holding.
+  Page(
+    id = "pillar",
+    title = "Pillar",
+    icon = PageIcon.Dashboard,
+    autoShow = AutoShow.Never,
+    // Landscape is the lesser of the two here — the cluster is a tall thing — so it lays the readout
+    // and the levels side by side under the band rather than pretending to be a column.
+    landscape =
+    GridLayout(
+      columns = GridLayout.COLUMNS,
+      rows = GridLayout.ROWS,
+      cells =
+      listOf(
+        LayoutCell("pillar-telltales", TelltaleWidget.id, col = 0, row = 0, colSpan = 12, rowSpan = 1),
+        LayoutCell("pillar-readout", ClusterReadoutWidget.id, col = 0, row = 1, colSpan = 8, rowSpan = 6),
+        LayoutCell("pillar-levels", ClusterLevelsWidget.id, col = 8, row = 1, colSpan = 4, rowSpan = 6),
+      ),
+    ),
+    // Portrait is the one this page is for: a phone clamped to the pillar, top to bottom.
+    portrait =
+    GridLayout(
+      columns = GridLayout.PORTRAIT_COLUMNS,
+      rows = GridLayout.PORTRAIT_ROWS,
+      cells =
+      listOf(
+        LayoutCell("pillar-telltales", TelltaleWidget.id, col = 0, row = 0, colSpan = 6, rowSpan = 2),
+        LayoutCell("pillar-readout", ClusterReadoutWidget.id, col = 0, row = 2, colSpan = 6, rowSpan = 6),
+        LayoutCell("pillar-levels", ClusterLevelsWidget.id, col = 0, row = 8, colSpan = 6, rowSpan = 4),
       ),
     ),
   ),

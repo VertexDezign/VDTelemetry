@@ -85,6 +85,29 @@ appears with the wake-lock state and EXIT DISPLAY, and hides itself again if you
 declares no `start_url`, so a shortcut launches the URL it was made from — install from
 `/?display=vehicle` on the phone and from `/` on the tablet, and the two icons stay different.
 
+## Pillar cluster
+
+Three widgets that stack into an A-pillar instrument cluster, after the small display a modern
+tractor puts between the windscreen and the right-hand window:
+
+- **Telltales** — a wrapping band of lamps (turn signals, beams, work lights, beacon, parking brake,
+  diff locks, AWD, and a derived engine warning). Which lamps a band shows is per instance, since
+  what matters differs per rig. A lamp the vehicle reports *nothing* about is absent rather than
+  unlit — the drivetrain trio comes from Enhanced Vehicle, and an unlit diff-lock lamp is a claim we
+  can't make without it.
+- **Cluster Readout** — engine speed over ground speed in the largest type that fits, with the gear
+  beside them and the cruise target under them in amber. Both numbers are tweened over one sample
+  interval so they read continuously rather than stepping at the telemetry rate.
+- **Level Strip** — the compact vertical form of the fill-unit bars: the engine's fuel, DEF and air,
+  green down to a quarter full, then amber, then red, with the bottom tenth of every track marked as
+  reserve. Engine tanks only — the strip answers "can the machine keep going", which is the same three
+  bars on every rig; what's in the hopper changes shape as you hitch things up and belongs to the
+  rig-slot tiles, which name it and give figures.
+
+They're ordinary widgets, placeable anywhere, and they render dark rather than in the usual panel
+chrome. A seeded **Pillar** page stacks all three; it never auto-shows, because it is the page you
+pin a second device to (`?display=pillar`).
+
 ## Portrait layouts
 
 A page holds **one arrangement per orientation**. The shell measures the page body and renders either
