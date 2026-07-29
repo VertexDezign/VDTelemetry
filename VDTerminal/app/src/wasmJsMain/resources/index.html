@@ -4,6 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>VDTerminal</title>
+
+    <!-- "Add to Home Screen" runs the terminal without browser chrome, which matters most for a
+         phone used as a fixed display (?display=<page>). The manifest deliberately declares no
+         start_url: the spec then defaults it to the page you installed from, so a shortcut made on
+         the display device keeps its own URL instead of every icon launching the bare dashboard. -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#0b0f0c">
+    <link rel="icon" href="icons/icon-192.png" type="image/png">
+
+    <!-- iOS ignores the manifest's display mode for home-screen bookmarks; these are its equivalent. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="VDTerminal">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0b0f0c; }
     </style>

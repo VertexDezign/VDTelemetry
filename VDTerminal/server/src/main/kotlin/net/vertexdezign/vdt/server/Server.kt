@@ -7,7 +7,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.http.content.staticResources
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
@@ -308,9 +307,8 @@ fun main() {
         }
       }
 
-      // Serve the built wasm dashboard (index.html at "/", plus app.js / *.wasm / assets).
-      // Declared last so /health, /ws and /api take precedence.
-      staticResources("/", "static")
+      // The built wasm dashboard. Declared last so /health, /ws and /api take precedence.
+      dashboardRoute()
     }
   }.start(wait = true)
 }

@@ -52,6 +52,39 @@ so the one server process serves both the dashboard (`/`) and the API/WebSocket.
 <http://localhost:3001> on any device on the LAN. (`distZip`/`distTar` produce the same as a
 portable archive.)
 
+## Display mode (a second device as a fixed screen)
+
+A phone clamped in the cab is a different thing from the tablet: it shows *one* screen, is never
+touched while driving, and every pixel spent on chrome is a pixel the readout doesn't get. Open the
+dashboard with a `display` parameter naming a page (or an app) and that browser becomes a dedicated
+display:
+
+```
+http://<host>:3001/?display=vehicle   # pin this device to the Vehicle page
+http://<host>:3001/?display=map       # an app works too
+http://<host>:3001/?display=off       # back to the normal shell
+```
+
+The parameter is applied once and then remembered per browser, so the bare address keeps working on
+that device — a reload, a crash, or a home-screen shortcut all come back to the same screen. The
+seeded pages are `vehicle` and `farm`; a page you made yourself shows its own `?display=…` address in
+the page edit toolbar. Nothing is shared between devices: pages, favourites and widget state are
+per-browser `localStorage`, so the phone's layout is its own.
+
+A display drops the header, the bottom bar, the launcher, the notification centre, edit mode, page
+swipe, and the auto-switch to the Farm page when you step out of the tractor. It keeps the loading and
+connection states, the screen wake lock (requested automatically — there's no header toggle left to
+press), and the widgets' own controls, which still work. Alert banners and the chime stay on the
+tablet, so one alert doesn't announce itself twice in one cab.
+
+**To leave display mode on the device itself**, press and hold anywhere for two seconds: a small bar
+appears with the wake-lock state and EXIT DISPLAY, and hides itself again if you ignore it.
+
+**Add to Home Screen** gives a display its own icon and no browser chrome at all
+(`manifest.webmanifest` plus the iOS `apple-mobile-web-app-*` tags). The manifest deliberately
+declares no `start_url`, so a shortcut launches the URL it was made from — install from
+`/?display=vehicle` on the phone and from `/` on the tablet, and the two icons stay different.
+
 ## Tests
 
 ```bash

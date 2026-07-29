@@ -241,6 +241,16 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
 
     Spacer(Modifier.weight(1f))
 
+    // The address that pins a second device to this page (see DisplayStore). A page the user created
+    // has a generated id, which is otherwise only visible by reading browser storage — without this,
+    // display mode would only reach the seeded pages and the apps.
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+      Label("DISPLAY")
+      Text("?display=${page.id}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+    }
+
+    Spacer(Modifier.weight(1f))
+
     Icon(
       Icons.Filled.Delete,
       "delete page",
