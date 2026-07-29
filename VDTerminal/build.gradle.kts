@@ -35,9 +35,11 @@ allprojects {
         ktlintConfig.editorConfigOverride(
           mapOf(
             "ktlint_standard_function-naming" to "disabled",
-            // App-wide ambient state container, provided once at the root (see state/VdtStore.kt),
-            // and screen navigation, which user-placed widgets have no call chain to reach (Navigator.kt).
-            "compose_allowed_composition_locals" to "LocalVdtStore,LocalNavigator",
+            // App-wide ambient state container, provided once at the root (see state/VdtStore.kt);
+            // screen navigation, which user-placed widgets have no call chain to reach (Navigator.kt);
+            // and which placed tile is rendering, which only the few widgets holding view state of
+            // their own ever read, so it isn't worth a parameter on every widget (widgets/WidgetSettings.kt).
+            "compose_allowed_composition_locals" to "LocalVdtStore,LocalNavigator,LocalWidgetInstance",
           ),
         )
       }

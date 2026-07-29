@@ -22,10 +22,11 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
-import net.vertexdezign.vdt.app.panels.Implements
 import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
 import net.vertexdezign.vdt.app.panels.Navigation
+import net.vertexdezign.vdt.app.panels.RigSlot
+import net.vertexdezign.vdt.app.panels.RigSlotPanel
 import net.vertexdezign.vdt.app.panels.TaskListPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -44,7 +45,7 @@ object MapWidget : Widget {
   override val minRowSpan = 3
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
     val sampleIntervalMs by store.sampleIntervalMs.collectAsState()
@@ -62,7 +63,9 @@ object MapWidget : Widget {
       pda,
       heading,
       sampleIntervalMs,
-      store.settings,
+      // Scoped to this tile: zoom, filters and the ground layer are per placed map, so a page can
+      // hold an overview and a zoomed-in working view side by side.
+      rememberWidgetSettings(store.settings),
       modifier = modifier,
       mapData = mapData,
       mapVehicles = mapVehicles,
@@ -81,7 +84,7 @@ object EngineWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Agriculture
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
     val sampleIntervalMs by store.sampleIntervalMs.collectAsState()
@@ -94,21 +97,52 @@ object EngineWidget : Widget {
   }
 }
 
-/** Front/back implements — needs a vehicle. */
-object ImplementsWidget : Widget {
-  override val id = "implements"
-  override val title = "Implements"
+/**
+ * One position on the rig — the vehicle itself, or its front or rear implement. Needs a vehicle.
+ *
+ * Which position is per-instance config, so a page places one of these per slot instead of taking a
+ * fixed two-column panel: front on the left, the map in the middle, rear on the right.
+ */
+object RigSlotWidget : Widget {
+  override val id = "rigSlot"
+  override val title = "Rig Position"
   override val icon: ImageVector = Icons.Filled.Anchor
 
+  // Taller than wide: the panel is a stack (name, condition, controls, load) that reads as a column
+  // beside the map. It goes down to a single cell, where the panel stacks its controls instead of
+  // rowing them — worth the extra row of height, because a column of these is a layout the two-column
+  // panel this replaced could never have made.
+  override val defaultColSpan = 3
+  override val defaultRowSpan = 4
+  override val minColSpan = 1
+  override val minRowSpan = 3
+
+  /** The config key naming the position this tile renders. */
+  const val SLOT_KEY = "slot"
+
+  private val slotOption =
+    ConfigOption(
+      key = SLOT_KEY,
+      label = "Position",
+      // Fixed choices — every rig has all three positions, whether or not something is in them — so
+      // unlike the shortcut's apps these never narrow, and resolve()'s default is always meaningful.
+      choices = RigSlot.entries.map { ConfigOption.Choice(it.name, it.label) },
+    )
+
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun configOptions(): List<ConfigOption> = listOf(slotOption)
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
+    val slot = RigSlot.entries.firstOrNull { it.name == slotOption.resolve(config) } ?: RigSlot.VEHICLE
     val vehicle = telemetry?.vehicle
     if (vehicle == null) {
-      MissingPanel(title, icon, modifier)
+      MissingPanel(slot.label, icon, modifier)
     } else {
-      Implements(vehicle, modifier, onCommand = store.onCommand)
+      // Scoped to this tile: whether the load reads merged per fill type is per placed slot.
+      RigSlotPanel(slot, vehicle, rememberWidgetSettings(store.settings), modifier, onCommand = store.onCommand)
     }
   }
 }
@@ -129,7 +163,7 @@ object NavigationWidget : Widget {
   override val minRowSpan = 2
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
     val vehicle = telemetry?.vehicle
@@ -152,7 +186,7 @@ object LightingWidget : Widget {
   override val minRowSpan = 2
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
     val vehicle = telemetry?.vehicle
@@ -171,7 +205,7 @@ object TaskListWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Checklist
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val taskList by store.taskList.collectAsState()
     TaskListPanel(taskList, modifier, onCommand = store.onCommand)
@@ -185,7 +219,7 @@ object CropRotationWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Grass
 
   @Composable
-  override fun Content(modifier: Modifier) {
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val cropRotation by store.cropRotation.collectAsState()
     CropRotationPanel(cropRotation, modifier, onCommand = store.onCommand)

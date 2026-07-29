@@ -17,12 +17,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 enum class StatusColor { White, Green }
 
-/** Status toggle button (active/inactive, round or full-width). Port of `StatusIconButton`. */
+/**
+ * Status toggle button (active/inactive, round or full-width). Port of `StatusIconButton`.
+ *
+ * [height] applies to the full-width form only ([round] is always 48dp square). It exists for callers
+ * that stack several of these in a narrow tile, where three at the default height overrun the space
+ * before the rest of the panel gets any.
+ */
 @Composable
 fun StatusIconButton(
   icon: ImageVector,
@@ -30,6 +37,7 @@ fun StatusIconButton(
   active: Boolean = false,
   color: StatusColor = StatusColor.White,
   round: Boolean = false,
+  height: Dp = 48.dp,
   onClick: (() -> Unit)? = null,
 ) {
   val shape = if (round) CircleShape else RoundedCornerShape(4.dp)
@@ -62,7 +70,7 @@ fun StatusIconButton(
 
   var base =
     modifier
-      .then(if (round) Modifier.size(48.dp) else Modifier.fillMaxWidth().height(48.dp))
+      .then(if (round) Modifier.size(48.dp) else Modifier.fillMaxWidth().height(height))
       .clip(shape)
       .background(background)
       .border(1.dp, borderColor, shape)

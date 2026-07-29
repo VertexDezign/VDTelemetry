@@ -19,12 +19,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Agriculture
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,17 +43,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
-import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.CruiseAction
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SimpleGauge
-import net.vertexdezign.vdt.app.components.StatusColor
-import net.vertexdezign.vdt.app.components.StatusIconButton
 import net.vertexdezign.vdt.app.components.format2
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CruiseControl
-import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Motor
 import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.Vehicle
@@ -158,53 +150,19 @@ fun EngineTransmission(
         }
       }
 
-      // Vehicle self controls. Each button is only clickable when the vehicle actually has that
-      // aspect (foldable/turnOn/lowered present); the tap sends the ABSOLUTE target state, computed
-      // from what we render, so it stays idempotent over the lossy command channel (see ClientMessage).
-      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        val foldable = vehicle.foldable
-        StatusIconButton(
-          icon = Icons.Filled.UnfoldMore,
-          modifier = Modifier.weight(1f),
-          active = foldable != null,
-          color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
-          onClick =
-          foldable?.let {
-            { onCommand(ClientMessage.SetFolded(ControlTarget.VEHICLE, on = it == FoldableState.EXTENDED)) }
-          },
-        )
-        StatusIconButton(
-          Icons.Filled.PowerSettingsNew,
-          Modifier.weight(1f),
-          active = vehicle.isTurnedOn != null,
-          color = if (vehicle.isTurnedOn == true) StatusColor.Green else StatusColor.White,
-          onClick =
-          vehicle.isTurnedOn?.let {
-            { onCommand(ClientMessage.SetActivated(ControlTarget.VEHICLE, on = !it)) }
-          },
-        )
-        StatusIconButton(
-          if (vehicle.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
-          Modifier.weight(1f),
-          active = vehicle.lowered != null,
-          color = if (vehicle.lowered == true) StatusColor.Green else StatusColor.White,
-          onClick =
-          vehicle.lowered?.let {
-            { onCommand(ClientMessage.SetLowered(ControlTarget.VEHICLE, on = !it)) }
-          },
-        )
-      }
-
-      // Tank levels, then cargo. The motor's units are a fixed fuel/def/air trio rather than the
-      // repeated form, so they're flattened into the same display. Fuel *level* used to live only in
-      // the bottom bar's little tube gauge; it moved here when that bar became a shell surface, next
-      // to the fuel/hr rate it belongs with.
+      // Engine tanks only. The motor's units are a fixed fuel/def/air trio rather than the repeated
+      // form, so they're flattened into the same display. Fuel *level* used to live only in the
+      // bottom bar's little tube gauge; it moved here when that bar became a shell surface, next to
+      // the fuel/hr rate it belongs with.
+      //
+      // The vehicle's cargo, and its fold/power/raise controls, are the VEHICLE slot's — this panel
+      // is the engine and the transmission, and was only carrying them because there was nowhere else
+      // for the vehicle's own state to live.
       FillUnitsDisplay(
         listOfNotNull(motor.fuel(), motor.def(), motor.fillUnits?.air),
         Modifier.fillMaxWidth(),
         spacing = 4,
       )
-      FillUnitsDisplay(vehicle.fillUnits?.fillUnit ?: emptyList(), Modifier.fillMaxWidth(), spacing = 4)
     }
   }
 }

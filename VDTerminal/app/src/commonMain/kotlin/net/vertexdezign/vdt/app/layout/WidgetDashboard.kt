@@ -39,8 +39,21 @@ import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.Widget
+import net.vertexdezign.vdt.app.widgets.WidgetConfig
+import net.vertexdezign.vdt.app.widgets.WidgetConfigDialog
 import net.vertexdezign.vdt.app.widgets.WidgetPicker
+import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import net.vertexdezign.vdt.app.widgets.availableWidgets
+
+/**
+ * What the config dialog is currently open for: a widget being placed, or a tile already on the page.
+ * One dialog serves both, so the difference is only what SAVE does — add a cell, or update one.
+ */
+private sealed interface ConfigTarget {
+  data class New(val widget: Widget, val at: GridPos) : ConfigTarget
+
+  data class Placed(val cell: LayoutCell) : ConfigTarget
+}
 
 /**
  * The body of a [Page]: its [GridLayout] rendered as a [WidgetGrid], with every edit written straight
@@ -53,10 +66,27 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
   val store = LocalVdtStore.current
   val pageStore = store.pages
   var addAt by remember(page.id, editing) { mutableStateOf<GridPos?>(null) }
+  var configuring by remember(page.id, editing) { mutableStateOf<ConfigTarget?>(null) }
   // Deleting a page is destructive, so it's held here until the user confirms.
   var confirmDelete by remember(page.id) { mutableStateOf(false) }
 
   fun apply(next: GridLayout) = pageStore.update(page.copy(layout = next))
+
+  // The widget, not just its id: placement needs the size it asks for and the floor it may be
+  // squeezed to, which is exactly what stops a tile landing as an unreadable single cell. Every
+  // placement goes through here — the picker's fit probe, a direct add, and the add-after-configuring
+  // path — so all three agree on what "placing this widget here" means.
+  fun place(widget: Widget, at: GridPos, config: WidgetConfig = emptyMap()) = page.layout.addWidget(
+    newInstanceId(),
+    widget.id,
+    at.col,
+    at.row,
+    colSpan = widget.defaultColSpan,
+    rowSpan = widget.defaultRowSpan,
+    minColSpan = widget.minColSpan,
+    minRowSpan = widget.minRowSpan,
+    config = config,
+  )
 
   // Hide the toolbar while the confirmation is pending: its dialog only scrims the grid area below, so
   // an exposed toolbar would let a second destructive request stack up behind the modal.
@@ -71,36 +101,76 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
       editing = editing,
       onLayoutChange = ::apply,
       onAddRequest = { addAt = it },
+      onConfigureRequest = { configuring = ConfigTarget.Placed(it) },
     )
 
     val pending = addAt?.takeIf { editing && it in page.layout.freePositions() }
     if (pending != null) {
-      val placed = page.layout.cells.map { it.widgetId }.toSet()
-
-      // The widget, not just its id: placement needs the size it asks for and the floor it may be
-      // squeezed to, which is exactly what stops a tile landing as an unreadable single cell.
-      fun place(widget: Widget) = page.layout.addWidget(
-        widget.id,
-        pending.col,
-        pending.row,
-        colSpan = widget.defaultColSpan,
-        rowSpan = widget.defaultRowSpan,
-        minColSpan = widget.minColSpan,
-        minRowSpan = widget.minRowSpan,
-      )
+      // Which widgets want the config dialog has to be settled here: `configOptions` is composable
+      // and the picker's onPick callback is not.
+      val needsConfig = mutableSetOf<String>()
+      for (widget in availableWidgets()) {
+        if (widget.configOptions().isNotEmpty()) needsConfig += widget.id
+      }
 
       WidgetPicker(
         // An empty slot doesn't mean every widget fits it: one whose floor won't clear the grid edge
         // or a neighbour is refused, and addWidget is then a no-op — listing it would give a row that
         // silently does nothing when tapped. Trying the placement is the only honest filter, the same
         // way the resize controls grey out on `resize() == layout`.
-        available = availableWidgets().filter { it.id !in placed && place(it) != page.layout },
+        //
+        // Fit is now the *only* filter. Widgets already on the page used to be withheld, back when a
+        // page could hold one tile per type; a second map with its own zoom and layers is a normal
+        // thing to want.
+        available = availableWidgets().filter { place(it, pending) != page.layout },
         onPick = { widget ->
-          apply(place(widget))
-          addAt = null
+          // A configurable widget is never placed unanswered: the same dialog that edits a tile later
+          // collects the answers first, and cancelling it places nothing.
+          if (widget.id in needsConfig) {
+            configuring = ConfigTarget.New(widget, pending)
+          } else {
+            apply(place(widget, pending))
+            addAt = null
+          }
         },
         onDismiss = { addAt = null },
       )
+    }
+
+    when (val target = configuring) {
+      null -> Unit
+
+      is ConfigTarget.New ->
+        WidgetConfigDialog(
+          title = "Add ${target.widget.title}",
+          options = target.widget.configOptions(),
+          initial = emptyMap(),
+          confirmLabel = "ADD",
+          onConfirm = { config ->
+            apply(place(target.widget, target.at, config))
+            configuring = null
+            addAt = null
+          },
+          // Back out of configuring, not out of adding: the picker is still open underneath.
+          onDismiss = { configuring = null },
+        )
+
+      // Only the gear opens this, and it only renders for a widget that resolved and declared
+      // options — so an unknown id here means the page changed under the dialog; drop it.
+      is ConfigTarget.Placed ->
+        WidgetRegistry.byId(target.cell.widgetId)?.let { widget ->
+          WidgetConfigDialog(
+            title = widget.title,
+            options = widget.configOptions(),
+            initial = target.cell.config,
+            confirmLabel = "SAVE",
+            onConfirm = { config ->
+              apply(page.layout.reconfigure(target.cell.instanceId, config))
+              configuring = null
+            },
+            onDismiss = { configuring = null },
+          )
+        }
     }
 
     if (confirmDelete) {

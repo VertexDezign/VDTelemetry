@@ -23,8 +23,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.OpenWith
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import net.vertexdezign.vdt.app.panels.EmptyPanel
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.widgets.LocalWidgetInstance
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import kotlin.math.roundToInt
 
@@ -60,8 +63,10 @@ internal val GRID_PADDING = 8.dp
  *
  * When [editing] is true each tile gains a move/resize/remove overlay (its own widget gestures are
  * masked), and every free position shows an "add" slot ([onAddRequest]). Layout mutations are
- * reported through [onLayoutChange]. Must be given bounded constraints (place under a `weight`/
- * `fillMaxSize`, not in a scroll).
+ * reported through [onLayoutChange]. Configuring a tile is raised to the caller through
+ * [onConfigureRequest] rather than handled here: the editor is a full-screen modal, and a cell is
+ * `size`-bounded, so it has to be hosted above the grid. Must be given bounded constraints (place
+ * under a `weight`/`fillMaxSize`, not in a scroll).
  */
 @Composable
 fun WidgetGrid(
@@ -70,6 +75,7 @@ fun WidgetGrid(
   editing: Boolean = false,
   onLayoutChange: (GridLayout) -> Unit = {},
   onAddRequest: (GridPos) -> Unit = {},
+  onConfigureRequest: (LayoutCell) -> Unit = {},
 ) {
   val cols = layout.columns.coerceAtLeast(1)
   val rows = layout.rows.coerceAtLeast(1)
@@ -108,7 +114,9 @@ fun WidgetGrid(
     }
 
     for (cell in layout.cells) {
-      key(cell.widgetId) {
+      // Keyed by instance, not by widget: two tiles of the same type on one page are two tiles, and
+      // keying them alike would collide their state and their drag.
+      key(cell.instanceId) {
         WidgetCell(
           cell = cell,
           layout = layout,
@@ -118,6 +126,7 @@ fun WidgetGrid(
           widthPx = spanWidth(cell.colSpan),
           heightPx = spanHeight(cell.rowSpan),
           onLayoutChange = onLayoutChange,
+          onConfigureRequest = onConfigureRequest,
           hitTest = ::hitTest,
         )
       }
@@ -135,6 +144,7 @@ private fun WidgetCell(
   widthPx: Float,
   heightPx: Float,
   onLayoutChange: (GridLayout) -> Unit,
+  onConfigureRequest: (LayoutCell) -> Unit,
   hitTest: (Offset) -> GridPos,
 ) {
   val density = LocalDensity.current
@@ -156,6 +166,12 @@ private fun WidgetCell(
   val widget = WidgetRegistry.byId(cell.widgetId)
   val minColSpan = widget?.minColSpan ?: 1
   val minRowSpan = widget?.minRowSpan ?: 1
+  val configurable = widget?.configOptions().orEmpty().isNotEmpty()
+
+  // The overlay's controls are fixed-size, so on the smallest tiles they are most of the tile. The
+  // corner buttons earn that room; the centred drag hint is decoration, and at 1×1 (~91×90dp) it
+  // overlaps the resize block outright — so it only appears once there is a tile to hint at.
+  val roomForDragHint = cell.colSpan >= 2 && cell.rowSpan >= 2
 
   Box(
     Modifier
@@ -163,7 +179,14 @@ private fun WidgetCell(
       .offset { IntOffset((originX + drag.x).roundToInt(), (originY + drag.y).roundToInt()) }
       .size(with(density) { widthPx.toDp() }, with(density) { heightPx.toDp() }),
   ) {
-    if (widget != null) widget.Content(Modifier.fillMaxSize()) else EmptyPanel(Modifier.fillMaxSize())
+    if (widget == null) {
+      EmptyPanel(Modifier.fillMaxSize())
+    } else {
+      // Which tile this is, for widgets that keep view state of their own — see WidgetSettings.
+      CompositionLocalProvider(LocalWidgetInstance provides cell.instanceId) {
+        widget.Content(Modifier.fillMaxSize(), cell.config)
+      }
+    }
 
     if (editing) {
       // Full-tile overlay: a scrim that both signals "editable" and masks the widget's own gestures,
@@ -189,12 +212,25 @@ private fun WidgetCell(
             )
           },
       ) {
-        Icon(
-          Icons.Filled.OpenWith,
-          contentDescription = "drag to move",
-          tint = VdtColors.White,
-          modifier = Modifier.align(Alignment.Center).size(28.dp),
-        )
+        if (roomForDragHint) {
+          Icon(
+            Icons.Filled.OpenWith,
+            contentDescription = "drag to move",
+            tint = VdtColors.White,
+            modifier = Modifier.align(Alignment.Center).size(28.dp),
+          )
+        }
+        // TopStart is the overlay's last free corner (remove holds TopEnd, resize BottomEnd), and it
+        // is the one that still works on a single-cell tile — a gear and a close button side by side
+        // come to 56dp of the ~61dp a 1×1 gets in portrait, its narrowest case.
+        if (configurable) {
+          CtrlButton(
+            Icons.Filled.Settings,
+            "configure widget",
+            onClick = { onConfigureRequest(cell) },
+            modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
+          )
+        }
         CtrlButton(
           Icons.Filled.Close,
           "remove widget",

@@ -3,17 +3,33 @@ package net.vertexdezign.vdt.app.layout
 import kotlinx.serialization.Serializable
 import net.vertexdezign.vdt.app.layout.GridLayout.Companion.COLUMNS
 import net.vertexdezign.vdt.app.layout.GridLayout.Companion.ROWS
+import net.vertexdezign.vdt.app.widgets.WidgetConfig
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 /** A grid position (column/row), used for free-slot enumeration and drag hit-testing. */
 data class GridPos(val col: Int, val row: Int)
 
 /**
- * One placed widget: the [widgetId] to render at top-left [col]/[row], spanning [colSpan]×[rowSpan]
- * cells. Ids are resolved against `WidgetRegistry`.
+ * One placed widget: the widget *type* [widgetId] (resolved against `WidgetRegistry`) rendered at
+ * top-left [col]/[row], spanning [colSpan]×[rowSpan] cells, configured by [config].
+ *
+ * [instanceId] — not [widgetId] — is this tile's identity. Type and instance used to be the same
+ * thing, which capped a page at one tile per widget: two maps couldn't coexist, the picker had to
+ * hide anything already placed, and per-widget state had nowhere instance-specific to live. A
+ * generated id per placement lifts all three at once, and gives instance-scoped state a stable key
+ * that survives the tile being moved or resized.
  */
 @Serializable
-data class LayoutCell(val widgetId: String, val col: Int, val row: Int, val colSpan: Int = 1, val rowSpan: Int = 1) {
+data class LayoutCell(
+  val instanceId: String,
+  val widgetId: String,
+  val col: Int,
+  val row: Int,
+  val colSpan: Int = 1,
+  val rowSpan: Int = 1,
+  val config: WidgetConfig = emptyMap(),
+) {
   fun covers(c: Int, r: Int): Boolean = c in col until col + colSpan && r in row until row + rowSpan
 
   fun overlaps(other: LayoutCell): Boolean = col < other.col + other.colSpan &&
@@ -21,6 +37,13 @@ data class LayoutCell(val widgetId: String, val col: Int, val row: Int, val colS
     row < other.row + other.rowSpan &&
     other.row < row + rowSpan
 }
+
+/**
+ * A fresh instance id. Random rather than derived from the widget or its position: the id has to
+ * outlive both, since a tile keeps its instance-scoped state when it is moved, resized or
+ * reconfigured.
+ */
+fun newInstanceId(): String = "w-" + Random.nextLong(0, Long.MAX_VALUE).toString(36)
 
 /**
  * A screen's widget arrangement as data: a [columns] × [rows] grid holding placed [cells]. Any grid
@@ -55,9 +78,12 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
   private fun inBounds(cell: LayoutCell): Boolean =
     cell.col >= 0 && cell.row >= 0 && cell.col + cell.colSpan <= columns && cell.row + cell.rowSpan <= rows
 
-  /** True if [cell] fits: in bounds and clear of every existing cell except those in [ignoring]. */
-  private fun fits(cell: LayoutCell, ignoring: Set<LayoutCell>): Boolean =
-    inBounds(cell) && cells.none { it !in ignoring && it.overlaps(cell) }
+  /**
+   * True if [cell] fits: in bounds and clear of every existing cell except the instances in
+   * [ignoring] — the tiles being moved or resized by the caller, which must not block themselves.
+   */
+  private fun fits(cell: LayoutCell, ignoring: Set<String>): Boolean =
+    inBounds(cell) && cells.none { it.instanceId !in ignoring && it.overlaps(cell) }
 
   /**
    * Re-expresses this layout in a [columns] × [rows] grid by scaling every cell's edges by the ratio
@@ -96,6 +122,7 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
    * 1×1 sliver a fine grid would otherwise give it.
    */
   fun addWidget(
+    instanceId: String,
     widgetId: String,
     col: Int,
     row: Int,
@@ -103,6 +130,7 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
     rowSpan: Int = 1,
     minColSpan: Int = 1,
     minRowSpan: Int = 1,
+    config: WidgetConfig = emptyMap(),
   ): GridLayout {
     val wantCols = colSpan.coerceAtLeast(1)
     val wantRows = rowSpan.coerceAtLeast(1)
@@ -111,7 +139,9 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
     val leastRows = minRowSpan.coerceIn(1, wantRows)
     val placed =
       (wantCols downTo leastCols)
-        .flatMap { cs -> (wantRows downTo leastRows).map { rs -> LayoutCell(widgetId, col, row, cs, rs) } }
+        .flatMap { cs ->
+          (wantRows downTo leastRows).map { rs -> LayoutCell(instanceId, widgetId, col, row, cs, rs, config) }
+        }
         .filter { fits(it, ignoring = emptySet()) }
         // Biggest area wins; between equal areas prefer the wider one — tiles read better landscape.
         .maxWithOrNull(compareBy({ it.colSpan * it.rowSpan }, { it.colSpan }))
@@ -119,9 +149,19 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
     return copy(cells = cells + placed)
   }
 
+  /**
+   * Replaces the settings of the instance [instanceId]; no-op if that tile is gone. Placement is
+   * untouched — reconfiguring a tile never moves or resizes it, so instance-scoped state keyed on the
+   * id stays attached to it.
+   */
+  fun reconfigure(instanceId: String, config: WidgetConfig): GridLayout {
+    if (cells.none { it.instanceId == instanceId }) return this
+    return copy(cells = cells.map { if (it.instanceId == instanceId) it.copy(config = config) else it })
+  }
+
   fun removeAt(col: Int, row: Int): GridLayout {
     val cell = cellCovering(col, row) ?: return this
-    return copy(cells = cells - cell)
+    return copy(cells = cells.filterNot { it.instanceId == cell.instanceId })
   }
 
   /**
@@ -141,8 +181,8 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
         colSpan = colSpan.coerceIn(leastCols, roomCols),
         rowSpan = rowSpan.coerceIn(leastRows, roomRows),
       )
-    if (!fits(resized, ignoring = setOf(cell))) return this
-    return copy(cells = cells.map { if (it == cell) resized else it })
+    if (!fits(resized, ignoring = setOf(cell.instanceId))) return this
+    return copy(cells = cells.map { if (it.instanceId == cell.instanceId) resized else it })
   }
 
   /**
@@ -152,35 +192,22 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
   fun moveOrSwap(from: GridPos, to: GridPos): GridLayout {
     val moving = cellOrigin(from.col, from.row) ?: return this
     val target = cellCovering(to.col, to.row)
-    if (target == moving) return this
+    if (target?.instanceId == moving.instanceId) return this
     if (target == null) {
       val moved = moving.copy(col = to.col, row = to.row)
-      return if (fits(moved, ignoring = setOf(moving))) {
-        copy(
-          cells = cells.map {
-            if (it ==
-              moving
-            ) {
-              moved
-            } else {
-              it
-            }
-          },
-        )
-      } else {
-        this
-      }
+      if (!fits(moved, ignoring = setOf(moving.instanceId))) return this
+      return copy(cells = cells.map { if (it.instanceId == moving.instanceId) moved else it })
     }
     val movedMoving = moving.copy(col = target.col, row = target.row)
     val movedTarget = target.copy(col = moving.col, row = moving.row)
-    val ignore = setOf(moving, target)
+    val ignore = setOf(moving.instanceId, target.instanceId)
     if (!fits(movedMoving, ignore) || !fits(movedTarget, ignore) || movedMoving.overlaps(movedTarget)) return this
     return copy(
       cells =
       cells.map {
-        when (it) {
-          moving -> movedMoving
-          target -> movedTarget
+        when (it.instanceId) {
+          moving.instanceId -> movedMoving
+          target.instanceId -> movedTarget
           else -> it
         }
       },

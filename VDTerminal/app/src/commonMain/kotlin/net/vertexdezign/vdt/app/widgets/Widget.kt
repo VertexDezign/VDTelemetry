@@ -33,7 +33,34 @@ interface Widget {
   val minColSpan: Int get() = 3
   val minRowSpan: Int get() = 2
 
-  /** Renders the tile filling [modifier]'s bounds (each widget supplies its own panel chrome). */
+  /**
+   * The per-instance settings this widget accepts, empty (the default) when it takes none. Each
+   * placed tile carries its own answers, so two instances of one widget on the same page can show
+   * different things.
+   *
+   * Declaring an option is all a widget has to do to become configurable: the picker asks for the
+   * answers as it places the tile, the edit overlay grows a gear to change them later, and the values
+   * arrive back through [Content]'s `config`.
+   *
+   * Composable so the choices can react to the session — the same reason
+   * [net.vertexdezign.vdt.app.apps.VdtApp.isAvailable] is.
+   */
   @Composable
-  fun Content(modifier: Modifier)
+  fun configOptions(): List<ConfigOption> = emptyList()
+
+  /**
+   * Renders the tile filling [modifier]'s bounds (each widget supplies its own panel chrome), for
+   * the instance configured by [config] — normally read through [ConfigOption.resolve], which
+   * supplies the default for a key that was never set.
+   *
+   * A widget must cope with a value it no longer offers rather than assume one of its current
+   * choices: [resolve][ConfigOption.resolve] hands stored values back untouched precisely so this
+   * decision is the widget's. Falling back to the default is fine where the choices are fixed;
+   * where they come and go, saying so is usually better than quietly showing something else.
+   *
+   * The default lets the callers that render a widget outside any page — an app's own full-screen
+   * view — say nothing about configuration, which is exactly what they mean.
+   */
+  @Composable
+  fun Content(modifier: Modifier, config: WidgetConfig = emptyMap())
 }
