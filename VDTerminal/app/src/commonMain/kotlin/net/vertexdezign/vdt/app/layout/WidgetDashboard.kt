@@ -250,7 +250,9 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
       // Selectable: a generated id is a dozen random characters, which is exactly the kind of thing
       // you want to copy rather than re-read letter by letter onto the other device.
       SelectionContainer {
-        Text("?display=${page.id}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+        // Darker than its label, like the title field beside it: this is a value to be read off and
+        // typed into another device, so it outranks the word naming it.
+        Text("?display=${page.id}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
       }
     }
 
@@ -265,9 +267,15 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
   }
 }
 
+/**
+ * A field name in the toolbar. [VdtColors.DarkGray], not [VdtColors.Gray]: the toolbar's tinted
+ * background leaves the lighter tone at roughly 1.2:1 against it, which is not a faint label but an
+ * invisible one. This is the same tone the unselected [Chip]s and icons beside it use, so the labels
+ * read as secondary without disappearing.
+ */
 @Composable
 private fun Label(text: String) {
-  Text(text, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.Gray)
+  Text(text, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
 }
 
 @Composable
