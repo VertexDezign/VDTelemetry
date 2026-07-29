@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,10 +57,14 @@ private sealed interface ConfigTarget {
 }
 
 /**
- * The body of a [Page]: its [GridLayout] rendered as a [WidgetGrid], with every edit written straight
- * back through [PageStore] (which persists). [editing] is the shell-wide edit toggle from the header;
- * when on, the page's edit toolbar sits above the grid and the grid shows its editing affordances.
- * The status footer is rendered by the shell, not here.
+ * The body of a [Page]: the [GridLayout] for the body's own [GridAspect], rendered as a [WidgetGrid],
+ * with every edit written straight back through [PageStore] (which persists). [editing] is the
+ * shell-wide edit toggle from the header; when on, the page's edit toolbar sits above the grid and the
+ * grid shows its editing affordances. The status footer is rendered by the shell, not here.
+ *
+ * The aspect is measured here, from the box the grid is actually given, rather than passed down from
+ * the shell — see [GridAspect.of]. Edit mode therefore edits whichever arrangement is on screen:
+ * rotate the device and you are editing the other one, and the first is left as you had it.
  */
 @Composable
 fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier = Modifier) {
@@ -71,33 +75,36 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
   // Deleting a page is destructive, so it's held here until the user confirms.
   var confirmDelete by remember(page.id) { mutableStateOf(false) }
 
-  fun apply(next: GridLayout) = pageStore.update(page.copy(layout = next))
-
-  // The widget, not just its id: placement needs the size it asks for and the floor it may be
-  // squeezed to, which is exactly what stops a tile landing as an unreadable single cell. Every
-  // placement goes through here — the picker's fit probe, a direct add, and the add-after-configuring
-  // path — so all three agree on what "placing this widget here" means.
-  fun place(widget: Widget, at: GridPos, config: WidgetConfig = emptyMap()) = page.layout.addWidget(
-    newInstanceId(),
-    widget.id,
-    at.col,
-    at.row,
-    colSpan = widget.defaultColSpan,
-    rowSpan = widget.defaultRowSpan,
-    minColSpan = widget.minColSpan,
-    minRowSpan = widget.minRowSpan,
-    config = config,
-  )
-
   // Hide the toolbar while the confirmation is pending: its dialog only scrims the grid area below, so
   // an exposed toolbar would let a second destructive request stack up behind the modal.
   if (editing && !confirmDelete) {
     PageEditToolbar(page, pageStore, onDeleteRequest = { confirmDelete = true })
   }
 
-  Box(modifier.fillMaxWidth().weight(1f)) {
+  BoxWithConstraints(modifier.fillMaxWidth().weight(1f)) {
+    val aspect = GridAspect.of(maxWidth, maxHeight)
+    val layout = page.layoutFor(aspect)
+
+    fun apply(next: GridLayout) = pageStore.update(page.withLayout(aspect, next))
+
+    // The widget, not just its id: placement needs the size it asks for and the floor it may be
+    // squeezed to, which is exactly what stops a tile landing as an unreadable single cell. Every
+    // placement goes through here — the picker's fit probe, a direct add, and the add-after-configuring
+    // path — so all three agree on what "placing this widget here" means.
+    fun place(widget: Widget, at: GridPos, config: WidgetConfig = emptyMap()) = layout.addWidget(
+      newInstanceId(),
+      widget.id,
+      at.col,
+      at.row,
+      colSpan = widget.defaultColSpan,
+      rowSpan = widget.defaultRowSpan,
+      minColSpan = widget.minColSpan,
+      minRowSpan = widget.minRowSpan,
+      config = config,
+    )
+
     WidgetGrid(
-      page.layout,
+      layout,
       Modifier.fillMaxSize().padding(GRID_PADDING),
       editing = editing,
       onLayoutChange = ::apply,
@@ -105,7 +112,7 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
       onConfigureRequest = { configuring = ConfigTarget.Placed(it) },
     )
 
-    val pending = addAt?.takeIf { editing && it in page.layout.freePositions() }
+    val pending = addAt?.takeIf { editing && it in layout.freePositions() }
     if (pending != null) {
       // Which widgets want the config dialog has to be settled here: `configOptions` is composable
       // and the picker's onPick callback is not.
@@ -123,7 +130,7 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
         // Fit is now the *only* filter. Widgets already on the page used to be withheld, back when a
         // page could hold one tile per type; a second map with its own zoom and layers is a normal
         // thing to want.
-        available = availableWidgets().filter { place(it, pending) != page.layout },
+        available = availableWidgets().filter { place(it, pending) != layout },
         onPick = { widget ->
           // A configurable widget is never placed unanswered: the same dialog that edits a tile later
           // collects the answers first, and cancelling it places nothing.
@@ -166,7 +173,7 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
             initial = target.cell.config,
             confirmLabel = "SAVE",
             onConfirm = { config ->
-              apply(page.layout.reconfigure(target.cell.instanceId, config))
+              apply(layout.reconfigure(target.cell.instanceId, config))
               configuring = null
             },
             onDismiss = { configuring = null },
@@ -194,9 +201,10 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
  * [onDeleteRequest] so the parent can guard it; the non-destructive edits write straight back through
  * [store].
  *
- * There is no grid-size control: every page is laid out on the same fixed grid
- * ([GridLayout.COLUMNS] × [GridLayout.ROWS]), and each widget carries its own size, so there is
- * nothing here for the user to tune.
+ * There is no grid-size control: a page is laid out on one of two fixed grids, chosen by the body's
+ * aspect ([GridAspect]), and each widget carries its own size, so there is nothing here for the user
+ * to tune. Nor is there a control for editing the *other* orientation's arrangement — turn the device
+ * and edit it there, which is the only way to see what you are arranging.
  */
 @Composable
 private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () -> Unit) {

@@ -2,6 +2,7 @@ package net.vertexdezign.vdt.app.pages
 
 import com.russhwolf.settings.MapSettings
 import net.vertexdezign.vdt.app.apps.AppRegistry
+import net.vertexdezign.vdt.app.layout.GridAspect
 import net.vertexdezign.vdt.app.layout.GridLayout
 import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.RigSlotWidget
@@ -55,43 +56,67 @@ class PageStoreTest {
  * The starter pages are hand-authored cell coordinates, so nothing but this stops them drifting out
  * of step with the grid constants or with a widget's declared floor — changing [GridLayout.ROWS]
  * silently left a dead row across both seeds until these were added.
+ *
+ * Every case runs over **both** of a page's arrangements. Hand-authoring doubled when portrait got
+ * its own grid, and the portrait one is the half nobody looks at on a desk.
  */
 class SeedPageTest {
   private val seeds = PageStore(MapSettings()).pages.value
 
+  /** One page as laid out for one aspect; [toString] is what names it in a failure. */
+  private data class Arrangement(val page: Page, val aspect: GridAspect, val layout: GridLayout) {
+    override fun toString(): String = "${page.id}/${aspect.name.lowercase()}"
+  }
+
+  private val arrangements =
+    seeds.flatMap { page -> GridAspect.entries.map { Arrangement(page, it, page.layoutFor(it)) } }
+
   @Test
-  fun everySeedIsLaidOutOnTheCurrentGrid() {
-    for (page in seeds) {
-      assertEquals(GridLayout.COLUMNS, page.layout.columns, "${page.id} columns")
-      assertEquals(GridLayout.ROWS, page.layout.rows, "${page.id} rows")
+  fun everySeedIsLaidOutOnItsAspectsGrid() {
+    for (arrangement in arrangements) {
+      assertEquals(arrangement.aspect.columns, arrangement.layout.columns, "$arrangement columns")
+      assertEquals(arrangement.aspect.rows, arrangement.layout.rows, "$arrangement rows")
     }
   }
 
   @Test
   fun noSeededTileOverflowsTheGridOrOverlapsAnother() {
-    for (page in seeds) {
-      val cells = page.layout.cells
+    for (arrangement in arrangements) {
+      val cells = arrangement.layout.cells
       for (cell in cells) {
         assertTrue(
           cell.col >= 0 && cell.row >= 0 &&
-            cell.col + cell.colSpan <= GridLayout.COLUMNS &&
-            cell.row + cell.rowSpan <= GridLayout.ROWS,
-          "${page.id}/${cell.widgetId} is outside the grid",
+            cell.col + cell.colSpan <= arrangement.aspect.columns &&
+            cell.row + cell.rowSpan <= arrangement.aspect.rows,
+          "$arrangement/${cell.widgetId} is outside the grid",
         )
       }
       for ((i, cell) in cells.withIndex()) {
         for (other in cells.drop(i + 1)) {
-          assertTrue(!cell.overlaps(other), "${page.id}: ${cell.widgetId} overlaps ${other.widgetId}")
+          assertTrue(!cell.overlaps(other), "$arrangement: ${cell.widgetId} overlaps ${other.widgetId}")
         }
       }
     }
   }
 
   @Test
-  fun everySeededInstanceIdIsUniqueWithinItsPage() {
+  fun everySeededInstanceIdIsUniqueWithinItsArrangement() {
+    for (arrangement in arrangements) {
+      val ids = arrangement.layout.cells.map { it.instanceId }
+      assertEquals(ids.size, ids.toSet().size, "$arrangement repeats an instance id: $ids")
+    }
+  }
+
+  @Test
+  fun aSeedsTwoArrangementsHoldTheSameTiles() {
+    // Shared instance ids are what carry a tile's zoom, filters and rig position across a rotation. A
+    // portrait page that re-lettered its tiles would look identical and quietly reset all of it.
     for (page in seeds) {
-      val ids = page.layout.cells.map { it.instanceId }
-      assertEquals(ids.size, ids.toSet().size, "${page.id} repeats an instance id: $ids")
+      assertEquals(
+        page.landscape.cells.mapTo(mutableSetOf()) { it.instanceId },
+        page.portrait.cells.mapTo(mutableSetOf()) { it.instanceId },
+        "${page.id}: the two arrangements disagree about which tiles are on the page",
+      )
     }
   }
 
@@ -99,38 +124,38 @@ class SeedPageTest {
   fun everySeededShortcutNamesARegisteredApp() {
     // The dock is hand-authored config, so an app id renamed in code would otherwise show up as four
     // grey "Unavailable" tiles on a fresh install rather than as a failing build.
-    for (page in seeds) {
-      for (cell in page.layout.cells.filter { it.widgetId == ShortcutWidget.id }) {
+    for (arrangement in arrangements) {
+      for (cell in arrangement.layout.cells.filter { it.widgetId == ShortcutWidget.id }) {
         val appId = cell.config[ShortcutWidget.APP_KEY]
         assertTrue(
           appId != null && AppRegistry.byId(appId) != null,
-          "${page.id}/${cell.instanceId} points at unknown app $appId",
+          "$arrangement/${cell.instanceId} points at unknown app $appId",
         )
       }
     }
   }
 
   @Test
-  fun theVehicleSeedPlacesAllThreeRigPositions() {
+  fun theVehicleSeedPlacesAllThreeRigPositionsInBothOrientations() {
     // The point of the rig-slot rework: front, the machine and rear are each their own tile, so the
     // page can put them where they actually sit rather than in one fixed two-column panel.
-    val slots =
-      seeds
-        .first { it.id == "vehicle" }
-        .layout.cells
-        .filter { it.widgetId == RigSlotWidget.id }
-        .mapNotNull { it.config[RigSlotWidget.SLOT_KEY] }
-    assertEquals(RigSlot.entries.map { it.name }.toSet(), slots.toSet())
+    for (arrangement in arrangements.filter { it.page.id == "vehicle" }) {
+      val slots =
+        arrangement.layout.cells
+          .filter { it.widgetId == RigSlotWidget.id }
+          .mapNotNull { it.config[RigSlotWidget.SLOT_KEY] }
+      assertEquals(RigSlot.entries.map { it.name }.toSet(), slots.toSet(), "$arrangement")
+    }
   }
 
   @Test
   fun everySeededSlotNamesARigPosition() {
-    for (page in seeds) {
-      for (cell in page.layout.cells.filter { it.widgetId == RigSlotWidget.id }) {
+    for (arrangement in arrangements) {
+      for (cell in arrangement.layout.cells.filter { it.widgetId == RigSlotWidget.id }) {
         val slot = cell.config[RigSlotWidget.SLOT_KEY]
         assertTrue(
           RigSlot.entries.any { it.name == slot },
-          "${page.id}/${cell.instanceId} points at unknown rig position $slot",
+          "$arrangement/${cell.instanceId} points at unknown rig position $slot",
         )
       }
     }
@@ -138,13 +163,13 @@ class SeedPageTest {
 
   @Test
   fun everySeededWidgetIsRegisteredAndPlacedAtOrAboveItsFloor() {
-    for (page in seeds) {
-      for (cell in page.layout.cells) {
+    for (arrangement in arrangements) {
+      for (cell in arrangement.layout.cells) {
         val widget = WidgetRegistry.byId(cell.widgetId)
-        assertTrue(widget != null, "${page.id} places unknown widget ${cell.widgetId}")
+        assertTrue(widget != null, "$arrangement places unknown widget ${cell.widgetId}")
         assertTrue(
           cell.colSpan >= widget.minColSpan && cell.rowSpan >= widget.minRowSpan,
-          "${page.id}/${cell.widgetId} is ${cell.colSpan}x${cell.rowSpan}, " +
+          "$arrangement/${cell.widgetId} is ${cell.colSpan}x${cell.rowSpan}, " +
             "under its ${widget.minColSpan}x${widget.minRowSpan} floor",
         )
       }
@@ -155,19 +180,42 @@ class SeedPageTest {
 /**
  * A removed tile takes its instance-scoped view state with it. Without this a page's worth of zoom
  * and filter keys would survive every widget that ever sat on it, for the life of the install.
+ *
+ * "Removed" means gone from *both* arrangements, which is the whole subtlety since portrait got its
+ * own: a tile you deleted while the phone was upright is still on the page when you turn it back.
  */
 class PageStoreInstanceCleanupTest {
+  private fun removeEverywhere(page: Page, instanceId: String): Page = GridAspect.entries.fold(page) { acc, aspect ->
+    val cell = acc.layoutFor(aspect).cells.firstOrNull { it.instanceId == instanceId } ?: return@fold acc
+    acc.withLayout(aspect, acc.layoutFor(aspect).removeAt(cell.col, cell.row))
+  }
+
   @Test
   fun removingATileForgetsItsViewState() {
     val settings = MapSettings()
     val store = PageStore(settings)
     val page = store.pages.value.first { it.id == "vehicle" }
-    val map = page.layout.cells.first { it.widgetId == "map" }
+    val map = page.landscape.cells.first { it.widgetId == "map" }
     WidgetSettings(settings, map.instanceId).putFloat("zoom", 4f)
 
-    store.update(page.copy(layout = page.layout.removeAt(map.col, map.row)))
+    store.update(removeEverywhere(page, map.instanceId))
 
     assertEquals(1f, WidgetSettings(settings, map.instanceId).getFloat("zoom", 1f))
+  }
+
+  @Test
+  fun removingATileFromOneOrientationKeepsItsStateForTheOther() {
+    // The tile is still on the page — you are looking at the other arrangement of it. Purging here
+    // would drop the map's zoom and layer because the user happened to tidy up in portrait.
+    val settings = MapSettings()
+    val store = PageStore(settings)
+    val page = store.pages.value.first { it.id == "vehicle" }
+    val map = page.landscape.cells.first { it.widgetId == "map" }
+    WidgetSettings(settings, map.instanceId).putFloat("zoom", 4f)
+
+    store.update(page.withLayout(GridAspect.Landscape, page.landscape.removeAt(map.col, map.row)))
+
+    assertEquals(4f, WidgetSettings(settings, map.instanceId).getFloat("zoom", 1f))
   }
 
   @Test
@@ -175,11 +223,12 @@ class PageStoreInstanceCleanupTest {
     val settings = MapSettings()
     val store = PageStore(settings)
     val page = store.pages.value.first { it.id == "farm" }
-    for (cell in page.layout.cells) WidgetSettings(settings, cell.instanceId).putFloat("zoom", 4f)
+    val cells = page.layouts.flatMap { it.cells }
+    for (cell in cells) WidgetSettings(settings, cell.instanceId).putFloat("zoom", 4f)
 
     store.remove("farm")
 
-    for (cell in page.layout.cells) {
+    for (cell in cells) {
       assertEquals(1f, WidgetSettings(settings, cell.instanceId).getFloat("zoom", 1f), cell.instanceId)
     }
   }
@@ -192,13 +241,26 @@ class PageStoreInstanceCleanupTest {
     val settings = MapSettings()
     val store = PageStore(settings)
     val page = store.pages.value.first { it.id == "farm" }
-    val tasks = page.layout.cells.first { it.widgetId == "tasks" }
+    val tasks = page.landscape.cells.first { it.widgetId == "tasks" }
     WidgetSettings(settings, tasks.instanceId).putFloat("zoom", 4f)
 
-    val moved = page.layout.resize(tasks, colSpan = tasks.colSpan, rowSpan = tasks.rowSpan - 1)
-    store.update(page.copy(layout = moved))
+    val moved = page.landscape.resize(tasks, colSpan = tasks.colSpan, rowSpan = tasks.rowSpan - 1)
+    store.update(page.withLayout(GridAspect.Landscape, moved))
 
     assertEquals(4f, WidgetSettings(settings, tasks.instanceId).getFloat("zoom", 1f))
+  }
+
+  @Test
+  fun editingOneArrangementLeavesTheOtherAlone() {
+    val settings = MapSettings()
+    val store = PageStore(settings)
+    val page = store.pages.value.first { it.id == "farm" }
+    val before = page.portrait
+
+    val tasks = page.landscape.cells.first { it.widgetId == "tasks" }
+    store.update(page.withLayout(GridAspect.Landscape, page.landscape.removeAt(tasks.col, tasks.row)))
+
+    assertEquals(before, PageStore(settings).pages.value.first { it.id == "farm" }.portrait)
   }
 }
 
@@ -224,7 +286,7 @@ class PageStoreLoadTest {
         {"instanceId":"i2","widgetId":"tasks","col":2,"row":0}""",
       )
 
-    val layout = PageStore(settings).pages.value.single().layout
+    val layout = PageStore(settings).pages.value.single().landscape
     assertEquals(GridLayout.COLUMNS, layout.columns)
     assertEquals(GridLayout.ROWS, layout.rows)
     // The map kept the two thirds of the width and the full height it had before.
@@ -243,7 +305,7 @@ class PageStoreLoadTest {
         {"instanceId":"i2","widgetId":"removedLongAgo","col":1,"row":0}""",
       )
 
-    val cells = PageStore(settings).pages.value.single().layout.cells
+    val cells = PageStore(settings).pages.value.single().landscape.cells
     assertEquals(listOf("map"), cells.map { it.widgetId })
     assertTrue(cells.single().colSpan == 4) // and the survivor was still rescaled
   }
@@ -260,7 +322,7 @@ class PageStoreLoadTest {
         {"instanceId":"dup","widgetId":"engine","col":4,"row":0,"colSpan":4,"rowSpan":4}""",
       )
 
-    val cells = PageStore(settings).pages.value.single().layout.cells
+    val cells = PageStore(settings).pages.value.single().landscape.cells
     assertEquals(listOf("map"), cells.map { it.widgetId }) // the first one wins
   }
 
@@ -274,7 +336,7 @@ class PageStoreLoadTest {
         "config":{"layer":"soil"}}""",
       )
 
-    assertEquals(mapOf("layer" to "soil"), PageStore(settings).pages.value.single().layout.cells.single().config)
+    assertEquals(mapOf("layer" to "soil"), PageStore(settings).pages.value.single().landscape.cells.single().config)
   }
 
   @Test
@@ -283,10 +345,77 @@ class PageStoreLoadTest {
     // every readout widget's floor.
     val settings = storedPage(6, 6, """{"instanceId":"i1","widgetId":"engine","col":0,"row":0}""")
 
-    val engine = PageStore(settings).pages.value.single().layout.cells.single()
+    val engine = PageStore(settings).pages.value.single().landscape.cells.single()
     val widget = WidgetRegistry.byId("engine")!!
     assertTrue(engine.colSpan >= widget.minColSpan, "colSpan ${engine.colSpan} < ${widget.minColSpan}")
     assertTrue(engine.rowSpan >= widget.minRowSpan, "rowSpan ${engine.rowSpan} < ${widget.minRowSpan}")
+  }
+
+  @Test
+  fun aStoredPageWithNoPortraitArrangementGetsOneDerivedFromItsLandscape() {
+    // The whole reason the storage key did *not* have to be bumped for portrait: a page written
+    // before it exists simply has no `portrait` key, so the schema's default fills one in and the
+    // user keeps the layout they built.
+    val settings =
+      storedPage(
+        12,
+        7,
+        """{"instanceId":"i1","widgetId":"map","col":0,"row":0,"colSpan":8,"rowSpan":7},
+        {"instanceId":"i2","widgetId":"tasks","col":8,"row":0,"colSpan":4,"rowSpan":4}""",
+      )
+
+    val page = PageStore(settings).pages.value.single()
+    assertEquals(GridLayout.PORTRAIT_COLUMNS, page.portrait.columns)
+    assertEquals(GridLayout.PORTRAIT_ROWS, page.portrait.rows)
+    // Same tiles, same identities — so their per-instance state is the same state in both.
+    assertEquals(
+      page.landscape.cells.mapTo(mutableSetOf()) { it.instanceId },
+      page.portrait.cells.mapTo(mutableSetOf()) { it.instanceId },
+    )
+    // 12 -> 6 is exact, so the map keeps precisely the two thirds of the width it had.
+    assertEquals(4, page.portrait.cells.first { it.widgetId == "map" }.colSpan)
+  }
+
+  @Test
+  fun aStoredPortraitArrangementIsKeptRatherThanRederived() {
+    val settings = MapSettings().apply {
+      putString(
+        "vdt.pages.v2",
+        """
+        [{"id":"old","title":"Old","icon":"Grid","autoShow":"Never",
+        "layout":{"columns":12,"rows":7,"cells":[
+        {"instanceId":"i1","widgetId":"map","col":0,"row":0,"colSpan":8,"rowSpan":7}]},
+        "portrait":{"columns":6,"rows":12,"cells":[
+        {"instanceId":"i1","widgetId":"map","col":0,"row":6,"colSpan":6,"rowSpan":6}]}}]
+        """.trimIndent().replace("\n", ""),
+      )
+    }
+
+    val portrait = PageStore(settings).pages.value.single().portrait.cells.single()
+    // Derivation would have put it at row 0 spanning 4 columns; the user put it in the bottom half.
+    assertEquals(6, portrait.row)
+    assertEquals(6, portrait.colSpan)
+  }
+
+  @Test
+  fun aPortraitArrangementSavedOnAnOlderGridIsRescaledOnItsOwn() {
+    val settings = MapSettings().apply {
+      putString(
+        "vdt.pages.v2",
+        """
+        [{"id":"old","title":"Old","icon":"Grid","autoShow":"Never",
+        "layout":{"columns":12,"rows":7,"cells":[]},
+        "portrait":{"columns":3,"rows":6,"cells":[
+        {"instanceId":"i1","widgetId":"map","col":0,"row":0,"colSpan":3,"rowSpan":3}]}}]
+        """.trimIndent().replace("\n", ""),
+      )
+    }
+
+    val portrait = PageStore(settings).pages.value.single().portrait
+    assertEquals(GridLayout.PORTRAIT_COLUMNS, portrait.columns)
+    assertEquals(GridLayout.PORTRAIT_ROWS, portrait.rows)
+    assertEquals(6, portrait.cells.single().colSpan) // full width before, full width after
+    assertEquals(6, portrait.cells.single().rowSpan) // half the height before, half after
   }
 
   @Test

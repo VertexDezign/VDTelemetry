@@ -85,6 +85,22 @@ appears with the wake-lock state and EXIT DISPLAY, and hides itself again if you
 declares no `start_url`, so a shortcut launches the URL it was made from — install from
 `/?display=vehicle` on the phone and from `/` on the tablet, and the two icons stay different.
 
+## Portrait layouts
+
+A page holds **one arrangement per orientation**. The shell measures the page body and renders either
+the landscape one — a 12 × 7 grid, tuned so an 11" tablet gets ~91dp square cells — or the portrait
+one, 6 × 12, tuned so a phone with no chrome around it does too (~56dp square on an iPhone 15 Pro).
+Square cells are the point: every span a widget declares is calibrated against one, so the same grid
+on a 393dp-wide phone would have given 32 × 120dp stripes and a page that was wrong rather than
+merely cramped.
+
+Edit mode edits whichever arrangement is on screen — turn the device to rearrange the other. Tiles
+keep their identity across the two, so a map's zoom, filters and layer follow it round instead of
+resetting when you rotate; the arrangements diverge only where you make them, since adding or removing
+a tile in one orientation leaves the other alone. A page saved before portrait existed gets one
+derived from its landscape arrangement (12 → 6 columns is an exact halving), so no stored layout was
+thrown away and the storage key did not have to change.
+
 ## Tests
 
 ```bash

@@ -12,7 +12,7 @@ import kotlin.test.assertNull
 
 class DisplayStoreTest {
   private fun page(id: String) =
-    Page(id = id, title = id, icon = PageIcon.Grid, autoShow = AutoShow.Never, layout = GridLayout.empty())
+    Page(id = id, title = id, icon = PageIcon.Grid, autoShow = AutoShow.Never, landscape = GridLayout.empty())
 
   @Test
   fun parsesTheDisplayParameter() {

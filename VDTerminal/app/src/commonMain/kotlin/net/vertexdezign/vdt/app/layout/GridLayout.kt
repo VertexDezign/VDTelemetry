@@ -50,10 +50,13 @@ fun newInstanceId(): String = "w-" + Random.nextLong(0, Long.MAX_VALUE).toString
  * position not covered by a cell is a free slot (an "add" target in edit mode). Serializable so a
  * user's customized layout can be persisted (see [LayoutStore]); each app ships a default instance.
  *
- * Every live layout is [COLUMNS] × [ROWS] — the grid is a frozen constant, not a per-page setting.
- * The dimensions are still carried here rather than assumed, because a layout is only meaningful in
- * the coordinate space it was written in: that's what lets [rescaledTo] re-express a layout saved
- * under an older grid instead of throwing it away.
+ * Every live layout is on one of the two frozen presets — [COLUMNS] × [ROWS] landscape,
+ * [PORTRAIT_COLUMNS] × [PORTRAIT_ROWS] portrait — never a per-page setting. Which one a layout is on
+ * is [GridAspect]'s business; a [net.vertexdezign.vdt.app.pages.Page] carries one arrangement per
+ * aspect. The dimensions are still carried here rather than assumed, because a layout is only
+ * meaningful in the coordinate space it was written in: that's what lets [rescaledTo] re-express a
+ * layout saved under an older grid, or seed one aspect's arrangement from the other's, instead of
+ * throwing it away.
  *
  * The mutation helpers are pure (return a new layout) and self-validating: they refuse moves/resizes
  * that would leave the grid or overlap another widget, so callers can apply drag/resize gestures
@@ -216,7 +219,7 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
 
   companion object {
     /**
-     * The grid every page is laid out on, frozen rather than measured.
+     * The landscape grid, frozen rather than measured.
      *
      * The readability floor used to sit on the *cell* — the grid was user-resizable, so a per-widget
      * span floor couldn't have bounded the pixels, and cells had to stay big enough for the largest
@@ -226,13 +229,37 @@ data class GridLayout(val columns: Int, val rows: Int, val cells: List<LayoutCel
      *
      * 12×7 is tuned to an 11" tablet held landscape: a ~1194×696dp body works out at roughly
      * 91×90dp per cell, i.e. **square**, which is why a 1×1 tile reads as a proper icon rather than
-     * a stripe. Portrait is deliberately the same grid, so its cells go tall and narrow (~61×142dp);
-     * widgets that care centre their content rather than the app carrying a layout per orientation.
+     * a stripe.
      */
     const val COLUMNS = 12
     const val ROWS = 7
 
-    /** A blank page-sized layout — what a newly created page starts from. */
-    fun empty(): GridLayout = GridLayout(COLUMNS, ROWS, emptyList())
+    /**
+     * The portrait grid.
+     *
+     * This reverses a decision that was made deliberately. Portrait used to be the *same* 12×7, with
+     * cells simply going tall and narrow, on the reasoning that widgets which care should centre
+     * their content rather than the app carry a layout per orientation. That trade holds for a tablet
+     * turned sideways. It does not survive a phone: on 393dp of width, 12 columns are 32dp each, so
+     * every span a widget declares — and `ShortcutWidget`'s square-tile logic with them — is being
+     * measured against a 4:1 stripe. A phone did not get a cramped version of the page, it got a
+     * wrong one.
+     *
+     * 6×12 is tuned the same way 12×7 was, on the body a phone actually gives once the shell's chrome
+     * is gone (see [net.vertexdezign.vdt.app.DisplayShell]). An iPhone 15 Pro standing up is a
+     * 393×793dp viewport, so a 377×777dp body after the grid's own padding, which works out at
+     * 56×57dp per cell — square again, and a 1×1 shortcut lands at 56dp, comfortably over a thumb's
+     * 44dp.
+     *
+     * Six columns rather than five or seven because it is exactly half of [COLUMNS]: [rescaledTo]
+     * from landscape is then a clean 2:1 on the X axis, so a portrait arrangement seeded from an
+     * existing page keeps its columns exactly instead of rounding into them.
+     */
+    const val PORTRAIT_COLUMNS = 6
+    const val PORTRAIT_ROWS = 12
+
+    /** A blank layout on [aspect]'s grid — what a newly created page starts from. */
+    fun empty(aspect: GridAspect = GridAspect.Landscape): GridLayout =
+      GridLayout(aspect.columns, aspect.rows, emptyList())
   }
 }
