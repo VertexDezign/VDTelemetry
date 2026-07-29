@@ -7,8 +7,8 @@
 --
 -- Fields this integration adds are declared here, next to the code that sets them. LuaLS merges
 -- @field lines across files, so this extends MotorModel without model/ knowing Enhanced Vehicle
--- exists. These fields are not (yet) in the shared Kotlin model, so the server ignores them via
--- ignoreUnknownKeys.
+-- exists. They are mirrored on the shared Kotlin `Motor`, nullable there for the same reason they
+-- are optional here: absent means "unknown", never "off".
 ---@class DiffLockModel
 ---@field front boolean?
 ---@field back boolean?

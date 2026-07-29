@@ -32,7 +32,7 @@ Plain Lua, no build system — the deliverable is `FS25_vdTelemetry.zip` (a zip 
 - `src/mapper/ValueMapper.lua` — value normalization (enums, unit conversions like m/s→km/h, percentages). Collectors run it through `tonumber()` where the JSON field is numeric.
 - `fsTypes/` — EmmyLua/LuaLS **type stubs only** (`Vehicle`, `XMLFile`) for IDE type-checking against the FS25 engine API. Not sourced at runtime, not shipped.
 
-Runtime dependency: **FS25_additionalInputs** (declared in `modDesc.xml`) — action-event/input handling lives there. `examples/json/` holds sample outputs (combine, tractor+cultivator, multiple implements) that double as VDTerminal parser fixtures.
+Runtime dependency: **FS25_additionalInputs** (declared in `modDesc.xml`) — action-event/input handling lives there. `examples/json/` holds sample outputs (combine, tractor+cultivator, multiple implements, nested trailers, and one capture taken with Enhanced Vehicle installed) that double as VDTerminal parser fixtures.
 
 When editing the JSON output, keep `VDTelemetry.VERSION` (in `VDTelemetry.lua`), the Lua model, and the Kotlin `Model.kt` in sync.
 

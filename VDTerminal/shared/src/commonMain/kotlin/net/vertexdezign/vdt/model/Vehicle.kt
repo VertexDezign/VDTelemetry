@@ -65,6 +65,13 @@ data class Motor(
   val gear: Gear? = null,
   val maxSpeed: MaxSpeed? = null,
   val fillUnits: MotorFillUnits? = null,
+  // The three drivetrain telltales below come from the optional Enhanced Vehicle integration
+  // (FS25_EnhancedVehicle), which only decorates the *controlled* vehicle's motor. `null` means "we
+  // don't know" — the mod isn't installed, or it doesn't manage this vehicle — and must never be
+  // rendered as "off": an unlit diff-lock lamp is a claim, and we don't have the state to make it.
+  val diffLock: DiffLock? = null,
+  val awd: Boolean? = null,
+  val parkingBrake: Boolean? = null,
 )
 
 @Serializable
@@ -109,6 +116,19 @@ data class MotorFillUnits(
   val fuel: FillUnit? = null,
   val def: FillUnit? = null,
   val air: FillUnit? = null,
+)
+
+/**
+ * Front / rear differential locks, from Enhanced Vehicle.
+ *
+ * The two sides are reported independently and each is null on its own: the integration only sets a
+ * side once Enhanced Vehicle hands it a boolean, so a tractor with a rear lock only yields
+ * `front == null`. Same rule as [Motor.diffLock] itself — null is "unknown", not "unlocked".
+ */
+@Serializable
+data class DiffLock(
+  val front: Boolean? = null,
+  val back: Boolean? = null,
 )
 
 // ---------------------------------------------------------------------------
