@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
@@ -56,6 +58,14 @@ import kotlin.math.roundToInt
 private val Green600 = Color(0xFF16A34A)
 private val Gray300 = Color(0xFFD1D5DB)
 private val Gray400 = Color(0xFF9CA3AF)
+
+/**
+ * The merge toggle's persistence name, scoped per placed tile by [WidgetSettings] — like the map's
+ * zoom and filters. Whether a chain reads as one load per fill type is a view preference about *this*
+ * tile, and it used to live in a plain `remember`: leaving the vehicle swapped the panel for the
+ * "no vehicle" tile and the toggle came back off.
+ */
+private const val KEY_MERGED = "merged"
 
 /**
  * One position on the rig: the vehicle itself, or whatever hangs off its front or back.
@@ -201,19 +211,27 @@ private val STACKED_BUTTON_HEIGHT = 40.dp
  * The panel measures itself and thins out as it narrows, rather than taking a "compact" flag: the
  * grid lets this tile be placed anywhere from one cell to a dozen, and what fits is a fact about the
  * width it ended up with, not something the page should have to declare.
+ *
+ * [settings] scopes the merge toggle to this placed tile, so a page can show the same slot merged in
+ * one place and per-unit in another, and either survives leaving the vehicle.
  */
 @Composable
 fun RigSlotPanel(
   slot: RigSlot,
   vehicle: Vehicle,
+  settings: WidgetSettings,
   modifier: Modifier = Modifier,
   onCommand: (ClientMessage) -> Unit = {},
 ) {
-  var merged by remember { mutableStateOf(false) }
+  var merged by remember { mutableStateOf(settings.getBoolean(KEY_MERGED, false)) }
+  LaunchedEffect(merged) { settings.putBoolean(KEY_MERGED, merged) }
 
   val state = when (slot) {
     RigSlot.VEHICLE -> vehicle.slotState()
-    else -> findImplement(vehicle.implement, slot.implementPosition!!)?.slotState()
+
+    // Safe-called rather than asserted: a slot that names no position simply has nothing to look up,
+    // which is the panel's ordinary "nothing attached" state, not a crash.
+    else -> slot.implementPosition?.let { findImplement(vehicle.implement, it) }?.slotState()
   }
   val fillUnits = state?.fillUnits.orEmpty().let { if (merged) mergeFillUnits(it) else it }
 

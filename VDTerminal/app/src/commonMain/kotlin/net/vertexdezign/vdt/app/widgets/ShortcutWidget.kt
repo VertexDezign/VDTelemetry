@@ -64,20 +64,27 @@ object ShortcutWidget : Widget {
    * One choice per *available* app: there is no point offering a shortcut to a screen that can only
    * say "mod not installed". A tile already pointed at an app that has since gone quiet keeps
    * pointing there — see [Content].
+   *
+   * Composable, and so built per composition rather than held in a val like `RigSlotWidget`'s: the
+   * choices are exactly the apps available right now.
    */
   @Composable
-  override fun configOptions(): List<ConfigOption> = listOf(
-    ConfigOption(
-      key = APP_KEY,
-      label = "Opens",
-      choices = availableApps().map { ConfigOption.Choice(it.id, it.title, it.icon) },
-    ),
+  private fun appOption() = ConfigOption(
+    key = APP_KEY,
+    label = "Opens",
+    choices = availableApps().map { ConfigOption.Choice(it.id, it.title, it.icon) },
   )
+
+  @Composable
+  override fun configOptions(): List<ConfigOption> = listOf(appOption())
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
     val open = LocalNavigator.current
-    val app = AppRegistry.byId(config[APP_KEY].orEmpty())
+    // Through resolve() like any other config value, so a tile that was placed without an answer —
+    // one seeded by hand, or added in the moment before any app had reported in — points at the
+    // first available app once there is one, instead of staying dead.
+    val app = appOption().resolve(config)?.let(AppRegistry::byId)
 
     // Resolved against the *whole* registry, not the available apps, and left alone when it isn't
     // there: a placed tile is the user's, so a mod going away — or simply not having sent its first

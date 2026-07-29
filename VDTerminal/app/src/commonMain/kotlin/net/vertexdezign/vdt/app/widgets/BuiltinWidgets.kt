@@ -141,7 +141,8 @@ object RigSlotWidget : Widget {
     if (vehicle == null) {
       MissingPanel(slot.label, icon, modifier)
     } else {
-      RigSlotPanel(slot, vehicle, modifier, onCommand = store.onCommand)
+      // Scoped to this tile: whether the load reads merged per fill type is per placed slot.
+      RigSlotPanel(slot, vehicle, rememberWidgetSettings(store.settings), modifier, onCommand = store.onCommand)
     }
   }
 }
