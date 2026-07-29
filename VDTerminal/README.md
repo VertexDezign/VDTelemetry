@@ -59,7 +59,7 @@ touched while driving, and every pixel spent on chrome is a pixel the readout do
 dashboard with a `display` parameter naming a page (or an app) and that browser becomes a dedicated
 display:
 
-```
+```text
 http://<host>:3001/?display=vehicle   # pin this device to the Vehicle page
 http://<host>:3001/?display=map       # an app works too
 http://<host>:3001/?display=off       # back to the normal shell

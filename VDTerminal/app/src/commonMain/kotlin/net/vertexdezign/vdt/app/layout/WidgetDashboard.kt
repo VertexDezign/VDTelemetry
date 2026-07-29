@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
@@ -246,7 +247,11 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
     // display mode would only reach the seeded pages and the apps.
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
       Label("DISPLAY")
-      Text("?display=${page.id}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+      // Selectable: a generated id is a dozen random characters, which is exactly the kind of thing
+      // you want to copy rather than re-read letter by letter onto the other device.
+      SelectionContainer {
+        Text("?display=${page.id}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+      }
     }
 
     Spacer(Modifier.weight(1f))

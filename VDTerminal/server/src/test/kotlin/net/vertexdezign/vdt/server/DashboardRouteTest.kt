@@ -64,6 +64,12 @@ class DashboardRouteTest {
         ContentType.Text.Html,
         ContentType.parse(index.headers[HttpHeaders.ContentType]!!).withoutParameters(),
       )
-      assertEquals(HttpStatusCode.OK, client.get("/app.js").status)
+      val script = client.get("/app.js")
+      assertEquals(HttpStatusCode.OK, script.status)
+      // text/javascript, not application/javascript: Ktor follows the type WHATWG settled on.
+      assertEquals(
+        ContentType.Text.JavaScript,
+        ContentType.parse(script.headers[HttpHeaders.ContentType]!!).withoutParameters(),
+      )
     }
 }
