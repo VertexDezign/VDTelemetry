@@ -34,8 +34,16 @@ import net.vertexdezign.vdt.app.state.Favourite
 import net.vertexdezign.vdt.app.state.FavouritesStore
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.state.VdtStore
+import net.vertexdezign.vdt.app.state.resolveDisplay
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.VdtData
+
+/**
+ * The navigator a display gets: it is pinned to one screen, so asking to open another is a no-op.
+ * A top-level value rather than a lambda in the composition because [LocalNavigator] is static — a
+ * value that changes identity would recompose the whole subtree.
+ */
+private val NoNavigation: (Screen) -> Unit = {}
 
 @Composable
 fun App(store: VdtStore, modifier: Modifier = Modifier) {
@@ -44,12 +52,17 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
     val connection by store.connection.collectAsState()
     val pages by store.pages.pages.collectAsState()
     val favourites by store.favourites.favourites.collectAsState()
+    val display by store.display.target.collectAsState()
 
     // Auto-switch on each enter/leave transition: activate the first page that opts into the new
     // state. Keying the effect on the resolved *id* (which only changes when the state flips) means a
     // manual pick from the launcher stays put until the next transition. Only pages auto-show; apps
     // are opened by hand.
-    val wanted = telemetry?.let { if (it.vehicle == null) AutoShow.OnFoot else AutoShow.InVehicle }
+    val transition = telemetry?.let { if (it.vehicle == null) AutoShow.OnFoot else AutoShow.InVehicle }
+    // Suppressed entirely on a display: a screen pinned to the cluster must not flip to the Farm page
+    // because you stepped out of the tractor. Leaving display mode re-derives the id, so the shell it
+    // hands back to lands on the right page.
+    val wanted = transition.takeIf { display == null }
     val autoPageId = wanted?.let { mode -> pages.firstOrNull { it.autoShow == mode }?.id }
 
     var screen by remember { mutableStateOf(initialScreen(autoPageId, pages)) }
@@ -81,7 +94,22 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
     MaterialTheme {
       Box(modifier.fillMaxSize().background(VdtColors.Light)) {
         val data = telemetry
+        val pinned = display
         when {
+          // A display owns the whole viewport, including the pre-first-frame state — see [DisplayShell].
+          // Navigation is inert there: the device is pinned to one screen, so a widget that would
+          // otherwise open an app has nowhere to go, and the way to change what's shown is the URL.
+          pinned != null ->
+            CompositionLocalProvider(LocalNavigator provides NoNavigation) {
+              DisplayShell(
+                screen = resolveDisplay(pinned, pages),
+                target = pinned,
+                pages = pages,
+                ready = data != null,
+                onExit = store.display::clear,
+              )
+            }
+
           data == null -> LoadingScreen()
 
           else ->
@@ -102,10 +130,15 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
         // Shell-level, so banners survive navigation; below the header so they don't cover its
         // controls. Deliberately under the connection scrim — stale-data banners shouldn't outrank
         // "connection lost".
-        AlertBannerHost(
-          store.alerts.raised,
-          Modifier.align(Alignment.TopCenter).padding(top = 72.dp),
-        )
+        //
+        // Not on a display: the tablet owns announcing things, so one alert doesn't raise itself twice
+        // in one cab, and the cluster keeps the readout it exists for.
+        if (pinned == null) {
+          AlertBannerHost(
+            store.alerts.raised,
+            Modifier.align(Alignment.TopCenter).padding(top = 72.dp),
+          )
+        }
 
         if (connection != ConnectionState.Connected) {
           Box(
@@ -175,7 +208,7 @@ private fun initialScreen(autoPageId: String?, pages: List<Page>): Screen = auto
   ?: Screen.OpenApp(AppRegistry.apps.first().id)
 
 @Composable
-private fun LoadingScreen() {
+internal fun LoadingScreen() {
   Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
     Text("VDTERMINAL LOADING…", color = VdtColors.Green, fontSize = 28.sp, fontWeight = FontWeight.Bold)
   }

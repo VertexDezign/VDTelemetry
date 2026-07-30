@@ -56,6 +56,8 @@ class VdtStore(
   val alerts: AlertEngine,
   /** Screens pinned to the bottom bar; see [FavouritesStore]. */
   val favourites: FavouritesStore,
+  /** Whether this device is a chrome-free display, and what it is pinned to; see [DisplayStore]. */
+  val display: DisplayStore,
   val onToggleWakeLock: () -> Unit,
   val onCommand: (ClientMessage) -> Unit,
 )

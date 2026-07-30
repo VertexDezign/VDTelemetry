@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
@@ -241,6 +242,22 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
 
     Spacer(Modifier.weight(1f))
 
+    // The address that pins a second device to this page (see DisplayStore). A page the user created
+    // has a generated id, which is otherwise only visible by reading browser storage — without this,
+    // display mode would only reach the seeded pages and the apps.
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+      Label("DISPLAY")
+      // Selectable: a generated id is a dozen random characters, which is exactly the kind of thing
+      // you want to copy rather than re-read letter by letter onto the other device.
+      SelectionContainer {
+        // Darker than its label, like the title field beside it: this is a value to be read off and
+        // typed into another device, so it outranks the word naming it.
+        Text("?display=${page.id}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
+      }
+    }
+
+    Spacer(Modifier.weight(1f))
+
     Icon(
       Icons.Filled.Delete,
       "delete page",
@@ -250,9 +267,15 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
   }
 }
 
+/**
+ * A field name in the toolbar. [VdtColors.DarkGray], not [VdtColors.Gray]: the toolbar's tinted
+ * background leaves the lighter tone at roughly 1.2:1 against it, which is not a faint label but an
+ * invisible one. This is the same tone the unselected [Chip]s and icons beside it use, so the labels
+ * read as secondary without disappearing.
+ */
 @Composable
 private fun Label(text: String) {
-  Text(text, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.Gray)
+  Text(text, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
 }
 
 @Composable
