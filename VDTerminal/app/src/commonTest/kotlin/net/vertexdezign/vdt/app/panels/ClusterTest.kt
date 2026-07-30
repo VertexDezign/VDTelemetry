@@ -65,6 +65,32 @@ class TelltaleStateTest {
   }
 
   @Test
+  fun onlyTheSignalLampsBlink() {
+    // A flashing lamp means "signalling". Anything else flashing reads as a fault, so the set is
+    // small on purpose and worth failing a build over.
+    assertEquals(
+      setOf(Telltale.TurnLeft, Telltale.TurnRight),
+      Telltale.entries.filter { it.blinks }.toSet(),
+    )
+  }
+
+  @Test
+  fun hazardIsShownAsBothIndicatorsRatherThanAsALampOfItsOwn() {
+    // Hazards light both indicators, which the band already draws — at the two edges, flashing
+    // together, which is what the machine is doing. A third lamp saying so would be the same fact
+    // twice. The glyph stays for the Lighting panel's button.
+    assertTrue(Telltale.entries.none { it.key == "hazard" })
+  }
+
+  @Test
+  fun theTurnLampsAreTheOnesPinnedToTheEdges() {
+    assertEquals(BandSide.Start, Telltale.TurnLeft.side)
+    assertEquals(BandSide.End, Telltale.TurnRight.side)
+    val pinned = Telltale.entries.filter { it.side != BandSide.Middle }
+    assertEquals(listOf(Telltale.TurnLeft, Telltale.TurnRight), pinned)
+  }
+
+  @Test
   fun everyLampKeyIsUniqueAndStable() {
     // Keys are persisted in a tile's config, so a collision or a rename silently drops lamps from
     // bands users have already configured.
@@ -116,11 +142,11 @@ class ClusterReadoutTest {
   }
 
   @Test
-  fun directionIsOnlyClaimedWhileMoving() {
-    assertEquals("F", directionText(Vehicle(speed = Speed(direction = DriveDirection.FORWARD))))
-    assertEquals("R", directionText(Vehicle(speed = Speed(direction = DriveDirection.BACKWARD))))
-    assertNull(directionText(Vehicle(speed = Speed(direction = DriveDirection.STOPPED))))
-    assertNull(directionText(Vehicle()))
+  fun theReverserSymbolIsOnlyShownWhileMoving() {
+    assertEquals(DriveSymbol.Forward, driveSymbol(Vehicle(speed = Speed(direction = DriveDirection.FORWARD))))
+    assertEquals(DriveSymbol.Reverse, driveSymbol(Vehicle(speed = Speed(direction = DriveDirection.BACKWARD))))
+    assertNull(driveSymbol(Vehicle(speed = Speed(direction = DriveDirection.STOPPED))))
+    assertNull(driveSymbol(Vehicle()))
   }
 
   @Test
@@ -216,6 +242,19 @@ class TelltaleLayoutTest {
       val rows = (count + perRow - 1) / perRow
       assertTrue(rows * (size.value + 8f) - 8f <= height.value, "$count lamps at $size overflow the band")
     }
+  }
+
+  @Test
+  fun theEdgeLampsTakeTheirRoomOutOfTheRun() {
+    // The turn arrows are laid out beside the wrapping run, not in it, so the run has less width to
+    // pack into and its lamps can only get smaller.
+    assertTrue(lampSize(11, 361.dp, 107.dp, edges = 2) <= lampSize(11, 361.dp, 107.dp))
+  }
+
+  @Test
+  fun aBandOfNothingButEdgeLampsGetsBigOnes() {
+    // Two turn arrows and nothing between them: they should take the band, not fall to the floor.
+    assertEquals(48.dp, lampSize(0, 361.dp, 107.dp, edges = 2))
   }
 
   @Test

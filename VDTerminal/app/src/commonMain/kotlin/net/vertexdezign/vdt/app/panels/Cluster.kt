@@ -39,12 +39,11 @@ object ClusterColors {
   val Beam = Color(0xFF409CFF)
 
   /**
-   * A lamp that is off but present — barely there.
+   * A tile with nothing to say — barely there.
    *
-   * A real cluster shows an unlit lamp as nothing at all: the symbol is printed on the lens and only
-   * exists when it is backlit. Going that far would make the band reflow every time a lamp changed,
-   * which is worse than the problem, so an off lamp holds its place at just enough contrast to be
-   * found if you look for it and not enough to compete with a lamp that is actually saying something.
+   * The dash a panel shows off the machine, at just enough contrast to read as a panel that is
+   * switched on and empty rather than as one that has failed. Nothing that carries a value is drawn
+   * in it; a lamp that is off isn't drawn at all (see [TelltaleBand]).
    */
   val Dim = Color(0xFF1F2420)
 

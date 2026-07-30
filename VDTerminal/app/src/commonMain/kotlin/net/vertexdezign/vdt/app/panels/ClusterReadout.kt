@@ -4,6 +4,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -11,13 +12,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
@@ -83,8 +87,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           valueColour = ClusterColors.Digits,
           size = digit,
           label = vehicle.speed?.unit.orEmpty().ifBlank { "SPEED" },
-          note = directionText(vehicle),
-          noteColour = ClusterColors.Go,
+          symbol = driveSymbol(vehicle),
         )
         // Cruise, amber because it is a value the driver set rather than one the machine reports.
         // Dimmed when armed but not engaged, so "53 is what it will hold" and "53 is what it is
@@ -109,7 +112,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
 
 /**
  * One line of the readout: the number, right-aligned, with its unit and an optional second line of
- * detail (the gear, the direction) stacked in a column beside it.
+ * detail stacked in a column beside it — the gear as [note], the reverser as [symbol].
  */
 @Composable
 private fun Line(
@@ -120,8 +123,16 @@ private fun Line(
   labelColour: Color = ClusterColors.Label,
   note: String? = null,
   noteColour: Color = ClusterColors.Digits,
+  symbol: DriveSymbol? = null,
 ) {
   Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+    // The reverser's slot, out on the left and held open on every line whether or not anything is in
+    // it. It is the one thing in this tile that comes and goes, and inside the label column it
+    // dragged the unit and the digits sideways every time the machine started or stopped moving.
+    // Nothing here should move for a reason other than the number changing.
+    Box(Modifier.size((size * 0.85f).dp), contentAlignment = Alignment.Center) {
+      symbol?.let { Icon(it.icon, it.label, tint = it.colour, modifier = Modifier.fillMaxSize()) }
+    }
     Digits(value, size = size.sp, colour = valueColour, modifier = Modifier.weight(1f), align = TextAlign.End)
     Column(
       Modifier.padding(start = 6.dp).width(IntrinsicSize.Min),
@@ -134,6 +145,25 @@ private fun Line(
 }
 
 /**
+ * The reverser symbol: the machine from above with the arrow for the way it is going.
+ *
+ * A picture rather than the `F`/`R` this used to print, and moved here from the telltale band, where
+ * a direction sat oddly among lamps that are all faults and settings. This is the middle of the
+ * cluster, out to the left of the speed it belongs to — which is where the display it copies puts it.
+ */
+enum class DriveSymbol(val icon: ImageVector, val label: String, val colour: Color) {
+  Forward(ClusterIcons.DriveForward, "Driving forward", ClusterColors.Go),
+  Reverse(ClusterIcons.DriveReverse, "Driving in reverse", ClusterColors.Set),
+}
+
+/** Null when stopped, or when the vehicle reports no speed at all — nothing to claim either way. */
+internal fun driveSymbol(vehicle: Vehicle): DriveSymbol? = when (vehicle.speed?.direction) {
+  DriveDirection.FORWARD -> DriveSymbol.Forward
+  DriveDirection.BACKWARD -> DriveSymbol.Reverse
+  else -> null
+}
+
+/**
  * What the transmission is in: the gear, or `N` in neutral, prefixed by its group where the vehicle
  * has one (`E2`, the group's own letter and the gear within it). Null when there is no gear at all,
  * which is most non-tractors.
@@ -143,13 +173,6 @@ internal fun gearText(vehicle: Vehicle): String? {
   if (gear.isNeutral) return "N"
   val value = gear.value.takeIf { it.isNotBlank() } ?: return null
   return gear.group.takeIf { it.isNotBlank() }?.let { it + value } ?: value
-}
-
-/** `F` / `R` while moving; null when stopped, where a direction would be a claim about nothing. */
-internal fun directionText(vehicle: Vehicle): String? = when (vehicle.speed?.direction) {
-  DriveDirection.FORWARD -> "F"
-  DriveDirection.BACKWARD -> "R"
-  else -> null
 }
 
 /** One decimal, without `String.format` (JVM-only; this also runs on wasmJs). */
