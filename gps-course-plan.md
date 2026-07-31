@@ -382,9 +382,19 @@ Everything below is unit-tested against stubs, which says nothing about whether 
 look like the stubs:
 
 1. ~~**The deviation sign.**~~ Checked in the seat 2026-07-31: reads the right way round.
-2. **Course size on a real field.** Measure the written `gpsCourse.json` on a big field with a narrow
-   tool; the thinning constants (3 m, 128 points per segment) are guesses against boundary-resolution
-   headland rings. (Cadence checked and sane; size not yet measured.)
+2. ~~**Course size on a real field.**~~ Measured 2026-07-31: **26 KB** for a big field on Riverbend
+   Springs at a **0.5 m** working width — the narrowest tool the game has, so the worst realistic case
+   on a 1x map. The thinning constants hold.
+
+   Scaling to bigger maps is gentler than it looks, because size follows the number of *lines*, not
+   area: a line is two endpoints however long it is, so a 4x map (2x the linear edge) is ~2x the lines
+   and a 16x map ~4x — call it 100 KB at the ceiling, written once per field. The headland rings, the
+   part that could genuinely run away, are already bounded by the 3 m spacing and the 128-point cap.
+
+   The part that scales *per tick* rather than per field is the worked bitmask on the telemetry:
+   ~1000 segments is ~250 hex characters and a 1000-iteration loop at 10 Hz, ~4x that on a 16x map.
+   Small next to the vehicle walk it rides with, but it is the lever to pull if the profiler ever
+   points here — memoise the mask on `workedCount` and rebuild only when a line completes.
 3. ~~**How often the course actually changes.**~~ Cadence looked right in the Diagnostics app.
 4. **Multiplayer — still open.** Segments, worked flags and `currentSegmentIndex` on a
    dedicated-server client, and whether our own distance-to-end matches what the host feels.
