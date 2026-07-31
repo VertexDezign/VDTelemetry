@@ -26,9 +26,9 @@ a section strip and a few big numbers. This plan gets there in that order.
 
 **Status (2026-07-31, branch `43-gps-course`):**
 
-- §2's app half — **done and confirmed in the app** (commit `c106372`): the `MapProjection` refactor
-  and the navigation strip on the map. Its lightbar and progress readout were blocked on §1's live
-  state and are the remaining piece; see §2's "How it landed".
+- §2 — **done.** The `MapProjection` refactor and the navigation strip landed first (commit
+  `c106372`, confirmed in the app); the lightbar and progress readout followed once §1 supplied their
+  data. See §2's "How it landed".
 - §1 — **done, not yet validated in game.** Both halves (the `gpsCourse.json` geometry channel and
   the `vehicle.gps.course` live state) plus the course drawn on the map. Mod export version is now
   **7**. See "How it landed" below and the in-game checks at the end — the deviation *sign* is the
@@ -231,8 +231,17 @@ The strip is captionless (the lamp gained a `showLabel` flag rather than being d
 a bearing on foot as well — the map already unifies vehicle-GPS and player heading — and is off by
 default per placed tile.
 
-**Still open here:** the lightbar and the "line 12/47 · 23 worked" readout. Both now have their data
-(§1 landed `deviationM`, `distanceToEndM`, `workedCount`/`segmentCount`), so this is app-only work.
+The lightbar and readout followed §1, app-only. Three calls worth recording:
+
+- **The bar is a bubble level, not a steer-this-way arrow.** Terminals differ on this and let you flip
+  it; showing where the vehicle *is* relative to the line is the reading that cannot be misinterpreted,
+  because it matches the map directly above it. Positive error moves the marker right.
+- **The line-end countdown turns amber at 10 m**, which is the game's own
+  `AIAutomaticSteering.LINE_END_SOUND_DISTANCE` — the display warns when the tractor starts beeping,
+  rather than at a threshold of our invention.
+- **Both surfaces get it.** The standalone widget grows the bar under its lamps and the strip grows a
+  second line, so a page without a map is not the poor relation. `lightbarCell` and `deviationLabel`
+  are pure and unit-tested (`LightbarTest`) — the app end of the sign agreement with the mod.
 
 ## §3 — Course-up
 
