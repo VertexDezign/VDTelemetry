@@ -33,7 +33,11 @@ a section strip and a few big numbers. This plan gets there in that order.
   the `vehicle.gps.course` live state) plus the course drawn on the map. Mod export version is now
   **7**. See "How it landed" below and the in-game checks at the end — the deviation *sign* is the
   one that genuinely needs a tractor.
-- §3 (course-up) — not started.
+- §3 (course-up) — **done, not yet validated in game.** Per-instance "Orientation" option; north-up
+  stays the default, so no saved page changes under anyone.
+
+With that, §1–§3 are complete and the whole thing is waiting on one session in the seat — see the
+in-game checks at the end.
 
 Every game-source claim is cited `file:line` against the bundled extracted source. Precision
 Farming is cited by LUADOC section, since PF's own Lua is not in the bundle — those are marked as
@@ -254,6 +258,33 @@ dashboards do not change under people.
 
 Heading is already smoothed for the player marker (`animHeading`, `MapPanel.kt:227-241`) — reuse
 that value, or the whole map judders at 10 Hz.
+
+### How it landed (2026-07-31)
+
+Rotation became two fields on `MapProjection` — `rotationDeg` and the `pivot` it turns about — and the
+pipeline is now **scale → translate → rotate**. Everything that projects a point got course-up for
+free; what needed thought was the handful of places that are not points:
+
+- **The raster needs two nested layers.** `graphicsLayer` turns everything about a single
+  `transformOrigin`, but the rotation pivots on the vehicle while the zoom pivots on the box corner.
+  An outer layer that only rotates, wrapping an inner one that only scales and pans, composes into
+  exactly `toScreen`. The gestures stay on the outer box *outside* its own rotation layer, so they
+  keep receiving plain box coordinates.
+- **Input has to be turned back.** The pinch centroid and the tap position are places, so they go
+  through `unrotate` (about the pivot); a drag delta is a direction, so it goes through
+  `unrotateVector` (no pivot) — otherwise the world slides off at an angle to the finger.
+- **Text counter-rotates, arrows do not.** Field numbers and POI names are turned back about their own
+  anchors so they stay upright and stay put; vehicle markers instead get `heading + rotationDeg`,
+  because a heading is relative to north and north is no longer up. The player marker's two rotations
+  cancel to zero, which is exactly right — the map turned instead.
+- **The vehicle sits at 0.66 down the side**, and that anchor doubles as the rotation pivot: the one
+  screen point rotation leaves alone, which is what keeps the machine still while the world turns.
+  `centeredOn` is now a special case of `anchoredAt`.
+
+Known cosmetic limit: at zoom < 1 a turned square leaves the viewport corners empty, since the map
+image no longer covers them. Real terminals crop into the map rather than out of it, and course-up is
+a zoomed-in mode, so this is left alone rather than papered over with a √2 scale-up that would make
+the zoom levels mean different things in the two orientations.
 
 ## §4 — Section view (issue bullet 2) — *planned, not scheduled*
 

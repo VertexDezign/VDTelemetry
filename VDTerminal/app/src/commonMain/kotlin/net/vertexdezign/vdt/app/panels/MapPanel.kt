@@ -135,6 +135,13 @@ private const val KEY_POI_CATS = "poiCats"
 private const val KEY_VEH_STATES = "vehStates"
 private const val KEY_GROUND_LAYER = "groundLayer"
 
+/**
+ * Where the vehicle sits down the screen in course-up, as a fraction of the map's side. Two thirds
+ * down: on a run screen the map is spent on the ground you are about to drive over, not the strip
+ * behind you, and this is roughly where the reference terminals put the machine.
+ */
+private const val COURSE_UP_ANCHOR_Y = 0.66f
+
 /** The "no overlay" selection — persisted like a layer id, and the one that subscribes to nothing. */
 private const val NO_GROUND_LAYER = "none"
 
@@ -211,6 +218,7 @@ fun MapPanel(
   showGuidance: Boolean = false,
   onCommand: (ClientMessage) -> Unit = {},
   gpsCourse: GpsCourseData? = null,
+  courseUp: Boolean = false,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
@@ -250,22 +258,37 @@ fun MapPanel(
     label = "heading",
   )
 
+  // Where the vehicle sits on screen, and so also the point the map turns about in course-up: the
+  // pivot is the one place rotation leaves alone, which is what keeps the machine still while the
+  // world turns under it.
+  fun anchorFor(boxSide: Float): Offset =
+    if (courseUp) Offset(boxSide / 2f, boxSide * COURSE_UP_ANCHOR_Y) else Offset(boxSide / 2f, boxSide / 2f)
+
+  // Rotate the map so the direction of travel points up. The smoothed heading, not the raw one, or
+  // the whole map steps 10 times a second.
+  fun rotationFor(): Float = if (courseUp) -animHeading else 0f
+
   // Zoom by [factor] while keeping the given focal point (screen coords relative to the map's
   // top-left) pinned on screen. Used by the header +/- buttons with focal = viewport centre.
   fun zoomAround(factor: Float, focalX: Float, focalY: Float) {
-    val base = if (autoCenter) centeredOffset(sidePx, player, scale) else dragOffset
+    val anchor = anchorFor(sidePx)
+    val base = if (autoCenter) anchorOffset(sidePx, player, scale, anchor) else dragOffset
     val newScale = (scale * factor).coerceIn(MIN_ZOOM, MAX_ZOOM)
-    dragOffset = zoomedOffset(base, Offset(focalX, focalY), scale, newScale)
+    // The focal arrives in screen space, which in course-up is turned; the offset it feeds is not.
+    val focal = MapProjection(sidePx, scale, base, rotationFor(), anchor).unrotate(Offset(focalX, focalY))
+    dragOffset = zoomedOffset(base, focal, scale, newScale)
     scale = newScale
   }
 
-  // Center the map on a search hit (normalized coords), zoomed in far enough that its label shows,
-  // and ring-highlight it. Panning to a target naturally ends auto-centering.
+  // Put a search hit (normalized coords) where the vehicle normally sits, zoomed in far enough that
+  // its label shows, and ring-highlight it. Panning to a target naturally ends auto-centering.
+  // Anchored rather than centred because the anchor is the rotation pivot: in course-up it is the one
+  // screen point that means the same thing before and after the map turns.
   fun focusOn(norm: Offset) {
     val newScale = scale.coerceAtLeast(DETAIL_ZOOM)
     scale = newScale
     autoCenter = false
-    dragOffset = MapProjection.centeredOn(norm, sidePx, newScale)
+    dragOffset = MapProjection.anchoredAt(norm, anchorFor(sidePx), sidePx, newScale)
     highlight = norm
   }
 
@@ -425,17 +448,25 @@ fun MapPanel(
       )
       // Current translation: while auto-centering it tracks the (smoothed) player at the live
       // scale, so zoom stays locked on the player; otherwise it is the free pan/zoom offset.
+      val anchor = anchorFor(side)
       val applied =
         if (autoCenter && player != null) {
-          MapProjection.centeredOn(animNorm, side, scale)
+          MapProjection.anchoredAt(animNorm, anchor, side, scale)
         } else {
           dragOffset
         }
       // The one transform every overlay projects through (see MapProjection).
-      val projection = MapProjection(side, scale, applied)
-      // Let the long-lived gesture read the current offset without restarting the pointer input.
-      val currentApplied by rememberUpdatedState(applied)
+      val projection = MapProjection(side, scale, applied, rotationFor(), anchor)
+      // Let the long-lived gestures read the current transform without restarting the pointer input.
+      val currentProjection by rememberUpdatedState(projection)
 
+      // Two nested layers, because graphicsLayer turns everything about ONE origin and these two
+      // transforms need different ones: the outer turns the map about the vehicle, the inner scales
+      // and pans about the box corner. Nested, they compose into exactly MapProjection.toScreen —
+      // scale, translate, then rotate — so the raster and the vectors cannot drift apart.
+      //
+      // The gestures live on the outer box, OUTSIDE its own rotation layer, so they keep receiving
+      // plain box coordinates and the unrotating above stays the only place rotation is undone.
       androidx.compose.foundation.layout.Box(
         Modifier
           .size(with(density) { side.toDp() })
@@ -443,11 +474,16 @@ fun MapPanel(
           .pointerInput(Unit) {
             detectTransformGestures { centroid, pan, zoom, _ ->
               // Continue from the current on-screen offset; a pan ends centering.
-              val base = if (autoCenter) currentApplied else dragOffset
+              val current = currentProjection
+              val base = if (autoCenter) current.offset else dragOffset
               if (pan != Offset.Zero) autoCenter = false
               val newScale = (scale * zoom).coerceIn(MIN_ZOOM, MAX_ZOOM)
-              // Zoom around the gesture centroid so the point under the fingers stays put.
-              dragOffset = zoomedOffset(base, centroid, scale, newScale) + pan
+              // Zoom around the gesture centroid so the point under the fingers stays put. Both the
+              // centroid and the drag arrive in turned screen space; the offset they feed is not
+              // turned, so both are taken back through the rotation first — otherwise a drag on a
+              // course-up map slides the world off at an angle to the finger.
+              dragOffset =
+                zoomedOffset(base, current.unrotate(centroid), scale, newScale) + current.unrotateVector(pan)
               scale = newScale
             }
           }.pointerInput(Unit) {
@@ -484,7 +520,7 @@ fun MapPanel(
                 selectedFieldId = null
                 return@detectTapGestures
               }
-              val hitProjection = MapProjection(side, scale, currentApplied)
+              val hitProjection = currentProjection
               val radius = FIELD_TAP_RADIUS_DP.toPx()
               var bestId: Int? = null
               var bestDist = radius
@@ -499,35 +535,43 @@ fun MapPanel(
               selectedFieldId = bestId
             }
           }.graphicsLayer {
-            // The same transform MapProjection applies to the vectors, handed to the GPU for the
-            // raster layers below (base map + ground overlay).
+            // Outer: course-up's rotation, about the vehicle anchor.
+            rotationZ = projection.rotationDeg
+            transformOrigin = TransformOrigin(projection.pivot.x / side, projection.pivot.y / side)
+          },
+      ) {
+        androidx.compose.foundation.layout.Box(
+          Modifier.fillMaxSize().graphicsLayer {
+            // Inner: the same zoom and pan MapProjection applies to the vectors, handed to the GPU
+            // for the raster layers below (base map + ground overlay).
             transformOrigin = TransformOrigin(0f, 0f)
             scaleX = projection.scale
             scaleY = projection.scale
             translationX = projection.offset.x
             translationY = projection.offset.y
           },
-      ) {
-        bitmap?.let {
-          Image(
-            it,
-            contentDescription = "map",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds,
-          )
-        }
-        // Ground-layer raster: unlike MapDataOverlay's vectors, this IS pixel data that must scale
-        // exactly with the base map image, so it belongs inside the same zoom-scaled layer rather
-        // than outside it. FilterQuality.None keeps grid cells crisp instead of smearing colors
-        // together at high zoom (the whole point of a legend-driven raster).
-        shownLayerBitmap?.let {
-          Image(
-            it,
-            contentDescription = "ground layer",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds,
-            filterQuality = FilterQuality.None,
-          )
+        ) {
+          bitmap?.let {
+            Image(
+              it,
+              contentDescription = "map",
+              modifier = Modifier.fillMaxSize(),
+              contentScale = ContentScale.FillBounds,
+            )
+          }
+          // Ground-layer raster: unlike MapDataOverlay's vectors, this IS pixel data that must scale
+          // exactly with the base map image, so it belongs inside the same zoom-scaled layer rather
+          // than outside it. FilterQuality.None keeps grid cells crisp instead of smearing colors
+          // together at high zoom (the whole point of a legend-driven raster).
+          shownLayerBitmap?.let {
+            Image(
+              it,
+              contentDescription = "ground layer",
+              modifier = Modifier.fillMaxSize(),
+              contentScale = ContentScale.FillBounds,
+              filterQuality = FilterQuality.None,
+            )
+          }
         }
       }
 
@@ -573,7 +617,9 @@ fun MapPanel(
                 val pos = projection.toScreen(animNorm)
                 val half = 12.dp.toPx()
                 IntOffset((pos.x - half).roundToInt(), (pos.y - half).roundToInt())
-              }.rotate(animHeading),
+                // In course-up these cancel to zero: the map turned instead, so the marker points
+                // straight up the screen the way the machine points up the field.
+              }.rotate(animHeading + projection.rotationDeg),
           )
         }
       }
@@ -684,6 +730,8 @@ private fun BoxScope.CourseOverlay(
   Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
     val factor = projection.factor
     withTransform({
+      // Outermost first — scale, then translate, then rotate; see MapDataOverlay.
+      rotate(projection.rotationDeg, pivot = projection.pivot)
       translate(projection.offset.x, projection.offset.y)
       scale(factor, factor, pivot = Offset.Zero)
     }) {
@@ -820,8 +868,24 @@ private fun BoxScope.MapDataOverlay(
 
     fun onCanvas(pos: Offset) = projection.isVisible(pos, OVERLAY_CULL_MARGIN)
 
+    // Labels stay upright while the map turns: text rotated with the terrain is unreadable, and a
+    // field number that pivots around itself as you drive is worse than useless. Undone about the
+    // label's own position, so it does not move — only its baseline stops following the map.
+    fun drawUpright(text: String, pos: Offset, style: TextStyle) {
+      if (projection.rotationDeg == 0f) {
+        drawCenteredText(textMeasurer, text, pos, style)
+      } else {
+        withTransform({ rotate(-projection.rotationDeg, pivot = pos) }) {
+          drawCenteredText(textMeasurer, text, pos, style)
+        }
+      }
+    }
+
     if (showFields && mapData != null) {
       withTransform({
+        // Listed outermost-first, so this composes as scale -> translate -> rotate: the same
+        // pipeline MapProjection.toScreen runs the markers through.
+        rotate(projection.rotationDeg, pivot = projection.pivot)
         translate(projection.offset.x, projection.offset.y)
         scale(factor, factor, pivot = Offset.Zero)
       }) {
@@ -836,9 +900,9 @@ private fun BoxScope.MapDataOverlay(
       for (field in mapData.fields) {
         val pos = toScreen(field.labelX, field.labelZ)
         if (!onCanvas(pos)) continue
-        drawCenteredText(textMeasurer, field.name.ifBlank { field.id.toString() }, pos, labelStyle)
+        drawUpright(field.name.ifBlank { field.id.toString() }, pos, labelStyle)
         if (scale >= DETAIL_ZOOM && field.areaHa > 0f) {
-          drawCenteredText(textMeasurer, "${field.areaHa} ha", pos + Offset(0f, 12.dp.toPx()), detailStyle)
+          drawUpright("${field.areaHa} ha", pos + Offset(0f, 12.dp.toPx()), detailStyle)
         }
       }
     }
@@ -852,7 +916,7 @@ private fun BoxScope.MapDataOverlay(
         drawCircle(VdtColors.White, radius = 4.dp.toPx(), center = pos)
         drawCircle(poiCategoryColor(category), radius = 3.dp.toPx(), center = pos)
         if (scale >= DETAIL_ZOOM && poi.name.isNotBlank()) {
-          drawCenteredText(textMeasurer, poi.name, pos + Offset(0f, 12.dp.toPx()), detailStyle)
+          drawUpright(poi.name, pos + Offset(0f, 12.dp.toPx()), detailStyle)
         }
       }
     }
@@ -869,7 +933,9 @@ private fun BoxScope.MapDataOverlay(
           // Drivables: a heading arrow.
           withTransform({
             translate(pos.x, pos.y)
-            rotate(degrees = v.heading.toFloat(), pivot = Offset.Zero)
+            // Plus the map's own rotation: a heading is relative to north, and in course-up north
+            // is no longer up the screen.
+            rotate(degrees = v.heading + projection.rotationDeg, pivot = Offset.Zero)
           }) {
             drawPath(vehicleArrow, tint)
             drawPath(vehicleArrow, VdtColors.White, style = Stroke(width = 1.dp.toPx()))
@@ -887,7 +953,7 @@ private fun BoxScope.MapDataOverlay(
           drawCircle(VdtColors.White, radius = 1.5.dp.toPx(), center = pos)
         }
         if (scale >= DETAIL_ZOOM && v.name.isNotBlank()) {
-          drawCenteredText(textMeasurer, v.name, pos + Offset(0f, 14.dp.toPx()), detailStyle)
+          drawUpright(v.name, pos + Offset(0f, 14.dp.toPx()), detailStyle)
         }
       }
     }
@@ -1346,9 +1412,12 @@ private fun ownerLabel(ownerFarmId: Int?, playerFarmId: Int?, farms: List<MapFar
   return if (!name.isNullOrBlank()) name else "Farm $ownerFarmId"
 }
 
-/** Translation that places the player at the box centre for the given side length and scale. */
-private fun centeredOffset(side: Float, player: Player?, scale: Float): Offset = if (player != null) {
-  MapProjection.centeredOn(Offset(player.posX, player.posZ), side, scale)
+/**
+ * Translation that places the player at [anchor] for the given side length and scale — the box centre
+ * north-up, lower down the screen in course-up.
+ */
+private fun anchorOffset(side: Float, player: Player?, scale: Float, anchor: Offset): Offset = if (player != null) {
+  MapProjection.anchoredAt(Offset(player.posX, player.posZ), anchor, side, scale)
 } else {
   Offset.Zero
 }
