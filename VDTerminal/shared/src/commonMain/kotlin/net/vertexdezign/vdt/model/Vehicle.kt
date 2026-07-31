@@ -112,6 +112,18 @@ data class Load(
   val unit: String = "",
 )
 
+/**
+ * What the transmission is in.
+ *
+ * [value] is a gear *name*, not a number: a geared tractor reports `"12"`, but a machine with no
+ * discrete gears — a combine, a CVT, anything fully automatic — reports `"D"` / `"R"`, and either
+ * kind reports `"N"` in neutral.
+ *
+ * [group] is the range the gear sits in (`"E"`, `"M"`), and **only a transmission that has ranges
+ * reports one** — the mod drops the placeholder the engine hands back for the rest, so an empty
+ * group means "this machine has no ranges" rather than "we didn't look". A ranged transmission with
+ * its range lever out reports `"N"` here, which is a range like any other.
+ */
 @Serializable
 data class Gear(
   val value: String = "",

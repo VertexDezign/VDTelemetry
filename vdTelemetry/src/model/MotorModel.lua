@@ -21,10 +21,12 @@
 ---@field max number
 ---@field unit string
 
+-- `group` is absent on a transmission with no ranges -- see Motor.collect. Every gearless machine
+-- (and every fully automatic one) is that case, so it is missing far more often than it is present.
 ---@class GearModel
 ---@field value string
 ---@field isNeutral boolean
----@field group string
+---@field group string?
 
 ---@class MaxSpeedModel
 ---@field forward number?

@@ -52,6 +52,7 @@ function VDT.Motor.collect(vehicle)
   end
 
   local motor = mSpec:getMotor()
+  local gearGroup, hasGearGroups = motor:getGearGroupToDisplay()
 
   ---@type MotorModel
   local model = {
@@ -76,7 +77,15 @@ function VDT.Motor.collect(vehicle)
     gear = {
       value = motor:getGearToDisplay(),
       isNeutral = motor:getIsInNeutral(),
-      group = motor:getGearGroupToDisplay(),
+      -- Only a transmission that actually has ranges gets a group. `getGearGroupToDisplay` returns a
+      -- name *and* whether groups exist at all, and the name is the placeholder "N" whenever they
+      -- don't
+      --
+      -- The engine drops it on exactly this test (Motorized:getGearInfoToDisplay: `if not
+      -- groupsAvailable then gearGroup = nil end`), and its own HUD only draws a group for a
+      -- non-automatic transmission. Absent, not empty: nothing downstream should have to tell an
+      -- unnamed group from a missing one.
+      group = hasGearGroups and gearGroup or nil,
     },
     -- The direction the transmission is *in*, as opposed to `speed.direction`, which is the way the
     -- machine is actually travelling and reads STOPPED below walking pace. This is the motor's own

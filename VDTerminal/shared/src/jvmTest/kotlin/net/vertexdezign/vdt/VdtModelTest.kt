@@ -147,6 +147,9 @@ class VdtModelTest {
     val data = model("mutliple_implements.json")
     val v = assertNotNull(data.vehicle)
 
+    // Reversing, and carrying the placeholder group this machine has no business having: it has no
+    // ranges, and the capture predates the mod dropping the name `getGearGroupToDisplay` returns for
+    // that case. The fixture records what v5 wrote — don't "fix" it.
     assertEquals("N", v.motor?.gear?.group)
     assertEquals("R", v.motor?.gear?.value)
 
