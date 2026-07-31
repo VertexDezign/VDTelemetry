@@ -61,25 +61,8 @@ object MapWidget : Widget {
       ),
     )
 
-  /** The config key deciding which way up this map draws. */
-  const val ORIENTATION_KEY = "orientation"
-
-  private val orientationOption =
-    ConfigOption(
-      key = ORIENTATION_KEY,
-      label = "Orientation",
-      // North-up first, so an unconfigured map keeps drawing the way every saved page already
-      // expects. Course-up is the run-screen choice: it costs the fixed compass you navigate an
-      // overview by, and buys the ground ahead of the machine filling the tile.
-      choices =
-      listOf(
-        ConfigOption.Choice(ORIENTATION_NORTH, "North up"),
-        ConfigOption.Choice(ORIENTATION_COURSE, "Course up"),
-      ),
-    )
-
   @Composable
-  override fun configOptions(): List<ConfigOption> = listOf(guidanceOption, orientationOption)
+  override fun configOptions(): List<ConfigOption> = listOf(guidanceOption)
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -117,7 +100,6 @@ object MapWidget : Widget {
       showGuidance = guidanceOption.resolve(config) == GUIDANCE_ON,
       onCommand = store.onCommand,
       gpsCourse = gpsCourse,
-      courseUp = orientationOption.resolve(config) == ORIENTATION_COURSE,
     )
   }
 }
@@ -125,10 +107,6 @@ object MapWidget : Widget {
 /** [MapWidget.GUIDANCE_KEY] values. Slugs, not booleans: they are persisted in saved layouts. */
 private const val GUIDANCE_OFF = "off"
 private const val GUIDANCE_ON = "on"
-
-/** [MapWidget.ORIENTATION_KEY] values; persisted in saved layouts, so they are slugs too. */
-private const val ORIENTATION_NORTH = "north"
-private const val ORIENTATION_COURSE = "course"
 
 /** Engine / transmission — needs a vehicle; shows an empty tile when on foot. */
 object EngineWidget : Widget {

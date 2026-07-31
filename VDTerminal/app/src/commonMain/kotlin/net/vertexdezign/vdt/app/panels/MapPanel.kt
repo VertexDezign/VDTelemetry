@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.IndeterminateCheckBox
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
@@ -131,6 +132,7 @@ private const val KEY_ZOOM = "zoom"
 private const val KEY_AUTO_CENTER = "autoCenter"
 private const val KEY_SHOW_FIELDS = "showFields"
 private const val KEY_SHOW_COURSE = "showCourse"
+private const val KEY_COURSE_UP = "courseUp"
 private const val KEY_POI_CATS = "poiCats"
 private const val KEY_VEH_STATES = "vehStates"
 private const val KEY_GROUND_LAYER = "groundLayer"
@@ -218,12 +220,14 @@ fun MapPanel(
   showGuidance: Boolean = false,
   onCommand: (ClientMessage) -> Unit = {},
   gpsCourse: GpsCourseData? = null,
-  courseUp: Boolean = false,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
   var showFields by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_FIELDS, true)) }
   var showCourse by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_COURSE, true)) }
+  // A mode you flip while driving, not a layout decision — so a header toggle beside auto-center
+  // rather than widget config, persisted per placed tile like the zoom and the filters.
+  var courseUp by remember { mutableStateOf(settings.getBoolean(KEY_COURSE_UP, false)) }
   var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
   var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
   var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, NO_GROUND_LAYER)) }
@@ -306,6 +310,7 @@ fun MapPanel(
   LaunchedEffect(autoCenter) { settings.putBoolean(KEY_AUTO_CENTER, autoCenter) }
   LaunchedEffect(showFields) { settings.putBoolean(KEY_SHOW_FIELDS, showFields) }
   LaunchedEffect(showCourse) { settings.putBoolean(KEY_SHOW_COURSE, showCourse) }
+  LaunchedEffect(courseUp) { settings.putBoolean(KEY_COURSE_UP, courseUp) }
   LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
   LaunchedEffect(vehStates) { settings.putString(KEY_VEH_STATES, vehStates.joinToString(",")) }
   LaunchedEffect(groundLayer) { settings.putString(KEY_GROUND_LAYER, groundLayer) }
@@ -420,6 +425,19 @@ fun MapPanel(
             sidePx / 2f,
             sidePx / 2f,
           )
+        },
+      )
+      // Orientation, beside the follow toggle it belongs with: both answer "what is this map doing
+      // while I drive". Turning it on also resumes following — course-up means "point where I am
+      // going", which says nothing at all about a map parked over some other corner of the estate.
+      Icon(
+        Icons.Filled.Explore,
+        if (courseUp) "north up" else "course up",
+        tint = if (courseUp) VdtColors.Green else VdtColors.DarkGray,
+        modifier =
+        Modifier.size(16.dp).clickableNoRipple {
+          courseUp = !courseUp
+          if (courseUp) autoCenter = true
         },
       )
       Icon(

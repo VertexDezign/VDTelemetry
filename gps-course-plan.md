@@ -33,11 +33,12 @@ a section strip and a few big numbers. This plan gets there in that order.
   the `vehicle.gps.course` live state) plus the course drawn on the map. Mod export version is now
   **7**. See "How it landed" below and the in-game checks at the end — the deviation *sign* is the
   one that genuinely needs a tractor.
-- §3 (course-up) — **done, not yet validated in game.** Per-instance "Orientation" option; north-up
-  stays the default, so no saved page changes under anyone.
+- §3 (course-up) — **done.** A header toggle beside auto-center (per placed tile); north-up stays the
+  default, so no saved page changes under anyone.
 
-With that, §1–§3 are complete and the whole thing is waiting on one session in the seat — see the
-in-game checks at the end.
+**In-game results (2026-07-31, user):** the course draws and clears correctly, the worked shading
+follows the game, the deviation sign reads the right way round, and the channel's cadence is sane.
+Multiplayer is still untested — the one open item from the list at the end.
 
 Every game-source claim is cited `file:line` against the bundled extracted source. Precision
 Farming is cited by LUADOC section, since PF's own Lua is not in the bundle — those are marked as
@@ -280,6 +281,10 @@ free; what needed thought was the handful of places that are not points:
 - **The vehicle sits at 0.66 down the side**, and that anchor doubles as the rotation pivot: the one
   screen point rotation leaves alone, which is what keeps the machine still while the world turns.
   `centeredOn` is now a special case of `anchoredAt`.
+- **It is a header toggle, not widget config** (user, on seeing it): orientation is a mode you flip
+  while driving, like following the vehicle, not a decision you make when placing a tile. It sits next
+  to the auto-center button, persists per placed tile, and turning it on resumes following — course-up
+  means "point where I am going", which says nothing about a map parked over another corner of the map.
 
 Known cosmetic limit: at zoom < 1 a turned square leaves the viewport corners empty, since the map
 image no longer covers them. Real terminals crop into the map rather than out of it, and course-up is
@@ -372,18 +377,13 @@ My read: course-up (§3) delivers most of what the reference photos communicate.
 Everything below is unit-tested against stubs, which says nothing about whether the real spec tables
 look like the stubs:
 
-1. **The deviation sign.** `lineState` calls "+ right" by deriving left from the game's own side-offset
-   direction. That is a reading of `SteeringFieldCourse.lua`, not a measurement. Drive a line with the
-   assist engaged, drift knowingly to one side, and check the number's sign — a lightbar that pushes
-   you the wrong way is worse than none.
+1. ~~**The deviation sign.**~~ Checked in the seat 2026-07-31: reads the right way round.
 2. **Course size on a real field.** Measure the written `gpsCourse.json` on a big field with a narrow
    tool; the thinning constants (3 m, 128 points per segment) are guesses against boundary-resolution
-   headland rings.
-3. **How often the course actually changes.** The channel assumes "about once per field". If the game
-   regenerates it more eagerly than that (attaching an implement, a settings tweak, re-entering), the
-   write frequency wants a second look.
-4. **Multiplayer.** Segments, worked flags and `currentSegmentIndex` on a dedicated-server client, and
-   whether our own distance-to-end matches what the host feels.
+   headland rings. (Cadence checked and sane; size not yet measured.)
+3. ~~**How often the course actually changes.**~~ Cadence looked right in the Diagnostics app.
+4. **Multiplayer — still open.** Segments, worked flags and `currentSegmentIndex` on a
+   dedicated-server client, and whether our own distance-to-end matches what the host feels.
 5. **Fixture refresh.** `examples/json/*.json` are captures from before the VERSION 7 bump, so none
    carries `gps.course`; the live half is currently covered by inline JSON in `GpsCourseModelTest`.
    Retake one capture with a course active and swap the test over.
