@@ -90,6 +90,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
@@ -106,6 +107,7 @@ import net.vertexdezign.vdt.model.MapVehicle
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.Pda
 import net.vertexdezign.vdt.model.Player
+import net.vertexdezign.vdt.model.Vehicle
 import org.jetbrains.skia.Image
 import kotlin.math.hypot
 import kotlin.math.pow
@@ -202,6 +204,9 @@ fun MapPanel(
   mapLayerUrl: String = "",
   mapLayers: MapLayersInfo? = null,
   onShowLayers: (List<String>) -> Unit = {},
+  vehicle: Vehicle? = null,
+  showGuidance: Boolean = false,
+  onCommand: (ClientMessage) -> Unit = {},
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
@@ -245,8 +250,7 @@ fun MapPanel(
   fun zoomAround(factor: Float, focalX: Float, focalY: Float) {
     val base = if (autoCenter) centeredOffset(sidePx, player, scale) else dragOffset
     val newScale = (scale * factor).coerceIn(MIN_ZOOM, MAX_ZOOM)
-    val f = newScale / scale
-    dragOffset = Offset(focalX - (focalX - base.x) * f, focalY - (focalY - base.y) * f)
+    dragOffset = zoomedOffset(base, Offset(focalX, focalY), scale, newScale)
     scale = newScale
   }
 
@@ -256,7 +260,7 @@ fun MapPanel(
     val newScale = scale.coerceAtLeast(DETAIL_ZOOM)
     scale = newScale
     autoCenter = false
-    dragOffset = Offset(sidePx / 2f - norm.x * sidePx * newScale, sidePx / 2f - norm.y * sidePx * newScale)
+    dragOffset = MapProjection.centeredOn(norm, sidePx, newScale)
     highlight = norm
   }
 
@@ -417,10 +421,12 @@ fun MapPanel(
       // scale, so zoom stays locked on the player; otherwise it is the free pan/zoom offset.
       val applied =
         if (autoCenter && player != null) {
-          Offset(side / 2f - animNorm.x * side * scale, side / 2f - animNorm.y * side * scale)
+          MapProjection.centeredOn(animNorm, side, scale)
         } else {
           dragOffset
         }
+      // The one transform every overlay projects through (see MapProjection).
+      val projection = MapProjection(side, scale, applied)
       // Let the long-lived gesture read the current offset without restarting the pointer input.
       val currentApplied by rememberUpdatedState(applied)
 
@@ -434,13 +440,8 @@ fun MapPanel(
               val base = if (autoCenter) currentApplied else dragOffset
               if (pan != Offset.Zero) autoCenter = false
               val newScale = (scale * zoom).coerceIn(MIN_ZOOM, MAX_ZOOM)
-              val f = newScale / scale
               // Zoom around the gesture centroid so the point under the fingers stays put.
-              dragOffset =
-                Offset(
-                  centroid.x - (centroid.x - base.x) * f + pan.x,
-                  centroid.y - (centroid.y - base.y) * f + pan.y,
-                )
+              dragOffset = zoomedOffset(base, centroid, scale, newScale) + pan
               scale = newScale
             }
           }.pointerInput(Unit) {
@@ -467,8 +468,8 @@ fun MapPanel(
             // detectTapGestures coexists with the transform/scroll handlers above: it cancels itself
             // when a drag starts, so panning is unaffected. Positions arrive in the *screen* space of
             // this side×side box — the same frame the transform gesture's centroid and `applied`
-            // live in — so a label is projected with the overlay's exact toScreen math
-            // (norm*side*scale + applied) and matched within a constant on-screen radius.
+            // live in — so a label is projected through the same MapProjection the overlay draws
+            // with, and matched within a constant on-screen radius.
             detectTapGestures { tap ->
               // Only fields that are actually drawn are tappable — with the overlay hidden there are
               // no labels on screen, so a tap must not open a popup for an invisible field.
@@ -477,14 +478,13 @@ fun MapPanel(
                 selectedFieldId = null
                 return@detectTapGestures
               }
-              val factor = side * scale
-              val originX = currentApplied.x
-              val originY = currentApplied.y
+              val hitProjection = MapProjection(side, scale, currentApplied)
               val radius = FIELD_TAP_RADIUS_DP.toPx()
               var bestId: Int? = null
               var bestDist = radius
               for (f in fields) {
-                val d = hypot(tap.x - (f.labelX * factor + originX), tap.y - (f.labelZ * factor + originY))
+                val label = hitProjection.toScreen(f.labelX, f.labelZ)
+                val d = hypot(tap.x - label.x, tap.y - label.y)
                 if (d <= bestDist) {
                   bestDist = d
                   bestId = f.id
@@ -493,11 +493,13 @@ fun MapPanel(
               selectedFieldId = bestId
             }
           }.graphicsLayer {
+            // The same transform MapProjection applies to the vectors, handed to the GPU for the
+            // raster layers below (base map + ground overlay).
             transformOrigin = TransformOrigin(0f, 0f)
-            scaleX = scale
-            scaleY = scale
-            translationX = applied.x
-            translationY = applied.y
+            scaleX = projection.scale
+            scaleY = projection.scale
+            translationX = projection.offset.x
+            translationY = projection.offset.y
           },
       ) {
         bitmap?.let {
@@ -525,16 +527,14 @@ fun MapPanel(
 
       // Map-data overlay (field outlines/labels + POI markers): like the player marker it lives
       // OUTSIDE the zoom-scaled graphicsLayer — the layer rasterizes, so vectors inside it blur at
-      // high zoom. The outlines are re-projected each draw under the same transform as the image
-      // (norm * side * scale + translation), the labels/markers stay constant-size.
+      // high zoom. The outlines are re-projected each draw through the same MapProjection the image
+      // is transformed by, the labels/markers stay constant-size.
       if (mapData != null || mapVehicles != null) {
         MapDataOverlay(
           mapData,
           mapVehicles,
           player?.farmId,
-          side,
-          scale,
-          applied,
+          projection,
           showFields,
           poiCats,
           vehStates,
@@ -557,10 +557,9 @@ fun MapPanel(
             Modifier
               .size(24.dp)
               .offset {
-                IntOffset(
-                  (animNorm.x * side * scale + applied.x - 12.dp.toPx()).roundToInt(),
-                  (animNorm.y * side * scale + applied.y - 12.dp.toPx()).roundToInt(),
-                )
+                val pos = projection.toScreen(animNorm)
+                val half = 12.dp.toPx()
+                IntOffset((pos.x - half).roundToInt(), (pos.y - half).roundToInt())
               }.rotate(animHeading),
           )
         }
@@ -586,6 +585,13 @@ fun MapPanel(
       // Ground-layer legend, only while a layer is actually selected and its own raster is showing.
       if (activeLayerInfo != null && shownLayerBitmap != null) {
         GroundLayerLegend(activeLayerInfo.legend, side)
+      }
+
+      // Navigation as map chrome (issue #43): opt-in per placed tile, so a map used as an overview
+      // stays uncovered while a map used as a run screen carries its heading and lamps. Above the
+      // legend and the field popup in the stack — it is a fixed strip in a corner they don't use.
+      if (showGuidance) {
+        GuidanceStrip(heading, vehicle, onCommand = onCommand)
       }
 
       // Filter & search popover, on top of everything map-related.
@@ -625,19 +631,17 @@ private val DrivableVehicleTypes =
 /**
  * The map-data overlay: field polygons + number labels, POI dots, and vehicle markers, drawn into
  * the same side×side box as the map image. The polygons are vector paths in normalized [0,1]
- * space, re-projected each draw under the image's exact transform (screen = norm * side * scale +
- * translation) with a zoom-compensated stroke — so they hug the map at any zoom but keep a
- * constant on-screen line width. Labels, POI dots and vehicle arrows are constant-size like the
- * player marker; secondary text (field area, POI/vehicle names) only appears above [DETAIL_ZOOM].
+ * space, re-projected each draw through the image's exact transform ([projection]) with a
+ * zoom-compensated stroke — so they hug the map at any zoom but keep a constant on-screen line
+ * width. Labels, POI dots and vehicle arrows are constant-size like the player marker; secondary
+ * text (field area, POI/vehicle names) only appears above [DETAIL_ZOOM].
  */
 @Composable
 private fun BoxScope.MapDataOverlay(
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
   playerFarmId: Int?,
-  side: Float,
-  scale: Float,
-  applied: Offset,
+  projection: MapProjection,
   showFields: Boolean,
   poiCats: Set<String>,
   vehStates: Set<String>,
@@ -696,17 +700,17 @@ private fun BoxScope.MapDataOverlay(
     }
   val detailStyle = remember { labelStyle.copy(fontSize = 9.sp, fontWeight = FontWeight.Normal) }
 
-  Canvas(Modifier.size(with(density) { side.toDp() }).align(Alignment.Center)) {
-    val factor = side * scale
+  Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
+    val scale = projection.scale
+    val factor = projection.factor
 
-    fun toScreen(normX: Float, normZ: Float) = Offset(normX * factor + applied.x, normZ * factor + applied.y)
+    fun toScreen(normX: Float, normZ: Float) = projection.toScreen(normX, normZ)
 
-    fun onCanvas(pos: Offset) = pos.x in -OVERLAY_CULL_MARGIN..side + OVERLAY_CULL_MARGIN &&
-      pos.y in -OVERLAY_CULL_MARGIN..side + OVERLAY_CULL_MARGIN
+    fun onCanvas(pos: Offset) = projection.isVisible(pos, OVERLAY_CULL_MARGIN)
 
     if (showFields && mapData != null) {
       withTransform({
-        translate(applied.x, applied.y)
+        translate(projection.offset.x, projection.offset.y)
         scale(factor, factor, pivot = Offset.Zero)
       }) {
         // Stroke width divided back out of the transform: geometry scales, the line doesn't.
@@ -1224,7 +1228,7 @@ private fun ownerLabel(ownerFarmId: Int?, playerFarmId: Int?, farms: List<MapFar
 
 /** Translation that places the player at the box centre for the given side length and scale. */
 private fun centeredOffset(side: Float, player: Player?, scale: Float): Offset = if (player != null) {
-  Offset(side / 2f - player.posX * side * scale, side / 2f - player.posZ * side * scale)
+  MapProjection.centeredOn(Offset(player.posX, player.posZ), side, scale)
 } else {
   Offset.Zero
 }
@@ -1234,6 +1238,9 @@ private fun centeredOffset(side: Float, player: Player?, scale: Float): Offset =
  * [clickable] modifier — not a raw `pointerInput` — so header actions, search results, and filter
  * rows stay keyboard- and screen-reader-activatable. `indication = null` drops the ripple; the null
  * [interactionSource] lets `clickable` lazily manage its own, so there is nothing to key on.
+ *
+ * Internal rather than private so the guidance strip in `Navigation.kt` — chrome that sits on the
+ * map and has to look and behave like the header icons around it — shares this one implementation.
  */
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
+internal fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
   this.clickable(interactionSource = null, indication = null, onClick = onClick)

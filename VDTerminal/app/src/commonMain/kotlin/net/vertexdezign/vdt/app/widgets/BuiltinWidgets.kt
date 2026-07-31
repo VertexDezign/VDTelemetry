@@ -44,6 +44,26 @@ object MapWidget : Widget {
   override val minColSpan = 4
   override val minRowSpan = 3
 
+  /** The config key deciding whether this map carries the navigation strip. */
+  const val GUIDANCE_KEY = "guidance"
+
+  private val guidanceOption =
+    ConfigOption(
+      key = GUIDANCE_KEY,
+      label = "Navigation strip",
+      // "Off" first, so resolve()'s default keeps an unconfigured map exactly as it was — the strip
+      // covers terrain, and a map placed as an overview never asked for it. A map placed as a run
+      // screen turns it on and gets the heading where the driving happens.
+      choices =
+      listOf(
+        ConfigOption.Choice(GUIDANCE_OFF, "Off"),
+        ConfigOption.Choice(GUIDANCE_ON, "On"),
+      ),
+    )
+
+  @Composable
+  override fun configOptions(): List<ConfigOption> = listOf(guidanceOption)
+
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
@@ -73,9 +93,18 @@ object MapWidget : Widget {
       mapLayerUrl = store.mapLayerUrl,
       mapLayers = mapLayers,
       onShowLayers = { ids -> store.onCommand(ClientMessage.SetMapLayers(ids)) },
+      vehicle = telemetry?.vehicle,
+      // A stored value this widget no longer offers falls back to off: the choices are fixed, so
+      // anything else is a stale key rather than a preference worth honouring.
+      showGuidance = guidanceOption.resolve(config) == GUIDANCE_ON,
+      onCommand = store.onCommand,
     )
   }
 }
+
+/** [MapWidget.GUIDANCE_KEY] values. Slugs, not booleans: they are persisted in saved layouts. */
+private const val GUIDANCE_OFF = "off"
+private const val GUIDANCE_ON = "on"
 
 /** Engine / transmission — needs a vehicle; shows an empty tile when on foot. */
 object EngineWidget : Widget {
