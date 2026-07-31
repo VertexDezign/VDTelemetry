@@ -42,13 +42,48 @@ class TelltaleStateTest {
 
   @Test
   fun theDrivetrainLampsFollowEnhancedVehiclesNulls() {
-    // A rear-only diff lock: the front side never arrives, so its lamp must stay absent while the
-    // rear one reports honestly.
+    // A rear-only diff lock: the front side never arrives, so the lamp reports on the end it can see
+    // and says nothing about the other.
     val vehicle = Vehicle(motor = Motor(diffLock = DiffLock(front = null, back = false), awd = true))
-    assertNull(Telltale.DiffLockFront.stateIn(vehicle))
-    assertEquals(false, Telltale.DiffLockRear.stateIn(vehicle))
+    assertEquals(false, Telltale.DiffLock.stateIn(vehicle))
     assertEquals(true, Telltale.Awd.stateIn(vehicle))
     assertNull(Telltale.ParkingBrake.stateIn(vehicle))
+    // Neither end reported is no lamp at all, even though the subtree arrived.
+    assertNull(Telltale.DiffLock.stateIn(Vehicle(motor = Motor(diffLock = DiffLock()))))
+  }
+
+  @Test
+  fun oneDiffLockLampLitByEitherEnd() {
+    // One lamp over two independent differentials: shutting either is a diff lock engaged, and which
+    // end it was is the glyph's business rather than a second lamp's.
+    fun lock(front: Boolean?, back: Boolean?) = Vehicle(motor = Motor(diffLock = DiffLock(front, back)))
+    assertEquals(false, Telltale.DiffLock.stateIn(lock(false, false)))
+    assertEquals(true, Telltale.DiffLock.stateIn(lock(true, false)))
+    assertEquals(true, Telltale.DiffLock.stateIn(lock(false, true)))
+    assertEquals(true, Telltale.DiffLock.stateIn(lock(true, true)))
+    // An end that isn't reported can't hold the lamp off when the other one is shut.
+    assertEquals(true, Telltale.DiffLock.stateIn(lock(null, true)))
+  }
+
+  @Test
+  fun theDiffLockGlyphSaysWhichEndIsShut() {
+    fun lock(front: Boolean?, back: Boolean?) = Vehicle(motor = Motor(diffLock = DiffLock(front, back)))
+    assertEquals(ClusterIcons.DiffLockFront, Telltale.DiffLock.iconIn(lock(true, false)))
+    assertEquals(ClusterIcons.DiffLockRear, Telltale.DiffLock.iconIn(lock(false, true)))
+    assertEquals(ClusterIcons.DiffLockBoth, Telltale.DiffLock.iconIn(lock(true, true)))
+    // Nothing shut is the resting glyph — both ends, drawn dim, on the segment ghost's convention.
+    assertEquals(ClusterIcons.DiffLockBoth, Telltale.DiffLock.iconIn(lock(false, false)))
+    // An unreported end is not a shut one: rear-only still reads as the rear glyph.
+    assertEquals(ClusterIcons.DiffLockRear, Telltale.DiffLock.iconIn(lock(null, true)))
+  }
+
+  @Test
+  fun everyOtherLampDrawsItsOwnIconWhateverTheVehicleSays() {
+    // iconIn exists for the one lamp with a glyph per state; the rest must not quietly acquire one.
+    val vehicle = Vehicle(motor = Motor(diffLock = DiffLock(front = true, back = true), awd = true))
+    for (lamp in Telltale.entries.filter { it != Telltale.DiffLock }) {
+      assertEquals(lamp.icon, lamp.iconIn(vehicle), "${lamp.key} changed glyph with the vehicle")
+    }
   }
 
   @Test

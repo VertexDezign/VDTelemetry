@@ -76,14 +76,18 @@ object ClusterIcons {
   }
 
   /**
-   * The drivetrain, drawn from above, and the three lamps that are all the same picture of it:
-   * all-wheel drive is both axles driven, and a diff lock is one axle with its differential shut.
+   * The drivetrain, drawn from above, and the lamps that are all the same picture of it: all-wheel
+   * drive is both axles driven, and a diff lock is an axle with its differential shut.
    *
-   * They share [DRIVETRAIN] so they read as one family, and the axle a lamp is *about* is the one
+   * They share [DRIVETRAIN] so they read as one family, and the axle a glyph is *about* is the one
    * drawn solid — the other is left as an outline, which is as close as a single-tint icon gets to
    * "this end, not that one". **The front wheels are steered**; that is the only thing in the
-   * picture that says which end is the front, and without it the two diff locks are one drawing
-   * upside down.
+   * picture that says which end is the front, and without it [DiffLockFront] and [DiffLockRear] are
+   * one drawing upside down.
+   *
+   * The three diff-lock glyphs are one lamp, not three: [Telltale.DiffLock] picks between them from
+   * what is actually shut (see [Telltale.iconIn]), so which end is locked is a change of shape in a
+   * slot the eye is already on rather than a second lamp to find.
    */
   val Awd = telltale("Awd") { fill("$DRIVETRAIN $FRONT_WHEELS $REAR_WHEELS") }
 
@@ -94,6 +98,16 @@ object ClusterIcons {
   val DiffLockRear = telltale("DiffLockRear") {
     fill("$DRIVETRAIN $REAR_WHEELS $DIFF_REAR")
     fill(FRONT_WHEELS_OPEN, PathFillType.EvenOdd)
+  }
+
+  /**
+   * Both differentials shut — and, dimmed, the lamp's resting state, on the same convention as the
+   * segment display's ghost cell: what it looks like with everything lit, at an alpha you cannot
+   * mistake for lit. [Awd] is the same axles without the differentials, which is the distinction
+   * between "both ends are driven" and "both ends are locked together".
+   */
+  val DiffLockBoth = telltale("DiffLockBoth") {
+    fill("$DRIVETRAIN $FRONT_WHEELS $REAR_WHEELS $DIFF_FRONT $DIFF_REAR")
   }
 
   /** The engine block, finned down its left side — the fins are what stop it reading as a blob. */

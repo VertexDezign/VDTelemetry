@@ -57,9 +57,16 @@ enum class BandSide { Start, Middle, End }
  * both arrows flashing, at the two edges, which is exactly what the machine is doing. Its glyph is
  * still drawn ([ClusterIcons.Hazard]); the Lighting panel needs it for the button that turns them on.
  *
- * Where two lamps share a subject (the work lights, the two diff locks) they are adjacent and
- * ordered front-then-rear, which is how a real cluster distinguishes them too. The pair is legible
- * as a pair; each still carries its own description for a screen reader.
+ * The work lights are two lamps sharing a subject, adjacent and ordered front-then-rear, which is
+ * how a real cluster distinguishes them too. The pair is legible as a pair; each still carries its
+ * own description for a screen reader.
+ *
+ * The diff locks are **one** lamp instead, because a lamp can change shape and two lamps cost two
+ * slots of a band that is always visible now that off lamps are ghosted. [DiffLock] lights when
+ * either differential is shut and its glyph says which end (see [iconIn]) — the same information in
+ * half the band, and the answer lands in a slot the eye is already on rather than in whichever of
+ * two neighbours happened to light. [icon] is what it draws at rest and in a picker, where there is
+ * no vehicle to ask.
  *
  * [EngineWarning] used to be a *derived* lamp, lit on coolant temperature **or** damage. Those are now
  * [Temperature] and [GeneralWarning], said separately, which is how the cluster this copies shows
@@ -83,8 +90,7 @@ enum class Telltale(
   WorkRear("workRear", "Work lights rear", ClusterIcons.WorkRear, ClusterColors.Set),
   Beacon("beacon", "Beacon", ClusterIcons.Beacon, ClusterColors.Set),
   ParkingBrake("parkingBrake", "Parking brake", ClusterIcons.ParkingBrake, ClusterColors.Go),
-  DiffLockFront("diffLockFront", "Diff lock front", ClusterIcons.DiffLockFront, ClusterColors.Set),
-  DiffLockRear("diffLockRear", "Diff lock rear", ClusterIcons.DiffLockRear, ClusterColors.Set),
+  DiffLock("diffLock", "Diff lock", ClusterIcons.DiffLockBoth, ClusterColors.Set),
   Awd("awd", "All-wheel drive", ClusterIcons.Awd, ClusterColors.Go),
 
   // The maintenance family, at the end because that is the order a cluster reads in: what you are
@@ -122,8 +128,7 @@ fun Telltale.stateIn(vehicle: Vehicle): Boolean? = when (this) {
   Telltale.WorkRear -> vehicle.lights?.workLight?.back
   Telltale.Beacon -> vehicle.lights?.beaconLight
   Telltale.ParkingBrake -> vehicle.motor?.parkingBrake
-  Telltale.DiffLockFront -> vehicle.motor?.diffLock?.front
-  Telltale.DiffLockRear -> vehicle.motor?.diffLock?.back
+  Telltale.DiffLock -> diffLockEngaged(vehicle)
   Telltale.Awd -> vehicle.motor?.awd
   Telltale.Temperature -> overheating(vehicle)
   Telltale.GeneralWarning -> needsAttention(vehicle)
@@ -131,6 +136,39 @@ fun Telltale.stateIn(vehicle: Vehicle): Boolean? = when (this) {
   Telltale.Battery -> null
   Telltale.BrakeSystem -> null
   Telltale.Service -> null
+}
+
+/**
+ * Either differential shut, over the two ends Enhanced Vehicle reports separately.
+ *
+ * Null only when it reports *neither* end, so a machine whose rear lock we can see keeps its lamp —
+ * saying which end is not this function's job but [Telltale.iconIn]'s, and an end the mod is silent
+ * about is one we have no standing to call shut.
+ */
+fun diffLockEngaged(vehicle: Vehicle): Boolean? = vehicle.motor?.diffLock?.let { lock ->
+  if (lock.front == null && lock.back == null) null else lock.front == true || lock.back == true
+}
+
+/**
+ * The glyph this lamp draws for [vehicle] — [Telltale.icon] for all but one of them.
+ *
+ * [Telltale.DiffLock] is the exception, and the reason this exists: it is one lamp over two
+ * independent differentials, so *which* end is shut is a difference in the symbol rather than in
+ * which of two lamps came on. Front-only and rear-only get the axle in question drawn solid with the
+ * other left open; both — and the resting state, where the lamp is ghosted — get both.
+ *
+ * An axle Enhanced Vehicle says nothing about is drawn as not-locked, which is the honest reading:
+ * the lamp is only on this band at all because it reports at least one end (see [stateIn]), and an
+ * end it does not report is one we cannot claim is shut.
+ */
+fun Telltale.iconIn(vehicle: Vehicle): ImageVector {
+  if (this != Telltale.DiffLock) return icon
+  val lock = vehicle.motor?.diffLock
+  return when {
+    lock?.front == true && lock.back != true -> ClusterIcons.DiffLockFront
+    lock?.back == true && lock.front != true -> ClusterIcons.DiffLockRear
+    else -> ClusterIcons.DiffLockBoth
+  }
 }
 
 /**
@@ -173,31 +211,31 @@ fun needsAttention(vehicle: Vehicle): Boolean? = vehicle.wearable?.let { it.dama
 @Composable
 fun TelltaleBand(vehicle: Vehicle, lamps: List<Telltale>, modifier: Modifier = Modifier) {
   ClusterSurface(modifier) {
-    val shown = lamps.mapNotNull { lamp -> lamp.stateIn(vehicle)?.let { lamp to it } }
+    val shown = lamps.mapNotNull { lamp -> lamp.readingIn(vehicle) }
     val checking = lampCheck()
     // Only run the flasher when something is actually flashing. The pillar display is a screen that
     // stays awake on a clamped phone for a whole session, and an infinite transition nobody can see
     // is a wake-up every frame for the entire time you are not indicating.
-    val blink = if (!checking && shown.any { (lamp, lit) -> lamp.blinks && lit }) clusterBlinkPhase() else null
+    val blink = if (!checking && shown.any { it.lamp.blinks && it.lit }) clusterBlinkPhase() else null
 
-    val start = shown.filter { it.first.side == BandSide.Start }
-    val end = shown.filter { it.first.side == BandSide.End }
-    val middle = shown.filter { it.first.side == BandSide.Middle }
+    val start = shown.filter { it.lamp.side == BandSide.Start }
+    val end = shown.filter { it.lamp.side == BandSide.End }
+    val middle = shown.filter { it.lamp.side == BandSide.Middle }
     BoxWithConstraints(Modifier.fillMaxSize()) {
       val size = lampSize(middle.size, maxWidth, maxHeight, edges = start.size + end.size)
       Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-        for ((lamp, lit) in start) {
-          Lamp(lamp, lit, size, checking, blink, Modifier.padding(end = LAMP_GAP))
+        for (reading in start) {
+          Lamp(reading, size, checking, blink, Modifier.padding(end = LAMP_GAP))
         }
         FlowRow(
           Modifier.weight(1f),
           horizontalArrangement = Arrangement.spacedBy(LAMP_GAP, Alignment.CenterHorizontally),
           verticalArrangement = Arrangement.spacedBy(LAMP_GAP, Alignment.CenterVertically),
         ) {
-          for ((lamp, lit) in middle) Lamp(lamp, lit, size, checking, blink)
+          for (reading in middle) Lamp(reading, size, checking, blink)
         }
-        for ((lamp, lit) in end) {
-          Lamp(lamp, lit, size, checking, blink, Modifier.padding(start = LAMP_GAP))
+        for (reading in end) {
+          Lamp(reading, size, checking, blink, Modifier.padding(start = LAMP_GAP))
         }
       }
     }
@@ -205,19 +243,24 @@ fun TelltaleBand(vehicle: Vehicle, lamps: List<Telltale>, modifier: Modifier = M
 }
 
 /**
+ * What one lamp has to say about a vehicle: whether it is [lit], and the glyph that says it — the
+ * two answers taken together, because [Telltale.DiffLock] has a glyph per state and asking for one
+ * without the other would draw a lamp lit for one end while showing the other.
+ */
+private data class Reading(val lamp: Telltale, val lit: Boolean, val icon: ImageVector)
+
+/** Null for a lamp this vehicle has no state for, which is the band leaving it out entirely. */
+private fun Telltale.readingIn(vehicle: Vehicle): Reading? =
+  stateIn(vehicle)?.let { Reading(this, it, iconIn(vehicle)) }
+
+/**
  * One lamp, lit or ghosted at [GHOST_ALPHA]. The alpha is set in the draw layer so a blinking lamp
  * costs a repaint per frame and not a recomposition; the lamp keeps its slot either way, so the band
  * never reflows out from under the eye already on it.
  */
 @Composable
-private fun Lamp(
-  lamp: Telltale,
-  lit: Boolean,
-  size: Dp,
-  checking: Boolean,
-  blink: (() -> Float)?,
-  modifier: Modifier = Modifier,
-) {
+private fun Lamp(reading: Reading, size: Dp, checking: Boolean, blink: (() -> Float)?, modifier: Modifier = Modifier) {
+  val (lamp, lit, icon) = reading
   val on = lit || checking
   // Flashing is gated on being handed a [blink] at all, and under the lamp check it isn't: there,
   // every lamp is simply proving that it works, the flashers included. It flashes back to the ghost
@@ -227,7 +270,7 @@ private fun Lamp(
   // unlit segments, which are not announced either — and a band that read out every lamp it carries
   // regardless of state would bury the two that are actually saying something.
   Icon(
-    lamp.icon,
+    icon,
     contentDescription = if (on) lamp.label else null,
     tint = lamp.colour,
     modifier = modifier.size(size).graphicsLayer {

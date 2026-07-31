@@ -14,8 +14,9 @@ import kotlin.test.assertTrue
  *
  * The list is written out rather than derived, so it is also the inventory: a glyph missing from it
  * is a glyph nothing checks. Not every entry is a lamp — the gauge glyphs caption the level strip's
- * bars, and `hazard` and `engineWarning` are drawn for the Lighting panel and for a channel that has
- * yet to arrive.
+ * bars, `hazard` and `engineWarning` are drawn for the Lighting panel and for a channel that has yet
+ * to arrive, and the three `diffLock` glyphs are the states of a single lamp (see
+ * [Telltale.iconIn]).
  */
 class ClusterIconsTest {
   private val glyphs: List<Pair<String, ImageVector>> =
@@ -31,6 +32,7 @@ class ClusterIconsTest {
       "parkingBrake" to ClusterIcons.ParkingBrake,
       "diffLockFront" to ClusterIcons.DiffLockFront,
       "diffLockRear" to ClusterIcons.DiffLockRear,
+      "diffLockBoth" to ClusterIcons.DiffLockBoth,
       "awd" to ClusterIcons.Awd,
       "engineWarning" to ClusterIcons.EngineWarning,
       "driveForward" to ClusterIcons.DriveForward,
