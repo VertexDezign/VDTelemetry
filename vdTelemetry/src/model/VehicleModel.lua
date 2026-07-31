@@ -4,7 +4,7 @@
 ---@class SpeedModel
 ---@field value number
 ---@field unit string?
----@field direction string?
+---@field direction string? the way the machine is travelling; STOPPED below walking pace
 
 ---@class BrandModel
 ---@field name string?

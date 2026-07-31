@@ -78,6 +78,18 @@ function VDT.Motor.collect(vehicle)
       isNeutral = motor:getIsInNeutral(),
       group = motor:getGearGroupToDisplay(),
     },
+    -- The direction the transmission is *in*, as opposed to `speed.direction`, which is the way the
+    -- machine is actually travelling and reads STOPPED below walking pace. This is the motor's own
+    -- answer and the one the game prints on a vehicle's dashboard as F / R / N (see Motorized's
+    -- `movingDirectionLetter`), so it keeps saying "reverse" while the tractor stands still.
+    --
+    -- NOT vehicle:getReverserDirection() -- that is only ever written by the ReverseDriving
+    -- specialization (a reversible driving position, i.e. the seat swivelled round), so it sits at 1
+    -- forever on a machine that has no such console and says nothing about the shuttle.
+    --
+    -- It can legitimately be STOPPED: with automatic direction change the motor reports neutral below
+    -- about 1 km/h, which is what the game shows there too.
+    direction = ValueMapper.mapDirection(motor:getDrivingDirection()),
   }
 
   -- max speed, converted m/s -> km/h

@@ -54,5 +54,6 @@
 ---@field rpm RpmModel
 ---@field load LoadModel
 ---@field gear GearModel
+---@field direction string the direction the transmission is in; STOPPED means neutral
 ---@field maxSpeed MaxSpeedModel?
 ---@field fillUnits MotorFillUnitsModel?
