@@ -55,11 +55,16 @@ fun WidgetConfigDialog(
   // row is then highlighted, and SAVE without touching anything writes the same value straight back.
   // Choices narrow whenever an app is briefly unavailable, and opening the dialog in that moment must
   // not be a way to silently retarget a tile.
+  //
+  // A multi option is seeded only from what is actually stored, and the rows below read the working
+  // map through resolveAll() like any other config. An unset key already means *all* of them, so
+  // materialising that here would turn "I never said" into "these ones, as of today" the moment the
+  // user accepted the pre-ticked default — freezing a band against every lamp added later.
   val selection = remember(options) {
     mutableStateMapOf<String, String>().apply {
       for (option in options) {
         if (option.multi) {
-          put(option.key, ConfigOption.join(option.resolveAll(initial)))
+          initial[option.key]?.let { put(option.key, ConfigOption.join(option.resolveAll(initial))) }
         } else {
           option.resolve(initial)?.let { put(option.key, it) }
         }
@@ -101,15 +106,20 @@ fun WidgetConfigDialog(
             } else if (option.multi) {
               // A set rather than a pick: every row toggles independently, and clearing them all is a
               // legitimate answer (an empty band) rather than a state to guard against.
-              val chosen = selection[option.key].orEmpty().split(ConfigOption.SEPARATOR).toMutableSet()
+              val chosen = option.resolveAll(selection).toSet()
               for (choice in option.choices) {
                 ChoiceRow(
                   choice = choice,
                   selected = choice.value in chosen,
                   onClick = {
-                    val next = chosen.toMutableSet()
-                    if (!next.remove(choice.value)) next += choice.value
-                    selection[option.key] = ConfigOption.join(option.choices.map { it.value }.filter { it in next })
+                    val next = if (choice.value in chosen) chosen - choice.value else chosen + choice.value
+                    // Everything ticked is what an unset key already says, so say it that way and let
+                    // the tile keep taking choices added later. Anything short of that is stored.
+                    if (next.size == option.choices.size) {
+                      selection.remove(option.key)
+                    } else {
+                      selection[option.key] = ConfigOption.join(option.choices.map { it.value }.filter { it in next })
+                    }
                   },
                 )
               }

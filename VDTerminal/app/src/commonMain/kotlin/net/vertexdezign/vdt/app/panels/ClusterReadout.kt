@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.model.DriveDirection
 import net.vertexdezign.vdt.model.Vehicle
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Fraction of the rev range above which the rpm reads red. */
@@ -322,8 +323,14 @@ internal fun gearText(vehicle: Vehicle): String? {
   return gear.group.takeIf { it.isNotBlank() }?.let { it + value } ?: value
 }
 
-/** One decimal, without `String.format` (JVM-only; this also runs on wasmJs). */
+/**
+ * One decimal, without `String.format` (JVM-only; this also runs on wasmJs).
+ *
+ * Signed off the whole value rather than off its parts: integer division truncates towards zero, so
+ * `-0.5` would otherwise lose its sign along with its integer digit and read as `0.5`.
+ */
 internal fun format1(value: Float): String {
   val scaled = (value * 10).roundToInt()
-  return "${scaled / 10}.${(scaled % 10).let { if (it < 0) -it else it }}"
+  val magnitude = abs(scaled)
+  return "${if (scaled < 0) "-" else ""}${magnitude / 10}.${magnitude % 10}"
 }

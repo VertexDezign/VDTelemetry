@@ -251,7 +251,8 @@ private fun lampCheck(): Boolean {
   return checking
 }
 
-private val LAMP_GAP = 8.dp
+/** Internal because [lampSize]'s packing is tested against it — a test hard-coding 8 would drift. */
+internal val LAMP_GAP = 8.dp
 private val LAMP_MIN = 14.dp
 private val LAMP_MAX = 48.dp
 

@@ -96,7 +96,7 @@ object ClusterReadoutWidget : Widget {
   }
 }
 
-/** Vertical bars for the engine's tanks and the rig's cargo. */
+/** Vertical bars for the engine's own levels — coolant temperature and its tanks. Never cargo. */
 object ClusterLevelsWidget : Widget {
   override val id = "clusterLevels"
   override val title = "Level Strip"

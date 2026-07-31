@@ -211,6 +211,10 @@ class ClusterReadoutTest {
     assertEquals("0.0", format1(0f))
     assertEquals("53.0", format1(53f))
     assertEquals("4.0", format1(3.96f))
+    // Below one, the sign lives nowhere but the sign: integer division truncates towards zero, so
+    // -0.5 has no integer digit to carry it.
+    assertEquals("-0.5", format1(-0.5f))
+    assertEquals("-1.5", format1(-1.5f))
   }
 }
 
@@ -293,9 +297,10 @@ class TelltaleLayoutTest {
     val height = 107.dp
     for (count in 1..Telltale.entries.size) {
       val size = lampSize(count, width, height)
-      val perRow = ((width.value + 8f) / (size.value + 8f)).toInt().coerceAtLeast(1)
+      val gap = LAMP_GAP.value
+      val perRow = ((width.value + gap) / (size.value + gap)).toInt().coerceAtLeast(1)
       val rows = (count + perRow - 1) / perRow
-      assertTrue(rows * (size.value + 8f) - 8f <= height.value, "$count lamps at $size overflow the band")
+      assertTrue(rows * (size.value + gap) - gap <= height.value, "$count lamps at $size overflow the band")
     }
   }
 
