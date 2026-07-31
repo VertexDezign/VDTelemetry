@@ -14,10 +14,13 @@ import net.vertexdezign.vdt.app.alerts.AlertRule
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.alerts.ThresholdAlertRule
 import net.vertexdezign.vdt.app.panels.RigSlot
+import net.vertexdezign.vdt.app.widgets.ClusterLevelsWidget
+import net.vertexdezign.vdt.app.widgets.ClusterReadoutWidget
 import net.vertexdezign.vdt.app.widgets.EngineWidget
 import net.vertexdezign.vdt.app.widgets.LightingWidget
 import net.vertexdezign.vdt.app.widgets.NavigationWidget
 import net.vertexdezign.vdt.app.widgets.RigSlotWidget
+import net.vertexdezign.vdt.app.widgets.TelltaleWidget
 import net.vertexdezign.vdt.app.widgets.Widget
 
 /**
@@ -36,7 +39,18 @@ object VehicleApp : VdtApp {
   override val id = "vehicle"
   override val title = "Vehicle"
   override val icon: ImageVector = Icons.Filled.Agriculture
-  override val widgets: List<Widget> = listOf(EngineWidget, RigSlotWidget, NavigationWidget, LightingWidget)
+  override val widgets: List<Widget> =
+    listOf(
+      EngineWidget,
+      RigSlotWidget,
+      NavigationWidget,
+      LightingWidget,
+      // The pillar-cluster trio. They belong to the vehicle like everything else here; what makes them
+      // a cluster is the page they are stacked on, not anything they know about each other.
+      TelltaleWidget,
+      ClusterReadoutWidget,
+      ClusterLevelsWidget,
+    )
 
   override val alerts: List<AlertRule> =
     listOf(

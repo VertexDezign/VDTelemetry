@@ -33,6 +33,11 @@ data class Vehicle(
   val combined: Combined? = null,
 )
 
+/**
+ * [direction] is the way the machine is *travelling*, and the game reports it as stopped below
+ * walking pace — so it goes blank whenever the tractor is standing still. What the transmission is
+ * *set to* is [Motor.direction], which does not.
+ */
 @Serializable
 data class Speed(
   val value: Float = 0f,
@@ -63,6 +68,16 @@ data class Motor(
   val rpm: Rpm? = null,
   val load: Load? = null,
   val gear: Gear? = null,
+  /**
+   * The direction the transmission is **set to** — the motor's own answer, and the one the game
+   * prints on a vehicle's dashboard as F / R / N. Unlike [Speed.direction] it holds at a standstill,
+   * which is what makes it worth showing on a cluster.
+   *
+   * [DriveDirection.STOPPED] here means **neutral**, not "not moving": with automatic direction
+   * change the motor reports neutral below about 1 km/h. Null means the mod predates the field
+   * (before version 6) or the vehicle has no motor to ask.
+   */
+  val direction: DriveDirection? = null,
   val maxSpeed: MaxSpeed? = null,
   val fillUnits: MotorFillUnits? = null,
   // The three drivetrain telltales below come from the optional Enhanced Vehicle integration
@@ -97,6 +112,18 @@ data class Load(
   val unit: String = "",
 )
 
+/**
+ * What the transmission is in.
+ *
+ * [value] is a gear *name*, not a number: a geared tractor reports `"12"`, but a machine with no
+ * discrete gears — a combine, a CVT, anything fully automatic — reports `"D"` / `"R"`, and either
+ * kind reports `"N"` in neutral.
+ *
+ * [group] is the range the gear sits in (`"E"`, `"M"`), and **only a transmission that has ranges
+ * reports one** — the mod drops the placeholder the engine hands back for the rest, so an empty
+ * group means "this machine has no ranges" rather than "we didn't look". A ranged transmission with
+ * its range lever out reports `"N"` here, which is a range like any other.
+ */
 @Serializable
 data class Gear(
   val value: String = "",

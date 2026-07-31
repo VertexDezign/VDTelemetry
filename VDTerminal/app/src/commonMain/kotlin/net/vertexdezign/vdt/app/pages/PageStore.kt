@@ -5,11 +5,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.app.layout.GridAspect
 import net.vertexdezign.vdt.app.layout.GridLayout
 import net.vertexdezign.vdt.app.layout.LayoutCell
 import net.vertexdezign.vdt.app.panels.RigSlot
+import net.vertexdezign.vdt.app.widgets.ClusterLevelsWidget
+import net.vertexdezign.vdt.app.widgets.ClusterReadoutWidget
 import net.vertexdezign.vdt.app.widgets.RigSlotWidget
 import net.vertexdezign.vdt.app.widgets.ShortcutWidget
+import net.vertexdezign.vdt.app.widgets.TelltaleWidget
 import net.vertexdezign.vdt.app.widgets.WidgetRegistry
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import kotlin.random.Random
@@ -76,7 +80,8 @@ class PageStore(private val settings: Settings) {
         title = "New Page",
         icon = PageIcon.Grid,
         autoShow = AutoShow.Never,
-        layout = GridLayout.empty(),
+        landscape = GridLayout.empty(GridAspect.Landscape),
+        portrait = GridLayout.empty(GridAspect.Portrait),
       )
     persist(_pages.value + page)
     return page
@@ -96,8 +101,13 @@ class PageStore(private val settings: Settings) {
     for (instanceId in gone) WidgetSettings.purge(settings, instanceId)
   }
 
+  /**
+   * Across *both* arrangements: a tile that is gone from the portrait page but still on the landscape
+   * one is not gone, and purging its settings because the device happened to be turned would be a
+   * silent data loss the user has no way to connect to what they did.
+   */
   private fun instanceIds(pages: List<Page>): Set<String> =
-    pages.flatMapTo(mutableSetOf()) { page -> page.layout.cells.map { it.instanceId } }
+    pages.flatMapTo(mutableSetOf()) { page -> page.layouts.flatMap { layout -> layout.cells.map { it.instanceId } } }
 
   private fun load(): List<Page> {
     val raw = settings.getStringOrNull(KEY) ?: return seedPages()
@@ -108,32 +118,41 @@ class PageStore(private val settings: Settings) {
   }
 
   /**
-   * Brings a stored page up to date: drops cells whose widget no longer exists or whose instance id
-   * repeats one already seen, then re-expresses the layout on the current grid. Pages saved under a
-   * different grid carry their own dimensions, so a 3×2 arrangement scales up to fill 12×7 rather
-   * than being read as a corner of it.
+   * Brings a stored page up to date, one [GridAspect] at a time — the arrangements are independent
+   * data and each has to land on its own grid.
    *
-   * The duplicate check guards the one invariant the rest of the app now leans on: instance ids are
-   * unique within a page. `WidgetGrid` keys its tiles by them, and Compose can't tell two tiles apart
-   * under one key — a hand-edited or half-written file would otherwise show up as a tile that won't
-   * drag rather than as bad data.
+   * Per arrangement: drop cells whose widget no longer exists or whose instance id repeats one
+   * already seen, then re-express what's left on that aspect's current grid. A layout carries its own
+   * dimensions, so a 3×2 arrangement scales up to fill 12×7 rather than being read as a corner of it,
+   * and a portrait arrangement that arrived as the schema's derived default (12×7 halved) is already
+   * on 6×12 and passes through untouched.
+   *
+   * The duplicate check guards the one invariant the rest of the app leans on: instance ids are
+   * unique **within an arrangement**. `WidgetGrid` keys its tiles by them, and Compose can't tell two
+   * tiles apart under one key — a hand-edited or half-written file would otherwise show up as a tile
+   * that won't drag rather than as bad data. Across the two arrangements a repeat is not a duplicate
+   * but the point: that is the same tile, seen in the other orientation.
    *
    * Scaling doesn't know about widget floors — a 1×1 on an old 6×6 page lands as 2×1, under the
    * minimum most widgets now declare — so each undersized tile is then grown back to its floor where
    * there's room. Best effort: [GridLayout.resize] refuses anything that would collide or overrun, so
    * a tile hemmed in by its neighbours simply stays small until the user rearranges the page.
    */
-  private fun sanitize(page: Page): Page {
+  private fun sanitize(page: Page): Page = GridAspect.entries.fold(page) { acc, aspect ->
+    acc.withLayout(aspect, sanitize(acc.layoutFor(aspect), aspect))
+  }
+
+  private fun sanitize(layout: GridLayout, aspect: GridAspect): GridLayout {
     val known =
-      page.layout.cells
+      layout.cells
         .filter { WidgetRegistry.byId(it.widgetId) != null }
         .distinctBy { it.instanceId }
-    var layout = page.layout.copy(cells = known).rescaledTo(GridLayout.COLUMNS, GridLayout.ROWS)
-    for (cell in layout.cells.toList()) {
+    var cleaned = layout.copy(cells = known).rescaledTo(aspect.columns, aspect.rows)
+    for (cell in cleaned.cells.toList()) {
       val widget = WidgetRegistry.byId(cell.widgetId) ?: continue
       if (cell.colSpan >= widget.minColSpan && cell.rowSpan >= widget.minRowSpan) continue
-      layout =
-        layout.resize(
+      cleaned =
+        cleaned.resize(
           cell,
           colSpan = maxOf(cell.colSpan, widget.minColSpan),
           rowSpan = maxOf(cell.rowSpan, widget.minRowSpan),
@@ -141,7 +160,7 @@ class PageStore(private val settings: Settings) {
           minRowSpan = widget.minRowSpan,
         )
     }
-    return page.copy(layout = layout)
+    return cleaned
   }
 
   private companion object {
@@ -162,9 +181,16 @@ class PageStore(private val settings: Settings) {
  * what makes every tile small — with the extra room 12×7 gives spent on a dock of single-cell
  * shortcuts rather than on making the readout panels bigger than they need to be.
  *
- * Seeded instance ids are hand-written and readable rather than generated. They only have to be
- * unique within their page, and being stable across installs makes them something you can name when
- * reading a stored layout — which a random id defeats.
+ * Both arrangements are written out by hand. The portrait ones could have been left to [Page]'s
+ * derived default, but the landscape Vehicle page is built around a *band* — front, where you are,
+ * back, read across the top — and that idea does not survive being squeezed to half the width; it has
+ * to become a stack. The same tiles, in the order you want them going down.
+ *
+ * Instance ids are shared between a page's two arrangements on purpose: the portrait "veh-map" is the
+ * landscape "veh-map" seen the other way up, so it keeps its zoom, filters and layer selection when
+ * the device turns. They are also hand-written and readable rather than generated — being stable
+ * across installs makes them something you can name when reading a stored layout, which a random id
+ * defeats.
  */
 private fun shortcut(instanceId: String, appId: String, col: Int, row: Int) =
   LayoutCell(instanceId, ShortcutWidget.id, col, row, config = mapOf(ShortcutWidget.APP_KEY to appId))
@@ -178,7 +204,7 @@ private fun seedPages(): List<Page> = listOf(
     title = "Vehicle",
     icon = PageIcon.Tractor,
     autoShow = AutoShow.InVehicle,
-    layout =
+    landscape =
     GridLayout(
       columns = GridLayout.COLUMNS,
       rows = GridLayout.ROWS,
@@ -206,13 +232,37 @@ private fun seedPages(): List<Page> = listOf(
         shortcut("veh-sc-diagnostics", "diagnostics", col = 11, row = 5),
       ),
     ),
+    // Portrait: the same tiles as a stack, widest thing first. The rig band survives the turn — three
+    // slots of two columns still read left-to-right as front, you, back — but everything above it
+    // becomes full width, which is the one thing a narrow screen is actually good at.
+    portrait =
+    GridLayout(
+      columns = GridLayout.PORTRAIT_COLUMNS,
+      rows = GridLayout.PORTRAIT_ROWS,
+      cells =
+      listOf(
+        LayoutCell("veh-map", "map", col = 0, row = 0, colSpan = 6, rowSpan = 4),
+        LayoutCell("veh-engine", "engine", col = 0, row = 4, colSpan = 6, rowSpan = 3),
+        slot("veh-front", RigSlot.FRONT, col = 0, row = 7, colSpan = 2, rowSpan = 3),
+        slot("veh-self", RigSlot.VEHICLE, col = 2, row = 7, colSpan = 2, rowSpan = 3),
+        slot("veh-rear", RigSlot.REAR, col = 4, row = 7, colSpan = 2, rowSpan = 3),
+        // The last two rows carry what the bottom band carried, with the 2×2 shortcut dock keeping
+        // its corner: four apps that contribute no widget, still one tap away.
+        LayoutCell("veh-navigation", "navigation", col = 0, row = 10, colSpan = 2, rowSpan = 2),
+        LayoutCell("veh-lighting", "lighting", col = 2, row = 10, colSpan = 2, rowSpan = 2),
+        shortcut("veh-sc-production", "production", col = 4, row = 10),
+        shortcut("veh-sc-storage", "storage", col = 5, row = 10),
+        shortcut("veh-sc-animals", "animals", col = 4, row = 11),
+        shortcut("veh-sc-diagnostics", "diagnostics", col = 5, row = 11),
+      ),
+    ),
   ),
   Page(
     id = "farm",
     title = "Farm",
     icon = PageIcon.Home,
     autoShow = AutoShow.OnFoot,
-    layout =
+    landscape =
     GridLayout(
       columns = GridLayout.COLUMNS,
       rows = GridLayout.ROWS,
@@ -221,6 +271,57 @@ private fun seedPages(): List<Page> = listOf(
         LayoutCell("farm-map", "map", col = 0, row = 0, colSpan = 8, rowSpan = 7),
         LayoutCell("farm-tasks", "tasks", col = 8, row = 0, colSpan = 4, rowSpan = 4),
         LayoutCell("farm-cropRotation", "cropRotation", col = 8, row = 4, colSpan = 4, rowSpan = 3),
+      ),
+    ),
+    // Portrait: the map keeps the lion's share, but as the top half rather than the left two-thirds —
+    // a map squeezed into a narrow column shows you a corridor, not a farm.
+    portrait =
+    GridLayout(
+      columns = GridLayout.PORTRAIT_COLUMNS,
+      rows = GridLayout.PORTRAIT_ROWS,
+      cells =
+      listOf(
+        LayoutCell("farm-map", "map", col = 0, row = 0, colSpan = 6, rowSpan = 6),
+        LayoutCell("farm-tasks", "tasks", col = 0, row = 6, colSpan = 6, rowSpan = 3),
+        LayoutCell("farm-cropRotation", "cropRotation", col = 0, row = 9, colSpan = 6, rowSpan = 3),
+      ),
+    ),
+  ),
+  // The A-pillar cluster, seeded so the feature exists without the user assembling it. It is an
+  // ordinary page — three ordinary widgets stacked in the order a tractor's own pillar display uses:
+  // lamps at the top, the numbers you drive by in the middle, levels along the bottom.
+  //
+  // AutoShow.Never, unlike the other two. This is the page you pin a second device to
+  // (`?display=pillar`, see DisplayStore), and a page that also grabbed the tablet whenever you
+  // climbed into a cab would be fighting the Vehicle page for the screen you are actually holding.
+  Page(
+    id = "pillar",
+    title = "Pillar",
+    icon = PageIcon.Dashboard,
+    autoShow = AutoShow.Never,
+    // Landscape is the lesser of the two here — the cluster is a tall thing — so it lays the readout
+    // and the levels side by side under the band rather than pretending to be a column.
+    landscape =
+    GridLayout(
+      columns = GridLayout.COLUMNS,
+      rows = GridLayout.ROWS,
+      cells =
+      listOf(
+        LayoutCell("pillar-telltales", TelltaleWidget.id, col = 0, row = 0, colSpan = 12, rowSpan = 1),
+        LayoutCell("pillar-readout", ClusterReadoutWidget.id, col = 0, row = 1, colSpan = 8, rowSpan = 6),
+        LayoutCell("pillar-levels", ClusterLevelsWidget.id, col = 8, row = 1, colSpan = 4, rowSpan = 6),
+      ),
+    ),
+    // Portrait is the one this page is for: a phone clamped to the pillar, top to bottom.
+    portrait =
+    GridLayout(
+      columns = GridLayout.PORTRAIT_COLUMNS,
+      rows = GridLayout.PORTRAIT_ROWS,
+      cells =
+      listOf(
+        LayoutCell("pillar-telltales", TelltaleWidget.id, col = 0, row = 0, colSpan = 6, rowSpan = 2),
+        LayoutCell("pillar-readout", ClusterReadoutWidget.id, col = 0, row = 2, colSpan = 6, rowSpan = 6),
+        LayoutCell("pillar-levels", ClusterLevelsWidget.id, col = 0, row = 8, colSpan = 6, rowSpan = 4),
       ),
     ),
   ),

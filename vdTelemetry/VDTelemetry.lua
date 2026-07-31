@@ -124,7 +124,9 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    See vehicle-data-plan.md §3.
 -- 5: `discharge`, `tipping`, `harvest`, `workMode`, `workWidth` and `baleCounter` aspects.
 --    See vehicle-data-plan.md §4.
-VDTelemetry.VERSION = 5
+-- 6: `motor.direction` — the direction the transmission is *in*, as distinct from `speed.direction`,
+--    which is the way the machine is actually travelling and reads STOPPED below walking pace.
+VDTelemetry.VERSION = 6
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

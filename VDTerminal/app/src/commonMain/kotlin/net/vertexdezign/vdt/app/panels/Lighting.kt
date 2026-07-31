@@ -8,11 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ChangeHistory
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,37 +78,40 @@ fun Lighting(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (Client
           contentScale = ContentScale.Fit,
         )
 
+        // The cluster's own glyphs rather than Material's: every one of these buttons is a lamp the
+        // telltale band also draws, and a panel where "work lights" is a lightbulb and the band shows
+        // a tractor throwing a beam is two names for one switch.
         // Beacon — top of cabin.
         val beaconOn = lights?.beaconLight == true
-        light(boxW, boxH, 0.591f, 0.085f, Icons.Filled.Warning, beaconOn) {
+        light(boxW, boxH, 0.591f, 0.085f, ClusterIcons.Beacon, beaconOn) {
           setLight(LightTarget.BEACON, !beaconOn)
         }
         // Work lights — front / back of cabin.
         val workFront = lights?.workLight?.front == true
         val workBack = lights?.workLight?.back == true
-        light(boxW, boxH, 0.419f, 0.207f, Icons.Filled.Lightbulb, workFront) {
+        light(boxW, boxH, 0.419f, 0.207f, ClusterIcons.WorkFront, workFront) {
           setLight(LightTarget.WORK_FRONT, !workFront)
         }
-        light(boxW, boxH, 0.763f, 0.207f, Icons.Filled.Lightbulb, workBack) {
+        light(boxW, boxH, 0.763f, 0.207f, ClusterIcons.WorkRear, workBack) {
           setLight(LightTarget.WORK_BACK, !workBack)
         }
         // Head lights — upper / lower front.
         val highBeam = lights?.light?.highBeam == true
         val lowBeam = lights?.light?.lowBeam == true
-        light(boxW, boxH, 0.075f, 0.415f, Icons.Filled.Lightbulb, highBeam) {
+        light(boxW, boxH, 0.075f, 0.415f, ClusterIcons.HighBeam, highBeam) {
           setLight(LightTarget.HIGH_BEAM, !highBeam)
         }
-        light(boxW, boxH, 0.075f, 0.573f, Icons.Filled.Lightbulb, lowBeam) {
+        light(boxW, boxH, 0.075f, 0.573f, ClusterIcons.LowBeam, lowBeam) {
           setLight(LightTarget.LOW_BEAM, !lowBeam)
         }
         // Indicators — bottom row. One enum state; tapping the active signal clears it.
-        light(boxW, boxH, 0.344f, 0.915f, Icons.AutoMirrored.Filled.ArrowBack, leftActive) {
+        light(boxW, boxH, 0.344f, 0.915f, ClusterIcons.TurnLeft, leftActive) {
           setTurn(if (leftActive) TurnLightState.OFF else TurnLightState.LEFT)
         }
-        light(boxW, boxH, 0.505f, 0.915f, Icons.Filled.ChangeHistory, hazardActive) {
+        light(boxW, boxH, 0.505f, 0.915f, ClusterIcons.Hazard, hazardActive) {
           setTurn(if (hazardActive) TurnLightState.OFF else TurnLightState.HAZARD)
         }
-        light(boxW, boxH, 0.667f, 0.915f, Icons.AutoMirrored.Filled.ArrowForward, rightActive) {
+        light(boxW, boxH, 0.667f, 0.915f, ClusterIcons.TurnRight, rightActive) {
           setTurn(if (rightActive) TurnLightState.OFF else TurnLightState.RIGHT)
         }
       }

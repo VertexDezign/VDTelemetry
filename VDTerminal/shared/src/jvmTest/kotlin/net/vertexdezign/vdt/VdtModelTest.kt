@@ -147,6 +147,9 @@ class VdtModelTest {
     val data = model("mutliple_implements.json")
     val v = assertNotNull(data.vehicle)
 
+    // Reversing, and carrying the placeholder group this machine has no business having: it has no
+    // ranges, and the capture predates the mod dropping the name `getGearGroupToDisplay` returns for
+    // that case. The fixture records what v5 wrote — don't "fix" it.
     assertEquals("N", v.motor?.gear?.group)
     assertEquals("R", v.motor?.gear?.value)
 
@@ -376,6 +379,30 @@ class VdtModelTest {
     // awd / parkingBrake are independently optional — Enhanced Vehicle can report one and not others
     assertEquals(null, motor.awd)
     assertEquals(null, motor.parkingBrake)
+  }
+
+  @Test
+  fun decodesTransmissionDirectionSeparatelyFromTravelDirection() {
+    // The two are deliberately different questions. `speed.direction` is how the machine is *moving*
+    // and the game reports STOPPED below walking pace; `motor.direction` is what the transmission is
+    // set to, which stays put. A tractor stood still in reverse — waiting to back onto a trailer — is
+    // exactly the case that motivated the field, and the one the four committed captures cannot show:
+    // they were all taken at v5, before the mod exported it, so there `motor.direction` is null.
+    val text =
+      """{"version":"6","vehicle":{"speed":{"value":0,"unit":"km/h","direction":"STOPPED"},""" +
+        """"motor":{"state":"ON","direction":"BACKWARD"}}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+
+    assertEquals(DriveDirection.STOPPED, data.vehicle?.speed?.direction)
+    assertEquals(DriveDirection.BACKWARD, data.vehicle?.motor?.direction)
+
+    // STOPPED on the motor is *neutral*, and has to decode as a real value rather than as absence.
+    val neutral = VdtParser.parseJson("""{"version":"6","vehicle":{"motor":{"direction":"STOPPED"}}}""")
+    assertEquals(DriveDirection.STOPPED, neutral.vehicle?.motor?.direction)
+
+    // Absent means "not reported", not "forward" — a v5 capture must not be drawn as sitting in gear.
+    assertEquals(null, model("combine.json").vehicle?.motor?.direction)
   }
 
   @Test

@@ -85,6 +85,71 @@ appears with the wake-lock state and EXIT DISPLAY, and hides itself again if you
 declares no `start_url`, so a shortcut launches the URL it was made from — install from
 `/?display=vehicle` on the phone and from `/` on the tablet, and the two icons stay different.
 
+## Pillar cluster
+
+Three widgets that stack into an A-pillar instrument cluster, after the small display a modern
+tractor puts between the windscreen and the right-hand window:
+
+- **Telltales** — a wrapping band of lamps (turn signals, beams, work lights, beacon, parking brake,
+  diff locks, AWD, coolant temperature and a general "needs attention"). Which lamps a band shows is
+  per instance, since what matters differs per rig. A lamp the vehicle reports *nothing* about is
+  absent rather than unlit — the drivetrain trio comes from Enhanced Vehicle, and an unlit diff-lock
+  lamp is a claim we can't make without it. Engine warning, battery, brake system and service are
+  drawn and offered but permanently absent: they wait on a maintenance mod that exports nothing yet.
+  (The engine lamp used to be derived from temperature *or* damage; those are now their own two
+  lamps, and it waits for the mod's own engine fault, which is a different claim from either.)
+- **Cluster Readout** — engine speed over ground speed in the largest type that fits, then the cruise
+  target and the gear under them in amber. Both numbers are tweened over one sample interval so they
+  read continuously rather than stepping at the telemetry rate. The transmission's direction rides
+  beside the speed as an arrow plus the F/R/N letter the game itself prints, and **flashes while the
+  machine is standing still** — it says where the machine will go, and at a standstill that is a plan
+  rather than a fact. Neutral neither flashes nor draws an arrow: `N` is simply true.
+
+  It comes from `motor.direction` (mod version 6), *not* from the engine's `getReverserDirection()` —
+  that is written only by the reversible-driving-position specialization (the seat swivelled round),
+  so on an ordinary tractor it reads forward for ever.
+- **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, then the
+  engine's fuel, DEF and air. Each is an open-topped frame — green over the working range, red across
+  the tenth where the gauge is in trouble — with a light, ten-band level standing in it, so where the
+  trouble *starts* is visible before you are in it. Engine gauges only; what's in the hopper changes
+  shape as you hitch things up and belongs to the rig-slot tiles, which name it and give figures.
+
+They're ordinary widgets, placeable anywhere, and they render dark rather than in the usual panel
+chrome. A seeded **Pillar** page stacks all three; it never auto-shows, because it is the page you
+pin a second device to (`?display=pillar`). A pinned display paints the whole viewport black, so the
+gutters between cluster tiles don't read as a grid of seams; the hand-held tablet keeps the light
+terminal look.
+
+The type is **DSEG Classic**, bundled under the SIL Open Font License — see
+[`licenses/DSEG-OFL-1.1.txt`](licenses/DSEG-OFL-1.1.txt). Two faces: **DSEG7** for the rpm, speed and
+cruise, and **DSEG14** for the two fields that carry letters — the direction and the gear. Seven
+segments cannot draw a capital `R`, `N` or `D` and fall back to half-height lowercase, which reads as
+a smaller letter rather than a different one. The gear is alphanumeric *throughout*, not only when it
+happens to hold a letter, so the field doesn't change face with its own value. Real dashboards split
+the same way — numeric fields are seven-segment, alphanumeric ones are not.
+
+Three DSEG conventions are load-bearing: `!` is an all-off cell, an all-on one is the faint ghost
+behind every readout (`8` on the seven-segment face, `~` on the fourteen — `8` would leave its
+diagonals dark), and `.` has zero advance, so `12.4` occupies three cells and not four. Each readout
+reserves a fixed cell count, which is why a number getting shorter unlights a cell instead of shifting
+its neighbours.
+
+## Portrait layouts
+
+A page holds **one arrangement per orientation**. The shell measures the page body and renders either
+the landscape one — a 12 × 7 grid, tuned so an 11" tablet gets ~91dp square cells — or the portrait
+one, 6 × 12, tuned so a phone with no chrome around it does too (~56dp square on an iPhone 15 Pro).
+Square cells are the point: every span a widget declares is calibrated against one, so the same grid
+on a 393dp-wide phone would have given 32 × 120dp stripes and a page that was wrong rather than
+merely cramped.
+
+Edit mode edits whichever arrangement is on screen — turn the device to rearrange the other. Tiles
+keep their identity across the two, so a map's zoom, filters and layer follow it round instead of
+resetting when you rotate; the arrangements diverge only where you make them, since adding or removing
+a tile in one orientation leaves the other alone. A page saved before portrait existed gets one
+derived from its landscape arrangement (12 → 6 columns is an exact halving), so no stored layout was
+thrown away and the storage key did not have to change.
+
 ## Tests
 
 ```bash
