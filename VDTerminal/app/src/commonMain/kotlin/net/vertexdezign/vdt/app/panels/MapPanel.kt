@@ -886,19 +886,14 @@ private fun BoxScope.MapDataOverlay(
 
     fun onCanvas(pos: Offset) = projection.isVisible(pos, OVERLAY_CULL_MARGIN)
 
-    // Labels stay upright while the map turns: text rotated with the terrain is unreadable, and a
-    // field number that pivots around itself as you drive is worse than useless. Undone about the
-    // label's own position, so it does not move — only its baseline stops following the map.
-    fun drawUpright(text: String, pos: Offset, style: TextStyle) {
-      if (projection.rotationDeg == 0f) {
-        drawCenteredText(textMeasurer, text, pos, style)
-      } else {
-        withTransform({ rotate(-projection.rotationDeg, pivot = pos) }) {
-          drawCenteredText(textMeasurer, text, pos, style)
-        }
-      }
-    }
-
+    // Course-up and text: the labels below need NO counter-rotation, and adding one is a bug — it
+    // shipped as one. This canvas is never rotated; only the *positions* pass through the rotation,
+    // inside toScreen, so a label drawn at a projected point is upright to begin with. Turning it
+    // back "to keep it upright" tilts it by the heading instead, which is what a driver sees.
+    //
+    // The counter-rotation belongs to the other way of building this, where the whole canvas turns
+    // and every label has to be undone. Here rotation reaches the canvas only inside the withTransform
+    // blocks below, which wrap geometry — field outlines, the course — and never text.
     if (showFields && mapData != null) {
       withTransform({
         // Listed outermost-first, so this composes as scale -> translate -> rotate: the same
@@ -918,9 +913,9 @@ private fun BoxScope.MapDataOverlay(
       for (field in mapData.fields) {
         val pos = toScreen(field.labelX, field.labelZ)
         if (!onCanvas(pos)) continue
-        drawUpright(field.name.ifBlank { field.id.toString() }, pos, labelStyle)
+        drawCenteredText(textMeasurer, field.name.ifBlank { field.id.toString() }, pos, labelStyle)
         if (scale >= DETAIL_ZOOM && field.areaHa > 0f) {
-          drawUpright("${field.areaHa} ha", pos + Offset(0f, 12.dp.toPx()), detailStyle)
+          drawCenteredText(textMeasurer, "${field.areaHa} ha", pos + Offset(0f, 12.dp.toPx()), detailStyle)
         }
       }
     }
@@ -934,7 +929,7 @@ private fun BoxScope.MapDataOverlay(
         drawCircle(VdtColors.White, radius = 4.dp.toPx(), center = pos)
         drawCircle(poiCategoryColor(category), radius = 3.dp.toPx(), center = pos)
         if (scale >= DETAIL_ZOOM && poi.name.isNotBlank()) {
-          drawUpright(poi.name, pos + Offset(0f, 12.dp.toPx()), detailStyle)
+          drawCenteredText(textMeasurer, poi.name, pos + Offset(0f, 12.dp.toPx()), detailStyle)
         }
       }
     }
@@ -971,7 +966,7 @@ private fun BoxScope.MapDataOverlay(
           drawCircle(VdtColors.White, radius = 1.5.dp.toPx(), center = pos)
         }
         if (scale >= DETAIL_ZOOM && v.name.isNotBlank()) {
-          drawUpright(v.name, pos + Offset(0f, 14.dp.toPx()), detailStyle)
+          drawCenteredText(textMeasurer, v.name, pos + Offset(0f, 14.dp.toPx()), detailStyle)
         }
       }
     }

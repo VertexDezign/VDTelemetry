@@ -38,7 +38,8 @@ a section strip and a few big numbers. This plan gets there in that order.
 
 **In-game results (2026-07-31, user):** the course draws and clears correctly, the worked shading
 follows the game, the deviation sign reads the right way round, and the channel's cadence is sane.
-Multiplayer is still untested — the one open item from the list at the end.
+Course-up threw up one bug — map labels tilted with the heading (see §3's "How it landed") — since
+fixed. Multiplayer is still untested; it is the one open item from the list at the end.
 
 Every game-source claim is cited `file:line` against the bundled extracted source. Precision
 Farming is cited by LUADOC section, since PF's own Lua is not in the bundle — those are marked as
@@ -274,10 +275,13 @@ free; what needed thought was the handful of places that are not points:
 - **Input has to be turned back.** The pinch centroid and the tap position are places, so they go
   through `unrotate` (about the pivot); a drag delta is a direction, so it goes through
   `unrotateVector` (no pivot) — otherwise the world slides off at an angle to the finger.
-- **Text counter-rotates, arrows do not.** Field numbers and POI names are turned back about their own
-  anchors so they stay upright and stay put; vehicle markers instead get `heading + rotationDeg`,
-  because a heading is relative to north and north is no longer up. The player marker's two rotations
-  cancel to zero, which is exactly right — the map turned instead.
+- **Text needs nothing, arrows need the rotation.** This one shipped wrong and was caught in game: the
+  overlay canvas is never rotated — only the *positions* pass through the rotation, inside `toScreen` —
+  so a label drawn at a projected point is upright already. The counter-rotation added "to keep labels
+  upright" tilted every field and POI name by the heading instead. Removed, with the reasoning left in
+  the code so it does not come back. Vehicle markers do need `heading + rotationDeg`, because a heading
+  is relative to north and north is no longer up, and the player marker's two rotations cancel to zero
+  — which is the point: the map turned instead.
 - **The vehicle sits at 0.66 down the side**, and that anchor doubles as the rotation pivot: the one
   screen point rotation leaves alone, which is what keeps the machine still while the world turns.
   `centeredOn` is now a special case of `anchoredAt`.
