@@ -46,7 +46,8 @@ enum class BandSide { Start, Middle, End }
  * One lamp in the cluster's telltale band.
  *
  * [key] is persisted in a tile's config, so it is stable API — renaming one silently drops that lamp
- * from every band a user has configured. [colour] is the lamp lit; unlit it is not drawn at all.
+ * from every band a user has configured. [colour] is the lamp lit; off, it is the same colour at
+ * [GHOST_ALPHA].
  *
  * [blinks] is for the lamps that are *signals*: on a real machine the indicator lamp flashes in time
  * with the relay, and a steady green arrow is a different claim from a flashing one. The rest are
@@ -152,12 +153,17 @@ fun needsAttention(vehicle: Vehicle): Boolean? = vehicle.wearable?.let { it.dama
  * The band of lamps at the top of the cluster: [lamps], in enum order, each drawn from [vehicle] and
  * each simply missing where the vehicle has nothing to say (see [stateIn]).
  *
- * **A lamp that is off is not drawn.** On a real cluster the symbol is printed on the lens and only
- * exists when it is backlit, and that is the whole value of the band — anything you can see is
- * something that is true right now, so a band is read by what is on it rather than by picking the
- * bright ones out of a row of grey ones. It keeps its slot while it is dark, though: the alternative
- * is a band that reflows every time a lamp changes, which moves every *other* lamp out from under
- * the eye that was already on it.
+ * **A lamp that is off is a ghost of itself** — its own colour at [GHOST_ALPHA], the same level the
+ * unlit segments behind it sit at (see [ClusterDigits]). That is what the panel this copies looks
+ * like: the symbol is printed on the lens, so it is faintly there in the dark and it *lights up*,
+ * rather than appearing out of nowhere. Lit against ghosted is a difference in brightness of about a
+ * factor of ten, which is not a distinction anyone has to make on purpose — the band is still read
+ * by what is bright on it.
+ *
+ * The ghost is dim enough that this stays true, and it buys two things a blank slot could not: the
+ * band says what it is *able* to tell you before anything happens on it, and a lamp we have no state
+ * for at all (see [stateIn]) is now visibly different from one that is merely off, rather than both
+ * being empty space.
  *
  * Wrapping rather than scrolling. The band is glanceable or it is nothing — a lamp you have to swipe
  * to see is a lamp that will not be seen — so a band too wide for its tile becomes a second row, and
@@ -199,8 +205,9 @@ fun TelltaleBand(vehicle: Vehicle, lamps: List<Telltale>, modifier: Modifier = M
 }
 
 /**
- * One lamp. Off is drawn at zero alpha rather than left out, so the band holds still; the alpha is
- * set in the draw layer so a blinking lamp costs a repaint per frame and not a recomposition.
+ * One lamp, lit or ghosted at [GHOST_ALPHA]. The alpha is set in the draw layer so a blinking lamp
+ * costs a repaint per frame and not a recomposition; the lamp keeps its slot either way, so the band
+ * never reflows out from under the eye already on it.
  */
 @Composable
 private fun Lamp(
@@ -213,17 +220,20 @@ private fun Lamp(
 ) {
   val on = lit || checking
   // Flashing is gated on being handed a [blink] at all, and under the lamp check it isn't: there,
-  // every lamp is simply proving that it works, the flashers included.
-  // The description goes with it — an invisible lamp reading out "off" is the row of grey symbols we
-  // just got rid of, in the one place it is even harder to skim past.
+  // every lamp is simply proving that it works, the flashers included. It flashes back to the ghost
+  // rather than to nothing, which is a lens going dark and not a symbol being taken away.
+  //
+  // Only a lit lamp is described. The ghost is the panel it is printed on — the same chrome as the
+  // unlit segments, which are not announced either — and a band that read out every lamp it carries
+  // regardless of state would bury the two that are actually saying something.
   Icon(
     lamp.icon,
     contentDescription = if (on) lamp.label else null,
     tint = lamp.colour,
     modifier = modifier.size(size).graphicsLayer {
       alpha = when {
-        !on -> 0f
-        lamp.blinks && blink != null -> if (blink() < 0.5f) 1f else 0f
+        !on -> GHOST_ALPHA
+        lamp.blinks && blink != null -> if (blink() < 0.5f) 1f else GHOST_ALPHA
         else -> 1f
       }
     },

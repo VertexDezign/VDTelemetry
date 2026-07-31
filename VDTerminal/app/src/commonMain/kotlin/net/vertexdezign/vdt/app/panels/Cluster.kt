@@ -54,7 +54,8 @@ object ClusterColors {
    *
    * The dash a panel shows off the machine, at just enough contrast to read as a panel that is
    * switched on and empty rather than as one that has failed. Nothing that carries a value is drawn
-   * in it; a lamp that is off isn't drawn at all (see [TelltaleBand]).
+   * in it — an unlit *thing* is its own colour at [GHOST_ALPHA] instead, which is what keeps a dark
+   * segment and a dark lamp looking like the same panel.
    */
   val Dim = Color(0xFF1F2420)
 
@@ -107,10 +108,15 @@ fun clusterDigitFont(): FontFamily = SegmentFace.Numeric.font()
 private const val BLANK = '!'
 
 /**
- * How dim the unlit segments are. Enough to see the cell is there, far too little to misread as a
- * digit — which is roughly where a real LCD sits with the backlight behind it.
+ * How dim an unlit thing is: a segment that isn't lit, and a telltale that is off (see
+ * [TelltaleBand]). Enough to see it is there, far too little to misread as lit — which is roughly
+ * where a real LCD sits with the backlight behind it.
+ *
+ * One value across the whole instrument on purpose. The cluster's ghost is a look, not a per-widget
+ * setting, and a band whose off lamps sat at a different level from the digits behind them would
+ * read as two panels bolted together.
  */
-private const val GHOST_ALPHA = 0.09f
+internal const val GHOST_ALPHA = 0.09f
 
 /**
  * A value on a segment display of [cells] cells.
