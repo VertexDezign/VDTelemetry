@@ -92,9 +92,14 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
       }
 
     MaterialTheme {
-      Box(modifier.fillMaxSize().background(VdtColors.Light)) {
+      val pinned = display
+      // A pinned display goes black, and only a pinned display. The tablet is a thing you hold under
+      // a cab roof and its light panels are right for that; a phone clamped to the A-pillar is an
+      // instrument in the driver's eyeline at night, and the cluster tiles it carries are black
+      // already — on the terminal's grey the gutters between them lit up as a grid of seams, which is
+      // the one part of the picture that isn't the instrument. Leaving display mode restores it.
+      Box(modifier.fillMaxSize().background(if (pinned != null) VdtColors.Black else VdtColors.Light)) {
         val data = telemetry
-        val pinned = display
         when {
           // A display owns the whole viewport, including the pre-first-frame state — see [DisplayShell].
           // Navigation is inert there: the device is pinned to one screen, so a widget that would

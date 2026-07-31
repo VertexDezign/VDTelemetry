@@ -13,8 +13,9 @@ import kotlin.test.assertTrue
  * lamp that never comes on. These assert the two things that can go wrong silently.
  *
  * The list is written out rather than derived, so it is also the inventory: a glyph missing from it
- * is a glyph nothing checks. The last four are drawn ahead of the maintenance mod that will feed
- * them and are deliberately not [Telltale]s yet.
+ * is a glyph nothing checks. Not every entry is a lamp — the gauge glyphs caption the level strip's
+ * bars, and `hazard` and `engineWarning` are drawn for the Lighting panel and for a channel that has
+ * yet to arrive.
  */
 class ClusterIconsTest {
   private val glyphs: List<Pair<String, ImageVector>> =
@@ -34,6 +35,9 @@ class ClusterIconsTest {
       "engineWarning" to ClusterIcons.EngineWarning,
       "driveForward" to ClusterIcons.DriveForward,
       "driveReverse" to ClusterIcons.DriveReverse,
+      "fuel" to ClusterIcons.Fuel,
+      "def" to ClusterIcons.Def,
+      "air" to ClusterIcons.Air,
       "battery" to ClusterIcons.Battery,
       "temperature" to ClusterIcons.Temperature,
       "generalWarning" to ClusterIcons.GeneralWarning,

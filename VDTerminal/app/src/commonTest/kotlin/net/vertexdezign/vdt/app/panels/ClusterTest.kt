@@ -19,6 +19,7 @@ import net.vertexdezign.vdt.model.Wearable
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -99,35 +100,56 @@ class TelltaleStateTest {
   }
 }
 
-/** The one derived lamp, and the thresholds we picked for it. */
-class EngineWarningTest {
+/** The two derived lamps, and the thresholds we picked for them. */
+class MaintenanceLampTest {
   private fun tempAt(value: Int) = Vehicle(motor = Motor(temperatur = Temperatur(value = value, min = 20, max = 120)))
 
   @Test
   fun aWorkingEngineIsNotAWarning() {
     // 89°C is a combine under load in the committed captures; the threshold has to clear that.
-    assertEquals(false, engineWarning(tempAt(89)))
-    assertEquals(false, engineWarning(tempAt(37)))
+    assertEquals(false, overheating(tempAt(89)))
+    assertEquals(false, overheating(tempAt(37)))
   }
 
   @Test
   fun anOverheatingEngineIs() {
     // 90% of the 20..120 span is 110.
-    assertEquals(true, engineWarning(tempAt(110)))
-    assertEquals(true, engineWarning(tempAt(120)))
+    assertEquals(true, overheating(tempAt(110)))
+    assertEquals(true, overheating(tempAt(120)))
   }
 
   @Test
-  fun damageAloneRaisesIt() {
-    assertEquals(true, engineWarning(Vehicle(wearable = Wearable(damage = 80))))
-    assertEquals(false, engineWarning(Vehicle(wearable = Wearable(damage = 10))))
+  fun damageIsItsOwnLampRatherThanPartOfTheTemperatureOne() {
+    // They used to share `engineWarning`, which lit for either and so never said which.
+    assertEquals(true, needsAttention(Vehicle(wearable = Wearable(damage = 80))))
+    assertEquals(false, needsAttention(Vehicle(wearable = Wearable(damage = 10))))
+    assertNull(overheating(Vehicle(wearable = Wearable(damage = 80))), "wear is not a temperature")
   }
 
   @Test
   fun nothingReportedMeansNoLamp() {
-    assertNull(engineWarning(Vehicle()))
+    assertNull(overheating(Vehicle()))
+    assertNull(needsAttention(Vehicle()))
     // A degenerate gauge (no span) can't be read as hot, and mustn't be read as cold either.
-    assertNull(engineWarning(Vehicle(motor = Motor(temperatur = Temperatur(value = 50, min = 0, max = 0)))))
+    assertNull(overheating(Vehicle(motor = Motor(temperatur = Temperatur(value = 50, min = 0, max = 0)))))
+  }
+
+  @Test
+  fun theLampsWaitingOnTheMaintenanceModNeverClaimAnything() {
+    // Drawn ahead of their channel. A lamp with no source has to stay absent on *every* vehicle, not
+    // just on an empty one — an unlit brake-system lamp is a claim we have no standing to make.
+    val fullyReporting =
+      Vehicle(
+        motor = Motor(temperatur = Temperatur(value = 90, min = 20, max = 120)),
+        wearable = Wearable(damage = 90),
+      )
+    val waiting = listOf(Telltale.EngineWarning, Telltale.Battery, Telltale.BrakeSystem, Telltale.Service)
+    for (lamp in waiting) {
+      assertNull(lamp.stateIn(fullyReporting), "${lamp.key} lit without a channel behind it")
+    }
+    // …while the two that *do* have sources read them.
+    assertEquals(false, Telltale.Temperature.stateIn(fullyReporting))
+    assertEquals(true, Telltale.GeneralWarning.stateIn(fullyReporting))
   }
 }
 
@@ -142,11 +164,44 @@ class ClusterReadoutTest {
   }
 
   @Test
-  fun theReverserSymbolIsOnlyShownWhileMoving() {
+  fun theDirectionFollowsTheTransmissionRatherThanTheMovement() {
+    // The point of motor.direction: a tractor stood at a gateway in reverse is still pointed
+    // backwards, and the cluster has to keep saying so. `speed.direction` reads STOPPED there.
+    val waitingToBackUp =
+      Vehicle(speed = Speed(direction = DriveDirection.STOPPED), motor = Motor(direction = DriveDirection.BACKWARD))
+    assertEquals(DriveSymbol.Reverse, driveSymbol(waitingToBackUp))
+    assertEquals("R", driveSymbol(waitingToBackUp)?.letter)
+
+    // ...and it outranks the roll, so a machine drifting back with forward selected reads forward.
+    val rollingBack =
+      Vehicle(speed = Speed(direction = DriveDirection.BACKWARD), motor = Motor(direction = DriveDirection.FORWARD))
+    assertEquals(DriveSymbol.Forward, driveSymbol(rollingBack), "the transmission wins over the roll")
+  }
+
+  @Test
+  fun neutralIsALetterWithNoArrow() {
+    // STOPPED on the *motor* means neutral, not "not moving" — with automatic direction change the
+    // engine reports it below about 1 km/h. There is no direction to point in, so the arrow slot
+    // stays empty and only the N is printed.
+    val neutral = Vehicle(motor = Motor(direction = DriveDirection.STOPPED))
+    assertEquals(DriveSymbol.Neutral, driveSymbol(neutral))
+    assertEquals("N", driveSymbol(neutral)?.letter)
+    assertNull(driveSymbol(neutral)?.icon, "neutral must not draw an arrow")
+    // The two real directions do have one — that asymmetry is why `icon` is nullable at all.
+    assertNotNull(DriveSymbol.Forward.icon)
+    assertNotNull(DriveSymbol.Reverse.icon)
+  }
+
+  @Test
+  fun anOlderModWithoutTheMotorDirectionFallsBackToTheMovement() {
+    // Mod version 5 and earlier never sent `motor.direction`. Rather than showing nothing at all,
+    // those captures keep the pre-#53 behaviour: a direction while moving, nothing once stopped.
     assertEquals(DriveSymbol.Forward, driveSymbol(Vehicle(speed = Speed(direction = DriveDirection.FORWARD))))
     assertEquals(DriveSymbol.Reverse, driveSymbol(Vehicle(speed = Speed(direction = DriveDirection.BACKWARD))))
     assertNull(driveSymbol(Vehicle(speed = Speed(direction = DriveDirection.STOPPED))))
     assertNull(driveSymbol(Vehicle()))
+    // A motor that reports no direction is still the older shape, even though the motor exists.
+    assertNull(driveSymbol(Vehicle(motor = Motor())))
   }
 
   @Test

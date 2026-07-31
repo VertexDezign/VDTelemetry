@@ -1,11 +1,5 @@
 package net.vertexdezign.vdt.app.panels
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -65,6 +59,12 @@ enum class BandSide { Start, Middle, End }
  * Where two lamps share a subject (the work lights, the two diff locks) they are adjacent and
  * ordered front-then-rear, which is how a real cluster distinguishes them too. The pair is legible
  * as a pair; each still carries its own description for a screen reader.
+ *
+ * [EngineWarning] used to be a *derived* lamp, lit on coolant temperature **or** damage. Those are now
+ * [Temperature] and [GeneralWarning], said separately, which is how the cluster this copies shows
+ * them — and three lamps drawn from two facts, one of them the union of the other two, would be a
+ * band saying the same thing twice. The engine lamp keeps its key and its glyph, and waits for the
+ * maintenance mod's own engine fault, which is a different claim from either of the two.
  */
 enum class Telltale(
   val key: String,
@@ -85,7 +85,18 @@ enum class Telltale(
   DiffLockFront("diffLockFront", "Diff lock front", ClusterIcons.DiffLockFront, ClusterColors.Set),
   DiffLockRear("diffLockRear", "Diff lock rear", ClusterIcons.DiffLockRear, ClusterColors.Set),
   Awd("awd", "All-wheel drive", ClusterIcons.Awd, ClusterColors.Go),
+
+  // The maintenance family, at the end because that is the order a cluster reads in: what you are
+  // doing, then what the machine is doing, then what is wrong with it. Four of the six have no source
+  // in the telemetry yet — the maintenance mod that will feed them exports nothing — so they are
+  // permanently absent rather than permanently off, which is the same rule the drivetrain lamps
+  // follow and costs nothing but a line in the band's config dialog until the channel arrives.
   EngineWarning("engineWarning", "Engine warning", ClusterIcons.EngineWarning, ClusterColors.Warn),
+  Temperature("temperature", "Coolant temperature", ClusterIcons.Temperature, ClusterColors.Warn),
+  Battery("battery", "Charging system", ClusterIcons.Battery, ClusterColors.Warn),
+  BrakeSystem("brakeSystem", "Brake system", ClusterIcons.BrakeSystem, ClusterColors.Warn),
+  Service("service", "Service due", ClusterIcons.Service, ClusterColors.Set),
+  GeneralWarning("generalWarning", "Needs attention", ClusterIcons.GeneralWarning, ClusterColors.Set),
 }
 
 /**
@@ -96,6 +107,10 @@ enum class Telltale(
  * parking brake, the diff locks and AWD come from Enhanced Vehicle, which is optional and only
  * decorates the vehicle you're controlling. An unlit diff-lock lamp is a claim about the drivetrain,
  * and without the mod we have no standing to make it — so we say nothing instead.
+ *
+ * [Telltale.EngineWarning], [Telltale.Battery], [Telltale.BrakeSystem] and [Telltale.Service] are the
+ * same rule taken to its end: the maintenance mod that will feed them exports nothing yet, so they
+ * are constantly null and the band constantly leaves them out.
  */
 fun Telltale.stateIn(vehicle: Vehicle): Boolean? = when (this) {
   Telltale.TurnLeft -> vehicle.lights?.indicator?.left
@@ -109,27 +124,29 @@ fun Telltale.stateIn(vehicle: Vehicle): Boolean? = when (this) {
   Telltale.DiffLockFront -> vehicle.motor?.diffLock?.front
   Telltale.DiffLockRear -> vehicle.motor?.diffLock?.back
   Telltale.Awd -> vehicle.motor?.awd
-  Telltale.EngineWarning -> engineWarning(vehicle)
+  Telltale.Temperature -> overheating(vehicle)
+  Telltale.GeneralWarning -> needsAttention(vehicle)
+  Telltale.EngineWarning -> null
+  Telltale.Battery -> null
+  Telltale.BrakeSystem -> null
+  Telltale.Service -> null
 }
 
 /**
- * The one derived lamp: hot, or damaged enough to want looking at. Null when the vehicle reports
- * neither temperature nor wear, so the lamp is absent rather than confidently unlit.
+ * Coolant over temperature. Null when the vehicle reports none, so the lamp is absent rather than
+ * confidently unlit.
  *
- * Temperature is read as a fraction of the gauge's own min..max rather than an absolute, because that
- * span is per vehicle (20..120°C on the machines we have captures for, but that is the mod's to say).
- * A working combine sits around 89°C, so the threshold has to clear normal load comfortably.
+ * Read as a fraction of the gauge's own min..max rather than as an absolute, because that span is per
+ * vehicle (20..120°C on the machines we have captures for, but that is the mod's to say). A working
+ * combine sits around 89°C, so the threshold has to clear normal load comfortably.
  */
-fun engineWarning(vehicle: Vehicle): Boolean? {
-  val hot =
-    vehicle.motor?.temperatur?.let { t ->
-      val span = (t.max - t.min).toFloat()
-      if (span <= 0f) null else (t.value - t.min) / span >= TEMP_WARN_FRACTION
-    }
-  val damaged = vehicle.wearable?.let { it.damage >= DAMAGE_WARN_PERCENT }
-  if (hot == null && damaged == null) return null
-  return hot == true || damaged == true
+fun overheating(vehicle: Vehicle): Boolean? = vehicle.motor?.temperatur?.let { t ->
+  val span = (t.max - t.min).toFloat()
+  if (span <= 0f) null else (t.value - t.min) / span >= TEMP_WARN_FRACTION
 }
+
+/** Damaged enough to want looking at. Null when the vehicle reports no wear at all. */
+fun needsAttention(vehicle: Vehicle): Boolean? = vehicle.wearable?.let { it.damage >= DAMAGE_WARN_PERCENT }
 
 /**
  * The band of lamps at the top of the cluster: [lamps], in enum order, each drawn from [vehicle] and
@@ -155,7 +172,7 @@ fun TelltaleBand(vehicle: Vehicle, lamps: List<Telltale>, modifier: Modifier = M
     // Only run the flasher when something is actually flashing. The pillar display is a screen that
     // stays awake on a clamped phone for a whole session, and an infinite transition nobody can see
     // is a wake-up every frame for the entire time you are not indicating.
-    val blink = if (!checking && shown.any { (lamp, lit) -> lamp.blinks && lit }) blinkPhase() else null
+    val blink = if (!checking && shown.any { (lamp, lit) -> lamp.blinks && lit }) clusterBlinkPhase() else null
 
     val start = shown.filter { it.first.side == BandSide.Start }
     val end = shown.filter { it.first.side == BandSide.End }
@@ -234,32 +251,12 @@ private fun lampCheck(): Boolean {
   return checking
 }
 
-/**
- * A 0→1 sawtooth on the flasher's period; the lamp is lit for the first half of it. Handed out as a
- * function rather than as the state itself so that reading it happens where it is used — in the draw
- * layer — instead of recomposing every lamp in the band sixty times a second.
- */
-@Composable
-private fun blinkPhase(): () -> Float {
-  val phase =
-    rememberInfiniteTransition(label = "telltale-blink").animateFloat(
-      initialValue = 0f,
-      targetValue = 1f,
-      animationSpec = infiniteRepeatable(tween(BLINK_PERIOD_MS, easing = LinearEasing), RepeatMode.Restart),
-      label = "telltale-blink-phase",
-    )
-  return { phase.value }
-}
-
 private val LAMP_GAP = 8.dp
 private val LAMP_MIN = 14.dp
 private val LAMP_MAX = 48.dp
 
 /** How long every lamp stays lit when the band appears. About as long as a machine takes to crank. */
 private const val LAMP_CHECK_MS = 2200L
-
-/** One flash, on and off: 75 a minute, inside the 60–120 a road-legal flasher runs at. */
-private const val BLINK_PERIOD_MS = 800
 
 /**
  * The largest lamp that still packs [count] of them into [width] × [height], leaving room for

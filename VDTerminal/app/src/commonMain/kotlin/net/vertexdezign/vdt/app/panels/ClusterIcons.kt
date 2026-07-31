@@ -106,26 +106,45 @@ object ClusterIcons {
   }
 
   /**
-   * The reverser: the machine seen **from above**, with the arrow for the way it is travelling — the
-   * symbol the 6R's own display carries beside its gear (see `references/img.png`).
+   * The reverser: one arrow, filling the viewport, for the way the transmission is pointed.
    *
-   * The tractor sits at the same place in both, so changing direction moves the arrow and nothing
-   * else. The other arrow's space is simply left empty, which is what the panel it is copied from
-   * does: the segment for the direction you are not going is not lit.
+   * It used to be the machine drawn from above *with* an arrow, and that is what the pair looked
+   * like: at 24 units there is no room for both, so the wheels fused with the arrowhead into a blob
+   * that read as neither. Going back to `references/img.png` settles it — the 6R's own direction
+   * indicators are a plain up arrow and a plain down arrow, and the little plan-view chassis between
+   * them is a different symbol altogether, not part of either.
+   *
+   * The two are exact mirrors of each other about the middle of the viewport, so switching direction
+   * flips one shape and moves nothing.
    */
-  val DriveForward = telltale("DriveForward") {
-    fill("$TRACTOR_TOP $ARROW_UP")
-    fill(CAB, PathFillType.EvenOdd)
-  }
-  val DriveReverse = telltale("DriveReverse") {
-    fill("$TRACTOR_TOP $ARROW_DOWN")
-    fill(CAB, PathFillType.EvenOdd)
-  }
+  val DriveForward = telltale("DriveForward") { fill("M12 1.4 L21.8 11.2 H15.7 V22.6 H8.3 V11.2 H2.2 Z") }
+  val DriveReverse = telltale("DriveReverse") { fill("M12 22.6 L2.2 12.8 H8.3 V1.4 H15.7 V12.8 H21.8 Z") }
 
   // ---------------------------------------------------------------------------------------------
-  // Drawn ahead of the data. The maintenance mod these belong to isn't exported yet, so none of them
-  // is a [Telltale]: a lamp with nothing behind it would be a choice in the band's config that can
-  // never light. They live here so the vocabulary is complete when that channel does arrive.
+  // The level strip's gauges. Not lamps — these caption a bar rather than lighting on their own —
+  // but drawn here and to the same rules, because a strip of Material icons under a row of hand-drawn
+  // bars is two drawings of the same machine in one tile. [Temperature] captions a bar too.
+  // ---------------------------------------------------------------------------------------------
+
+  /** A pump: the body with its window, and the hose hooked up and over to the nozzle. */
+  val Fuel = telltale("Fuel") {
+    fill("M3.4 3 H14.2 V22.6 H3.4 Z M5.4 5.2 H12.2 V10 H5.4 Z", PathFillType.EvenOdd)
+    fill("M14.2 16.2 H17 V18.2 H14.2 Z M17 7.6 H19.2 V18.2 H17 Z M17 5.6 H21.2 V7.6 H17 Z M19.4 3.6 H21.4 V6.2 H19.4 Z")
+  }
+
+  /** DEF: a drop, which is what every machine in the game calls that tank on its own dashboard. */
+  val Def = telltale("Def") {
+    fill("M12 1.8 C12 1.8 4.4 10.4 4.4 15.2 A7.6 7.6 0 0 0 19.6 15.2 C19.6 10.4 12 1.8 12 1.8 Z")
+  }
+
+  /** Brake air: three courses of it, the ISO way of drawing something you cannot draw. */
+  val Air = telltale("Air") { fill("${airCourse(6.2f)} ${airCourse(12.2f)} ${airCourse(18.2f)}") }
+
+  // ---------------------------------------------------------------------------------------------
+  // Drawn ahead of the data. The maintenance mod these belong to isn't exported yet, so each is a
+  // telltale whose state is permanently null — absent rather than unlit, the same rule the drivetrain
+  // lamps follow. [EngineWarning] is one of them and is drawn further up, beside the lamps it sits
+  // among in the band.
   // ---------------------------------------------------------------------------------------------
 
   /** Charging system: the battery box with its terminals and its two poles. */
@@ -182,18 +201,11 @@ private const val TRACTOR =
     "M16 17.5 A3 3 0 1 1 22 17.5 A3 3 0 1 1 16 17.5 Z " +
     "M17.9 17.5 A1.1 1.1 0 1 1 20.1 17.5 A1.1 1.1 0 1 1 17.9 17.5 Z"
 
-/**
- * The same machine from above, for the reverser: front wheels, chassis, rear wheels — and [CAB],
- * hollow so the block reads as a cab rather than as a bar, which is why it is a path of its own.
- */
-private const val TRACTOR_TOP =
-  "M6.4 6.4 H9.8 V9.4 H6.4 Z M14.2 6.4 H17.6 V9.4 H14.2 Z M11.2 7.4 H12.8 V12 H11.2 Z " +
-    "M3.8 12.8 H8.6 V16.8 H3.8 Z M15.4 12.8 H20.2 V16.8 H15.4 Z"
-
-private const val CAB = "M8.6 11.6 H15.4 V17.8 H8.6 Z M10.2 13.1 H13.8 V16.3 H10.2 Z"
-
-private const val ARROW_UP = "M11 7.8 L11 5.8 L6.8 5.8 L12 0.6 L17.2 5.8 L13 5.8 L13 7.8 Z"
-private const val ARROW_DOWN = "M11 17.6 L13 17.6 L13 18.8 L17.2 18.8 L12 23.6 L6.8 18.8 L11 18.8 Z"
+/** One wave of [ClusterIcons.Air], centred on [y]. Three of them stacked make the glyph. */
+private fun airCourse(y: Float): String =
+  "M2 $y C5.2 ${y - 2} 8.4 ${y + 2} 11.6 $y C14.8 ${y - 2} 18 ${y + 2} 21.2 $y " +
+    "L21.2 ${y + 2.2f} C18 ${y + 4.2f} 14.8 ${y + 0.2f} 11.6 ${y + 2.2f} " +
+    "C8.4 ${y + 4.2f} 5.2 ${y + 0.2f} 2 ${y + 2.2f} Z"
 
 /** Water under the thermometer. */
 private const val WAVES =
