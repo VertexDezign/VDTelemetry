@@ -245,7 +245,55 @@ data class Gps(
   val heading: Int = 0,
   val headingUnit: String = "",
   val linesVisible: Boolean = false,
+  /** Null when the vehicle has no steering course — off a field, or not in steering-assist mode. */
+  val course: GpsCourseState? = null,
 )
+
+/**
+ * The live half of the steering course: which line, how far off it, how far to its end, which lines
+ * are done. It rides on the 10 Hz telemetry because all of it changes as you drive; the geometry it
+ * indexes into is its own channel ([GpsCourseData], `gpsCourse.json`), rewritten only when the course
+ * itself changes.
+ *
+ * [courseId] joins the two. A consumer must **ignore [segmentIndex] and [worked] unless the course
+ * geometry it holds carries the same id**: the mod publishes a new id the moment the game replaces
+ * the course, and the geometry file follows a beat later, so for that beat these indices refer to
+ * lines the app has not received yet.
+ */
+@Serializable
+data class GpsCourseState(
+  val courseId: String = "",
+  /** The line being followed; -1 when the game has not picked one (nothing to engage on). */
+  val segmentIndex: Int = -1,
+  /** Which side of the line the game has the vehicle assigned to. */
+  val isLeft: Boolean = false,
+  val segmentCount: Int = 0,
+  val workedCount: Int = 0,
+  /**
+   * Hex bitmask over segment indices, four per character: character *k* covers indices `4k-3..4k`,
+   * bit 0 being the lowest of those, and the all-zero tail is trimmed. Read it through [isWorked]
+   * rather than by hand.
+   */
+  val worked: String? = null,
+  /**
+   * Signed cross-track error in meters — **positive means right of the line**, in the sense the
+   * game itself uses (its `sideOffset` shifts a line left by `(dirZ, -dirX)`), measured relative to
+   * the direction of travel so driving a line the other way does not mirror it. Null until the game
+   * has a line picked.
+   */
+  val deviationM: Float? = null,
+  /** Meters of the current line left ahead of the vehicle; null while no line is picked. */
+  val distanceToEndM: Float? = null,
+) {
+  /** Whether the line with the mod's 1-based [index] has been worked. */
+  fun isWorked(index: Int): Boolean {
+    val mask = worked ?: return false
+    if (index < 1) return false
+    val char = mask.getOrNull((index - 1) / 4) ?: return false
+    val nibble = char.digitToIntOrNull(16) ?: return false
+    return (nibble shr ((index - 1) % 4)) and 1 == 1
+  }
+}
 
 @Serializable
 data class Ai(

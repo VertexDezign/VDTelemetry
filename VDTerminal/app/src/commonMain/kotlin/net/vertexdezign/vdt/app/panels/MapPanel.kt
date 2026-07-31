@@ -97,6 +97,8 @@ import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.FieldCropRotation
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldInfoEntry
+import net.vertexdezign.vdt.model.GpsCourseData
+import net.vertexdezign.vdt.model.GpsCourseState
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapFarm
 import net.vertexdezign.vdt.model.MapField
@@ -128,6 +130,7 @@ private val FIELD_TAP_RADIUS_DP = 20.dp
 private const val KEY_ZOOM = "zoom"
 private const val KEY_AUTO_CENTER = "autoCenter"
 private const val KEY_SHOW_FIELDS = "showFields"
+private const val KEY_SHOW_COURSE = "showCourse"
 private const val KEY_POI_CATS = "poiCats"
 private const val KEY_VEH_STATES = "vehStates"
 private const val KEY_GROUND_LAYER = "groundLayer"
@@ -207,10 +210,12 @@ fun MapPanel(
   vehicle: Vehicle? = null,
   showGuidance: Boolean = false,
   onCommand: (ClientMessage) -> Unit = {},
+  gpsCourse: GpsCourseData? = null,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
   var showFields by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_FIELDS, true)) }
+  var showCourse by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_COURSE, true)) }
   var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
   var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
   var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, NO_GROUND_LAYER)) }
@@ -277,6 +282,7 @@ fun MapPanel(
   LaunchedEffect(scale) { settings.putFloat(KEY_ZOOM, scale) }
   LaunchedEffect(autoCenter) { settings.putBoolean(KEY_AUTO_CENTER, autoCenter) }
   LaunchedEffect(showFields) { settings.putBoolean(KEY_SHOW_FIELDS, showFields) }
+  LaunchedEffect(showCourse) { settings.putBoolean(KEY_SHOW_COURSE, showCourse) }
   LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
   LaunchedEffect(vehStates) { settings.putString(KEY_VEH_STATES, vehStates.joinToString(",")) }
   LaunchedEffect(groundLayer) { settings.putString(KEY_GROUND_LAYER, groundLayer) }
@@ -363,7 +369,7 @@ fun MapPanel(
     icon = Icons.Filled.Map,
     modifier = modifier,
     headerActions = {
-      if (mapData != null || mapVehicles != null || mapLayers != null) {
+      if (mapData != null || mapVehicles != null || mapLayers != null || gpsCourse != null) {
         Icon(
           Icons.Filled.Tune,
           "filters & search",
@@ -525,6 +531,13 @@ fun MapPanel(
         }
       }
 
+      // Guidance course, under the map-data overlay: it is terrain-level information (where the
+      // lines run, what is worked), so field labels, POI dots and vehicle markers stay on top of it.
+      // An empty course is the mod saying the driver has left the field — nothing to draw.
+      if (showCourse && gpsCourse != null && !gpsCourse.isEmpty) {
+        CourseOverlay(gpsCourse, vehicle?.gps?.course, mapData?.terrainSize ?: 0f, projection)
+      }
+
       // Map-data overlay (field outlines/labels + POI markers): like the player marker it lives
       // OUTSIDE the zoom-scaled graphicsLayer — the layer rasterizes, so vectors inside it blur at
       // high zoom. The outlines are re-projected each draw through the same MapProjection the image
@@ -595,11 +608,14 @@ fun MapPanel(
       }
 
       // Filter & search popover, on top of everything map-related.
-      if (filterOpen && (mapData != null || mapVehicles != null || mapLayers != null)) {
+      if (filterOpen && (mapData != null || mapVehicles != null || mapLayers != null || gpsCourse != null)) {
         MapFilterPanel(
           mapData = mapData,
           mapVehicles = mapVehicles,
           mapLayers = mapLayers,
+          hasCourse = gpsCourse != null && !gpsCourse.isEmpty,
+          showCourse = showCourse,
+          onShowCourse = { showCourse = it },
           groundLayer = groundLayer,
           onGroundLayer = { groundLayer = it },
           showFields = showFields,
@@ -622,6 +638,102 @@ fun MapPanel(
 
 // Points projected further than this (px) outside the canvas are culled before any text measuring.
 private const val OVERLAY_CULL_MARGIN = 80f
+
+/**
+ * The guidance course: every line the game's steering assist generated for the field being driven,
+ * shaded by whether it is done, with the line currently being followed picked out.
+ *
+ * Drawn like the field polygons — paths built once per course in normalized space and re-projected
+ * under [projection] — but with two stroke widths that mean different things. The centreline is a
+ * constant on-screen hairline (its width is divided back out of the transform). The swath under it is
+ * a real-world width: `implementWidth` meters over the terrain edge, so it grows with zoom exactly as
+ * the ground it covers does, which is what turns a set of lines into a picture of what is worked.
+ *
+ * [state] is the live half from the telemetry tick. Its indices are honoured **only** when its
+ * `courseId` matches the geometry's: the mod publishes a new id the instant the game replaces the
+ * course, and this file follows a beat later, so for that beat the "current line" would otherwise
+ * highlight whatever line happens to hold that index in the course being replaced.
+ */
+@Composable
+private fun BoxScope.CourseOverlay(
+  course: GpsCourseData,
+  state: GpsCourseState?,
+  terrainSize: Float,
+  projection: MapProjection,
+) {
+  val density = LocalDensity.current
+
+  val paths =
+    remember(course) {
+      course.segments.mapNotNull { segment ->
+        val p = segment.p
+        if (p.size < 4) return@mapNotNull null
+        val path =
+          Path().apply {
+            moveTo(p[0], p[1])
+            for (i in 2 until p.size - 1 step 2) lineTo(p[i], p[i + 1])
+          }
+        segment to path
+      }
+    }
+
+  // Only the geometry this state actually describes (see the doc comment).
+  val live = state?.takeIf { it.courseId == course.courseId && it.courseId.isNotBlank() }
+  val swathWidth = if (terrainSize > 0f && course.implementWidth > 0f) course.implementWidth / terrainSize else 0f
+
+  Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
+    val factor = projection.factor
+    withTransform({
+      translate(projection.offset.x, projection.offset.y)
+      scale(factor, factor, pivot = Offset.Zero)
+    }) {
+      // Divided back out of the transform: the geometry scales, these lines keep their screen width.
+      val hairline = 1.dp.toPx() / factor
+      val currentLine = 2.5.dp.toPx() / factor
+
+      // The field the course was generated against — the detected boundary, so it hugs the crop edge
+      // rather than the farmland square map.json draws.
+      if (course.boundary.size >= 6) {
+        drawPath(flatPath(course.boundary, close = true), VdtColors.Accent.copy(alpha = 0.5f), style = Stroke(hairline))
+      }
+      for (island in course.islands) {
+        if (island.size >= 6) {
+          drawPath(flatPath(island, close = true), VdtColors.Amber.copy(alpha = 0.5f), style = Stroke(hairline))
+        }
+      }
+
+      for ((segment, path) in paths) {
+        val worked = live?.isWorked(segment.i) == true
+        val current = live != null && segment.i == live.segmentIndex
+        if (swathWidth > 0f) {
+          // The swath: what this line covers on the ground. Worked lines read as a filled band, the
+          // rest as a faint one — the same "where have I been" the reference terminals paint.
+          drawPath(
+            path,
+            if (worked) VdtColors.Green.copy(alpha = 0.35f) else VdtColors.White.copy(alpha = 0.12f),
+            style = Stroke(width = swathWidth),
+          )
+        }
+        val tint =
+          when {
+            current -> VdtColors.Red
+            segment.kind == "headland" -> VdtColors.ProgressBlue
+            segment.kind == "island" -> VdtColors.Amber
+            worked -> VdtColors.Green
+            else -> VdtColors.White
+          }
+        drawPath(path, tint, style = Stroke(width = if (current) currentLine else hairline))
+      }
+    }
+  }
+}
+
+/** Path from a flat `[x1, z1, x2, z2, …]` polyline, in whatever space the coordinates are in. */
+private fun flatPath(points: List<Float>, close: Boolean): Path = Path().apply {
+  moveTo(points[0], points[1])
+  for (i in 2 until points.size - 1 step 2) lineTo(points[i], points[i + 1])
+  if (close) close()
+}
 
 // VehicleHotspot.TYPE tokens that are driven and get a heading arrow; everything else (trailer,
 // tool, toolTrailed, cutter, other, and unknown future types) is equipment and gets a plain square.
@@ -944,6 +1056,9 @@ private fun BoxScope.MapFilterPanel(
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
   mapLayers: MapLayersInfo?,
+  hasCourse: Boolean,
+  showCourse: Boolean,
+  onShowCourse: (Boolean) -> Unit,
   groundLayer: String,
   onGroundLayer: (String) -> Unit,
   showFields: Boolean,
@@ -1028,6 +1143,11 @@ private fun BoxScope.MapFilterPanel(
           dot = poiCategoryColor(category),
         ) { on -> onPoiCats(if (on) poiCats + category else poiCats - category) }
       }
+    }
+
+    // Only while there is a course to hide: off a field the row would be a switch for nothing.
+    if (hasCourse) {
+      FilterRow("Guidance course", checked = showCourse, dot = VdtColors.Red) { onShowCourse(it) }
     }
 
     if (mapVehicles != null) {

@@ -1,0 +1,33 @@
+-- Model definitions for the GPS course export channel (gpsCourse.json,
+-- src/collect/GpsCourseExporter.lua).
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/GpsCourse.kt) and the fixtures
+-- in examples/json/gpsCourse/*.
+--
+-- The channel carries GEOMETRY ONLY — the lines the game's steering assist generated for the field
+-- the driven vehicle is on. It is rewritten only when that course changes (a new field, a different
+-- implement width, changed AI settings), which is why the fast-moving part of the same subject —
+-- which line you are on, how far off it, which lines are done — rides on the main telemetry's
+-- `vehicle.gps.course` instead (GpsCourseStateModel, in SupportModel.lua).
+--
+-- All coordinates are normalized [0,1] map coordinates in the same frame as MapModel /
+-- PlayerModel.posX/posZ (world origin at the terrain center), so the app projects the course with
+-- exactly the math it already projects fields and vehicles with.
+
+---@class GpsCourseSegmentModel
+---@field i number the game's own segment index — the key the live state's segmentIndex and worked bitmask refer to
+---@field kind string "line" | "headland" | "island"
+---@field headlandIndex number? which headland ring this is, for kind == "headland"
+---@field p number[] flat normalized polyline [x1,z1,x2,z2,...]
+
+---@class GpsCourseModel
+---@field version string
+---@field courseId string identity of this course; "" when there is none. Joins to GpsCourseStateModel.courseId
+---@field implementWidth number? working width the course was generated for, in meters
+---@field numHeadlands number?
+---@field sideOffset number? meters the lines are shifted sideways by
+---@field workDirection number? radians, or -1 for the game's "automatic"
+---@field boundary number[]? the detected field boundary, flat [x1,z1,...]
+---@field islands number[][]? boundaries of the field's islands, each flat
+---@field segments GpsCourseSegmentModel[]? omitted when there is no course

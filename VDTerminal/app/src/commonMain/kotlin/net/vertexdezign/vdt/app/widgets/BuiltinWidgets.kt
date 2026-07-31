@@ -73,6 +73,7 @@ object MapWidget : Widget {
     val mapVehicles by store.mapVehicles.collectAsState()
     val mapLayers by store.mapLayers.collectAsState()
     val fieldInfo by store.fieldInfo.collectAsState()
+    val gpsCourse by store.gpsCourse.collectAsState()
 
     val pda = telemetry?.environment?.pda
     // In a vehicle the heading is the vehicle's GPS; on foot it's the player's. Same compass
@@ -98,6 +99,7 @@ object MapWidget : Widget {
       // anything else is a stale key rather than a preference worth honouring.
       showGuidance = guidanceOption.resolve(config) == GUIDANCE_ON,
       onCommand = store.onCommand,
+      gpsCourse = gpsCourse,
     )
   }
 }

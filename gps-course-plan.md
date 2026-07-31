@@ -24,6 +24,17 @@ a section strip and a few big numbers. This plan gets there in that order.
   is decided to live **server-side**, not in the mod — see §5.
 - §6 (3D) stays a maybe, and the plan says why 2D course-up gets most of the way there.
 
+**Status (2026-07-31, branch `43-gps-course`):**
+
+- §2's app half — **done and confirmed in the app** (commit `c106372`): the `MapProjection` refactor
+  and the navigation strip on the map. Its lightbar and progress readout were blocked on §1's live
+  state and are the remaining piece; see §2's "How it landed".
+- §1 — **done, not yet validated in game.** Both halves (the `gpsCourse.json` geometry channel and
+  the `vehicle.gps.course` live state) plus the course drawn on the map. Mod export version is now
+  **7**. See "How it landed" below and the in-game checks at the end — the deviation *sign* is the
+  one that genuinely needs a tractor.
+- §3 (course-up) — not started.
+
 Every game-source claim is cited `file:line` against the bundled extracted source. Precision
 Farming is cited by LUADOC section, since PF's own Lua is not in the bundle — those are marked as
 needing an in-game check.
@@ -160,6 +171,35 @@ Build the `Path`s in `remember(course)` exactly like `fieldPaths` does, so pan/z
 them. Add a "Course" toggle to the filter popover, persisted per placed tile through
 `WidgetSettings` like `KEY_SHOW_FIELDS`.
 
+### How it landed (2026-07-31)
+
+Close to the shape above, with three decisions worth recording:
+
+- **`courseId` is a counter, not a content hash.** It is only ever a join key between two files
+  written by the same process, so a monotonic id bumped whenever the course table changes is enough —
+  and it is free, where hashing the geometry would cost a walk per poll. The mod publishes the new id
+  the moment it notices; the file follows on the next flush, and the app ignores indices whose id it
+  has no geometry for, so the gap shows as a briefly unhighlighted line rather than a wrong one.
+- **The change poll lives in two places.** `refresh()` runs from the channel's `tick` (500 ms) *and*
+  from the 10 Hz state collector. The tick alone would leave the id up to half a second stale on the
+  telemetry; the collector alone would never notice the course going away, because it only runs while
+  there is a vehicle with one.
+- **No course publishes an empty file rather than skipping the write.** `collect()` returning nil
+  means "skip", which would leave the last field's course on disk for the app to keep drawing after
+  the driver has left. The empty model (`courseId: ""`) is the mod saying so out loud.
+
+`lineState` is the one piece of real logic: closest point on the polyline, cross-track error signed
+against the game's own left (`SteeringFieldCourse.lua:174-182`) after orienting the line along travel,
+and remaining length walked forward from the hit point. It is pure — the engine only supplies a
+position and a heading — so `spec/GpsCourse_spec.lua` covers it directly, including the
+drive-it-backwards case. The worked bitmask is pinned from both ends (`GpsCourseModelTest`), since it
+is the only piece of wire format the two sides must agree on bit for bit.
+
+The app draws it under the existing overlays: swath bands at `implementWidth / terrainSize` (a real
+width, so it grows with zoom like the ground it covers), green where worked, the current line in red,
+headlands blue and islands amber, with the course's own detected boundary outlined under everything.
+Toggle in the filter popover, persisted per placed tile.
+
 ## §2 — Navigation into the map, and a lightbar
 
 **First, a refactor that everything after this depends on.** `MapPanel` repeats the projection
@@ -178,6 +218,21 @@ is still the right thing on a grid page without a map.
 scale, with the numeric offset in cm), `distanceToEndM` counting down to the headland, and a
 progress readout — "line 12/47 · 23 worked" plus percent, which is genuinely useful and free from
 the data in §1.
+
+### How it landed (2026-07-31, commit `c106372`)
+
+The refactor and the strip went in together — they touch the same file, and the strip is the reason
+the refactor was worth scoping. `MapProjection` now owns `toScreen` / `toNorm` / the visibility cull
+and the centring math, with the zoom-around-a-focal-point helper deliberately left *outside* it: the
+pinch and wheel handlers live in a `pointerInput(Unit)` that never restarts, so anything they captured
+from composition would go stale on a resize.
+
+The strip is captionless (the lamp gained a `showLabel` flag rather than being duplicated), reads out
+a bearing on foot as well — the map already unifies vehicle-GPS and player heading — and is off by
+default per placed tile.
+
+**Still open here:** the lightbar and the "line 12/47 · 23 worked" readout. Both now have their data
+(§1 landed `deviationM`, `distanceToEndM`, `workedCount`/`segmentCount`), so this is app-only work.
 
 ## §3 — Course-up
 
@@ -271,6 +326,27 @@ My read: course-up (§3) delivers most of what the reference photos communicate.
 - **Empty-course transitions.** Leaving a field resets the course after 20 s
   (`AIAutomaticSteering.lua:343-352`); the channel must publish that as "no course", and the app
   must clear rather than keep painting the last one.
+
+### In-game checks §1 still needs (2026-07-31)
+
+Everything below is unit-tested against stubs, which says nothing about whether the real spec tables
+look like the stubs:
+
+1. **The deviation sign.** `lineState` calls "+ right" by deriving left from the game's own side-offset
+   direction. That is a reading of `SteeringFieldCourse.lua`, not a measurement. Drive a line with the
+   assist engaged, drift knowingly to one side, and check the number's sign — a lightbar that pushes
+   you the wrong way is worse than none.
+2. **Course size on a real field.** Measure the written `gpsCourse.json` on a big field with a narrow
+   tool; the thinning constants (3 m, 128 points per segment) are guesses against boundary-resolution
+   headland rings.
+3. **How often the course actually changes.** The channel assumes "about once per field". If the game
+   regenerates it more eagerly than that (attaching an implement, a settings tweak, re-entering), the
+   write frequency wants a second look.
+4. **Multiplayer.** Segments, worked flags and `currentSegmentIndex` on a dedicated-server client, and
+   whether our own distance-to-end matches what the host feels.
+5. **Fixture refresh.** `examples/json/*.json` are captures from before the VERSION 7 bump, so none
+   carries `gps.course`; the live half is currently covered by inline JSON in `GpsCourseModelTest`.
+   Retake one capture with a course active and swap the test over.
 
 ## Deferred
 

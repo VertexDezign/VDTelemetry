@@ -65,6 +65,9 @@ fun main() {
   val mapState = watcher.register("map.json", nullOnAbsent = true) { VdtParser.parseMap(it) }
   // mapVehicles.json rewrites on the mod's own ~1 s vehicle interval; same absence rule.
   val mapVehiclesState = watcher.register("mapVehicles.json", nullOnAbsent = true) { VdtParser.parseMapVehicles(it) }
+  // gpsCourse.json is rewritten only when the steering course changes — once per field, not on a
+  // clock. Same absence rule; an empty course is published as a file rather than by deleting it.
+  val gpsCourseState = watcher.register("gpsCourse.json", nullOnAbsent = true) { VdtParser.parseGpsCourse(it) }
   // fieldInfo.json is interval-driven (per-field agronomy, resampled as crops grow); same "absence
   // means no data / export off" rule as map.json — the app drops back to the geometry rows.
   val fieldInfoState = watcher.register("fieldInfo.json", nullOnAbsent = true) { VdtParser.parseFieldInfo(it) }
@@ -195,6 +198,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val gpsCourseJob =
+          launch {
+            gpsCourseState.collect { data ->
+              val message: ServerMessage = ServerMessage.GpsCourse(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         val fieldInfoJob =
           launch {
             fieldInfoState.collect { data ->
@@ -271,6 +281,7 @@ fun main() {
           cropRotationJob.cancel()
           mapJob.cancel()
           mapVehiclesJob.cancel()
+          gpsCourseJob.cancel()
           fieldInfoJob.cancel()
           productionJob.cancel()
           storageJob.cancel()

@@ -92,6 +92,7 @@ fun main() {
       cropRotation = repository.cropRotation,
       mapData = repository.mapData,
       mapVehicles = repository.mapVehicles,
+      gpsCourse = repository.gpsCourse,
       mapLayers = repository.mapLayers,
       fieldInfo = repository.fieldInfo,
       production = repository.production,

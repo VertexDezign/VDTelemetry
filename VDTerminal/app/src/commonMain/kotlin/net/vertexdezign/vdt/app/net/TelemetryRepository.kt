@@ -18,6 +18,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
@@ -84,6 +85,12 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // Vehicle markers, on the mod's own ~1 s interval; same null-when-absent contract as mapData.
   private val _mapVehicles = MutableStateFlow<MapVehiclesData?>(null)
   val mapVehicles: StateFlow<MapVehiclesData?> = _mapVehicles.asStateFlow()
+
+  // The steering assist's guidance lines for the field being driven, rewritten by the mod only when
+  // the course changes; same null-when-absent contract as mapVehicles. An empty course (no segments)
+  // is the mod saying the driver has left the field, which clears the overlay just as null does.
+  private val _gpsCourse = MutableStateFlow<GpsCourseData?>(null)
+  val gpsCourse: StateFlow<GpsCourseData?> = _gpsCourse.asStateFlow()
 
   // Per-field agronomy for the field-info popup, on its own interval cadence; null while
   // fieldInfo.json is absent (export off / no data yet), broadcast so the popup drops the agronomy
@@ -181,6 +188,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.MapVehicles -> {
                       _mapVehicles.value = msg.data
+                    }
+
+                    is ServerMessage.GpsCourse -> {
+                      _gpsCourse.value = msg.data
                     }
 
                     is ServerMessage.FieldInfo -> {
