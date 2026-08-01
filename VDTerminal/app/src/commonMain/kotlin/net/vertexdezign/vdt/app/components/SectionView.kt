@@ -37,18 +37,19 @@ import kotlin.math.roundToInt
 /**
  * What the tool is doing across its width — the terminal's section view.
  *
- * Three strips, each drawn only when the machine reports it, because the three come from different
- * places and most machines have one of them:
+ * Four rows, each drawn only when the machine reports it, because they come from different places and
+ * most machines have one or two of them:
  *
  *  * a status line, from the work areas: what kind of work, and whether it is happening. This is the
  *    only one a tool without sections has — a tedder or a plough is all-or-nothing, and "is it
  *    actually working" is exactly what you can't see from the seat.
- *  * the shutoff bar, from `spec_variableWorkWidth`: one cell per section, lit when it is on. This is
- *    the base game's whole notion of section control.
- *  * the rate strip, from Precision Farming: what is being put down across the boom, tinted by how
- *    far each slice is below its target. It only exists in singleplayer and on the host (PF computes
- *    it server-side), which is why the reading above it comes from the boom average instead — that
- *    one is streamed to everybody.
+ *  * the spray bar: either Precision Farming's live per-nozzle states or, on a machine without them,
+ *    the base game's shutoff sections. See [sprayBar] for why it is one or the other and never both.
+ *  * the rate readout, from PF's boom averages — which are streamed to every client, so this is the
+ *    number that is there in multiplayer.
+ *  * the rate strip, from PF's per-slice readings: what is in the ground across the boom, tinted by
+ *    how far each slice is below target. Server-side only, and only computed at all when the tool is
+ *    liming or fertilizing — so it is detail on top of the readout, never the thing itself.
  */
 @Composable
 fun SectionView(
@@ -57,9 +58,11 @@ fun SectionView(
   precisionFarming: PrecisionFarming?,
   modifier: Modifier = Modifier,
 ) {
-  val sections = workWidth?.sections.orEmpty()
   val status = workAreaStatus(workAreas)
-  if (sections.isEmpty() && status == null && precisionFarming == null) return
+  val bar = sprayBar(workWidth, precisionFarming)
+  val strip = activeStrip(precisionFarming)
+  val rate = precisionFarming?.primary
+  if (status == null && bar == null && strip.isEmpty() && rate == null) return
 
   Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
     if (status != null) {
@@ -74,6 +77,17 @@ fun SectionView(
           overflow = TextOverflow.Ellipsis,
           modifier = Modifier.weight(1f, fill = false),
         )
+        // How much of the boom is on, when the bar is the nozzles' — the one number you would
+        // otherwise have to count cells for, and the one spot spraying moves constantly.
+        precisionFarming?.nozzles?.let {
+          Text(
+            "${it.activeCount}/${it.count}",
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (it.activeCount > 0) VdtColors.Green else VdtColors.DarkGray,
+            maxLines = 1,
+          )
+        }
         // The live width, which is what changes as sections fold in — the reason the aggregate is
         // worth showing next to the bar rather than instead of it.
         val width = workWidth?.total ?: workAreas.firstOrNull { it.active }?.width
@@ -88,20 +102,58 @@ fun SectionView(
       }
     }
 
-    if (sections.isNotEmpty()) {
-      SectionBar(sections)
+    when (bar) {
+      is SprayBar.Nozzles -> NozzleBar(bar.active)
+      is SprayBar.Sections -> SectionBar(bar.sections)
+      null -> Unit
     }
 
     if (precisionFarming != null) {
-      RateReadout(precisionFarming)
-      // First area with a strip: a tool has one boom, and PF only sub-divides the areas it works
-      // with. Absent on a multiplayer client, where the readout above stands alone.
-      precisionFarming.workAreas.firstOrNull { it.subSections.isNotEmpty() }?.let {
-        RateStrip(it.subSections, precisionFarming.mode)
-      }
+      if (rate != null) RateReadout(precisionFarming, rate)
+      if (strip.isNotEmpty()) RateStrip(strip, precisionFarming.mode)
     }
   }
 }
+
+/** Which of the two bars this machine gets — see [sprayBar]. */
+internal sealed interface SprayBar {
+  data class Nozzles(val active: List<Boolean>) : SprayBar
+
+  data class Sections(val sections: List<WorkSection>) : SprayBar
+}
+
+/**
+ * One bar, not two.
+ *
+ * When Precision Farming drives a sprayer's nozzles it **takes the base game's width controls away** —
+ * `ExtendedSprayerEffects` removes `VariableWorkWidth`'s input handler and HUD on exactly those
+ * machines — so their shutoff sections are frozen all-on and say nothing. The nozzle states are the
+ * live answer there, and they already fold the sections in, so showing both would be one honest bar
+ * next to one stuck one.
+ *
+ * Everything else — a tool PF has no nozzle data for, a spreader, a cultivator with folding sections —
+ * still gets the shutoff bar, which on those machines does move.
+ */
+internal fun sprayBar(workWidth: WorkWidth?, precisionFarming: PrecisionFarming?): SprayBar? {
+  val nozzles = precisionFarming?.nozzles
+  if (nozzles != null && nozzles.active.isNotEmpty()) return SprayBar.Nozzles(nozzles.active)
+  val sections = workWidth?.sections.orEmpty()
+  return if (sections.isEmpty()) null else SprayBar.Sections(sections)
+}
+
+/**
+ * The sub-section strip worth drawing, or nothing.
+ *
+ * PF only fills sub-sections in while liming or fertilizing (`isValid = isLiming or isFertilizing`),
+ * so a sprayer with herbicide in the tank reports a full set of slices that all read "no data". Drawn
+ * literally that is a row of grey cells saying nothing, which reads as a broken bar rather than an
+ * absent one — so a strip with nothing valid in it is not a strip.
+ */
+internal fun activeStrip(precisionFarming: PrecisionFarming?): List<PfSubSection> = precisionFarming
+  ?.workAreas
+  ?.firstOrNull { area -> area.subSections.any { it.valid } }
+  ?.subSections
+  .orEmpty()
 
 /** One cell per shutoff section, in the boom's own order; a center section is bracketed, as in game. */
 @Composable
@@ -134,12 +186,31 @@ private fun Separator() {
 }
 
 /**
+ * One cell per nozzle, left to right, lit where spray is actually leaving the boom.
+ *
+ * Drawn tighter than the shutoff bar and without its gaps: there are several times as many nozzles as
+ * sections, and what you read off this is the *shape* of the spray — a solid block, a gap where a
+ * section is off, or the scattered pattern spot spraying makes as it finds weeds.
+ */
+@Composable
+internal fun NozzleBar(active: List<Boolean>, modifier: Modifier = Modifier) {
+  Row(
+    modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(2.dp)).background(VdtColors.TrackGray),
+    horizontalArrangement = Arrangement.spacedBy(0.5.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    for (on in active) {
+      Box(Modifier.weight(1f).fillMaxHeight().background(if (on) VdtColors.Accent else VdtColors.TrackGray))
+    }
+  }
+}
+
+/**
  * The boom average: what the ground has, and what the tool is aiming for. Both are network-synced, so
  * this is the one part of the Precision Farming view that reads the same in multiplayer.
  */
 @Composable
-private fun RateReadout(pf: PrecisionFarming) {
-  val value = pf.primary ?: return
+private fun RateReadout(pf: PrecisionFarming, value: PfValue) {
   Row(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(4.dp),

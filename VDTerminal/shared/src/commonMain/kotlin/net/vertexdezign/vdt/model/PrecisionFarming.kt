@@ -24,6 +24,7 @@ data class PrecisionFarming(
   val nitrogen: PfValue? = null,
   val ph: PfValue? = null,
   val workAreas: List<PfWorkArea> = emptyList(),
+  val nozzles: PfNozzles? = null,
 ) {
   /** The value this machine's mode is about — what a rate readout should lead with. */
   val primary: PfValue?
@@ -50,6 +51,31 @@ data class PfValue(
 ) {
   /** How far below target this reading is; 0 when it is at or above it. */
   val deficit: Float get() = (target - level).coerceAtLeast(0f)
+}
+
+/**
+ * The boom's nozzles, left to right — what is *actually coming out* right now.
+ *
+ * A different question from the shutoff sections, and a better-answered one. Each state already folds
+ * in the section being off, reversing or crawling, spot spraying finding no weed under that nozzle,
+ * and liquid fertilizer skipping ground that already has some. It is also the only per-position signal
+ * here that survives multiplayer: PF recomputes these on every client, because they drive what the
+ * player sees leaving the boom.
+ *
+ * Present only on the sprayers PF ships nozzle data for — which are exactly the machines where it
+ * removes the base game's work-width controls, so where [WorkWidth.sections] freezes, this is live.
+ *
+ * [individual] is false on a machine PF switches a whole section at a time.
+ */
+@Serializable
+data class PfNozzles(
+  val count: Int = 0,
+  val activeCount: Int = 0,
+  val individual: Boolean = false,
+  val active: List<Boolean> = emptyList(),
+) {
+  /** How much of the boom is spraying, `0..1` — PF's own `getNumExtendedSprayerNozzleEffectsActive`. */
+  val fraction: Float get() = if (count > 0) activeCount.toFloat() / count else 0f
 }
 
 /** The sub-sections of one work area, joined to [WorkArea.index] by [index]. */

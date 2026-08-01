@@ -372,6 +372,42 @@ that ramp means "nothing needed here" and that is a claim about ground the soil 
 uncovered. And the map footprint is drawn only for areas that are `active`; painting a raised
 implement's resting footprint would read as coverage.
 
+### The nozzle bar (2026-08-01, from a play session)
+
+Driving it turned up two things, one a game fact and one a defect.
+
+**PF takes the base game's width controls away.** On a sprayer PF ships nozzle data for,
+`ExtendedSprayerEffects` removes `VariableWorkWidth`'s `onRegisterActionEvents` *and* `onDraw`
+(`ExtendedSprayerEffects.lua:101-105`) — so the player cannot change the working width at all and the
+game's own section HUD is gone. The sections still exist and still gate the work areas and the
+effects; they are simply frozen all-on for a human driver (an AI worker can still set them). Which
+means **the shutoff bar is dead weight on exactly the machines a section view is most wanted on.**
+
+**PF's own answer is per nozzle, and it is better than everything above.**
+`spec.sprayerEffects[i].isActive` (`ExtendedSprayerEffects.lua:283-289`) is recomputed every update
+and already folds in: the section being off (`:361`), reversing or crawling
+(`WeedSpotSpray.lua:118-120`), spot spraying finding no weed under that nozzle (`:123-131`), and
+liquid fertilizer skipping ground that already has some (`:142-160`). Two properties make it the
+primary signal rather than a nice-to-have:
+
+- **It survives multiplayer.** `onUpdate` has no `isServer` gate (`:187-203`), because these states
+  drive what the player sees leaving the boom.
+- **It says something with herbicide in the tank**, where PF computes no rates at all and every
+  sub-section reads invalid.
+
+Ordering is rebuilt from `effectData.xOffset` (measured once at load, `:249`) rather than taken from
+the spec's list, which comes out of a `pairs()` walk of PF's node XML. Positive x is the **left**
+side — that is how PF itself reads it, looking a positive offset up in `sectionsLeft` (`:264-271`) —
+so descending x runs left to right, matching the shutoff bar.
+
+So the app shows **one** bar: the nozzles when they exist, the shutoff sections otherwise. Never both,
+because that would be an honest bar next to a stuck one.
+
+**The defect:** with herbicide the rate strip drew twelve grey cells — PF fills sub-sections in only
+while liming or fertilizing (`ExtendedSprayer.lua:682`), so every slice was "no data". Correctly
+mirrored and useless to look at; a row of grey reads as a broken bar rather than an absent one. A
+strip with nothing valid in it is now not drawn.
+
 Reading PF needed no mod-environment dance: `spec_FS25_precisionFarming.extendedSprayer` is a plain
 string key on the vehicle (`ExtendedSprayer.lua:3`), the same reason `subSectionData` is reachable at
 all. The value maps come off that spec too, so `pfInstance()` stays confined to the layers code.
@@ -384,15 +420,20 @@ about whether the real spec tables look like the stubs.
 
 1. **Section order and the centre.** On a machine with an odd number of sections (a sprayer with a
    centre nozzle group), check the bar reads left-to-right the way the boom does and the bracketed
-   cell really is the middle one. This is the one where being wrong looks plausible.
-2. **Which machines populate `subSectionData`.** PF only refreshes sprayer / sowing-machine /
+   cell really is the middle one. This is the one where being wrong looks plausible. Note this now
+   only shows on machines PF drives no nozzles on — a non-PF sprayer, a spreader, a folding
+   cultivator.
+2. **The nozzle bar.** Left-to-right order is derived from `xOffset` and the sign convention is read
+   out of PF's own code, so it is worth one look that a section switching off darkens the correct
+   *end* of the bar. Spot spraying is the fun case: the pattern should be scattered and should move.
+3. **Which machines populate `subSectionData`.** PF only refreshes sprayer / sowing-machine /
    cultivator work areas, only while moving, and only on the server — so the expected result is a
    strip in singleplayer and no strip on a client, with the readout present in both. Worth checking
    the sub-section count on a wide boom too (~2 m each, so a 36 m sprayer is ~18 cells).
-3. **The footprint.** Does the quad sit under the machine and stay there in course-up, and does the
+4. **The footprint.** Does the quad sit under the machine and stay there in course-up, and does the
    fill actually follow the tool switching on and off? A tedder is the interesting case: no sections
    at all, so the status line and the footprint are the entire section view.
-4. **A trailed tool with several work areas.** A cultivator-plus-seeder reports more than one; check
+5. **A trailed tool with several work areas.** A cultivator-plus-seeder reports more than one; check
    the status line names the tool sensibly rather than whichever area happens to be busy.
 
 ## §5 — Coverage layer (issue bullet 3) — *planned, not scheduled; decided to be server-side*

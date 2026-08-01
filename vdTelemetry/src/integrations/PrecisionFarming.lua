@@ -66,6 +66,16 @@ VDT.PrecisionFarming.MOD_NAME = "FS25_precisionFarming"
 ---@field index number
 ---@field subSections PfSubSectionModel[]
 
+-- The boom's nozzles, left to right. `active` is what is *actually coming out* right now, which is a
+-- different question from the shutoff sections: it already folds in the section, the direction and
+-- speed, spot spraying's weed detection and the "this ground is already fertilized" skip.
+-- `individual` is false on a machine PF switches a whole section at a time.
+---@class PfNozzlesModel
+---@field count number
+---@field activeCount number
+---@field individual boolean
+---@field active boolean[]
+
 -- `mode` is what the tool is currently doing with what is in its tank. `nitrogen`/`ph` are the
 -- averages over the whole boom -- the numbers PF's own HUD shows -- and are network-synced, so they
 -- are there for every player. `workAreas` is the per-slice detail, which is not: see the note on
@@ -76,6 +86,7 @@ VDT.PrecisionFarming.MOD_NAME = "FS25_precisionFarming"
 ---@field nitrogen PfValueModel?
 ---@field ph PfValueModel?
 ---@field workAreas PfWorkAreaModel[]?
+---@field nozzles PfNozzlesModel?
 
 ---@class VehicleModel
 ---@field precisionFarming PrecisionFarmingModel?
@@ -135,6 +146,12 @@ end
 -- key on the vehicle table, so unlike PF's globals it is readable from here without the mod-env dance
 -- above -- the same reason `subSectionData` is reachable at all.
 VDT.PrecisionFarming.SPRAYER_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".extendedSprayer"
+
+-- PF's per-nozzle effects, on the same kind of key. Only the sprayers PF ships node data for have
+-- this spec populated -- and those are exactly the machines where it takes the base game's width
+-- controls away (ExtendedSprayerEffects.lua:101-105 removes VariableWorkWidth's onRegisterActionEvents
+-- and onDraw), so where the shutoff bar freezes, this is what replaces it.
+VDT.PrecisionFarming.EFFECTS_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".extendedSprayerEffects"
 
 ---Convert one of PF's internal levels to the value a player reads, through the map's own converter
 ---(NitrogenMap:getNitrogenValueFromInternalValue / PHMap:getPhValueFromInternalValue). Levels are
@@ -214,13 +231,68 @@ local function collectSubSections(spec, area)
   return { index = area.index, subSections = subSections }
 end
 
+---The boom's nozzles, left to right, or nil when PF drives no per-nozzle effects on this machine.
+---
+---Unlike the sub-sections above this is **not** server-only: the states are recomputed in
+---`ExtendedSprayerEffects:onUpdate` with no `isServer` gate (`:187-203`), because they drive what the
+---player sees coming out of the boom. So this is the one per-position signal that survives
+---multiplayer -- and the only one that says anything at all with herbicide in the tank, where PF
+---computes no rates and every sub-section reads invalid.
+---
+---Each state already folds in everything that can stop a nozzle: its section being off
+---(`:361`), reversing or crawling (`WeedSpotSpray.lua:118-120`), spot spraying finding no weed under
+---it (`:123-131`), and liquid fertilizer skipping ground that already has some (`:142-160`).
+---@param object table a vehicle or implement
+---@return PfNozzlesModel|nil
+local function collectNozzles(object)
+  local spec = object[VDT.PrecisionFarming.EFFECTS_SPEC]
+  if type(spec) ~= "table" or type(spec.sprayerEffects) ~= "table" then
+    return nil
+  end
+
+  local nozzles = {}
+  for _, effect in ipairs(spec.sprayerEffects) do
+    if type(effect) == "table" then
+      nozzles[#nozzles + 1] = { x = tonumber(effect.xOffset) or 0, active = effect.isActive == true }
+    end
+  end
+  if #nozzles == 0 then
+    return nil
+  end
+
+  -- Sorted rather than taken in the spec's order, which comes out of a `pairs()` walk of PF's node
+  -- XML. `xOffset` is the nozzle's lateral offset, measured once at load
+  -- (`ExtendedSprayerEffects.lua:249`), and positive means the LEFT side -- that is how PF itself
+  -- reads it, looking a positive offset up in `sectionsLeft` (`:264-271`). So descending x is left to
+  -- right across the boom, matching the order the shutoff sections come in.
+  table.sort(nozzles, function(a, b)
+    return a.x > b.x
+  end)
+
+  local active, activeCount = {}, 0
+  for index, nozzle in ipairs(nozzles) do
+    active[index] = nozzle.active
+    if nozzle.active then
+      activeCount = activeCount + 1
+    end
+  end
+
+  return {
+    count = #nozzles,
+    activeCount = activeCount,
+    individual = spec.individualNozzleControl == true,
+    active = active,
+  }
+end
+
 ---Application rates for one object, or nil when it is not a PF sprayer/spreader.
 ---
----**The two halves have different reach.** `nitrogen`/`ph` are the boom averages PF streams to every
+---**The parts have different reach.** `nitrogen`/`ph` are the boom averages PF streams to every
 ---client (ExtendedSprayer.lua:180-206, plus its own value event), so they are there for everyone. The
 ---per-slice `workAreas` are refreshed inside `if self.isServer` (:212-255), so on a multiplayer client
 ---they are simply absent -- which is why they are optional rather than the primary shape, and why the
----app has to draw a readout from the averages and treat the strip as detail on top.
+---app has to draw a readout from the averages and treat the strip as detail on top. `nozzles` is the
+---exception that survives multiplayer; see collectNozzles.
 ---@param object table a vehicle or implement
 ---@return PrecisionFarmingModel|nil
 function VDT.PrecisionFarming.collectSprayer(object)
@@ -253,6 +325,10 @@ function VDT.PrecisionFarming.collectSprayer(object)
       "kg/ha"
     ),
     ph = valuePair(spec.pHMap, "getPhValueFromInternalValue", spec.phActualValue, spec.phTargetValue),
+    -- Off a different spec, but the same machine and the same question, so it rides here rather than
+    -- becoming a second subtree. ExtendedSprayerEffects requires ExtendedSprayer
+    -- (`prerequisitesPresent`), so gating both on this one loses nothing.
+    nozzles = collectNozzles(object),
   }
 
   -- Walked from the base-game work areas rather than PF's own three lists, so the exported `index`

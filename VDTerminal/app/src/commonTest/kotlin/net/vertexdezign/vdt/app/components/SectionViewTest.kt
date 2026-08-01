@@ -2,9 +2,15 @@ package net.vertexdezign.vdt.app.components
 
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.PfMode
+import net.vertexdezign.vdt.model.PfNozzles
 import net.vertexdezign.vdt.model.PfSubSection
 import net.vertexdezign.vdt.model.PfValue
+import net.vertexdezign.vdt.model.PfWorkArea
+import net.vertexdezign.vdt.model.PrecisionFarming
+import net.vertexdezign.vdt.model.SectionSide
 import net.vertexdezign.vdt.model.WorkArea
+import net.vertexdezign.vdt.model.WorkSection
+import net.vertexdezign.vdt.model.WorkWidth
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -80,6 +86,54 @@ class SectionViewTest {
     val slice = PfSubSection(valid = true, n = 0f, nTarget = 100f, ph = 6.8f, phTarget = 6.8f)
     assertEquals(VdtColors.Red, sliceColor(slice, PfMode.FERTILIZER))
     assertEquals(VdtColors.Green, sliceColor(slice, PfMode.LIME))
+  }
+
+  @Test
+  fun anAllInvalidStripIsNoStripAtAll() {
+    // A sprayer with herbicide in the tank: PF fills sub-sections in only while liming or
+    // fertilizing, so every slice reads "no data" and the strip would be a row of grey cells that
+    // looks broken rather than absent.
+    val herbicide =
+      PrecisionFarming(
+        mode = PfMode.OTHER,
+        workAreas = listOf(PfWorkArea(1, List(6) { PfSubSection(valid = false) })),
+      )
+    assertTrue(activeStrip(herbicide).isEmpty())
+
+    // One valid slice is enough — a boom crossing the field edge is exactly the case worth drawing.
+    val crossing =
+      PrecisionFarming(
+        mode = PfMode.FERTILIZER,
+        workAreas = listOf(PfWorkArea(1, listOf(PfSubSection(valid = false), PfSubSection(valid = true)))),
+      )
+    assertEquals(2, activeStrip(crossing).size)
+    assertTrue(activeStrip(null).isEmpty())
+  }
+
+  @Test
+  fun prefersTheNozzlesOverAShutoffBarPfHasFrozen() {
+    // PF removes the base game's work-width controls on the machines it drives the nozzles of, so
+    // their sections sit all-on forever. The nozzle states are the live answer, and they already
+    // account for the sections.
+    val sections = List(4) { WorkSection(active = true, side = SectionSide.LEFT) }
+    val pf = PrecisionFarming(nozzles = PfNozzles(count = 3, activeCount = 2, active = listOf(true, true, false)))
+    val bar = sprayBar(WorkWidth(sections = sections), pf)
+    assertEquals(SprayBar.Nozzles(listOf(true, true, false)), bar)
+
+    // A tool PF drives no nozzles on keeps the shutoff bar, which on those machines does move.
+    assertEquals(SprayBar.Sections(sections), sprayBar(WorkWidth(sections = sections), PrecisionFarming()))
+    assertEquals(SprayBar.Sections(sections), sprayBar(WorkWidth(sections = sections), null))
+
+    // And a tool with neither gets no bar rather than an empty one.
+    assertNull(sprayBar(null, null))
+    assertNull(sprayBar(WorkWidth(), PrecisionFarming(nozzles = PfNozzles())))
+  }
+
+  @Test
+  fun reportsHowMuchOfTheBoomIsSpraying() {
+    assertEquals(0.5f, PfNozzles(count = 24, activeCount = 12).fraction)
+    // Never a divide by zero on a machine that reported the subtree but no nozzles.
+    assertEquals(0f, PfNozzles().fraction)
   }
 
   @Test

@@ -109,6 +109,28 @@ class SectionViewModelTest {
   }
 
   @Test
+  fun readsTheNozzleStatesTheAppDrawsAsASprayBar() {
+    val pf =
+      vehicle(
+        """
+        "precisionFarming":{"mode":"OTHER","auto":false,
+        "nozzles":{"count":6,"activeCount":4,"individual":true,
+        "active":[true,true,false,false,true,true]}}
+        """.trimIndent(),
+      ).precisionFarming!!
+
+    val nozzles = pf.nozzles!!
+    assertEquals(6, nozzles.count)
+    assertEquals(4, nozzles.activeCount)
+    assertTrue(nozzles.individual)
+    // Left to right across the boom, so a gap in the middle is a gap in the middle.
+    assertEquals(listOf(true, true, false, false, true, true), nozzles.active)
+    // Herbicide: PF computes no rates at all, and the nozzles are the only thing this tool can say.
+    assertEquals(PfMode.OTHER, pf.mode)
+    assertNull(pf.primary)
+  }
+
+  @Test
   fun aMultiplayerClientGetsTheAveragesWithoutTheStrip() {
     // PF only fills the sub-sections in on the server, so this is what a client sees. The readout has
     // to come off the averages; the strip is detail on top.

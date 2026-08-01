@@ -389,3 +389,85 @@ describe("PrecisionFarming.collectSprayer", function()
     assert.are.equal("FERTILIZER", pf.mode)
   end)
 end)
+
+-- The nozzle bar (collectNozzles, via collectSprayer): PF's own per-nozzle effect states. Unlike the
+-- sub-sections these are recomputed on every client, so this is the one per-position signal that
+-- survives multiplayer -- and the only one that says anything with herbicide in the tank.
+describe("PrecisionFarming nozzles", function()
+  local function effects(nozzles, individual)
+    return {
+      individualNozzleControl = individual == true,
+      sprayerEffects = nozzles,
+    }
+  end
+
+  local function sprayerWith(spec)
+    local object = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = { isFertilizing = true, sprayAmountAutoMode = true },
+    }
+    object[VDT.PrecisionFarming.EFFECTS_SPEC] = spec
+    return object
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v)
+        return math.floor(v + 0.5)
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+  end)
+
+  it("is absent on a sprayer PF drives no nozzle effects on", function()
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayerWith(nil)).nozzles)
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayerWith(effects({}))).nozzles)
+  end)
+
+  it("orders the nozzles left to right across the boom", function()
+    -- PF stores a POSITIVE xOffset for the left side (it looks a positive offset up in sectionsLeft),
+    -- and the effect list itself comes out of a pairs() walk of its node XML -- so the order has to be
+    -- rebuilt from the offsets, descending.
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayerWith(effects({
+      { xOffset = -3, isActive = false },
+      { xOffset = 6, isActive = true },
+      { xOffset = -6, isActive = false },
+      { xOffset = 3, isActive = true },
+    })))
+
+    assert.are.same({ true, true, false, false }, pf.nozzles.active)
+    assert.are.equal(4, pf.nozzles.count)
+    assert.are.equal(2, pf.nozzles.activeCount)
+    assert.is_false(pf.nozzles.individual)
+  end)
+
+  it("carries PF's per-nozzle vs per-section control flag", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayerWith(effects({ { xOffset = 1 } }, true)))
+    assert.is_true(pf.nozzles.individual)
+    -- An effect that has never run reads as off rather than as missing.
+    assert.are.same({ false }, pf.nozzles.active)
+    assert.are.equal(0, pf.nozzles.activeCount)
+  end)
+
+  it("still reports the nozzles with herbicide, where there are no rates at all", function()
+    local object = sprayerWith(effects({ { xOffset = 2, isActive = true }, { xOffset = -2, isActive = false } }))
+    -- Neither liming nor fertilizing: PF computes no levels, so every rate is absent.
+    object[VDT.PrecisionFarming.SPRAYER_SPEC].isFertilizing = false
+    local pf = VDT.PrecisionFarming.collectSprayer(object)
+    assert.are.equal("OTHER", pf.mode)
+    assert.is_nil(pf.nitrogen)
+    assert.is_nil(pf.ph)
+    assert.are.same({ true, false }, pf.nozzles.active)
+  end)
+
+  it("survives an effect list that no longer looks like this", function()
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayerWith({ sprayerEffects = "moved" })).nozzles)
+    -- A nozzle with no offset sorts as centre rather than dropping out of the bar.
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayerWith(effects({ { isActive = true }, { xOffset = 5 } })))
+    assert.are.same({ false, true }, pf.nozzles.active)
+  end)
+end)
