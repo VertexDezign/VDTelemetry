@@ -131,6 +131,27 @@ class SectionViewModelTest {
   }
 
   @Test
+  fun turnsTheActiveNozzleFractionIntoWhatSpotSprayingSaved() {
+    val pf =
+      vehicle(
+        """
+        "precisionFarming":{"mode":"OTHER","auto":false,"spotSpray":true,
+        "nozzles":{"count":10,"activeCount":4,"active":[true,true,true,true,false,false,false,false,false,false]}}
+        """.trimIndent(),
+      ).precisionFarming!!
+
+    assertEquals(true, pf.spotSpray)
+    // PF multiplies the sprayer's usage by exactly this fraction, so the saving is the game's own
+    // arithmetic rather than an estimate of ours.
+    assertEquals(0.4f, pf.nozzles?.fraction)
+    assertEquals(0.6f, pf.nozzles?.saved)
+
+    // A machine with no spot-spray configuration at all reports nothing, which is not the same as
+    // reporting it fitted and switched off.
+    assertNull(vehicle("\"precisionFarming\":{\"mode\":\"OTHER\"}").precisionFarming?.spotSpray)
+  }
+
+  @Test
   fun aMultiplayerClientGetsTheAveragesWithoutTheStrip() {
     // PF only fills the sub-sections in on the server, so this is what a client sees. The readout has
     // to come off the averages; the strip is detail on top.

@@ -21,8 +21,22 @@ data class PrecisionFarming(
   val mode: PfMode = PfMode.OTHER,
   /** PF's auto mode: the tool picks the rate from the maps instead of the manual step. */
   val auto: Boolean = false,
+  /**
+   * Present only while fertilizing. PF stops refreshing nitrogen the moment the tank holds anything
+   * else and never resets it, so outside that mode the mod withholds it rather than passing on a
+   * reading that is minutes or fields out of date.
+   */
   val nitrogen: PfValue? = null,
+  /** Present only while liming, for the same reason [nitrogen] is present only while fertilizing. */
   val ph: PfValue? = null,
+  /**
+   * Whether PF's spot-spray configuration is fitted; null when the machine has no such config at all.
+   *
+   * It is what makes [PfNozzles.saved] mean anything: with spot spraying, a boom running at 40% is
+   * covering the full width and skipping the clean ground. Without it, 40% just means most of the boom
+   * is folded away — same liquid per hectare, less hectares.
+   */
+  val spotSpray: Boolean? = null,
   val workAreas: List<PfWorkArea> = emptyList(),
   val nozzles: PfNozzles? = null,
 ) {
@@ -76,6 +90,16 @@ data class PfNozzles(
 ) {
   /** How much of the boom is spraying, `0..1` — PF's own `getNumExtendedSprayerNozzleEffectsActive`. */
   val fraction: Float get() = if (count > 0) activeCount.toFloat() / count else 0f
+
+  /**
+   * The share of a full-boom application this pass is *not* using, `0..1`.
+   *
+   * Not an estimate: PF multiplies the sprayer's usage by exactly [fraction]
+   * (`WeedSpotSpray:getSprayerUsage`), so this is the liquid saved against spraying the same ground
+   * at full width. Only meaningful with [PrecisionFarming.spotSpray] fitted — otherwise the closed
+   * nozzles are folded-away boom, and less liquid over less ground is not a saving.
+   */
+  val saved: Float get() = 1f - fraction
 }
 
 /** The sub-sections of one work area, joined to [WorkArea.index] by [index]. */

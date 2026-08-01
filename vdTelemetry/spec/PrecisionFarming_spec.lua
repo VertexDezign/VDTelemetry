@@ -318,7 +318,28 @@ describe("PrecisionFarming.collectSprayer", function()
     assert.are.equal("FERTILIZER", pf.mode)
     assert.is_true(pf.auto)
     assert.are.same({ level = 45, target = 90, unit = "kg/ha" }, pf.nitrogen)
-    assert.are.same({ level = 6.2, target = 6.8 }, pf.ph)
+
+    local lime = VDT.PrecisionFarming.collectSprayer(sprayer({ isFertilizing = false, isLiming = true }))
+    assert.are.same({ level = 6.2, target = 6.8 }, lime.ph)
+  end)
+
+  -- The trap: PF only refreshes nitrogen while fertilizing and pH while liming
+  -- (ExtendedSprayer.lua:714-719), and never resets either. A sprayer that fertilized this morning and
+  -- is on herbicide now still holds this morning's nitrogen, so emitting it would put a stale number
+  -- next to a live nozzle bar -- the one place it would be believed.
+  it("emits each reading only in the mode that maintains it", function()
+    local fertilizing = VDT.PrecisionFarming.collectSprayer(sprayer())
+    assert.is_not_nil(fertilizing.nitrogen)
+    assert.is_nil(fertilizing.ph, "pH is left over from the last liming pass while fertilizing")
+
+    local liming = VDT.PrecisionFarming.collectSprayer(sprayer({ isFertilizing = false, isLiming = true }))
+    assert.is_not_nil(liming.ph)
+    assert.is_nil(liming.nitrogen)
+
+    -- Herbicide: PF maintains neither, however recently the tank held something else.
+    local herbicide = VDT.PrecisionFarming.collectSprayer(sprayer({ isFertilizing = false }))
+    assert.is_nil(herbicide.nitrogen)
+    assert.is_nil(herbicide.ph)
   end)
 
   it("clamps a level past the map's maximum, as PF's own HUD does", function()
@@ -334,10 +355,27 @@ describe("PrecisionFarming.collectSprayer", function()
   end)
 
   it("omits a value pair PF has no reading for", function()
-    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({ phActualValue = 0, phTargetValue = 0 }))
+    -- Off the field, or on ground the soil sample hasn't uncovered: PF reports 0, which is "no
+    -- reading" rather than "pH zero".
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({
+      isFertilizing = false,
+      isLiming = true,
+      phActualValue = 0,
+      phTargetValue = 0,
+    }))
     assert.is_nil(pf.ph)
-    -- The other half is unaffected: off-field lime data doesn't hide the nitrogen the tool knows.
-    assert.are.equal(45, pf.nitrogen.level)
+    assert.are.equal("LIME", pf.mode)
+  end)
+
+  it("reports whether spot spraying is fitted, and tells that from not having the config", function()
+    local object = sprayer()
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(object).spotSpray)
+
+    object[VDT.PrecisionFarming.SPOT_SPRAY_SPEC] = { isEnabled = false }
+    assert.is_false(VDT.PrecisionFarming.collectSprayer(object).spotSpray)
+
+    object[VDT.PrecisionFarming.SPOT_SPRAY_SPEC] = { isEnabled = true }
+    assert.is_true(VDT.PrecisionFarming.collectSprayer(object).spotSpray)
   end)
 
   it("exports the sub-section strip against the work area it belongs to", function()

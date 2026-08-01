@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.PfMode
+import net.vertexdezign.vdt.model.PfNozzles
 import net.vertexdezign.vdt.model.PfSubSection
 import net.vertexdezign.vdt.model.PfValue
 import net.vertexdezign.vdt.model.PrecisionFarming
@@ -109,7 +110,13 @@ fun SectionView(
     }
 
     if (precisionFarming != null) {
-      if (rate != null) RateReadout(precisionFarming, rate)
+      // One line in this slot, never two: the rate where there is one, and otherwise — herbicide,
+      // where PF keeps no rates at all — what spot spraying is saving.
+      if (rate != null) {
+        RateReadout(precisionFarming, rate)
+      } else if (savingShown(precisionFarming, status)) {
+        SavingReadout(precisionFarming.nozzles!!)
+      }
       if (strip.isNotEmpty()) RateStrip(strip, precisionFarming.mode)
     }
   }
@@ -237,6 +244,53 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue) {
   }
 }
 
+/**
+ * What spot spraying is saving: the share of a full-width application this pass is not putting down.
+ *
+ * The number a spot-spray terminal leads with, and here it is the game's own arithmetic rather than an
+ * estimate — PF multiplies the sprayer's usage by the active-nozzle fraction exactly.
+ */
+@Composable
+private fun SavingReadout(nozzles: PfNozzles) {
+  Row(
+    Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.spacedBy(4.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text("SPOT", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.ProgressBlue)
+    Text(
+      "${(nozzles.saved * 100f).roundToInt()}% saved",
+      fontSize = 10.sp,
+      fontWeight = FontWeight.Bold,
+      // Green the moment anything is being skipped; grey at full rate, where there is no saving to
+      // report and the line is only there to say spot spraying is on.
+      color = if (nozzles.saved > 0f) VdtColors.Green else VdtColors.DarkGray,
+      maxLines = 1,
+      modifier = Modifier.weight(1f),
+    )
+    Text(
+      "${(nozzles.fraction * 100f).roundToInt()}% rate",
+      fontSize = 9.sp,
+      color = VdtColors.DarkGray,
+      maxLines = 1,
+    )
+  }
+}
+
+/**
+ * Whether the saving is worth stating: spot spraying fitted, nozzles to count, and the tool actually
+ * working.
+ *
+ * The last one is the catch. A raised or switched-off sprayer has every nozzle closed, which is a
+ * perfectly true "100% saved" and a completely useless one — it is not saving anything, it is not
+ * spraying. So the line only appears while ground is going under the boom, where 100% means the
+ * genuinely interesting thing: a full-width pass over clean crop, putting nothing down.
+ */
+internal fun savingShown(precisionFarming: PrecisionFarming, status: WorkStatus?): Boolean {
+  val nozzles = precisionFarming.nozzles ?: return false
+  return precisionFarming.spotSpray == true && nozzles.count > 0 && status?.working == true
+}
+
 /** One cell per ~2 m slice across the boom, tinted by how far that slice is below its target. */
 @Composable
 internal fun RateStrip(subSections: List<PfSubSection>, mode: PfMode, modifier: Modifier = Modifier) {
@@ -250,8 +304,11 @@ internal fun RateStrip(subSections: List<PfSubSection>, mode: PfMode, modifier: 
   }
 }
 
-/** What a work-area set says about the tool, as a lamp and a word. */
-internal data class WorkStatus(val label: String, val color: Color)
+/**
+ * What a work-area set says about the tool, as a lamp and a word. [working] is the strong claim —
+ * ground actually went under it — as opposed to merely being able to work.
+ */
+internal data class WorkStatus(val label: String, val color: Color, val working: Boolean)
 
 /**
  * The status line's two facts, from the engine's own predicates: is any part of this tool able to
@@ -279,7 +336,7 @@ internal fun workAreaStatus(areas: List<WorkArea>): WorkStatus? {
       active > 0 -> VdtColors.Amber
       else -> VdtColors.Gray
     }
-  return WorkStatus(label, color)
+  return WorkStatus(label, color, working = working > 0)
 }
 
 /**

@@ -83,8 +83,9 @@ VDT.PrecisionFarming.MOD_NAME = "FS25_precisionFarming"
 ---@class PrecisionFarmingModel
 ---@field mode string LIME | FERTILIZER | OTHER
 ---@field auto boolean
----@field nitrogen PfValueModel?
----@field ph PfValueModel?
+---@field nitrogen PfValueModel? only while fertilizing -- PF stops maintaining it otherwise
+---@field ph PfValueModel? only while liming, for the same reason
+---@field spotSpray boolean?
 ---@field workAreas PfWorkAreaModel[]?
 ---@field nozzles PfNozzlesModel?
 
@@ -152,6 +153,11 @@ VDT.PrecisionFarming.SPRAYER_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. 
 -- controls away (ExtendedSprayerEffects.lua:101-105 removes VariableWorkWidth's onRegisterActionEvents
 -- and onDraw), so where the shutoff bar freezes, this is what replaces it.
 VDT.PrecisionFarming.EFFECTS_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".extendedSprayerEffects"
+
+-- Spot spraying, a purchasable configuration (WeedSpotSpray.lua:28). It matters to a reader of the
+-- nozzle bar: with it on, a boom running at 40% is covering the whole width and skipping the clean
+-- ground -- without it, 40% just means most of the boom is folded away.
+VDT.PrecisionFarming.SPOT_SPRAY_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".weedSpotSpray"
 
 ---Convert one of PF's internal levels to the value a player reads, through the map's own converter
 ---(NitrogenMap:getNitrogenValueFromInternalValue / PHMap:getPhValueFromInternalValue). Levels are
@@ -285,6 +291,18 @@ local function collectNozzles(object)
   }
 end
 
+---Whether this machine has PF's spot-spray configuration fitted. Nil (rather than false) when the
+---spec is absent entirely, so "no such machine" stays distinct from "fitted, switched off".
+---@param object table
+---@return boolean|nil
+local function spotSprayEnabled(object)
+  local spec = object[VDT.PrecisionFarming.SPOT_SPRAY_SPEC]
+  if type(spec) ~= "table" then
+    return nil
+  end
+  return spec.isEnabled == true
+end
+
 ---Application rates for one object, or nil when it is not a PF sprayer/spreader.
 ---
 ---**The parts have different reach.** `nitrogen`/`ph` are the boom averages PF streams to every
@@ -313,18 +331,26 @@ function VDT.PrecisionFarming.collectSprayer(object)
     mode = "FERTILIZER"
   end
 
+  -- Each reading is emitted ONLY in the mode that maintains it, which is the same branch PF's own HUD
+  -- picks. It has to be: `nitrogenLevel` is read under `if spec.isFertilizing` and `phLevel` under
+  -- `if spec.isLiming` (ExtendedSprayer.lua:714-719), and the aggregates they feed are never reset --
+  -- so a sprayer that fertilized this morning and is spraying herbicide now still holds this morning's
+  -- nitrogen, possibly from another field. Emitting that would put a stale number next to a live
+  -- nozzle bar, which is the one place it would be believed.
   ---@type PrecisionFarmingModel
   local model = {
     mode = mode,
     auto = spec.sprayAmountAutoMode ~= false,
-    nitrogen = valuePair(
+    nitrogen = spec.isFertilizing and valuePair(
       spec.nitrogenMap,
       "getNitrogenValueFromInternalValue",
       spec.nActualValue,
       spec.nTargetValue,
       "kg/ha"
-    ),
-    ph = valuePair(spec.pHMap, "getPhValueFromInternalValue", spec.phActualValue, spec.phTargetValue),
+    ) or nil,
+    ph = spec.isLiming and valuePair(spec.pHMap, "getPhValueFromInternalValue", spec.phActualValue, spec.phTargetValue)
+      or nil,
+    spotSpray = spotSprayEnabled(object),
     -- Off a different spec, but the same machine and the same question, so it rides here rather than
     -- becoming a second subtree. ExtendedSprayerEffects requires ExtendedSprayer
     -- (`prerequisitesPresent`), so gating both on this one loses nothing.

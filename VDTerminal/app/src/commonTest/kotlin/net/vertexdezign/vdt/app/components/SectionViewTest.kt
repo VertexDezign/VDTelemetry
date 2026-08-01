@@ -13,6 +13,7 @@ import net.vertexdezign.vdt.model.WorkSection
 import net.vertexdezign.vdt.model.WorkWidth
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -132,8 +133,29 @@ class SectionViewTest {
   @Test
   fun reportsHowMuchOfTheBoomIsSpraying() {
     assertEquals(0.5f, PfNozzles(count = 24, activeCount = 12).fraction)
+    assertEquals(0.5f, PfNozzles(count = 24, activeCount = 12).saved)
     // Never a divide by zero on a machine that reported the subtree but no nozzles.
     assertEquals(0f, PfNozzles().fraction)
+  }
+
+  @Test
+  fun statesTheSavingOnlyWhileGroundIsGoingUnderTheBoom() {
+    val nozzles = PfNozzles(count = 10, activeCount = 4, active = List(10) { it < 4 })
+    val spot = PrecisionFarming(mode = PfMode.OTHER, spotSpray = true, nozzles = nozzles)
+    val working = workAreaStatus(listOf(area(processing = true)))
+    assertTrue(savingShown(spot, working))
+
+    // Raised or switched off, every nozzle is closed — a true "100% saved" and a useless one, because
+    // nothing is being sprayed and nothing is being covered.
+    assertFalse(savingShown(spot, workAreaStatus(listOf(area(active = false)))))
+    assertFalse(savingShown(spot, workAreaStatus(listOf(area()))))
+    assertFalse(savingShown(spot, null))
+
+    // Without the spot-spray config the closed nozzles are folded-away boom: less liquid over less
+    // ground, which is not a saving and must not be called one.
+    assertFalse(savingShown(PrecisionFarming(spotSpray = false, nozzles = nozzles), working))
+    assertFalse(savingShown(PrecisionFarming(nozzles = nozzles), working))
+    assertFalse(savingShown(PrecisionFarming(spotSpray = true), working))
   }
 
   @Test

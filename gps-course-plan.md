@@ -408,6 +408,33 @@ while liming or fertilizing (`ExtendedSprayer.lua:682`), so every slice was "no 
 mirrored and useless to look at; a row of grey reads as a broken bar rather than an absent one. A
 strip with nothing valid in it is now not drawn.
 
+### The saving readout, and a stale-value bug it exposed (2026-08-01)
+
+Asking whether the N figure should show with herbicide in the tank turned out to be the right
+question, because the honest answer is **no, and it must not**: `nitrogenLevel` is read under
+`if spec.isFertilizing` and `phLevel` under `if spec.isLiming` (`ExtendedSprayer.lua:714-719`), the
+aggregates they feed are only assigned inside `processWorkAreaSubSectionData` (`:931`, reached from
+the spray path only in those modes, `:1246`), and **nothing ever resets them**. A sprayer that
+fertilized this morning and is on herbicide now still holds this morning's nitrogen, possibly from
+another field.
+
+So the mod now emits each reading **only in the mode that maintains it** — the same branch PF's own
+HUD picks. That was a live bug, not a display preference: the number looked current because the
+nozzle bar beside it was.
+
+In its place, for herbicide, the readout that *is* live: **what spot spraying saved.**
+`WeedSpotSpray:getSprayerUsage` multiplies the sprayer's usage by exactly the active-nozzle fraction
+(`:102-105`), so `1 - fraction` is the liquid not put down versus the same ground at full width —
+the game's own arithmetic, from two numbers already on the wire.
+
+Two gates keep it honest, and both are the point of the feature rather than polish:
+
+- **Only with the spot-spray configuration fitted** (`WeedSpotSpray.lua:28`, exported as `spotSpray`).
+  Without it, closed nozzles are folded-away boom: less liquid over less ground, which is not a saving.
+- **Only while ground is actually going under the boom.** A raised sprayer has every nozzle shut,
+  which is a perfectly true "100% saved" and a completely useless one. While working, 100% means the
+  interesting thing instead: a full-width pass over clean crop, putting nothing down.
+
 Reading PF needed no mod-environment dance: `spec_FS25_precisionFarming.extendedSprayer` is a plain
 string key on the vehicle (`ExtendedSprayer.lua:3`), the same reason `subSectionData` is reachable at
 all. The value maps come off that spec too, so `pfInstance()` stays confined to the layers code.
