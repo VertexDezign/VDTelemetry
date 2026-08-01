@@ -100,6 +100,7 @@ import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldInfoEntry
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.GpsCourseState
+import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapFarm
 import net.vertexdezign.vdt.model.MapField
@@ -111,6 +112,7 @@ import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.Pda
 import net.vertexdezign.vdt.model.Player
 import net.vertexdezign.vdt.model.Vehicle
+import net.vertexdezign.vdt.model.WorkArea
 import org.jetbrains.skia.Image
 import kotlin.math.hypot
 import kotlin.math.pow
@@ -600,6 +602,12 @@ fun MapPanel(
         CourseOverlay(gpsCourse, vehicle?.gps?.course, mapData?.terrainSize ?: 0f, projection)
       }
 
+      // The rig's own footprint, on top of the course: the course says where the lines are, this says
+      // where the tool is and whether ground is going under it right now.
+      if (vehicle != null) {
+        WorkOverlay(vehicle, projection)
+      }
+
       // Map-data overlay (field outlines/labels + POI markers): like the player marker it lives
       // OUTSIDE the zoom-scaled graphicsLayer — the layer rasterizes, so vectors inside it blur at
       // high zoom. The outlines are re-projected each draw through the same MapProjection the image
@@ -792,6 +800,78 @@ private fun BoxScope.CourseOverlay(
       }
     }
   }
+}
+
+/**
+ * The working footprint: every work area of the rig that is able to work, drawn where it is.
+ *
+ * The mod exports three corners of each area — the engine's own start / width / height nodes — and the
+ * fourth is `width + height - start`, so a swath is a parallelogram rather than a rectangle whenever
+ * the tool is at an angle to the ground it covers. They are normalized map coordinates like everything
+ * else on this map, so they go through [projection] unchanged.
+ *
+ * Filled where the area is *processing* (it touched ground within the last 200 ms) and outlined where
+ * it is merely active — the difference between a tool that is working and one that is lowered over a
+ * finished patch. Areas that are off entirely are not drawn: a raised implement covers nothing, and
+ * painting its resting footprint would read as coverage.
+ *
+ * Not remembered on the vehicle: the whole point is that it moves every tick.
+ */
+@Composable
+private fun BoxScope.WorkOverlay(vehicle: Vehicle, projection: MapProjection) {
+  val density = LocalDensity.current
+  val areas = workFootprints(vehicle)
+  if (areas.isEmpty()) return
+
+  Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
+    val factor = projection.factor
+    withTransform({
+      rotate(projection.rotationDeg, pivot = projection.pivot)
+      translate(projection.offset.x, projection.offset.y)
+      scale(factor, factor, pivot = Offset.Zero)
+    }) {
+      val hairline = 1.dp.toPx() / factor
+      for (area in areas) {
+        val path = quadPath(area.shape)
+        if (area.processing) {
+          drawPath(path, VdtColors.Accent.copy(alpha = 0.45f))
+        }
+        drawPath(path, VdtColors.Accent, style = Stroke(hairline))
+      }
+    }
+  }
+}
+
+/** Every work area of the rig that can currently work and knows where it is, tractor and tools alike. */
+private fun workFootprints(vehicle: Vehicle): List<WorkArea> {
+  val out = mutableListOf<WorkArea>()
+  fun take(areas: List<WorkArea>) {
+    for (area in areas) {
+      if (area.active && area.shape.size >= 6) out += area
+    }
+  }
+  fun walk(implements: List<Implement>) {
+    for (implement in implements) {
+      take(implement.workAreas)
+      walk(implement.implement)
+    }
+  }
+  take(vehicle.workAreas)
+  walk(vehicle.implement)
+  return out
+}
+
+/** The work area's parallelogram, from the three corners the engine describes it by. */
+private fun quadPath(shape: List<Float>): Path = Path().apply {
+  val (sx, sz) = shape[0] to shape[1]
+  val (wx, wz) = shape[2] to shape[3]
+  val (hx, hz) = shape[4] to shape[5]
+  moveTo(sx, sz)
+  lineTo(wx, wz)
+  // The corner opposite the start, which the mod leaves to us rather than sending a fourth point.
+  lineTo(wx + hx - sx, wz + hz - sz)
+  lineTo(hx, hz)
+  close()
 }
 
 /** Path from a flat `[x1, z1, x2, z2, …]` polyline, in whatever space the coordinates are in. */

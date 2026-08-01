@@ -45,6 +45,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.components.SectionView
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -52,7 +53,10 @@ import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
+import net.vertexdezign.vdt.model.PrecisionFarming
 import net.vertexdezign.vdt.model.Vehicle
+import net.vertexdezign.vdt.model.WorkArea
+import net.vertexdezign.vdt.model.WorkWidth
 import kotlin.math.roundToInt
 
 private val Green600 = Color(0xFF16A34A)
@@ -101,6 +105,9 @@ private data class RigSlotState(
   val isTurnedOn: Boolean?,
   val lowered: Boolean?,
   val fillUnits: List<FillUnit>,
+  val workWidth: WorkWidth?,
+  val workAreas: List<WorkArea>,
+  val precisionFarming: PrecisionFarming?,
 )
 
 private fun findImplement(list: List<Implement>, pos: String): Implement? {
@@ -167,6 +174,11 @@ private fun Vehicle.slotState() = RigSlotState(
   lowered = lowered,
   // Cargo only. The engine's own fuel/def/air stay with the engine readout, next to the rates.
   fillUnits = fillUnits?.fillUnit ?: emptyList(),
+  // A self-propelled sprayer carries its own boom, so the vehicle slot shows a section view exactly
+  // as an implement slot does.
+  workWidth = workWidth,
+  workAreas = workAreas,
+  precisionFarming = precisionFarming,
 )
 
 private fun Implement.slotState() = RigSlotState(
@@ -179,6 +191,9 @@ private fun Implement.slotState() = RigSlotState(
   isTurnedOn = isTurnedOn,
   lowered = lowered,
   fillUnits = collectFillUnits(this),
+  workWidth = workWidth,
+  workAreas = workAreas,
+  precisionFarming = precisionFarming,
 )
 
 /**
@@ -290,6 +305,12 @@ fun RigSlotPanel(
               color = VdtColors.DarkGray,
             )
           }
+        }
+
+        // What this tool is doing across its width — absent on anything that works no ground, which
+        // is most of a rig. Above the controls: it is what the fold/raise buttons under it change.
+        if (state != null) {
+          SectionView(state.workWidth, state.workAreas, state.precisionFarming)
         }
 
         // Each control is clickable only when this slot has that aspect; the tap sends the ABSOLUTE
