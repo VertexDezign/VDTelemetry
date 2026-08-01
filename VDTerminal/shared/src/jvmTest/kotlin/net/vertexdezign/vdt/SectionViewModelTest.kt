@@ -131,6 +131,33 @@ class SectionViewModelTest {
   }
 
   @Test
+  fun readsThePerNozzleOutputOfAPulsingBoom() {
+    // Mid-turn on a pulse-width-modulation sprayer: PF pulses each nozzle in proportion to how fast
+    // that part of the boom is travelling, so the inside dials down while the outside stays open —
+    // and every one of them is still active. Reading only the flags would show a solid boom.
+    val nozzles =
+      vehicle(
+        """
+        "precisionFarming":{"mode":"FERTILIZER",
+        "nozzles":{"count":4,"activeCount":4,"individual":true,"active":[true,true,true,true],
+        "amount":[1,0.75,0.4,0.15]}}
+        """.trimIndent(),
+      ).precisionFarming?.nozzles!!
+
+    assertEquals(listOf(1f, 0.75f, 0.4f, 0.15f), nozzles.amount)
+    assertEquals(0.4f, nozzles.amountAt(2))
+    // Every nozzle open, so the saving is zero even though most of the boom is barely pulsing: the
+    // two numbers answer different questions.
+    assertEquals(0f, nozzles.saved)
+
+    // Without PWM the mod omits the array entirely, and every nozzle reads as full flow.
+    val plain =
+      vehicle("\"precisionFarming\":{\"nozzles\":{\"count\":2,\"active\":[true,false]}}").precisionFarming?.nozzles!!
+    assertTrue(plain.amount.isEmpty())
+    assertEquals(1f, plain.amountAt(0))
+  }
+
+  @Test
   fun turnsTheActiveNozzleFractionIntoWhatSpotSprayingSaved() {
     val pf =
       vehicle(

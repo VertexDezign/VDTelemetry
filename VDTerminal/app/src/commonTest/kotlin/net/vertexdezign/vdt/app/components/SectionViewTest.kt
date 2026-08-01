@@ -117,9 +117,9 @@ class SectionViewTest {
     // their sections sit all-on forever. The nozzle states are the live answer, and they already
     // account for the sections.
     val sections = List(4) { WorkSection(active = true, side = SectionSide.LEFT) }
-    val pf = PrecisionFarming(nozzles = PfNozzles(count = 3, activeCount = 2, active = listOf(true, true, false)))
-    val bar = sprayBar(WorkWidth(sections = sections), pf)
-    assertEquals(SprayBar.Nozzles(listOf(true, true, false)), bar)
+    val nozzles = PfNozzles(count = 3, activeCount = 2, active = listOf(true, true, false))
+    val bar = sprayBar(WorkWidth(sections = sections), PrecisionFarming(nozzles = nozzles))
+    assertEquals(SprayBar.Nozzles(nozzles), bar)
 
     // A tool PF drives no nozzles on keeps the shutoff bar, which on those machines does move.
     assertEquals(SprayBar.Sections(sections), sprayBar(WorkWidth(sections = sections), PrecisionFarming()))
@@ -128,6 +128,25 @@ class SectionViewTest {
     // And a tool with neither gets no bar rather than an empty one.
     assertNull(sprayBar(null, null))
     assertNull(sprayBar(WorkWidth(), PrecisionFarming(nozzles = PfNozzles())))
+  }
+
+  @Test
+  fun shadesAPulsingNozzleWithoutLettingItLookShut() {
+    // A pulse-width-modulation boom mid-turn: the inside is dialled right down and the outside is wide
+    // open, and every one of them is still active. The floor is what keeps the quietest one distinct
+    // from the shut cell beside it.
+    assertEquals(1f, nozzleAlpha(1f))
+    assertTrue(nozzleAlpha(0f) >= 0.4f, "a pulsing nozzle must not read as a closed one")
+    assertTrue(nozzleAlpha(0.2f) < nozzleAlpha(0.8f), "the gradient across a turning boom is the point")
+    // Out-of-range values clamp instead of producing an invalid colour.
+    assertEquals(nozzleAlpha(0f), nozzleAlpha(-1f))
+    assertEquals(nozzleAlpha(1f), nozzleAlpha(4f))
+
+    // Absent amounts mean full flow, which is every machine without PWM.
+    val plain = PfNozzles(count = 2, activeCount = 2, active = listOf(true, true))
+    assertEquals(1f, plain.amountAt(0))
+    assertEquals(1f, plain.amountAt(9))
+    assertEquals(0.35f, PfNozzles(amount = listOf(0.35f)).amountAt(0))
   }
 
   @Test

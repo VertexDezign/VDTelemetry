@@ -70,11 +70,17 @@ VDT.PrecisionFarming.MOD_NAME = "FS25_precisionFarming"
 -- different question from the shutoff sections: it already folds in the section, the direction and
 -- speed, spot spraying's weed detection and the "this ground is already fertilized" skip.
 -- `individual` is false on a machine PF switches a whole section at a time.
+--
+-- `amount` is how hard each nozzle is running, 0..1, and only exists on a pulse-width-modulation
+-- boom, where a nozzle is not simply on or off: PF pulses it in proportion to how fast that part of
+-- the machine is travelling, so the inside of a turn dials down while the outside stays wide open.
+-- Absent when every nozzle is at full flow.
 ---@class PfNozzlesModel
 ---@field count number
 ---@field activeCount number
 ---@field individual boolean
 ---@field active boolean[]
+---@field amount number[]?
 
 -- `mode` is what the tool is currently doing with what is in its tank. `nitrogen`/`ph` are the
 -- averages over the whole boom -- the numbers PF's own HUD shows -- and are network-synced, so they
@@ -259,7 +265,15 @@ local function collectNozzles(object)
   local nozzles = {}
   for _, effect in ipairs(spec.sprayerEffects) do
     if type(effect) == "table" then
-      nozzles[#nozzles + 1] = { x = tonumber(effect.xOffset) or 0, active = effect.isActive == true }
+      nozzles[#nozzles + 1] = {
+        x = tonumber(effect.xOffset) or 0,
+        active = effect.isActive == true,
+        -- How hard this nozzle is running, 0..1. Flat 1 without pulse-width modulation; with it, each
+        -- nozzle's own ground speed over the machine's limit (`ExtendedSprayerEffects.lua:361-377`),
+        -- which PF turns into the pause between pulses (`:402-404`). That is why a PWM boom looks like
+        -- nozzles are cutting out mid-turn: they are pulsing slower, not shutting off.
+        amount = tonumber(effect.amountScale) or 1,
+      }
     end
   end
   if #nozzles == 0 then
@@ -275,19 +289,29 @@ local function collectNozzles(object)
     return a.x > b.x
   end)
 
-  local active, activeCount = {}, 0
+  local active, amount, activeCount, throttled = {}, {}, 0, false
   for index, nozzle in ipairs(nozzles) do
     active[index] = nozzle.active
+    amount[index] = tonumber(ValueMapper.mapFloat(math.max(0, math.min(1, nozzle.amount))))
     if nozzle.active then
       activeCount = activeCount + 1
+    end
+    if amount[index] < 1 then
+      throttled = true
     end
   end
 
   return {
     count = #nozzles,
     activeCount = activeCount,
+    -- PF derives this from the pulse-width-modulation configuration -- `individualNozzleControl` is
+    -- assigned `pwmEnabled` (`ExtendedSprayerEffects.lua:40-45`) -- so "individual" and "pulsing" are
+    -- the same machines. Without it PF switches a whole section at a time.
     individual = spec.individualNozzleControl == true,
     active = active,
+    -- Omitted when every nozzle is wide open, which is every machine without PWM and any PWM boom at
+    -- full speed: a run of 1s says nothing the `active` flags do not.
+    amount = throttled and amount or nil,
   }
 end
 

@@ -87,7 +87,23 @@ data class PfNozzles(
   val activeCount: Int = 0,
   val individual: Boolean = false,
   val active: List<Boolean> = emptyList(),
+  /**
+   * How hard each nozzle is running, `0..1`, on a pulse-width-modulation boom. Empty on every machine
+   * without PWM, and on a PWM boom with everything wide open — see [amountAt].
+   */
+  val amount: List<Float> = emptyList(),
 ) {
+  /**
+   * Nozzle [index]'s output, `0..1`, defaulting to full.
+   *
+   * On a PWM boom a nozzle is not simply on or off: PF pulses each one in proportion to how fast that
+   * part of the machine is travelling, so through a turn the inside of the boom dials right down while
+   * the outside stays wide open. Those nozzles are still [active] — nothing has shut off — which is
+   * why a bar drawn from the flags alone shows a solid boom while the driver watches half of it
+   * visibly stop spraying.
+   */
+  fun amountAt(index: Int): Float = amount.getOrNull(index) ?: 1f
+
   /** How much of the boom is spraying, `0..1` — PF's own `getNumExtendedSprayerNozzleEffectsActive`. */
   val fraction: Float get() = if (count > 0) activeCount.toFloat() / count else 0f
 

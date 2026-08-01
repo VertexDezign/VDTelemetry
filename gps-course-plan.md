@@ -457,6 +457,31 @@ spraying clean crop. That one is arguably honest — ground really is only chang
 — and it is a 6 dp dot rather than a row, so it moves nothing. Worth revisiting if it reads as noise
 in the seat.
 
+The rate row reserves its space with a **blank line of text**, not a height in dp. The first attempt
+used `height(14.dp)`, which is a guess at how tall a line is and was wrong at the ordinary font
+scale: it clipped the glyphs the moment there was a rate to draw. A placeholder at the same text
+metric the content uses cannot be wrong at any scale.
+
+### Pulse-width modulation (2026-08-01, from the seat)
+
+A PWM sprayer visibly stops spraying out of parts of the boom, and the nozzle bar showed a solid boom
+throughout — because in PF's model **nothing had switched off**. With
+`configurations.pulseWidthModulation` fitted, `updateExtendedSprayerNozzleEffectState` returns
+`isTurnedOn` for `isActive` and puts each nozzle's *own* ground speed over the machine's limit into
+`amountScale` (`ExtendedSprayerEffects.lua:361-377`), which becomes the pause between shader pulses
+(`:402-404`). So a slow nozzle pulses slowly; it does not shut. Reading only `isActive` was therefore
+correct and useless.
+
+The mod now exports `amount` per nozzle (omitted when every one is wide open, which is every non-PWM
+machine), and the bar shades a lit cell by it, floored well above transparent so a pulsing nozzle can
+never be mistaken for the shut one beside it. Through a turn the inside of the boom fades and the
+outside stays solid, which is what the driver is actually looking at.
+
+Two things fell out of reading that code. `individualNozzleControl` **is** `pwmEnabled` (`:40-45`) —
+individual nozzle control and pulsing are the same machines, and without it PF switches a whole
+section at a time. And with PWM the "too slow to spray" cut-off does not apply: that lives in the
+non-PWM branch, because pulsing *is* how a PWM boom handles low speed.
+
 Reading PF needed no mod-environment dance: `spec_FS25_precisionFarming.extendedSprayer` is a plain
 string key on the vehicle (`ExtendedSprayer.lua:3`), the same reason `subSectionData` is reachable at
 all. The value maps come off that spec too, so `pfInstance()` stays confined to the layers code.

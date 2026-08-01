@@ -36,11 +36,16 @@ import net.vertexdezign.vdt.model.WorkWidth
 import kotlin.math.roundToInt
 
 /**
- * Heights of the two Precision Farming rows, claimed up front rather than taken by whatever happens to
- * be in them. Both hold content that comes and goes at driving speed, and a panel that reflows under
- * the reader is harder to read than one with a gap in it.
+ * The two Precision Farming rows claim their space up front rather than taking it from whatever
+ * happens to be in them: both hold content that comes and goes at driving speed, and a panel that
+ * reflows under the reader is harder to read than one with a gap in it.
+ *
+ * The rate row does it with a blank line at [READOUT_TEXT_SIZE] rather than a height in dp. A fixed dp
+ * is a guess at how tall a line of text is, and a wrong one clips the glyphs — which it did, at the
+ * ordinary font scale, the moment there was a rate to draw. Reserving with the same text metric the
+ * content uses cannot be wrong at any scale. The strip has no text and is genuinely a fixed height.
  */
-private val READOUT_HEIGHT = 14.dp
+private val READOUT_TEXT_SIZE = 10.sp
 private val STRIP_HEIGHT = 8.dp
 
 /**
@@ -119,18 +124,21 @@ fun SectionView(
     }
 
     when (bar) {
-      is SprayBar.Nozzles -> NozzleBar(bar.active)
+      is SprayBar.Nozzles -> NozzleBar(bar.nozzles)
       is SprayBar.Sections -> SectionBar(bar.sections)
       null -> Unit
     }
 
     if (precisionFarming != null) {
-      // Fixed-height slots, not "draw it when there is something to draw". What goes in them comes and
+      // Reserved slots, not "draw it when there is something to draw". What goes in them comes and
       // goes several times a second — see [spotNozzles] for why — and a row that appears and vanishes
       // shoves everything under it up and down. The space is claimed once, from the machine's
       // capabilities, and only the content inside it changes.
       if (readoutSlot) {
-        Box(Modifier.fillMaxWidth().height(READOUT_HEIGHT), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+          // Holds the line open at exactly the height a readout takes, in every state and at every
+          // font scale, because it is the same text metric the readouts themselves use.
+          Text(" ", fontSize = READOUT_TEXT_SIZE, fontWeight = FontWeight.Bold)
           // One line here, never two: the rate where there is one, and otherwise — herbicide, where PF
           // keeps no rates at all — what spot spraying is saving.
           if (rate != null) {
@@ -151,7 +159,7 @@ fun SectionView(
 
 /** Which of the two bars this machine gets — see [sprayBar]. */
 internal sealed interface SprayBar {
-  data class Nozzles(val active: List<Boolean>) : SprayBar
+  data class Nozzles(val nozzles: PfNozzles) : SprayBar
 
   data class Sections(val sections: List<WorkSection>) : SprayBar
 }
@@ -170,7 +178,7 @@ internal sealed interface SprayBar {
  */
 internal fun sprayBar(workWidth: WorkWidth?, precisionFarming: PrecisionFarming?): SprayBar? {
   val nozzles = precisionFarming?.nozzles
-  if (nozzles != null && nozzles.active.isNotEmpty()) return SprayBar.Nozzles(nozzles.active)
+  if (nozzles != null && nozzles.active.isNotEmpty()) return SprayBar.Nozzles(nozzles)
   val sections = workWidth?.sections.orEmpty()
   return if (sections.isEmpty()) null else SprayBar.Sections(sections)
 }
@@ -225,19 +233,42 @@ private fun Separator() {
  * Drawn tighter than the shutoff bar and without its gaps: there are several times as many nozzles as
  * sections, and what you read off this is the *shape* of the spray — a solid block, a gap where a
  * section is off, or the scattered pattern spot spraying makes as it finds weeds.
+ *
+ * A lit cell is shaded by how hard that nozzle is running, which only varies on a pulse-width
+ * modulation boom. There it is the whole point: through a turn the inside of the boom fades and the
+ * outside stays solid, which is exactly what the driver sees out of the window and what a bar of
+ * on/off cells would flatly deny.
  */
 @Composable
-internal fun NozzleBar(active: List<Boolean>, modifier: Modifier = Modifier) {
+internal fun NozzleBar(nozzles: PfNozzles, modifier: Modifier = Modifier) {
   Row(
     modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(2.dp)).background(VdtColors.TrackGray),
     horizontalArrangement = Arrangement.spacedBy(0.5.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    for (on in active) {
-      Box(Modifier.weight(1f).fillMaxHeight().background(if (on) VdtColors.Accent else VdtColors.TrackGray))
+    nozzles.active.forEachIndexed { index, on ->
+      Box(
+        Modifier
+          .weight(1f)
+          .fillMaxHeight()
+          .background(
+            if (on) VdtColors.Accent.copy(alpha = nozzleAlpha(nozzles.amountAt(index))) else VdtColors.TrackGray,
+          ),
+      )
     }
   }
 }
+
+/**
+ * Opacity for a nozzle running at [amount] of full flow.
+ *
+ * Floored well above transparent: a nozzle pulsing slowly is still spraying, and the one thing this
+ * cell must never look like is the shut one next to it. The floor is what separates "dialled down" from
+ * "off"; the range above it is what makes the gradient across a turning boom readable.
+ */
+internal fun nozzleAlpha(amount: Float): Float = NOZZLE_MIN_ALPHA + (1f - NOZZLE_MIN_ALPHA) * amount.coerceIn(0f, 1f)
+
+private const val NOZZLE_MIN_ALPHA = 0.45f
 
 /**
  * The boom average: what the ground has, and what the tool is aiming for. Both are network-synced, so
@@ -258,7 +289,7 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue) {
     )
     Text(
       rateLabel(pf.mode, value),
-      fontSize = 10.sp,
+      fontSize = READOUT_TEXT_SIZE,
       fontWeight = FontWeight.Bold,
       color = if (value.deficit > 0f) VdtColors.Amber else VdtColors.Green,
       maxLines = 1,
@@ -296,8 +327,9 @@ private fun SpotReadout(nozzles: PfNozzles, live: Boolean) {
     )
     Text(
       if (live) "${(nozzles.saved * 100f).roundToInt()}% saved" else "—",
-      fontSize = 10.sp,
+      fontSize = READOUT_TEXT_SIZE,
       fontWeight = FontWeight.Bold,
+      overflow = TextOverflow.Ellipsis,
       // Green the moment anything is being skipped; grey at full rate, where there is no saving to
       // report and the line is only there to say spot spraying is on.
       color = if (live && nozzles.saved > 0f) VdtColors.Green else VdtColors.DarkGray,

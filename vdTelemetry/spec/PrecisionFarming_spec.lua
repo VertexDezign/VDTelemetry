@@ -509,3 +509,66 @@ describe("PrecisionFarming nozzles", function()
     assert.are.same({ false, true }, pf.nozzles.active)
   end)
 end)
+
+-- Pulse-width modulation: PF's per-nozzle rate control, and the reason a PWM boom looks like nozzles
+-- are cutting out mid-turn when nothing has switched off.
+describe("PrecisionFarming nozzle PWM", function()
+  local function pwmSprayer(nozzles, individual)
+    local object = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = { isFertilizing = true },
+    }
+    object[VDT.PrecisionFarming.EFFECTS_SPEC] = {
+      individualNozzleControl = individual ~= false,
+      sprayerEffects = nozzles,
+    }
+    return object
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v, decimals)
+        local mult = 10 ^ (decimals or 0)
+        return math.floor(v * mult + 0.5) / mult
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+  end)
+
+  it("carries each nozzle's own output, in the same left-to-right order", function()
+    -- Mid-turn: the outside of the boom is travelling at full speed, the inside is barely moving, and
+    -- PF pulses each nozzle in proportion. Every one of them is still `active`.
+    local pf = VDT.PrecisionFarming.collectSprayer(pwmSprayer({
+      { xOffset = -6, isActive = true, amountScale = 0.2 },
+      { xOffset = 6, isActive = true, amountScale = 1 },
+      { xOffset = 0, isActive = true, amountScale = 0.55 },
+    }))
+
+    assert.are.same({ 1, 0.55, 0.2 }, pf.nozzles.amount)
+    assert.are.same({ true, true, true }, pf.nozzles.active)
+    assert.are.equal(3, pf.nozzles.activeCount)
+  end)
+
+  it("omits the amounts when every nozzle is wide open", function()
+    -- Every machine without PWM, and a PWM boom at full speed: a run of 1s says nothing the active
+    -- flags do not.
+    local pf = VDT.PrecisionFarming.collectSprayer(pwmSprayer({
+      { xOffset = 1, isActive = true, amountScale = 1 },
+      { xOffset = -1, isActive = false },
+    }))
+    assert.is_nil(pf.nozzles.amount)
+    assert.are.same({ true, false }, pf.nozzles.active)
+  end)
+
+  it("clamps an out-of-range amount rather than passing it through", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(pwmSprayer({
+      { xOffset = 1, isActive = true, amountScale = 1.4 },
+      { xOffset = -1, isActive = true, amountScale = -0.2 },
+    }))
+    assert.are.same({ 1, 0 }, pf.nozzles.amount)
+  end)
+end)
