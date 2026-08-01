@@ -139,23 +139,45 @@ class SectionViewTest {
   }
 
   @Test
-  fun statesTheSavingOnlyWhileGroundIsGoingUnderTheBoom() {
+  fun callsItASavingOnlyWhereItIsOne() {
     val nozzles = PfNozzles(count = 10, activeCount = 4, active = List(10) { it < 4 })
-    val spot = PrecisionFarming(mode = PfMode.OTHER, spotSpray = true, nozzles = nozzles)
-    val working = workAreaStatus(listOf(area(processing = true)))
-    assertTrue(savingShown(spot, working))
-
-    // Raised or switched off, every nozzle is closed — a true "100% saved" and a useless one, because
-    // nothing is being sprayed and nothing is being covered.
-    assertFalse(savingShown(spot, workAreaStatus(listOf(area(active = false)))))
-    assertFalse(savingShown(spot, workAreaStatus(listOf(area()))))
-    assertFalse(savingShown(spot, null))
+    assertEquals(nozzles, spotNozzles(PrecisionFarming(mode = PfMode.OTHER, spotSpray = true, nozzles = nozzles)))
 
     // Without the spot-spray config the closed nozzles are folded-away boom: less liquid over less
     // ground, which is not a saving and must not be called one.
-    assertFalse(savingShown(PrecisionFarming(spotSpray = false, nozzles = nozzles), working))
-    assertFalse(savingShown(PrecisionFarming(nozzles = nozzles), working))
-    assertFalse(savingShown(PrecisionFarming(spotSpray = true), working))
+    assertNull(spotNozzles(PrecisionFarming(spotSpray = false, nozzles = nozzles)))
+    assertNull(spotNozzles(PrecisionFarming(nozzles = nozzles)))
+    assertNull(spotNozzles(PrecisionFarming(spotSpray = true)))
+  }
+
+  @Test
+  fun holdsTheRowsOpenThroughTheThingsThatFlicker() {
+    // The flicker this fixes: getIsWorkAreaProcessing is only true within 200 ms of the tool changing
+    // ground, and a spot sprayer over clean crop changes nothing — so it toggles with the weeds. What
+    // decides whether the saving means anything is the boom being down and moving, which is `active`.
+    val spotting = workAreaStatus(listOf(area(active = true, processing = false)))!!
+    assertTrue(spotting.active)
+    assertFalse(spotting.working)
+    assertFalse(workAreaStatus(listOf(area(active = false)))!!.active)
+
+    // The rate line's room is claimed from the mode, not from having a number this instant: the rates
+    // go absent off the field, and a slot that followed the value would blink at every headland.
+    assertTrue(readoutSlotShown(PrecisionFarming(mode = PfMode.FERTILIZER)))
+    assertTrue(readoutSlotShown(PrecisionFarming(mode = PfMode.LIME)))
+    // Herbicide keeps no rates, so the row is only worth holding for a spot-spray saving.
+    assertFalse(readoutSlotShown(PrecisionFarming(mode = PfMode.OTHER)))
+    assertTrue(
+      readoutSlotShown(PrecisionFarming(mode = PfMode.OTHER, spotSpray = true, nozzles = PfNozzles(count = 4))),
+    )
+    assertFalse(readoutSlotShown(null))
+
+    // Same for the strip: held through the moments nothing is valid (a headland, unsampled ground),
+    // never claimed in a mode where PF computes no slices at all.
+    val slices = listOf(PfWorkArea(1, listOf(PfSubSection(valid = false))))
+    assertTrue(stripSlotShown(PrecisionFarming(mode = PfMode.FERTILIZER, workAreas = slices)))
+    assertFalse(stripSlotShown(PrecisionFarming(mode = PfMode.OTHER, workAreas = slices)))
+    // And not claimed at all on a multiplayer client, which never receives sub-sections.
+    assertFalse(stripSlotShown(PrecisionFarming(mode = PfMode.FERTILIZER)))
   }
 
   @Test

@@ -431,9 +431,31 @@ Two gates keep it honest, and both are the point of the feature rather than poli
 
 - **Only with the spot-spray configuration fitted** (`WeedSpotSpray.lua:28`, exported as `spotSpray`).
   Without it, closed nozzles are folded-away boom: less liquid over less ground, which is not a saving.
-- **Only while ground is actually going under the boom.** A raised sprayer has every nozzle shut,
-  which is a perfectly true "100% saved" and a completely useless one. While working, 100% means the
-  interesting thing instead: a full-width pass over clean crop, putting nothing down.
+- **Only while the boom is down and moving.** Raised or stopped, every nozzle is shut, which is a
+  perfectly true "100% saved" and a completely useless one. Moving, 100% means the interesting thing
+  instead: a full-width pass over clean crop, putting nothing down.
+
+**The first version of that second gate was wrong, and flickered.** It asked whether the tool was
+*processing* — and `lastProcessingTime` is only bumped when the processing function reports a changed
+area (`WorkArea.lua:191-198`). A spot sprayer over clean crop changes nothing, so the flag toggles
+**with the weeds**, several times a second, taking the whole row in and out of the layout with it.
+The gate is now `getIsWorkAreaActive` — lowered, in contact, moving forward — which is what actually
+decides whether the number means anything and is steady while you drive. (For a spot sprayer that
+also implies moving forward: `WeedSpotSpray` sets `disableBackwards = true`, `:169-171`.)
+
+The same twitch is why the two PF rows now **claim their height up front** from what the machine can
+do, rather than from having something to say this instant:
+
+- The rate row is held whenever the mode is one PF maintains rates for. The values themselves go
+  absent off the field and on unsampled ground, so a row that followed the value would blink at every
+  headland.
+- The strip row is held whenever PF computes slices at all — never with herbicide, where it would be
+  permanently blank, and always while liming or fertilizing, including the moments no slice is valid.
+
+The status lamp above them still follows `processing` and so still blinks green↔amber while spot
+spraying clean crop. That one is arguably honest — ground really is only changing where the weeds are
+— and it is a 6 dp dot rather than a row, so it moves nothing. Worth revisiting if it reads as noise
+in the seat.
 
 Reading PF needed no mod-environment dance: `spec_FS25_precisionFarming.extendedSprayer` is a plain
 string key on the vehicle (`ExtendedSprayer.lua:3`), the same reason `subSectionData` is reachable at

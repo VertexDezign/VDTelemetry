@@ -36,6 +36,14 @@ import net.vertexdezign.vdt.model.WorkWidth
 import kotlin.math.roundToInt
 
 /**
+ * Heights of the two Precision Farming rows, claimed up front rather than taken by whatever happens to
+ * be in them. Both hold content that comes and goes at driving speed, and a panel that reflows under
+ * the reader is harder to read than one with a gap in it.
+ */
+private val READOUT_HEIGHT = 14.dp
+private val STRIP_HEIGHT = 8.dp
+
+/**
  * What the tool is doing across its width — the terminal's section view.
  *
  * Four rows, each drawn only when the machine reports it, because they come from different places and
@@ -51,6 +59,11 @@ import kotlin.math.roundToInt
  *  * the rate strip, from PF's per-slice readings: what is in the ground across the boom, tinted by
  *    how far each slice is below target. Server-side only, and only computed at all when the tool is
  *    liming or fertilizing — so it is detail on top of the readout, never the thing itself.
+ *
+ * The first two follow the data. The two Precision Farming rows do **not**: they claim their height
+ * from what the machine is capable of and then let their contents come and go, because what goes in
+ * them changes several times a second and a panel that reflows while you read it is worse than one
+ * with a gap in it.
  */
 @Composable
 fun SectionView(
@@ -63,7 +76,9 @@ fun SectionView(
   val bar = sprayBar(workWidth, precisionFarming)
   val strip = activeStrip(precisionFarming)
   val rate = precisionFarming?.primary
-  if (status == null && bar == null && strip.isEmpty() && rate == null) return
+  val readoutSlot = readoutSlotShown(precisionFarming)
+  val stripSlot = precisionFarming != null && stripSlotShown(precisionFarming)
+  if (status == null && bar == null && !readoutSlot && !stripSlot) return
 
   Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
     if (status != null) {
@@ -110,14 +125,26 @@ fun SectionView(
     }
 
     if (precisionFarming != null) {
-      // One line in this slot, never two: the rate where there is one, and otherwise — herbicide,
-      // where PF keeps no rates at all — what spot spraying is saving.
-      if (rate != null) {
-        RateReadout(precisionFarming, rate)
-      } else if (savingShown(precisionFarming, status)) {
-        SavingReadout(precisionFarming.nozzles!!)
+      // Fixed-height slots, not "draw it when there is something to draw". What goes in them comes and
+      // goes several times a second — see [spotNozzles] for why — and a row that appears and vanishes
+      // shoves everything under it up and down. The space is claimed once, from the machine's
+      // capabilities, and only the content inside it changes.
+      if (readoutSlot) {
+        Box(Modifier.fillMaxWidth().height(READOUT_HEIGHT), contentAlignment = Alignment.CenterStart) {
+          // One line here, never two: the rate where there is one, and otherwise — herbicide, where PF
+          // keeps no rates at all — what spot spraying is saving.
+          if (rate != null) {
+            RateReadout(precisionFarming, rate)
+          } else {
+            spotNozzles(precisionFarming)?.let { SpotReadout(it, live = status?.active == true) }
+          }
+        }
       }
-      if (strip.isNotEmpty()) RateStrip(strip, precisionFarming.mode)
+      if (stripSlot) {
+        Box(Modifier.fillMaxWidth().height(STRIP_HEIGHT)) {
+          if (strip.isNotEmpty()) RateStrip(strip, precisionFarming.mode)
+        }
+      }
     }
   }
 }
@@ -249,53 +276,92 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue) {
  *
  * The number a spot-spray terminal leads with, and here it is the game's own arithmetic rather than an
  * estimate — PF multiplies the sprayer's usage by the active-nozzle fraction exactly.
+ *
+ * [live] is whether the boom is down and moving. Raised or stopped, every nozzle is shut, which is a
+ * perfectly true "100% saved" and a completely useless one — so the label stays put and the number
+ * goes quiet rather than lying at full volume.
  */
 @Composable
-private fun SavingReadout(nozzles: PfNozzles) {
+private fun SpotReadout(nozzles: PfNozzles, live: Boolean) {
   Row(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(4.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    Text("SPOT", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.ProgressBlue)
     Text(
-      "${(nozzles.saved * 100f).roundToInt()}% saved",
+      "SPOT",
+      fontSize = 8.sp,
+      fontWeight = FontWeight.Bold,
+      color = if (live) VdtColors.ProgressBlue else VdtColors.Gray,
+    )
+    Text(
+      if (live) "${(nozzles.saved * 100f).roundToInt()}% saved" else "—",
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
       // Green the moment anything is being skipped; grey at full rate, where there is no saving to
       // report and the line is only there to say spot spraying is on.
-      color = if (nozzles.saved > 0f) VdtColors.Green else VdtColors.DarkGray,
+      color = if (live && nozzles.saved > 0f) VdtColors.Green else VdtColors.DarkGray,
       maxLines = 1,
       modifier = Modifier.weight(1f),
     )
-    Text(
-      "${(nozzles.fraction * 100f).roundToInt()}% rate",
-      fontSize = 9.sp,
-      color = VdtColors.DarkGray,
-      maxLines = 1,
-    )
+    if (live) {
+      Text(
+        "${(nozzles.fraction * 100f).roundToInt()}% rate",
+        fontSize = 9.sp,
+        color = VdtColors.DarkGray,
+        maxLines = 1,
+      )
+    }
   }
 }
 
 /**
- * Whether the saving is worth stating: spot spraying fitted, nozzles to count, and the tool actually
- * working.
+ * The nozzles to report a saving for, or null when a saving would be a lie.
  *
- * The last one is the catch. A raised or switched-off sprayer has every nozzle closed, which is a
- * perfectly true "100% saved" and a completely useless one — it is not saving anything, it is not
- * spraying. So the line only appears while ground is going under the boom, where 100% means the
- * genuinely interesting thing: a full-width pass over clean crop, putting nothing down.
+ * Spot spraying has to be *fitted*: without it, closed nozzles are folded-away boom — less liquid over
+ * less ground, which is not a saving.
+ *
+ * Deliberately **not** gated on the tool processing ground, which is what the first version did and
+ * what made the line flicker. `getIsWorkAreaProcessing` is only true within 200 ms of the processing
+ * function reporting a changed area (`WorkArea.lua:191-198`), and a spot sprayer over clean crop
+ * changes nothing — so it toggles with the weeds, several times a second. Whether the boom is down
+ * and moving is what actually decides if the number means anything, and that is [WorkStatus.active].
  */
-internal fun savingShown(precisionFarming: PrecisionFarming, status: WorkStatus?): Boolean {
-  val nozzles = precisionFarming.nozzles ?: return false
-  return precisionFarming.spotSpray == true && nozzles.count > 0 && status?.working == true
+internal fun spotNozzles(precisionFarming: PrecisionFarming): PfNozzles? {
+  val nozzles = precisionFarming.nozzles ?: return null
+  if (precisionFarming.spotSpray != true || nozzles.count <= 0) return null
+  return nozzles
 }
+
+/**
+ * Whether to keep room for the rate line.
+ *
+ * Claimed from the *mode*, not from having a number this instant. The rates go absent off the field
+ * and on unsampled ground — the mod withholds a reading PF is not maintaining — so a slot that
+ * followed the value would blink at every headland. In a mode with rates the row is held and simply
+ * goes blank; with herbicide it is held only if there is a spot-spray saving to put in it.
+ */
+internal fun readoutSlotShown(precisionFarming: PrecisionFarming?): Boolean {
+  if (precisionFarming == null) return false
+  return precisionFarming.mode != PfMode.OTHER || spotNozzles(precisionFarming) != null
+}
+
+/**
+ * Whether to keep room for the sub-section strip.
+ *
+ * PF fills sub-sections in only while liming or fertilizing, so with herbicide the slot would be
+ * permanently blank and is not claimed at all. In the modes where it does compute them, the slot is
+ * held even in the moments nothing is valid — crossing a headland or unsampled ground — because that
+ * is exactly when it would otherwise blink.
+ */
+internal fun stripSlotShown(precisionFarming: PrecisionFarming): Boolean =
+  precisionFarming.mode != PfMode.OTHER && precisionFarming.workAreas.any { it.subSections.isNotEmpty() }
 
 /** One cell per ~2 m slice across the boom, tinted by how far that slice is below its target. */
 @Composable
 internal fun RateStrip(subSections: List<PfSubSection>, mode: PfMode, modifier: Modifier = Modifier) {
   Row(
-    modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(2.dp)),
+    modifier.fillMaxWidth().height(STRIP_HEIGHT).clip(RoundedCornerShape(2.dp)),
     verticalAlignment = Alignment.CenterVertically,
   ) {
     for (slice in subSections) {
@@ -305,10 +371,15 @@ internal fun RateStrip(subSections: List<PfSubSection>, mode: PfMode, modifier: 
 }
 
 /**
- * What a work-area set says about the tool, as a lamp and a word. [working] is the strong claim —
- * ground actually went under it — as opposed to merely being able to work.
+ * What a work-area set says about the tool, as a lamp and a word.
+ *
+ * The two flags are not degrees of the same thing. [active] is the tool being in a position to work —
+ * lowered, in contact, moving forward — and is steady while you drive a field. [working] is the
+ * stronger claim that ground actually *changed* in the last 200 ms, which is the right thing to light
+ * a lamp with and the wrong thing to lay a row out with: a spot sprayer over clean crop, or any tool
+ * passing over ground it already worked, flips it several times a second.
  */
-internal data class WorkStatus(val label: String, val color: Color, val working: Boolean)
+internal data class WorkStatus(val label: String, val color: Color, val active: Boolean, val working: Boolean)
 
 /**
  * The status line's two facts, from the engine's own predicates: is any part of this tool able to
@@ -336,7 +407,7 @@ internal fun workAreaStatus(areas: List<WorkArea>): WorkStatus? {
       active > 0 -> VdtColors.Amber
       else -> VdtColors.Gray
     }
-  return WorkStatus(label, color, working = working > 0)
+  return WorkStatus(label, color, active = active > 0, working = working > 0)
 }
 
 /**
