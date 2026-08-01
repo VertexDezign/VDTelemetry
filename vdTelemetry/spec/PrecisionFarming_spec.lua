@@ -3,6 +3,10 @@
 --
 -- Run with `busted` from the vdTelemetry/ directory.
 
+-- collectSprayer rounds through ValueMapper.mapFloat, so the mapper loads with the integration.
+if ValueMapper == nil then
+  dofile("src/mapper/ValueMapper.lua")
+end
 dofile("src/integrations/PrecisionFarming.lua")
 
 describe("PrecisionFarming.isActive", function()
@@ -252,5 +256,136 @@ describe("PrecisionFarming layers", function()
       error("PF internals moved")
     end
     assert.is_nil(VDT.PrecisionFarming.resolveLayer(layer("pfPh")))
+  end)
+end)
+
+-- The application rates on the tool itself (collectSprayer): PF's ExtendedSprayer spec, converted
+-- into the numbers a player reads. The stubs mirror the real spec (its scripts/specializations/
+-- ExtendedSprayer.lua) — including the part that only exists on the server, which is exactly what the
+-- absent-sub-sections cases below stand in for.
+describe("PrecisionFarming.collectSprayer", function()
+  local function levelMap(method, values)
+    return {
+      maxValue = 10,
+      [method] = function(_, internal)
+        return values[internal] or 0
+      end,
+    }
+  end
+
+  local function sprayer(over)
+    local spec = {
+      isFertilizing = true,
+      sprayAmountAutoMode = true,
+      nActualValue = 3,
+      nTargetValue = 6,
+      phActualValue = 2,
+      phTargetValue = 4,
+      nitrogenMap = levelMap("getNitrogenValueFromInternalValue", { [3] = 45, [6] = 90, [10] = 150 }),
+      pHMap = levelMap("getPhValueFromInternalValue", { [2] = 6.2, [4] = 6.8 }),
+    }
+    for k, v in pairs(over or {}) do
+      spec[k] = v
+    end
+    return { [VDT.PrecisionFarming.SPRAYER_SPEC] = spec }
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v, decimals)
+        local mult = 10 ^ (decimals or 0)
+        return math.floor(v * mult + 0.5) / mult
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+  end)
+
+  it("returns nil without PF, and for a tool that has no rates", function()
+    rawset(_G, "g_modIsLoaded", nil)
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayer()))
+
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer({}))
+  end)
+
+  it("converts the boom averages into the units the HUD shows", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer())
+    assert.are.equal("FERTILIZER", pf.mode)
+    assert.is_true(pf.auto)
+    assert.are.same({ level = 45, target = 90, unit = "kg/ha" }, pf.nitrogen)
+    assert.are.same({ level = 6.2, target = 6.8 }, pf.ph)
+  end)
+
+  it("clamps a level past the map's maximum, as PF's own HUD does", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({ nActualValue = 99 }))
+    assert.are.equal(150, pf.nitrogen.level)
+  end)
+
+  it("names the three modes", function()
+    assert.are.equal("LIME", VDT.PrecisionFarming.collectSprayer(sprayer({ isLiming = true })).mode)
+    -- Neither flag: a sprayer with herbicide in the tank, which PF has no rates for.
+    local other = sprayer({ isFertilizing = false })
+    assert.are.equal("OTHER", VDT.PrecisionFarming.collectSprayer(other).mode)
+  end)
+
+  it("omits a value pair PF has no reading for", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({ phActualValue = 0, phTargetValue = 0 }))
+    assert.is_nil(pf.ph)
+    -- The other half is unaffected: off-field lime data doesn't hide the nitrogen the tool knows.
+    assert.are.equal(45, pf.nitrogen.level)
+  end)
+
+  it("exports the sub-section strip against the work area it belongs to", function()
+    local object = sprayer()
+    object.spec_workArea = {
+      workAreas = {
+        {
+          index = 1,
+          numSubSections = 2,
+          subSectionData = {
+            { isValid = true, nitrogenLevel = 3, nitrogenTargetLevel = 6, phLevel = 2, phTargetLevel = 4 },
+            { isValid = false, nitrogenLevel = 0, nitrogenTargetLevel = 0, phLevel = 0, phTargetLevel = 0 },
+          },
+        },
+      },
+    }
+
+    local areas = VDT.PrecisionFarming.collectSprayer(object).workAreas
+    assert.are.equal(1, #areas)
+    assert.are.equal(1, areas[1].index)
+    assert.are.same({
+      { valid = true, n = 45, nTarget = 90, ph = 6.2, phTarget = 6.8 },
+      { valid = false, n = 0, nTarget = 0, ph = 0, phTarget = 0 },
+    }, areas[1].subSections)
+  end)
+
+  it("omits the strip on a client, where PF never fills it in", function()
+    -- updateWorkAreaSubSectionData runs inside `if self.isServer`, so a multiplayer client has the
+    -- work areas but no sub-section data on them. The averages still arrive, over the stream.
+    local object = sprayer()
+    object.spec_workArea = { workAreas = { { index = 1 } } }
+    local pf = VDT.PrecisionFarming.collectSprayer(object)
+    assert.is_nil(pf.workAreas)
+    assert.are.equal(45, pf.nitrogen.level)
+  end)
+
+  it("survives a PF whose converters have moved", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({
+      nitrogenMap = { maxValue = 10 },
+      pHMap = {
+        maxValue = 10,
+        getPhValueFromInternalValue = function()
+          error("PF internals moved")
+        end,
+      },
+    }))
+    assert.is_nil(pf.nitrogen)
+    assert.is_nil(pf.ph)
+    assert.are.equal("FERTILIZER", pf.mode)
   end)
 end)

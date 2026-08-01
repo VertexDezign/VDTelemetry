@@ -98,7 +98,14 @@
 ---@field count number
 ---@field name string?
 
--- Live width of a tool with retractable sections; sides are independent.
+-- One shutoff section of a boom, in the game's own HUD order. A CENTER section is in neither side
+-- list and so is never switched off.
+---@class WorkSectionModel
+---@field active boolean
+---@field side string LEFT | CENTER | RIGHT
+
+-- Live width of a tool with retractable sections; sides are independent. `sections` is the same spec
+-- one level deeper: the individual sections, absent on a tool that has none.
 ---@class WorkWidthModel
 ---@field left number
 ---@field leftMax number
@@ -106,6 +113,21 @@
 ---@field rightMax number
 ---@field total number
 ---@field unit string
+---@field sections WorkSectionModel[]?
+---@field activeCount number?
+
+-- One work area of a tool: the ground it processes. `active` is the engine's own predicate (ground
+-- contact / direction / lowered, and the section it belongs to), `processing` means it actually
+-- touched ground within the last 200 ms. `shape` is three corners of the footprint parallelogram
+-- (start, width, height) in normalized [0,1] map coordinates, absent when the world size is unknown.
+---@class WorkAreaModel
+---@field index number
+---@field type string? SPRAYER | CULTIVATOR | COMBINE | ... (nil when the enum is unreachable)
+---@field active boolean
+---@field processing boolean
+---@field width number?
+---@field unit string?
+---@field shape number[]?
 
 ---@class BaleCounterModel
 ---@field session number

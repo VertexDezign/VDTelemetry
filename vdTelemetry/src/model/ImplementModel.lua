@@ -21,6 +21,7 @@
 ---@field harvest HarvestModel?
 ---@field workMode WorkModeModel?
 ---@field workWidth WorkWidthModel?
+---@field workAreas WorkAreaModel[]?
 ---@field baleCounter BaleCounterModel?
 ---@field jointDescIndex number?
 ---@field implement ImplementModel[]?

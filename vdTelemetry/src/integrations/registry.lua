@@ -14,6 +14,10 @@ VDT.Integrations = {}
 
 VDT.Integrations.all = {
   VDT.EnhancedVehicle,
+  -- Precision Farming is sourced far earlier than this file (it gates the channels that suppress the
+  -- base-game data it supersedes), but its object hook belongs in the same list as any other optional
+  -- mod's: it adds application rates to a sprayer that has them.
+  VDT.PrecisionFarming,
 }
 
 ---Run a named stage hook for every integration that implements it.

@@ -28,7 +28,9 @@ data class Vehicle(
   val harvest: Harvest? = null,
   val workMode: WorkMode? = null,
   val workWidth: WorkWidth? = null,
+  val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
+  val precisionFarming: PrecisionFarming? = null,
   val implement: List<Implement> = emptyList(),
   val combined: Combined? = null,
 )
@@ -489,6 +491,10 @@ data class WorkMode(
  * Live working width of a tool with retractable sections — it changes as sections are switched off,
  * so it is not a static spec value. The two sides are independent (half-width on one side is a normal
  * headland technique).
+ *
+ * [sections] is the same data one level deeper: the individual shutoff sections, which are the base
+ * game's whole answer to "section control". They arrive in the order the game's own HUD draws them,
+ * left to right across the boom, so a bar can render them straight through.
  */
 @Serializable
 data class WorkWidth(
@@ -498,6 +504,48 @@ data class WorkWidth(
   val rightMax: Float = 0f,
   val total: Float = 0f,
   val unit: String = "",
+  val sections: List<WorkSection> = emptyList(),
+  /** How many of [sections] are on; absent on a tool with no sections at all. */
+  val activeCount: Int? = null,
+)
+
+/**
+ * Which side of the boom a section sits on. A [CENTER] section belongs to neither of the engine's two
+ * side lists, so it is never switched off — the game brackets it with separators instead of counting
+ * it in either side's fold-in state.
+ */
+@Serializable
+enum class SectionSide { LEFT, CENTER, RIGHT }
+
+/** One shutoff section of a boom. */
+@Serializable
+data class WorkSection(
+  val active: Boolean = false,
+  val side: SectionSide = SectionSide.CENTER,
+)
+
+/**
+ * One work area of a tool: a rectangle of ground it processes.
+ *
+ * The two flags are the engine's own and say different things. [active] is capability — the area is
+ * lowered, in contact, driving the right way, and its section is switched on. [processing] is
+ * evidence: it actually worked ground within the last 200 ms. A raised sprayer has neither; a lowered
+ * one running dry over a finished field has the first but not the second.
+ *
+ * [shape] is three corners of the footprint parallelogram — start, width, height — in the same
+ * normalized `[0,1]` map frame as [MapData] and [GpsCourseData], so it draws with the map's own
+ * projection. The fourth corner is `width + height - start`. Absent when the world size is unknown.
+ */
+@Serializable
+data class WorkArea(
+  val index: Int = 0,
+  /** `"SPRAYER"`, `"CULTIVATOR"`, … — a token, not an enum: mods register their own types. */
+  val type: String? = null,
+  val active: Boolean = false,
+  val processing: Boolean = false,
+  val width: Float? = null,
+  val unit: String? = null,
+  val shape: List<Float> = emptyList(),
 )
 
 /** [session] is resettable from the vehicle's own action; [lifetime] is not. */
@@ -530,7 +578,9 @@ data class Implement(
   val harvest: Harvest? = null,
   val workMode: WorkMode? = null,
   val workWidth: WorkWidth? = null,
+  val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
+  val precisionFarming: PrecisionFarming? = null,
   /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
   val jointDescIndex: Int? = null,
   val implement: List<Implement> = emptyList(),

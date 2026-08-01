@@ -1,4 +1,5 @@
--- Precision Farming (FS25_precisionFarming): detection, plus its value maps as ground-layer planes.
+-- Precision Farming (FS25_precisionFarming): detection, the application rates on a sprayer, and its
+-- value maps as ground-layer planes.
 --
 -- Detection is a shared gate for the channels that must suppress base-game data PF supersedes. It's
 -- the internal Precision Farming mod, keyed by its mod name in the shared g_modIsLoaded table; that is
@@ -11,7 +12,11 @@
 --   * FieldInfoExporter — omits yieldBonus / fertilized / needsLime from the field-info popup.
 --   * MapLayersExporter — omits the fertilized + needs-lime soil layers from the ground overlay.
 --
--- LAYERS below is the other half: PF's own value maps, exported as extra planes of the mapLayers
+-- The application rates are the second part: what the tool in the player's hands is putting on the
+-- ground, read off PF's ExtendedSprayer spec. That spec hangs off the vehicle under a plain string
+-- key, so it is reachable from here; see collectSprayer for which half of it survives multiplayer.
+--
+-- LAYERS below is the third: PF's own value maps, exported as extra planes of the mapLayers
 -- channel. PF registers seven maps (PrecisionFarming:registerValueMap) but only five are menu-visible
 -- — cover and tramline return false from getShowInMenu — and those five are exactly the ones with a
 -- legend a player reads: soil type, pH, nitrogen, yield and seed rate.
@@ -37,6 +42,46 @@ VDT.PrecisionFarming = {}
 
 -- The internal mod's name (its folder / customEnv), the key it registers under in g_modIsLoaded.
 VDT.PrecisionFarming.MOD_NAME = "FS25_precisionFarming"
+
+-- Fields this integration adds to the object model, declared here next to the code that sets them
+-- (see EnhancedVehicle.lua for why). `level`/`target` are real units -- kg N/ha and pH -- converted
+-- from PF's internal levels the same way its own HUD does.
+---@class PfValueModel
+---@field level number
+---@field target number
+---@field unit string?
+
+-- One ~2 m slice across the boom (PF's own sub-division), left to right. `valid` is PF's isValid: it
+-- has a reading here. An invalid slice is off the field, on unsampled ground, or the tool is doing
+-- something that isn't liming or fertilizing.
+---@class PfSubSectionModel
+---@field valid boolean
+---@field n number?
+---@field nTarget number?
+---@field ph number?
+---@field phTarget number?
+
+-- The sub-sections of one work area, joined to WorkAreaModel by `index`.
+---@class PfWorkAreaModel
+---@field index number
+---@field subSections PfSubSectionModel[]
+
+-- `mode` is what the tool is currently doing with what is in its tank. `nitrogen`/`ph` are the
+-- averages over the whole boom -- the numbers PF's own HUD shows -- and are network-synced, so they
+-- are there for every player. `workAreas` is the per-slice detail, which is not: see the note on
+-- collectSprayer.
+---@class PrecisionFarmingModel
+---@field mode string LIME | FERTILIZER | OTHER
+---@field auto boolean
+---@field nitrogen PfValueModel?
+---@field ph PfValueModel?
+---@field workAreas PfWorkAreaModel[]?
+
+---@class VehicleModel
+---@field precisionFarming PrecisionFarmingModel?
+
+---@class ImplementModel
+---@field precisionFarming PrecisionFarmingModel?
 
 ---True when the Precision Farming mod is loaded. g_modIsLoaded is a shared engine global (populated
 ---in mods.lua), readable from any mod environment — so this matches the game's own gate exactly.
@@ -80,6 +125,161 @@ end
 function VDT.PrecisionFarming.isUnreachable()
   return VDT.PrecisionFarming.isActive() and pfInstance() == nil
 end
+
+-- ---------------------------------------------------------------------------
+-- Application rates on the tool (the section view -- gps-course-plan.md §4)
+-- ---------------------------------------------------------------------------
+
+-- PF's ExtendedSprayer spec, under the key it builds for itself:
+-- `"spec_" .. g_currentModName .. ".extendedSprayer"` (ExtendedSprayer.lua:3). That is a plain string
+-- key on the vehicle table, so unlike PF's globals it is readable from here without the mod-env dance
+-- above -- the same reason `subSectionData` is reachable at all.
+VDT.PrecisionFarming.SPRAYER_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".extendedSprayer"
+
+---Convert one of PF's internal levels to the value a player reads, through the map's own converter
+---(NitrogenMap:getNitrogenValueFromInternalValue / PHMap:getPhValueFromInternalValue). Levels are
+---small integers indexing a value table; the real numbers -- kg N/ha, a pH -- only exist in the map.
+---@param map table|nil the tool's own value map (spec.nitrogenMap / spec.pHMap)
+---@param converter string the map method to call
+---@param internal any PF's stored level
+---@param maxValue number|nil clamp, as PF's HUD clamps nitrogen to the map's maximum
+---@return number|nil nil when the map, the method or the value is unusable
+local function realValue(map, converter, internal, maxValue)
+  if type(map) ~= "table" or type(internal) ~= "number" or type(map[converter]) ~= "function" then
+    return nil
+  end
+  local value = math.max(0, internal)
+  if type(maxValue) == "number" then
+    value = math.min(value, maxValue)
+  end
+  local ok, real = pcall(map[converter], map, value)
+  if not ok or type(real) ~= "number" then
+    return nil
+  end
+  return tonumber(ValueMapper.mapFloat(real))
+end
+
+---A level/target pair, or nil when neither says anything (0 is PF's "no reading here").
+---@param map table|nil
+---@param converter string
+---@param level any
+---@param target any
+---@param unit string|nil
+---@return PfValueModel|nil
+local function valuePair(map, converter, level, target, unit)
+  local maxValue = type(map) == "table" and map.maxValue or nil
+  local actual = realValue(map, converter, level, maxValue)
+  local wanted = realValue(map, converter, target, maxValue)
+  if actual == nil and wanted == nil then
+    return nil
+  end
+  if (actual or 0) <= 0 and (wanted or 0) <= 0 then
+    return nil
+  end
+  return { level = actual or 0, target = wanted or 0, unit = unit }
+end
+
+---The per-slice detail for one work area, or nil when PF keeps none for it.
+---@param spec table the ExtendedSprayer spec
+---@param area table a base-game work area
+---@return PfWorkAreaModel|nil
+local function collectSubSections(spec, area)
+  local data = area.subSectionData
+  local count = area.numSubSections
+  if type(data) ~= "table" or type(count) ~= "number" or count <= 0 then
+    return nil
+  end
+
+  local nitrogen, ph = spec.nitrogenMap, spec.pHMap
+  local nMax = type(nitrogen) == "table" and nitrogen.maxValue or nil
+  local phMax = type(ph) == "table" and ph.maxValue or nil
+
+  local subSections = {}
+  for i = 1, count do
+    local slice = data[i]
+    if type(slice) == "table" then
+      subSections[#subSections + 1] = {
+        valid = slice.isValid == true,
+        n = realValue(nitrogen, "getNitrogenValueFromInternalValue", slice.nitrogenLevel, nMax),
+        nTarget = realValue(nitrogen, "getNitrogenValueFromInternalValue", slice.nitrogenTargetLevel, nMax),
+        ph = realValue(ph, "getPhValueFromInternalValue", slice.phLevel, phMax),
+        phTarget = realValue(ph, "getPhValueFromInternalValue", slice.phTargetLevel, phMax),
+      }
+    end
+  end
+
+  if #subSections == 0 then
+    return nil
+  end
+  return { index = area.index, subSections = subSections }
+end
+
+---Application rates for one object, or nil when it is not a PF sprayer/spreader.
+---
+---**The two halves have different reach.** `nitrogen`/`ph` are the boom averages PF streams to every
+---client (ExtendedSprayer.lua:180-206, plus its own value event), so they are there for everyone. The
+---per-slice `workAreas` are refreshed inside `if self.isServer` (:212-255), so on a multiplayer client
+---they are simply absent -- which is why they are optional rather than the primary shape, and why the
+---app has to draw a readout from the averages and treat the strip as detail on top.
+---@param object table a vehicle or implement
+---@return PrecisionFarmingModel|nil
+function VDT.PrecisionFarming.collectSprayer(object)
+  if not VDT.PrecisionFarming.isActive() then
+    return nil
+  end
+  local spec = object[VDT.PrecisionFarming.SPRAYER_SPEC]
+  if type(spec) ~= "table" then
+    return nil
+  end
+
+  -- Both flags come from getCurrentSprayerMode, refreshed in onUpdateTick on client and server alike;
+  -- neither is set for a tool spraying herbicide, which is a mode PF has no rates for.
+  local mode = "OTHER"
+  if spec.isLiming then
+    mode = "LIME"
+  elseif spec.isFertilizing then
+    mode = "FERTILIZER"
+  end
+
+  ---@type PrecisionFarmingModel
+  local model = {
+    mode = mode,
+    auto = spec.sprayAmountAutoMode ~= false,
+    nitrogen = valuePair(
+      spec.nitrogenMap,
+      "getNitrogenValueFromInternalValue",
+      spec.nActualValue,
+      spec.nTargetValue,
+      "kg/ha"
+    ),
+    ph = valuePair(spec.pHMap, "getPhValueFromInternalValue", spec.phActualValue, spec.phTargetValue),
+  }
+
+  -- Walked from the base-game work areas rather than PF's own three lists, so the exported `index`
+  -- is the one WorkAreaModel carries and the two can be joined.
+  local workAreaSpec = object.spec_workArea
+  local areas = {}
+  for _, area in ipairs(workAreaSpec ~= nil and workAreaSpec.workAreas or {}) do
+    areas[#areas + 1] = collectSubSections(spec, area)
+  end
+  if #areas > 0 then
+    model.workAreas = areas
+  end
+
+  return model
+end
+
+-- Object stage: runs per vehicle/implement during the walk (see registry.lua). Self-propelled
+-- sprayers are vehicles and trailed ones implements, so both go through the same hook.
+---@param object table a vehicle or implement
+---@param model table the object's already core-collected model
+function VDT.PrecisionFarming.contributeObject(object, model)
+  model.precisionFarming = VDT.PrecisionFarming.collectSprayer(object)
+end
+
+-- ---------------------------------------------------------------------------
+-- Value maps as ground-layer planes
+-- ---------------------------------------------------------------------------
 
 ---Cell coordinates for a world position on a PF value map, transcribed from the maps' own point reads
 ---(NitrogenMap:getLevelAtWorldPos and friends, which all repeat this). Only needed for the two maps
