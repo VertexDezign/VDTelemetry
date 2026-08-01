@@ -20,6 +20,7 @@ a section strip and a few big numbers. This plan gets there in that order.
 **Scope decided with the user (2026-07-31):**
 
 - §1–§3 (course channel → draw it → guidance readouts → course-up) are the **scope for now**.
+  (§4 was picked up next, on 2026-08-01, once §1–§3 were driven and closed.)
 - §4 (section view) and §5 (coverage) are planned here but not yet scheduled. The coverage raster
   is decided to live **server-side**, not in the mod — see §5.
 - §6 (3D) stays a maybe, and the plan says why 2D course-up gets most of the way there.
@@ -34,6 +35,8 @@ a section strip and a few big numbers. This plan gets there in that order.
   export version is now **7**. See "How it landed" below and the in-game checks at the end.
 - §3 (course-up) — **done.** A header toggle beside auto-center (per placed tile); north-up stays the
   default, so no saved page changes under anyone.
+- §4 (section view) — **built 2026-08-01, not yet driven** (commits `f700b1e` + `6d441d8`). Mod
+  export version is now **8**. See §4's "How it landed" and the checks under it.
 
 **In-game results (2026-07-31/2026-08-01, user):** the course draws and clears correctly, the worked
 shading follows the game, the deviation sign reads the right way round, and the channel's cadence is
@@ -41,9 +44,11 @@ sane. Course-up threw up one bug — map labels tilted with the heading (see §3
 since fixed. **Multiplayer behaves the same as singleplayer**, which was the one thing the design
 genuinely bet on (see the `lastDistanceToEnd` note in "How it landed"). §1–§3 are closed.
 
-Every game-source claim is cited `file:line` against the bundled extracted source. Precision
-Farming is cited by LUADOC section, since PF's own Lua is not in the bundle — those are marked as
-needing an in-game check.
+Every game-source claim is cited `file:line` against the bundled extracted source. **Correction
+(2026-08-01):** an earlier version of this line said Precision Farming had to be cited by LUADOC
+because its Lua was not in the bundle. It is — `internalMods/FS25_precisionFarming/scripts/` — so the
+§4 citations are `file:line` like the rest, and they are what turned up the server-only sub-sections
+that a LUADOC page would never have shown.
 
 ## What the game already gives us (the reason this is worth doing)
 
@@ -296,7 +301,7 @@ image no longer covers them. Real terminals crop into the map rather than out of
 a zoomed-in mode, so this is left alone rather than papered over with a √2 scale-up that would make
 the zoom levels mean different things in the two orientations.
 
-## §4 — Section view (issue bullet 2) — *planned, not scheduled*
+## §4 — Section view (issue bullet 2) — *built, not yet validated in game*
 
 **Finding: the base game has no section control.** There are two real sources, and the user's
 instinct is right about where the interesting one is:
@@ -309,10 +314,10 @@ instinct is right about where the interesting one is:
   area into ~2 m sub-sections and keeps a live per-section picture on it —
   `workArea.subSectionData[i]` with `nitrogenLevel` / `nitrogenTargetLevel`, `phLevel` /
   `phTargetLevel`, `soilTypeIndex`, `fruitType`, `growthState`, `isValid` and `lastDetectionX/Z`
-  (LUADOC `Specializations/ExtendedSprayer.md` → `updateWorkAreaWidth`, refreshed per travelled
-  distance in `onUpdate`). That is variable-rate data rather than on/off shutoff, but it is exactly
-  the strip a real terminal draws across the boom, and `lastDetectionX/Z` even gives each section a
-  world position to paint on the map.
+  (`ExtendedSprayer.lua:602-636` builds them, `:663-785` refreshes them per travelled distance).
+  That is variable-rate data rather than on/off shutoff, but it is exactly the strip a real terminal
+  draws across the boom, and `lastDetectionX/Z` even gives each section a world position to paint on
+  the map.
 
 **The good news for us:** PF hangs `subSectionData` off the vehicle's own base-game
 `spec_workArea.workAreas[i]` tables, so it is readable **without** reaching into PF's Lua
@@ -327,9 +332,68 @@ processed area) say whether a given part of the tool is working right now.
 Render as a section bar (N boxes across the boom, lit = active, tinted by applied rate under PF) in
 the rig/implement panel, and as the active footprint drawn behind the vehicle marker on the map.
 
-**In-game check needed:** which machines actually populate `subSectionData` (PF only calls
-`updateWorkAreaSubSectionData` for sprayer / sowing / cultivator work areas, and only while turned
-on and moving), and what the sub-section count looks like on a wide boom.
+### How it landed (2026-08-01, commits `f700b1e` + `6d441d8`)
+
+Built as planned, from all three sources, with one finding that reshaped the PF half.
+
+**Mod, export version 8.** Three additions, each an aspect that is simply absent on a machine that
+does not have it:
+
+- `workWidth.sections` — `{ active, side }` per section plus `activeCount`, in **`spec.sections`
+  order**. That ordering is the whole subtlety: it is the XML's declaration order, which is what the
+  game's own HUD draws left to right (`VariableWorkWidthHUDExtension:77-96`). `sectionsLeft` /
+  `sectionsRight` look like the obvious lists to use and are **sorted by width** for the fold-in
+  state machine (`VariableWorkWidth.lua:176-180`), so a bar built from them would be shuffled.
+- `workAreas` — per area the engine's own two predicates, which say different things and are both
+  worth having: `getIsWorkAreaActive` is capability (ground contact, direction, lowered, *and* the
+  section it belongs to — `VariableWorkWidth.lua:378-386` — so shutoff is already folded in), and
+  `getIsWorkAreaProcessing` is evidence (it worked ground within 200 ms). Plus `width`, measured
+  from the start→width corners rather than read off `workArea.workWidth`, which is only recomputed
+  when a section moves and starts life at `-1`. Plus `shape`: three corners of the footprint
+  parallelogram in the normalized map frame, so the app draws it with the same projection as
+  everything else. `AUXILIARY` areas are dropped — the engine skips their whole processing setup
+  (`WorkArea.lua:246`), so they never touch ground.
+- `precisionFarming` — mode (`LIME` / `FERTILIZER` / `OTHER`), auto flag, the boom-average
+  nitrogen/pH readings converted out of PF's internal levels through the maps' own converters, and
+  the per-slice `subSections` joined to `workAreas` by index.
+
+**The finding: PF's sub-sections are server-only.** `updateWorkAreaSubSectionData` is called from
+`onUpdate` inside `if self.isServer` (`ExtendedSprayer.lua:212-255`), so on a dedicated-server client
+`subSectionData` is never filled in. The averages are fine — `nActualValue` / `nTargetValue` /
+`phActualValue` / `phTargetValue` are streamed (`:180-206`) and are what PF's own HUD draws.
+
+That asymmetry is in the model on purpose rather than hidden: the app reads the **average** as the
+value and treats the strip as detail on top, so a multiplayer client shows a real number instead of
+an empty bar. The alternative — deriving a uniform strip from the average — was rejected as a lie: a
+flat strip is a claim about variation we do not have.
+
+Two smaller calls: a slice PF marks `isValid = false` renders **grey, not green**, because green on
+that ramp means "nothing needed here" and that is a claim about ground the soil sample has not
+uncovered. And the map footprint is drawn only for areas that are `active`; painting a raised
+implement's resting footprint would read as coverage.
+
+Reading PF needed no mod-environment dance: `spec_FS25_precisionFarming.extendedSprayer` is a plain
+string key on the vehicle (`ExtendedSprayer.lua:3`), the same reason `subSectionData` is reachable at
+all. The value maps come off that spec too, so `pfInstance()` stays confined to the layers code.
+
+### In-game checks §4 needs
+
+Everything above is unit-tested against stubs (`spec/WorkAreas_spec.lua`,
+`spec/PrecisionFarming_spec.lua`, `SectionViewModelTest`, `SectionViewTest`), which says nothing
+about whether the real spec tables look like the stubs.
+
+1. **Section order and the centre.** On a machine with an odd number of sections (a sprayer with a
+   centre nozzle group), check the bar reads left-to-right the way the boom does and the bracketed
+   cell really is the middle one. This is the one where being wrong looks plausible.
+2. **Which machines populate `subSectionData`.** PF only refreshes sprayer / sowing-machine /
+   cultivator work areas, only while moving, and only on the server — so the expected result is a
+   strip in singleplayer and no strip on a client, with the readout present in both. Worth checking
+   the sub-section count on a wide boom too (~2 m each, so a 36 m sprayer is ~18 cells).
+3. **The footprint.** Does the quad sit under the machine and stay there in course-up, and does the
+   fill actually follow the tool switching on and off? A tedder is the interesting case: no sections
+   at all, so the status line and the footprint are the entire section view.
+4. **A trailed tool with several work areas.** A cultivator-plus-seeder reports more than one; check
+   the status line names the tool sensibly rather than whichever area happens to be busy.
 
 ## §5 — Coverage layer (issue bullet 3) — *planned, not scheduled; decided to be server-side*
 
