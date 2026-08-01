@@ -29,17 +29,17 @@ a section strip and a few big numbers. This plan gets there in that order.
 - §2 — **done.** The `MapProjection` refactor and the navigation strip landed first (commit
   `c106372`, confirmed in the app); the lightbar and progress readout followed once §1 supplied their
   data. See §2's "How it landed".
-- §1 — **done, not yet validated in game.** Both halves (the `gpsCourse.json` geometry channel and
-  the `vehicle.gps.course` live state) plus the course drawn on the map. Mod export version is now
-  **7**. See "How it landed" below and the in-game checks at the end — the deviation *sign* is the
-  one that genuinely needs a tractor.
+- §1 — **done, validated in game (singleplayer and multiplayer).** Both halves (the `gpsCourse.json`
+  geometry channel and the `vehicle.gps.course` live state) plus the course drawn on the map. Mod
+  export version is now **7**. See "How it landed" below and the in-game checks at the end.
 - §3 (course-up) — **done.** A header toggle beside auto-center (per placed tile); north-up stays the
   default, so no saved page changes under anyone.
 
-**In-game results (2026-07-31, user):** the course draws and clears correctly, the worked shading
-follows the game, the deviation sign reads the right way round, and the channel's cadence is sane.
-Course-up threw up one bug — map labels tilted with the heading (see §3's "How it landed") — since
-fixed. Multiplayer is still untested; it is the one open item from the list at the end.
+**In-game results (2026-07-31/2026-08-01, user):** the course draws and clears correctly, the worked
+shading follows the game, the deviation sign reads the right way round, and the channel's cadence is
+sane. Course-up threw up one bug — map labels tilted with the heading (see §3's "How it landed") —
+since fixed. **Multiplayer behaves the same as singleplayer**, which was the one thing the design
+genuinely bet on (see the `lastDistanceToEnd` note in "How it landed"). §1–§3 are closed.
 
 Every game-source claim is cited `file:line` against the bundled extracted source. Precision
 Farming is cited by LUADOC section, since PF's own Lua is not in the bundle — those are marked as
@@ -78,7 +78,8 @@ tedder problem in bullet 3 that costs us nothing, long before any raster exists.
   streamed server→client (`AIAutomaticSteering.lua:218-223`), and `currentSegmentIndex` is computed
   locally for the entered vehicle (`:226-248` runs `updateVehicleData` when
   `isServer or isActiveForInputIgnoreSelection`). Everything we need is therefore available to a
-  client — collect defensively, never assume `segments` is populated.
+  client — collect defensively, never assume `segments` is populated. **Confirmed in game 2026-08-01:
+  a dedicated-server client sees the same course, worked flags and current line as the host.**
 - **A client cannot choose the line.** `AIAutomaticSteeringStateEvent:run` calls
   `setAIAutomaticSteeringEnabled`, which on the server overwrites the passed `segmentIndex` with its
   own proximity pick (`AIAutomaticSteering.lua:473-479`). So "tap a line in the app to snap to it"
@@ -369,9 +370,9 @@ My read: course-up (§3) delivers most of what the reference photos communicate.
 - **Regeneration race.** The app can hold geometry for a course the live state has already replaced
   — hence `courseId` on both sides; ignore indices when they disagree rather than highlighting the
   wrong line.
-- **MP.** Verify on a dedicated server that segments, `segmentStates` and `currentSegmentIndex`
+- **MP.** ~~Verify on a dedicated server that segments, `segmentStates` and `currentSegmentIndex`
   all arrive on a client, and that our locally computed `distanceToEndM` matches the host's
-  behaviour (the game's own value is server-only).
+  behaviour (the game's own value is server-only).~~ Verified 2026-08-01: it does.
 - **Empty-course transitions.** Leaving a field resets the course after 20 s
   (`AIAutomaticSteering.lua:343-352`); the channel must publish that as "no course", and the app
   must clear rather than keep painting the last one.
@@ -396,11 +397,16 @@ look like the stubs:
    Small next to the vehicle walk it rides with, but it is the lever to pull if the profiler ever
    points here — memoise the mask on `workedCount` and rebuild only when a line completes.
 3. ~~**How often the course actually changes.**~~ Cadence looked right in the Diagnostics app.
-4. **Multiplayer — still open.** Segments, worked flags and `currentSegmentIndex` on a
-   dedicated-server client, and whether our own distance-to-end matches what the host feels.
-5. **Fixture refresh.** `examples/json/*.json` are captures from before the VERSION 7 bump, so none
-   carries `gps.course`; the live half is currently covered by inline JSON in `GpsCourseModelTest`.
-   Retake one capture with a course active and swap the test over.
+4. ~~**Multiplayer.**~~ Checked 2026-08-01: works as expected on a client. Segments, worked flags and
+   `currentSegmentIndex` all arrive, and the locally computed `distanceToEndM` matches how the host
+   behaves — which is the bet the design made when it stopped reading the server-only
+   `lastDistanceToEnd`, so this was the check with something riding on it.
+5. **Fixture refresh — half done.** The geometry channel now has a real capture,
+   `examples/json/gpsCourse/gpsCourse.json` (a worked field: 14 lines, a headland ring in 15 pieces,
+   11 m width), and `GpsCourseModelTest` asserts against it — it is what pins the mod's actual writer
+   rather than a hand-authored shape, and it caught nothing, which is the good outcome. Still open:
+   the top-level `examples/json/*.json` captures predate the VERSION 7 bump, so none carries
+   `gps.course` and the live half stays inline in the test. Retake one when a course is up.
 
 ## Deferred
 

@@ -65,10 +65,51 @@ class GpsCourseModelTest {
   }
 
   @Test
+  fun parsesTheModsOwnCaptureOfAWorkedField() {
+    // Unlike basic.json this one was written by the mod in game, so it is the fixture that pins the
+    // *writer*: integers where the model has floats, `islands` omitted rather than sent empty, and a
+    // course shaped the way the game really generates them.
+    val data = VdtParser.parseGpsCourse(example("gpsCourse.json"))
+    assertEquals("1", data.version)
+    assertEquals("3", data.courseId)
+    assertEquals(11f, data.implementWidth)
+    assertEquals(1, data.numHeadlands)
+    assertEquals(0f, data.sideOffset)
+    // "Automatic", the game's sentinel, comes through as itself rather than as an angle.
+    assertEquals(-1f, data.workDirection)
+    assertTrue(data.islands.isEmpty())
+
+    assertEquals(29, data.segments.size)
+    assertContentEquals((1..29).toList(), data.segments.map { it.i })
+    val (headlands, lines) = data.segments.partition { it.kind == "headland" }
+    assertEquals(14, lines.size)
+    assertTrue(lines.all { it.kind == "line" && it.headlandIndex == null })
+    assertTrue(headlands.all { it.headlandIndex == 1 })
+
+    // A "line" is a polyline, not an AB pair — this field's first one carries five points — so the
+    // overlay has to stroke a path per segment and never just first-to-last.
+    assertEquals(10, lines.first().p.size)
+
+    // And one headland ring arrives as a *chain* of separately indexed segments, each starting where
+    // the previous ended and the last closing back on the first. Worked shading therefore marks
+    // pieces of a ring rather than the ring, which is why the mask is keyed by segment index.
+    headlands.zipWithNext { a, b -> assertEquals(a.p.takeLast(2), b.p.take(2)) }
+    assertEquals(headlands.last().p.takeLast(2), headlands.first().p.take(2))
+
+    // Everything the app projects is normalized map space; one stray world coordinate would land a
+    // line somewhere off the terrain entirely.
+    assertTrue((data.boundary + data.segments.flatMap { it.p }).all { it in 0f..1f }, "coordinates are normalized")
+    // The boundary closes on itself, which is what lets the app stroke it without a special case.
+    assertEquals(data.boundary.take(2), data.boundary.takeLast(2))
+  }
+
+  @Test
   fun roundTripsLosslessly() {
-    val data = VdtParser.parseGpsCourse(example("basic.json"))
-    val encoded = json.encodeToString(GpsCourseData.serializer(), data)
-    assertEquals(data, json.decodeFromString(GpsCourseData.serializer(), encoded), "round-trip should be lossless")
+    for (fixture in listOf("basic.json", "gpsCourse.json")) {
+      val data = VdtParser.parseGpsCourse(example(fixture))
+      val encoded = json.encodeToString(GpsCourseData.serializer(), data)
+      assertEquals(data, json.decodeFromString(GpsCourseData.serializer(), encoded), "$fixture should round-trip")
+    }
   }
 
   @Test
