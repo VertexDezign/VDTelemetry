@@ -11,7 +11,7 @@ import net.vertexdezign.vdt.model.WorkSweep
  * How long a swept polygon is drawn locally before the server's mask is trusted to have it.
  *
  * Comfortably more than the server's publish interval plus a fetch and a decode. Holding it too long
- * costs nothing — it is the same green over the same ground — while dropping it too early would blink
+ * costs nothing — it is the same fill over the same ground — while dropping it too early would blink
  * the freshest strip off the map for the moment before the raster arrives.
  */
 private const val TRAIL_HOLD_MS = 6000L
@@ -30,7 +30,7 @@ private const val TRAIL_HOLD_MS = 6000L
  *
  * ### The trail must not overlap the raster
  *
- * Both are drawn translucent, so ground carrying both is not the same green twice — it is 0.6 over
+ * Both are drawn translucent, so ground carrying both is not the same fill twice — it is 0.6 over
  * 0.6, which composites to 0.84 and reads as a distinctly darker band trailing the machine at a fixed
  * distance and fading as the trail expires. [settle] is what prevents it: when a newly published
  * raster reaches the screen, everything swept before that raster was fetched is handed over to it and

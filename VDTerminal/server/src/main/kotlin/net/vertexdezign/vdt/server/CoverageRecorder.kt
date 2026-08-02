@@ -34,6 +34,18 @@ private const val MAX_GRID = 2048
 private const val WORKED = 1
 
 /**
+ * The colour worked ground is drawn in, published in the legend so the app's live trail can read it
+ * back rather than keeping a second copy of it.
+ *
+ * Deliberately not green. This layer is read over grass, on a map whose ground is green, under a
+ * guidance course that shades its own worked lines green — three greens over each other is a layer
+ * you cannot see, which is what driving it showed. Magenta has no analogue on a farm map and clashes
+ * with nothing else on this one (the course uses red for the current line, blue for headlands, amber
+ * for islands).
+ */
+private const val WORKED_COLOR = "#c026d3"
+
+/**
  * Where the rig's tools have actually been — the coverage layer, accumulated by the **server** from
  * the telemetry it already receives.
  *
@@ -139,7 +151,7 @@ class CoverageRecorder(
       terrainSize = terrainSize,
       gridSize = gridSize,
       id = COVERAGE_LAYER_ID,
-      legend = listOf(MapLayerLegendEntry(v = WORKED, label = "Worked", color = "#2d8633")),
+      legend = listOf(MapLayerLegendEntry(v = WORKED, label = "Worked", color = WORKED_COLOR)),
       rows = rows,
     )
   }

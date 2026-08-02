@@ -29,6 +29,10 @@ legend), with three differences worth knowing:
   filter popover). There is nothing for the mod to do either way.
 - Cells are ~1 m rather than the mod's 512-cell map overlay, since the layer is read for whether a
   strip was *missed*. On a 2 km map that is a 2048² mask, and so a 2048×2048 bitmap in the browser.
+- Worked ground is **magenta**, not the green "done" usually is: this layer is read over grass, on a
+  green map, under a course that shades its own worked lines green. The colour is published in the
+  legend and the app's live trail reads it back from there, so the two halves of the layer cannot
+  drift apart.
 
 ## Requirements
 

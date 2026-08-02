@@ -145,6 +145,7 @@ private const val KEY_AUTO_CENTER = "autoCenter"
 private const val KEY_SHOW_FIELDS = "showFields"
 private const val KEY_SHOW_COURSE = "showCourse"
 private const val KEY_COURSE_UP = "courseUp"
+private const val KEY_COURSE_NEARBY = "courseNearby"
 private const val KEY_POI_CATS = "poiCats"
 private const val KEY_VEH_STATES = "vehStates"
 private const val KEY_GROUND_LAYER = "groundLayer"
@@ -240,6 +241,8 @@ fun MapPanel(
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
   var showFields by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_FIELDS, true)) }
   var showCourse by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_COURSE, true)) }
+  // How much of the course to draw: 0 is the whole field, N is the lines within N swaths of the rig.
+  var courseNearby by remember { mutableStateOf(settings.getInt(KEY_COURSE_NEARBY, 0)) }
   // A mode you flip while driving, not a layout decision — so a header toggle beside auto-center
   // rather than widget config, persisted per placed tile like the zoom and the filters.
   var courseUp by remember { mutableStateOf(settings.getBoolean(KEY_COURSE_UP, false)) }
@@ -345,6 +348,7 @@ fun MapPanel(
   LaunchedEffect(autoCenter) { settings.putBoolean(KEY_AUTO_CENTER, autoCenter) }
   LaunchedEffect(showFields) { settings.putBoolean(KEY_SHOW_FIELDS, showFields) }
   LaunchedEffect(showCourse) { settings.putBoolean(KEY_SHOW_COURSE, showCourse) }
+  LaunchedEffect(courseNearby) { settings.putInt(KEY_COURSE_NEARBY, courseNearby) }
   LaunchedEffect(courseUp) { settings.putBoolean(KEY_COURSE_UP, courseUp) }
   LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
   LaunchedEffect(vehStates) { settings.putString(KEY_VEH_STATES, vehStates.joinToString(",")) }
@@ -371,6 +375,13 @@ fun MapPanel(
   // screen. A null version means the mod hasn't swept this plane (nobody had it selected until now):
   // there is nothing to fetch yet, and the sweep our selection just triggered will bring one.
   val activeLayerVersion = activeLayerInfo?.version
+  // The trail and the raster it runs ahead of have to be exactly one colour, or the seam between them
+  // shows. The server owns that colour — it publishes it in the coverage legend — so read it back from
+  // there instead of keeping a second copy here in step by hand. The constant covers the moment before
+  // the catalogue arrives.
+  val coverageTint =
+    (if (groundLayer == COVERAGE_LAYER_ID) activeLayerInfo?.legend?.singleOrNull()?.color else null)
+      ?.let { parseHexColor(it)?.copy(alpha = COVERAGE_TRAIL_ALPHA) } ?: COVERAGE_TINT
   val layerKey = activeLayerVersion?.let { "$mapLayerUrl/$groundLayer|$it" }
   // Held WITH the layer id it was rendered from, and NOT cleared when layerKey changes: a new sweep's
   // version must keep showing the previous bitmap until the new one has fetched, rather than flashing
@@ -641,14 +652,21 @@ fun MapPanel(
       // continues, and under everything else for the same reason the raster is: it is ground, not
       // annotation. See CoverageTrail for why the durable mask still lives on the server.
       if (coverageTrail.areas.isNotEmpty()) {
-        CoverageTrailOverlay(coverageTrail.areas, projection)
+        CoverageTrailOverlay(coverageTrail.areas, projection, coverageTint)
       }
 
       // Guidance course, under the map-data overlay: it is terrain-level information (where the
       // lines run, what is worked), so field labels, POI dots and vehicle markers stay on top of it.
       // An empty course is the mod saying the driver has left the field — nothing to draw.
       if (showCourse && gpsCourse != null && !gpsCourse.isEmpty) {
-        CourseOverlay(gpsCourse, vehicle?.gps?.course, mapData?.terrainSize ?: 0f, projection)
+        CourseOverlay(
+          gpsCourse,
+          vehicle?.gps?.course,
+          mapData?.terrainSize ?: 0f,
+          projection,
+          focus = player?.let { Offset(it.posX, it.posZ) },
+          nearbySwaths = courseNearby,
+        )
       }
 
       // The rig's own footprint, on top of the course: the course says where the lines are, this says
@@ -749,6 +767,8 @@ fun MapPanel(
           hasCourse = gpsCourse != null && !gpsCourse.isEmpty,
           showCourse = showCourse,
           onShowCourse = { showCourse = it },
+          courseNearby = courseNearby,
+          onCourseNearby = { courseNearby = it },
           groundLayer = groundLayer,
           onGroundLayer = { groundLayer = it },
           showFields = showFields,
@@ -792,19 +812,24 @@ private const val OVERLAY_CULL_MARGIN = 80f
  */
 private val trailClock = TimeSource.Monotonic.markNow()
 
+/** The alpha `MapLayerRenderer` gives every ground layer, so the trail composites like the raster. */
+private const val COVERAGE_TRAIL_ALPHA = 0.6f
+
 /**
- * The live trail's fill. Matches the coverage legend's colour at the alpha the server's renderer gives
- * every ground layer, so the strip this dashboard draws and the strip the server has already recorded
- * are the same green — which is what makes the seam between them invisible.
+ * The live trail's fill until the coverage legend arrives with the real one (see `coverageTint`).
+ *
+ * Magenta rather than green for the same reason the server publishes it that way: this layer is read
+ * over grass, on a green map, under a course that shades its own worked lines green.
  */
-private val COVERAGE_TINT = VdtColors.Green.copy(alpha = 0.6f)
+private val COVERAGE_TINT = Color(0xFFC026D3).copy(alpha = COVERAGE_TRAIL_ALPHA)
 
 /**
  * The worked ground the published raster does not have yet, drawn ahead of it.
  *
- * Filled, not stroked, and in the raster's own colour: this is not a separate thing being shown, it is
- * the same layer arriving sooner. See [CoverageTrail] for why it never overlaps the raster — where it
- * did, the two translucent greens composited into a visibly darker band.
+ * Filled, not stroked, and in [tint] — the raster's own colour, taken from the legend the server
+ * publishes with it: this is not a separate thing being shown, it is the same layer arriving sooner.
+ * See [CoverageTrail] for why it never overlaps the raster — where it did, the two translucent fills
+ * composited into a visibly darker band.
  *
  * **One path for the whole trail, filled once.** A fill per polygon shows every seam between them:
  * consecutive sweeps abut exactly, and two anti-aliased edges meeting on the same line each cover the
@@ -812,7 +837,7 @@ private val COVERAGE_TINT = VdtColors.Green.copy(alpha = 0.6f)
  * region with no interior edges, filled at one alpha however long the trail is.
  */
 @Composable
-private fun BoxScope.CoverageTrailOverlay(areas: List<SweptArea>, projection: MapProjection) {
+private fun BoxScope.CoverageTrailOverlay(areas: List<SweptArea>, projection: MapProjection, tint: Color) {
   val density = LocalDensity.current
   // Rebuilt when the trail changes, not on every pan, zoom or heading step: the path is in normalized
   // space and the transform below does the rest.
@@ -824,7 +849,7 @@ private fun BoxScope.CoverageTrailOverlay(areas: List<SweptArea>, projection: Ma
       translate(projection.offset.x, projection.offset.y)
       scale(factor, factor, pivot = Offset.Zero)
     }) {
-      drawPath(path, COVERAGE_TINT)
+      drawPath(path, tint)
     }
   }
 }
@@ -852,6 +877,14 @@ private fun sweptPath(areas: List<SweptArea>): Path = Path().apply {
  * `courseId` matches the geometry's: the mod publishes a new id the instant the game replaces the
  * course, and this file follows a beat later, so for that beat the "current line" would otherwise
  * highlight whatever line happens to hold that index in the course being replaced.
+ *
+ * With [nearbySwaths] above zero only the lines within that many swaths of [focus] are drawn — the
+ * line being driven and its neighbours, rather than a whole field of them. Measured as distance from
+ * the machine, **not** as segment index ±N: the game assembles the list per line group with `pairs`
+ * and then appends islands and headlands (`FieldCourseSegmentGenerator:238-272`), so index adjacency
+ * is not ground adjacency on any field the generator splits into more than one group. The field
+ * boundary and the islands are drawn whatever the window is: they are the shape of the field, not
+ * lines to steer by.
  */
 @Composable
 private fun BoxScope.CourseOverlay(
@@ -859,6 +892,8 @@ private fun BoxScope.CourseOverlay(
   state: GpsCourseState?,
   terrainSize: Float,
   projection: MapProjection,
+  focus: Offset? = null,
+  nearbySwaths: Int = 0,
 ) {
   val density = LocalDensity.current
 
@@ -879,6 +914,26 @@ private fun BoxScope.CourseOverlay(
   // Only the geometry this state actually describes (see the doc comment).
   val live = state?.takeIf { it.courseId == course.courseId && it.courseId.isNotBlank() }
   val swathWidth = if (terrainSize > 0f && course.implementWidth > 0f) course.implementWidth / terrainSize else 0f
+
+  // Half a swath more than asked for, so the line being driven sits inside its own window rather than
+  // exactly on its edge — a rig steering a side offset is up to half a swath off the line it is on.
+  val window = if (nearbySwaths > 0 && swathWidth > 0f && focus != null) swathWidth * (nearbySwaths + 0.5f) else 0f
+  // The filter walks every point of every line, and a headland ring is 256 of them, so it is not run
+  // on every frame the marker animates through: the machine's position is quantized to a quarter of
+  // the window first, which recomputes a few times per swath driven and never mid-swath.
+  val step = window / 4f
+  val near =
+    if (window > 0f &&
+      focus != null
+    ) {
+      Offset((focus.x / step).roundToInt() * step, (focus.y / step).roundToInt() * step)
+    } else {
+      null
+    }
+  val shown =
+    remember(paths, window, near) {
+      if (near == null) paths else paths.filter { (segment, _) -> polylineWithin(segment.p, near, window) }
+    }
 
   Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
     val factor = projection.factor
@@ -903,7 +958,7 @@ private fun BoxScope.CourseOverlay(
         }
       }
 
-      for ((segment, path) in paths) {
+      for ((segment, path) in shown) {
         val worked = live?.isWorked(segment.i) == true
         val current = live != null && segment.i == live.segmentIndex
         if (swathWidth > 0f) {
@@ -983,6 +1038,32 @@ private fun quadPath(shape: List<Float>): Path = Path().apply {
   lineTo(wx + hx - sx, wz + hz - sz)
   lineTo(hx, hz)
   close()
+}
+
+/**
+ * Whether any part of the flat `[x1, z1, x2, z2, …]` polyline comes within [radius] of [point].
+ *
+ * The distance is to the line, not to its vertices: a guidance line is two points a field apart, so
+ * measuring to the ends alone would hide the very line the machine is standing in the middle of.
+ * Returns on the first hit — the line being driven is found in its first segment or two.
+ */
+internal fun polylineWithin(points: List<Float>, point: Offset, radius: Float): Boolean {
+  if (points.size < 4) return false
+  val radiusSq = radius * radius
+  for (i in 0 until points.size - 3 step 2) {
+    val ax = points[i]
+    val az = points[i + 1]
+    val dx = points[i + 2] - ax
+    val dz = points[i + 3] - az
+    val lengthSq = dx * dx + dz * dz
+    // Where the foot of the perpendicular falls along this piece, clamped to its ends: past them the
+    // nearest point of the piece IS an end. A zero-length piece degenerates to its own start.
+    val t = if (lengthSq <= 0f) 0f else (((point.x - ax) * dx + (point.y - az) * dz) / lengthSq).coerceIn(0f, 1f)
+    val offX = point.x - (ax + t * dx)
+    val offZ = point.y - (az + t * dz)
+    if (offX * offX + offZ * offZ <= radiusSq) return true
+  }
+  return false
 }
 
 /** Path from a flat `[x1, z1, x2, z2, …]` polyline, in whatever space the coordinates are in. */
@@ -1333,6 +1414,8 @@ private fun BoxScope.MapFilterPanel(
   hasCourse: Boolean,
   showCourse: Boolean,
   onShowCourse: (Boolean) -> Unit,
+  courseNearby: Int,
+  onCourseNearby: (Int) -> Unit,
   groundLayer: String,
   onGroundLayer: (String) -> Unit,
   showFields: Boolean,
@@ -1423,6 +1506,9 @@ private fun BoxScope.MapFilterPanel(
     // Only while there is a course to hide: off a field the row would be a switch for nothing.
     if (hasCourse) {
       FilterRow("Guidance course", checked = showCourse, dot = VdtColors.Red) { onShowCourse(it) }
+      // Under the row it narrows, and only while the course is on — it is a property of what that
+      // switch draws, not a filter of its own.
+      if (showCourse) CourseRangeRow(courseNearby, onCourseNearby)
     }
 
     if (mapVehicles != null) {
@@ -1529,6 +1615,38 @@ private fun FilterSectionHeader(
   ) {
     Icon(icon, null, tint = if (allOn) VdtColors.Green else VdtColors.DarkGray, modifier = Modifier.size(16.dp))
     Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
+  }
+}
+
+/** How much of the course to draw, as swaths either side of the machine — 0 being the whole field. */
+private val CourseRanges = listOf(0 to "All", 1 to "±1", 2 to "±2", 3 to "±3")
+
+/**
+ * Narrow the course to the lines around the machine.
+ *
+ * A field course is dozens of lines, and on a worked field under a coverage layer the far ones are
+ * clutter over the one thing being steered by. This is the terminal's answer to that: the line you
+ * are on and the neighbours you will turn onto, and nothing else. See [CourseOverlay] for why the
+ * window is measured on the ground rather than in segment indices.
+ */
+@Composable
+private fun CourseRangeRow(nearby: Int, onNearby: (Int) -> Unit) {
+  Row(
+    Modifier.fillMaxWidth().padding(start = 22.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(10.dp),
+  ) {
+    Text("Lines", fontSize = 12.sp, color = VdtColors.DarkGray)
+    for ((value, label) in CourseRanges) {
+      val on = value == nearby
+      Text(
+        label,
+        fontSize = 12.sp,
+        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+        color = if (on) VdtColors.Accent else VdtColors.DarkGray,
+        modifier = Modifier.clickableNoRipple { onNearby(value) },
+      )
+    }
   }
 }
 
