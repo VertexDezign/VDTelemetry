@@ -33,6 +33,8 @@ fun main() {
   val wsUrl = "$wsProtocol//${location.host}/ws"
   val mapUrl = "${location.protocol}//${location.host}/api/map-image"
   val mapLayerUrl = "${location.protocol}//${location.host}/api/map-layer"
+  // The coverage mask lives on the server, so clearing it is an HTTP call rather than a mod command.
+  val coverageResetUrl = "${location.protocol}//${location.host}/api/coverage/reset"
 
   val repository = TelemetryRepository(scope, wsUrl)
   repository.start()
@@ -92,6 +94,7 @@ fun main() {
       cropRotation = repository.cropRotation,
       mapData = repository.mapData,
       mapVehicles = repository.mapVehicles,
+      gpsCourse = repository.gpsCourse,
       mapLayers = repository.mapLayers,
       fieldInfo = repository.fieldInfo,
       production = repository.production,
@@ -101,6 +104,7 @@ fun main() {
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,
       mapLayerUrl = mapLayerUrl,
+      coverageResetUrl = coverageResetUrl,
       settings = settings,
       pages = PageStore(settings),
       alerts = alerts,

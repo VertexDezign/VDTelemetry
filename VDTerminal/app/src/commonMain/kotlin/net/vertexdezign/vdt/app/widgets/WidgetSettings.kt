@@ -37,6 +37,10 @@ class WidgetSettings(private val settings: Settings, instanceId: String) {
 
   fun putFloat(name: String, value: Float): Unit = settings.putFloat(prefix + name, value)
 
+  fun getInt(name: String, default: Int): Int = settings.getInt(prefix + name, default)
+
+  fun putInt(name: String, value: Int): Unit = settings.putInt(prefix + name, value)
+
   fun getBoolean(name: String, default: Boolean): Boolean = settings.getBoolean(prefix + name, default)
 
   fun putBoolean(name: String, value: Boolean): Unit = settings.putBoolean(prefix + name, value)

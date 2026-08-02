@@ -37,6 +37,9 @@ local sourceFiles = {
   "src/collect/aspects/Tipping.lua",
   "src/collect/aspects/Harvest.lua",
   "src/collect/aspects/Work.lua",
+  -- Work areas read MapExporter's normalization at runtime (for the footprint), which is sourced
+  -- further down; the call is inside the collector, so the order between the two does not matter.
+  "src/collect/aspects/WorkAreas.lua",
   "src/collect/aspects/BaleCounter.lua",
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
@@ -50,6 +53,11 @@ local sourceFiles = {
   "src/collect/MapExporter.lua",
   "src/collect/MapVehiclesExporter.lua",
   "src/collect/MapLayersExporter.lua",
+  -- GPS course channel: the steering assist's guidance lines for the field being driven. Reuses
+  -- MapExporter's normalization, and owns the live `vehicle.gps.course` subtree that
+  -- collect/vehicle/SupportSystems.lua reads back at telemetry cadence (runtime call, so the order
+  -- between the two does not matter).
+  "src/collect/GpsCourseExporter.lua",
   -- Production channel: own-farm production points + factories (own interval, base-game state only,
   -- self-registers into the channel registry)
   "src/collect/ProductionExporter.lua",
@@ -126,7 +134,15 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    See vehicle-data-plan.md §4.
 -- 6: `motor.direction` — the direction the transmission is *in*, as distinct from `speed.direction`,
 --    which is the way the machine is actually travelling and reads STOPPED below walking pace.
-VDTelemetry.VERSION = 6
+-- 7: `gps.course` — the live half of the steering course (which line, how far off it, how far to its
+--    end, which lines are worked). The geometry it indexes into is its own gpsCourse.json channel.
+--    See issue #43.
+-- 8: the section view — `workWidth.sections` (the shutoff bar, the base game's only section control),
+--    `workAreas` (what each part of the tool is doing, plus its footprint in map coordinates) and
+--    `precisionFarming` (application rates per boom sub-section where PF keeps them, plus the live
+--    per-nozzle spray states, which are the only per-position signal that survives multiplayer).
+--    See issue #43.
+VDTelemetry.VERSION = 8
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

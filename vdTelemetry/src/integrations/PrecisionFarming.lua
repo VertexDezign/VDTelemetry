@@ -1,4 +1,5 @@
--- Precision Farming (FS25_precisionFarming): detection, plus its value maps as ground-layer planes.
+-- Precision Farming (FS25_precisionFarming): detection, the application rates on a sprayer, and its
+-- value maps as ground-layer planes.
 --
 -- Detection is a shared gate for the channels that must suppress base-game data PF supersedes. It's
 -- the internal Precision Farming mod, keyed by its mod name in the shared g_modIsLoaded table; that is
@@ -11,7 +12,11 @@
 --   * FieldInfoExporter — omits yieldBonus / fertilized / needsLime from the field-info popup.
 --   * MapLayersExporter — omits the fertilized + needs-lime soil layers from the ground overlay.
 --
--- LAYERS below is the other half: PF's own value maps, exported as extra planes of the mapLayers
+-- The application rates are the second part: what the tool in the player's hands is putting on the
+-- ground, read off PF's ExtendedSprayer spec. That spec hangs off the vehicle under a plain string
+-- key, so it is reachable from here; see collectSprayer for which half of it survives multiplayer.
+--
+-- LAYERS below is the third: PF's own value maps, exported as extra planes of the mapLayers
 -- channel. PF registers seven maps (PrecisionFarming:registerValueMap) but only five are menu-visible
 -- — cover and tramline return false from getShowInMenu — and those five are exactly the ones with a
 -- legend a player reads: soil type, pH, nitrogen, yield and seed rate.
@@ -37,6 +42,64 @@ VDT.PrecisionFarming = {}
 
 -- The internal mod's name (its folder / customEnv), the key it registers under in g_modIsLoaded.
 VDT.PrecisionFarming.MOD_NAME = "FS25_precisionFarming"
+
+-- Fields this integration adds to the object model, declared here next to the code that sets them
+-- (see EnhancedVehicle.lua for why). `level`/`target` are real units -- kg N/ha and pH -- converted
+-- from PF's internal levels the same way its own HUD does.
+---@class PfValueModel
+---@field level number
+---@field target number
+---@field unit string?
+
+-- One ~2 m slice across the boom (PF's own sub-division), left to right. `valid` is PF's isValid: it
+-- has a reading here. An invalid slice is off the field, on unsampled ground, or the tool is doing
+-- something that isn't liming or fertilizing.
+---@class PfSubSectionModel
+---@field valid boolean
+---@field n number?
+---@field nTarget number?
+---@field ph number?
+---@field phTarget number?
+
+-- The sub-sections of one work area, joined to WorkAreaModel by `index`.
+---@class PfWorkAreaModel
+---@field index number
+---@field subSections PfSubSectionModel[]
+
+-- The boom's nozzles, left to right. `active` is what is *actually coming out* right now, which is a
+-- different question from the shutoff sections: it already folds in the section, the direction and
+-- speed, spot spraying's weed detection and the "this ground is already fertilized" skip.
+-- `individual` is false on a machine PF switches a whole section at a time.
+--
+-- `amount` is how hard each nozzle is running, 0..1, and only exists on a pulse-width-modulation
+-- boom, where a nozzle is not simply on or off: PF pulses it in proportion to how fast that part of
+-- the machine is travelling, so the inside of a turn dials down while the outside stays wide open.
+-- Absent when every nozzle is at full flow.
+---@class PfNozzlesModel
+---@field count number
+---@field activeCount number
+---@field individual boolean
+---@field active boolean[]
+---@field amount number[]?
+
+-- `mode` is what the tool is currently doing with what is in its tank. `nitrogen`/`ph` are the
+-- averages over the whole boom -- the numbers PF's own HUD shows -- and are network-synced, so they
+-- are there for every player. `workAreas` is the per-slice detail, which is not: see the note on
+-- collectSprayer.
+---@class PrecisionFarmingModel
+---@field mode string LIME | FERTILIZER | OTHER
+---@field auto boolean
+---@field nitrogen PfValueModel? only while fertilizing -- PF stops maintaining it otherwise
+---@field ph PfValueModel? only while liming, for the same reason
+---@field spotSpray boolean?
+---@field workAreas PfWorkAreaModel[]?
+---@field nozzles PfNozzlesModel?
+
+---@class VehicleModel
+---@field precisionFarming PrecisionFarmingModel?
+
+---@class ImplementModel
+---@field precisionFarming PrecisionFarmingModel?
 
 ---True when the Precision Farming mod is loaded. g_modIsLoaded is a shared engine global (populated
 ---in mods.lua), readable from any mod environment — so this matches the game's own gate exactly.
@@ -80,6 +143,269 @@ end
 function VDT.PrecisionFarming.isUnreachable()
   return VDT.PrecisionFarming.isActive() and pfInstance() == nil
 end
+
+-- ---------------------------------------------------------------------------
+-- Application rates on the tool (the section view -- issue #43)
+-- ---------------------------------------------------------------------------
+
+-- PF's ExtendedSprayer spec, under the key it builds for itself:
+-- `"spec_" .. g_currentModName .. ".extendedSprayer"` (ExtendedSprayer.lua:3). That is a plain string
+-- key on the vehicle table, so unlike PF's globals it is readable from here without the mod-env dance
+-- above -- the same reason `subSectionData` is reachable at all.
+VDT.PrecisionFarming.SPRAYER_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".extendedSprayer"
+
+-- PF's per-nozzle effects, on the same kind of key. Only the sprayers PF ships node data for have
+-- this spec populated -- and those are exactly the machines where it takes the base game's width
+-- controls away (ExtendedSprayerEffects.lua:101-105 removes VariableWorkWidth's onRegisterActionEvents
+-- and onDraw), so where the shutoff bar freezes, this is what replaces it.
+VDT.PrecisionFarming.EFFECTS_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".extendedSprayerEffects"
+
+-- Spot spraying, a purchasable configuration (WeedSpotSpray.lua:28). It matters to a reader of the
+-- nozzle bar: with it on, a boom running at 40% is covering the whole width and skipping the clean
+-- ground -- without it, 40% just means most of the boom is folded away.
+VDT.PrecisionFarming.SPOT_SPRAY_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".weedSpotSpray"
+
+---Convert one of PF's internal levels to the value a player reads, through the map's own converter
+---(NitrogenMap:getNitrogenValueFromInternalValue / PHMap:getPhValueFromInternalValue). Levels are
+---small integers indexing a value table; the real numbers -- kg N/ha, a pH -- only exist in the map.
+---@param map table|nil the tool's own value map (spec.nitrogenMap / spec.pHMap)
+---@param converter string the map method to call
+---@param internal any PF's stored level
+---@param maxValue number|nil clamp, as PF's HUD clamps nitrogen to the map's maximum
+---@return number|nil nil when the map, the method or the value is unusable
+local function realValue(map, converter, internal, maxValue)
+  if type(map) ~= "table" or type(internal) ~= "number" or type(map[converter]) ~= "function" then
+    return nil
+  end
+  local value = math.max(0, internal)
+  if type(maxValue) == "number" then
+    value = math.min(value, maxValue)
+  end
+  local ok, real = pcall(map[converter], map, value)
+  if not ok or type(real) ~= "number" then
+    return nil
+  end
+  return tonumber(ValueMapper.mapFloat(real))
+end
+
+---A level/target pair, or nil when neither says anything (0 is PF's "no reading here").
+---@param map table|nil
+---@param converter string
+---@param level any
+---@param target any
+---@param unit string|nil
+---@return PfValueModel|nil
+local function valuePair(map, converter, level, target, unit)
+  local maxValue = type(map) == "table" and map.maxValue or nil
+  local actual = realValue(map, converter, level, maxValue)
+  local wanted = realValue(map, converter, target, maxValue)
+  if actual == nil and wanted == nil then
+    return nil
+  end
+  if (actual or 0) <= 0 and (wanted or 0) <= 0 then
+    return nil
+  end
+  return { level = actual or 0, target = wanted or 0, unit = unit }
+end
+
+---The per-slice detail for one work area, or nil when PF keeps none for it.
+---@param spec table the ExtendedSprayer spec
+---@param area table a base-game work area
+---@return PfWorkAreaModel|nil
+local function collectSubSections(spec, area)
+  local data = area.subSectionData
+  local count = area.numSubSections
+  if type(data) ~= "table" or type(count) ~= "number" or count <= 0 then
+    return nil
+  end
+
+  local nitrogen, ph = spec.nitrogenMap, spec.pHMap
+  local nMax = type(nitrogen) == "table" and nitrogen.maxValue or nil
+  local phMax = type(ph) == "table" and ph.maxValue or nil
+
+  local subSections = {}
+  for i = 1, count do
+    local slice = data[i]
+    if type(slice) == "table" then
+      subSections[#subSections + 1] = {
+        valid = slice.isValid == true,
+        n = realValue(nitrogen, "getNitrogenValueFromInternalValue", slice.nitrogenLevel, nMax),
+        nTarget = realValue(nitrogen, "getNitrogenValueFromInternalValue", slice.nitrogenTargetLevel, nMax),
+        ph = realValue(ph, "getPhValueFromInternalValue", slice.phLevel, phMax),
+        phTarget = realValue(ph, "getPhValueFromInternalValue", slice.phTargetLevel, phMax),
+      }
+    end
+  end
+
+  if #subSections == 0 then
+    return nil
+  end
+  return { index = area.index, subSections = subSections }
+end
+
+---The boom's nozzles, left to right, or nil when PF drives no per-nozzle effects on this machine.
+---
+---Unlike the sub-sections above this is **not** server-only: the states are recomputed in
+---`ExtendedSprayerEffects:onUpdate` with no `isServer` gate (`:187-203`), because they drive what the
+---player sees coming out of the boom. So this is the one per-position signal that survives
+---multiplayer -- and the only one that says anything at all with herbicide in the tank, where PF
+---computes no rates and every sub-section reads invalid.
+---
+---Each state already folds in everything that can stop a nozzle: its section being off
+---(`:361`), reversing or crawling (`WeedSpotSpray.lua:118-120`), spot spraying finding no weed under
+---it (`:123-131`), and liquid fertilizer skipping ground that already has some (`:142-160`).
+---@param object table a vehicle or implement
+---@return PfNozzlesModel|nil
+local function collectNozzles(object)
+  local spec = object[VDT.PrecisionFarming.EFFECTS_SPEC]
+  if type(spec) ~= "table" or type(spec.sprayerEffects) ~= "table" then
+    return nil
+  end
+
+  local nozzles = {}
+  for _, effect in ipairs(spec.sprayerEffects) do
+    if type(effect) == "table" then
+      nozzles[#nozzles + 1] = {
+        x = tonumber(effect.xOffset) or 0,
+        active = effect.isActive == true,
+        -- How hard this nozzle is running, 0..1. Flat 1 without pulse-width modulation; with it, each
+        -- nozzle's own ground speed over the machine's limit (`ExtendedSprayerEffects.lua:361-377`),
+        -- which PF turns into the pause between pulses (`:402-404`). That is why a PWM boom looks like
+        -- nozzles are cutting out mid-turn: they are pulsing slower, not shutting off.
+        amount = tonumber(effect.amountScale) or 1,
+      }
+    end
+  end
+  if #nozzles == 0 then
+    return nil
+  end
+
+  -- Sorted rather than taken in the spec's order, which comes out of a `pairs()` walk of PF's node
+  -- XML. `xOffset` is the nozzle's lateral offset, measured once at load
+  -- (`ExtendedSprayerEffects.lua:249`), and positive means the LEFT side -- that is how PF itself
+  -- reads it, looking a positive offset up in `sectionsLeft` (`:264-271`). So descending x is left to
+  -- right across the boom, matching the order the shutoff sections come in.
+  table.sort(nozzles, function(a, b)
+    return a.x > b.x
+  end)
+
+  local active, amount, activeCount, throttled = {}, {}, 0, false
+  for index, nozzle in ipairs(nozzles) do
+    active[index] = nozzle.active
+    amount[index] = tonumber(ValueMapper.mapFloat(math.max(0, math.min(1, nozzle.amount))))
+    if nozzle.active then
+      activeCount = activeCount + 1
+    end
+    if amount[index] < 1 then
+      throttled = true
+    end
+  end
+
+  return {
+    count = #nozzles,
+    activeCount = activeCount,
+    -- PF derives this from the pulse-width-modulation configuration -- `individualNozzleControl` is
+    -- assigned `pwmEnabled` (`ExtendedSprayerEffects.lua:40-45`) -- so "individual" and "pulsing" are
+    -- the same machines. Without it PF switches a whole section at a time.
+    individual = spec.individualNozzleControl == true,
+    active = active,
+    -- Omitted when every nozzle is wide open, which is every machine without PWM and any PWM boom at
+    -- full speed: a run of 1s says nothing the `active` flags do not.
+    amount = throttled and amount or nil,
+  }
+end
+
+---Whether this machine has PF's spot-spray configuration fitted. Nil (rather than false) when the
+---spec is absent entirely, so "no such machine" stays distinct from "fitted, switched off".
+---@param object table
+---@return boolean|nil
+local function spotSprayEnabled(object)
+  local spec = object[VDT.PrecisionFarming.SPOT_SPRAY_SPEC]
+  if type(spec) ~= "table" then
+    return nil
+  end
+  return spec.isEnabled == true
+end
+
+---Application rates for one object, or nil when it is not a PF sprayer/spreader.
+---
+---**The parts have different reach.** `nitrogen`/`ph` are the boom averages PF streams to every
+---client (ExtendedSprayer.lua:180-206, plus its own value event), so they are there for everyone. The
+---per-slice `workAreas` are refreshed inside `if self.isServer` (:212-255), so on a multiplayer client
+---they are simply absent -- which is why they are optional rather than the primary shape, and why the
+---app has to draw a readout from the averages and treat the strip as detail on top. `nozzles` is the
+---exception that survives multiplayer; see collectNozzles.
+---@param object table a vehicle or implement
+---@return PrecisionFarmingModel|nil
+function VDT.PrecisionFarming.collectSprayer(object)
+  if not VDT.PrecisionFarming.isActive() then
+    return nil
+  end
+  local spec = object[VDT.PrecisionFarming.SPRAYER_SPEC]
+  if type(spec) ~= "table" then
+    return nil
+  end
+
+  -- Both flags come from getCurrentSprayerMode, refreshed in onUpdateTick on client and server alike;
+  -- neither is set for a tool spraying herbicide, which is a mode PF has no rates for.
+  local mode = "OTHER"
+  if spec.isLiming then
+    mode = "LIME"
+  elseif spec.isFertilizing then
+    mode = "FERTILIZER"
+  end
+
+  -- Each reading is emitted ONLY in the mode that maintains it, which is the same branch PF's own HUD
+  -- picks. It has to be: `nitrogenLevel` is read under `if spec.isFertilizing` and `phLevel` under
+  -- `if spec.isLiming` (ExtendedSprayer.lua:714-719), and the aggregates they feed are never reset --
+  -- so a sprayer that fertilized this morning and is spraying herbicide now still holds this morning's
+  -- nitrogen, possibly from another field. Emitting that would put a stale number next to a live
+  -- nozzle bar, which is the one place it would be believed.
+  ---@type PrecisionFarmingModel
+  local model = {
+    mode = mode,
+    auto = spec.sprayAmountAutoMode ~= false,
+    nitrogen = spec.isFertilizing and valuePair(
+      spec.nitrogenMap,
+      "getNitrogenValueFromInternalValue",
+      spec.nActualValue,
+      spec.nTargetValue,
+      "kg/ha"
+    ) or nil,
+    ph = spec.isLiming and valuePair(spec.pHMap, "getPhValueFromInternalValue", spec.phActualValue, spec.phTargetValue)
+      or nil,
+    spotSpray = spotSprayEnabled(object),
+    -- Off a different spec, but the same machine and the same question, so it rides here rather than
+    -- becoming a second subtree. ExtendedSprayerEffects requires ExtendedSprayer
+    -- (`prerequisitesPresent`), so gating both on this one loses nothing.
+    nozzles = collectNozzles(object),
+  }
+
+  -- Walked from the base-game work areas rather than PF's own three lists, so the exported `index`
+  -- is the one WorkAreaModel carries and the two can be joined.
+  local workAreaSpec = object.spec_workArea
+  local areas = {}
+  for _, area in ipairs(workAreaSpec ~= nil and workAreaSpec.workAreas or {}) do
+    areas[#areas + 1] = collectSubSections(spec, area)
+  end
+  if #areas > 0 then
+    model.workAreas = areas
+  end
+
+  return model
+end
+
+-- Object stage: runs per vehicle/implement during the walk (see registry.lua). Self-propelled
+-- sprayers are vehicles and trailed ones implements, so both go through the same hook.
+---@param object table a vehicle or implement
+---@param model table the object's already core-collected model
+function VDT.PrecisionFarming.contributeObject(object, model)
+  model.precisionFarming = VDT.PrecisionFarming.collectSprayer(object)
+end
+
+-- ---------------------------------------------------------------------------
+-- Value maps as ground-layer planes
+-- ---------------------------------------------------------------------------
 
 ---Cell coordinates for a world position on a PF value map, transcribed from the maps' own point reads
 ---(NitrogenMap:getLevelAtWorldPos and friends, which all repeat this). Only needed for the two maps

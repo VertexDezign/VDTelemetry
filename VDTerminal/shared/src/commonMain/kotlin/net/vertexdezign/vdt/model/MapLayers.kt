@@ -85,6 +85,22 @@ data class MapLayerData(
   }
 }
 
+/**
+ * The one ground layer the **server** owns rather than the mod.
+ *
+ * Coverage is accumulated from the telemetry the server already receives — where the rig's work areas
+ * have actually been — because nothing in the game's ground layers records it: a tedder spreads a
+ * windrow and leaves no trace any of the mod's planes can sample. Deriving it server-side costs the
+ * game nothing, which matters when `Json.lua` is already the mod's hot spot during active work.
+ *
+ * It reaches the app through exactly the same catalogue, legend, version and PNG path as the mod's own
+ * planes, so the id has to be a name the mod will never use: [MapLayersCatalog] is the mod's statement
+ * of what the *map* offers, and this one is never in it. That is also why it must be stripped out of
+ * the subscription the server hands back to the mod — asked to sweep a plane it has never heard of,
+ * the mod could never report it active, and the reconcile loop would restate the command forever.
+ */
+const val COVERAGE_LAYER_ID = "coverage"
+
 @Serializable
 data class MapLayerLegendEntry(
   val v: Int = 0,

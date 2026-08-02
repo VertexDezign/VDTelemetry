@@ -13,6 +13,7 @@ import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
@@ -32,12 +33,51 @@ import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.VdtParser
+import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
+import net.vertexdezign.vdt.model.MapLayerData
+import net.vertexdezign.vdt.model.MapLayerInfo
+import net.vertexdezign.vdt.model.MapLayersCatalog
 import net.vertexdezign.vdt.model.MapLayersInfo
 import org.slf4j.LoggerFactory
+
+/**
+ * What the app is offered in its ground-layer picker: the mod's planes for this map, plus the
+ * server's own coverage layer.
+ *
+ * Coverage is listed **unconditionally**, even before anything has been worked and even when the mod's
+ * layer channel is switched off entirely — it does not come from the mod, so its availability must not
+ * depend on the mod's catalogue arriving. Until there is a mask its version is null, which the app
+ * already understands as "offered, nothing to draw".
+ */
+private fun layersInfo(
+  catalog: MapLayersCatalog?,
+  rasters: Map<String, MapLayerData>,
+  coverage: MapLayerData?,
+): MapLayersInfo {
+  val modPlanes = catalog?.let { MapLayersInfo.from(it, rasters).layers }.orEmpty()
+  return MapLayersInfo(
+    modPlanes +
+      MapLayerInfo(
+        id = COVERAGE_LAYER_ID,
+        label = "Coverage",
+        version = coverage?.contentVersion,
+        legend = coverage?.legend.orEmpty(),
+      ),
+  )
+}
 
 // How often the observed-cadence diagnostics snapshot is taken + broadcast. Slow on purpose: it's a
 // diagnostics feed, and staleness only needs second-ish resolution.
 private const val CHANNEL_STATS_INTERVAL_MS = 1000L
+
+/**
+ * How often the coverage mask is published as a new raster version.
+ *
+ * Deliberately far slower than the telemetry tick that feeds it. Every published version is a PNG the
+ * app refetches, so publishing at 10 Hz would mean a fetch, a render and a decode ten times a second
+ * for a picture that grows by one swath in that time. Coverage is a trail, not an instrument.
+ */
+private const val COVERAGE_PUBLISH_INTERVAL_MS = 2000L
 
 fun main() {
   val log = LoggerFactory.getLogger("VDTerminal")
@@ -65,6 +105,9 @@ fun main() {
   val mapState = watcher.register("map.json", nullOnAbsent = true) { VdtParser.parseMap(it) }
   // mapVehicles.json rewrites on the mod's own ~1 s vehicle interval; same absence rule.
   val mapVehiclesState = watcher.register("mapVehicles.json", nullOnAbsent = true) { VdtParser.parseMapVehicles(it) }
+  // gpsCourse.json is rewritten only when the steering course changes — once per field, not on a
+  // clock. Same absence rule; an empty course is published as a file rather than by deleting it.
+  val gpsCourseState = watcher.register("gpsCourse.json", nullOnAbsent = true) { VdtParser.parseGpsCourse(it) }
   // fieldInfo.json is interval-driven (per-field agronomy, resampled as crops grow); same "absence
   // means no data / export off" rule as map.json — the app drops back to the geometry rows.
   val fieldInfoState = watcher.register("fieldInfo.json", nullOnAbsent = true) { VdtParser.parseFieldInfo(it) }
@@ -87,6 +130,31 @@ fun main() {
     layerWatcher.register("index.json", nullOnAbsent = true) { VdtParser.parseMapLayerCatalog(it) }
   val mapLayerState = layerWatcher.registerRest { VdtParser.parseMapLayer(it) }
   layerWatcher.launchIn(appScope)
+
+  // Coverage: the one ground layer the server owns. Fed from the telemetry the dashboards already
+  // receive, so the game does no extra work for it — see CoverageRecorder for why this is not in the
+  // mod, and COVERAGE_LAYER_ID for how it reaches the app as an ordinary plane.
+  val coverage = CoverageRecorder()
+  val coverageState = MutableStateFlow<MapLayerData?>(null)
+  appScope.launch {
+    telemetryState.collect { data ->
+      if (data == null) return@collect
+      // The coordinates are already normalized; the terrain edge only sizes the grid. Either channel
+      // that carries it will do, so coverage does not go dark because one of them is switched off —
+      // and each is checked for a usable value rather than merely for being present, since a parsed
+      // file with the key missing defaults it to zero.
+      val terrainSize =
+        listOfNotNull(mapState.value?.terrainSize, mapLayerCatalogState.value?.terrainSize)
+          .firstOrNull { it > 0f } ?: 0f
+      coverage.record(data.vehicle, terrainSize, System.currentTimeMillis())
+    }
+  }
+  appScope.launch {
+    while (isActive) {
+      delay(COVERAGE_PUBLISH_INTERVAL_MS)
+      coverage.snapshotIfChanged()?.let { coverageState.value = it }
+    }
+  }
 
   // Diagnostics: sample every channel's observed write cadence on a slow timer (independent of the
   // channels' own updates, so an idle channel's staleness keeps advancing). One shared flow; each
@@ -195,6 +263,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val gpsCourseJob =
+          launch {
+            gpsCourseState.collect { data ->
+              val message: ServerMessage = ServerMessage.GpsCourse(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         val fieldInfoJob =
           launch {
             fieldInfoState.collect { data ->
@@ -234,10 +309,10 @@ fun main() {
         // the app knows when to refetch the PNG from /api/map-layer/{id}.
         val mapLayersJob =
           launch {
-            // The catalogue decides whether there is anything to announce at all; the rasters fill in
-            // each plane's legend + version as they are swept, so both feed one broadcast.
-            combine(mapLayerCatalogState, mapLayerState) { catalog, rasters ->
-              catalog?.let { MapLayersInfo.from(it, rasters) }
+            // The catalogue names the mod's planes; the rasters fill in each one's legend + version as
+            // they are swept; coverage is the server's own and rides along on the same broadcast.
+            combine(mapLayerCatalogState, mapLayerState, coverageState) { catalog, rasters, worked ->
+              layersInfo(catalog, rasters, worked)
             }.collect { info ->
               val message: ServerMessage = ServerMessage.MapLayers(info)
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
@@ -252,10 +327,16 @@ fun main() {
                 when (val message = json.decodeFromString(ClientMessage.serializer(), frame.readText())) {
                   // Session-scoped: what THIS dashboard is showing. The mod gets the union across all
                   // of them, which the registry submits when it changes -- so this one is not written
-                  // through as sent.
-                  is ClientMessage.SetMapLayers -> mapLayerSubscriptions.show(sessionId, message.ids)
+                  // through as sent. Coverage is stripped here rather than inside the registry: it is
+                  // the server's own plane, and asking the mod to sweep one it has never heard of
+                  // would be a mismatch its reconcile loop could never settle.
+                  is ClientMessage.SetMapLayers -> {
+                    mapLayerSubscriptions.show(sessionId, message.ids - COVERAGE_LAYER_ID)
+                  }
 
-                  else -> commandWriter.submit(message)
+                  else -> {
+                    commandWriter.submit(message)
+                  }
                 }
               } catch (e: Exception) {
                 log.warn("Ignoring unparseable client message", e)
@@ -271,6 +352,7 @@ fun main() {
           cropRotationJob.cancel()
           mapJob.cancel()
           mapVehiclesJob.cancel()
+          gpsCourseJob.cancel()
           fieldInfoJob.cancel()
           productionJob.cancel()
           storageJob.cancel()
@@ -280,7 +362,23 @@ fun main() {
         }
       }
 
-      mapLayerRoute { mapLayerState.value }
+      // The mod's swept planes plus the server's coverage mask, under one route: to the app they are
+      // all just ground layers, fetched by id at the version the broadcast gave it.
+      mapLayerRoute {
+        val worked = coverageState.value
+        if (worked == null) mapLayerState.value else mapLayerState.value + (COVERAGE_LAYER_ID to worked)
+      }
+
+      // Coverage is a trail the driver decides is finished — a new day, a new job, a field done — so
+      // clearing it is a control rather than a rule. There is nothing for the mod to do here: the mask
+      // never existed in the game, so this is the whole of it.
+      post("/api/coverage/reset") {
+        coverage.reset()
+        // Published straight away rather than waiting for the timer: the app is about to be told a new
+        // version exists and would otherwise refetch the old mask and redraw what was just cleared.
+        coverage.snapshotIfChanged()?.let { coverageState.value = it }
+        call.respondText("OK")
+      }
 
       get("/api/map-image") {
         val pda =

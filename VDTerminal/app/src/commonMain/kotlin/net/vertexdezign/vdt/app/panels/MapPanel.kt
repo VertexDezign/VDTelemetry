@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.IndeterminateCheckBox
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
@@ -50,6 +52,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -80,22 +83,33 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
+import io.ktor.client.request.post
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.components.SectionStrip
+import net.vertexdezign.vdt.app.components.boomOf
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
+import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
 import net.vertexdezign.vdt.model.FieldCropRotation
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldInfoEntry
+import net.vertexdezign.vdt.model.GpsCourseData
+import net.vertexdezign.vdt.model.GpsCourseState
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapFarm
 import net.vertexdezign.vdt.model.MapField
@@ -106,10 +120,15 @@ import net.vertexdezign.vdt.model.MapVehicle
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.Pda
 import net.vertexdezign.vdt.model.Player
+import net.vertexdezign.vdt.model.SweptArea
+import net.vertexdezign.vdt.model.Vehicle
+import net.vertexdezign.vdt.model.WorkArea
+import net.vertexdezign.vdt.model.activeWorkAreas
 import org.jetbrains.skia.Image
 import kotlin.math.hypot
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.time.TimeSource
 
 private const val MIN_ZOOM = 0.25f
 private const val MAX_ZOOM = 16f
@@ -126,9 +145,19 @@ private val FIELD_TAP_RADIUS_DP = 20.dp
 private const val KEY_ZOOM = "zoom"
 private const val KEY_AUTO_CENTER = "autoCenter"
 private const val KEY_SHOW_FIELDS = "showFields"
+private const val KEY_SHOW_COURSE = "showCourse"
+private const val KEY_COURSE_UP = "courseUp"
+private const val KEY_COURSE_NEARBY = "courseNearby"
 private const val KEY_POI_CATS = "poiCats"
 private const val KEY_VEH_STATES = "vehStates"
 private const val KEY_GROUND_LAYER = "groundLayer"
+
+/**
+ * Where the vehicle sits down the screen in course-up, as a fraction of the map's side. Two thirds
+ * down: on a run screen the map is spent on the ground you are about to drive over, not the strip
+ * behind you, and this is roughly where the reference terminals put the machine.
+ */
+private const val COURSE_UP_ANCHOR_Y = 0.66f
 
 /** The "no overlay" selection — persisted like a layer id, and the one that subscribes to nothing. */
 private const val NO_GROUND_LAYER = "none"
@@ -175,8 +204,26 @@ private fun layerUnion(panel: Any, selection: List<String>?): List<String> {
   return liveLayerSelections.values.flatten().distinct().sorted()
 }
 
-/** Shared with the caches above: outliving the panel is the whole point, so it can't be `remember`ed. */
-private val mapImageClient by lazy { HttpClient() }
+/**
+ * Shared with the caches above: outliving the panel is the whole point, so it can't be `remember`ed.
+ *
+ * [HttpTimeout] is installed **unconfigured** — no default deadline — purely so single requests can
+ * set their own. The images this fetches have no business having one: a 2048² coverage raster over a
+ * slow link is legitimately slow, and a client-wide timeout would turn that into a blank overlay.
+ * Only the coverage reset opts in ([COVERAGE_RESET_TIMEOUT_MS]), because it is the one request a
+ * person is waiting on.
+ */
+private val mapImageClient by lazy { HttpClient { install(HttpTimeout) } }
+
+/**
+ * How long to wait for the coverage reset before calling it failed.
+ *
+ * The browser's fetch has no deadline of its own, so without this a request that never answers — the
+ * server gone, a proxy holding the connection — leaves the row armed and silent forever, and the
+ * in-flight guard below would then never open again. Generous for what is a bodyless POST to a server
+ * on the same machine as the game.
+ */
+private const val COVERAGE_RESET_TIMEOUT_MS = 10_000L
 
 /**
  * Map panel: loads the PDA map image from the server, supports pan/zoom, draws the player marker
@@ -200,12 +247,25 @@ fun MapPanel(
   mapVehicles: MapVehiclesData? = null,
   fieldInfo: FieldInfoData? = null,
   mapLayerUrl: String = "",
+  /** Where to POST to clear the server's worked-coverage mask; blank hides the control. */
+  coverageResetUrl: String = "",
   mapLayers: MapLayersInfo? = null,
   onShowLayers: (List<String>) -> Unit = {},
+  vehicle: Vehicle? = null,
+  showGuidance: Boolean = false,
+  showSections: Boolean = false,
+  onCommand: (ClientMessage) -> Unit = {},
+  gpsCourse: GpsCourseData? = null,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
   var showFields by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_FIELDS, true)) }
+  var showCourse by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_COURSE, true)) }
+  // How much of the course to draw: 0 is the whole field, N is the lines within N swaths of the rig.
+  var courseNearby by remember { mutableStateOf(settings.getInt(KEY_COURSE_NEARBY, 0)) }
+  // A mode you flip while driving, not a layout decision — so a header toggle beside auto-center
+  // rather than widget config, persisted per placed tile like the zoom and the filters.
+  var courseUp by remember { mutableStateOf(settings.getBoolean(KEY_COURSE_UP, false)) }
   var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
   var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
   var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, NO_GROUND_LAYER)) }
@@ -218,7 +278,27 @@ fun MapPanel(
   var highlight by remember { mutableStateOf<Offset?>(null) }
   var dragOffset by remember { mutableStateOf(Offset.Zero) }
   var sidePx by remember { mutableFloatStateOf(0f) }
+  // How much room the section strip is taking along the bottom edge, so the ground-layer legend in the
+  // same corner clears it. Measured rather than assumed: the strip's height follows the text scale.
+  var sectionStripHeight by remember { mutableStateOf(0.dp) }
   val player = pda?.player
+
+  // The live end of the coverage layer. Fed only while that layer is the one on screen: it is the
+  // only place it would be drawn, and the sweep it keeps is state about a pass nobody is watching
+  // otherwise. Selecting the layer therefore starts an empty trail, which the server's raster fills
+  // in within a publish interval.
+  val coverageTrail = remember { CoverageTrail() }
+  val showCoverage = groundLayer == COVERAGE_LAYER_ID
+  if (showCoverage) {
+    // Keyed on the sample rather than on a clock, so the trail advances exactly once per telemetry
+    // tick — which is also the cadence WorkSweep's staleness guard is written against.
+    LaunchedEffect(vehicle) {
+      coverageTrail.advance(vehicle, mapData?.terrainSize ?: 0f, trailClock.elapsedNow().inWholeMilliseconds)
+    }
+  }
+  // Clearing on deselect is what stops a trail from an earlier visit reappearing over ground the
+  // raster has long since recorded, and what makes the reset button clear the map rather than half of it.
+  LaunchedEffect(showCoverage) { if (!showCoverage) coverageTrail.clear() }
 
   // Seed from the cache so a panel composed after a page switch paints the map on its first frame.
   val cacheKey = if (pda?.filename.isNullOrBlank()) null else "$mapUrl|${pda.filename}"
@@ -240,23 +320,37 @@ fun MapPanel(
     label = "heading",
   )
 
+  // Where the vehicle sits on screen, and so also the point the map turns about in course-up: the
+  // pivot is the one place rotation leaves alone, which is what keeps the machine still while the
+  // world turns under it.
+  fun anchorFor(boxSide: Float): Offset =
+    if (courseUp) Offset(boxSide / 2f, boxSide * COURSE_UP_ANCHOR_Y) else Offset(boxSide / 2f, boxSide / 2f)
+
+  // Rotate the map so the direction of travel points up. The smoothed heading, not the raw one, or
+  // the whole map steps 10 times a second.
+  fun rotationFor(): Float = if (courseUp) -animHeading else 0f
+
   // Zoom by [factor] while keeping the given focal point (screen coords relative to the map's
   // top-left) pinned on screen. Used by the header +/- buttons with focal = viewport centre.
   fun zoomAround(factor: Float, focalX: Float, focalY: Float) {
-    val base = if (autoCenter) centeredOffset(sidePx, player, scale) else dragOffset
+    val anchor = anchorFor(sidePx)
+    val base = if (autoCenter) anchorOffset(sidePx, player, scale, anchor) else dragOffset
     val newScale = (scale * factor).coerceIn(MIN_ZOOM, MAX_ZOOM)
-    val f = newScale / scale
-    dragOffset = Offset(focalX - (focalX - base.x) * f, focalY - (focalY - base.y) * f)
+    // The focal arrives in screen space, which in course-up is turned; the offset it feeds is not.
+    val focal = MapProjection(sidePx, scale, base, rotationFor(), anchor).unrotate(Offset(focalX, focalY))
+    dragOffset = zoomedOffset(base, focal, scale, newScale)
     scale = newScale
   }
 
-  // Center the map on a search hit (normalized coords), zoomed in far enough that its label shows,
-  // and ring-highlight it. Panning to a target naturally ends auto-centering.
+  // Put a search hit (normalized coords) where the vehicle normally sits, zoomed in far enough that
+  // its label shows, and ring-highlight it. Panning to a target naturally ends auto-centering.
+  // Anchored rather than centred because the anchor is the rotation pivot: in course-up it is the one
+  // screen point that means the same thing before and after the map turns.
   fun focusOn(norm: Offset) {
     val newScale = scale.coerceAtLeast(DETAIL_ZOOM)
     scale = newScale
     autoCenter = false
-    dragOffset = Offset(sidePx / 2f - norm.x * sidePx * newScale, sidePx / 2f - norm.y * sidePx * newScale)
+    dragOffset = MapProjection.anchoredAt(norm, anchorFor(sidePx), sidePx, newScale)
     highlight = norm
   }
 
@@ -273,6 +367,9 @@ fun MapPanel(
   LaunchedEffect(scale) { settings.putFloat(KEY_ZOOM, scale) }
   LaunchedEffect(autoCenter) { settings.putBoolean(KEY_AUTO_CENTER, autoCenter) }
   LaunchedEffect(showFields) { settings.putBoolean(KEY_SHOW_FIELDS, showFields) }
+  LaunchedEffect(showCourse) { settings.putBoolean(KEY_SHOW_COURSE, showCourse) }
+  LaunchedEffect(courseNearby) { settings.putInt(KEY_COURSE_NEARBY, courseNearby) }
+  LaunchedEffect(courseUp) { settings.putBoolean(KEY_COURSE_UP, courseUp) }
   LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
   LaunchedEffect(vehStates) { settings.putString(KEY_VEH_STATES, vehStates.joinToString(",")) }
   LaunchedEffect(groundLayer) { settings.putString(KEY_GROUND_LAYER, groundLayer) }
@@ -298,6 +395,13 @@ fun MapPanel(
   // screen. A null version means the mod hasn't swept this plane (nobody had it selected until now):
   // there is nothing to fetch yet, and the sweep our selection just triggered will bring one.
   val activeLayerVersion = activeLayerInfo?.version
+  // The trail and the raster it runs ahead of have to be exactly one colour, or the seam between them
+  // shows. The server owns that colour — it publishes it in the coverage legend — so read it back from
+  // there instead of keeping a second copy here in step by hand. The constant covers the moment before
+  // the catalogue arrives.
+  val coverageTint =
+    (if (groundLayer == COVERAGE_LAYER_ID) activeLayerInfo?.legend?.singleOrNull()?.color else null)
+      ?.let { parseHexColor(it)?.copy(alpha = COVERAGE_TRAIL_ALPHA) } ?: COVERAGE_TINT
   val layerKey = activeLayerVersion?.let { "$mapLayerUrl/$groundLayer|$it" }
   // Held WITH the layer id it was rendered from, and NOT cleared when layerKey changes: a new sweep's
   // version must keep showing the previous bitmap until the new one has fetched, rather than flashing
@@ -317,9 +421,14 @@ fun MapPanel(
     // in-flight fetch can therefore resume in between and would otherwise file the bitmap it just
     // decoded under whatever layer is selected by then.
     val requestedLayer = groundLayer
+    // The version being fetched was announced before this ran, so the server's mask already holds
+    // everything the live trail has swept up to now. Noted here rather than on arrival: the ground
+    // worked *during* the fetch is not in these bytes and stays the trail's to draw.
+    val sweptIntoRaster = trailClock.elapsedNow().inWholeMilliseconds
     layerImageCache?.let { (cachedKey, cachedBitmap) ->
       if (cachedKey == layerKey) {
         layerBitmap = requestedLayer to cachedBitmap
+        if (requestedLayer == COVERAGE_LAYER_ID) coverageTrail.settle(sweptIntoRaster)
         return@LaunchedEffect
       }
     }
@@ -343,6 +452,9 @@ fun MapPanel(
       outcome.onSuccess {
         layerImageCache = layerKey to it
         layerBitmap = requestedLayer to it
+        // This raster is now what draws that stretch of ground; the trail stops drawing it a second
+        // time on top, which is what keeps the two from compositing into a darker band.
+        if (requestedLayer == COVERAGE_LAYER_ID) coverageTrail.settle(sweptIntoRaster)
         return@LaunchedEffect
       }
       val error = outcome.exceptionOrNull()
@@ -359,7 +471,7 @@ fun MapPanel(
     icon = Icons.Filled.Map,
     modifier = modifier,
     headerActions = {
-      if (mapData != null || mapVehicles != null || mapLayers != null) {
+      if (mapData != null || mapVehicles != null || mapLayers != null || gpsCourse != null) {
         Icon(
           Icons.Filled.Tune,
           "filters & search",
@@ -389,6 +501,19 @@ fun MapPanel(
           )
         },
       )
+      // Orientation, beside the follow toggle it belongs with: both answer "what is this map doing
+      // while I drive". Turning it on also resumes following — course-up means "point where I am
+      // going", which says nothing at all about a map parked over some other corner of the estate.
+      Icon(
+        Icons.Filled.Explore,
+        if (courseUp) "north up" else "course up",
+        tint = if (courseUp) VdtColors.Green else VdtColors.DarkGray,
+        modifier =
+        Modifier.size(16.dp).clickableNoRipple {
+          courseUp = !courseUp
+          if (courseUp) autoCenter = true
+        },
+      )
       Icon(
         Icons.Filled.CenterFocusStrong,
         "auto-center",
@@ -415,15 +540,25 @@ fun MapPanel(
       )
       // Current translation: while auto-centering it tracks the (smoothed) player at the live
       // scale, so zoom stays locked on the player; otherwise it is the free pan/zoom offset.
+      val anchor = anchorFor(side)
       val applied =
         if (autoCenter && player != null) {
-          Offset(side / 2f - animNorm.x * side * scale, side / 2f - animNorm.y * side * scale)
+          MapProjection.anchoredAt(animNorm, anchor, side, scale)
         } else {
           dragOffset
         }
-      // Let the long-lived gesture read the current offset without restarting the pointer input.
-      val currentApplied by rememberUpdatedState(applied)
+      // The one transform every overlay projects through (see MapProjection).
+      val projection = MapProjection(side, scale, applied, rotationFor(), anchor)
+      // Let the long-lived gestures read the current transform without restarting the pointer input.
+      val currentProjection by rememberUpdatedState(projection)
 
+      // Two nested layers, because graphicsLayer turns everything about ONE origin and these two
+      // transforms need different ones: the outer turns the map about the vehicle, the inner scales
+      // and pans about the box corner. Nested, they compose into exactly MapProjection.toScreen —
+      // scale, translate, then rotate — so the raster and the vectors cannot drift apart.
+      //
+      // The gestures live on the outer box, OUTSIDE its own rotation layer, so they keep receiving
+      // plain box coordinates and the unrotating above stays the only place rotation is undone.
       androidx.compose.foundation.layout.Box(
         Modifier
           .size(with(density) { side.toDp() })
@@ -431,16 +566,16 @@ fun MapPanel(
           .pointerInput(Unit) {
             detectTransformGestures { centroid, pan, zoom, _ ->
               // Continue from the current on-screen offset; a pan ends centering.
-              val base = if (autoCenter) currentApplied else dragOffset
+              val current = currentProjection
+              val base = if (autoCenter) current.offset else dragOffset
               if (pan != Offset.Zero) autoCenter = false
               val newScale = (scale * zoom).coerceIn(MIN_ZOOM, MAX_ZOOM)
-              val f = newScale / scale
-              // Zoom around the gesture centroid so the point under the fingers stays put.
+              // Zoom around the gesture centroid so the point under the fingers stays put. Both the
+              // centroid and the drag arrive in turned screen space; the offset they feed is not
+              // turned, so both are taken back through the rotation first — otherwise a drag on a
+              // course-up map slides the world off at an angle to the finger.
               dragOffset =
-                Offset(
-                  centroid.x - (centroid.x - base.x) * f + pan.x,
-                  centroid.y - (centroid.y - base.y) * f + pan.y,
-                )
+                zoomedOffset(base, current.unrotate(centroid), scale, newScale) + current.unrotateVector(pan)
               scale = newScale
             }
           }.pointerInput(Unit) {
@@ -467,8 +602,8 @@ fun MapPanel(
             // detectTapGestures coexists with the transform/scroll handlers above: it cancels itself
             // when a drag starts, so panning is unaffected. Positions arrive in the *screen* space of
             // this side×side box — the same frame the transform gesture's centroid and `applied`
-            // live in — so a label is projected with the overlay's exact toScreen math
-            // (norm*side*scale + applied) and matched within a constant on-screen radius.
+            // live in — so a label is projected through the same MapProjection the overlay draws
+            // with, and matched within a constant on-screen radius.
             detectTapGestures { tap ->
               // Only fields that are actually drawn are tappable — with the overlay hidden there are
               // no labels on screen, so a tap must not open a popup for an invisible field.
@@ -477,14 +612,13 @@ fun MapPanel(
                 selectedFieldId = null
                 return@detectTapGestures
               }
-              val factor = side * scale
-              val originX = currentApplied.x
-              val originY = currentApplied.y
+              val hitProjection = currentProjection
               val radius = FIELD_TAP_RADIUS_DP.toPx()
               var bestId: Int? = null
               var bestDist = radius
               for (f in fields) {
-                val d = hypot(tap.x - (f.labelX * factor + originX), tap.y - (f.labelZ * factor + originY))
+                val label = hitProjection.toScreen(f.labelX, f.labelZ)
+                val d = hypot(tap.x - label.x, tap.y - label.y)
                 if (d <= bestDist) {
                   bestDist = d
                   bestId = f.id
@@ -493,48 +627,84 @@ fun MapPanel(
               selectedFieldId = bestId
             }
           }.graphicsLayer {
-            transformOrigin = TransformOrigin(0f, 0f)
-            scaleX = scale
-            scaleY = scale
-            translationX = applied.x
-            translationY = applied.y
+            // Outer: course-up's rotation, about the vehicle anchor.
+            rotationZ = projection.rotationDeg
+            transformOrigin = TransformOrigin(projection.pivot.x / side, projection.pivot.y / side)
           },
       ) {
-        bitmap?.let {
-          Image(
-            it,
-            contentDescription = "map",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds,
-          )
+        androidx.compose.foundation.layout.Box(
+          Modifier.fillMaxSize().graphicsLayer {
+            // Inner: the same zoom and pan MapProjection applies to the vectors, handed to the GPU
+            // for the raster layers below (base map + ground overlay).
+            transformOrigin = TransformOrigin(0f, 0f)
+            scaleX = projection.scale
+            scaleY = projection.scale
+            translationX = projection.offset.x
+            translationY = projection.offset.y
+          },
+        ) {
+          bitmap?.let {
+            Image(
+              it,
+              contentDescription = "map",
+              modifier = Modifier.fillMaxSize(),
+              contentScale = ContentScale.FillBounds,
+            )
+          }
+          // Ground-layer raster: unlike MapDataOverlay's vectors, this IS pixel data that must scale
+          // exactly with the base map image, so it belongs inside the same zoom-scaled layer rather
+          // than outside it. FilterQuality.None keeps grid cells crisp instead of smearing colors
+          // together at high zoom (the whole point of a legend-driven raster).
+          shownLayerBitmap?.let {
+            Image(
+              it,
+              contentDescription = "ground layer",
+              modifier = Modifier.fillMaxSize(),
+              contentScale = ContentScale.FillBounds,
+              filterQuality = FilterQuality.None,
+            )
+          }
         }
-        // Ground-layer raster: unlike MapDataOverlay's vectors, this IS pixel data that must scale
-        // exactly with the base map image, so it belongs inside the same zoom-scaled layer rather
-        // than outside it. FilterQuality.None keeps grid cells crisp instead of smearing colors
-        // together at high zoom (the whole point of a legend-driven raster).
-        shownLayerBitmap?.let {
-          Image(
-            it,
-            contentDescription = "ground layer",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.FillBounds,
-            filterQuality = FilterQuality.None,
-          )
-        }
+      }
+
+      // The freshest strip of coverage, drawn from this dashboard's own telemetry so the swath follows
+      // the machine instead of arriving with the next published raster. Directly over the raster it
+      // continues, and under everything else for the same reason the raster is: it is ground, not
+      // annotation. See CoverageTrail for why the durable mask still lives on the server.
+      if (coverageTrail.areas.isNotEmpty()) {
+        CoverageTrailOverlay(coverageTrail.areas, projection, coverageTint)
+      }
+
+      // Guidance course, under the map-data overlay: it is terrain-level information (where the
+      // lines run, what is worked), so field labels, POI dots and vehicle markers stay on top of it.
+      // An empty course is the mod saying the driver has left the field — nothing to draw.
+      if (showCourse && gpsCourse != null && !gpsCourse.isEmpty) {
+        CourseOverlay(
+          gpsCourse,
+          vehicle?.gps?.course,
+          mapData?.terrainSize ?: 0f,
+          projection,
+          focus = player?.let { Offset(it.posX, it.posZ) },
+          nearbySwaths = courseNearby,
+        )
+      }
+
+      // The rig's own footprint, on top of the course: the course says where the lines are, this says
+      // where the tool is and whether ground is going under it right now.
+      if (vehicle != null) {
+        WorkOverlay(vehicle, projection)
       }
 
       // Map-data overlay (field outlines/labels + POI markers): like the player marker it lives
       // OUTSIDE the zoom-scaled graphicsLayer — the layer rasterizes, so vectors inside it blur at
-      // high zoom. The outlines are re-projected each draw under the same transform as the image
-      // (norm * side * scale + translation), the labels/markers stay constant-size.
+      // high zoom. The outlines are re-projected each draw through the same MapProjection the image
+      // is transformed by, the labels/markers stay constant-size.
       if (mapData != null || mapVehicles != null) {
         MapDataOverlay(
           mapData,
           mapVehicles,
           player?.farmId,
-          side,
-          scale,
-          applied,
+          projection,
           showFields,
           poiCats,
           vehStates,
@@ -557,11 +727,12 @@ fun MapPanel(
             Modifier
               .size(24.dp)
               .offset {
-                IntOffset(
-                  (animNorm.x * side * scale + applied.x - 12.dp.toPx()).roundToInt(),
-                  (animNorm.y * side * scale + applied.y - 12.dp.toPx()).roundToInt(),
-                )
-              }.rotate(animHeading),
+                val pos = projection.toScreen(animNorm)
+                val half = 12.dp.toPx()
+                IntOffset((pos.x - half).roundToInt(), (pos.y - half).roundToInt())
+                // In course-up these cancel to zero: the map turned instead, so the marker points
+                // straight up the screen the way the machine points up the field.
+              }.rotate(animHeading + projection.rotationDeg),
           )
         }
       }
@@ -585,15 +756,39 @@ fun MapPanel(
 
       // Ground-layer legend, only while a layer is actually selected and its own raster is showing.
       if (activeLayerInfo != null && shownLayerBitmap != null) {
-        GroundLayerLegend(activeLayerInfo.legend, side)
+        GroundLayerLegend(activeLayerInfo.legend, side, bottomInset = sectionStripHeight)
+      }
+
+      // Navigation as map chrome (issue #43): opt-in per placed tile, so a map used as an overview
+      // stays uncovered while a map used as a run screen carries its heading and lamps. Above the
+      // legend and the field popup in the stack — it is a fixed strip in a corner they don't use.
+      if (showGuidance) {
+        GuidanceStrip(heading, vehicle, onCommand = onCommand)
+      }
+
+      // The boom along the bottom edge (issue #43), where the reference terminals put it — and in
+      // course-up, directly under the machine it belongs to, which sits two thirds down the screen.
+      // Opt-in per placed tile like the navigation strip, and absent entirely on foot or on a rig with
+      // nothing that works ground, rather than showing an empty bar.
+      val boom = if (showSections) boomOf(vehicle) else null
+      if (boom != null) {
+        SectionStrip(boom, onHeight = { sectionStripHeight = it })
+      } else {
+        // Hand the legend its corner back when the tool is unhitched or the strip is switched off.
+        LaunchedEffect(Unit) { sectionStripHeight = 0.dp }
       }
 
       // Filter & search popover, on top of everything map-related.
-      if (filterOpen && (mapData != null || mapVehicles != null || mapLayers != null)) {
+      if (filterOpen && (mapData != null || mapVehicles != null || mapLayers != null || gpsCourse != null)) {
         MapFilterPanel(
           mapData = mapData,
           mapVehicles = mapVehicles,
           mapLayers = mapLayers,
+          hasCourse = gpsCourse != null && !gpsCourse.isEmpty,
+          showCourse = showCourse,
+          onShowCourse = { showCourse = it },
+          courseNearby = courseNearby,
+          onCourseNearby = { courseNearby = it },
           groundLayer = groundLayer,
           onGroundLayer = { groundLayer = it },
           showFields = showFields,
@@ -608,6 +803,24 @@ fun MapPanel(
             if (it.isBlank()) highlight = null
           },
           onFocus = ::focusOn,
+          // The mask being cleared is the server's, so the POST is the whole operation and its status
+          // is the only thing that knows whether it happened — a discarded failure would leave the row
+          // reading "done" while the coverage stays exactly where it was. The redraw still isn't
+          // awaited: the server publishes the cleared mask's version over the WebSocket, and the
+          // ordinary layer-fetch path picks it up.
+          onReset = {
+            val cleared =
+              coverageResetUrl.isNotBlank() &&
+                mapImageClient
+                  .post(coverageResetUrl) { timeout { requestTimeoutMillis = COVERAGE_RESET_TIMEOUT_MS } }
+                  .status
+                  .isSuccess()
+            // The local trail is coverage too, and it is the part in front of the raster — leaving it
+            // would redraw the last few seconds of a pass the driver just asked to be rid of. Only
+            // once the raster behind it is actually gone, though.
+            if (cleared) coverageTrail.clear()
+            cleared
+          },
         )
       }
     }
@@ -617,6 +830,273 @@ fun MapPanel(
 // Points projected further than this (px) outside the canvas are culled before any text measuring.
 private const val OVERLAY_CULL_MARGIN = 80f
 
+/**
+ * The clock the live coverage trail ages its polygons by. Monotonic and process-wide: it is only ever
+ * read as a difference, and a wall clock can step.
+ */
+private val trailClock = TimeSource.Monotonic.markNow()
+
+/** The alpha `MapLayerRenderer` gives every ground layer, so the trail composites like the raster. */
+private const val COVERAGE_TRAIL_ALPHA = 0.6f
+
+/**
+ * The live trail's fill until the coverage legend arrives with the real one (see `coverageTint`).
+ *
+ * Magenta rather than green for the same reason the server publishes it that way: this layer is read
+ * over grass, on a green map, under a course that shades its own worked lines green.
+ */
+private val COVERAGE_TINT = Color(0xFFC026D3).copy(alpha = COVERAGE_TRAIL_ALPHA)
+
+/**
+ * The worked ground the published raster does not have yet, drawn ahead of it.
+ *
+ * Filled, not stroked, and in [tint] — the raster's own colour, taken from the legend the server
+ * publishes with it: this is not a separate thing being shown, it is the same layer arriving sooner.
+ * See [CoverageTrail] for why it never overlaps the raster — where it did, the two translucent fills
+ * composited into a visibly darker band.
+ *
+ * **One path for the whole trail, filled once.** A fill per polygon shows every seam between them:
+ * consecutive sweeps abut exactly, and two anti-aliased edges meeting on the same line each cover the
+ * boundary pixels partly, so the pass comes out finely striped. Merged into one path they are a single
+ * region with no interior edges, filled at one alpha however long the trail is.
+ */
+@Composable
+private fun BoxScope.CoverageTrailOverlay(areas: List<SweptArea>, projection: MapProjection, tint: Color) {
+  val density = LocalDensity.current
+  // Rebuilt when the trail changes, not on every pan, zoom or heading step: the path is in normalized
+  // space and the transform below does the rest.
+  val path = remember(areas) { sweptPath(areas) }
+  Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
+    val factor = projection.factor
+    withTransform({
+      rotate(projection.rotationDeg, pivot = projection.pivot)
+      translate(projection.offset.x, projection.offset.y)
+      scale(factor, factor, pivot = Offset.Zero)
+    }) {
+      drawPath(path, tint)
+    }
+  }
+}
+
+/** The whole trail as one path, in the normalized space every overlay is drawn in. */
+private fun sweptPath(areas: List<SweptArea>): Path = Path().apply {
+  for (area in areas) {
+    moveTo(area.xs[0], area.zs[0])
+    for (i in 1 until area.xs.size) lineTo(area.xs[i], area.zs[i])
+    close()
+  }
+}
+
+/**
+ * The guidance course: every line the game's steering assist generated for the field being driven,
+ * shaded by whether it is done, with the line currently being followed picked out.
+ *
+ * Drawn like the field polygons — paths built once per course in normalized space and re-projected
+ * under [projection] — but with two stroke widths that mean different things. The centreline is a
+ * constant on-screen hairline (its width is divided back out of the transform). The swath under it is
+ * a real-world width: `implementWidth` meters over the terrain edge, so it grows with zoom exactly as
+ * the ground it covers does, which is what turns a set of lines into a picture of what is worked.
+ *
+ * [state] is the live half from the telemetry tick. Its indices are honoured **only** when its
+ * `courseId` matches the geometry's: the mod publishes a new id the instant the game replaces the
+ * course, and this file follows a beat later, so for that beat the "current line" would otherwise
+ * highlight whatever line happens to hold that index in the course being replaced.
+ *
+ * With [nearbySwaths] above zero only the lines within that many swaths of [focus] are drawn — the
+ * line being driven and its neighbours, rather than a whole field of them. Measured as distance from
+ * the machine, **not** as segment index ±N: the game assembles the list per line group with `pairs`
+ * and then appends islands and headlands (`FieldCourseSegmentGenerator:238-272`), so index adjacency
+ * is not ground adjacency on any field the generator splits into more than one group. The field
+ * boundary and the islands are drawn whatever the window is: they are the shape of the field, not
+ * lines to steer by.
+ */
+@Composable
+private fun BoxScope.CourseOverlay(
+  course: GpsCourseData,
+  state: GpsCourseState?,
+  terrainSize: Float,
+  projection: MapProjection,
+  focus: Offset? = null,
+  nearbySwaths: Int = 0,
+) {
+  val density = LocalDensity.current
+
+  val paths =
+    remember(course) {
+      course.segments.mapNotNull { segment ->
+        val p = segment.p
+        if (p.size < 4) return@mapNotNull null
+        val path =
+          Path().apply {
+            moveTo(p[0], p[1])
+            for (i in 2 until p.size - 1 step 2) lineTo(p[i], p[i + 1])
+          }
+        segment to path
+      }
+    }
+
+  // Only the geometry this state actually describes (see the doc comment).
+  val live = state?.takeIf { it.courseId == course.courseId && it.courseId.isNotBlank() }
+  val swathWidth = if (terrainSize > 0f && course.implementWidth > 0f) course.implementWidth / terrainSize else 0f
+
+  // Half a swath more than asked for, so the line being driven sits inside its own window rather than
+  // exactly on its edge — a rig steering a side offset is up to half a swath off the line it is on.
+  val window = if (nearbySwaths > 0 && swathWidth > 0f && focus != null) swathWidth * (nearbySwaths + 0.5f) else 0f
+  // The filter walks every point of every line, and a headland ring is 256 of them, so it is not run
+  // on every frame the marker animates through: the machine's position is quantized to a quarter of
+  // the window first, which recomputes a few times per swath driven and never mid-swath.
+  val step = window / 4f
+  val near =
+    if (window > 0f &&
+      focus != null
+    ) {
+      Offset((focus.x / step).roundToInt() * step, (focus.y / step).roundToInt() * step)
+    } else {
+      null
+    }
+  val shown =
+    remember(paths, window, near) {
+      if (near == null) paths else paths.filter { (segment, _) -> polylineWithin(segment.p, near, window) }
+    }
+
+  Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
+    val factor = projection.factor
+    withTransform({
+      // Outermost first — scale, then translate, then rotate; see MapDataOverlay.
+      rotate(projection.rotationDeg, pivot = projection.pivot)
+      translate(projection.offset.x, projection.offset.y)
+      scale(factor, factor, pivot = Offset.Zero)
+    }) {
+      // Divided back out of the transform: the geometry scales, these lines keep their screen width.
+      val hairline = 1.dp.toPx() / factor
+      val currentLine = 2.5.dp.toPx() / factor
+
+      // The field the course was generated against — the detected boundary, so it hugs the crop edge
+      // rather than the farmland square map.json draws.
+      if (course.boundary.size >= 6) {
+        drawPath(flatPath(course.boundary, close = true), VdtColors.Accent.copy(alpha = 0.5f), style = Stroke(hairline))
+      }
+      for (island in course.islands) {
+        if (island.size >= 6) {
+          drawPath(flatPath(island, close = true), VdtColors.Amber.copy(alpha = 0.5f), style = Stroke(hairline))
+        }
+      }
+
+      for ((segment, path) in shown) {
+        val worked = live?.isWorked(segment.i) == true
+        val current = live != null && segment.i == live.segmentIndex
+        if (swathWidth > 0f) {
+          // The swath: what this line covers on the ground. Worked lines read as a filled band, the
+          // rest as a faint one — the same "where have I been" the reference terminals paint.
+          drawPath(
+            path,
+            if (worked) VdtColors.Green.copy(alpha = 0.35f) else VdtColors.White.copy(alpha = 0.12f),
+            style = Stroke(width = swathWidth),
+          )
+        }
+        val tint =
+          when {
+            current -> VdtColors.Red
+            segment.kind == "headland" -> VdtColors.ProgressBlue
+            segment.kind == "island" -> VdtColors.Amber
+            worked -> VdtColors.Green
+            else -> VdtColors.White
+          }
+        drawPath(path, tint, style = Stroke(width = if (current) currentLine else hairline))
+      }
+    }
+  }
+}
+
+/**
+ * The working footprint: every work area of the rig that is able to work, drawn where it is.
+ *
+ * The mod exports three corners of each area — the engine's own start / width / height nodes — and the
+ * fourth is `width + height - start`, so a swath is a parallelogram rather than a rectangle whenever
+ * the tool is at an angle to the ground it covers. They are normalized map coordinates like everything
+ * else on this map, so they go through [projection] unchanged.
+ *
+ * Filled where the area is *processing* (it touched ground within the last 200 ms) and outlined where
+ * it is merely active — the difference between a tool that is working and one that is lowered over a
+ * finished patch. Areas that are off entirely are not drawn: a raised implement covers nothing, and
+ * painting its resting footprint would read as coverage.
+ *
+ * Not remembered on the vehicle: the whole point is that it moves every tick.
+ */
+@Composable
+private fun BoxScope.WorkOverlay(vehicle: Vehicle, projection: MapProjection) {
+  val density = LocalDensity.current
+  val areas = workFootprints(vehicle)
+  if (areas.isEmpty()) return
+
+  Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
+    val factor = projection.factor
+    withTransform({
+      rotate(projection.rotationDeg, pivot = projection.pivot)
+      translate(projection.offset.x, projection.offset.y)
+      scale(factor, factor, pivot = Offset.Zero)
+    }) {
+      val hairline = 1.dp.toPx() / factor
+      for (area in areas) {
+        val path = quadPath(area.shape)
+        if (area.processing) {
+          drawPath(path, VdtColors.Accent.copy(alpha = 0.45f))
+        }
+        drawPath(path, VdtColors.Accent, style = Stroke(hairline))
+      }
+    }
+  }
+}
+
+/** Every work area of the rig that can currently work and knows where it is, tractor and tools alike. */
+private fun workFootprints(vehicle: Vehicle): List<WorkArea> = vehicle.activeWorkAreas().filter { it.shape.size >= 6 }
+
+/** The work area's parallelogram, from the three corners the engine describes it by. */
+private fun quadPath(shape: List<Float>): Path = Path().apply {
+  val (sx, sz) = shape[0] to shape[1]
+  val (wx, wz) = shape[2] to shape[3]
+  val (hx, hz) = shape[4] to shape[5]
+  moveTo(sx, sz)
+  lineTo(wx, wz)
+  // The corner opposite the start, which the mod leaves to us rather than sending a fourth point.
+  lineTo(wx + hx - sx, wz + hz - sz)
+  lineTo(hx, hz)
+  close()
+}
+
+/**
+ * Whether any part of the flat `[x1, z1, x2, z2, …]` polyline comes within [radius] of [point].
+ *
+ * The distance is to the line, not to its vertices: a guidance line is two points a field apart, so
+ * measuring to the ends alone would hide the very line the machine is standing in the middle of.
+ * Returns on the first hit — the line being driven is found in its first segment or two.
+ */
+internal fun polylineWithin(points: List<Float>, point: Offset, radius: Float): Boolean {
+  if (points.size < 4) return false
+  val radiusSq = radius * radius
+  for (i in 0 until points.size - 3 step 2) {
+    val ax = points[i]
+    val az = points[i + 1]
+    val dx = points[i + 2] - ax
+    val dz = points[i + 3] - az
+    val lengthSq = dx * dx + dz * dz
+    // Where the foot of the perpendicular falls along this piece, clamped to its ends: past them the
+    // nearest point of the piece IS an end. A zero-length piece degenerates to its own start.
+    val t = if (lengthSq <= 0f) 0f else (((point.x - ax) * dx + (point.y - az) * dz) / lengthSq).coerceIn(0f, 1f)
+    val offX = point.x - (ax + t * dx)
+    val offZ = point.y - (az + t * dz)
+    if (offX * offX + offZ * offZ <= radiusSq) return true
+  }
+  return false
+}
+
+/** Path from a flat `[x1, z1, x2, z2, …]` polyline, in whatever space the coordinates are in. */
+private fun flatPath(points: List<Float>, close: Boolean): Path = Path().apply {
+  moveTo(points[0], points[1])
+  for (i in 2 until points.size - 1 step 2) lineTo(points[i], points[i + 1])
+  if (close) close()
+}
+
 // VehicleHotspot.TYPE tokens that are driven and get a heading arrow; everything else (trailer,
 // tool, toolTrailed, cutter, other, and unknown future types) is equipment and gets a plain square.
 private val DrivableVehicleTypes =
@@ -625,19 +1105,17 @@ private val DrivableVehicleTypes =
 /**
  * The map-data overlay: field polygons + number labels, POI dots, and vehicle markers, drawn into
  * the same side×side box as the map image. The polygons are vector paths in normalized [0,1]
- * space, re-projected each draw under the image's exact transform (screen = norm * side * scale +
- * translation) with a zoom-compensated stroke — so they hug the map at any zoom but keep a
- * constant on-screen line width. Labels, POI dots and vehicle arrows are constant-size like the
- * player marker; secondary text (field area, POI/vehicle names) only appears above [DETAIL_ZOOM].
+ * space, re-projected each draw through the image's exact transform ([projection]) with a
+ * zoom-compensated stroke — so they hug the map at any zoom but keep a constant on-screen line
+ * width. Labels, POI dots and vehicle arrows are constant-size like the player marker; secondary
+ * text (field area, POI/vehicle names) only appears above [DETAIL_ZOOM].
  */
 @Composable
 private fun BoxScope.MapDataOverlay(
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
   playerFarmId: Int?,
-  side: Float,
-  scale: Float,
-  applied: Offset,
+  projection: MapProjection,
   showFields: Boolean,
   poiCats: Set<String>,
   vehStates: Set<String>,
@@ -696,17 +1174,28 @@ private fun BoxScope.MapDataOverlay(
     }
   val detailStyle = remember { labelStyle.copy(fontSize = 9.sp, fontWeight = FontWeight.Normal) }
 
-  Canvas(Modifier.size(with(density) { side.toDp() }).align(Alignment.Center)) {
-    val factor = side * scale
+  Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
+    val scale = projection.scale
+    val factor = projection.factor
 
-    fun toScreen(normX: Float, normZ: Float) = Offset(normX * factor + applied.x, normZ * factor + applied.y)
+    fun toScreen(normX: Float, normZ: Float) = projection.toScreen(normX, normZ)
 
-    fun onCanvas(pos: Offset) = pos.x in -OVERLAY_CULL_MARGIN..side + OVERLAY_CULL_MARGIN &&
-      pos.y in -OVERLAY_CULL_MARGIN..side + OVERLAY_CULL_MARGIN
+    fun onCanvas(pos: Offset) = projection.isVisible(pos, OVERLAY_CULL_MARGIN)
 
+    // Course-up and text: the labels below need NO counter-rotation, and adding one is a bug — it
+    // shipped as one. This canvas is never rotated; only the *positions* pass through the rotation,
+    // inside toScreen, so a label drawn at a projected point is upright to begin with. Turning it
+    // back "to keep it upright" tilts it by the heading instead, which is what a driver sees.
+    //
+    // The counter-rotation belongs to the other way of building this, where the whole canvas turns
+    // and every label has to be undone. Here rotation reaches the canvas only inside the withTransform
+    // blocks below, which wrap geometry — field outlines, the course — and never text.
     if (showFields && mapData != null) {
       withTransform({
-        translate(applied.x, applied.y)
+        // Listed outermost-first, so this composes as scale -> translate -> rotate: the same
+        // pipeline MapProjection.toScreen runs the markers through.
+        rotate(projection.rotationDeg, pivot = projection.pivot)
+        translate(projection.offset.x, projection.offset.y)
         scale(factor, factor, pivot = Offset.Zero)
       }) {
         // Stroke width divided back out of the transform: geometry scales, the line doesn't.
@@ -753,7 +1242,9 @@ private fun BoxScope.MapDataOverlay(
           // Drivables: a heading arrow.
           withTransform({
             translate(pos.x, pos.y)
-            rotate(degrees = v.heading.toFloat(), pivot = Offset.Zero)
+            // Plus the map's own rotation: a heading is relative to north, and in course-up north
+            // is no longer up the screen.
+            rotate(degrees = v.heading + projection.rotationDeg, pivot = Offset.Zero)
           }) {
             drawPath(vehicleArrow, tint)
             drawPath(vehicleArrow, VdtColors.White, style = Stroke(width = 1.dp.toPx()))
@@ -792,13 +1283,17 @@ private fun BoxScope.MapDataOverlay(
  * Legend for the active ground layer: one row per legend entry, deduped by label (the growth
  * gradient's 8 steps all share the "Growing" label, so this collapses them to a single swatch).
  * Capped at ~40% of the map's side so a long soil/crop legend doesn't dominate the panel.
+ *
+ * [bottomInset] is the room the section strip has claimed along the same edge — the legend stacks on
+ * top of it rather than under it, since the strip is the thing being read while driving.
  */
 @Composable
-private fun BoxScope.GroundLayerLegend(legend: List<MapLayerLegendEntry>, side: Float) {
+private fun BoxScope.GroundLayerLegend(legend: List<MapLayerLegendEntry>, side: Float, bottomInset: Dp = 0.dp) {
   val density = LocalDensity.current
   Column(
     Modifier
       .align(Alignment.BottomStart)
+      .padding(bottom = bottomInset)
       .padding(6.dp)
       .clip(RoundedCornerShape(4.dp))
       .background(VdtColors.Panel)
@@ -940,6 +1435,11 @@ private fun BoxScope.MapFilterPanel(
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
   mapLayers: MapLayersInfo?,
+  hasCourse: Boolean,
+  showCourse: Boolean,
+  onShowCourse: (Boolean) -> Unit,
+  courseNearby: Int,
+  onCourseNearby: (Int) -> Unit,
   groundLayer: String,
   onGroundLayer: (String) -> Unit,
   showFields: Boolean,
@@ -951,6 +1451,7 @@ private fun BoxScope.MapFilterPanel(
   query: String,
   onQuery: (String) -> Unit,
   onFocus: (Offset) -> Unit,
+  onReset: suspend () -> Boolean,
 ) {
   Column(
     Modifier
@@ -1026,6 +1527,14 @@ private fun BoxScope.MapFilterPanel(
       }
     }
 
+    // Only while there is a course to hide: off a field the row would be a switch for nothing.
+    if (hasCourse) {
+      FilterRow("Guidance course", checked = showCourse, dot = VdtColors.Red) { onShowCourse(it) }
+      // Under the row it narrows, and only while the course is on — it is a property of what that
+      // switch draws, not a filter of its own.
+      if (showCourse) CourseRangeRow(courseNearby, onCourseNearby)
+    }
+
     if (mapVehicles != null) {
       FilterSectionHeader("Vehicles", VehicleStates, vehStates, onVehStates)
       for (state in VehicleStates) {
@@ -1046,8 +1555,74 @@ private fun BoxScope.MapFilterPanel(
         FilterRow(layer.label.ifBlank { groundLayerLabel(layer.id) }, checked = groundLayer == layer.id) {
           onGroundLayer(layer.id)
         }
+        // Coverage is the one layer with something to clear, and the control belongs under the layer
+        // it clears rather than in the panel header — it is destructive, and it means nothing while
+        // some other plane is on screen. Shown only while coverage is selected, for the same reason.
+        if (layer.id == COVERAGE_LAYER_ID && groundLayer == layer.id) {
+          ResetCoverageRow(onReset)
+        }
       }
     }
+  }
+}
+
+/**
+ * Clear the worked-coverage trail. Two taps, not one: it throws away a day's driving, there is no
+ * undo anywhere in the pipeline, and it sits one row below the layer list where a stray tap lands.
+ *
+ * The second tap awaits [onReset] rather than assuming it worked. A reset that never reached the
+ * server is indistinguishable from one that did — the coverage is simply still there — so the row
+ * stays armed and says so, which is also what makes the retry one tap. Staying armed is why the
+ * in-flight tap has to be swallowed: otherwise waiting for an answer is what invites a second one.
+ */
+@Composable
+private fun ResetCoverageRow(onReset: suspend () -> Boolean) {
+  var confirming by remember { mutableStateOf(false) }
+  var failed by remember { mutableStateOf(false) }
+  var clearing by remember { mutableStateOf(false) }
+  val scope = rememberCoroutineScope()
+  Row(
+    Modifier.fillMaxWidth().padding(start = 22.dp).clickableNoRipple {
+      if (!confirming) {
+        confirming = true
+      } else if (!clearing) {
+        // Taps while one is in the air do nothing rather than posting a second reset: the row stays
+        // armed until an answer comes back, so without this every impatient tap starts another
+        // request whose result races the first. Bounded by the request timeout, so it always reopens,
+        // and the row reads "Clearing…" meanwhile so an ignored tap is not a dead control.
+        clearing = true
+        failed = false
+        scope.launch {
+          val outcome = runCatching { onReset() }
+          clearing = false
+          // runCatching catches Throwable, so closing the popover mid-request lands here; reporting
+          // that as a failed reset would be wrong.
+          (outcome.exceptionOrNull() as? CancellationException)?.let { throw it }
+          if (outcome.getOrDefault(false)) confirming = false else failed = true
+        }
+      }
+    },
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    val tint =
+      when {
+        failed -> VdtColors.Red
+        confirming -> VdtColors.Amber
+        else -> VdtColors.DarkGray
+      }
+    Icon(Icons.Filled.DeleteSweep, null, tint = tint, modifier = Modifier.size(14.dp))
+    Text(
+      when {
+        failed -> "Reset failed — tap to retry"
+        clearing -> "Clearing…"
+        confirming -> "Tap again to clear"
+        else -> "Reset coverage"
+      },
+      fontSize = 12.sp,
+      fontWeight = if (confirming) FontWeight.Bold else FontWeight.Normal,
+      color = tint,
+    )
   }
 }
 
@@ -1073,6 +1648,38 @@ private fun FilterSectionHeader(
   ) {
     Icon(icon, null, tint = if (allOn) VdtColors.Green else VdtColors.DarkGray, modifier = Modifier.size(16.dp))
     Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
+  }
+}
+
+/** How much of the course to draw, as swaths either side of the machine — 0 being the whole field. */
+private val CourseRanges = listOf(0 to "All", 1 to "±1", 2 to "±2", 3 to "±3")
+
+/**
+ * Narrow the course to the lines around the machine.
+ *
+ * A field course is dozens of lines, and on a worked field under a coverage layer the far ones are
+ * clutter over the one thing being steered by. This is the terminal's answer to that: the line you
+ * are on and the neighbours you will turn onto, and nothing else. See [CourseOverlay] for why the
+ * window is measured on the ground rather than in segment indices.
+ */
+@Composable
+private fun CourseRangeRow(nearby: Int, onNearby: (Int) -> Unit) {
+  Row(
+    Modifier.fillMaxWidth().padding(start = 22.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(10.dp),
+  ) {
+    Text("Lines", fontSize = 12.sp, color = VdtColors.DarkGray)
+    for ((value, label) in CourseRanges) {
+      val on = value == nearby
+      Text(
+        label,
+        fontSize = 12.sp,
+        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+        color = if (on) VdtColors.Accent else VdtColors.DarkGray,
+        modifier = Modifier.clickableNoRipple { onNearby(value) },
+      )
+    }
   }
 }
 
@@ -1222,9 +1829,12 @@ private fun ownerLabel(ownerFarmId: Int?, playerFarmId: Int?, farms: List<MapFar
   return if (!name.isNullOrBlank()) name else "Farm $ownerFarmId"
 }
 
-/** Translation that places the player at the box centre for the given side length and scale. */
-private fun centeredOffset(side: Float, player: Player?, scale: Float): Offset = if (player != null) {
-  Offset(side / 2f - player.posX * side * scale, side / 2f - player.posZ * side * scale)
+/**
+ * Translation that places the player at [anchor] for the given side length and scale — the box centre
+ * north-up, lower down the screen in course-up.
+ */
+private fun anchorOffset(side: Float, player: Player?, scale: Float, anchor: Offset): Offset = if (player != null) {
+  MapProjection.anchoredAt(Offset(player.posX, player.posZ), anchor, side, scale)
 } else {
   Offset.Zero
 }
@@ -1234,6 +1844,9 @@ private fun centeredOffset(side: Float, player: Player?, scale: Float): Offset =
  * [clickable] modifier — not a raw `pointerInput` — so header actions, search results, and filter
  * rows stay keyboard- and screen-reader-activatable. `indication = null` drops the ripple; the null
  * [interactionSource] lets `clickable` lazily manage its own, so there is nothing to key on.
+ *
+ * Internal rather than private so the guidance strip in `Navigation.kt` — chrome that sits on the
+ * map and has to look and behave like the header icons around it — shares this one implementation.
  */
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
+internal fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
   this.clickable(interactionSource = null, indication = null, onClick = onClick)

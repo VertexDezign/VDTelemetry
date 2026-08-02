@@ -3,6 +3,10 @@
 --
 -- Run with `busted` from the vdTelemetry/ directory.
 
+-- collectSprayer rounds through ValueMapper.mapFloat, so the mapper loads with the integration.
+if ValueMapper == nil then
+  dofile("src/mapper/ValueMapper.lua")
+end
 dofile("src/integrations/PrecisionFarming.lua")
 
 describe("PrecisionFarming.isActive", function()
@@ -252,5 +256,319 @@ describe("PrecisionFarming layers", function()
       error("PF internals moved")
     end
     assert.is_nil(VDT.PrecisionFarming.resolveLayer(layer("pfPh")))
+  end)
+end)
+
+-- The application rates on the tool itself (collectSprayer): PF's ExtendedSprayer spec, converted
+-- into the numbers a player reads. The stubs mirror the real spec (its scripts/specializations/
+-- ExtendedSprayer.lua) — including the part that only exists on the server, which is exactly what the
+-- absent-sub-sections cases below stand in for.
+describe("PrecisionFarming.collectSprayer", function()
+  local function levelMap(method, values)
+    return {
+      maxValue = 10,
+      [method] = function(_, internal)
+        return values[internal] or 0
+      end,
+    }
+  end
+
+  local function sprayer(over)
+    local spec = {
+      isFertilizing = true,
+      sprayAmountAutoMode = true,
+      nActualValue = 3,
+      nTargetValue = 6,
+      phActualValue = 2,
+      phTargetValue = 4,
+      nitrogenMap = levelMap("getNitrogenValueFromInternalValue", { [3] = 45, [6] = 90, [10] = 150 }),
+      pHMap = levelMap("getPhValueFromInternalValue", { [2] = 6.2, [4] = 6.8 }),
+    }
+    for k, v in pairs(over or {}) do
+      spec[k] = v
+    end
+    return { [VDT.PrecisionFarming.SPRAYER_SPEC] = spec }
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v, decimals)
+        local mult = 10 ^ (decimals or 0)
+        return math.floor(v * mult + 0.5) / mult
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+  end)
+
+  it("returns nil without PF, and for a tool that has no rates", function()
+    rawset(_G, "g_modIsLoaded", nil)
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayer()))
+
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer({}))
+  end)
+
+  it("converts the boom averages into the units the HUD shows", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer())
+    assert.are.equal("FERTILIZER", pf.mode)
+    assert.is_true(pf.auto)
+    assert.are.same({ level = 45, target = 90, unit = "kg/ha" }, pf.nitrogen)
+
+    local lime = VDT.PrecisionFarming.collectSprayer(sprayer({ isFertilizing = false, isLiming = true }))
+    assert.are.same({ level = 6.2, target = 6.8 }, lime.ph)
+  end)
+
+  -- The trap: PF only refreshes nitrogen while fertilizing and pH while liming
+  -- (ExtendedSprayer.lua:714-719), and never resets either. A sprayer that fertilized this morning and
+  -- is on herbicide now still holds this morning's nitrogen, so emitting it would put a stale number
+  -- next to a live nozzle bar -- the one place it would be believed.
+  it("emits each reading only in the mode that maintains it", function()
+    local fertilizing = VDT.PrecisionFarming.collectSprayer(sprayer())
+    assert.is_not_nil(fertilizing.nitrogen)
+    assert.is_nil(fertilizing.ph, "pH is left over from the last liming pass while fertilizing")
+
+    local liming = VDT.PrecisionFarming.collectSprayer(sprayer({ isFertilizing = false, isLiming = true }))
+    assert.is_not_nil(liming.ph)
+    assert.is_nil(liming.nitrogen)
+
+    -- Herbicide: PF maintains neither, however recently the tank held something else.
+    local herbicide = VDT.PrecisionFarming.collectSprayer(sprayer({ isFertilizing = false }))
+    assert.is_nil(herbicide.nitrogen)
+    assert.is_nil(herbicide.ph)
+  end)
+
+  it("clamps a level past the map's maximum, as PF's own HUD does", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({ nActualValue = 99 }))
+    assert.are.equal(150, pf.nitrogen.level)
+  end)
+
+  it("names the three modes", function()
+    assert.are.equal("LIME", VDT.PrecisionFarming.collectSprayer(sprayer({ isLiming = true })).mode)
+    -- Neither flag: a sprayer with herbicide in the tank, which PF has no rates for.
+    local other = sprayer({ isFertilizing = false })
+    assert.are.equal("OTHER", VDT.PrecisionFarming.collectSprayer(other).mode)
+  end)
+
+  it("omits a value pair PF has no reading for", function()
+    -- Off the field, or on ground the soil sample hasn't uncovered: PF reports 0, which is "no
+    -- reading" rather than "pH zero".
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({
+      isFertilizing = false,
+      isLiming = true,
+      phActualValue = 0,
+      phTargetValue = 0,
+    }))
+    assert.is_nil(pf.ph)
+    assert.are.equal("LIME", pf.mode)
+  end)
+
+  it("reports whether spot spraying is fitted, and tells that from not having the config", function()
+    local object = sprayer()
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(object).spotSpray)
+
+    object[VDT.PrecisionFarming.SPOT_SPRAY_SPEC] = { isEnabled = false }
+    assert.is_false(VDT.PrecisionFarming.collectSprayer(object).spotSpray)
+
+    object[VDT.PrecisionFarming.SPOT_SPRAY_SPEC] = { isEnabled = true }
+    assert.is_true(VDT.PrecisionFarming.collectSprayer(object).spotSpray)
+  end)
+
+  it("exports the sub-section strip against the work area it belongs to", function()
+    local object = sprayer()
+    object.spec_workArea = {
+      workAreas = {
+        {
+          index = 1,
+          numSubSections = 2,
+          subSectionData = {
+            { isValid = true, nitrogenLevel = 3, nitrogenTargetLevel = 6, phLevel = 2, phTargetLevel = 4 },
+            { isValid = false, nitrogenLevel = 0, nitrogenTargetLevel = 0, phLevel = 0, phTargetLevel = 0 },
+          },
+        },
+      },
+    }
+
+    local areas = VDT.PrecisionFarming.collectSprayer(object).workAreas
+    assert.are.equal(1, #areas)
+    assert.are.equal(1, areas[1].index)
+    assert.are.same({
+      { valid = true, n = 45, nTarget = 90, ph = 6.2, phTarget = 6.8 },
+      { valid = false, n = 0, nTarget = 0, ph = 0, phTarget = 0 },
+    }, areas[1].subSections)
+  end)
+
+  it("omits the strip on a client, where PF never fills it in", function()
+    -- updateWorkAreaSubSectionData runs inside `if self.isServer`, so a multiplayer client has the
+    -- work areas but no sub-section data on them. The averages still arrive, over the stream.
+    local object = sprayer()
+    object.spec_workArea = { workAreas = { { index = 1 } } }
+    local pf = VDT.PrecisionFarming.collectSprayer(object)
+    assert.is_nil(pf.workAreas)
+    assert.are.equal(45, pf.nitrogen.level)
+  end)
+
+  it("survives a PF whose converters have moved", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({
+      nitrogenMap = { maxValue = 10 },
+      pHMap = {
+        maxValue = 10,
+        getPhValueFromInternalValue = function()
+          error("PF internals moved")
+        end,
+      },
+    }))
+    assert.is_nil(pf.nitrogen)
+    assert.is_nil(pf.ph)
+    assert.are.equal("FERTILIZER", pf.mode)
+  end)
+end)
+
+-- The nozzle bar (collectNozzles, via collectSprayer): PF's own per-nozzle effect states. Unlike the
+-- sub-sections these are recomputed on every client, so this is the one per-position signal that
+-- survives multiplayer -- and the only one that says anything with herbicide in the tank.
+describe("PrecisionFarming nozzles", function()
+  local function effects(nozzles, individual)
+    return {
+      individualNozzleControl = individual == true,
+      sprayerEffects = nozzles,
+    }
+  end
+
+  local function sprayerWith(spec)
+    local object = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = { isFertilizing = true, sprayAmountAutoMode = true },
+    }
+    object[VDT.PrecisionFarming.EFFECTS_SPEC] = spec
+    return object
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v)
+        return math.floor(v + 0.5)
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+  end)
+
+  it("is absent on a sprayer PF drives no nozzle effects on", function()
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayerWith(nil)).nozzles)
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayerWith(effects({}))).nozzles)
+  end)
+
+  it("orders the nozzles left to right across the boom", function()
+    -- PF stores a POSITIVE xOffset for the left side (it looks a positive offset up in sectionsLeft),
+    -- and the effect list itself comes out of a pairs() walk of its node XML -- so the order has to be
+    -- rebuilt from the offsets, descending.
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayerWith(effects({
+      { xOffset = -3, isActive = false },
+      { xOffset = 6, isActive = true },
+      { xOffset = -6, isActive = false },
+      { xOffset = 3, isActive = true },
+    })))
+
+    assert.are.same({ true, true, false, false }, pf.nozzles.active)
+    assert.are.equal(4, pf.nozzles.count)
+    assert.are.equal(2, pf.nozzles.activeCount)
+    assert.is_false(pf.nozzles.individual)
+  end)
+
+  it("carries PF's per-nozzle vs per-section control flag", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayerWith(effects({ { xOffset = 1 } }, true)))
+    assert.is_true(pf.nozzles.individual)
+    -- An effect that has never run reads as off rather than as missing.
+    assert.are.same({ false }, pf.nozzles.active)
+    assert.are.equal(0, pf.nozzles.activeCount)
+  end)
+
+  it("still reports the nozzles with herbicide, where there are no rates at all", function()
+    local object = sprayerWith(effects({ { xOffset = 2, isActive = true }, { xOffset = -2, isActive = false } }))
+    -- Neither liming nor fertilizing: PF computes no levels, so every rate is absent.
+    object[VDT.PrecisionFarming.SPRAYER_SPEC].isFertilizing = false
+    local pf = VDT.PrecisionFarming.collectSprayer(object)
+    assert.are.equal("OTHER", pf.mode)
+    assert.is_nil(pf.nitrogen)
+    assert.is_nil(pf.ph)
+    assert.are.same({ true, false }, pf.nozzles.active)
+  end)
+
+  it("survives an effect list that no longer looks like this", function()
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayerWith({ sprayerEffects = "moved" })).nozzles)
+    -- A nozzle with no offset sorts as centre rather than dropping out of the bar.
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayerWith(effects({ { isActive = true }, { xOffset = 5 } })))
+    assert.are.same({ false, true }, pf.nozzles.active)
+  end)
+end)
+
+-- Pulse-width modulation: PF's per-nozzle rate control, and the reason a PWM boom looks like nozzles
+-- are cutting out mid-turn when nothing has switched off.
+describe("PrecisionFarming nozzle PWM", function()
+  local function pwmSprayer(nozzles, individual)
+    local object = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = { isFertilizing = true },
+    }
+    object[VDT.PrecisionFarming.EFFECTS_SPEC] = {
+      individualNozzleControl = individual ~= false,
+      sprayerEffects = nozzles,
+    }
+    return object
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v, decimals)
+        local mult = 10 ^ (decimals or 0)
+        return math.floor(v * mult + 0.5) / mult
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+  end)
+
+  it("carries each nozzle's own output, in the same left-to-right order", function()
+    -- Mid-turn: the outside of the boom is travelling at full speed, the inside is barely moving, and
+    -- PF pulses each nozzle in proportion. Every one of them is still `active`.
+    local pf = VDT.PrecisionFarming.collectSprayer(pwmSprayer({
+      { xOffset = -6, isActive = true, amountScale = 0.2 },
+      { xOffset = 6, isActive = true, amountScale = 1 },
+      { xOffset = 0, isActive = true, amountScale = 0.55 },
+    }))
+
+    assert.are.same({ 1, 0.55, 0.2 }, pf.nozzles.amount)
+    assert.are.same({ true, true, true }, pf.nozzles.active)
+    assert.are.equal(3, pf.nozzles.activeCount)
+  end)
+
+  it("omits the amounts when every nozzle is wide open", function()
+    -- Every machine without PWM, and a PWM boom at full speed: a run of 1s says nothing the active
+    -- flags do not.
+    local pf = VDT.PrecisionFarming.collectSprayer(pwmSprayer({
+      { xOffset = 1, isActive = true, amountScale = 1 },
+      { xOffset = -1, isActive = false },
+    }))
+    assert.is_nil(pf.nozzles.amount)
+    assert.are.same({ true, false }, pf.nozzles.active)
+  end)
+
+  it("clamps an out-of-range amount rather than passing it through", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(pwmSprayer({
+      { xOffset = 1, isActive = true, amountScale = 1.4 },
+      { xOffset = -1, isActive = true, amountScale = -0.2 },
+    }))
+    assert.are.same({ 1, 0 }, pf.nozzles.amount)
   end)
 end)

@@ -163,6 +163,7 @@ private val FRIENDLY_NAMES =
     "map.json" to "Map",
     "index.json" to "Map layers (catalogue)", // mapLayers/index.json; the only index.json there is
     "mapVehicles.json" to "Map vehicles",
+    "gpsCourse.json" to "GPS course",
     "production.json" to "Production",
     "storage.json" to "Storage",
     "husbandry.json" to "Animals",

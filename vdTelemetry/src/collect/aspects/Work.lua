@@ -5,7 +5,9 @@
 --   * work mode  -- the discrete mode a tool is switched to (a mower's transport/work modes, a
 --                   cultivator's depth settings). Modes are named in the vehicle XML.
 --   * work width -- the live width of a tool with foldable/retractable sections, which changes as
---                   sections are switched off, so it is not a static spec value.
+--                   sections are switched off, so it is not a static spec value. It carries the
+--                   individual sections too: the on/off shutoff bar, which is the base game's only
+--                   answer to "section control" (see issue #43).
 
 VDT = VDT or {}
 VDT.Work = {}
@@ -28,6 +30,18 @@ function VDT.Work.collectMode(object)
   return model
 end
 
+---Which side of the boom a section sits on. `isCenter` wins: a center section is in neither of the
+---engine's two side lists (VariableWorkWidth.lua:111-117), so it is never switched off and the game's
+---own HUD brackets it with separators instead.
+---@param section table an entry of spec_variableWorkWidth.sections
+---@return string LEFT | CENTER | RIGHT
+local function sideOf(section)
+  if section.isCenter then
+    return "CENTER"
+  end
+  return section.isLeft and "LEFT" or "RIGHT"
+end
+
 ---@param object table
 ---@return WorkWidthModel|nil nil when the object has no variable-width sections
 function VDT.Work.collectWidth(object)
@@ -41,7 +55,8 @@ function VDT.Work.collectWidth(object)
   local left, leftMax = object:getVariableWorkWidth(true)
   local right, rightMax = object:getVariableWorkWidth(false)
 
-  return {
+  ---@type WorkWidthModel
+  local model = {
     left = tonumber(ValueMapper.mapFloat(left)),
     leftMax = tonumber(ValueMapper.mapFloat(leftMax)),
     right = tonumber(ValueMapper.mapFloat(right)),
@@ -49,4 +64,24 @@ function VDT.Work.collectWidth(object)
     total = tonumber(ValueMapper.mapFloat(left + right)),
     unit = "m",
   }
+
+  -- The sections themselves — the shutoff bar a terminal draws across the boom, and the same read one
+  -- level deeper. Order is `spec.sections`, i.e. the XML's own declaration order, because that is what
+  -- the game's HUD draws left to right (VariableWorkWidthHUDExtension:draw walks 1..#sections).
+  -- `sectionsLeft` / `sectionsRight` are deliberately NOT used: they are sorted by width for the
+  -- fold-in state machine, so they are not display order.
+  local sections, active = {}, 0
+  for _, section in ipairs(spec.sections or {}) do
+    local isActive = section.isActive ~= false
+    if isActive then
+      active = active + 1
+    end
+    sections[#sections + 1] = { active = isActive, side = sideOf(section) }
+  end
+  if #sections > 0 then
+    model.sections = sections
+    model.activeCount = active
+  end
+
+  return model
 end

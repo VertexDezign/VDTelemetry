@@ -11,6 +11,7 @@ import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
@@ -37,6 +38,8 @@ class VdtStore(
   val cropRotation: StateFlow<CropRotationData?>,
   val mapData: StateFlow<MapData?>,
   val mapVehicles: StateFlow<MapVehiclesData?>,
+  /** The steering assist's guidance lines for the field being driven; null when there is no course. */
+  val gpsCourse: StateFlow<GpsCourseData?>,
   /** Ground-layer legends (crops/growth/soil); the raster PNG is fetched from [mapLayerUrl] on demand. */
   val mapLayers: StateFlow<MapLayersInfo?>,
   val fieldInfo: StateFlow<FieldInfoData?>,
@@ -49,6 +52,12 @@ class VdtStore(
   val mapUrl: String,
   /** Base URL for ground-layer raster PNGs; the map widget appends `/{layerId}` (see [mapLayers]). */
   val mapLayerUrl: String,
+  /**
+   * POST here to clear the worked-coverage mask. The one ground layer the server accumulates itself
+   * rather than reading from the mod, so wiping it is an HTTP call and not a [ClientMessage] — there
+   * is nothing in the game to tell.
+   */
+  val coverageResetUrl: String,
   val settings: Settings,
   /** The user's pages (created/edited at runtime, persisted); see [PageStore]. */
   val pages: PageStore,

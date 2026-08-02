@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
@@ -77,6 +78,21 @@ sealed interface ServerMessage {
   @SerialName("mapVehicles")
   data class MapVehicles(
     val data: MapVehiclesData? = null,
+  ) : ServerMessage
+
+  /**
+   * The GPS course channel (`gpsCourse.json`): the steering assist's guidance lines for the field
+   * being driven. Its own cadence again — the mod rewrites it only when the course changes, which is
+   * once per field rather than on any clock — so it is its own message.
+   *
+   * [data] is null when the file is absent (export disabled / no data yet). An *empty* course
+   * ([GpsCourseData.isEmpty]) is a different statement: the mod publishes that when the driver leaves
+   * the field, and both mean the app must stop drawing lines.
+   */
+  @Serializable
+  @SerialName("gpsCourse")
+  data class GpsCourse(
+    val data: GpsCourseData? = null,
   ) : ServerMessage
 
   /**

@@ -8,8 +8,31 @@ Multiplatform project (replacing the old React/Vite + Go stack in `../VDTerminal
 - **`server`** (Kotlin/JVM, Ktor) — watches `vdTelemetry.json`, parses it, broadcasts over a
   WebSocket, serves the map image (DDS → PNG) and the ground-layer raster PNGs
   (`/api/map-layer/{id}`, one file per plane out of the mod's `mapLayers/` folder — which planes
-  exist is discovered, not hardcoded), and serves the built web app.
+  exist is discovered, not hardcoded), and serves the built web app. It also **derives** one ground
+  layer of its own — see below.
 - **`app`** (Compose Multiplatform, `wasmJs`) — the dashboard UI.
+
+## Ground layers, and the one the server owns
+
+Most ground-layer planes (crops, growth, soil, …) are swept by the mod and read from its
+`mapLayers/` folder. **Coverage** is different: it is accumulated by the server from the work-area
+footprints already in the telemetry, because nothing the mod can sample records it — a tedder
+spreads a windrow and leaves the map exactly as it found it.
+
+It reaches the app as an ordinary plane (same catalogue, same `/api/map-layer/coverage`, same
+legend), with three differences worth knowing:
+
+- It is offered even when the mod's layer channel is off, and its id is never sent back to the mod
+  as a subscription — the mod has no such plane to sweep.
+- It lives in memory for as long as the server runs, and clears when another map is loaded.
+  `POST /api/coverage/reset` clears it on request (the app offers this under the layer in the map's
+  filter popover). There is nothing for the mod to do either way.
+- Cells are ~1 m rather than the mod's 512-cell map overlay, since the layer is read for whether a
+  strip was *missed*. On a 2 km map that is a 2048² mask, and so a 2048×2048 bitmap in the browser.
+- Worked ground is **magenta**, not the green "done" usually is: this layer is read over grass, on a
+  green map, under a course that shades its own worked lines green. The colour is published in the
+  legend and the app's live trail reads it back from there, so the two halves of the layer cannot
+  drift apart.
 
 ## Requirements
 

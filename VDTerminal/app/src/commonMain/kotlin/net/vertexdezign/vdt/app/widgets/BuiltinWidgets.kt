@@ -44,6 +44,43 @@ object MapWidget : Widget {
   override val minColSpan = 4
   override val minRowSpan = 3
 
+  /** The config key deciding whether this map carries the navigation strip. */
+  const val GUIDANCE_KEY = "guidance"
+
+  private val guidanceOption =
+    ConfigOption(
+      key = GUIDANCE_KEY,
+      label = "Navigation strip",
+      // "Off" first, so resolve()'s default keeps an unconfigured map exactly as it was — the strip
+      // covers terrain, and a map placed as an overview never asked for it. A map placed as a run
+      // screen turns it on and gets the heading where the driving happens.
+      choices =
+      listOf(
+        ConfigOption.Choice(GUIDANCE_OFF, "Off"),
+        ConfigOption.Choice(GUIDANCE_ON, "On"),
+      ),
+    )
+
+  /** The config key deciding whether this map carries the boom along its bottom edge. */
+  const val SECTIONS_KEY = "sections"
+
+  private val sectionsOption =
+    ConfigOption(
+      key = SECTIONS_KEY,
+      label = "Section bar",
+      // Off first for the same reason as the navigation strip: it covers terrain, and it is only ever
+      // wanted on a map placed as a run screen. Separate from that strip rather than folded into one
+      // "run screen" switch — a sprayer wants the boom, and a map watched from the yard wants neither.
+      choices =
+      listOf(
+        ConfigOption.Choice(SECTIONS_OFF, "Off"),
+        ConfigOption.Choice(SECTIONS_ON, "On"),
+      ),
+    )
+
+  @Composable
+  override fun configOptions(): List<ConfigOption> = listOf(guidanceOption, sectionsOption)
+
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
@@ -53,6 +90,7 @@ object MapWidget : Widget {
     val mapVehicles by store.mapVehicles.collectAsState()
     val mapLayers by store.mapLayers.collectAsState()
     val fieldInfo by store.fieldInfo.collectAsState()
+    val gpsCourse by store.gpsCourse.collectAsState()
 
     val pda = telemetry?.environment?.pda
     // In a vehicle the heading is the vehicle's GPS; on foot it's the player's. Same compass
@@ -71,11 +109,27 @@ object MapWidget : Widget {
       mapVehicles = mapVehicles,
       fieldInfo = fieldInfo,
       mapLayerUrl = store.mapLayerUrl,
+      coverageResetUrl = store.coverageResetUrl,
       mapLayers = mapLayers,
       onShowLayers = { ids -> store.onCommand(ClientMessage.SetMapLayers(ids)) },
+      vehicle = telemetry?.vehicle,
+      // A stored value this widget no longer offers falls back to off: the choices are fixed, so
+      // anything else is a stale key rather than a preference worth honouring.
+      showGuidance = guidanceOption.resolve(config) == GUIDANCE_ON,
+      showSections = sectionsOption.resolve(config) == SECTIONS_ON,
+      onCommand = store.onCommand,
+      gpsCourse = gpsCourse,
     )
   }
 }
+
+/** [MapWidget.GUIDANCE_KEY] values. Slugs, not booleans: they are persisted in saved layouts. */
+private const val GUIDANCE_OFF = "off"
+private const val GUIDANCE_ON = "on"
+
+/** [MapWidget.SECTIONS_KEY] values, persisted in saved layouts like the guidance ones. */
+private const val SECTIONS_OFF = "off"
+private const val SECTIONS_ON = "on"
 
 /** Engine / transmission — needs a vehicle; shows an empty tile when on foot. */
 object EngineWidget : Widget {

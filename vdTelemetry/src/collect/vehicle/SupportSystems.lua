@@ -20,6 +20,11 @@ function VDT.SupportSystems.collectGps(vehicle)
     active = aiSSpec.steeringEnabled,
     heading = math.floor(ValueMapper.calculateHeading(vehicle)),
     headingUnit = "°",
+    -- The live half of the steering course (current line, cross-track error, worked lines). The
+    -- geometry it refers to is its own channel, written only when the course changes — see
+    -- collect/GpsCourseExporter.lua, which owns both halves. Guarded on the module rather than
+    -- assumed: this collector is sourced before it.
+    course = VDT.GpsCourse ~= nil and VDT.GpsCourse.collectState(vehicle) or nil,
     -- Not vehicle state: whether AIAutomaticSteering draws its lines is a global client setting (the
     -- one the game's own TOGGLE_AI_STEERING_LINES keybind flips). Reported here anyway because it is
     -- only meaningful for a vehicle that has the spec -- i.e. exactly when this collector returns a
