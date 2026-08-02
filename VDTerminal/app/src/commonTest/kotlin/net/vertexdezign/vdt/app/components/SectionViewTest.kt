@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.components
 
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PfMode
 import net.vertexdezign.vdt.model.PfNozzles
 import net.vertexdezign.vdt.model.PfSubSection
@@ -8,6 +9,7 @@ import net.vertexdezign.vdt.model.PfValue
 import net.vertexdezign.vdt.model.PfWorkArea
 import net.vertexdezign.vdt.model.PrecisionFarming
 import net.vertexdezign.vdt.model.SectionSide
+import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
 import net.vertexdezign.vdt.model.WorkSection
 import net.vertexdezign.vdt.model.WorkWidth
@@ -197,6 +199,73 @@ class SectionViewTest {
     assertFalse(stripSlotShown(PrecisionFarming(mode = PfMode.OTHER, workAreas = slices)))
     // And not claimed at all on a multiplayer client, which never receives sub-sections.
     assertFalse(stripSlotShown(PrecisionFarming(mode = PfMode.FERTILIZER)))
+  }
+
+  @Test
+  fun findsTheBoomWhereverItIsHitched() {
+    val sections = List(4) { WorkSection(active = true, side = SectionSide.LEFT) }
+    val sprayer =
+      Implement(
+        workWidth = WorkWidth(total = 18f, sections = sections),
+        workAreas = listOf(area(type = "SPRAYER")),
+      )
+
+    // The ordinary case: the tractor has no boom of its own, the tool behind it does.
+    val rig = Vehicle(implement = listOf(sprayer))
+    val boom = boomOf(rig)!!
+    assertEquals(SprayBar.Sections(sections), boom.bar)
+    assertEquals(18f, boom.width)
+    assertTrue(boom.status!!.active)
+
+    // Hitched behind another implement — a rig is walked to the end, not one deep.
+    assertEquals(boom.bar, boomOf(Vehicle(implement = listOf(Implement(implement = listOf(sprayer)))))!!.bar)
+
+    // A self-propelled sprayer IS the boom, and it is described by its own rather than by a trailer.
+    val selfPropelled =
+      Vehicle(
+        workWidth = WorkWidth(total = 36f, sections = List(2) { WorkSection(active = true) }),
+        workAreas = listOf(area(type = "SPRAYER")),
+        implement = listOf(sprayer),
+      )
+    assertEquals(36f, boomOf(selfPropelled)!!.width)
+
+    // Nothing on the rig works ground: no strip at all rather than an empty bar.
+    assertNull(boomOf(Vehicle(implement = listOf(Implement()))))
+    assertNull(boomOf(null))
+  }
+
+  @Test
+  fun takesTheNozzleCountAndWidthFromTheToolTheBarCameFrom() {
+    // PF's nozzles win the bar (the sections behind them are frozen), and the count beside it must be
+    // that same tool's — a rig where the numbers come from different implements would read as one boom.
+    val nozzles = PfNozzles(count = 24, activeCount = 9, active = List(24) { it < 9 })
+    val rig =
+      Vehicle(
+        implement =
+        listOf(
+          Implement(
+            workWidth = WorkWidth(total = 24f, sections = List(6) { WorkSection(active = true) }),
+            workAreas = listOf(area(type = "SPRAYER", processing = true)),
+            precisionFarming = PrecisionFarming(nozzles = nozzles),
+          ),
+        ),
+      )
+    val boom = boomOf(rig)!!
+    assertEquals(SprayBar.Nozzles(nozzles), boom.bar)
+    assertEquals(nozzles, boom.nozzles)
+    assertEquals(24f, boom.width)
+    assertEquals(VdtColors.Green, boom.status!!.color)
+
+    // A tool that reports no aggregate width falls back to a work area that is actually down, the same
+    // rule the panel's status line uses — a raised implement's width is not the width being worked.
+    val folding =
+      Implement(
+        workWidth = WorkWidth(sections = List(3) { WorkSection(active = true) }),
+        workAreas = listOf(area(active = false).copy(width = 12f), area(active = true).copy(width = 6f)),
+      )
+    assertEquals(6f, boomOf(Vehicle(implement = listOf(folding)))!!.width)
+    // And nothing at all rather than a zero: the strip drops the width instead of claiming "0 m".
+    assertNull(boomOf(Vehicle(implement = listOf(folding.copy(workAreas = listOf(area())))))!!.width)
   }
 
   @Test

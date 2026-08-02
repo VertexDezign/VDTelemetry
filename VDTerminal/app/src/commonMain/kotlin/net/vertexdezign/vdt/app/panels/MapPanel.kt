@@ -81,6 +81,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -93,6 +94,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.components.SectionStrip
+import net.vertexdezign.vdt.app.components.boomOf
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.FieldCropRotation
@@ -220,6 +223,7 @@ fun MapPanel(
   onShowLayers: (List<String>) -> Unit = {},
   vehicle: Vehicle? = null,
   showGuidance: Boolean = false,
+  showSections: Boolean = false,
   onCommand: (ClientMessage) -> Unit = {},
   gpsCourse: GpsCourseData? = null,
 ) {
@@ -242,6 +246,9 @@ fun MapPanel(
   var highlight by remember { mutableStateOf<Offset?>(null) }
   var dragOffset by remember { mutableStateOf(Offset.Zero) }
   var sidePx by remember { mutableFloatStateOf(0f) }
+  // How much room the section strip is taking along the bottom edge, so the ground-layer legend in the
+  // same corner clears it. Measured rather than assumed: the strip's height follows the text scale.
+  var sectionStripHeight by remember { mutableStateOf(0.dp) }
   val player = pda?.player
 
   // Seed from the cache so a panel composed after a page switch paints the map on its first frame.
@@ -669,7 +676,7 @@ fun MapPanel(
 
       // Ground-layer legend, only while a layer is actually selected and its own raster is showing.
       if (activeLayerInfo != null && shownLayerBitmap != null) {
-        GroundLayerLegend(activeLayerInfo.legend, side)
+        GroundLayerLegend(activeLayerInfo.legend, side, bottomInset = sectionStripHeight)
       }
 
       // Navigation as map chrome (issue #43): opt-in per placed tile, so a map used as an overview
@@ -677,6 +684,18 @@ fun MapPanel(
       // legend and the field popup in the stack — it is a fixed strip in a corner they don't use.
       if (showGuidance) {
         GuidanceStrip(heading, vehicle, onCommand = onCommand)
+      }
+
+      // The boom along the bottom edge (issue #43), where the reference terminals put it — and in
+      // course-up, directly under the machine it belongs to, which sits two thirds down the screen.
+      // Opt-in per placed tile like the navigation strip, and absent entirely on foot or on a rig with
+      // nothing that works ground, rather than showing an empty bar.
+      val boom = if (showSections) boomOf(vehicle) else null
+      if (boom != null) {
+        SectionStrip(boom, onHeight = { sectionStripHeight = it })
+      } else {
+        // Hand the legend its corner back when the tool is unhitched or the strip is switched off.
+        LaunchedEffect(Unit) { sectionStripHeight = 0.dp }
       }
 
       // Filter & search popover, on top of everything map-related.
@@ -1067,13 +1086,17 @@ private fun BoxScope.MapDataOverlay(
  * Legend for the active ground layer: one row per legend entry, deduped by label (the growth
  * gradient's 8 steps all share the "Growing" label, so this collapses them to a single swatch).
  * Capped at ~40% of the map's side so a long soil/crop legend doesn't dominate the panel.
+ *
+ * [bottomInset] is the room the section strip has claimed along the same edge — the legend stacks on
+ * top of it rather than under it, since the strip is the thing being read while driving.
  */
 @Composable
-private fun BoxScope.GroundLayerLegend(legend: List<MapLayerLegendEntry>, side: Float) {
+private fun BoxScope.GroundLayerLegend(legend: List<MapLayerLegendEntry>, side: Float, bottomInset: Dp = 0.dp) {
   val density = LocalDensity.current
   Column(
     Modifier
       .align(Alignment.BottomStart)
+      .padding(bottom = bottomInset)
       .padding(6.dp)
       .clip(RoundedCornerShape(4.dp))
       .background(VdtColors.Panel)

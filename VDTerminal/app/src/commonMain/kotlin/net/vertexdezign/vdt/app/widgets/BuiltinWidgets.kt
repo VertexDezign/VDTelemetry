@@ -61,8 +61,25 @@ object MapWidget : Widget {
       ),
     )
 
+  /** The config key deciding whether this map carries the boom along its bottom edge. */
+  const val SECTIONS_KEY = "sections"
+
+  private val sectionsOption =
+    ConfigOption(
+      key = SECTIONS_KEY,
+      label = "Section bar",
+      // Off first for the same reason as the navigation strip: it covers terrain, and it is only ever
+      // wanted on a map placed as a run screen. Separate from that strip rather than folded into one
+      // "run screen" switch — a sprayer wants the boom, and a map watched from the yard wants neither.
+      choices =
+      listOf(
+        ConfigOption.Choice(SECTIONS_OFF, "Off"),
+        ConfigOption.Choice(SECTIONS_ON, "On"),
+      ),
+    )
+
   @Composable
-  override fun configOptions(): List<ConfigOption> = listOf(guidanceOption)
+  override fun configOptions(): List<ConfigOption> = listOf(guidanceOption, sectionsOption)
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -98,6 +115,7 @@ object MapWidget : Widget {
       // A stored value this widget no longer offers falls back to off: the choices are fixed, so
       // anything else is a stale key rather than a preference worth honouring.
       showGuidance = guidanceOption.resolve(config) == GUIDANCE_ON,
+      showSections = sectionsOption.resolve(config) == SECTIONS_ON,
       onCommand = store.onCommand,
       gpsCourse = gpsCourse,
     )
@@ -107,6 +125,10 @@ object MapWidget : Widget {
 /** [MapWidget.GUIDANCE_KEY] values. Slugs, not booleans: they are persisted in saved layouts. */
 private const val GUIDANCE_OFF = "off"
 private const val GUIDANCE_ON = "on"
+
+/** [MapWidget.SECTIONS_KEY] values, persisted in saved layouts like the guidance ones. */
+private const val SECTIONS_OFF = "off"
+private const val SECTIONS_ON = "on"
 
 /** Engine / transmission — needs a vehicle; shows an empty tile when on foot. */
 object EngineWidget : Widget {

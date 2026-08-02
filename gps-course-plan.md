@@ -36,7 +36,9 @@ a section strip and a few big numbers. This plan gets there in that order.
 - §3 (course-up) — **done.** A header toggle beside auto-center (per placed tile); north-up stays the
   default, so no saved page changes under anyone.
 - §4 (section view) — **built 2026-08-01, not yet driven** (commits `f700b1e` + `6d441d8`). Mod
-  export version is now **8**. See §4's "How it landed" and the checks under it.
+  export version is now **8**. See §4's "How it landed" and the checks under it. The boom also went
+  onto the bottom of the map on 2026-08-02 (app-only, no export change) — see "The section strip on
+  the map".
 
 **In-game results (2026-07-31/2026-08-01, user):** the course draws and clears correctly, the worked
 shading follows the game, the deviation sign reads the right way round, and the channel's cadence is
@@ -486,6 +488,40 @@ Reading PF needed no mod-environment dance: `spec_FS25_precisionFarming.extended
 string key on the vehicle (`ExtendedSprayer.lua:3`), the same reason `subSectionData` is reachable at
 all. The value maps come off that spec too, so `pfInstance()` stays confined to the layers code.
 
+### The section strip on the map (2026-08-02)
+
+The second reference photo puts the boom along the bottom of the guidance screen, and that turned out
+to be the one part of it the map was still missing. App-only — the data has been on the wire since
+export version 8, so nothing in the mod moved.
+
+**Why it is not redundant with the footprint already drawn there.** For base-game sections it nearly
+is: a work area carries a `sectionIndex` and `getIsWorkAreaActive` returns false when that section is
+shut (`VariableWorkWidth.lua:378-386`), and `workFootprints` takes only active areas — so a shutoff
+section already appears as a gap in the quad behind the machine. PF is the opposite: it freezes those
+sections all-on and switches nozzles instead, so the work areas stay active and the footprint stays a
+solid full-width quad while spot spraying blinks half the boom. **The nozzle bar is the only place
+that pattern shows**, and it is the machine a section view is most wanted on.
+
+Three calls worth recording:
+
+- **The bar and its two numbers, nothing else.** The rate readout and the rate strip stay on the rig
+  panel. This is the screen you steer by, and the map already has the machine, the course and the
+  lightbar competing for the same glance; the rate strip is also server-only, so it would be absent in
+  multiplayer on exactly the screen most likely to be used there.
+- **The lamp comes along, because the bar alone cannot say whether the tool is down.** A shutoff
+  section still reads "on" under a raised implement, and every nozzle reads "off" on a lowered boom
+  that has simply found no weeds. It is the same 6 dp dot as the rig panel, so the vocabulary matches.
+- **One boom, picked by a pure rig walk** (`boomOf`): the machine itself first — a self-propelled
+  sprayer is its own boom — then implements depth-first, first bar wins. Unit-tested, so which tool
+  gets picked is pinned rather than being whatever the rig happened to look like the day it was tried.
+
+It is an overlay rather than a row under the map, so hitching a tool mid-drive cannot reshuffle the
+map under the driver, and it reports its measured height so the ground-layer legend in the same corner
+stacks above it instead of under it. Off by default, per placed tile, beside the navigation strip in
+widget config — deliberately a separate switch, since a sprayer wants the boom and a map watched from
+the yard wants neither. In course-up it lands directly under the machine, which sits two thirds down
+the screen: exactly where the reference photo has it.
+
 ### In-game checks §4 needs
 
 Everything above is unit-tested against stubs (`spec/WorkAreas_spec.lua`,
@@ -509,6 +545,10 @@ about whether the real spec tables look like the stubs.
    at all, so the status line and the footprint are the entire section view.
 5. **A trailed tool with several work areas.** A cultivator-plus-seeder reports more than one; check
    the status line names the tool sensibly rather than whichever area happens to be busy.
+6. **The map strip.** Switch it on for a map tile and drive a sprayer: the bar should sit along the
+   bottom edge without covering the machine in course-up, vanish when the tool is unhitched, and hand
+   the corner back to the ground-layer legend when it does. The rig walk is the part to watch on a
+   train of implements — the bar must describe the tool with the boom, not the first thing hitched.
 
 ## §5 — Coverage layer (issue bullet 3) — *planned, not scheduled; decided to be server-side*
 

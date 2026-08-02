@@ -4,11 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,17 +22,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PfMode
 import net.vertexdezign.vdt.model.PfNozzles
 import net.vertexdezign.vdt.model.PfSubSection
 import net.vertexdezign.vdt.model.PfValue
 import net.vertexdezign.vdt.model.PrecisionFarming
 import net.vertexdezign.vdt.model.SectionSide
+import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
 import net.vertexdezign.vdt.model.WorkSection
 import net.vertexdezign.vdt.model.WorkWidth
@@ -459,6 +467,120 @@ internal fun sliceColor(slice: PfSubSection, mode: PfMode): Color {
     lerp(VdtColors.Red, VdtColors.Amber, ratio * 2f)
   } else {
     lerp(VdtColors.Amber, VdtColors.Green, (ratio - 0.5f) * 2f)
+  }
+}
+
+/**
+ * The one boom on a rig, and the facts a map strip draws from it.
+ *
+ * [width] is the live working width — [WorkWidth.total] where the tool reports one, and otherwise the
+ * width of a work area that is actually down, which is the same fallback the panel's status line uses.
+ */
+internal data class Boom(
+  val bar: SprayBar,
+  /** Absent on a machine Precision Farming drives no nozzles on: the count is a nozzle fact. */
+  val nozzles: PfNozzles?,
+  val width: Float?,
+  val status: WorkStatus?,
+)
+
+/**
+ * The boom on this rig, or null when nothing on it has one.
+ *
+ * The rig walked in the order it is hitched — the machine itself, then each implement depth-first,
+ * exactly like the map's own `workFootprints` — and the **first** thing with a bar to draw wins. The
+ * machine goes first so a self-propelled sprayer is described by its own boom rather than by whatever
+ * is hanging off it; on an ordinary tractor it simply has nothing to offer and the walk moves on.
+ *
+ * One bar, because the strip is a picture of *the* boom: a rig with two tools that both have sections
+ * is not a thing you drive, and given one, the leading tool is the honest thing to show. Pure, so
+ * which tool gets picked is pinned by a test rather than by whatever the rig happened to look like the
+ * day it was tried.
+ */
+internal fun boomOf(vehicle: Vehicle?): Boom? {
+  if (vehicle == null) return null
+
+  fun boom(workWidth: WorkWidth?, areas: List<WorkArea>, pf: PrecisionFarming?): Boom? {
+    val bar = sprayBar(workWidth, pf) ?: return null
+    return Boom(
+      bar = bar,
+      nozzles = pf?.nozzles,
+      width = workWidth?.total?.takeIf { it > 0f } ?: areas.firstOrNull { it.active }?.width,
+      status = workAreaStatus(areas),
+    )
+  }
+
+  fun walk(implements: List<Implement>): Boom? {
+    for (implement in implements) {
+      boom(implement.workWidth, implement.workAreas, implement.precisionFarming)?.let { return it }
+      walk(implement.implement)?.let { return it }
+    }
+    return null
+  }
+
+  return boom(vehicle.workWidth, vehicle.workAreas, vehicle.precisionFarming) ?: walk(vehicle.implement)
+}
+
+/**
+ * The boom across the bottom of the map — the terminal's section strip.
+ *
+ * The bar and nothing but the bar, with the two numbers that label it. The rate readout and the rate
+ * strip stay on the rig panel deliberately: this is the screen you steer by, and the map already has
+ * the machine, the course and the lightbar competing for the same glance.
+ *
+ * It earns its place on top of the work-area footprint the map already draws, because on a Precision
+ * Farming sprayer the two disagree. A base-game section switching off takes its work area with it
+ * (`VariableWorkWidth:getIsWorkAreaActive` returns false for a shut section, and the footprint is
+ * drawn only from active areas), so there the strip merely confirms a gap you can already see. PF
+ * freezes those sections all-on and switches *nozzles* instead — so the footprint stays a solid
+ * full-width quad while spot spraying blinks half the boom, and this is the only place that shows.
+ *
+ * Drawn as an overlay rather than a row under the map, so a tool being hitched mid-drive does not
+ * reshuffle the map under the driver. [onHeight] reports the room it takes, so the ground-layer legend
+ * in the same corner can sit above it instead of under it.
+ */
+@Composable
+internal fun BoxScope.SectionStrip(boom: Boom, modifier: Modifier = Modifier, onHeight: (Dp) -> Unit = {}) {
+  val density = LocalDensity.current
+  Column(
+    modifier
+      .align(Alignment.BottomCenter)
+      .fillMaxWidth()
+      // Before the padding, so what it reports is the room the strip occupies rather than the room
+      // inside it — the legend has to clear the whole thing, chrome included.
+      .onSizeChanged { onHeight(with(density) { it.height.toDp() }) }
+      .padding(6.dp)
+      .clip(RoundedCornerShape(4.dp))
+      .background(VdtColors.Panel)
+      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
+      .padding(horizontal = 8.dp, vertical = 4.dp),
+    verticalArrangement = Arrangement.spacedBy(3.dp),
+  ) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+      // The same lamp as the rig panel, and the only thing here that says whether the tool is down and
+      // working at all. The bar below cannot: a shutoff section reads "on" on a raised implement, and
+      // every nozzle reads "off" on a lowered boom that has simply found no weeds.
+      boom.status?.let { status ->
+        Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(status.color))
+      }
+      boom.nozzles?.let { nozzles ->
+        Text(
+          "${nozzles.activeCount}/${nozzles.count}",
+          fontSize = 9.sp,
+          fontWeight = FontWeight.Bold,
+          color = if (nozzles.activeCount > 0) VdtColors.Green else VdtColors.DarkGray,
+          maxLines = 1,
+        )
+      }
+      Spacer(Modifier.weight(1f))
+      boom.width?.takeIf { it > 0f }?.let { width ->
+        Text("${formatMeters(width)} m", fontSize = 9.sp, color = VdtColors.DarkGray, maxLines = 1)
+      }
+    }
+    when (val bar = boom.bar) {
+      is SprayBar.Nozzles -> NozzleBar(bar.nozzles)
+      is SprayBar.Sections -> SectionBar(bar.sections)
+    }
   }
 }
 
