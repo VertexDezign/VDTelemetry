@@ -118,6 +118,7 @@ import net.vertexdezign.vdt.model.MapVehicle
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.Pda
 import net.vertexdezign.vdt.model.Player
+import net.vertexdezign.vdt.model.SweptArea
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
 import net.vertexdezign.vdt.model.activeWorkAreas
@@ -125,6 +126,7 @@ import org.jetbrains.skia.Image
 import kotlin.math.hypot
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.time.TimeSource
 
 private const val MIN_ZOOM = 0.25f
 private const val MAX_ZOOM = 16f
@@ -258,6 +260,23 @@ fun MapPanel(
   var sectionStripHeight by remember { mutableStateOf(0.dp) }
   val scope = rememberCoroutineScope()
   val player = pda?.player
+
+  // The live end of the coverage layer. Fed only while that layer is the one on screen: it is the
+  // only place it would be drawn, and the sweep it keeps is state about a pass nobody is watching
+  // otherwise. Selecting the layer therefore starts an empty trail, which the server's raster fills
+  // in within a publish interval.
+  val coverageTrail = remember { CoverageTrail() }
+  val showCoverage = groundLayer == COVERAGE_LAYER_ID
+  if (showCoverage) {
+    // Keyed on the sample rather than on a clock, so the trail advances exactly once per telemetry
+    // tick — which is also the cadence WorkSweep's staleness guard is written against.
+    LaunchedEffect(vehicle) {
+      coverageTrail.advance(vehicle, mapData?.terrainSize ?: 0f, trailClock.elapsedNow().inWholeMilliseconds)
+    }
+  }
+  // Clearing on deselect is what stops a trail from an earlier visit reappearing over ground the
+  // raster has long since recorded, and what makes the reset button clear the map rather than half of it.
+  LaunchedEffect(showCoverage) { if (!showCoverage) coverageTrail.clear() }
 
   // Seed from the cache so a panel composed after a page switch paints the map on its first frame.
   val cacheKey = if (pda?.filename.isNullOrBlank()) null else "$mapUrl|${pda.filename}"
@@ -610,6 +629,14 @@ fun MapPanel(
         }
       }
 
+      // The freshest strip of coverage, drawn from this dashboard's own telemetry so the swath follows
+      // the machine instead of arriving with the next published raster. Directly over the raster it
+      // continues, and under everything else for the same reason the raster is: it is ground, not
+      // annotation. See CoverageTrail for why the durable mask still lives on the server.
+      if (coverageTrail.areas.isNotEmpty()) {
+        CoverageTrailOverlay(coverageTrail.areas, projection)
+      }
+
       // Guidance course, under the map-data overlay: it is terrain-level information (where the
       // lines run, what is worked), so field labels, POI dots and vehicle markers stay on top of it.
       // An empty course is the mod saying the driver has left the field — nothing to draw.
@@ -735,6 +762,9 @@ fun MapPanel(
             if (coverageResetUrl.isNotBlank()) {
               scope.launch { runCatching { mapImageClient.post(coverageResetUrl) } }
             }
+            // The local trail is coverage too, and it is the part in front of the raster — leaving it
+            // would redraw the last few seconds of a pass the driver just asked to be rid of.
+            coverageTrail.clear()
           },
         )
       }
@@ -744,6 +774,47 @@ fun MapPanel(
 
 // Points projected further than this (px) outside the canvas are culled before any text measuring.
 private const val OVERLAY_CULL_MARGIN = 80f
+
+/**
+ * The clock the live coverage trail ages its polygons by. Monotonic and process-wide: it is only ever
+ * read as a difference, and a wall clock can step.
+ */
+private val trailClock = TimeSource.Monotonic.markNow()
+
+/**
+ * The live trail's fill. Matches the coverage legend's colour at the alpha [MapLayerRenderer] gives
+ * every ground layer, so the strip this dashboard draws and the strip the server has already recorded
+ * are the same green — which is what makes the seam between them invisible.
+ */
+private val COVERAGE_TINT = VdtColors.Green.copy(alpha = 0.6f)
+
+/**
+ * The last few seconds of worked ground, drawn ahead of the published raster.
+ *
+ * Filled, not stroked, and in the raster's own colour: this is not a separate thing being shown, it is
+ * the same layer arriving sooner. See [CoverageTrail].
+ */
+@Composable
+private fun BoxScope.CoverageTrailOverlay(areas: List<SweptArea>, projection: MapProjection) {
+  val density = LocalDensity.current
+  Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
+    val factor = projection.factor
+    withTransform({
+      rotate(projection.rotationDeg, pivot = projection.pivot)
+      translate(projection.offset.x, projection.offset.y)
+      scale(factor, factor, pivot = Offset.Zero)
+    }) {
+      for (area in areas) drawPath(sweptPath(area), COVERAGE_TINT)
+    }
+  }
+}
+
+/** A swept polygon as a closed path, in the normalized space every overlay is drawn in. */
+private fun sweptPath(area: SweptArea): Path = Path().apply {
+  moveTo(area.xs[0], area.zs[0])
+  for (i in 1 until area.xs.size) lineTo(area.xs[i], area.zs[i])
+  close()
+}
 
 /**
  * The guidance course: every line the game's steering assist generated for the field being driven,

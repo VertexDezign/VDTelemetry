@@ -3,33 +3,35 @@ package net.vertexdezign.vdt.server
 import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
 import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayerLegendEntry
+import net.vertexdezign.vdt.model.SweptArea
 import net.vertexdezign.vdt.model.Vehicle
-import net.vertexdezign.vdt.model.WorkArea
-import net.vertexdezign.vdt.model.activeWorkAreas
-import kotlin.math.abs
+import net.vertexdezign.vdt.model.WorkSweep
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-/** Roughly the ground one cell stands for. Two meters is the plan's figure: finer than any tool. */
-private const val CELL_METERS = 2f
+/**
+ * Roughly the ground one cell stands for.
+ *
+ * Finer than the mod's own planes, which sample the game's 512-cell map overlay, because this layer is
+ * read for a different thing: not "what is growing over there" but "did I miss a strip". A metre is
+ * about the narrowest miss worth seeing from the seat, and it is what a skipped pass between two
+ * mowers actually measures.
+ */
+private const val CELL_METERS = 1f
 
 /** Grid bounds. The upper one is also what keeps a corrupt terrain size from asking for gigabytes. */
 private const val MIN_GRID = 64
-private const val MAX_GRID = 1024
+
+/**
+ * At [CELL_METERS] this gives metre cells on an ordinary 2 km map and two-metre cells on a 4x one,
+ * which is the trade the memory is worth making: the mask is a byte per cell and the rendered PNG a
+ * pixel per cell, both of which the browser holds.
+ */
+private const val MAX_GRID = 2048
 
 /** Cell value for worked ground. One value, because "has this been covered" has one answer. */
 private const val WORKED = 1
-
-/**
- * How stale a previous sample may be and still be bridged from. Generous next to the ~100 ms
- * telemetry tick, and short enough that a pause (a menu, a stutter, the app catching up) ends the
- * trail rather than drawing a stripe across whatever was skipped.
- */
-private const val MAX_BRIDGE_MS = 1000L
-
-/** …and how far it may have moved, in meters. Past this it is a teleport or a different tool. */
-private const val MAX_BRIDGE_METERS = 40f
 
 /**
  * Where the rig's tools have actually been — the coverage layer, accumulated by the **server** from
@@ -41,18 +43,18 @@ private const val MAX_BRIDGE_METERS = 40f
  * new export and costs the game nothing — which was the deciding argument for putting it here rather
  * than in the mod, where `Json.lua` is already the hot spot during active work.
  *
- * ### What gets painted
+ * The geometry — which ground each sample covers, and when a trail may be continued across a gap —
+ * is [WorkSweep], shared with the app so the live overlay and the durable mask cannot disagree. What
+ * is left here is the mask itself: which cells those polygons land on, and how that reaches the app.
  *
- * Each [WorkArea.shape] is three corners of the tool's footprint parallelogram, already in the
- * normalized `[0,1]` map frame — so the raster needs no projection of its own, and an articulated
- * trailer mid-turn is placed correctly rather than guessed at from the tractor's heading and width.
- * Only areas the engine calls *active* count; see [activeWorkAreas] for why that and not `processing`.
+ * ### What "landed on" means
  *
- * Between two samples the tool has moved, and at 40 km/h it moves about a meter per tick while the
- * footprint itself is a few tens of centimeters deep — so painting the quads alone would leave the
- * ground striped. Each area is therefore also bridged to where it was on the previous sample, which is
- * what turns a row of stamps into a swath. Both guards on that bridge exist to stop it lying: a sample
- * too old, or too far away, means the trail is broken and gets no stripe drawn across the gap.
+ * A cell is worked when its **centre** lies inside a swept polygon — not when a polygon touches it
+ * anywhere. That distinction is the whole accuracy of the layer. Touch-filling over-reports by up to a
+ * cell on every edge, so two mowers leaving a metre between them each bleed into the cell in the gap
+ * and the miss disappears — at any resolution, which is why finer cells alone would not have fixed it.
+ * Centre sampling costs nothing in coverage because [WorkSweep]'s polygons tile the corridor driven:
+ * every point in it lies in exactly one of them.
  *
  * ### What it is not
  *
@@ -66,23 +68,11 @@ private const val MAX_BRIDGE_METERS = 40f
 class CoverageRecorder(
   private val cellMeters: Float = CELL_METERS,
 ) {
-  /** A tool's footprint on one sample: three corners in normalized map coordinates, and when. */
-  private data class Footprint(
-    val startX: Float,
-    val startZ: Float,
-    val widthX: Float,
-    val widthZ: Float,
-    val heightX: Float,
-    val heightZ: Float,
-    val atMs: Long,
-  )
+  private val sweep = WorkSweep()
 
   private var cells = ByteArray(0)
   private var gridSize = 0
   private var terrainSize = 0f
-
-  /** Last sample per work area, keyed by its place in the flattened rig — see [record]. */
-  private var previous: Map<Int, Footprint> = emptyMap()
 
   /** Whether anything has changed since the last snapshot was taken. */
   private var dirty = false
@@ -93,11 +83,6 @@ class CoverageRecorder(
    * [terrainSize] is the map's edge in meters, which only sizes the grid — the coordinates are already
    * normalized. A changed one means a different map was loaded, and the mask starts over: coverage of
    * a field on another map painted onto this one would be worse than none.
-   *
-   * Areas are keyed by position in the flattened rig, which is stable while the rig is, and changes
-   * when a tool is hitched or dropped. A wrong pairing after such a change would bridge one tool's
-   * footprint to another's — which is what [MAX_BRIDGE_METERS] is really guarding, since the two are
-   * meters apart on the same machine.
    */
   @Synchronized
   fun record(
@@ -107,32 +92,7 @@ class CoverageRecorder(
   ) {
     if (terrainSize <= 0f) return // no map yet: nothing to size a grid against
     resize(terrainSize)
-
-    val areas = vehicle?.activeWorkAreas()?.filter { it.shape.size >= 6 }.orEmpty()
-    if (areas.isEmpty()) {
-      // The tool is up, or there is no tool, or the driver is on foot. Forgetting the last sample is
-      // what stops the next lowering from drawing a stripe back to wherever it was last down.
-      previous = emptyMap()
-      return
-    }
-
-    val maxJump = MAX_BRIDGE_METERS / terrainSize
-    val next = HashMap<Int, Footprint>(areas.size)
-    areas.forEachIndexed { index, area ->
-      val now = area.footprint(nowMs)
-      fillPolygon(now.cornersX(), now.cornersZ())
-      previous[index]?.let { last ->
-        if (nowMs - last.atMs <= MAX_BRIDGE_MS && last.near(now, maxJump)) {
-          // The ground between the tool's leading edge then and now — the part the stamps miss.
-          fillPolygon(
-            floatArrayOf(last.startX, last.widthX, now.widthX, now.startX),
-            floatArrayOf(last.startZ, last.widthZ, now.widthZ, now.startZ),
-          )
-        }
-      }
-      next[index] = now
-    }
-    previous = next
+    for (area in sweep.advance(vehicle, terrainSize, nowMs)) fill(area)
   }
 
   /**
@@ -188,7 +148,7 @@ class CoverageRecorder(
   @Synchronized
   fun reset() {
     cells.fill(0)
-    previous = emptyMap()
+    sweep.forget()
     dirty = true
   }
 
@@ -207,57 +167,24 @@ class CoverageRecorder(
     gridSize = (terrain / cellMeters).roundToInt().coerceIn(MIN_GRID, MAX_GRID)
     cells = ByteArray(gridSize * gridSize)
     terrainSize = terrain
-    previous = emptyMap()
+    sweep.forget()
     if (replacing) dirty = true
   }
 
-  private fun WorkArea.footprint(atMs: Long) =
-    Footprint(
-      startX = shape[0],
-      startZ = shape[1],
-      widthX = shape[2],
-      widthZ = shape[3],
-      heightX = shape[4],
-      heightZ = shape[5],
-      atMs = atMs,
-    )
-
   /**
-   * The footprint's four corners, wound as a ring. The mod sends three and leaves the fourth — the
-   * one opposite the start, at `width + height - start` — to be derived, the same way the app's map
-   * overlay draws it.
-   */
-  private fun Footprint.cornersX() = floatArrayOf(startX, widthX, widthX + heightX - startX, heightX)
-
-  private fun Footprint.cornersZ() = floatArrayOf(startZ, widthZ, widthZ + heightZ - startZ, heightZ)
-
-  private fun Footprint.near(
-    other: Footprint,
-    maxJump: Float,
-  ): Boolean = abs(startX - other.startX) <= maxJump && abs(startZ - other.startZ) <= maxJump
-
-  /**
-   * Paint a polygon given in normalized coordinates, by scanline.
+   * Mark every cell whose centre lies inside [area], by scanline.
    *
-   * The rows a polygon crosses are filled between its outermost edge crossings, which for the convex
-   * quads this deals in is exactly the polygon. Where a turn makes the bridge slightly concave the
-   * min/max span paints its convex hull instead — an over-paint of ground the tool did sweep on the
-   * inside of that turn anyway.
-   *
-   * Vertices lying inside a row are folded into that row's span as well, and that is not a refinement:
-   * a boom is tens of meters wide and a few tens of centimeters deep, so a footprint quad regularly
-   * falls entirely between two scanline centres. On crossings alone such a quad paints **nothing**,
-   * which is the whole width of the machine going unrecorded.
+   * Rows are tested at their own centre and columns are clipped to the cells whose centres fall within
+   * the span — so a polygon claims a cell only when it actually covers the point that cell stands for.
+   * Where a turn makes a swept polygon slightly concave the outermost crossings paint its convex hull
+   * instead, which is ground the tool did sweep on the inside of that turn anyway.
    */
-  private fun fillPolygon(
-    xs: FloatArray,
-    zs: FloatArray,
-  ) {
+  private fun fill(area: SweptArea) {
     if (gridSize <= 0) return
     val size = gridSize
     // Normalized -> cell coordinates. Everything below is in cells.
-    val gx = FloatArray(xs.size) { xs[it] * size }
-    val gz = FloatArray(zs.size) { zs[it] * size }
+    val gx = FloatArray(area.xs.size) { area.xs[it] * size }
+    val gz = FloatArray(area.zs.size) { area.zs[it] * size }
 
     var minZ = Float.MAX_VALUE
     var maxZ = -Float.MAX_VALUE
@@ -278,13 +205,9 @@ class CoverageRecorder(
         val j = (i + 1) % gx.size
         val z1 = gz[i]
         val z2 = gz[j]
-        // A vertex inside this row's band contributes directly — see the doc comment.
-        if (gz[i] >= row && gz[i] < row + 1f) {
-          if (gx[i] < lo) lo = gx[i]
-          if (gx[i] > hi) hi = gx[i]
-        }
         // Half-open on purpose: an edge crossing the scanline is counted by exactly one of the two
-        // edges meeting at a vertex sitting on it, so a shared vertex doesn't double-count.
+        // edges meeting at a vertex sitting on it, so a shared vertex doesn't double-count — and two
+        // polygons meeting along that edge don't both claim the row.
         val crosses = (z1 <= centre && z2 > centre) || (z2 <= centre && z1 > centre)
         if (!crosses) continue
         val x = gx[i] + (centre - z1) / (z2 - z1) * (gx[j] - gx[i])
@@ -293,8 +216,14 @@ class CoverageRecorder(
       }
       if (lo > hi) continue
 
-      val firstCol = floor(lo).toInt().coerceIn(0, size - 1)
-      val lastCol = floor(hi).toInt().coerceIn(0, size - 1)
+      // Cell `col` stands for the point at col + 0.5, so the cells covered are those whose centre lies
+      // in [lo, hi] — not every cell the span grazes. Bounds-checked before clamping, or a span that
+      // lies entirely off one side of the map would clamp both ends onto the edge cell and paint it.
+      val fromCol = ceil(lo - 0.5f).toInt()
+      val toCol = floor(hi - 0.5f).toInt()
+      if (toCol < 0 || fromCol > size - 1 || fromCol > toCol) continue
+      val firstCol = fromCol.coerceAtLeast(0)
+      val lastCol = toCol.coerceAtMost(size - 1)
       val base = row * size
       for (col in firstCol..lastCol) {
         if (cells[base + col] == WORKED.toByte()) continue

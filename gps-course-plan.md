@@ -632,23 +632,64 @@ server published an empty raster — a version, a fetch and a decode for a fully
 before anything had been worked. Replacing a grid still publishes, because whoever is watching holds
 the previous map's mask and has to be told it is gone.
 
+### Driving it: resolution and liveness (2026-08-02)
+
+Two things came back from the seat, and they turned out to be one bug and one architecture question.
+
+**A metre-wide miss between two mowers read as fully worked.** Two causes, and only fixing both
+helps:
+
+- The cells were 2 m, so a 1 m gap was half a cell.
+- More importantly, **the fill was conservative** — every cell the swept polygon *touched* was marked,
+  so each mower bled up to a cell into the gap between them and the miss closed. That happens at any
+  resolution: finer cells alone would have moved the threshold, not removed it.
+
+So a cell is now worked when its **centre** lies inside a swept polygon, and cells are 1 m (capped at
+a 2048 grid, so a 4x map gets 2 m cells). Centre sampling costs nothing in coverage precisely because
+consecutive sweeps *tile* the corridor driven — they share the leading edge exactly — so every point
+in it lies in exactly one polygon and nothing falls between them. That tiling was already true; it is
+what makes the stricter test safe. `leavesAMissedStripUnworked` pins the mower case directly.
+
+One consequence worth knowing: a single sample of a real tool now paints almost nothing, because a
+boom is a few tens of centimetres deep and covers no cell centre. That is correct — what records a
+pass is the ground swept *between* samples — but it means the tests had to stop asserting on single
+stamps, and it is why the first instant of a pass is recorded a tick late.
+
+**"Can this be more live?" — yes, and the answer is a hybrid, not a move to the client.** The
+accumulation stays on the server: that is what makes coverage survive a page reload, read the same on
+a second dashboard, and answer to one reset. What the server cannot be is immediate — the mask is a
+versioned PNG published every couple of seconds, so the strip directly behind the machine, the one
+part a driver is watching, was always the missing one.
+
+So the app now draws that strip itself. `WorkSweep` moved into `shared`, and the app runs the same
+sweep over the telemetry it is already receiving, filling the polygons straight onto the map in the
+raster's own colour and holding them ~6 s until the published mask has caught up. The two overlap on
+purpose: same green, same ground, invisible seam. It is fed only while the coverage layer is the one
+on screen, and cleared when it is deselected or reset — the local trail is coverage too, and leaving
+it would redraw a pass the driver just wiped.
+
 ### In-game checks §5 needs
 
 Everything is unit-tested against constructed footprints, which says nothing about the real ones.
 
-1. **Does the trail land where the machine did?** The one thing worth watching, since it is the only
-   place the normalized frame, the row/column order of the raster and the app's `FillBounds` draw all
-   have to agree. A pass along a field edge is the clearest test: a mirrored or transposed grid puts
-   it somewhere obviously wrong rather than subtly.
-2. **The tedder case**, which is the whole point: work with a tool that leaves no trace in any of the
+~~1. **Does the trail land where the machine did?**~~ Checked 2026-08-02: it does, in the seat.
+
+1. **A deliberate miss stays a miss.** The mower case again, now that centre sampling is in: leave a
+   metre and check the strip is still on the map afterwards. This is the one that was wrong.
+2. **The live trail meets the raster cleanly.** Watch the seam behind the machine as a published
+   version lands: there should be no flicker, no double-drawn darker band, and no gap opening up if a
+   fetch is slow.
+3. **The tedder case**, which is the whole point: work with a tool that leaves no trace in any of the
    mod's planes, and check the coverage layer records it anyway.
-3. **Gaps at speed.** Drive a long pass at full speed and look for stripes — that is the bridge not
+4. **Gaps at speed.** Drive a long pass at full speed and look for stripes — that is the bridge not
    reaching. Then lift the tool mid-field, drive on and lower it: there must be no stripe across the
    part you skipped.
-4. **A wide boom's edges.** A 36 m sprayer should paint ~18 cells across; check the swath width looks
-   like the machine's rather than one cell wider or narrower on each pass.
-5. **Reset**, and that the cleared layer actually disappears from the map rather than lingering until
+5. **A wide boom's edges.** A 36 m sprayer should paint ~36 cells across; check the swath width looks
+   like the machine's rather than a cell wider or narrower on each pass.
+6. **Reset**, and that the cleared layer actually disappears from the map rather than lingering until
    the next fetch.
+7. **Memory on the display device.** A 2048² mask is a 2048×2048 bitmap in the browser — fine on a
+   desktop, worth a look on whatever the terminal actually runs on.
 
 ## §6 — 3D (issue bullet 3's question mark) — deferred, with a reason
 
