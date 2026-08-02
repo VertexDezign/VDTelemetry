@@ -589,8 +589,14 @@ data class Sowing(
 )
 
 /**
- * A sprayer, fertilizer spreader, slurry tanker or manure spreader — the game's `Sprayer` spec covers
- * all four and [kind] is what separates them.
+ * Anything that puts material on the ground: liquid sprayers, **solid fertilizer and lime spreaders**,
+ * slurry tankers and manure spreaders. The game has no separate spreader specialization — a disc
+ * spreader is a `Sprayer` as far as the engine is concerned — so they all arrive here.
+ *
+ * [kind] and [category] answer different questions and a panel wants both. [kind] is a **capability**:
+ * what the tank accepts, fixed for the machine, and what decides the unit a rate should be quoted in
+ * (kg/ha solid, l/ha liquid, m³/ha slurry, t/ha manure). [category] is **what is loaded right now**.
+ * A lime spreader is [SprayerKind.SOLID_FERTILIZER] carrying [SprayCategory.LIME].
  *
  * [fillType] is the join key to the matching [FillUnit]: the fill unit list carries no indices, and a
  * combination machine has more than one tank, so this is the only way to know which one the sprayer
@@ -620,8 +626,16 @@ data class Spraying(
   val nominalUsagePerMin: Float? = null,
 )
 
+/**
+ * What a spreader/sprayer is *for*, by what its tank accepts.
+ *
+ * The base game only splits out slurry and manure and lumps everything else together; this follows
+ * Precision Farming's finer split instead (which PF derives from base-game calls, so it holds whether
+ * or not PF is installed). [SPRAYER] is the remainder — herbicide, water, unclassified modded
+ * materials — not "a liquid sprayer".
+ */
 @Serializable
-enum class SprayerKind { SPRAYER, SLURRY_TANKER, MANURE_SPREADER }
+enum class SprayerKind { SOLID_FERTILIZER, LIQUID_FERTILIZER, SLURRY_TANKER, MANURE_SPREADER, SPRAYER }
 
 @Serializable
 enum class SprayCategory { FERTILIZER, LIME, HERBICIDE }

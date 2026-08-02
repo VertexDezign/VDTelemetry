@@ -148,13 +148,20 @@
 ---@field fillType string?
 ---@field title string?
 
--- A sprayer / spreader / slurry tanker / manure spreader -- one engine spec covers all four and
--- `kind` separates them. `fillType` joins to the matching FillUnitModel (the fill unit list carries
--- no indices, and a combination machine has several tanks). `sprayType` / `category` are absent for a
--- material the game registers no spray type for. `nominalUsagePerMin` is measured at the machine's
--- speed limit, NOT the current draw -- see collect/aspects/Spraying.lua.
+-- Anything that puts material on the ground: liquid sprayers, solid fertilizer and lime spreaders,
+-- slurry tankers, manure spreaders. One engine spec covers all of them.
+--
+-- `kind` and `category` answer different questions and a panel wants both. `kind` is a CAPABILITY --
+-- what the tank accepts, fixed for the machine, and what decides the unit a rate is quoted in
+-- (kg/ha solid, l/ha liquid, m3/ha slurry, t/ha manure). `category` is what is loaded RIGHT NOW.
+-- A lime spreader is kind SOLID_FERTILIZER with category LIME.
+--
+-- `fillType` joins to the matching FillUnitModel (the fill unit list carries no indices, and a
+-- combination machine has several tanks). `sprayType` / `category` are absent for a material the game
+-- registers no spray type for. `nominalUsagePerMin` is measured at the machine's speed limit, NOT the
+-- current draw -- see collect/aspects/Spraying.lua.
 ---@class SprayingModel
----@field kind string SPRAYER | SLURRY_TANKER | MANURE_SPREADER
+---@field kind string SOLID_FERTILIZER | LIQUID_FERTILIZER | SLURRY_TANKER | MANURE_SPREADER | SPRAYER
 ---@field active boolean material actually leaving the machine, not merely switched on
 ---@field doubledAmount boolean
 ---@field doubledAmountAvailable boolean false on a slurry tanker / manure spreader

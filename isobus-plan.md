@@ -110,6 +110,8 @@ readable on a client. Good.
 ### `spraying` — `spec_sprayer`
 
 Covers sprayers, fertilizer spreaders, slurry tankers and manure spreaders — the spec does all four.
+(And **solid** fertilizer and lime spreaders: the game has no separate spreader specialization. See
+"How the four aspects landed" finding 7 for why `kind` ended up splitting five ways rather than three.)
 
 | Field | Source | Note |
 | --- | --- | --- |
@@ -296,9 +298,30 @@ the plan text is left as written so the difference is visible:
    `processSowingMachineArea`, which only runs for an area the engine decided to process. The
    warnings additionally only matter behind `isActiveForInputIgnoreSelectionIgnoreAI`.
 
-Test coverage: `spec/Sowing_spec.lua` (6) and `spec/IsoBusAspects_spec.lua` (17) on the mod side, and
-eight `VdtModelTest` cases on the Kotlin side — including one that pins **every** aspect absent on a
-machine that has none, and one that pins a combination machine carrying two at once.
+7. **`kind` had to split five ways, not three** (found on review: "what about solid fertilizer / lime /
+   manure spreaders?"). The answer to *coverage* is yes — the game has **no separate spreader
+   specialization**, so a disc spreader, a lime spreader and a manure spreader are all `Sprayer`, and
+   `ManureBarrel` even lists `Sprayer` as a prerequisite. But the base game's own classification is
+   too coarse to say so: `isFertilizerSprayer` is a catch-all defined as *not slurry and not manure*,
+   which swallows solid fertilizer, lime and herbicide alike. Precision Farming splits it further —
+   and **derives the split from base-game calls only**
+   (`ExtendedSprayer.lua:125-126`: accepts `FERTILIZER`/`LIME` → solid, `LIQUIDFERTILIZER` → liquid) —
+   so the same split is made here and holds whether or not PF is installed. PF's precedence and its
+   lumping of lime with solid fertilizer are both followed, so our labels agree with the HUD it draws.
+   This matters beyond naming: **the unit a rate is quoted in follows `kind`** — PF prints kg/ha,
+   l/ha, m³/ha and t/ha for the four.
+   Two rules fell out of it, both now enforced by tests: `kind` is a **capability** (what the tank
+   accepts, so an empty spreader is still a spreader) while `category`/`fillType` is **what is loaded
+   now**; and both are read from the **same** fill unit, or a combination machine reports one tank's
+   capability against another's load.
+   Known gap, deliberately left: `SaltSpreader` is a different specialization (WorkArea +
+   TurnOnVehicle, no Sprayer), so road-salt equipment gets no aspect. Winter/road kit, not a field
+   implement — it needs its own collector if it ever matters.
+
+Test coverage: `spec/Sowing_spec.lua` (6) and `spec/IsoBusAspects_spec.lua` (21) on the mod side, and
+nine `VdtModelTest` cases on the Kotlin side — including one that pins **every** aspect absent on a
+machine that has none, one that pins a combination machine carrying two at once, and one that pins
+kind-vs-material as separate questions.
 
 ## Sequencing
 

@@ -509,7 +509,7 @@ class VdtModelTest {
     // A fertilizer spreader mid-pass. `category` and `sprayType` come from the spray-type manager,
     // which is a different table from the vehicle's own — see collect/aspects/Spraying.lua.
     val text =
-      """{"version":"9","vehicle":{"spraying":{"kind":"SPRAYER","active":true,""" +
+      """{"version":"9","vehicle":{"spraying":{"kind":"SOLID_FERTILIZER","active":true,""" +
         """"doubledAmount":true,"doubledAmountAvailable":true,"allowsSpraying":true,""" +
         """"fillType":"FERTILIZER","title":"Mineraldünger","sprayType":"FERTILIZER",""" +
         """"category":"FERTILIZER","nominalUsagePerMin":42.38}}}"""
@@ -517,7 +517,7 @@ class VdtModelTest {
     assertJsonRoundTrips(data)
 
     val spraying = assertNotNull(data.vehicle?.spraying)
-    assertEquals(SprayerKind.SPRAYER, spraying.kind)
+    assertEquals(SprayerKind.SOLID_FERTILIZER, spraying.kind)
     assertEquals(SprayCategory.FERTILIZER, spraying.category)
     assertEquals("FERTILIZER", spraying.fillType)
     assertTrue(spraying.active)
@@ -540,6 +540,36 @@ class VdtModelTest {
     assertEquals(null, tanker.category)
     assertEquals(null, tanker.nominalUsagePerMin)
     assertEquals(false, tanker.doubledAmountAvailable)
+  }
+
+  @Test
+  fun spreaderKindAndMaterialAreSeparateQuestions() {
+    // A lime spreader: the hardware is a solid-fertilizer hopper (which is what decides the rate is
+    // quoted in kg/ha), the material in it is lime. Collapsing the two would lose either the unit or
+    // the material — and the base game only offers the coarse split, so `kind` is deliberately finer
+    // than `isFertilizerSprayer`.
+    val limer =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"spraying":{"kind":"SOLID_FERTILIZER",""" +
+              """"fillType":"LIME","category":"LIME"}}}""",
+          ).vehicle
+          ?.spraying,
+      )
+    assertEquals(SprayerKind.SOLID_FERTILIZER, limer.kind)
+    assertEquals(SprayCategory.LIME, limer.category)
+
+    // And the kind holds while the hopper is empty — it is what the machine accepts, not what it has.
+    val empty =
+      assertNotNull(
+        VdtParser
+          .parseJson("""{"version":"9","vehicle":{"spraying":{"kind":"SOLID_FERTILIZER"}}}""")
+          .vehicle
+          ?.spraying,
+      )
+    assertEquals(SprayerKind.SOLID_FERTILIZER, empty.kind)
+    assertEquals(null, empty.category)
   }
 
   @Test

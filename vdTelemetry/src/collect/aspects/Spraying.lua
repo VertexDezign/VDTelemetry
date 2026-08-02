@@ -1,8 +1,16 @@
--- Aspect collector: sprayers, fertilizer spreaders, slurry tankers and manure spreaders -- the
--- engine's Sprayer spec does all four, and `kind` is how it tells them apart. Applies to any object
--- (vehicle or implement): the spec sits on trailed sprayers, on self-propelled ones, and on the
--- sprayer half of a combination machine (a FertilizingSowingMachine has this spec *and*
--- spec_sowingMachine). Namespaced under VDT.* (see TurnOn.lua).
+-- Aspect collector: everything that puts material on the ground -- liquid sprayers, SOLID fertilizer
+-- and LIME spreaders, slurry tankers and manure spreaders. The engine's Sprayer spec covers the lot;
+-- there is no separate spreader specialization, so a disc spreader is a "sprayer" as far as the game
+-- is concerned. `kind` is what separates them here (see kindOf, which splits further than the base
+-- game does). Applies to any object (vehicle or implement): the spec sits on trailed sprayers, on
+-- self-propelled ones, and on the sprayer half of a combination machine (a FertilizingSowingMachine
+-- has this spec *and* spec_sowingMachine; a manure barrel's ManureBarrel spec *requires* this one).
+-- Namespaced under VDT.* (see TurnOn.lua).
+--
+-- NOT covered, and correctly so: SaltSpreader is a different specialization entirely (it requires
+-- only WorkArea + TurnOnVehicle, not Sprayer), so a road salt spreader gets no spraying aspect. That
+-- is winter/road equipment rather than a field implement; if it ever matters it needs its own
+-- collector rather than a widening of this one.
 --
 -- THREE TRAPS, all of which cost a wrong reading if ignored:
 --
@@ -37,17 +45,44 @@ VDT.Spraying = {}
 -- matching how aspects/FillUnit.lua blanks the same index.
 local FILL_TYPE_UNKNOWN = 1
 
----Which of the four machines this is. The engine derives all three from what the tank accepts
----(Sprayer.lua:204-206) and they are mutually exclusive.
+---What kind of machine this is, as a **capability** -- derived from what the tank *accepts*, not from
+---what is loaded right now. A universal tanker reports SLURRY_TANKER even while carrying water.
+---"What is it doing" is `category` / `fillType`; this is "what is it for", and the two are separate
+---questions a panel needs both of (the unit a rate is quoted in follows this one: kg/ha for solid,
+---l/ha for liquid, m3/ha for slurry, t/ha for manure).
+---
+---The base game only splits out slurry and manure (Sprayer.lua:204-206) and lumps *everything* else
+---into `isFertilizerSprayer`, which swallows solid fertilizer spreaders, lime spreaders and herbicide
+---sprayers alike. Precision Farming splits that catch-all further, and does it from base-game calls
+---only (ExtendedSprayer.lua:125-126) -- so the same split is made here, and it works whether or not
+---PF is installed. The precedence below is PF's, so our labels agree with the HUD it draws.
+---
+---Note the engine's own flags are not mutually exclusive: a tank accepting both LIQUIDMANURE and
+---MANURE sets isSlurryTanker *and* isManureSpreader. Slurry wins, as it does in PF.
+---@param object table
 ---@param spec table spec_sprayer
+---@param fillUnitIndex number the tank `fillType` is read from, so both describe the same unit
 ---@return string
-local function kindOf(spec)
+local function kindOf(object, spec, fillUnitIndex)
+  local function accepts(fillType)
+    return fillType ~= nil and object:getFillUnitAllowsFillType(fillUnitIndex, fillType) == true
+  end
+
+  -- Lime rides with solid fertilizer, as in PF: same hopper hardware, same kg/ha rate. Which of the
+  -- two is actually loaded is `category`.
+  if accepts(FillType.FERTILIZER) or accepts(FillType.LIME) then
+    return "SOLID_FERTILIZER"
+  end
+  if accepts(FillType.LIQUIDFERTILIZER) then
+    return "LIQUID_FERTILIZER"
+  end
   if spec.isSlurryTanker then
     return "SLURRY_TANKER"
   end
   if spec.isManureSpreader then
     return "MANURE_SPREADER"
   end
+  -- Everything left: herbicide sprayers, water, a modded material nobody classified.
   return "SPRAYER"
 end
 
@@ -61,9 +96,13 @@ function VDT.Spraying.collect(object)
 
   local doubledAmount, doubledAmountAllowed = object:getSprayerDoubledAmountActive()
 
+  -- Resolved once: `kind` (what the tank accepts) and `fillType` (what is in it) must describe the
+  -- same unit, or a combination machine reports the seed hopper's kind against the sprayer's load.
+  local fillUnitIndex = object:getSprayerFillUnitIndex()
+
   ---@type SprayingModel
   local model = {
-    kind = kindOf(spec),
+    kind = kindOf(object, spec, fillUnitIndex),
     -- "Material is leaving the machine", not merely "switched on": the engine's own effect predicate
     -- is `g_time < lastSprayTime + 100`, and lastSprayTime only moves when ground was actually
     -- treated. isTurnedOn (a separate aspect) is the switch.
@@ -76,7 +115,7 @@ function VDT.Spraying.collect(object)
   -- What is in the tank. `fillType` is the join key to the matching fillUnits entry -- the fill unit
   -- list carries no indices, and a combination machine has more than one tank, so this is the only
   -- way for a consumer to know which one the sprayer draws from.
-  local fillTypeIndex = object:getFillUnitFillType(object:getSprayerFillUnitIndex())
+  local fillTypeIndex = object:getFillUnitFillType(fillUnitIndex)
   if fillTypeIndex ~= nil and fillTypeIndex ~= FILL_TYPE_UNKNOWN then
     local fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
     if fillType ~= nil then

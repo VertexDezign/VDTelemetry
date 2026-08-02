@@ -24,18 +24,38 @@ for name, file in pairs({
   end
 end
 
+-- The engine's FillType enum, as much of it as these collectors name. Indices are arbitrary but must
+-- match FILL_TYPES below.
+local FILL_TYPE = {
+  UNKNOWN = 1,
+  FERTILIZER = 5,
+  LIQUIDFERTILIZER = 6,
+  LIME = 7,
+  LIQUIDMANURE = 8,
+  DIGESTATE = 9,
+  MANURE = 10,
+  WATER = 11,
+  HERBICIDE = 12,
+}
+
 local FILL_TYPES = {
   [1] = { name = "UNKNOWN", title = "Unknown" },
   [5] = { name = "FERTILIZER", title = "Mineraldünger" },
+  [6] = { name = "LIQUIDFERTILIZER", title = "Flüssigdünger" },
+  [7] = { name = "LIME", title = "Kalk" },
   [8] = { name = "LIQUIDMANURE", title = "Gülle" },
+  [10] = { name = "MANURE", title = "Mist" },
   [11] = { name = "WATER", title = "Wasser" },
+  [12] = { name = "HERBICIDE", title = "Herbizid" },
 }
 
 -- The *manager's* spray types — the ones that carry a name and a category. Keyed by fill type index.
 -- WATER deliberately has none: a material the game registers no spray type for is a normal case.
 local SPRAY_TYPES = {
   [5] = { name = "FERTILIZER", isFertilizer = true },
+  [7] = { name = "LIME", isLime = true },
   [8] = { name = "LIQUIDMANURE", isFertilizer = true },
+  [12] = { name = "HERBICIDE", isHerbicide = true },
 }
 
 describe("Spraying.collect", function()
@@ -56,10 +76,12 @@ describe("Spraying.collect", function()
         return SPRAY_TYPES[idx]
       end,
     }
+    rawset(_G, "FillType", FILL_TYPE)
   end)
 
   after_each(function()
     rawset(_G, "MathUtil", nil)
+    rawset(_G, "FillType", nil)
     _G.g_fillTypeManager = nil
     _G.g_sprayTypeManager = nil
   end)
@@ -86,6 +108,12 @@ describe("Spraying.collect", function()
       end,
       getFillUnitFillType = function(_, index)
         return (opts.tanks or {})[index]
+      end,
+      -- What each tank *accepts*, as opposed to what is in it. `accepts` is a map of fill unit index
+      -- to a set of fill type indices; a tank with no entry accepts nothing, which is what makes the
+      -- kind fall through to the catch-all.
+      getFillUnitAllowsFillType = function(_, index, fillType)
+        return ((opts.accepts or {})[index] or {})[fillType] == true
       end,
       getAreEffectsVisible = function()
         return opts.active == true
@@ -130,10 +158,72 @@ describe("Spraying.collect", function()
     assert.are.equal("FERTILIZER", s.fillType)
   end)
 
-  it("separates the three machine kinds", function()
-    assert.are.equal("SPRAYER", VDT.Spraying.collect(sprayer()).kind)
+  -- A tank at index 1 accepting exactly the listed fill types.
+  local function tankAccepting(...)
+    local set = {}
+    for _, fillType in ipairs({ ... }) do
+      set[fillType] = true
+    end
+    return { [1] = set }
+  end
+
+  it("separates the five machine kinds", function()
+    -- Solid and liquid fertilizer are the split the base game does NOT make: it lumps both into
+    -- isFertilizerSprayer. Without this a disc spreader and a boom look identical, and they take
+    -- their rates in different units (kg/ha vs l/ha).
+    local solid = VDT.Spraying.collect(sprayer({}, { accepts = tankAccepting(FILL_TYPE.FERTILIZER) }))
+    assert.are.equal("SOLID_FERTILIZER", solid.kind)
+
+    local liquid = VDT.Spraying.collect(sprayer({}, { accepts = tankAccepting(FILL_TYPE.LIQUIDFERTILIZER) }))
+    assert.are.equal("LIQUID_FERTILIZER", liquid.kind)
+
     assert.are.equal("SLURRY_TANKER", VDT.Spraying.collect(sprayer({ isSlurryTanker = true })).kind)
     assert.are.equal("MANURE_SPREADER", VDT.Spraying.collect(sprayer({ isManureSpreader = true })).kind)
+
+    -- The remainder: a herbicide boom accepts none of the fertilizer types and is neither slurry nor
+    -- manure, so it lands on the catch-all.
+    assert.are.equal(
+      "SPRAYER",
+      VDT.Spraying.collect(sprayer({}, { accepts = tankAccepting(FILL_TYPE.HERBICIDE) })).kind
+    )
+  end)
+
+  it("treats a lime spreader as solid fertilizer hardware carrying lime", function()
+    -- The kind is what the hopper is (kg/ha, same as fertilizer); the category is what is in it.
+    -- Answering only one of those loses either the unit or the material.
+    local limer = sprayer({}, { accepts = tankAccepting(FILL_TYPE.LIME), tanks = { [1] = FILL_TYPE.LIME } })
+    local s = VDT.Spraying.collect(limer)
+    assert.are.equal("SOLID_FERTILIZER", s.kind)
+    assert.are.equal("LIME", s.category)
+    assert.are.equal("LIME", s.fillType)
+  end)
+
+  it("keeps kind as a capability, independent of what is loaded", function()
+    -- A fertilizer spreader standing empty is still a fertilizer spreader.
+    local empty = sprayer({}, { accepts = tankAccepting(FILL_TYPE.FERTILIZER), tanks = { [1] = FILL_TYPE.UNKNOWN } })
+    local s = VDT.Spraying.collect(empty)
+    assert.are.equal("SOLID_FERTILIZER", s.kind)
+    assert.is_nil(s.fillType)
+    assert.is_nil(s.category)
+  end)
+
+  it("gives slurry precedence over manure on a tank that takes both", function()
+    -- The engine's two flags are not mutually exclusive; PF's HUD resolves this the same way.
+    local both = sprayer({ isSlurryTanker = true, isManureSpreader = true })
+    assert.are.equal("SLURRY_TANKER", VDT.Spraying.collect(both).kind)
+  end)
+
+  it("classifies the kind from the same tank it reads the load from", function()
+    -- A combination machine: unit 1 is seed, unit 2 is the fertilizer hopper. Classifying off unit 1
+    -- would report the seed hopper's capability against the sprayer's load.
+    local combo = sprayer({}, {
+      sprayerFillUnitIndex = 2,
+      accepts = { [1] = { [FILL_TYPE.WATER] = true }, [2] = { [FILL_TYPE.FERTILIZER] = true } },
+      tanks = { [1] = FILL_TYPE.WATER, [2] = FILL_TYPE.FERTILIZER },
+    })
+    local s = VDT.Spraying.collect(combo)
+    assert.are.equal("SOLID_FERTILIZER", s.kind)
+    assert.are.equal("FERTILIZER", s.fillType)
   end)
 
   it("takes the doubled-amount availability from the getter's second return", function()
