@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+<g stroke-linejoin="round" stroke-linecap="round">
+  <rect x="1230" y="586" width="100" height="48" rx="10" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+  <rect x="1266" y="548" width="264" height="60" rx="14" fill="#4A4942" stroke="#1B1E1B" stroke-width="13"/>
+  <rect x="1339" y="600" width="14" height="106" rx="5" fill="#4A4942" stroke="#1B1E1B" stroke-width="6"/>
+  <rect x="1308" y="608" width="28" height="182" rx="7" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+  <rect x="1431" y="600" width="14" height="106" rx="5" fill="#4A4942" stroke="#1B1E1B" stroke-width="6"/>
+  <rect x="1400" y="608" width="28" height="182" rx="7" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+  <rect x="1523" y="600" width="14" height="106" rx="5" fill="#4A4942" stroke="#1B1E1B" stroke-width="6"/>
+  <rect x="1492" y="608" width="28" height="182" rx="7" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+  <circle cx="1322" cy="822" r="56" fill="#6E6E60" stroke="#1B1E1B" stroke-width="13"/>
+  <circle cx="1322" cy="822" r="19.040000000000003" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+  <circle cx="1414" cy="822" r="56" fill="#6E6E60" stroke="#1B1E1B" stroke-width="13"/>
+  <circle cx="1414" cy="822" r="19.040000000000003" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+  <circle cx="1506" cy="822" r="56" fill="#6E6E60" stroke="#1B1E1B" stroke-width="13"/>
+  <circle cx="1506" cy="822" r="19.040000000000003" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+</g>
+</svg>

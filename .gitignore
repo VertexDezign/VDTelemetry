@@ -4,3 +4,5 @@
 
 VDTerminal_old
 tools/isobus-mockup/mock/
+tools/isobus-art/out/
+__pycache__/

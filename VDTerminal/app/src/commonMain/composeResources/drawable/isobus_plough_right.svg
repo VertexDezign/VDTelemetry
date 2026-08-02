@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+<g stroke-linejoin="round" stroke-linecap="round">
+  <rect x="110" y="452" width="140" height="154" rx="12" fill="#4A4942" stroke="#1B1E1B" stroke-width="13"/>
+  <circle cx="180" cy="474" r="20" fill="#C9C8B6" stroke="#1B1E1B" stroke-width="9"/>
+  <rect x="96" y="566" width="34" height="44" rx="8" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+  <rect x="240" y="496" width="1060" height="64" rx="24" fill="#CFCC50" stroke="#1B1E1B" stroke-width="13"/>
+  <polygon points="353,556 391,556 399,700 367,700" fill="#4A4942" stroke="#1B1E1B" stroke-width="13"/>
+  <path d="M 364,688 C 412,700 472,738 484,798 L 424,876 C 416,800 382,750 364,738 Z" fill="#6E6E60" stroke="#1B1E1B" stroke-width="13"/>
+  <polygon points="567,556 605,556 613,700 581,700" fill="#4A4942" stroke="#1B1E1B" stroke-width="13"/>
+  <path d="M 578,688 C 626,700 686,738 698,798 L 638,876 C 630,800 596,750 578,738 Z" fill="#6E6E60" stroke="#1B1E1B" stroke-width="13"/>
+  <polygon points="781,556 819,556 827,700 795,700" fill="#4A4942" stroke="#1B1E1B" stroke-width="13"/>
+  <path d="M 792,688 C 840,700 900,738 912,798 L 852,876 C 844,800 810,750 792,738 Z" fill="#6E6E60" stroke="#1B1E1B" stroke-width="13"/>
+  <polygon points="995,556 1033,556 1041,700 1009,700" fill="#4A4942" stroke="#1B1E1B" stroke-width="13"/>
+  <path d="M 1006,688 C 1054,700 1114,738 1126,798 L 1066,876 C 1058,800 1024,750 1006,738 Z" fill="#6E6E60" stroke="#1B1E1B" stroke-width="13"/>
+  <polygon points="1209,556 1247,556 1255,700 1223,700" fill="#4A4942" stroke="#1B1E1B" stroke-width="13"/>
+  <path d="M 1220,688 C 1268,700 1328,738 1340,798 L 1280,876 C 1272,800 1238,750 1220,738 Z" fill="#6E6E60" stroke="#1B1E1B" stroke-width="13"/>
+  <rect x="1284" y="528" width="42" height="284" rx="14" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+  <rect x="1300" y="780" width="156" height="44" rx="14" fill="#4A4942" stroke="#1B1E1B" stroke-width="9"/>
+  <g transform="translate(1450,804) rotate(0.000)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(16.364)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(32.727)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(49.091)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(65.455)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(81.818)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(98.182)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(114.545)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(130.909)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(147.273)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(163.636)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(180.000)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(196.364)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(212.727)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(229.091)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(245.455)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(261.818)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(278.182)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(294.545)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(310.909)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(327.273)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <g transform="translate(1450,804) rotate(343.636)">
+    <rect x="-5.7" y="-79.41999999999999" width="11.4" height="18.619999999999983" rx="2.66" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+  </g>
+  <circle cx="1450" cy="804" r="76" fill="#49483D" stroke="#1B1E1B" stroke-width="13"/>
+  <circle cx="1450" cy="804" r="42.56" fill="#CAAF39" stroke="#1B1E1B" stroke-width="9"/>
+  <circle cx="1450" cy="804" r="15.200000000000001" fill="#49483D" stroke="#1B1E1B" stroke-width="9"/>
+</g>
+</svg>
