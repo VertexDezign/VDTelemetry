@@ -4,8 +4,8 @@
 -- Namespaced under VDT.* (see TurnOn.lua).
 --
 -- Field order follows Model.kt (isTurnedOn, foldable, lowered, fillUnits, pipe, cover, wearable,
--- schema, selection, discharge, tipping, harvest, workMode, workWidth, workAreas, baleCounter); JSON
--- is key-addressed so order is cosmetic.
+-- schema, selection, discharge, tipping, harvest, workMode, workWidth, workAreas, baleCounter,
+-- sowing); JSON is key-addressed so order is cosmetic.
 --
 -- Every collector is a cheap spec-field read and each returns nil when its spec is absent, so a given
 -- object only pays for the aspects it actually has. This runs on the export timer, not per frame.
@@ -32,4 +32,5 @@ function VDT.Aspects.apply(object, model)
   model.workWidth = VDT.Work.collectWidth(object)
   model.workAreas = VDT.WorkAreas.collect(object)
   model.baleCounter = VDT.BaleCounter.collect(object)
+  model.sowing = VDT.Sowing.collect(object)
 end

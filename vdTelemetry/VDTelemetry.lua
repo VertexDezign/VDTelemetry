@@ -41,6 +41,7 @@ local sourceFiles = {
   -- further down; the call is inside the collector, so the order between the two does not matter.
   "src/collect/aspects/WorkAreas.lua",
   "src/collect/aspects/BaleCounter.lua",
+  "src/collect/aspects/Sowing.lua",
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
@@ -142,7 +143,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    `precisionFarming` (application rates per boom sub-section where PF keeps them, plus the live
 --    per-nozzle spray states, which are the only per-position signal that survives multiplayer).
 --    See issue #43.
-VDTelemetry.VERSION = 8
+-- 9: the ISOBUS aspects — per-class implement state, starting with `sowing` (which crop is in the
+--    hopper, out of the machine's declared seed list). The fill unit only ever said SEEDS; this says
+--    which. See issue #58 and isobus-plan.md.
+VDTelemetry.VERSION = 9
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

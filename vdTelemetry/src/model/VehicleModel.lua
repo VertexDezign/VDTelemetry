@@ -43,4 +43,5 @@
 ---@field workWidth WorkWidthModel?
 ---@field workAreas WorkAreaModel[]?
 ---@field baleCounter BaleCounterModel?
+---@field sowing SowingModel?
 ---@field implement ImplementModel[]?

@@ -132,3 +132,18 @@
 ---@class BaleCounterModel
 ---@field session number
 ---@field lifetime number
+
+-- A sowing machine's hopper: which crop is selected out of the machine's declared list, and how the
+-- hopper is set up. `fruitType` is the crop token (WHEAT), `fillType` the fill type it is carried as
+-- -- which is what joins this to the matching FillUnitModel -- and `title` the localized name to
+-- print. All three are absent when the machine declares no seeds. `usageScale` is absent at the
+-- engine default of 1. See collect/aspects/Sowing.lua for what is deliberately not here.
+---@class SowingModel
+---@field seedIndex number
+---@field seedCount number
+---@field changeAllowed boolean
+---@field directPlanting boolean
+---@field usageScale number?
+---@field fruitType string?
+---@field fillType string?
+---@field title string?

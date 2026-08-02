@@ -23,5 +23,6 @@
 ---@field workWidth WorkWidthModel?
 ---@field workAreas WorkAreaModel[]?
 ---@field baleCounter BaleCounterModel?
+---@field sowing SowingModel?
 ---@field jointDescIndex number?
 ---@field implement ImplementModel[]?

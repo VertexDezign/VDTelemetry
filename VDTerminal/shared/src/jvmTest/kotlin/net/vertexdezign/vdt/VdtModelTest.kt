@@ -406,6 +406,83 @@ class VdtModelTest {
   }
 
   @Test
+  fun decodesTheSownCropOffTheSowingAspect() {
+    // The crop is the one thing a seeding terminal exists to say and the fill unit cannot: a hopper
+    // reports the fill type it holds, never which of the machine's declared seeds is selected. The
+    // first capture taken at v9 (issue #58), so it is also the in-game proof that the aspect works.
+    val data = model("sowingMachine.json")
+    assertEquals("9", data.version)
+    assertJsonRoundTrips(data)
+
+    val seeder = assertNotNull(data.vehicle?.implement?.single())
+    val sowing = assertNotNull(seeder.sowing)
+    assertEquals("WHEAT", sowing.fruitType)
+    assertEquals("Weizen", sowing.title)
+    // 1 of 9 — the index is into the machine's own seed list, so it pairs with the count to say
+    // whether there is a choice at all.
+    assertEquals(1, sowing.seedIndex)
+    assertEquals(9, sowing.seedCount)
+    assertTrue(sowing.changeAllowed)
+    assertTrue(sowing.directPlanting)
+
+    // Absent at the engine default rather than emitted as 1.
+    assertEquals(null, sowing.usageScale)
+  }
+
+  @Test
+  fun sowingJoinsItsHopperThroughFillTypeOnACombinationMachine() {
+    // This capture is a *fertilizing* seeder: two fill units, and `precisionFarming.mode` FERTILIZER.
+    // It is the case that decided the panel dispatches on aspect presence rather than on `type` —
+    // one machine that is two functions at once, and whose type name
+    // (`pdlc_skyAgriculturePack.fertilizingSowingMachineWorkEffects`) no switch could enumerate.
+    val seeder = assertNotNull(model("sowingMachine.json").vehicle?.implement?.single())
+    val units = assertNotNull(seeder.fillUnits?.fillUnit)
+    assertEquals(listOf("WHEAT", "FERTILIZER"), units.map { it.type })
+
+    // `sowing.fillType` is what joins the aspect to the right one of the two — the panel must not
+    // assume the seed hopper is the first unit, and on this machine the fertilizer tank is the same
+    // size class, so there is nothing else to disambiguate them by.
+    val sowing = assertNotNull(seeder.sowing)
+    assertEquals("WHEAT", sowing.fillType)
+    val hopper = assertNotNull(units.singleOrNull { it.type == sowing.fillType })
+    assertEquals(1760f, hopper.value)
+    assertEquals(1760, hopper.capacity)
+  }
+
+  @Test
+  fun decodesASowingMachineThatNamesNoCrop() {
+    // A machine can declare no seeds at all, and a modded crop may not resolve. The three name fields
+    // go null together; everything else about the hopper still decodes, so the panel can say "no crop
+    // selected" rather than losing the section.
+    val text =
+      """{"version":"9","vehicle":{"sowing":{"seedIndex":1,"seedCount":0,"changeAllowed":false}}}"""
+    val sowing = assertNotNull(VdtParser.parseJson(text).vehicle?.sowing)
+
+    assertEquals(null, sowing.fruitType)
+    assertEquals(null, sowing.fillType)
+    assertEquals(null, sowing.title)
+    assertEquals(0, sowing.seedCount)
+    assertEquals(false, sowing.changeAllowed)
+    // Defaulted, not absent: a machine that reports a hopper always reports whether it sows direct.
+    assertEquals(false, sowing.directPlanting)
+  }
+
+  @Test
+  fun absentSowingAspectStaysNull() {
+    // The whole feature dispatches on aspect presence, so "no sowing subtree" must decode as null
+    // rather than a default-constructed hopper — otherwise every tractor grows a seeder section.
+    assertEquals(null, model("tractor_with_cultivator.json").vehicle?.sowing)
+    assertEquals(
+      null,
+      model("mutliple_implements.json")
+        .vehicle
+        ?.implement
+        ?.first()
+        ?.sowing,
+    )
+  }
+
+  @Test
   fun serverMessageUsesTypeDiscriminator() {
     val msg: ServerMessage = ServerMessage.Telemetry(model("combine.json"))
     val encoded = json.encodeToString(ServerMessage.serializer(), msg)

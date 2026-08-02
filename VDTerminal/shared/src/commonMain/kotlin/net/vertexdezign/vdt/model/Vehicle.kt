@@ -30,6 +30,7 @@ data class Vehicle(
   val workWidth: WorkWidth? = null,
   val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
+  val sowing: Sowing? = null,
   val precisionFarming: PrecisionFarming? = null,
   val implement: List<Implement> = emptyList(),
   val combined: Combined? = null,
@@ -555,6 +556,35 @@ data class BaleCounter(
   val lifetime: Int = 0,
 )
 
+/**
+ * A sowing machine's hopper — which crop is selected, out of the list the machine itself declares.
+ *
+ * The fill unit only ever says SEEDS, so this is the only place the crop appears. [fruitType] is the
+ * crop token (`WHEAT`), [fillType] the fill type it is carried as — which is what joins this to the
+ * matching [FillUnit] — and [title] the localized name to print. **All three are null together**,
+ * when the machine declares no seeds or the crop can't be resolved; the rest of the aspect still
+ * describes the hopper, so an unresolvable crop is a missing name rather than a missing subtree.
+ *
+ * [seedIndex] is 1-based into the machine's own list, so it pairs with [seedCount] as "2 of 3" and
+ * says whether there is a choice at all. Deliberately absent: whether the machine is currently
+ * working — `workAreas` answers that from the engine's own predicate, and the sowing spec's own flag
+ * does not survive on a multiplayer client.
+ */
+@Serializable
+data class Sowing(
+  val seedIndex: Int = 0,
+  val seedCount: Int = 0,
+  /** False while something else holds the hopper (a mission locking the crop). */
+  val changeAllowed: Boolean = true,
+  /** Sows straight into stubble — no seedbed needed. */
+  val directPlanting: Boolean = false,
+  /** Seed consumption multiplier; absent at the engine default of 1. */
+  val usageScale: Float? = null,
+  val fruitType: String? = null,
+  val fillType: String? = null,
+  val title: String? = null,
+)
+
 // ---------------------------------------------------------------------------
 // Implements (recursive) + combined
 // ---------------------------------------------------------------------------
@@ -580,6 +610,7 @@ data class Implement(
   val workWidth: WorkWidth? = null,
   val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
+  val sowing: Sowing? = null,
   val precisionFarming: PrecisionFarming? = null,
   /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
   val jointDescIndex: Int? = null,
