@@ -1,144 +1,174 @@
 # ISOBUS machine art — asset spec
 
-What to generate for the ISOBUS panel (issue #58), and the rules the app relies on. Written
-2026-08-02 after the design review settled the layout; supersedes the own-drawn vector machines in
-`tools/isobus-mockup/` (those were only ever there to settle the layout, and the layout is what
-survived).
+What the ISOBUS panel (issue #58) draws, and the rules the app relies on. Rewritten 2026-08-02
+alongside the art itself; supersedes both the own-drawn vector machines in `tools/isobus-mockup/`
+(those only ever existed to settle the layout, and the layout is what survived) and the first PNG
+draft of this spec.
 
 The panel is otherwise unchanged: machine centred, level overlaid on its body, working figures in the
-corners, one footer row per material. Only the machine itself becomes a PNG.
+corners, one footer row per material.
 
-## Why the app can't just use one image per machine
+## The art is SVG, and it is generated
 
-The machine has live state. Two decisions, both taken with the user:
+The machines live in `tools/isobus-art/` as **Python that emits SVG**, not as hand-drawn files. Run
+`python3 tools/isobus-art/slurry.py && python3 tools/isobus-art/machines.py` to regenerate, then
+`manifest.py` to re-measure the anchors. Editing a machine means editing ~40 lines of geometry.
 
-- **Fill level → two layers.** A tank empties as you work, so it cannot be baked in. Each machine
-  that carries material ships **a body** (tank empty) and **a fill** (the material shape alone). The
-  app draws the body, then the fill clipped bottom-up to the level. This is why it beats a plain
-  rectangle: a round barrel and a tapered hopper get their true shape for free.
-- **Discrete state → baked where it is genuinely discrete.** The plough ships **two** images, one per
-  turned side. Boom sections do **not**: the count varies per machine (9 on the Rogator, 10 on the
-  AgriSpread), so the app draws section blocks and spray over the boom in the art.
+Two things fall out of that which are worth keeping:
+
+- **Body and fill cannot drift apart.** Both layers come out of one geometry pass with a `layer`
+  flag; the cavity path is literally the same numbers in both files. There is no separate step that
+  could misalign them.
+- **The preview is not the deliverable.** This sandbox has no SVG rasteriser — ImageMagick's internal
+  SVG reader silently drops strokes and transforms — so `kit.py` also emits ImageMagick MVG and
+  renders a PNG next to each SVG for review. Both backends read the same op list, so the preview
+  cannot diverge from the shipped file. **The PNGs in `out/` are review artefacts. Do not ship them.**
+
+Compose Resources on 1.11.1 generates `Res.drawable.<name>` for `.svg` (verified against this build),
+so the app loads them exactly like the old `mb_trac.png`. Whole set is ~110 KB, against ~1.5 MB for
+the PNG draft, so the old ≤150 KB-per-file budget no longer binds.
+
+> **Not yet verified:** that the SVGs *decode* at runtime in the wasm app. Accessor generation is
+> confirmed; nothing has been rendered in a browser. Check before building the panel against them.
+
+## Three layers, not one image
+
+The machine has live state, and a slurry rig has interchangeable kit on the back. Three separate
+things compose:
+
+| Layer | What | Where it comes from |
+| --- | --- | --- |
+| machine | the implement itself | art — `_body` plus optional `_fill` |
+| attachment | what a slurry tanker is pulling behind it | art, optional |
+| sections | working width, split into blocks | **the app** — no art at all |
+
+### Fill level → two layers
+
+A tank empties as you work, so it cannot be baked in. Each machine that carries material ships a
+**body** (tank empty) and a **fill** (the material shape alone). The app draws the body, then the
+fill clipped bottom-up to the level.
+
+Every vessel keeps a **generous margin of bodywork around its cavity** — a walkway spine and a skirt
+on the tanker, ribs on the sprayer, a rim and a lower band elsewhere. The fill covers the cavity
+exactly, so anything drawn inside it disappears at 100%, and the machine still has to read as that
+machine with a full tank.
+
+### The attachment is a separate image on the same canvas
+
+The tanker draws alone. The attachment is its own file, drawn at the position where it hangs off the
+tanker's rear, so the app overlays it with **no positioning maths** — the same trick that keeps the
+fill registered.
+
+Which attachment comes from the telemetry, not from the art:
+
+```
+Kaweco Profi II  (manureBarrel)   spraying.kind=SLURRY_TANKER   ← the tank
+  └ Bomech Multi Profi 21/15      spraying.externalSource=true  ← dribble bar
+Vredo VT5536     (self-propelled barrel)
+  └ SKY Methys HDS                spraying.externalSource=true  ← injector
+                                  tillage.kind=CULTIVATOR
+```
+
+The child implement with `spraying.externalSource == true` **is** the attachment. If it also carries
+`tillage`, it is an injector; otherwise a dribble bar. **No such child means the bar is built into
+the tanker and invisible to us — draw nothing.** That case is normal, not an error.
+
+### Sections are drawn, never baked
+
+Section count varies per machine (9 on the Rogator, 10 on the AgriSpread), so the app draws them as a
+**plan-view strip below the machine**: you are looking down at the working width, divided into
+blocks. This replaces the old `boomRect` anchor, which is gone — there is no longer any machine whose
+art carries its sections. The rear-view sprayer's boom sits directly above where the strip lands, so
+the two read together rather than competing.
 
 ## One canvas, one scale
 
-**Every image is 1600 × 1000 px**, and every machine is drawn **to the same scale on a common ground
-line**, not scaled to fill its own canvas. A 22 000 l tanker must look bigger than a 5-furrow plough,
-because the panel switches between them in place and a per-image fit would make them jump around.
+**Every image is 1600 × 1000**, every machine drawn to the same scale on a common ground line, not
+scaled to fill its own canvas. A 22 000 l tanker must look bigger than a 5-furrow plough, because the
+panel switches between them in place.
 
-- ground line at **y = 880** (machines stand on it; wheels touch it)
-- keep a **60 px** margin left and right of the widest machine
+- ground line at **y = 880** — machines with wheels stand on it; mounted implements hang above it at
+  working height, and tillage points reach it
+- keep a **60 px** margin left and right
 - draw **side-on, facing left**, hitch/drawbar at the **left edge** — matching `mb_trac.png`, which
   the Lighting panel already uses and which the cluster glyphs were mirrored to match
-- exception: **sprayer and solid spreader are drawn from behind** (boom spread across the frame,
-  discs below the hopper), because that is the only view where sections and spread pattern mean
-  anything — this follows both reference terminals
+- exception: **sprayer and solid spreader are drawn from behind**, following both reference terminals
+
+A horizontal spinning disc seen side-on or from behind is **edge-on** — a flattened ellipse with its
+vanes standing up off the plate (`kit.spinner`). Drawn face-on as a circle it reads as a wheel, which
+is the one thing a spreader disc must not look like.
+
+The rear-view sprayer carries **no running gear**. From behind, a boom-mounted tank shows no wheels,
+and inventing them read as wrong.
 
 ## Style
 
-Match `VDTerminal/app/src/commonMain/composeResources/drawable/mb_trac.png` — that is the house
-style and it is already on screen in the Lighting panel:
+Match `mb_trac.png` — the house style, already on screen in the Lighting panel. The palette in
+`kit.py` is **sampled out of that file**, not invented:
 
-- flat vector illustration, **heavy dark outline** (`#2B2B2B`-ish), no gradients, no shading, no
-  perspective
-- muted fills; greens/yellows for bodywork, dark grey for tyres and frame
-- **transparent background**, no ground shadow (a baked shadow breaks on the black display-mode root)
-- must read on **both** a light panel (`#F0F0F2`) and pure black — so nothing relies on being white,
-  and outlines stay dark rather than becoming the only value
+| | | |
+| --- | --- | --- |
+| `#1B1E1B` outline | `#CFCC50` bodywork | `#7D7F4B` secondary |
+| `#49483D` tyre | `#4A4942` frame | `#CAAF39` wheel rim |
+| `#6E6E60` steel wear parts | `#C9C8B6` empty vessel | `#BBD9D6` glass |
+
+Materials: `#8A6A3C` slurry, `#7A5636` muck, `#BFA164` granules, `#5A8AA6` liquid, `#B07C2E` seed —
+each kept clear of `#CFCC50`, or the fill reads as bodywork.
+
+Flat vector, heavy dark outline, no gradients, no shading, no perspective. Transparent background, no
+ground shadow (a baked shadow breaks on the black display-mode root). Must read on both a light panel
+(`#F0F0F2`) and pure black.
 
 ## Do not include
 
-- **no fill level, no material in the tank** on the body layer — that is the fill layer's job
-- **no text, numbers, units or badges** — every figure is drawn by the app and would be unreadable
-  baked at panel size anyway
-- **no boom section blocks or spray plumes** — the app draws those from live data
-- **no tractor** — the panel is about the implement; the tractor is the Lighting panel's subject
+- no fill level or material in the tank on the body layer — that is the fill layer's job
+- no text, numbers, units or badges — every figure is drawn by the app
+- no section blocks or spray plumes — the app draws those from live data
+- no tractor — the panel is about the implement
 - no background, frame, ground, or drop shadow
 
 ## Files
 
-Lowercase with underscores, in `VDTerminal/app/src/commonMain/composeResources/drawable/`. Compose
-generates `Res.drawable.<name>` from the filename, so the names are load-bearing.
+In `VDTerminal/app/src/commonMain/composeResources/drawable/`. Compose generates
+`Res.drawable.<name>` from the filename, so the names are load-bearing.
 
 | File | Notes |
 | --- | --- |
-| `isobus_slurry_tanker_body.png` | barrel + tandem axle + dribble bar, tank empty |
-| `isobus_slurry_tanker_fill.png` | the liquid inside the barrel, alone |
-| `isobus_manure_spreader_body.png` | box body, drawbar, vertical beaters + discs at the rear |
-| `isobus_manure_spreader_fill.png` | the muck heap in the body, alone |
-| `isobus_solid_fertilizer_body.png` | **rear view** — hopper narrowing onto twin discs, hopper empty |
-| `isobus_solid_fertilizer_fill.png` | the granules in the hopper, alone |
-| `isobus_sprayer_body.png` | **rear view** — tank over the boom centre, boom truss included, tank empty |
-| `isobus_sprayer_fill.png` | the liquid in the tank, alone |
-| `isobus_seed_drill_body.png` | hopper on a frame with a row of disc coulters, hopper empty |
-| `isobus_seed_drill_fill.png` | the seed in the hopper, alone |
-| `isobus_plough_left.png` | bodies turned left — no fill layer |
-| `isobus_plough_right.png` | bodies turned right — no fill layer |
-| `isobus_cultivator.png` | tine ranks + packer discs — no fill layer |
-
-Optional, and the app falls back to `isobus_cultivator.png` until they exist:
-`isobus_power_harrow.png`, `isobus_subsoiler.png`.
+| `isobus_slurry_tanker_body/_fill.svg` | barrel, tandem axle, ladder, hitch eye — no bar |
+| `isobus_att_dribble_bar.svg` | distributor drum, hose bundle, trailing shoes |
+| `isobus_att_injector.svg` | short toolbar of disc coulters |
+| `isobus_manure_spreader_body/_fill.svg` | box body, vertical beaters, edge-on spinners |
+| `isobus_solid_fertilizer_body/_fill.svg` | **rear view** — hopper onto twin edge-on spinners |
+| `isobus_sprayer_body/_fill.svg` | **rear view** — tank over the boom truss, no wheels |
+| `isobus_seed_drill_body/_fill.svg` | hopper on a frame with raked disc coulters |
+| `isobus_plough_left.svg` / `_right.svg` | bodies turned each way — no fill layer |
+| `isobus_cultivator.svg` | raked tines + packer discs — no fill layer |
+| `isobus_power_harrow.svg` | rotor housing, tine pairs, packer roller |
+| `isobus_subsoiler.svg` | five heavy legs, depth wheel |
 
 `LIQUID_FERTILIZER` and `SPRAYER` share the sprayer art — one is a tank of fertilizer and the other a
 tank of herbicide, and the machine is the same.
 
-## The fill layer has to register exactly
+## The manifest
 
-The two layers are composited at the same size and offset, so **they must share the canvas and the
-registration**. The reliable way to get that is not to draw the fill twice:
+`tools/isobus-art/manifest.py` reads each fill layer's **alpha bounding box** and writes
+`out/MachineArt.kt.snippet`. The anchors are therefore measured off the delivered images, and moving
+a tank in the geometry moves them with it — they are never hand-transcribed.
 
-1. draw the machine with the tank **full**;
-2. save that as the fill layer, erasing everything that is not the material;
-3. erase the material from the original and save that as the body.
+| Anchor | Meaning |
+| --- | --- |
+| `fillClipTop` | y fraction the fill reaches at 100%, so a part-full tank clips to the tank |
+| `fillClipBottom` | y fraction of the tank floor — the other end of that clip |
+| `readoutAt` | fractional point for the boxed level figure, the cavity's centre |
 
-Then any misalignment is impossible by construction. If they are generated independently they will
-drift by a few pixels and the level will look wrong at the tank edges.
-
-The fill layer may be a flat silhouette — it is drawn behind the body's outline, so only its shape
-matters, not its detail.
-
-## Weight
-
-The wasm bundle ships every one of these. **≤150 KB each after optimisation** (`pngquant --quality
-65-85`, then `oxipng -o4`); flat illustration with few colours compresses hard, so this is not tight.
-
-For scale: `mb_trac.png` is currently **1.9 MB** for one flat illustration, which is roughly ten times
-what it needs to be — worth running through the same optimisation while we are here.
-
-## The manifest the app needs
-
-The app cannot guess where the boom is inside the image, so each machine carries a few **fractional**
-anchors (0–1 of image width/height) in Kotlin beside the drawable reference:
-
-| Anchor | For | Meaning |
-| --- | --- | --- |
-| `boomRect` | sprayer, seed drill, slurry tanker | where section blocks and spray are drawn, over the boom/bar in the art |
-| `readoutAt` | machines with a level | fractional point for the boxed level figure, on the body |
-| `fillClipTop` | machines with a level | the y fraction the fill layer reaches when 100% full, so a part-full tank clips against the tank rather than the canvas |
-
-These get filled in once the art exists — they are measured off the delivered images, not guessed
-ahead of them.
-
-## Prompt sketch
-
-A starting point per machine; the constant half is what keeps the set looking like one system.
-
-> Flat vector illustration of a **\<machine\>**, side view facing left, drawn in a simple icon style
-> with a heavy dark outline and flat muted colours — no gradients, no shading, no perspective, no
-> background. Transparent background. Farm machinery in muted green and yellow with dark grey tyres
-> and frame. The whole machine sits on an invisible ground line with its wheels touching it. No text,
-> no numbers, no logos, no shadow.
-
-Swap "side view facing left" for "rear view, symmetrical, seen from directly behind" on the sprayer
-and the solid spreader.
+The snippet is ready to paste once `IsoBusPanel` exists; it is deliberately not a source file yet,
+because nothing references it.
 
 ## Sequencing
 
-1. The user generates the art in separate sessions, against this spec.
-2. Drop the files into `composeResources/drawable/`; optimise; check they load.
-3. Measure the anchors off the real images and fill in the Kotlin manifest.
-4. Build `IsoBusPanel` against them — the layout, the data mapping and the footer are already settled
-   by `tools/isobus-mockup/`, so this is composition rather than design.
-
-Until the art lands, the panel can be built and reviewed against the mockup's own shapes; the image
-swap is a one-line change per machine if the manifest is in place first.
+1. ~~Generate the art.~~ Done — `tools/isobus-art/`.
+2. ~~Drop the files into `composeResources/drawable/`; check they load.~~ Accessors verified;
+   **runtime decode still unverified.**
+3. ~~Measure the anchors.~~ Done — `manifest.py`, regenerated with the art.
+4. Build `IsoBusPanel` against them, plus the plan-view section strip. The layout, data mapping and
+   footer are already settled by `tools/isobus-mockup/`, so this is composition rather than design.
