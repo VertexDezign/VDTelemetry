@@ -47,6 +47,17 @@ class LightbarTest {
   }
 
   @Test
+  fun readsMetresToOneDecimalOnEveryTarget() {
+    // The metre label is built from integer tenths, because Double.toString() differs between the
+    // JVM these tests run on and the browser the dashboard runs in — "1.0 m" vs "1 m".
+    assertEquals("R 1.0 m", deviationLabel(1f))
+    assertEquals("R 1.1 m", deviationLabel(1.14f))
+    assertEquals("L 2.0 m", deviationLabel(-1.96f))
+    // A hair under a metre still rounds up into the metre label rather than reading "R 100 cm".
+    assertEquals("R 1.0 m", deviationLabel(0.999f))
+  }
+
+  @Test
   fun dropsTheSideAtDeadCentre() {
     // Otherwise the label flickers between L and R while the error hovers around zero.
     assertEquals("0 cm", deviationLabel(0f))

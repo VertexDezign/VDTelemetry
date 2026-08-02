@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
  * the tool was never on because two samples were bridged that shouldn't have been.
  */
 class CoverageRecorderTest {
-  /** A 2 km map, so the grid is the full 1024 cells and one cell is ~2 m. */
+  /** A 2 km map, so the grid is the full 2048 cells and one cell is 1 m. */
   private val terrain = 2048f
 
   /**

@@ -556,7 +556,7 @@ about whether the real spec tables look like the stubs.
    the corner back to the ground-layer legend when it does. The rig walk is the part to watch on a
    train of implements — the bar must describe the tool with the boom, not the first thing hitched.
 
-## §5 — Coverage layer (issue bullet 3) — *built 2026-08-02, not yet driven*
+## §5 — Coverage layer (issue bullet 3) — *built and driven 2026-08-02*
 
 The tedder case is real: nothing in the ground layers records that a windrow was spread. Two
 candidate homes were weighed; **the server wins** (user decision, 2026-07-31):

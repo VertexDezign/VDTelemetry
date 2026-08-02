@@ -616,24 +616,32 @@ data class CombinedImplementState(
  * spread grass — or a spot sprayer over clean crop — never does. Anything asking "where has this tool
  * been" wants the former.
  *
- * Flattened in hitch order (the machine, then each implement depth-first), so callers that pair areas
- * between samples get a stable order for an unchanged rig.
+ * Flattened in hitch order (the machine, then each implement depth-first) — see [allWorkAreas], which
+ * this filters.
  */
-fun Vehicle.activeWorkAreas(): List<WorkArea> {
-  val out = mutableListOf<WorkArea>()
+fun Vehicle.activeWorkAreas(): List<WorkArea> = allWorkAreas().filter { it.active }
 
-  fun take(areas: List<WorkArea>) {
-    for (area in areas) if (area.active) out += area
-  }
+/**
+ * Every work area on the rig in hitch order, working or not — the machine's own first, then each
+ * implement's depth-first, however deep it is hitched.
+ *
+ * A work area's position in THIS list is the only stable identity it has, which is what anything
+ * pairing areas between samples has to key on. [WorkArea.index] is not: it is the engine's index
+ * within the area's own object (`workArea.index = #spec.workAreas`), so a tractor's first area and its
+ * seeder's first area are both 1. Neither is a position in [activeWorkAreas] — a section switching off
+ * shifts every area behind it up a place.
+ */
+fun Vehicle.allWorkAreas(): List<WorkArea> {
+  val out = mutableListOf<WorkArea>()
 
   fun walk(implements: List<Implement>) {
     for (implement in implements) {
-      take(implement.workAreas)
+      out += implement.workAreas
       walk(implement.implement)
     }
   }
 
-  take(workAreas)
+  out += workAreas
   walk(implement)
   return out
 }

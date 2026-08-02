@@ -88,9 +88,13 @@ end
 ---The segment count is part of the comparison because a course can arrive empty — on a client the
 ---segments are re-generated locally over several frames, so the same course table goes from 0 to N
 ---segments and that IS a geometry change.
+---
+---Takes the vehicle rather than reading the mod's tracked one itself, so the geometry it publishes
+---and the `courseId` its caller is about to quote always describe the same vehicle's course.
+---@param vehicle table|nil the vehicle whose course to publish; nil is "no course" (on foot)
 ---@return boolean whether the course changed
-function VDT.GpsCourse.refresh()
-  local course = VDT.GpsCourse.courseOf(VDT.GpsCourse.currentVehicle())
+function VDT.GpsCourse.refresh(vehicle)
+  local course = VDT.GpsCourse.courseOf(vehicle)
   local count = course ~= nil and #course.segments or 0
   if course == publishedCourse and count == publishedSegmentCount then
     return false
@@ -399,7 +403,10 @@ function VDT.GpsCourse.collectState(vehicle)
   end
   -- Keep the id honest at telemetry cadence rather than only at POLL_MS: the app ignores indices
   -- whose courseId it has no geometry for, so a stale id here costs a visibly unhighlighted line.
-  VDT.GpsCourse.refresh()
+  -- This vehicle, not the mod's tracked one: everything else in this model comes from the course
+  -- read above, and an id describing a different vehicle's geometry is exactly the stale id the
+  -- refresh exists to avoid.
+  VDT.GpsCourse.refresh(vehicle)
 
   local worked, workedCount = VDT.GpsCourse.workedMask(course.segmentStates)
   ---@type GpsCourseStateModel
@@ -438,7 +445,7 @@ function VDT.GpsCourse.tick(_, dt)
     return
   end
   pollTimer = 0
-  VDT.GpsCourse.refresh()
+  VDT.GpsCourse.refresh(VDT.GpsCourse.currentVehicle())
 end
 
 -- Self-register the channel (see ExportChannels). Poll-driven, like the event channels: no intervalMs,

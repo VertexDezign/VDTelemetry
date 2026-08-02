@@ -88,8 +88,11 @@ internal fun deviationLabel(deviationM: Float): String {
   if (cm == 0) return "0 cm"
   val side = if (deviationM > 0) "R" else "L"
   if (cm < 100) return "$side $cm cm"
-  val metres = (abs(deviationM) * 10).roundToInt() / 10.0
-  return "$side $metres m"
+  // Built from integer tenths rather than formatting a Double: Double.toString() is target-dependent
+  // ("1.0" on the JVM the tests run on, "1" in the browser this actually renders in), and a lightbar
+  // that reads "1 m" here and "1.0 m" there is a difference the driver would notice.
+  val tenths = (abs(deviationM) * 10).roundToInt()
+  return "$side ${tenths / 10}.${tenths % 10} m"
 }
 
 /**

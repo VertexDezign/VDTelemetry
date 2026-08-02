@@ -65,9 +65,14 @@ class WorkSweep {
    * The ground covered since the previous sample, as polygons in normalized map coordinates.
    *
    * [terrainSize] is the map edge in meters, used only to put [MAX_SWEEP_METERS] into the same frame
-   * as the coordinates. Areas are keyed by their place in the flattened rig, which is stable while the
-   * rig is and changes when a tool is hitched or dropped — a wrong pairing after such a change is what
-   * the distance guard is really there for, since two tools on one machine are meters apart.
+   * as the coordinates.
+   *
+   * Areas are keyed by their slot in the rig's **full** area list ([allWorkAreas]) rather than their
+   * place among the working ones: a boom section switching off — which spot spraying does several
+   * times a second — would otherwise shift every area behind it up a place and pair it with its
+   * neighbour's last footprint, drawing a swath across the ground between the two. The slot still
+   * changes when a tool is hitched or dropped, and a wrong pairing after *that* is what the distance
+   * guard is really there for, since two tools on one machine are meters apart.
    */
   fun advance(
     vehicle: Vehicle?,
@@ -75,7 +80,12 @@ class WorkSweep {
     nowMs: Long,
   ): List<SweptArea> {
     if (terrainSize <= 0f) return emptyList()
-    val areas = vehicle?.activeWorkAreas()?.filter { it.shape.size >= 6 }.orEmpty()
+    val areas =
+      vehicle
+        ?.allWorkAreas()
+        ?.withIndex()
+        ?.filter { (_, area) -> area.active && area.shape.size >= 6 }
+        .orEmpty()
     if (areas.isEmpty()) {
       previous = emptyMap()
       return emptyList()
@@ -84,9 +94,9 @@ class WorkSweep {
     val maxJump = MAX_SWEEP_METERS / terrainSize
     val swept = mutableListOf<SweptArea>()
     val next = HashMap<Int, Footprint>(areas.size)
-    areas.forEachIndexed { index, area ->
+    areas.forEach { (slot, area) ->
       val now = area.footprint(nowMs)
-      val last = previous[index]
+      val last = previous[slot]
       if (last != null && nowMs - last.atMs <= MAX_SWEEP_MS && last.near(now, maxJump)) {
         // The ground between the tool's leading edge then and now. Shares its far edge with the next
         // sweep's near edge, which is what makes consecutive sweeps tile.
@@ -100,7 +110,7 @@ class WorkSweep {
         // driven. Its own footprint is all that can honestly be claimed.
         swept += SweptArea(now.cornersX(), now.cornersZ())
       }
-      next[index] = now
+      next[slot] = now
     }
     previous = next
     return swept

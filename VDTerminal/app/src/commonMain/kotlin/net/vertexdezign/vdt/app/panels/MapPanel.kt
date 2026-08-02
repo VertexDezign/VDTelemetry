@@ -258,7 +258,6 @@ fun MapPanel(
   // How much room the section strip is taking along the bottom edge, so the ground-layer legend in the
   // same corner clears it. Measured rather than assumed: the strip's height follows the text scale.
   var sectionStripHeight by remember { mutableStateOf(0.dp) }
-  val scope = rememberCoroutineScope()
   val player = pda?.player
 
   // The live end of the coverage layer. Fed only while that layer is the one on screen: it is the
@@ -764,15 +763,19 @@ fun MapPanel(
             if (it.isBlank()) highlight = null
           },
           onFocus = ::focusOn,
-          // Fire and forget: the server publishes the cleared mask's new version over the WebSocket,
-          // and the ordinary layer-fetch path redraws from that. Nothing here has to wait for it.
+          // The mask being cleared is the server's, so the POST is the whole operation and its status
+          // is the only thing that knows whether it happened — a discarded failure would leave the row
+          // reading "done" while the coverage stays exactly where it was. The redraw still isn't
+          // awaited: the server publishes the cleared mask's version over the WebSocket, and the
+          // ordinary layer-fetch path picks it up.
           onReset = {
-            if (coverageResetUrl.isNotBlank()) {
-              scope.launch { runCatching { mapImageClient.post(coverageResetUrl) } }
-            }
+            val cleared =
+              coverageResetUrl.isNotBlank() && mapImageClient.post(coverageResetUrl).status.isSuccess()
             // The local trail is coverage too, and it is the part in front of the raster — leaving it
-            // would redraw the last few seconds of a pass the driver just asked to be rid of.
-            coverageTrail.clear()
+            // would redraw the last few seconds of a pass the driver just asked to be rid of. Only
+            // once the raster behind it is actually gone, though.
+            if (cleared) coverageTrail.clear()
+            cleared
           },
         )
       }
@@ -1341,7 +1344,7 @@ private fun BoxScope.MapFilterPanel(
   query: String,
   onQuery: (String) -> Unit,
   onFocus: (Offset) -> Unit,
-  onReset: () -> Unit,
+  onReset: suspend () -> Boolean,
 ) {
   Column(
     Modifier
@@ -1456,29 +1459,50 @@ private fun BoxScope.MapFilterPanel(
 /**
  * Clear the worked-coverage trail. Two taps, not one: it throws away a day's driving, there is no
  * undo anywhere in the pipeline, and it sits one row below the layer list where a stray tap lands.
+ *
+ * The second tap awaits [onReset] rather than assuming it worked. A reset that never reached the
+ * server is indistinguishable from one that did — the coverage is simply still there — so the row
+ * stays armed and says so, which is also what makes the retry one tap.
  */
 @Composable
-private fun ResetCoverageRow(onReset: () -> Unit) {
+private fun ResetCoverageRow(onReset: suspend () -> Boolean) {
   var confirming by remember { mutableStateOf(false) }
+  var failed by remember { mutableStateOf(false) }
+  val scope = rememberCoroutineScope()
   Row(
     Modifier.fillMaxWidth().padding(start = 22.dp).clickableNoRipple {
-      if (confirming) onReset()
-      confirming = !confirming
+      if (!confirming) {
+        confirming = true
+      } else {
+        failed = false
+        scope.launch {
+          val outcome = runCatching { onReset() }
+          // runCatching catches Throwable, so closing the popover mid-request lands here; reporting
+          // that as a failed reset would be wrong.
+          (outcome.exceptionOrNull() as? CancellationException)?.let { throw it }
+          if (outcome.getOrDefault(false)) confirming = false else failed = true
+        }
+      }
     },
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    Icon(
-      Icons.Filled.DeleteSweep,
-      null,
-      tint = if (confirming) VdtColors.Amber else VdtColors.DarkGray,
-      modifier = Modifier.size(14.dp),
-    )
+    val tint =
+      when {
+        failed -> VdtColors.Red
+        confirming -> VdtColors.Amber
+        else -> VdtColors.DarkGray
+      }
+    Icon(Icons.Filled.DeleteSweep, null, tint = tint, modifier = Modifier.size(14.dp))
     Text(
-      if (confirming) "Tap again to clear" else "Reset coverage",
+      when {
+        failed -> "Reset failed — tap to retry"
+        confirming -> "Tap again to clear"
+        else -> "Reset coverage"
+      },
       fontSize = 12.sp,
       fontWeight = if (confirming) FontWeight.Bold else FontWeight.Normal,
-      color = if (confirming) VdtColors.Amber else VdtColors.DarkGray,
+      color = tint,
     )
   }
 }

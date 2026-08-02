@@ -35,6 +35,17 @@ local function straightLine()
   return { { 0, 0 }, { 0, 100 } }
 end
 
+---A line along +z from (0,-50) to (0,50) at 1 m spacing — a headland ring's resolution, and finer
+---than MIN_POINT_SPACING_M, so decimate thins it and drops the end point (49 m is the last multiple
+---of 3 it keeps, 1 m short of where the line really ends).
+local function denseLine()
+  local points = {}
+  for z = -50, 50 do
+    points[#points + 1] = { 0, z }
+  end
+  return points
+end
+
 describe("GpsCourse.lineState", function()
   it("reports no deviation dead on the line", function()
     local deviation, distance = VDT.GpsCourse.lineState(straightLine(), 0, 40, 0, 1)
@@ -133,6 +144,11 @@ describe("GpsCourse.refresh", function()
     rawset(_G, "g_currentMission", nil)
   end)
 
+  -- What the tick does: publish the course of whatever the player is currently driving.
+  local function refresh()
+    return VDT.GpsCourse.refresh(VDT.GpsCourse.currentVehicle())
+  end
+
   local function dirtyNames()
     local names = {}
     for _, channel in ipairs(VDT.ExportChannels.selectDirty()) do
@@ -142,26 +158,26 @@ describe("GpsCourse.refresh", function()
   end
 
   it("marks the channel dirty for a course it has not seen", function()
-    assert.is_true(VDT.GpsCourse.refresh())
+    assert.is_true(refresh())
     assert.are.same({ "gpsCourse" }, dirtyNames())
   end)
 
   it("does nothing while the same course stays put", function()
-    VDT.GpsCourse.refresh()
-    assert.is_false(VDT.GpsCourse.refresh())
+    refresh()
+    assert.is_false(refresh())
   end)
 
   it("notices segments arriving late on a client", function()
     course.segments = {}
-    VDT.GpsCourse.refresh()
+    refresh()
     course.segments = { { positions = straightLine() } }
-    assert.is_true(VDT.GpsCourse.refresh())
+    assert.is_true(refresh())
   end)
 
   it("notices the course going away, and publishes an empty one", function()
-    VDT.GpsCourse.refresh()
+    refresh()
     g_vdTelemetry.currentVehicle = nil
-    assert.is_true(VDT.GpsCourse.refresh())
+    assert.is_true(refresh())
     -- Not nil: nil means "skip the write", which would leave the last course on disk to be drawn
     -- after the driver has left the field.
     local model = VDT.GpsCourse.collect()
@@ -194,7 +210,7 @@ describe("GpsCourse.collect", function()
         },
       },
     })
-    VDT.GpsCourse.refresh()
+    VDT.GpsCourse.refresh(VDT.GpsCourse.currentVehicle())
   end)
 
   after_each(function()
@@ -229,6 +245,19 @@ describe("GpsCourse.collect", function()
     assert.are.equal("1", model.courseId)
   end)
 
+  it("keeps the end point the thinning dropped", function()
+    -- A line drawn short of the headland it actually reaches is a line the driver steers past, so
+    -- project() puts the original end back whenever decimate loses it.
+    local course = g_vdTelemetry.currentVehicle.spec_aiAutomaticSteering.steeringFieldCourse
+    course.segments = { { positions = denseLine() } }
+    VDT.GpsCourse.refresh(VDT.GpsCourse.currentVehicle())
+
+    local points = VDT.GpsCourse.collect().segments[1].p
+    assert.is_true(#points < 2 * 101, "the line was thinned, or this proves nothing")
+    assert.are.equal(VDT.MapExporter.normalizeCoord(0, 2048), points[#points - 1])
+    assert.are.equal(VDT.MapExporter.normalizeCoord(50, 2048), points[#points])
+  end)
+
   it("skips the write until the world size is known", function()
     rawset(_G, "g_currentMission", {})
     assert.is_nil(VDT.GpsCourse.collect())
@@ -259,7 +288,6 @@ describe("GpsCourse.collectState", function()
         },
       },
     }
-    rawset(_G, "g_vdTelemetry", { currentVehicle = vehicle })
   end)
 
   after_each(function()
@@ -295,5 +323,18 @@ describe("GpsCourse.collectState", function()
   it("is absent for a vehicle with no steering course", function()
     assert.is_nil(VDT.GpsCourse.collectState({ rootNode = 1 }))
     assert.is_nil(VDT.GpsCourse.collectState({ rootNode = 1, spec_aiAutomaticSteering = {} }))
+  end)
+
+  it("describes the vehicle it was handed, not whatever the mod last tracked", function()
+    -- Every number in the state comes from the passed vehicle's course, so the id it quotes — and
+    -- therefore the geometry published under that id — has to come from the same one.
+    rawset(_G, "g_vdTelemetry", {
+      currentVehicle = { spec_aiAutomaticSteering = { steeringFieldCourse = { segments = {} } } },
+    })
+    local state = VDT.GpsCourse.collectState(vehicle)
+    assert.are.equal(2, state.segmentCount)
+    local model = VDT.GpsCourse.collect()
+    assert.are.equal(state.courseId, model.courseId)
+    assert.are.equal(2, #model.segments)
   end)
 end)

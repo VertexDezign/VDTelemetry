@@ -126,12 +126,12 @@ class GpsCourseModelTest {
 
   @Test
   fun readsTheLiveHalfOffTheTelemetryTick() {
-    // The other half of the channel, on the main telemetry (mod VERSION 7). Inline rather than from
+    // The other half of the channel, on the main telemetry (mod VERSION 8). Inline rather than from
     // examples/json/*.json: those are real captures, and none has been retaken since the bump.
     val data =
       VdtParser.parseJson(
         """
-        {"version":"7","vehicle":{"name":"Valtra T195","gps":{"enabled":true,"active":true,"heading":271,
+        {"version":"8","vehicle":{"name":"Valtra T195","gps":{"enabled":true,"active":true,"heading":271,
         "headingUnit":"°","linesVisible":true,"course":{"courseId":"3","segmentIndex":4,"isLeft":true,
         "segmentCount":6,"workedCount":2,"worked":"5","deviationM":-0.14,"distanceToEndM":83.50}}}}
         """.trimIndent(),
@@ -147,7 +147,7 @@ class GpsCourseModelTest {
     // A vehicle with a steering spec but no course at all: the subtree is simply absent.
     val noCourse =
       VdtParser.parseJson(
-        """{"version":"7","vehicle":{"gps":{"enabled":true,"active":false,"heading":0}}}""",
+        """{"version":"8","vehicle":{"gps":{"enabled":true,"active":false,"heading":0}}}""",
       )
     assertNull(noCourse.vehicle?.gps?.course)
   }
