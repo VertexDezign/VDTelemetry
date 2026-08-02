@@ -9,8 +9,8 @@
         {
           "type": "LIQUIDMANURE",
           "title": "Gülle",
-          "fillLevelPercentage": 100,
-          "value": 22000,
+          "fillLevelPercentage": 98,
+          "value": 21552.435,
           "capacity": 22000,
           "unit": "l"
         }
@@ -22,32 +22,37 @@
       "spotSpray": false
     },
     "selection": {
-      "selected": true
+      "selected": false
     },
     "implement": [
       {
-        "isTurnedOn": false,
-        "lowered": false,
+        "isTurnedOn": true,
+        "lowered": true,
         "workAreas": [
           {
             "type": "CULTIVATOR",
             "index": 1,
-            "active": false,
-            "processing": false,
+            "active": true,
+            "processing": true,
             "unit": "m",
             "shape": [
-              0.435,
-              0.43789,
-              0.43448,
-              0.43205,
-              0.43559,
-              0.43783
+              0.41446,
+              0.60655,
+              0.41072,
+              0.61105,
+              0.414,
+              0.60618
             ],
-            "width": 12
+            "width": 11.98
           }
         ],
         "precisionFarming": {
           "auto": true,
+          "nitrogen": {
+            "target": 110,
+            "level": 70,
+            "unit": "kg/ha"
+          },
           "workAreas": [
             {
               "index": 1,
@@ -56,43 +61,43 @@
                   "valid": false,
                   "ph": 4.5,
                   "phTarget": 4.5,
-                  "nTarget": 0,
-                  "n": 0
+                  "nTarget": 110,
+                  "n": 70
                 },
                 {
                   "valid": false,
                   "ph": 4.5,
                   "phTarget": 4.5,
-                  "nTarget": 0,
-                  "n": 0
+                  "nTarget": 110,
+                  "n": 70
                 },
                 {
-                  "valid": false,
+                  "valid": true,
                   "ph": 4.5,
                   "phTarget": 4.5,
-                  "nTarget": 0,
-                  "n": 0
+                  "nTarget": 110,
+                  "n": 70
                 },
                 {
-                  "valid": false,
+                  "valid": true,
                   "ph": 4.5,
                   "phTarget": 4.5,
-                  "nTarget": 0,
-                  "n": 0
+                  "nTarget": 110,
+                  "n": 70
                 },
                 {
-                  "valid": false,
+                  "valid": true,
                   "ph": 4.5,
                   "phTarget": 4.5,
-                  "nTarget": 0,
-                  "n": 0
+                  "nTarget": 110,
+                  "n": 70
                 },
                 {
-                  "valid": false,
+                  "valid": true,
                   "ph": 4.5,
                   "phTarget": 4.5,
-                  "nTarget": 0,
-                  "n": 0
+                  "nTarget": 110,
+                  "n": 70
                 }
               ]
             }
@@ -105,22 +110,27 @@
           "title": "SKY Agriculture"
         },
         "type": "pdlc_skyAgriculturePack.fertilizingCultivatorWorkEffects",
-        "foldable": "FOLDED",
+        "foldable": "EXTENDED",
         "spraying": {
-          "doubledAmountAvailable": false,
           "allowsSpraying": true,
           "active": false,
+          "fillType": "LIQUIDMANURE",
+          "doubledAmountAvailable": false,
+          "title": "Gülle",
+          "category": "FERTILIZER",
+          "nominalUsagePerMin": 2830.75,
           "kind": "SLURRY_TANKER",
+          "sprayType": "LIQUIDMANURE",
           "doubledAmount": false
         },
         "wearable": {
           "wear": 0,
           "damage": 0,
-          "dirt": 0,
+          "dirt": 1,
           "unit": "%"
         },
         "selection": {
-          "selected": false
+          "selected": true
         },
         "name": "SKY Agriculture Methys HDS",
         "position": "BACK",
@@ -152,32 +162,22 @@
       }
     ],
     "speed": {
-      "value": 0.01,
-      "direction": "STOPPED",
+      "value": 14.14,
+      "direction": "FORWARD",
       "unit": "km/h"
     },
     "cruiseControl": {
-      "active": false,
+      "active": true,
       "targetSpeed": 42
     },
     "operatingTime": {
-      "value": "0.02",
+      "value": "0.29",
       "unit": "h"
     },
-    "isTurnedOn": false,
+    "isTurnedOn": true,
     "type": "pdlc_vredoPack.selfPropelledManureBarrelExtended",
     "ai": {
       "active": false
-    },
-    "spraying": {
-      "doubledAmountAvailable": false,
-      "nominalUsagePerMin": 14400,
-      "allowsSpraying": true,
-      "active": false,
-      "title": "Diesel",
-      "kind": "SPRAYER",
-      "fillType": "DIESEL",
-      "doubledAmount": false
     },
     "foldable": "FOLDED",
     "discharge": {
@@ -190,7 +190,7 @@
     },
     "gps": {
       "enabled": false,
-      "heading": 268,
+      "heading": 129,
       "linesVisible": true,
       "active": false,
       "headingUnit": "°"
@@ -216,8 +216,8 @@
           "type": "diesel",
           "title": "Diesel",
           "fillLevelPercentage": 100,
-          "value": 865,
-          "usage": 16.5,
+          "value": 861,
+          "usage": 252.2,
           "capacity": 865,
           "unit": "l"
         }
@@ -227,18 +227,18 @@
         "isNeutral": false
       },
       "rpm": {
-        "value": 850,
+        "value": 1891,
         "max": 2200,
         "min": 0
       },
       "load": {
-        "value": 15.49,
+        "value": 97.26,
         "min": 0,
         "max": 100,
         "unit": "%"
       },
       "temperatur": {
-        "value": 82,
+        "value": 93,
         "min": 20,
         "max": 120,
         "unit": "°C"
@@ -247,7 +247,7 @@
     "wearable": {
       "wear": 0,
       "damage": 0,
-      "dirt": 0,
+      "dirt": 1,
       "unit": "%"
     },
     "lights": {
@@ -290,19 +290,19 @@
     "weather": {
       "temperature": {
         "min": 24,
-        "current": 33,
+        "current": 34,
         "max": 34,
         "unit": "°C"
       }
     },
-    "time": "12:39",
+    "time": "14:10",
     "pda": {
       "height": 2048,
       "player": {
-        "heading": 268,
-        "posX": 0.43073964864016,
+        "heading": 129,
+        "posX": 0.41561679542065,
         "farmId": 1,
-        "posZ": 0.4351621568203,
+        "posZ": 0.61127402633429,
         "headingUnit": "°"
       },
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",

@@ -607,7 +607,14 @@ data class Sowing(
 @Serializable
 data class Spraying(
   val kind: SprayerKind = SprayerKind.SPRAYER,
-  /** Material actually leaving the machine — not merely switched on, which is `isTurnedOn`. */
+  /**
+   * The sprayer effect is running — material actually leaving the machine, not merely switched on
+   * (that is `isTurnedOn`).
+   *
+   * **A positive signal only.** It tracks work areas the *sprayer* processes, so a combination machine
+   * that applies through its cultivator areas instead — a fertilizing cultivator — reads false while
+   * visibly injecting. [WorkArea.processing] is the reliable "is it working".
+   */
   val active: Boolean = false,
   val doubledAmount: Boolean = false,
   /**
@@ -623,12 +630,13 @@ data class Spraying(
   val sprayType: String? = null,
   val category: SprayCategory? = null,
   /**
-   * The material is coming from a tank on **another vehicle** — a dribble bar or injector drawing
-   * from the barrel it is hitched to. Common enough that [fillType] falls back to what the engine
-   * resolved for the last pass, so an applicator with no tank of its own still names its material;
-   * this says the level to watch belongs to the machine in front, not this one.
+   * The material is coming from a tank on **another vehicle** — a dribble bar, injector or disc
+   * harrow drawing from the barrel it is hitched to, which is a common rig rather than an exotic one.
+   * [fillType] still names the material (resolved from what the engine last applied), but the fill
+   * level worth watching belongs to the machine in front, not to this one — this implement's own
+   * `fillUnits` will read empty.
    */
-  val externalFill: Boolean = false,
+  val externalSource: Boolean = false,
   /**
    * Litres per minute **at the machine's speed limit**, not the current draw — the game scales usage
    * by the speed limit rather than actual speed to hold consumption per hectare constant, so this

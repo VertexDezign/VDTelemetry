@@ -233,20 +233,19 @@ describe("Spraying.collect", function()
     -- A dribble bar / injector / disc harrow carries nothing of its own; the engine resolves the
     -- feeding vehicle's tank into workAreaParameters.sprayFillType. Without this fallback the
     -- implement reports no material at all while visibly applying slurry.
+    -- Note `lastIsExternallyFilled` is NOT set here and must not be needed: it is gated on
+    -- getIsAIActive() and means "a hired worker is being topped up by the game", so it reads false on
+    -- exactly this rig. Taking the fallback is the signal.
     local dribbleBar = sprayer({
       isSlurryTanker = true,
       isFertilizerSprayer = false,
-      workAreaParameters = {
-        usagePerMin = 0,
-        sprayFillType = FILL_TYPE.LIQUIDMANURE,
-        lastIsExternallyFilled = true,
-      },
+      workAreaParameters = { usagePerMin = 0, sprayFillType = FILL_TYPE.LIQUIDMANURE },
     }, { tanks = { [1] = FILL_TYPE.UNKNOWN } })
 
     local s = VDT.Spraying.collect(dribbleBar)
     assert.are.equal("LIQUIDMANURE", s.fillType)
     assert.are.equal("FERTILIZER", s.category)
-    assert.is_true(s.externalFill)
+    assert.is_true(s.externalSource)
   end)
 
   it("prefers its own tank over the resolved source, and flags nothing when self-fed", function()
@@ -255,7 +254,7 @@ describe("Spraying.collect", function()
     }, { tanks = { [1] = FILL_TYPE.FERTILIZER } })
     local s = VDT.Spraying.collect(own)
     assert.are.equal("FERTILIZER", s.fillType)
-    assert.is_nil(s.externalFill)
+    assert.is_nil(s.externalSource)
   end)
 
   it("gives slurry precedence over manure on a tank that takes both", function()

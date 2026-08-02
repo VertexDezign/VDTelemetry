@@ -576,6 +576,9 @@ class VdtModelTest {
     val slurry = spraying("liquidManure_dribbleBar.json")
     assertEquals(SprayerKind.SLURRY_TANKER, slurry.kind)
     assertEquals("DIGESTATE", slurry.fillType)
+    // The barrel carries its own load, so nothing is sourced from elsewhere — unlike the dribble bar
+    // hanging off it, which is the subject of its own test below.
+    assertEquals(false, slurry.externalSource)
 
     // The self-propelled Rogator is the catch-all: a herbicide boom is none of the four.
     val boom = assertNotNull(model("telemetry/precisionFarming/selfDrivingSprayer.json").vehicle?.spraying)
@@ -659,6 +662,122 @@ class VdtModelTest {
     val methys = implement("vredoLiquidManure_discHarrow.json")
     assertEquals(SprayerKind.SLURRY_TANKER, assertNotNull(methys.spraying).kind)
     assertEquals(TillageKind.CULTIVATOR, assertNotNull(methys.tillage).kind)
+  }
+
+  @Test
+  fun anApplicatorWithNoTankNamesWhatTheMachineInFrontIsFeedingIt() {
+    // Both captures taken mid-application. A dribble bar and an injecting disc harrow each carry
+    // nothing of their own — their `fillUnits` is a single blank unit — yet both must name the
+    // material, or a terminal shows an implement doing visible work with nothing to say about it.
+    fun applicator(
+      name: String,
+      index: Int,
+    ) = assertNotNull(
+      model("telemetry/precisionFarming/$name")
+        .vehicle
+        ?.implement
+        ?.get(index),
+    )
+
+    // The `externalSource` flag itself is *not* asserted here: it postdates these captures, which
+    // record only the fill-type fallback. Its logic is covered by spec/IsoBusAspects_spec.lua, and it
+    // will show up on the next capture of either rig.
+
+    // The Bomech hangs off the Kaweco barrel, so it is an implement of an implement.
+    val bomech = assertNotNull(applicator("liquidManure_dribbleBar.json", 0).implement.single())
+    val bomechSpray = assertNotNull(bomech.spraying)
+    assertEquals("DIGESTATE", bomechSpray.fillType)
+    assertEquals(SprayCategory.FERTILIZER, bomechSpray.category)
+    // Its own tank really is empty — which is the point: the level to watch is the barrel's.
+    assertEquals("", assertNotNull(bomech.fillUnits?.fillUnit?.single()).type)
+    // Sprayer effects are running here, and the work area agrees.
+    assertTrue(bomechSpray.active)
+    assertTrue(assertNotNull(bomech.workAreas.single()).processing)
+
+    val methys = applicator("vredoLiquidManure_discHarrow.json", 0)
+    val methysSpray = assertNotNull(methys.spraying)
+    assertEquals("LIQUIDMANURE", methysSpray.fillType)
+    assertEquals("", assertNotNull(methys.fillUnits?.fillUnit?.single()).type)
+    // …and here is the caveat that `active` is a positive signal only: this machine applies through
+    // its CULTIVATOR work areas, not sprayer ones, so the effect predicate never fires even though
+    // it is demonstrably working. Anything asking "is this implement running" must use workAreas.
+    assertEquals(false, methysSpray.active)
+    assertTrue(assertNotNull(methys.workAreas.single()).processing)
+  }
+
+  @Test
+  fun theDoubledAmountControlIsOnlyVisibleWithoutPrecisionFarming() {
+    // The same rig captured with and without PF, which is the only way to see this field work: PF
+    // hard-overrides the getter to (false, false) because its variable-rate control replaces doubling
+    // outright, so every PF capture says false no matter the machine.
+    fun barrel(dir: String) =
+      assertNotNull(
+        model("telemetry/$dir/liquidManure_dribbleBar.json")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.spraying,
+      )
+
+    // Vanilla: a slurry tanker *does* offer doubling. This is the base-game rule and it reads the
+    // opposite way round from how it sounds — the engine allows it when `not isFertilizerSprayer`,
+    // so slurry and manure get it and fertilizer sprayers do not.
+    assertTrue(barrel("vanilla").doubledAmountAvailable)
+    // …and the same machine under PF says no, correctly: the control really is gone.
+    assertEquals(false, barrel("precisionFarming").doubledAmountAvailable)
+
+    // The dribble bar behind it had doubling switched on when this was captured.
+    val bomech =
+      assertNotNull(
+        model("telemetry/vanilla/liquidManure_dribbleBar.json")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.implement
+          ?.single()
+          ?.spraying,
+      )
+    assertTrue(bomech.doubledAmount)
+    assertTrue(bomech.doubledAmountAvailable)
+
+    // It is parked here rather than applying, so the engine never resolved a source material — the
+    // fallback's honest limit, and the reason the field is absent rather than guessed.
+    assertEquals(null, bomech.fillType)
+    assertEquals(false, bomech.externalSource)
+  }
+
+  @Test
+  fun theAspectsDoNotDependOnPrecisionFarming() {
+    // Everything above is derived from base-game calls, including the five-way `kind` split, which is
+    // only modelled on PF's. The vanilla capture is the evidence: no `precisionFarming` subtree
+    // anywhere, and the spraying aspect is fully populated regardless.
+    val barrel =
+      assertNotNull(
+        model("telemetry/vanilla/liquidManure_dribbleBar.json")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+    assertEquals(null, barrel.precisionFarming)
+
+    val spraying = assertNotNull(barrel.spraying)
+    assertEquals(SprayerKind.SLURRY_TANKER, spraying.kind)
+    assertEquals(SprayCategory.FERTILIZER, spraying.category)
+    assertEquals("DIGESTATE", spraying.fillType)
+  }
+
+  @Test
+  fun aSelfPropelledMachineNeverReportsItsFuelTankAsSprayMaterial() {
+    // The Vredo VT5536's own Sprayer spec resolves its tank to fill unit 1, which on a self-propelled
+    // machine is the diesel tank — it used to publish `fillType: DIESEL`. The whole aspect is now
+    // withheld there, because the engine derives its material *and* its kind from that same index.
+    val vredo = assertNotNull(model("telemetry/precisionFarming/vredoLiquidManure_discHarrow.json").vehicle)
+    assertEquals(null, vredo.spraying)
+
+    // The slurry it is actually carrying is still visible as ordinary cargo, and the implement doing
+    // the work reports for itself — so nothing is lost by withholding the broken subtree.
+    assertEquals("LIQUIDMANURE", assertNotNull(vredo.fillUnits?.fillUnit?.single()).type)
+    assertEquals("LIQUIDMANURE", assertNotNull(vredo.implement.single().spraying).fillType)
   }
 
   @Test

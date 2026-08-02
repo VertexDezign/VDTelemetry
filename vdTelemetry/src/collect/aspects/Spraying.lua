@@ -145,6 +145,11 @@ function VDT.Spraying.collect(object)
     -- "Material is leaving the machine", not merely "switched on": the engine's own effect predicate
     -- is `g_time < lastSprayTime + 100`, and lastSprayTime only moves when ground was actually
     -- treated. isTurnedOn (a separate aspect) is the switch.
+    --
+    -- CAVEAT, seen on a capture: it only moves for work areas the *sprayer* processes. A combination
+    -- machine that applies through its cultivator areas instead -- the SKY Methys HDS, a fertilizing
+    -- cultivator -- reports active=false while visibly injecting, with workAreas[].processing=true
+    -- beside it. So this is a positive signal only; `workAreas` remains the reliable "is it working".
     active = object:getAreEffectsVisible() == true,
     doubledAmount = doubledAmount == true,
     doubledAmountAvailable = doubledAmountAllowed == true,
@@ -169,12 +174,16 @@ function VDT.Spraying.collect(object)
   -- worked yet this session still reports no material. That is honest: nothing has been applied.
   if (fillTypeIndex == nil or fillTypeIndex == FILL_TYPE_UNKNOWN) and params.sprayFillType ~= nil then
     fillTypeIndex = params.sprayFillType
-  end
-
-  -- Whether that material is coming from somewhere else. Read from the cached flag rather than
-  -- getIsSprayerExternallyFilled(), which walks the fill type sources on every call.
-  if params.lastIsExternallyFilled == true then
-    model.externalFill = true
+    -- Taking that fallback IS the signal: this machine has nothing in its own tank yet has a material
+    -- to apply, so the level worth watching belongs to whatever is feeding it.
+    --
+    -- Deliberately NOT `workAreaParameters.lastIsExternallyFilled`, which sounds like exactly this and
+    -- is not: getIsSprayerExternallyFilled (`:319-343`) returns false unless getIsAIActive(), so it
+    -- means "a hired worker is being topped up by the game", a different mechanic entirely. It reads
+    -- false on a player-driven dribble bar drawing from its own barrel, which is this whole case.
+    if fillTypeIndex ~= FILL_TYPE_UNKNOWN then
+      model.externalSource = true
+    end
   end
 
   if fillTypeIndex ~= nil and fillTypeIndex ~= FILL_TYPE_UNKNOWN then

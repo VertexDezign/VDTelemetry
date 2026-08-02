@@ -354,15 +354,45 @@ non-bug:
    spreaders, *not* on fertilizer sprayers. Comments corrected; the base-game behaviour remains
    unobserved, because every capture so far has PF installed.
 
-**Two captures are now stale** and want retaking after the fixes:
-`vredoLiquidManure_discHarrow.json` (its vehicle-level `spraying` should disappear) and
-`liquidManure_dribbleBar.json` (its Bomech implement should gain a material and `externalFill`, if it
-is captured while actually applying — the field only fills in once work areas have been processed).
-The tests deliberately assert nothing about those two paths for now.
+### Both were retaken mid-application, and both fixes hold
 
-Still wanted: **a vanilla, non-PF capture**. `examples/json/telemetry/vanilla/` exists and is empty.
-Nothing here depends on PF, but `doubledAmountAvailable` is unobservable with it installed, and a
-vanilla capture would be the only evidence the aspects behave the same without it.
+`vredoLiquidManure_discHarrow.json` and `liquidManure_dribbleBar.json` were recaptured while actually
+working. The Vredo's bogus vehicle-level `spraying` is **gone**; the Bomech dribble bar and the Methys
+disc harrow each name their material (`DIGESTATE`, `LIQUIDMANURE`) despite an empty tank of their own.
+Four fixture-driven tests now cover both. Two further things the retake taught:
+
+4. **`lastIsExternallyFilled` is not what its name says**, so the flag built on it was dead. Both
+   applicators reported it false while visibly drawing from the barrel in front, because
+   `getIsSprayerExternallyFilled` (`Sprayer.lua:319-343`) returns false unless **`getIsAIActive()`** —
+   it means "a hired worker is being topped up by the game", a different mechanic entirely. The flag
+   is now called `externalSource` and is derived from *our own* fallback having been taken (own tank
+   empty, material resolved from `sprayFillType`), which is exactly the question a panel is asking:
+   whose fill level should I be watching?
+5. **`active` is a positive signal only.** The Methys reports `active: false` while
+   `workAreas[].processing: true` and demonstrably injecting, because it applies through its
+   **CULTIVATOR** work areas and the effect predicate only tracks areas the *sprayer* processes. So a
+   combination machine can be working with `active` false. Anything asking "is this implement
+   running" must use `workAreas`; `active` may only be trusted when true. Noted in both models.
+
+### The vanilla capture settles `doubledAmountAvailable`
+
+`examples/json/telemetry/vanilla/liquidManure_dribbleBar.json` is the **same rig without Precision
+Farming**, and it is the only way this field was ever going to be observable. It reads
+`doubledAmountAvailable: true` on the Kaweco barrel — so the base-game rule really is what the source
+said and the opposite of what the original plan wrote: doubling is offered on **slurry tankers and
+manure spreaders**, not on fertilizer sprayers. The Bomech behind it was captured with
+`doubledAmount: true`, so the control is recorded both available and engaged. Paired against the PF
+capture of the same machine (which says false), one test now pins both halves.
+
+It also carries no `precisionFarming` subtree anywhere, which is the evidence that none of these
+aspects depend on PF — including the five-way `kind` split, which is only *modelled* on PF's.
+
+And it shows the fallback's honest limit: the Bomech is parked rather than applying there, so the
+engine never resolved a source material and `fillType` is **absent** rather than guessed.
+
+Still wanted, not blocking: **one more capture of either slurry rig while applying**, to record
+`externalSource` — the flag postdates the retake, so the committed captures show the fill-type
+fallback but not the flag. Its logic is unit-tested; this would only close the loop on real data.
 
 ## Sequencing
 

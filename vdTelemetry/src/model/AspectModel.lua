@@ -162,15 +162,15 @@
 -- current draw -- see collect/aspects/Spraying.lua.
 ---@class SprayingModel
 ---@field kind string SOLID_FERTILIZER | LIQUID_FERTILIZER | SLURRY_TANKER | MANURE_SPREADER | SPRAYER
----@field active boolean material actually leaving the machine, not merely switched on
+---@field active boolean sprayer effect running; a positive signal only -- see Spraying.lua's caveat
 ---@field doubledAmount boolean
----@field doubledAmountAvailable boolean false on a slurry tanker / manure spreader
+---@field doubledAmountAvailable boolean base game: slurry/manure only. Always false under Precision Farming
 ---@field allowsSpraying boolean
 ---@field fillType string?
 ---@field title string?
 ---@field sprayType string?
 ---@field category string? FERTILIZER | LIME | HERBICIDE
----@field externalFill boolean? absent unless true: the material comes from a tank on another vehicle
+---@field externalSource boolean? absent unless true: the material comes from a tank on another vehicle
 ---@field nominalUsagePerMin number?
 
 -- A plough. `side` is which way the bodies are turned, absent on a plough that does not reverse; the
