@@ -170,6 +170,7 @@
 ---@field title string?
 ---@field sprayType string?
 ---@field category string? FERTILIZER | LIME | HERBICIDE
+---@field externalFill boolean? absent unless true: the material comes from a tank on another vehicle
 ---@field nominalUsagePerMin number?
 
 -- A plough. `side` is which way the bodies are turned, absent on a plough that does not reverse; the

@@ -610,13 +610,25 @@ data class Spraying(
   /** Material actually leaving the machine — not merely switched on, which is `isTurnedOn`. */
   val active: Boolean = false,
   val doubledAmount: Boolean = false,
-  /** False on a slurry tanker or manure spreader: doubling is a fertilizer-only control. */
+  /**
+   * Whether the machine has the doubled-amount control at all. The base game offers it **only on
+   * slurry tankers and manure spreaders**, not on fertilizer sprayers — the opposite way round from
+   * how it reads. **Precision Farming removes it outright** (its variable-rate control replaces it),
+   * so with PF installed this is false on everything, which is the honest answer.
+   */
   val doubledAmountAvailable: Boolean = false,
   val allowsSpraying: Boolean = true,
   val fillType: String? = null,
   val title: String? = null,
   val sprayType: String? = null,
   val category: SprayCategory? = null,
+  /**
+   * The material is coming from a tank on **another vehicle** — a dribble bar or injector drawing
+   * from the barrel it is hitched to. Common enough that [fillType] falls back to what the engine
+   * resolved for the last pass, so an applicator with no tank of its own still names its material;
+   * this says the level to watch belongs to the machine in front, not this one.
+   */
+  val externalFill: Boolean = false,
   /**
    * Litres per minute **at the machine's speed limit**, not the current draw — the game scales usage
    * by the speed limit rather than actual speed to hold consumption per hectare constant, so this

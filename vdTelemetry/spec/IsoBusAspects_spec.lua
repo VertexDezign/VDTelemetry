@@ -36,6 +36,7 @@ local FILL_TYPE = {
   MANURE = 10,
   WATER = 11,
   HERBICIDE = 12,
+  DIESEL = 20,
 }
 
 local FILL_TYPES = {
@@ -205,6 +206,56 @@ describe("Spraying.collect", function()
     assert.are.equal("SOLID_FERTILIZER", s.kind)
     assert.is_nil(s.fillType)
     assert.is_nil(s.category)
+  end)
+
+  it("gives up entirely when the spec resolved its tank to a fuel tank", function()
+    -- Found on a real capture: the Vredo VT5536, a self-propelled manure barrel, reported
+    -- `fillType: DIESEL` with a nominal usage to match. getSprayerFillUnitIndex falls back to
+    -- spec.fillUnitIndex, whose XML default is 1, and on a self-propelled machine unit 1 is the fuel
+    -- tank. The engine derives isSlurryTanker from the same index, so nothing the spec says about
+    -- material is worth reading — hence nil rather than a plausible-looking subset.
+    local vredo = sprayer({}, { tanks = { [1] = FILL_TYPE.DIESEL } })
+    vredo.spec_motorized = { propellantFillUnitIndices = { 1 } }
+    assert.is_nil(VDT.Spraying.collect(vredo))
+  end)
+
+  it("still reports a self-propelled sprayer whose tank is not a fuel tank", function()
+    -- The guard must not swallow every self-propelled machine: a Rogator's spray tank is a normal
+    -- fill unit that simply is not in the propellant list.
+    local rogator = sprayer({}, { sprayerFillUnitIndex = 3, tanks = { [3] = FILL_TYPE.HERBICIDE } })
+    rogator.spec_motorized = { propellantFillUnitIndices = { 1, 2 } }
+    local s = VDT.Spraying.collect(rogator)
+    assert.is_not_nil(s)
+    assert.are.equal("HERBICIDE", s.fillType)
+  end)
+
+  it("names the material a tankless applicator draws from the machine in front", function()
+    -- A dribble bar / injector / disc harrow carries nothing of its own; the engine resolves the
+    -- feeding vehicle's tank into workAreaParameters.sprayFillType. Without this fallback the
+    -- implement reports no material at all while visibly applying slurry.
+    local dribbleBar = sprayer({
+      isSlurryTanker = true,
+      isFertilizerSprayer = false,
+      workAreaParameters = {
+        usagePerMin = 0,
+        sprayFillType = FILL_TYPE.LIQUIDMANURE,
+        lastIsExternallyFilled = true,
+      },
+    }, { tanks = { [1] = FILL_TYPE.UNKNOWN } })
+
+    local s = VDT.Spraying.collect(dribbleBar)
+    assert.are.equal("LIQUIDMANURE", s.fillType)
+    assert.are.equal("FERTILIZER", s.category)
+    assert.is_true(s.externalFill)
+  end)
+
+  it("prefers its own tank over the resolved source, and flags nothing when self-fed", function()
+    local own = sprayer({
+      workAreaParameters = { usagePerMin = 0, sprayFillType = FILL_TYPE.LIQUIDMANURE },
+    }, { tanks = { [1] = FILL_TYPE.FERTILIZER } })
+    local s = VDT.Spraying.collect(own)
+    assert.are.equal("FERTILIZER", s.fillType)
+    assert.is_nil(s.externalFill)
   end)
 
   it("gives slurry precedence over manure on a tank that takes both", function()

@@ -318,10 +318,51 @@ the plan text is left as written so the difference is visible:
    TurnOnVehicle, no Sprayer), so road-salt equipment gets no aspect. Winter/road kit, not a field
    implement — it needs its own collector if it ever matters.
 
-Test coverage: `spec/Sowing_spec.lua` (6) and `spec/IsoBusAspects_spec.lua` (21) on the mod side, and
-nine `VdtModelTest` cases on the Kotlin side — including one that pins **every** aspect absent on a
-machine that has none, one that pins a combination machine carrying two at once, and one that pins
-kind-vs-material as separate questions.
+Test coverage: `spec/Sowing_spec.lua` (6) and `spec/IsoBusAspects_spec.lua` (25) on the mod side, and
+thirteen `VdtModelTest` cases on the Kotlin side — including one that pins **every** aspect absent on
+a machine that has none, and four driven by the real captures below.
+
+## What the first captures found (2026-08-02)
+
+Eleven captures under `examples/json/telemetry/precisionFarming/`, all `version: 9`. Most of it came
+out right first time — the five-way `kind` split, both plough states, the tillage kinds, and
+**three different shapes of combination machine** (seed+fertilizer, seed+tillage, slurry+tillage),
+which is the dispatch rule validated on real machines rather than stubs. Two genuine bugs, one
+non-bug:
+
+1. **A self-propelled machine reported `fillType: DIESEL`.** The Vredo VT5536, a self-propelled manure
+   barrel, named diesel as its spray material and produced a nominal usage to match — because
+   `getSprayerFillUnitIndex()` falls back to `spec.fillUnitIndex`, whose XML default is **1**, and on a
+   self-propelled machine unit 1 is the fuel tank. The engine derives `isSlurryTanker` from that same
+   index, so on such a machine *nothing* the spec says about material is trustworthy: `kind` came out
+   `SPRAYER` for a slurry machine for the same reason. Fixed by **emitting no `spraying` aspect at
+   all** when the resolved tank is one of the motor's propellant units — a sprayer whose spray tank is
+   the fuel tank is definitionally broken, and on this machine the real applicator is the attached
+   implement, which reports for itself. A subset would have looked plausible and been wrong.
+2. **A tankless applicator reported no material.** A dribble bar, an injector or a disc harrow carries
+   nothing and draws from the barrel it is hitched to; two of the eleven captures are this shape, so
+   it is the common case rather than an exotic one. `fillType` now falls back to
+   `workAreaParameters.sprayFillType` — the engine's own resolution of which vehicle's tank feeds this
+   one — and a new `externalFill` flag says the level to watch belongs to the machine in front. This
+   was flagged as deferred in the original plan ("NOT collected, deliberately"); the captures showed
+   that was the wrong call.
+3. **`doubledAmountAvailable` is false on all eleven, and that is correct.** Precision Farming
+   hard-overrides `getSprayerDoubledAmountActive` to `return false, false`
+   (`ExtendedSprayer.lua:1299-1301`) because its variable-rate control replaces doubling outright —
+   confirmed by the user. It did expose that the plan and the collector had the **base-game** rule
+   backwards: doubling is offered when `not isFertilizerSprayer`, i.e. on slurry tankers and manure
+   spreaders, *not* on fertilizer sprayers. Comments corrected; the base-game behaviour remains
+   unobserved, because every capture so far has PF installed.
+
+**Two captures are now stale** and want retaking after the fixes:
+`vredoLiquidManure_discHarrow.json` (its vehicle-level `spraying` should disappear) and
+`liquidManure_dribbleBar.json` (its Bomech implement should gain a material and `externalFill`, if it
+is captured while actually applying — the field only fills in once work areas have been processed).
+The tests deliberately assert nothing about those two paths for now.
+
+Still wanted: **a vanilla, non-PF capture**. `examples/json/telemetry/vanilla/` exists and is empty.
+Nothing here depends on PF, but `doubledAmountAvailable` is unobservable with it installed, and a
+vanilla capture would be the only evidence the aspects behave the same without it.
 
 ## Sequencing
 

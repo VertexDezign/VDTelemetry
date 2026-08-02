@@ -1,0 +1,312 @@
+{
+  "vehicle": {
+    "brand": {
+      "name": "VREDO",
+      "title": "Vredo"
+    },
+    "fillUnits": {
+      "fillUnit": [
+        {
+          "type": "LIQUIDMANURE",
+          "title": "Gülle",
+          "fillLevelPercentage": 100,
+          "value": 22000,
+          "capacity": 22000,
+          "unit": "l"
+        }
+      ]
+    },
+    "precisionFarming": {
+      "auto": true,
+      "mode": "OTHER",
+      "spotSpray": false
+    },
+    "selection": {
+      "selected": true
+    },
+    "implement": [
+      {
+        "isTurnedOn": false,
+        "lowered": false,
+        "workAreas": [
+          {
+            "type": "CULTIVATOR",
+            "index": 1,
+            "active": false,
+            "processing": false,
+            "unit": "m",
+            "shape": [
+              0.435,
+              0.43789,
+              0.43448,
+              0.43205,
+              0.43559,
+              0.43783
+            ],
+            "width": 12
+          }
+        ],
+        "precisionFarming": {
+          "auto": true,
+          "workAreas": [
+            {
+              "index": 1,
+              "subSections": [
+                {
+                  "valid": false,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 0,
+                  "n": 0
+                },
+                {
+                  "valid": false,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 0,
+                  "n": 0
+                },
+                {
+                  "valid": false,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 0,
+                  "n": 0
+                },
+                {
+                  "valid": false,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 0,
+                  "n": 0
+                },
+                {
+                  "valid": false,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 0,
+                  "n": 0
+                },
+                {
+                  "valid": false,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 0,
+                  "n": 0
+                }
+              ]
+            }
+          ],
+          "mode": "FERTILIZER",
+          "spotSpray": false
+        },
+        "brand": {
+          "name": "SKYAGRICULTURE",
+          "title": "SKY Agriculture"
+        },
+        "type": "pdlc_skyAgriculturePack.fertilizingCultivatorWorkEffects",
+        "foldable": "FOLDED",
+        "spraying": {
+          "doubledAmountAvailable": false,
+          "allowsSpraying": true,
+          "active": false,
+          "kind": "SLURRY_TANKER",
+          "doubledAmount": false
+        },
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 0,
+          "unit": "%"
+        },
+        "selection": {
+          "selected": false
+        },
+        "name": "SKY Agriculture Methys HDS",
+        "position": "BACK",
+        "fillUnits": {
+          "fillUnit": [
+            {
+              "type": "",
+              "title": "",
+              "fillLevelPercentage": 0,
+              "value": 0,
+              "capacity": 0,
+              "unit": ""
+            }
+          ]
+        },
+        "schema": {
+          "name": "IMPLEMENT",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "jointDescIndex": 1,
+        "tillage": {
+          "deepMode": false,
+          "kind": "CULTIVATOR",
+          "limitToField": true
+        }
+      }
+    ],
+    "speed": {
+      "value": 0.01,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 42
+    },
+    "operatingTime": {
+      "value": "0.02",
+      "unit": "h"
+    },
+    "isTurnedOn": false,
+    "type": "pdlc_vredoPack.selfPropelledManureBarrelExtended",
+    "ai": {
+      "active": false
+    },
+    "spraying": {
+      "doubledAmountAvailable": false,
+      "nominalUsagePerMin": 14400,
+      "allowsSpraying": true,
+      "active": false,
+      "title": "Diesel",
+      "kind": "SPRAYER",
+      "fillType": "DIESEL",
+      "doubledAmount": false
+    },
+    "foldable": "FOLDED",
+    "discharge": {
+      "fillUnitIndex": 3,
+      "hasObject": false,
+      "allowed": true,
+      "state": "OFF",
+      "nodeIndex": 1,
+      "hitTerrain": false
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 268,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "lowered": false,
+    "name": "Vredo VT5536",
+    "motor": {
+      "state": "ON",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 17,
+        "forward": 42
+      },
+      "fillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 63,
+          "capacity": 63,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 865,
+          "usage": 16.5,
+          "capacity": 865,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "rpm": {
+        "value": 850,
+        "max": 2200,
+        "min": 0
+      },
+      "load": {
+        "value": 15.49,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 82,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 0,
+      "unit": "%"
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "schema": {
+      "name": "VEHICLE",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    }
+  },
+  "version": "9",
+  "environment": {
+    "date": "01.08.2024",
+    "weather": {
+      "temperature": {
+        "min": 24,
+        "current": 33,
+        "max": 34,
+        "unit": "°C"
+      }
+    },
+    "time": "12:39",
+    "pda": {
+      "height": 2048,
+      "player": {
+        "heading": 268,
+        "posX": 0.43073964864016,
+        "farmId": 1,
+        "posZ": 0.4351621568203,
+        "headingUnit": "°"
+      },
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",
+      "width": 2048
+    }
+  }
+}

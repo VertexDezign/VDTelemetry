@@ -414,7 +414,7 @@ class VdtModelTest {
     // The crop is the one thing a seeding terminal exists to say and the fill unit cannot: a hopper
     // reports the fill type it holds, never which of the machine's declared seeds is selected. The
     // first capture taken at v9 (issue #58), so it is also the in-game proof that the aspect works.
-    val data = model("sowingMachine.json")
+    val data = model("telemetry/precisionFarming/sowingMachine.json")
     assertEquals("9", data.version)
     assertJsonRoundTrips(data)
 
@@ -439,7 +439,7 @@ class VdtModelTest {
     // It is the case that decided the panel dispatches on aspect presence rather than on `type` —
     // one machine that is two functions at once, and whose type name
     // (`pdlc_skyAgriculturePack.fertilizingSowingMachineWorkEffects`) no switch could enumerate.
-    val seeder = assertNotNull(model("sowingMachine.json").vehicle?.implement?.single())
+    val seeder = assertNotNull(model("telemetry/precisionFarming/sowingMachine.json").vehicle?.implement?.single())
     val units = assertNotNull(seeder.fillUnits?.fillUnit)
     assertEquals(listOf("WHEAT", "FERTILIZER"), units.map { it.type })
 
@@ -540,6 +540,125 @@ class VdtModelTest {
     assertEquals(null, tanker.category)
     assertEquals(null, tanker.nominalUsagePerMin)
     assertEquals(false, tanker.doubledAmountAvailable)
+  }
+
+  @Test
+  fun decodesTheSpreaderCaptures() {
+    // Real v9 captures, and the first proof the five-way kind split works on actual machines rather
+    // than on stubs. The same AgriSpread hopper appears twice — carrying fertilizer and carrying lime
+    // — which is exactly the pair the split exists for: one machine, one `kind`, two `category`s.
+    fun spraying(name: String) =
+      assertNotNull(
+        model("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.spraying,
+      )
+
+    val fertilizer = spraying("fertilizerSpreader.json")
+    assertEquals(SprayerKind.SOLID_FERTILIZER, fertilizer.kind)
+    assertEquals(SprayCategory.FERTILIZER, fertilizer.category)
+    assertEquals("FERTILIZER", fertilizer.fillType)
+
+    val lime = spraying("fertilizerSpreader_lime.json")
+    assertEquals(SprayerKind.SOLID_FERTILIZER, lime.kind)
+    assertEquals(SprayCategory.LIME, lime.category)
+    assertEquals("LIME", lime.fillType)
+
+    // Manure and slurry keep their own kinds, and both are categorised as fertilizer by the game —
+    // the category is what the material *does*, the kind is what the machine is.
+    val manure = spraying("manureSpreader.json")
+    assertEquals(SprayerKind.MANURE_SPREADER, manure.kind)
+    assertEquals(SprayCategory.FERTILIZER, manure.category)
+    assertEquals("MANURE", manure.fillType)
+
+    val slurry = spraying("liquidManure_dribbleBar.json")
+    assertEquals(SprayerKind.SLURRY_TANKER, slurry.kind)
+    assertEquals("DIGESTATE", slurry.fillType)
+
+    // The self-propelled Rogator is the catch-all: a herbicide boom is none of the four.
+    val boom = assertNotNull(model("telemetry/precisionFarming/selfDrivingSprayer.json").vehicle?.spraying)
+    assertEquals(SprayerKind.SPRAYER, boom.kind)
+    assertEquals(SprayCategory.HERBICIDE, boom.category)
+    // Nothing has been sprayed this session, so the engine never computed a usage figure. Absent
+    // rather than zero — a rating of 0 l/min would be a claim.
+    assertEquals(null, boom.nominalUsagePerMin)
+  }
+
+  @Test
+  fun decodesThePlowCaptures() {
+    // The same LEMKEN plough folded for transport and unfolded to work. Rotation is barred while it
+    // is folded — which is the whole reason the two predicates are carried separately — and the side
+    // survives the fold, because a folded plough is still turned whichever way it was left.
+    fun plow(name: String) =
+      assertNotNull(
+        model("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.plow,
+      )
+
+    val transport = plow("plow_transportMode.json")
+    assertEquals(false, transport.rotationAllowed)
+    assertEquals(false, transport.canToggleRotation)
+    assertEquals(PlowSide.RIGHT, transport.side)
+
+    val working = plow("plow_workingMode.json")
+    assertEquals(true, working.rotationAllowed)
+    assertEquals(true, working.canToggleRotation)
+    assertEquals(PlowSide.RIGHT, working.side)
+  }
+
+  @Test
+  fun decodesTheTillageCaptures() {
+    fun tillage(name: String) =
+      assertNotNull(
+        model("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.tillage,
+      )
+
+    // A subsoiler that does not run in deep mode — the two flags are independent, which is why both
+    // are carried. `isSubsoiler` is what the machine is; `useDeepMode` is what it leaves behind.
+    val subsoiler = tillage("deepCultivator.json")
+    assertEquals(TillageKind.SUBSOILER, subsoiler.kind)
+    assertEquals(false, subsoiler.deepMode)
+
+    assertEquals(TillageKind.CULTIVATOR, tillage("seedingCultivator.json").kind)
+  }
+
+  @Test
+  fun combinationMachinesCarryTwoAspectsInTheRealCaptures() {
+    // Three different shapes of combination machine, all from real captures — the case the aspect
+    // dispatch exists for, and none of them expressible as a switch on `type`.
+    fun implement(name: String) =
+      assertNotNull(
+        model("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+
+    // Seed + fertilizer: a drill that also spreads.
+    val drill = implement("sowingMachine.json")
+    assertEquals("WHEAT", assertNotNull(drill.sowing).fillType)
+    assertEquals(SprayerKind.SOLID_FERTILIZER, assertNotNull(drill.spraying).kind)
+
+    // Seed + tillage: a cultivator that also drills. `type` is `cultivatingSowingMachine`, a third
+    // name again — there is no enumerable set of these.
+    val topDown = implement("seedingCultivator.json")
+    assertEquals("OILSEEDRADISH", assertNotNull(topDown.sowing).fruitType)
+    assertEquals(TillageKind.CULTIVATOR, assertNotNull(topDown.tillage).kind)
+    assertEquals(null, topDown.spraying)
+
+    // Slurry + tillage: a disc harrow that injects.
+    val methys = implement("vredoLiquidManure_discHarrow.json")
+    assertEquals(SprayerKind.SLURRY_TANKER, assertNotNull(methys.spraying).kind)
+    assertEquals(TillageKind.CULTIVATOR, assertNotNull(methys.tillage).kind)
   }
 
   @Test
