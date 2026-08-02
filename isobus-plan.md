@@ -250,12 +250,55 @@ visual gets reviewed by rendering at real dp sizes with ImageMagick.
 1. ~~**Fixtures need game time.**~~ Settled for sowing — the capture landed the same day the aspect
    did, which is the cadence to keep: build the collector, take one capture, assert against it. Still
    outstanding for the sprayer, plow and cultivator.
-2. **`usagePerMin` on a client** — the one field that could evaporate in multiplayer. Everything else
-   in the four aspects is either synced or read from XML at load.
-3. **Cultivator sync** — likely thinner than the table above once checked on a client.
+2. ~~**`usagePerMin` on a client**~~ — settled from the source, see "How the four aspects landed"
+   finding 2. The field that *can* be stale is the plough's `limitToField` instead (finding 3), and
+   the whole tillage aspect, which is synchronized not at all.
+3. **Cultivator sync** — confirmed absent (no streams, no events). The aspect was cut back to three
+   fields; whether `limitToField` is worth keeping there at all is a call to make once it has been
+   seen on a client.
 4. **Does this replace anything on the default Vehicle page?** Memory says the seed layout is not
    settled and the user wanted more apps before fixing it — so round 1 should *add* the app and leave
    the seeded pages alone.
+
+## How the four aspects landed (2026-08-02)
+
+All four collectors are built, unit-tested and formatter-clean; steps 1–2 of the sequencing below are
+done and the app side has not been started. Six things came out differently from the plan above, and
+the plan text is left as written so the difference is visible:
+
+1. **`usagePerMin` → `nominalUsagePerMin`, and it is not what the plan assumed.** Reading
+   `getSprayerUsage` properly (`Sprayer.lua:472-496`) shows it scales by the machine's **speed limit**
+   rather than its actual speed — that is how the game holds consumption per hectare constant — so
+   dividing back out by `dt` yields a figure that does not move as you slow down. It is a *rating*
+   ("litres a minute at full speed"), not live draw. Renamed so no panel can read it as current
+   consumption, and documented in both the collector and `Model.kt`. The derived l/ha stays out.
+2. **The multiplayer worry about it was wrong, and in our favour.** `WorkArea:onUpdateTick` raises
+   `onStartWorkAreaProcessing` with **no `isServer` gate** (`WorkArea.lua:131-133`), so
+   `workAreaParameters` is populated on a client for the vehicle being driven — which is the only
+   vehicle this mod reports. No field had to be dropped for this.
+3. **A new multiplayer hole, in the plough instead.** `limitToField` is broadcast on change
+   (`PlowLimitToFieldEvent`) but is **not in the join stream** (`Plow.lua:205-224` carries only
+   `rotationMax` + the animation time), so a client that joins mid-session reads the load default
+   until somebody toggles it. Kept — the game's own HUD has the same hole — but called out in the
+   collector and the model.
+4. **The plough reports a `side`, not the engine's bool.** `spec.rotationMax` means "at the max end of
+   the turn animation", and *which end is left* is the per-machine `spec.rotateLeftToMax`. The
+   engine's own left/right reasoning is `getAIInvertMarkersOnTurn` (`:507-515`):
+   `rotationMax == rotateLeftToMax` is left. A consumer must never see the raw bool.
+5. **Two planned tillage fields were dropped.** `spec.isWorking` is literally `0.5 < getLastSpeed()`
+   — a speed threshold dressed up as a state, which `speed` already answers better — and
+   `spec.isEnabled` is flipped by the engine mid-tick without meaning anything a display can act on.
+   Same discipline as the sowing aspect: `workAreas[].active/processing` is the honest answer to "is
+   this thing working".
+6. **`sowing` lost `working` and the warnings** for the reason now written into its header: both are
+   set inside work-area processing. Note this is *not* contradicted by finding 2 — the sprayer's
+   `workAreaParameters` really are written on a client, but `spec.isWorking` on the seeder is set in
+   `processSowingMachineArea`, which only runs for an area the engine decided to process. The
+   warnings additionally only matter behind `isActiveForInputIgnoreSelectionIgnoreAI`.
+
+Test coverage: `spec/Sowing_spec.lua` (6) and `spec/IsoBusAspects_spec.lua` (17) on the mod side, and
+eight `VdtModelTest` cases on the Kotlin side — including one that pins **every** aspect absent on a
+machine that has none, and one that pins a combination machine carrying two at once.
 
 ## Sequencing
 

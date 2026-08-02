@@ -5,7 +5,12 @@
 --
 -- Field order follows Model.kt (isTurnedOn, foldable, lowered, fillUnits, pipe, cover, wearable,
 -- schema, selection, discharge, tipping, harvest, workMode, workWidth, workAreas, baleCounter,
--- sowing); JSON is key-addressed so order is cosmetic.
+-- sowing, spraying, plow, tillage); JSON is key-addressed so order is cosmetic.
+--
+-- The last four are the per-class ISOBUS aspects (issue #58). They are what the panel dispatches on:
+-- a section is drawn iff its aspect is present, which is why they must stay nil-when-absent like
+-- everything else here. A machine can carry more than one -- a fertilizing seeder has sowing AND
+-- spraying -- so nothing downstream may treat them as mutually exclusive.
 --
 -- Every collector is a cheap spec-field read and each returns nil when its spec is absent, so a given
 -- object only pays for the aspects it actually has. This runs on the export timer, not per frame.
@@ -33,4 +38,7 @@ function VDT.Aspects.apply(object, model)
   model.workAreas = VDT.WorkAreas.collect(object)
   model.baleCounter = VDT.BaleCounter.collect(object)
   model.sowing = VDT.Sowing.collect(object)
+  model.spraying = VDT.Spraying.collect(object)
+  model.plow = VDT.Plow.collect(object)
+  model.tillage = VDT.Tillage.collect(object)
 end

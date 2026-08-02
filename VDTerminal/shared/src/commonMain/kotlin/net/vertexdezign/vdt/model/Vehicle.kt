@@ -31,6 +31,9 @@ data class Vehicle(
   val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
   val sowing: Sowing? = null,
+  val spraying: Spraying? = null,
+  val plow: Plow? = null,
+  val tillage: Tillage? = null,
   val precisionFarming: PrecisionFarming? = null,
   val implement: List<Implement> = emptyList(),
   val combined: Combined? = null,
@@ -585,6 +588,87 @@ data class Sowing(
   val title: String? = null,
 )
 
+/**
+ * A sprayer, fertilizer spreader, slurry tanker or manure spreader — the game's `Sprayer` spec covers
+ * all four and [kind] is what separates them.
+ *
+ * [fillType] is the join key to the matching [FillUnit]: the fill unit list carries no indices, and a
+ * combination machine has more than one tank, so this is the only way to know which one the sprayer
+ * draws from. It and [title] are null when the tank is empty. [sprayType] and [category] are null for
+ * a material the game registers no spray type for (water, an unregistered modded fill type) — the
+ * tank still reports.
+ */
+@Serializable
+data class Spraying(
+  val kind: SprayerKind = SprayerKind.SPRAYER,
+  /** Material actually leaving the machine — not merely switched on, which is `isTurnedOn`. */
+  val active: Boolean = false,
+  val doubledAmount: Boolean = false,
+  /** False on a slurry tanker or manure spreader: doubling is a fertilizer-only control. */
+  val doubledAmountAvailable: Boolean = false,
+  val allowsSpraying: Boolean = true,
+  val fillType: String? = null,
+  val title: String? = null,
+  val sprayType: String? = null,
+  val category: SprayCategory? = null,
+  /**
+   * Litres per minute **at the machine's speed limit**, not the current draw — the game scales usage
+   * by the speed limit rather than actual speed to hold consumption per hectare constant, so this
+   * figure does not move as you slow down. Label it as a rating, never as live consumption.
+   * Precision Farming publishes true application rates when it is installed.
+   */
+  val nominalUsagePerMin: Float? = null,
+)
+
+@Serializable
+enum class SprayerKind { SPRAYER, SLURRY_TANKER, MANURE_SPREADER }
+
+@Serializable
+enum class SprayCategory { FERTILIZER, LIME, HERBICIDE }
+
+/**
+ * A plough.
+ *
+ * [side] is which way the bodies are turned, and is **null on a plough that does not reverse** — the
+ * engine stores a bool meaning "at the max end of the turn animation", whose left/right sense is a
+ * per-machine XML value, so a non-reversible plough has no side rather than a default one.
+ *
+ * [rotationAllowed] is the mechanical half (not mid-fold); [canToggleRotation] adds lowered and
+ * powered. They are separate so a terminal can eventually say *why* the plough will not turn.
+ *
+ * [limitToField] is not carried in the multiplayer join stream — only broadcast on change — so on a
+ * client that joined mid-session it reads the load default until somebody toggles it.
+ */
+@Serializable
+data class Plow(
+  val rotationAllowed: Boolean = false,
+  val canToggleRotation: Boolean = false,
+  val limitToField: Boolean = true,
+  /** The player does not get to choose — the machine or the platform forces it. */
+  val forceLimitToField: Boolean = false,
+  val side: PlowSide? = null,
+)
+
+@Serializable
+enum class PlowSide { LEFT, RIGHT }
+
+/**
+ * A cultivator, power harrow or subsoiler. Thin by design: width, sections and depth modes are
+ * already answered by [WorkWidth], [WorkArea] and [WorkMode].
+ *
+ * None of this is synchronized in multiplayer. [kind] is read from the vehicle XML so it is identical
+ * everywhere, but [limitToField] is engine state a client only ever sees at its load default.
+ */
+@Serializable
+data class Tillage(
+  val kind: TillageKind = TillageKind.CULTIVATOR,
+  val deepMode: Boolean = true,
+  val limitToField: Boolean = true,
+)
+
+@Serializable
+enum class TillageKind { CULTIVATOR, POWER_HARROW, SUBSOILER }
+
 // ---------------------------------------------------------------------------
 // Implements (recursive) + combined
 // ---------------------------------------------------------------------------
@@ -611,6 +695,9 @@ data class Implement(
   val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
   val sowing: Sowing? = null,
+  val spraying: Spraying? = null,
+  val plow: Plow? = null,
+  val tillage: Tillage? = null,
   val precisionFarming: PrecisionFarming? = null,
   /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
   val jointDescIndex: Int? = null,

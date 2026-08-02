@@ -24,5 +24,8 @@
 ---@field workAreas WorkAreaModel[]?
 ---@field baleCounter BaleCounterModel?
 ---@field sowing SowingModel?
+---@field spraying SprayingModel?
+---@field plow PlowModel?
+---@field tillage TillageModel?
 ---@field jointDescIndex number?
 ---@field implement ImplementModel[]?

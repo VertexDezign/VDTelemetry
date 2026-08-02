@@ -147,3 +147,37 @@
 ---@field fruitType string?
 ---@field fillType string?
 ---@field title string?
+
+-- A sprayer / spreader / slurry tanker / manure spreader -- one engine spec covers all four and
+-- `kind` separates them. `fillType` joins to the matching FillUnitModel (the fill unit list carries
+-- no indices, and a combination machine has several tanks). `sprayType` / `category` are absent for a
+-- material the game registers no spray type for. `nominalUsagePerMin` is measured at the machine's
+-- speed limit, NOT the current draw -- see collect/aspects/Spraying.lua.
+---@class SprayingModel
+---@field kind string SPRAYER | SLURRY_TANKER | MANURE_SPREADER
+---@field active boolean material actually leaving the machine, not merely switched on
+---@field doubledAmount boolean
+---@field doubledAmountAvailable boolean false on a slurry tanker / manure spreader
+---@field allowsSpraying boolean
+---@field fillType string?
+---@field title string?
+---@field sprayType string?
+---@field category string? FERTILIZER | LIME | HERBICIDE
+---@field nominalUsagePerMin number?
+
+-- A plough. `side` is which way the bodies are turned, absent on a plough that does not reverse; the
+-- engine stores a `rotationMax` bool whose meaning is per-machine, so see collect/aspects/Plow.lua
+-- for the mapping. `limitToField` is not in the join stream and can be stale on a client.
+---@class PlowModel
+---@field rotationAllowed boolean the mechanical half -- not mid-fold
+---@field canToggleRotation boolean rotationAllowed plus lowered and powered
+---@field limitToField boolean
+---@field forceLimitToField boolean the player does not get to choose
+---@field side string? LEFT | RIGHT
+
+-- A cultivator / power harrow / subsoiler. Thin by design -- width, sections and depth modes are
+-- already answered by workWidth / workAreas / workMode. None of it is synchronized in multiplayer.
+---@class TillageModel
+---@field kind string CULTIVATOR | POWER_HARROW | SUBSOILER
+---@field deepMode boolean
+---@field limitToField boolean

@@ -42,6 +42,9 @@ local sourceFiles = {
   "src/collect/aspects/WorkAreas.lua",
   "src/collect/aspects/BaleCounter.lua",
   "src/collect/aspects/Sowing.lua",
+  "src/collect/aspects/Spraying.lua",
+  "src/collect/aspects/Plow.lua",
+  "src/collect/aspects/Tillage.lua",
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",

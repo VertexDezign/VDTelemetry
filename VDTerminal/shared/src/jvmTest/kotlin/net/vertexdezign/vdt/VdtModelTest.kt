@@ -9,6 +9,10 @@ import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.PipeState
+import net.vertexdezign.vdt.model.PlowSide
+import net.vertexdezign.vdt.model.SprayCategory
+import net.vertexdezign.vdt.model.SprayerKind
+import net.vertexdezign.vdt.model.TillageKind
 import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.VdtData
 import java.io.File
@@ -480,6 +484,134 @@ class VdtModelTest {
         ?.first()
         ?.sowing,
     )
+  }
+
+  @Test
+  fun everyIsobusAspectIsAbsentOnAMachineThatHasNone() {
+    // The dispatch contract, stated once for all four: a mower carries none of them, and each must
+    // decode as null rather than as a default-constructed section. A default here would put a
+    // cultivator readout on a mower — with `kind = CULTIVATOR` and `deepMode = true` invented whole.
+    val mower =
+      assertNotNull(
+        model("mutliple_implements.json")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+    assertEquals(null, mower.sowing)
+    assertEquals(null, mower.spraying)
+    assertEquals(null, mower.plow)
+    assertEquals(null, mower.tillage)
+  }
+
+  @Test
+  fun decodesTheSprayerAspectIncludingItsAbsentHalves() {
+    // A fertilizer spreader mid-pass. `category` and `sprayType` come from the spray-type manager,
+    // which is a different table from the vehicle's own — see collect/aspects/Spraying.lua.
+    val text =
+      """{"version":"9","vehicle":{"spraying":{"kind":"SPRAYER","active":true,""" +
+        """"doubledAmount":true,"doubledAmountAvailable":true,"allowsSpraying":true,""" +
+        """"fillType":"FERTILIZER","title":"Mineraldünger","sprayType":"FERTILIZER",""" +
+        """"category":"FERTILIZER","nominalUsagePerMin":42.38}}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+
+    val spraying = assertNotNull(data.vehicle?.spraying)
+    assertEquals(SprayerKind.SPRAYER, spraying.kind)
+    assertEquals(SprayCategory.FERTILIZER, spraying.category)
+    assertEquals("FERTILIZER", spraying.fillType)
+    assertTrue(spraying.active)
+    assertTrue(spraying.doubledAmountAvailable)
+    assertEquals(42.38f, spraying.nominalUsagePerMin)
+
+    // A slurry tanker with an empty tank: no material to name, and doubling is not its control. The
+    // machine is still fully described — absence here is the answer, not a gap.
+    val tanker =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"spraying":{"kind":"SLURRY_TANKER",""" +
+              """"doubledAmountAvailable":false}}}""",
+          ).vehicle
+          ?.spraying,
+      )
+    assertEquals(SprayerKind.SLURRY_TANKER, tanker.kind)
+    assertEquals(null, tanker.fillType)
+    assertEquals(null, tanker.category)
+    assertEquals(null, tanker.nominalUsagePerMin)
+    assertEquals(false, tanker.doubledAmountAvailable)
+  }
+
+  @Test
+  fun decodesThePlowSideAndLeavesItNullOnANonReversiblePlow() {
+    val turned =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"implement":[{"position":"BACK","plow":{"side":"LEFT",""" +
+              """"rotationAllowed":true,"canToggleRotation":false,"limitToField":true,""" +
+              """"forceLimitToField":false}}]}}""",
+          ).vehicle
+          ?.implement
+          ?.single()
+          ?.plow,
+      )
+    assertEquals(PlowSide.LEFT, turned.side)
+    // Mechanically free to turn but not right now (still lowered) — the two are separate answers.
+    assertTrue(turned.rotationAllowed)
+    assertEquals(false, turned.canToggleRotation)
+
+    // A plough with no turn animation reports no side at all. Null must survive as "does not
+    // reverse"; defaulting it to LEFT would draw a rotation indicator on a machine that has none.
+    val fixed =
+      assertNotNull(
+        VdtParser
+          .parseJson("""{"version":"9","vehicle":{"plow":{"limitToField":false}}}""")
+          .vehicle
+          ?.plow,
+      )
+    assertEquals(null, fixed.side)
+    assertEquals(false, fixed.limitToField)
+  }
+
+  @Test
+  fun decodesTheTillageKinds() {
+    val subsoiler =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"tillage":{"kind":"SUBSOILER","deepMode":true,""" +
+              """"limitToField":false}}}""",
+          ).vehicle
+          ?.tillage,
+      )
+    assertEquals(TillageKind.SUBSOILER, subsoiler.kind)
+    assertEquals(false, subsoiler.limitToField)
+  }
+
+  @Test
+  fun aCombinationMachineCarriesTwoAspectsAtOnce() {
+    // The case the dispatch rule exists for, stated as a decode contract: one implement, two
+    // functions. Nothing downstream may treat the ISOBUS aspects as mutually exclusive, and no
+    // switch on `type` could have produced both sections.
+    val both =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"implement":[{"position":"BACK",""" +
+              """"type":"pdlc_skyAgriculturePack.fertilizingSowingMachineWorkEffects",""" +
+              """"sowing":{"seedIndex":1,"seedCount":9,"fruitType":"WHEAT","fillType":"WHEAT"},""" +
+              """"spraying":{"kind":"SPRAYER","fillType":"FERTILIZER"}}]}}""",
+          ).vehicle
+          ?.implement
+          ?.single(),
+      )
+    val hopper = assertNotNull(both.sowing)
+    val tank = assertNotNull(both.spraying)
+    assertEquals("WHEAT", hopper.fillType)
+    assertEquals("FERTILIZER", tank.fillType)
+    // …and the two join to different tanks, which is what `fillType` is carried for.
+    assertTrue(hopper.fillType != tank.fillType)
   }
 
   @Test
