@@ -241,9 +241,16 @@ The section bar and the work-area readout **already exist** in `RigSlotPanel`. E
 than reimplementing; that extraction is the one piece of refactoring round 1 should do.
 
 Glyphs: `ClusterIcons.kt` is the precedent — own-drawn, **fills only**, since the ImageMagick render
-loop used to review them silently drops strokes. The plow rotation indicator is a natural fit for
-that treatment. Note the sandbox cannot run the app (Gradle is host-only, no browser), so anything
-visual gets reviewed by rendering at real dp sizes with ImageMagick.
+loop used to review them silently drops strokes. Note the sandbox cannot run the app (Gradle is
+host-only, no browser), so anything visual gets reviewed by rendering at real dp sizes with
+ImageMagick.
+
+**The machines themselves are PNG, not drawn** (decided 2026-08-02 on review of the mockups: the
+layout was right, the own-drawn machines were not). The art is generated separately against
+**`isobus-assets.md`**, which is the contract — file list, one shared canvas and scale, the house
+style taken from `mb_trac.png`, and the two-layer body/fill split that lets a level clip to the true
+shape of a round barrel or a tapered hopper. `Lighting.kt` is the precedent for the mechanism: a PNG
+letterboxed to its aspect with live elements placed over it at fractional coordinates.
 
 ---
 
@@ -402,6 +409,11 @@ seen on a real machine except the base-game `doubledAmount` toggle in the *engag
 fertilizer sprayer, which cannot exist (the base game does not offer the control there).
 
 ## Sequencing
+
+> **Status, 2026-08-02:** steps 1–2 are done and validated in game (see below). Step 3 onwards is the
+> app, and the machine art is now a separate track — see `isobus-assets.md`. The panel can be built
+> and reviewed before the art lands, since swapping a mockup shape for an image is one line per
+> machine once the anchor manifest exists.
 
 1. **Aspects, one at a time**, `sowing` first — it is the highest-value readout and the cleanest MP
    story, and it proves the section-dispatch rule end to end. Then `plow` (also synced), then
