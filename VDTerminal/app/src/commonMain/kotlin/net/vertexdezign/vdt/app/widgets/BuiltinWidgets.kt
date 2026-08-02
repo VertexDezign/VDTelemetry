@@ -109,6 +109,7 @@ object MapWidget : Widget {
       mapVehicles = mapVehicles,
       fieldInfo = fieldInfo,
       mapLayerUrl = store.mapLayerUrl,
+      coverageResetUrl = store.coverageResetUrl,
       mapLayers = mapLayers,
       onShowLayers = { ids -> store.onCommand(ClientMessage.SetMapLayers(ids)) },
       vehicle = telemetry?.vehicle,

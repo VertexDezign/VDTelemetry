@@ -52,6 +52,12 @@ class VdtStore(
   val mapUrl: String,
   /** Base URL for ground-layer raster PNGs; the map widget appends `/{layerId}` (see [mapLayers]). */
   val mapLayerUrl: String,
+  /**
+   * POST here to clear the worked-coverage mask. The one ground layer the server accumulates itself
+   * rather than reading from the mod, so wiping it is an HTTP call and not a [ClientMessage] — there
+   * is nothing in the game to tell.
+   */
+  val coverageResetUrl: String,
   val settings: Settings,
   /** The user's pages (created/edited at runtime, persisted); see [PageStore]. */
   val pages: PageStore,

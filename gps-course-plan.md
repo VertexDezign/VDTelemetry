@@ -21,8 +21,8 @@ a section strip and a few big numbers. This plan gets there in that order.
 
 - §1–§3 (course channel → draw it → guidance readouts → course-up) are the **scope for now**.
   (§4 was picked up next, on 2026-08-01, once §1–§3 were driven and closed.)
-- §4 (section view) and §5 (coverage) are planned here but not yet scheduled. The coverage raster
-  is decided to live **server-side**, not in the mod — see §5.
+- §4 (section view) and §5 (coverage) were planned here and picked up later — §4 on 2026-08-01,
+  §5 on 2026-08-02. The coverage raster is decided to live **server-side**, not in the mod — see §5.
 - §6 (3D) stays a maybe, and the plan says why 2D course-up gets most of the way there.
 
 **Status (2026-07-31, branch `43-gps-course`):**
@@ -39,6 +39,10 @@ a section strip and a few big numbers. This plan gets there in that order.
   export version is now **8**. See §4's "How it landed" and the checks under it. The boom also went
   onto the bottom of the map on 2026-08-02 (app-only, no export change) — see "The section strip on
   the map".
+- §5 (coverage) — **built 2026-08-02, not yet driven.** Server-side, and from §4's work-area
+  footprints rather than the position+heading+width the plan first assumed; no mod change at all.
+  See §5's "How it landed" and the checks under it.
+- §6 (3D) — still a maybe, still deferred for the reason given there.
 
 **In-game results (2026-07-31/2026-08-01, user):** the course draws and clears correctly, the worked
 shading follows the game, the deviation sign reads the right way round, and the channel's cadence is
@@ -550,7 +554,7 @@ about whether the real spec tables look like the stubs.
    the corner back to the ground-layer legend when it does. The rig walk is the part to watch on a
    train of implements — the bar must describe the tool with the boom, not the first thing hitched.
 
-## §5 — Coverage layer (issue bullet 3) — *planned, not scheduled; decided to be server-side*
+## §5 — Coverage layer (issue bullet 3) — *built 2026-08-02, not yet driven*
 
 The tedder case is real: nothing in the ground layers records that a windrow was spread. Two
 candidate homes were weighed; **the server wins** (user decision, 2026-07-31):
@@ -568,6 +572,83 @@ recorded on foot (no) or only with a lowered, turned-on tool (yes).
 
 Note §1 already delivers a coarse version of this for free — worked lines are shaded from
 `segmentStates` wherever a steering course exists.
+
+### How it landed (2026-08-02, app + server only, no mod change)
+
+**The input changed, and that is what made this small.** The plan above says the server can
+accumulate coverage from "position, heading, working width and turned-on/lowered state" — which was
+true when it was written, and is now the wrong way to do it. §4 exports `workAreas[].shape`: the
+tool's actual footprint parallelogram, three corners of it, already in the normalized map frame. So
+the server rasterizes the quads the game itself computed instead of reconstructing them from the
+tractor's heading — which would have been wrong on every trailed implement in a turn, and wrong by
+the whole boom on a folding one. Nothing new is exported; this reads telemetry that was already
+flowing.
+
+**It is a synthetic ground layer, not a new channel.** `CoverageRecorder` publishes a `MapLayerData`
+exactly like the ones the mod writes, so it reaches the app through the catalogue, the
+content-versioned `/api/map-layer/{id}` route, the legend and the layer picker that all already
+existed — no new protocol message, no new fetch path, and the app-side change is a reset control and
+nothing else. Three consequences worth writing down:
+
+- The id (`COVERAGE_LAYER_ID`) has to be **stripped out of the subscription** the server hands the
+  mod. Asked to sweep a plane it has never heard of, the mod could never report it active, and
+  `MapLayerSubscriptions.reconcile` would restate the command on every catalogue write forever.
+- Coverage is offered **unconditionally** — before anything is worked, and even with the mod's layer
+  channel switched off. It does not come from the mod, so its availability must not depend on the
+  mod's catalogue arriving. A null version already means "offered, nothing to draw".
+- Published on a **2 s timer, not the telemetry tick**. Every version is a PNG the app refetches, and
+  at 10 Hz that is a fetch, a render and a decode ten times a second for a picture that grew by one
+  swath. Coverage is a trail, not an instrument.
+
+**Two samples have to be bridged, or the pass comes out striped.** A boom is tens of meters wide and
+a few tens of centimeters deep, and at working speed the tool moves further between ticks than its own
+footprint is deep — so painting the quads alone leaves gaps. Each area is also filled from where it
+was on the previous sample, with two guards that exist to stop that lying: a sample older than 1 s, or
+one that has moved more than 40 m, breaks the trail instead of drawing a stripe across the gap. So
+does lifting the tool — the previous sample is forgotten when nothing is working, which is what stops
+a headland turn from being painted as a pass.
+
+**The scanline fill needed a fix that a screenshot would never have shown.** A footprint quad is
+wide and shallow enough to fall entirely *between* two scanline centres, and on edge crossings alone
+such a quad paints nothing at all — the whole width of the machine going unrecorded, depending on
+where in the field you happen to be. Vertices lying inside a row are folded into that row's span for
+exactly that reason. Pinned by `CoverageRecorderTest`.
+
+**The three open questions above, answered:**
+
+- **The gate is `active`, not `processing`** — the same call §4 made, and for the same reason: a
+  tedder over already-spread grass changes nothing, so `processing` is false precisely on the machine
+  this feature exists for. `activeWorkAreas()` now lives in `shared` and both the map footprint and
+  the recorder use it.
+- **Persistence: in memory, for as long as the server runs**, and cleared when the terrain size
+  changes (a different map loaded). Persisting would need a savegame identity the telemetry does not
+  carry; the seam for adding it later is the one class.
+- **The reset is a `POST /api/coverage/reset`**, surfaced in the map's filter popover under the
+  coverage row and only while coverage is selected — it is destructive and means nothing while another
+  plane is on screen. Two taps, since there is no undo anywhere in this pipeline.
+
+One thing the tests caught: allocating the first grid on map load was marking the mask dirty, so the
+server published an empty raster — a version, a fetch and a decode for a fully transparent picture —
+before anything had been worked. Replacing a grid still publishes, because whoever is watching holds
+the previous map's mask and has to be told it is gone.
+
+### In-game checks §5 needs
+
+Everything is unit-tested against constructed footprints, which says nothing about the real ones.
+
+1. **Does the trail land where the machine did?** The one thing worth watching, since it is the only
+   place the normalized frame, the row/column order of the raster and the app's `FillBounds` draw all
+   have to agree. A pass along a field edge is the clearest test: a mirrored or transposed grid puts
+   it somewhere obviously wrong rather than subtly.
+2. **The tedder case**, which is the whole point: work with a tool that leaves no trace in any of the
+   mod's planes, and check the coverage layer records it anyway.
+3. **Gaps at speed.** Drive a long pass at full speed and look for stripes — that is the bridge not
+   reaching. Then lift the tool mid-field, drive on and lower it: there must be no stripe across the
+   part you skipped.
+4. **A wide boom's edges.** A 36 m sprayer should paint ~18 cells across; check the swath width looks
+   like the machine's rather than one cell wider or narrower on each pass.
+5. **Reset**, and that the cleared layer actually disappears from the map rather than lingering until
+   the next fetch.
 
 ## §6 — 3D (issue bullet 3's question mark) — deferred, with a reason
 

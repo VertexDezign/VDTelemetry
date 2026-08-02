@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.IndeterminateCheckBox
 import androidx.compose.material.icons.filled.Map
@@ -51,6 +52,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -87,23 +89,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.post
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SectionStrip
 import net.vertexdezign.vdt.app.components.boomOf
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
+import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
 import net.vertexdezign.vdt.model.FieldCropRotation
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldInfoEntry
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.GpsCourseState
-import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapFarm
 import net.vertexdezign.vdt.model.MapField
@@ -116,6 +120,7 @@ import net.vertexdezign.vdt.model.Pda
 import net.vertexdezign.vdt.model.Player
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
+import net.vertexdezign.vdt.model.activeWorkAreas
 import org.jetbrains.skia.Image
 import kotlin.math.hypot
 import kotlin.math.pow
@@ -219,6 +224,8 @@ fun MapPanel(
   mapVehicles: MapVehiclesData? = null,
   fieldInfo: FieldInfoData? = null,
   mapLayerUrl: String = "",
+  /** Where to POST to clear the server's worked-coverage mask; blank hides the control. */
+  coverageResetUrl: String = "",
   mapLayers: MapLayersInfo? = null,
   onShowLayers: (List<String>) -> Unit = {},
   vehicle: Vehicle? = null,
@@ -249,6 +256,7 @@ fun MapPanel(
   // How much room the section strip is taking along the bottom edge, so the ground-layer legend in the
   // same corner clears it. Measured rather than assumed: the strip's height follows the text scale.
   var sectionStripHeight by remember { mutableStateOf(0.dp) }
+  val scope = rememberCoroutineScope()
   val player = pda?.player
 
   // Seed from the cache so a panel composed after a page switch paints the map on its first frame.
@@ -721,6 +729,13 @@ fun MapPanel(
             if (it.isBlank()) highlight = null
           },
           onFocus = ::focusOn,
+          // Fire and forget: the server publishes the cleared mask's new version over the WebSocket,
+          // and the ordinary layer-fetch path redraws from that. Nothing here has to wait for it.
+          onReset = {
+            if (coverageResetUrl.isNotBlank()) {
+              scope.launch { runCatching { mapImageClient.post(coverageResetUrl) } }
+            }
+          },
         )
       }
     }
@@ -862,23 +877,7 @@ private fun BoxScope.WorkOverlay(vehicle: Vehicle, projection: MapProjection) {
 }
 
 /** Every work area of the rig that can currently work and knows where it is, tractor and tools alike. */
-private fun workFootprints(vehicle: Vehicle): List<WorkArea> {
-  val out = mutableListOf<WorkArea>()
-  fun take(areas: List<WorkArea>) {
-    for (area in areas) {
-      if (area.active && area.shape.size >= 6) out += area
-    }
-  }
-  fun walk(implements: List<Implement>) {
-    for (implement in implements) {
-      take(implement.workAreas)
-      walk(implement.implement)
-    }
-  }
-  take(vehicle.workAreas)
-  walk(vehicle.implement)
-  return out
-}
+private fun workFootprints(vehicle: Vehicle): List<WorkArea> = vehicle.activeWorkAreas().filter { it.shape.size >= 6 }
 
 /** The work area's parallelogram, from the three corners the engine describes it by. */
 private fun quadPath(shape: List<Float>): Path = Path().apply {
@@ -1252,6 +1251,7 @@ private fun BoxScope.MapFilterPanel(
   query: String,
   onQuery: (String) -> Unit,
   onFocus: (Offset) -> Unit,
+  onReset: () -> Unit,
 ) {
   Column(
     Modifier
@@ -1352,8 +1352,44 @@ private fun BoxScope.MapFilterPanel(
         FilterRow(layer.label.ifBlank { groundLayerLabel(layer.id) }, checked = groundLayer == layer.id) {
           onGroundLayer(layer.id)
         }
+        // Coverage is the one layer with something to clear, and the control belongs under the layer
+        // it clears rather than in the panel header — it is destructive, and it means nothing while
+        // some other plane is on screen. Shown only while coverage is selected, for the same reason.
+        if (layer.id == COVERAGE_LAYER_ID && groundLayer == layer.id) {
+          ResetCoverageRow(onReset)
+        }
       }
     }
+  }
+}
+
+/**
+ * Clear the worked-coverage trail. Two taps, not one: it throws away a day's driving, there is no
+ * undo anywhere in the pipeline, and it sits one row below the layer list where a stray tap lands.
+ */
+@Composable
+private fun ResetCoverageRow(onReset: () -> Unit) {
+  var confirming by remember { mutableStateOf(false) }
+  Row(
+    Modifier.fillMaxWidth().padding(start = 22.dp).clickableNoRipple {
+      if (confirming) onReset()
+      confirming = !confirming
+    },
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Icon(
+      Icons.Filled.DeleteSweep,
+      null,
+      tint = if (confirming) VdtColors.Amber else VdtColors.DarkGray,
+      modifier = Modifier.size(14.dp),
+    )
+    Text(
+      if (confirming) "Tap again to clear" else "Reset coverage",
+      fontSize = 12.sp,
+      fontWeight = if (confirming) FontWeight.Bold else FontWeight.Normal,
+      color = if (confirming) VdtColors.Amber else VdtColors.DarkGray,
+    )
   }
 }
 

@@ -605,3 +605,35 @@ data class CombinedImplementState(
   val lowered: Boolean? = null,
   val foldable: FoldableState? = null,
 )
+
+/**
+ * Every work area on the rig that is currently able to work ground — the machine's own and every
+ * implement's, however deep it is hitched.
+ *
+ * [WorkArea.active] rather than [WorkArea.processing] on purpose. `active` is the engine's capability
+ * predicate (lowered, in contact, moving forward, and its shutoff section on), and it is steady while
+ * you drive; `processing` only says ground *changed* in the last 200 ms, which a tedder over already
+ * spread grass — or a spot sprayer over clean crop — never does. Anything asking "where has this tool
+ * been" wants the former.
+ *
+ * Flattened in hitch order (the machine, then each implement depth-first), so callers that pair areas
+ * between samples get a stable order for an unchanged rig.
+ */
+fun Vehicle.activeWorkAreas(): List<WorkArea> {
+  val out = mutableListOf<WorkArea>()
+
+  fun take(areas: List<WorkArea>) {
+    for (area in areas) if (area.active) out += area
+  }
+
+  fun walk(implements: List<Implement>) {
+    for (implement in implements) {
+      take(implement.workAreas)
+      walk(implement.implement)
+    }
+  }
+
+  take(workAreas)
+  walk(implement)
+  return out
+}
