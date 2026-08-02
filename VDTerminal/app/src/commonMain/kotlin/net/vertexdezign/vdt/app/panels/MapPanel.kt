@@ -88,6 +88,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.statement.readRawBytes
@@ -202,8 +204,26 @@ private fun layerUnion(panel: Any, selection: List<String>?): List<String> {
   return liveLayerSelections.values.flatten().distinct().sorted()
 }
 
-/** Shared with the caches above: outliving the panel is the whole point, so it can't be `remember`ed. */
-private val mapImageClient by lazy { HttpClient() }
+/**
+ * Shared with the caches above: outliving the panel is the whole point, so it can't be `remember`ed.
+ *
+ * [HttpTimeout] is installed **unconfigured** — no default deadline — purely so single requests can
+ * set their own. The images this fetches have no business having one: a 2048² coverage raster over a
+ * slow link is legitimately slow, and a client-wide timeout would turn that into a blank overlay.
+ * Only the coverage reset opts in ([COVERAGE_RESET_TIMEOUT_MS]), because it is the one request a
+ * person is waiting on.
+ */
+private val mapImageClient by lazy { HttpClient { install(HttpTimeout) } }
+
+/**
+ * How long to wait for the coverage reset before calling it failed.
+ *
+ * The browser's fetch has no deadline of its own, so without this a request that never answers — the
+ * server gone, a proxy holding the connection — leaves the row armed and silent forever, and the
+ * in-flight guard below would then never open again. Generous for what is a bodyless POST to a server
+ * on the same machine as the game.
+ */
+private const val COVERAGE_RESET_TIMEOUT_MS = 10_000L
 
 /**
  * Map panel: loads the PDA map image from the server, supports pan/zoom, draws the player marker
@@ -790,7 +810,11 @@ fun MapPanel(
           // ordinary layer-fetch path picks it up.
           onReset = {
             val cleared =
-              coverageResetUrl.isNotBlank() && mapImageClient.post(coverageResetUrl).status.isSuccess()
+              coverageResetUrl.isNotBlank() &&
+                mapImageClient
+                  .post(coverageResetUrl) { timeout { requestTimeoutMillis = COVERAGE_RESET_TIMEOUT_MS } }
+                  .status
+                  .isSuccess()
             // The local trail is coverage too, and it is the part in front of the raster — leaving it
             // would redraw the last few seconds of a pass the driver just asked to be rid of. Only
             // once the raster behind it is actually gone, though.
@@ -1548,21 +1572,29 @@ private fun BoxScope.MapFilterPanel(
  *
  * The second tap awaits [onReset] rather than assuming it worked. A reset that never reached the
  * server is indistinguishable from one that did — the coverage is simply still there — so the row
- * stays armed and says so, which is also what makes the retry one tap.
+ * stays armed and says so, which is also what makes the retry one tap. Staying armed is why the
+ * in-flight tap has to be swallowed: otherwise waiting for an answer is what invites a second one.
  */
 @Composable
 private fun ResetCoverageRow(onReset: suspend () -> Boolean) {
   var confirming by remember { mutableStateOf(false) }
   var failed by remember { mutableStateOf(false) }
+  var clearing by remember { mutableStateOf(false) }
   val scope = rememberCoroutineScope()
   Row(
     Modifier.fillMaxWidth().padding(start = 22.dp).clickableNoRipple {
       if (!confirming) {
         confirming = true
-      } else {
+      } else if (!clearing) {
+        // Taps while one is in the air do nothing rather than posting a second reset: the row stays
+        // armed until an answer comes back, so without this every impatient tap starts another
+        // request whose result races the first. Bounded by the request timeout, so it always reopens,
+        // and the row reads "Clearing…" meanwhile so an ignored tap is not a dead control.
+        clearing = true
         failed = false
         scope.launch {
           val outcome = runCatching { onReset() }
+          clearing = false
           // runCatching catches Throwable, so closing the popover mid-request lands here; reporting
           // that as a failed reset would be wrong.
           (outcome.exceptionOrNull() as? CancellationException)?.let { throw it }
@@ -1583,6 +1615,7 @@ private fun ResetCoverageRow(onReset: suspend () -> Boolean) {
     Text(
       when {
         failed -> "Reset failed — tap to retry"
+        clearing -> "Clearing…"
         confirming -> "Tap again to clear"
         else -> "Reset coverage"
       },
