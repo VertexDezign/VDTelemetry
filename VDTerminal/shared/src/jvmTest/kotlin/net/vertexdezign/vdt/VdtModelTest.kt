@@ -679,17 +679,24 @@ class VdtModelTest {
         ?.get(index),
     )
 
-    // The `externalSource` flag itself is *not* asserted here: it postdates these captures, which
-    // record only the fill-type fallback. Its logic is covered by spec/IsoBusAspects_spec.lua, and it
-    // will show up on the next capture of either rig.
-
     // The Bomech hangs off the Kaweco barrel, so it is an implement of an implement.
     val bomech = assertNotNull(applicator("liquidManure_dribbleBar.json", 0).implement.single())
     val bomechSpray = assertNotNull(bomech.spraying)
     assertEquals("DIGESTATE", bomechSpray.fillType)
     assertEquals(SprayCategory.FERTILIZER, bomechSpray.category)
-    // Its own tank really is empty — which is the point: the level to watch is the barrel's.
+    assertTrue(bomechSpray.externalSource, "material comes from the barrel it is hitched to")
+    // Its own tank really is empty — which is the point: the level to watch is the barrel's, and the
+    // barrel is the parent implement, so a panel has to walk *up* to find it.
     assertEquals("", assertNotNull(bomech.fillUnits?.fillUnit?.single()).type)
+    assertEquals(
+      "DIGESTATE",
+      assertNotNull(
+        applicator("liquidManure_dribbleBar.json", 0)
+          .fillUnits
+          ?.fillUnit
+          ?.single(),
+      ).type,
+    )
     // Sprayer effects are running here, and the work area agrees.
     assertTrue(bomechSpray.active)
     assertTrue(assertNotNull(bomech.workAreas.single()).processing)
@@ -697,6 +704,7 @@ class VdtModelTest {
     val methys = applicator("vredoLiquidManure_discHarrow.json", 0)
     val methysSpray = assertNotNull(methys.spraying)
     assertEquals("LIQUIDMANURE", methysSpray.fillType)
+    assertTrue(methysSpray.externalSource, "material comes from the Vredo it is hitched to")
     assertEquals("", assertNotNull(methys.fillUnits?.fillUnit?.single()).type)
     // …and here is the caveat that `active` is a positive signal only: this machine applies through
     // its CULTIVATOR work areas, not sprayer ones, so the effect predicate never fires even though
@@ -741,7 +749,9 @@ class VdtModelTest {
     assertTrue(bomech.doubledAmountAvailable)
 
     // It is parked here rather than applying, so the engine never resolved a source material — the
-    // fallback's honest limit, and the reason the field is absent rather than guessed.
+    // fallback's honest limit, and the reason the field is absent rather than guessed. The PF capture
+    // of the same machine mid-application is the counterpart: there it names DIGESTATE and sets
+    // externalSource. Same rig, and the difference is purely whether it has worked yet.
     assertEquals(null, bomech.fillType)
     assertEquals(false, bomech.externalSource)
   }

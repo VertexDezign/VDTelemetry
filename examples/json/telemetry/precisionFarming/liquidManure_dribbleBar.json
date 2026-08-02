@@ -79,9 +79,9 @@
       },
       "fillUnits": {
         "air": {
-          "fillLevelPercentage": 94,
+          "fillLevelPercentage": 83,
           "title": "Luft",
-          "value": 3777,
+          "value": 3336,
           "capacity": 4000,
           "unit": "l"
         },
@@ -90,7 +90,7 @@
           "title": "Diesel",
           "fillLevelPercentage": 99,
           "value": 385,
-          "usage": 103.53,
+          "usage": 93.88,
           "capacity": 390,
           "unit": "l"
         },
@@ -112,7 +112,7 @@
         "min": 0
       },
       "load": {
-        "value": 98.89,
+        "value": 88.47,
         "min": 0,
         "max": 100,
         "unit": "%"
@@ -145,21 +145,21 @@
                 "processing": true,
                 "unit": "m",
                 "shape": [
-                  0.41237,
-                  0.63026,
-                  0.40405,
-                  0.62434,
-                  0.41243,
-                  0.63018
+                  0.40983,
+                  0.59997,
+                  0.40153,
+                  0.60599,
+                  0.40977,
+                  0.59989
                 ],
-                "width": 20.9
+                "width": 20.99
               }
             ],
             "precisionFarming": {
               "auto": true,
               "nitrogen": {
-                "target": 120,
-                "level": 80,
+                "target": 150,
+                "level": 110,
                 "unit": "kg/ha"
               },
               "workAreas": [
@@ -170,78 +170,78 @@
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 150,
+                      "n": 110
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 110,
+                      "n": 70
                     }
                   ]
                 }
@@ -268,13 +268,14 @@
               ]
             },
             "spraying": {
+              "externalSource": true,
               "allowsSpraying": true,
               "active": true,
               "fillType": "DIGESTATE",
               "doubledAmountAvailable": false,
               "title": "Gärreste",
               "category": "FERTILIZER",
-              "nominalUsagePerMin": 3572.09,
+              "nominalUsagePerMin": 2955.58,
               "kind": "SLURRY_TANKER",
               "sprayType": "DIGESTATE",
               "doubledAmount": false
@@ -328,7 +329,7 @@
           "doubledAmountAvailable": false,
           "title": "Gärreste",
           "category": "FERTILIZER",
-          "nominalUsagePerMin": 5098.73,
+          "nominalUsagePerMin": 4225.99,
           "kind": "SLURRY_TANKER",
           "sprayType": "DIGESTATE",
           "doubledAmount": false
@@ -338,8 +339,8 @@
             {
               "type": "DIGESTATE",
               "title": "Gärreste",
-              "fillLevelPercentage": 72,
-              "value": 14422.223,
+              "fillLevelPercentage": 74,
+              "value": 14804.42,
               "capacity": 20000,
               "unit": "l"
             }
@@ -374,7 +375,7 @@
     ],
     "gps": {
       "enabled": false,
-      "heading": 215,
+      "heading": 143,
       "linesVisible": true,
       "active": false,
       "headingUnit": "°"
@@ -388,7 +389,7 @@
       "title": "Case IH"
     },
     "speed": {
-      "value": 12.62,
+      "value": 10.44,
       "direction": "FORWARD",
       "unit": "km/h"
     },
@@ -397,7 +398,7 @@
       "targetSpeed": 53
     },
     "operatingTime": {
-      "value": "0.43",
+      "value": "0.36",
       "unit": "h"
     },
     "wearable": {
@@ -418,14 +419,14 @@
         "unit": "°C"
       }
     },
-    "time": "14:16",
+    "time": "13:53",
     "pda": {
       "height": 2048,
       "player": {
-        "heading": 215,
-        "posX": 0.40475837886333,
+        "heading": 143,
+        "posX": 0.40915066003799,
         "farmId": 1,
-        "posZ": 0.63206766545773,
+        "posZ": 0.60772854834795,
         "headingUnit": "°"
       },
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",

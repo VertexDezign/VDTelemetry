@@ -390,9 +390,16 @@ aspects depend on PF — including the five-way `kind` split, which is only *mod
 And it shows the fallback's honest limit: the Bomech is parked rather than applying there, so the
 engine never resolved a source material and `fillType` is **absent** rather than guessed.
 
-Still wanted, not blocking: **one more capture of either slurry rig while applying**, to record
-`externalSource` — the flag postdates the retake, so the committed captures show the fill-type
-fallback but not the flag. Its logic is unit-tested; this would only close the loop on real data.
+### `externalSource` closed on real data
+
+Both slurry rigs were captured a third time, and the Bomech and the Methys now carry
+`externalSource: true` alongside a named material and an empty tank of their own. The vanilla capture
+of the *same* Bomech, parked, has neither — so the pair is the whole contract in two files: one rig,
+and the only difference is whether it has worked yet.
+
+That leaves the mod side with nothing outstanding. Every field of every round-1 aspect has now been
+seen on a real machine except the base-game `doubledAmount` toggle in the *engaged* state on a
+fertilizer sprayer, which cannot exist (the base game does not offer the control there).
 
 ## Sequencing
 

@@ -9,8 +9,8 @@
         {
           "type": "LIQUIDMANURE",
           "title": "Gülle",
-          "fillLevelPercentage": 98,
-          "value": 21552.435,
+          "fillLevelPercentage": 99,
+          "value": 21742.083,
           "capacity": 22000,
           "unit": "l"
         }
@@ -36,21 +36,21 @@
             "processing": true,
             "unit": "m",
             "shape": [
-              0.41446,
-              0.60655,
-              0.41072,
-              0.61105,
-              0.414,
-              0.60618
+              0.39925,
+              0.60197,
+              0.39363,
+              0.60365,
+              0.39908,
+              0.6014
             ],
-            "width": 11.98
+            "width": 12
           }
         ],
         "precisionFarming": {
           "auto": true,
           "nitrogen": {
             "target": 110,
-            "level": 70,
+            "level": 80,
             "unit": "kg/ha"
           },
           "workAreas": [
@@ -58,14 +58,14 @@
               "index": 1,
               "subSections": [
                 {
-                  "valid": false,
+                  "valid": true,
                   "ph": 4.5,
                   "phTarget": 4.5,
-                  "nTarget": 110,
-                  "n": 70
+                  "nTarget": 150,
+                  "n": 110
                 },
                 {
-                  "valid": false,
+                  "valid": true,
                   "ph": 4.5,
                   "phTarget": 4.5,
                   "nTarget": 110,
@@ -112,13 +112,14 @@
         "type": "pdlc_skyAgriculturePack.fertilizingCultivatorWorkEffects",
         "foldable": "EXTENDED",
         "spraying": {
+          "externalSource": true,
           "allowsSpraying": true,
           "active": false,
           "fillType": "LIQUIDMANURE",
           "doubledAmountAvailable": false,
           "title": "Gülle",
           "category": "FERTILIZER",
-          "nominalUsagePerMin": 2830.75,
+          "nominalUsagePerMin": 2042.58,
           "kind": "SLURRY_TANKER",
           "sprayType": "LIQUIDMANURE",
           "doubledAmount": false
@@ -162,7 +163,7 @@
       }
     ],
     "speed": {
-      "value": 14.14,
+      "value": 13.59,
       "direction": "FORWARD",
       "unit": "km/h"
     },
@@ -171,7 +172,7 @@
       "targetSpeed": 42
     },
     "operatingTime": {
-      "value": "0.29",
+      "value": "0.26",
       "unit": "h"
     },
     "isTurnedOn": true,
@@ -190,7 +191,7 @@
     },
     "gps": {
       "enabled": false,
-      "heading": 129,
+      "heading": 163,
       "linesVisible": true,
       "active": false,
       "headingUnit": "°"
@@ -216,8 +217,8 @@
           "type": "diesel",
           "title": "Diesel",
           "fillLevelPercentage": 100,
-          "value": 861,
-          "usage": 252.2,
+          "value": 862,
+          "usage": 247.57,
           "capacity": 865,
           "unit": "l"
         }
@@ -232,13 +233,13 @@
         "min": 0
       },
       "load": {
-        "value": 97.26,
+        "value": 95.24,
         "min": 0,
         "max": 100,
         "unit": "%"
       },
       "temperatur": {
-        "value": 93,
+        "value": 89,
         "min": 20,
         "max": 120,
         "unit": "°C"
@@ -295,14 +296,14 @@
         "unit": "°C"
       }
     },
-    "time": "14:10",
+    "time": "14:00",
     "pda": {
       "height": 2048,
       "player": {
-        "heading": 129,
-        "posX": 0.41561679542065,
+        "heading": 163,
+        "posX": 0.39755572378635,
         "farmId": 1,
-        "posZ": 0.61127402633429,
+        "posZ": 0.60655351728201,
         "headingUnit": "°"
       },
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",
