@@ -790,7 +790,7 @@ private const val OVERLAY_CULL_MARGIN = 80f
 private val trailClock = TimeSource.Monotonic.markNow()
 
 /**
- * The live trail's fill. Matches the coverage legend's colour at the alpha [MapLayerRenderer] gives
+ * The live trail's fill. Matches the coverage legend's colour at the alpha the server's renderer gives
  * every ground layer, so the strip this dashboard draws and the strip the server has already recorded
  * are the same green — which is what makes the seam between them invisible.
  */

@@ -25,7 +25,7 @@ a section strip and a few big numbers. This plan gets there in that order.
   §5 on 2026-08-02. The coverage raster is decided to live **server-side**, not in the mod — see §5.
 - §6 (3D) stays a maybe, and the plan says why 2D course-up gets most of the way there.
 
-**Status (2026-07-31, branch `43-gps-course`):**
+**Status (2026-08-02, branch `43-gps-course`):**
 
 - §2 — **done.** The `MapProjection` refactor and the navigation strip landed first (commit
   `c106372`, confirmed in the app); the lightbar and progress readout followed once §1 supplied their
@@ -39,10 +39,12 @@ a section strip and a few big numbers. This plan gets there in that order.
   export version is now **8**. See §4's "How it landed" and the checks under it. The boom also went
   onto the bottom of the map on 2026-08-02 (app-only, no export change) — see "The section strip on
   the map".
-- §5 (coverage) — **built 2026-08-02, not yet driven.** Server-side, and from §4's work-area
-  footprints rather than the position+heading+width the plan first assumed; no mod change at all.
-  See §5's "How it landed" and the checks under it.
-- §6 (3D) — still a maybe, still deferred for the reason given there.
+- §5 (coverage) — **built and driven 2026-08-02.** Server-side, and from §4's work-area footprints
+  rather than the position+heading+width the plan first assumed; no mod change at all. Driving it
+  turned up two things, both fixed: a metre-wide miss between two mowers read as worked (the fill was
+  conservative, not just coarse), and the live trail composited over the raster into a darker band
+  behind the machine. See §5's "How it landed" and "Driving it".
+- §6 (3D) — **moved out of #43 into its own issue** (2026-08-02). The reasoning stays in §6.
 
 **In-game results (2026-07-31/2026-08-01, user):** the course draws and clears correctly, the worked
 shading follows the game, the deviation sign reads the right way round, and the channel's cadence is
@@ -713,15 +715,26 @@ Everything is unit-tested against constructed footprints, which says nothing abo
 7. **Memory on the display device.** A 2048² mask is a 2048×2048 bitmap in the browser — fine on a
    desktop, worth a look on whatever the terminal actually runs on.
 
-## §6 — 3D (issue bullet 3's question mark) — deferred, with a reason
+## §6 — 3D (issue bullet 3's question mark) — *moved out of #43, tracked separately*
+
+**Decision 2026-08-02 (user): 3D leaves this issue and gets its own.** Everything else in #43 is
+built and driven; 3D is a rework of every overlay rather than a step in the same direction, and
+holding the issue open for a maybe is what would keep it open.
+
+The analysis stays here because it is why the rest of the plan looks the way it does:
 
 A tilted plane is reachable in Compose (`graphicsLayer { rotationX; cameraDistance }`), but every
-overlay — field labels, POI dots, vehicle arrows, the course itself — would have to go through the
-same perspective projection or it visibly detaches from the map, and text rasterizes badly inside a
-tilted layer. §2's `MapProjection` is the thing that would make it tractable later.
+overlay — field labels, POI dots, vehicle arrows, the course, the coverage raster and its live trail —
+would have to go through the same perspective projection or it visibly detaches from the map, and text
+rasterizes badly inside a tilted layer. §2's `MapProjection` is the thing that would make it tractable:
+it is already the single place every overlay is projected through, which is exactly the seam a
+perspective transform would go behind.
 
-My read: course-up (§3) delivers most of what the reference photos communicate. Revisit 3D after
-§3 is on screen and judge it then, rather than committing now.
+My read is unchanged and is now backed by having driven it: **course-up (§3) delivers most of what the
+reference photos communicate.** The tilt is the part of those photos that reads as "3D"; the part that
+reads as *guidance* is the map turning with the machine, the lightbar and coverage painted behind —
+all of which are on screen. Worth judging a tilt against that, rather than against a flat north-up map
+it no longer has to beat.
 
 ## Risks and in-game checks
 
