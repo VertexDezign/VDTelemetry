@@ -663,10 +663,30 @@ part a driver is watching, was always the missing one.
 
 So the app now draws that strip itself. `WorkSweep` moved into `shared`, and the app runs the same
 sweep over the telemetry it is already receiving, filling the polygons straight onto the map in the
-raster's own colour and holding them ~6 s until the published mask has caught up. The two overlap on
-purpose: same green, same ground, invisible seam. It is fed only while the coverage layer is the one
-on screen, and cleared when it is deselected or reset — the local trail is coverage too, and leaving
-it would redraw a pass the driver just wiped.
+raster's own colour. It is fed only while the coverage layer is the one on screen, and cleared when it
+is deselected or reset — the local trail is coverage too, and leaving it would redraw a pass the driver
+just wiped.
+
+**The overlap between the two was a mistake, and it showed.** The first version deliberately let the
+trail and the raster cover the same ground, on the reasoning that the same green over the same ground
+is invisible. It is not: both are drawn translucent, so 0.6 over 0.6 composites to 0.84 — a distinctly
+darker band trailing the machine at a fixed distance and fading as the trail expired. ("Looks like a
+meteor", from the seat.)
+
+The fix is a handover rather than an overlap. When a newly published raster reaches the screen, the
+trail drops everything swept before that raster's fetch began — so the trail is exactly the part the
+raster does not have, and the two meet with neither a seam nor a double coat. The cutoff is taken when
+the fetch starts, not when it lands, because ground worked *during* the fetch is not in those bytes.
+It is a hair conservative: ground swept between the server taking its snapshot and this dashboard
+hearing about it is dropped without being in the raster. That window is shorter than a telemetry tick
+and the next raster covers it — a gap that thin for one publish interval beats a permanent dark band.
+The hold timer stays as the backstop for when the handover never comes (a failed fetch), so the trail
+thins out instead of growing without bound.
+
+The same class of bug lives *inside* the trail, and is fixed the same way: a translucent fill per
+polygon shows every seam between them, since consecutive sweeps abut exactly and two anti-aliased
+edges on the same line each cover the boundary pixels partly. The whole trail is now one path, filled
+once.
 
 ### In-game checks §5 needs
 
@@ -676,9 +696,11 @@ Everything is unit-tested against constructed footprints, which says nothing abo
 
 1. **A deliberate miss stays a miss.** The mower case again, now that centre sampling is in: leave a
    metre and check the strip is still on the map afterwards. This is the one that was wrong.
-2. **The live trail meets the raster cleanly.** Watch the seam behind the machine as a published
-   version lands: there should be no flicker, no double-drawn darker band, and no gap opening up if a
-   fetch is slow.
+2. **The live trail meets the raster cleanly.** The darker band is fixed by handing ground over rather
+   than overlapping, so what to watch for now is the opposite failure: a thin unworked line appearing
+   at the handover distance behind the machine, which would mean the cutoff is too aggressive. Also
+   worth one look at low speed and at full speed, since the window it can lose is a fixed time rather
+   than a fixed distance.
 3. **The tedder case**, which is the whole point: work with a tool that leaves no trace in any of the
    mod's planes, and check the coverage layer records it anyway.
 4. **Gaps at speed.** Drive a long pass at full speed and look for stripes — that is the bridge not

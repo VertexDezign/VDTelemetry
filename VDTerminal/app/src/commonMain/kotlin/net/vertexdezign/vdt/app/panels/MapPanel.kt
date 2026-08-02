@@ -391,9 +391,14 @@ fun MapPanel(
     // in-flight fetch can therefore resume in between and would otherwise file the bitmap it just
     // decoded under whatever layer is selected by then.
     val requestedLayer = groundLayer
+    // The version being fetched was announced before this ran, so the server's mask already holds
+    // everything the live trail has swept up to now. Noted here rather than on arrival: the ground
+    // worked *during* the fetch is not in these bytes and stays the trail's to draw.
+    val sweptIntoRaster = trailClock.elapsedNow().inWholeMilliseconds
     layerImageCache?.let { (cachedKey, cachedBitmap) ->
       if (cachedKey == layerKey) {
         layerBitmap = requestedLayer to cachedBitmap
+        if (requestedLayer == COVERAGE_LAYER_ID) coverageTrail.settle(sweptIntoRaster)
         return@LaunchedEffect
       }
     }
@@ -417,6 +422,9 @@ fun MapPanel(
       outcome.onSuccess {
         layerImageCache = layerKey to it
         layerBitmap = requestedLayer to it
+        // This raster is now what draws that stretch of ground; the trail stops drawing it a second
+        // time on top, which is what keeps the two from compositing into a darker band.
+        if (requestedLayer == COVERAGE_LAYER_ID) coverageTrail.settle(sweptIntoRaster)
         return@LaunchedEffect
       }
       val error = outcome.exceptionOrNull()
@@ -789,14 +797,23 @@ private val trailClock = TimeSource.Monotonic.markNow()
 private val COVERAGE_TINT = VdtColors.Green.copy(alpha = 0.6f)
 
 /**
- * The last few seconds of worked ground, drawn ahead of the published raster.
+ * The worked ground the published raster does not have yet, drawn ahead of it.
  *
  * Filled, not stroked, and in the raster's own colour: this is not a separate thing being shown, it is
- * the same layer arriving sooner. See [CoverageTrail].
+ * the same layer arriving sooner. See [CoverageTrail] for why it never overlaps the raster — where it
+ * did, the two translucent greens composited into a visibly darker band.
+ *
+ * **One path for the whole trail, filled once.** A fill per polygon shows every seam between them:
+ * consecutive sweeps abut exactly, and two anti-aliased edges meeting on the same line each cover the
+ * boundary pixels partly, so the pass comes out finely striped. Merged into one path they are a single
+ * region with no interior edges, filled at one alpha however long the trail is.
  */
 @Composable
 private fun BoxScope.CoverageTrailOverlay(areas: List<SweptArea>, projection: MapProjection) {
   val density = LocalDensity.current
+  // Rebuilt when the trail changes, not on every pan, zoom or heading step: the path is in normalized
+  // space and the transform below does the rest.
+  val path = remember(areas) { sweptPath(areas) }
   Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
     val factor = projection.factor
     withTransform({
@@ -804,16 +821,18 @@ private fun BoxScope.CoverageTrailOverlay(areas: List<SweptArea>, projection: Ma
       translate(projection.offset.x, projection.offset.y)
       scale(factor, factor, pivot = Offset.Zero)
     }) {
-      for (area in areas) drawPath(sweptPath(area), COVERAGE_TINT)
+      drawPath(path, COVERAGE_TINT)
     }
   }
 }
 
-/** A swept polygon as a closed path, in the normalized space every overlay is drawn in. */
-private fun sweptPath(area: SweptArea): Path = Path().apply {
-  moveTo(area.xs[0], area.zs[0])
-  for (i in 1 until area.xs.size) lineTo(area.xs[i], area.zs[i])
-  close()
+/** The whole trail as one path, in the normalized space every overlay is drawn in. */
+private fun sweptPath(areas: List<SweptArea>): Path = Path().apply {
+  for (area in areas) {
+    moveTo(area.xs[0], area.zs[0])
+    for (i in 1 until area.xs.size) lineTo(area.xs[i], area.zs[i])
+    close()
+  }
 }
 
 /**
