@@ -136,12 +136,12 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    which is the way the machine is actually travelling and reads STOPPED below walking pace.
 -- 7: `gps.course` — the live half of the steering course (which line, how far off it, how far to its
 --    end, which lines are worked). The geometry it indexes into is its own gpsCourse.json channel.
---    See gps-course-plan.md §1.
+--    See issue #43.
 -- 8: the section view — `workWidth.sections` (the shutoff bar, the base game's only section control),
 --    `workAreas` (what each part of the tool is doing, plus its footprint in map coordinates) and
 --    `precisionFarming` (application rates per boom sub-section where PF keeps them, plus the live
 --    per-nozzle spray states, which are the only per-position signal that survives multiplayer).
---    See gps-course-plan.md §4.
+--    See issue #43.
 VDTelemetry.VERSION = 8
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3

@@ -7,7 +7,7 @@
 --   * work width -- the live width of a tool with foldable/retractable sections, which changes as
 --                   sections are switched off, so it is not a static spec value. It carries the
 --                   individual sections too: the on/off shutoff bar, which is the base game's only
---                   answer to "section control" (see gps-course-plan.md §4).
+--                   answer to "section control" (see issue #43).
 
 VDT = VDT or {}
 VDT.Work = {}

@@ -145,7 +145,7 @@ function VDT.PrecisionFarming.isUnreachable()
 end
 
 -- ---------------------------------------------------------------------------
--- Application rates on the tool (the section view -- gps-course-plan.md §4)
+-- Application rates on the tool (the section view -- issue #43)
 -- ---------------------------------------------------------------------------
 
 -- PF's ExtendedSprayer spec, under the key it builds for itself:
