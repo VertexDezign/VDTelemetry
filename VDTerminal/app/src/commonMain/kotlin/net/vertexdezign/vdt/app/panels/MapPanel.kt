@@ -135,6 +135,7 @@ import org.jetbrains.skia.Image
 import kotlin.math.hypot
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import kotlin.time.TimeSource
 
 private const val MIN_ZOOM = 0.25f
@@ -150,7 +151,11 @@ private val FIELD_TAP_RADIUS_DP = 20.dp
 // Persistence names, scoped per placed tile by WidgetSettings — two maps on one page each keep their
 // own zoom, filters and ground layer. Each is read and written in separate places, so name them once.
 
-/** The game's own field-contract circle is 50 m across the world; ours matches so the two agree. */
+/**
+ * The ground a contract marker covers, in metres — the game's own field-contract circle is 50 m
+ * (`AbstractFieldMissionHotspot`), and this is the knob for how big the marker reads: the drawn
+ * radius is this, converted through the map's own scale and then damped by √zoom.
+ */
 private const val MISSION_MARKER_RADIUS_M = 50f
 
 private const val KEY_ZOOM = "zoom"
@@ -1288,13 +1293,18 @@ private fun BoxScope.MapDataOverlay(
     // -- but this circle is sized in world meters and grows without bound as you zoom in, and a
     // delivery run is a line between two points that need not both be on screen. A Compose Canvas
     // does not clip to its own bounds, so unclipped either one paints over the page around the map.
+    // Sized off the ground it covers, so it reacts to the zoom the way the game's own marker does.
+    // `factor` is already side * scale -- multiplying by it *and* by side is what pinned this at its
+    // cap at every zoom, which is the bug that made the circle look like a fixed-size overlay.
+    //
+    // The growth is damped by √zoom rather than left linear: linear is faithful to a 50 m circle but
+    // reaches ~40% of the map at 16x, so it would spend the top third of the zoom range pinned at a
+    // cap and stop reacting again. √ keeps it a marker across the whole 0.25x-16x range.
     val terrainSize = mapData?.terrainSize ?: 0f
     val worldRadiusPx =
       if (terrainSize > 0f) {
-        // Capped as well as floored: past a quarter of the map the circle stops being a marker and
-        // starts being a wash over everything else on it.
-        (MISSION_MARKER_RADIUS_M / terrainSize * projection.side * factor)
-          .coerceIn(5.dp.toPx(), projection.side * 0.25f)
+        (MISSION_MARKER_RADIUS_M / terrainSize * projection.side * sqrt(scale))
+          .coerceIn(6.dp.toPx(), 72.dp.toPx())
       } else {
         7.dp.toPx()
       }
