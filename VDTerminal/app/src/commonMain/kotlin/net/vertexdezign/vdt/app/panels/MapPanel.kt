@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -1281,54 +1282,69 @@ private fun BoxScope.MapDataOverlay(
     // grows with the zoom like the game's own (AbstractFieldMissionHotspot uses a 50 m radius).
     // Above the POIs so a contract on a farmyard is not buried by one, below the vehicles, which are
     // the live thing on the map.
+    //
+    // CLIPPED, unlike everything else on this canvas. The rest of the overlay gets away with culling
+    // alone because every one of its markers is a few dp across, so a cull margin covers the overhang
+    // -- but this circle is sized in world meters and grows without bound as you zoom in, and a
+    // delivery run is a line between two points that need not both be on screen. A Compose Canvas
+    // does not clip to its own bounds, so unclipped either one paints over the page around the map.
     val terrainSize = mapData?.terrainSize ?: 0f
     val worldRadiusPx =
       if (terrainSize > 0f) {
-        (MISSION_MARKER_RADIUS_M / terrainSize * projection.side * factor).coerceAtLeast(5.dp.toPx())
+        // Capped as well as floored: past a quarter of the map the circle stops being a marker and
+        // starts being a wash over everything else on it.
+        (MISSION_MARKER_RADIUS_M / terrainSize * projection.side * factor)
+          .coerceIn(5.dp.toPx(), projection.side * 0.25f)
       } else {
         7.dp.toPx()
       }
 
-    for (mission in accepted) {
-      val x = mission.posX ?: continue
-      val z = mission.posZ ?: continue
-      val pos = toScreen(x, z)
-      val station = mission.sellingStation?.takeIf { it.hasPosition }
-      val stationPos = station?.let { toScreen(it.posX ?: 0f, it.posZ ?: 0f) }
-      // Culled on the pair: a contract whose field is off-canvas may still be delivering to a
-      // station that is on it, and that line is the whole point of drawing the station.
-      if (!onCanvas(pos) && (stationPos == null || !onCanvas(stationPos))) continue
-      val tint = missionColor(mission)
+    clipRect {
+      for (mission in accepted) {
+        val x = mission.posX ?: continue
+        val z = mission.posZ ?: continue
+        val pos = toScreen(x, z)
+        val station = mission.sellingStation?.takeIf { it.hasPosition }
+        val stationPos = station?.let { toScreen(it.posX ?: 0f, it.posZ ?: 0f) }
 
-      // Where the load goes, and the run between the two. Drawn under the marker so the circle stays
-      // readable on top of it.
-      if (stationPos != null) {
-        drawLine(tint.copy(alpha = 0.35f * blink), pos, stationPos, strokeWidth = 1.5.dp.toPx())
-        val half = 4.dp.toPx()
-        drawRect(tint, topLeft = stationPos - Offset(half, half), size = Size(half * 2, half * 2))
-        drawRect(
-          VdtColors.White,
-          topLeft = stationPos - Offset(half, half),
-          size = Size(half * 2, half * 2),
-          style = Stroke(width = 1.5.dp.toPx()),
-        )
-        if (scale >= DETAIL_ZOOM && station.name.isNotBlank()) {
-          drawCenteredText(textMeasurer, station.name, stationPos + Offset(0f, 14.dp.toPx()), detailStyle)
+        // Where the load goes, and the run between the two. Drawn under the marker so the circle
+        // stays readable on top of it, and kept when either end is on screen: a contract whose field
+        // is off-canvas may still be delivering to a station that is on it.
+        if (stationPos != null && (onCanvas(pos) || onCanvas(stationPos))) {
+          val tint = missionColor(mission)
+          drawLine(tint.copy(alpha = 0.35f * blink), pos, stationPos, strokeWidth = 1.5.dp.toPx())
+          if (onCanvas(stationPos)) {
+            val half = 4.dp.toPx()
+            drawRect(tint, topLeft = stationPos - Offset(half, half), size = Size(half * 2, half * 2))
+            drawRect(
+              VdtColors.White,
+              topLeft = stationPos - Offset(half, half),
+              size = Size(half * 2, half * 2),
+              style = Stroke(width = 1.5.dp.toPx()),
+            )
+            if (scale >= DETAIL_ZOOM && station.name.isNotBlank()) {
+              drawCenteredText(textMeasurer, station.name, stationPos + Offset(0f, 14.dp.toPx()), detailStyle)
+            }
+          }
         }
-      }
 
-      drawCircle(tint.copy(alpha = 0.18f * blink), radius = worldRadiusPx, center = pos)
-      drawCircle(
-        tint.copy(alpha = blink),
-        radius = worldRadiusPx,
-        center = pos,
-        style = Stroke(width = 2.dp.toPx()),
-      )
-      // A solid centre, so a contract is still findable when the map is zoomed far enough out that
-      // its circle is down to the minimum.
-      drawCircle(tint, radius = 2.5.dp.toPx(), center = pos)
-      if (scale >= DETAIL_ZOOM && mission.title.isNotBlank()) {
-        drawCenteredText(textMeasurer, mission.title, pos + Offset(0f, worldRadiusPx + 8.dp.toPx()), detailStyle)
+        // The circle's own cull has to allow for its radius, or a contract just off screen loses the
+        // arc that should still be reaching onto it.
+        if (!projection.isVisible(pos, worldRadiusPx + OVERLAY_CULL_MARGIN)) continue
+        val tint = missionColor(mission)
+        drawCircle(tint.copy(alpha = 0.18f * blink), radius = worldRadiusPx, center = pos)
+        drawCircle(
+          tint.copy(alpha = blink),
+          radius = worldRadiusPx,
+          center = pos,
+          style = Stroke(width = 2.dp.toPx()),
+        )
+        // A solid centre, so a contract is still findable when the map is zoomed far enough out that
+        // its circle is down to the minimum.
+        drawCircle(tint, radius = 2.5.dp.toPx(), center = pos)
+        if (scale >= DETAIL_ZOOM && mission.title.isNotBlank() && onCanvas(pos)) {
+          drawCenteredText(textMeasurer, mission.title, pos + Offset(0f, worldRadiusPx + 8.dp.toPx()), detailStyle)
+        }
       }
     }
 
