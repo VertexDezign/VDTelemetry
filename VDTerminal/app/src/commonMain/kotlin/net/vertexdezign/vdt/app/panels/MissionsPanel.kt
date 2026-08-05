@@ -1,0 +1,449 @@
+package net.vertexdezign.vdt.app.panels
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.app.components.Centered
+import net.vertexdezign.vdt.app.components.ConfirmDialog
+import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.Mission
+import net.vertexdezign.vdt.model.MissionDetail
+import net.vertexdezign.vdt.model.MissionFinishState
+import net.vertexdezign.vdt.model.MissionsData
+import kotlin.math.roundToInt
+
+/**
+ * The Missions app full page: a master/detail over the [MissionsData] channel, split the way the
+ * game's own contracts screen is — what is on offer above, what this farm has taken on below.
+ * Selecting a contract shows its terms, the game's own detail rows, and the actions this player is
+ * allowed: accept (with or without leased equipment), give up, collect.
+ *
+ * A null [data] means the channel is absent (export off / no data yet), which is distinct from a farm
+ * with no contracts on offer — the two say different things and get different empty states.
+ *
+ * Nothing here knows what a harvest mission is. The rows come from the mod as the game formatted
+ * them, and what the panel decides for itself is keyed off [Mission.status] and the presence of a
+ * field id, never off [Mission.type] — mods register their own mission types.
+ */
+@Composable
+fun MissionsPanel(
+  data: MissionsData?,
+  modifier: Modifier = Modifier,
+  selectedId: Int? = null,
+  onSelect: (Int) -> Unit = {},
+  onCommand: (ClientMessage) -> Unit = {},
+) {
+  var pendingCancel by remember { mutableStateOf<Mission?>(null) }
+
+  Panel(title = "Contracts", icon = Icons.AutoMirrored.Filled.Assignment, modifier = modifier) {
+    when {
+      data == null -> Centered("Waiting for contract data…")
+
+      data.missions.isEmpty() -> Centered("No contracts on offer")
+
+      else -> {
+        // The caller may drive the selection (the map does); otherwise the panel keeps its own.
+        var ownSelection by remember { mutableStateOf<Int?>(null) }
+        val ids = data.missions.map { it.id }
+        val currentId = (selectedId ?: ownSelection)?.takeIf { it in ids } ?: ids.first()
+        val current = data.missions.first { it.id == currentId }
+
+        Row(Modifier.fillMaxSize()) {
+          MissionList(
+            data = data,
+            currentId = currentId,
+            onSelect = {
+              ownSelection = it
+              onSelect(it)
+            },
+          )
+          Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
+          Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
+            MissionDetailView(
+              mission = current,
+              canManage = data.canManage,
+              limitReached = data.limit?.isReached == true,
+              onAccept = { lease -> onCommand(ClientMessage.AcceptMission(current.id, lease)) },
+              onCollect = { onCommand(ClientMessage.DismissMission(current.id)) },
+              onCancel = { pendingCancel = current },
+            )
+          }
+        }
+      }
+    }
+
+    // Giving up a contract forfeits it, which is why the game asks too.
+    pendingCancel?.let { mission ->
+      ConfirmDialog(
+        title = "Give up contract?",
+        message = "\"${mission.title}\" ${mission.location} will be cancelled and pays nothing.",
+        confirmLabel = "Give up",
+        onConfirm = {
+          onCommand(ClientMessage.CancelMission(mission.id))
+          pendingCancel = null
+        },
+        onDismiss = { pendingCancel = null },
+      )
+    }
+  }
+}
+
+@Composable
+private fun MissionList(data: MissionsData, currentId: Int, onSelect: (Int) -> Unit) {
+  // The game's own two sections: on offer, and everything this farm has taken on (running or done).
+  val offered = data.missions.filter { it.isOffered }
+  val taken = data.missions.filterNot { it.isOffered }
+
+  Column(
+    Modifier.width(250.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 10.dp),
+    verticalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    val limit = data.limit
+    if (limit != null) {
+      Text(
+        "${limit.active} / ${limit.max} ACTIVE",
+        color = if (limit.isReached) VdtColors.Amber else VdtColors.Gray,
+        fontSize = 9.sp,
+        fontWeight = FontWeight.Bold,
+      )
+    }
+    if (taken.isNotEmpty()) {
+      ListLabel("Yours")
+      taken.forEach { MissionRow(it, it.id == currentId) { onSelect(it.id) } }
+    }
+    if (offered.isNotEmpty()) {
+      ListLabel("On offer")
+      offered.forEach { MissionRow(it, it.id == currentId) { onSelect(it.id) } }
+    }
+  }
+}
+
+@Composable
+private fun ListLabel(text: String) {
+  Text(
+    text.uppercase(),
+    color = VdtColors.Gray,
+    fontSize = 9.sp,
+    fontWeight = FontWeight.Bold,
+    modifier = Modifier.padding(top = 4.dp),
+  )
+}
+
+@Composable
+private fun MissionRow(mission: Mission, selected: Boolean, onClick: () -> Unit) {
+  val bg = if (selected) VdtColors.Green else VdtColors.TrackGray
+  val fg = if (selected) VdtColors.White else VdtColors.TextDark
+  val subFg = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.Gray
+
+  Column(
+    Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(4.dp))
+      .background(bg)
+      .clickable(onClick = onClick)
+      .padding(horizontal = 10.dp, vertical = 8.dp),
+  ) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+      Text(
+        mission.title,
+        color = fg,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f, fill = false),
+      )
+      // A finished contract shows what it pays out, not what it was advertised at.
+      Text(
+        money(mission.totalReward ?: mission.reward),
+        color = if (selected) VdtColors.White else VdtColors.DarkGray,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+      )
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+      Text(
+        mission.location.ifEmpty { mission.type },
+        color = subFg,
+        fontSize = 10.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f, fill = false),
+      )
+      Text(statusLine(mission), color = statusColor(mission, selected), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+  }
+}
+
+@Composable
+private fun MissionDetailView(
+  mission: Mission,
+  canManage: Boolean,
+  limitReached: Boolean,
+  onAccept: (Boolean) -> Unit,
+  onCollect: () -> Unit,
+  onCancel: () -> Unit,
+) {
+  Column(
+    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+    verticalArrangement = Arrangement.spacedBy(10.dp),
+  ) {
+    Text(mission.title, color = VdtColors.TextDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    mission.npc?.let { npc ->
+      Text("${npc.name} · ${mission.location}", color = VdtColors.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+    if (mission.description.isNotEmpty()) {
+      Text(mission.description, color = VdtColors.DarkGray, fontSize = 11.sp)
+    }
+
+    mission.completion?.let { completion ->
+      ProgressBar(
+        fraction = completion,
+        leftLabel = mission.extraProgress.ifEmpty { "Progress" },
+        rightLabel = "${(completion * 100).roundToInt()}%",
+      )
+    }
+
+    // The reward line says both numbers when they differ, because they answer different questions:
+    // what the contract offered, and what collecting it actually pays after costs.
+    KeyValue("Reward", money(mission.reward))
+    mission.totalReward?.takeIf { it != mission.reward }?.let { KeyValue("Payout", money(it)) }
+    mission.minutesLeft?.let { KeyValue("Time left", formatMinutes(it)) }
+    if (mission.leasable) {
+      KeyValue("Lease equipment", mission.vehicleCosts?.let { money(it) } ?: "available")
+    }
+
+    // The game's own rows, rendered as given.
+    mission.details.forEach { DetailRow(it) }
+
+    MissionActions(
+      mission = mission,
+      canManage = canManage,
+      limitReached = limitReached,
+      onAccept = onAccept,
+      onCollect = onCollect,
+      onCancel = onCancel,
+    )
+  }
+}
+
+@Composable
+private fun MissionActions(
+  mission: Mission,
+  canManage: Boolean,
+  limitReached: Boolean,
+  onAccept: (Boolean) -> Unit,
+  onCollect: () -> Unit,
+  onCancel: () -> Unit,
+) {
+  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    if (!canManage) {
+      // Saying why beats three dead buttons: the right is granted per farmhand in the game's own menu.
+      Text(
+        "You may not manage this farm's contracts",
+        color = VdtColors.Gray,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+      )
+      return@Column
+    }
+
+    Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      when {
+        mission.isOffered -> {
+          // At the cap the engine refuses the accept, so the button says so instead of firing.
+          ActionButton("Accept", VdtColors.Green, enabled = !limitReached) { onAccept(false) }
+          if (mission.leasable) {
+            ActionButton("With equipment", VdtColors.ProgressBlue, enabled = !limitReached) { onAccept(true) }
+          }
+        }
+
+        mission.isActive -> ActionButton("Give up", VdtColors.Red) { onCancel() }
+
+        mission.isFinished -> ActionButton("Collect", VdtColors.Green) { onCollect() }
+      }
+    }
+    if (mission.isOffered && limitReached) {
+      Text("This farm is already running its maximum contracts", color = VdtColors.Amber, fontSize = 10.sp)
+    }
+  }
+}
+
+@Composable
+private fun ActionButton(label: String, color: Color, enabled: Boolean = true, onClick: () -> Unit) {
+  val bg = if (enabled) color else VdtColors.TrackGray
+  val fg = if (enabled) VdtColors.White else VdtColors.Gray
+  Box(
+    Modifier
+      .clip(RoundedCornerShape(4.dp))
+      .background(bg)
+      .clickable(enabled = enabled, onClick = onClick)
+      .padding(horizontal = 14.dp, vertical = 8.dp),
+  ) {
+    Text(label.uppercase(), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+  }
+}
+
+@Composable
+private fun DetailRow(detail: MissionDetail) = KeyValue(detail.title, detail.value)
+
+@Composable
+private fun KeyValue(key: String, value: String) {
+  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Text(key, color = VdtColors.Gray, fontSize = 11.sp)
+    Text(
+      value,
+      color = VdtColors.TextDark,
+      fontSize = 11.sp,
+      fontWeight = FontWeight.SemiBold,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f, fill = false).padding(start = 8.dp),
+    )
+  }
+}
+
+/**
+ * The compact tile: what this farm is working on, with progress, and how much is waiting to be taken.
+ * Deliberately not the master/detail page — a tile is glanced at while driving, so it answers "how
+ * are my contracts doing" and leaves taking one on to the app.
+ */
+@Composable
+fun MissionsSummary(data: MissionsData?, modifier: Modifier = Modifier) {
+  Panel(title = "Contracts", icon = Icons.AutoMirrored.Filled.Assignment, modifier = modifier) {
+    val active = data?.missions?.filter { it.isActive }.orEmpty()
+    val finished = data?.missions?.count { it.isFinished } ?: 0
+    val offered = data?.missions?.count { it.isOffered } ?: 0
+
+    when {
+      data == null -> Centered("Waiting for contract data…")
+
+      active.isEmpty() && finished == 0 ->
+        Centered(if (offered > 0) "$offered on offer" else "No contracts")
+
+      else ->
+        Column(
+          Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          active.forEach { mission ->
+            ProgressBar(
+              fraction = mission.completion ?: 0f,
+              leftLabel = mission.location.ifEmpty { mission.title },
+              rightLabel = mission.minutesLeft?.let { formatMinutes(it) } ?: statusLine(mission),
+            )
+          }
+          // Both are calls to action — one pays out now, the other is work available.
+          if (finished > 0) {
+            Text(
+              "$finished READY TO COLLECT",
+              color = VdtColors.Green,
+              fontSize = 10.sp,
+              fontWeight = FontWeight.Bold,
+            )
+          }
+          if (offered > 0) {
+            Text("$offered ON OFFER", color = VdtColors.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+          }
+        }
+    }
+  }
+}
+
+/** The one-line state for a row: how it ended, how far along it is, or how long it is on offer for. */
+internal fun statusLine(mission: Mission): String {
+  // Bound to locals rather than smart-cast: the model is a different module, so the compiler will
+  // not narrow its nullable properties for us.
+  val finish = mission.finishState
+  val completion = mission.completion
+  val minutesLeft = mission.minutesLeft
+  return when {
+    finish != null ->
+      when (finish) {
+        MissionFinishState.SUCCESS -> "Done"
+        MissionFinishState.FAILED -> "Failed"
+        MissionFinishState.TIMED_OUT -> "Timed out"
+        MissionFinishState.CANCELED -> "Cancelled"
+      }
+
+    mission.isFinished -> "Done"
+
+    completion != null && mission.isActive -> "${(completion * 100).roundToInt()}%"
+
+    mission.isActive -> "Preparing"
+
+    minutesLeft != null -> formatMinutes(minutesLeft)
+
+    else -> ""
+  }
+}
+
+internal fun statusColor(mission: Mission, selected: Boolean): Color = when {
+  selected -> VdtColors.White
+
+  mission.finishState == MissionFinishState.SUCCESS -> VdtColors.Green
+
+  mission.finishState != null -> VdtColors.Red
+
+  // Under an hour of game time left is the point at which a contract is worth hurrying for.
+  mission.isOffered && (mission.minutesLeft ?: Int.MAX_VALUE) < 60 -> VdtColors.Amber
+
+  else -> VdtColors.DarkGray
+}
+
+/** In-game minutes as the contract list prints them: days and hours, down to minutes near the end. */
+internal fun formatMinutes(minutes: Int): String {
+  if (minutes <= 0) return "expired"
+  val days = minutes / 1440
+  val hours = (minutes % 1440) / 60
+  return when {
+    days > 0 -> "${days}d ${hours}h"
+    hours > 0 -> "${hours}h"
+    else -> "${minutes}m"
+  }
+}
+
+/** Whole currency units with thousands separators; the mod already rounded away the cents. */
+internal fun money(value: Int): String {
+  val negative = value < 0
+  val digits = (if (negative) -value else value).toString()
+  val sb = StringBuilder()
+  val firstGroup = digits.length % 3
+  if (firstGroup > 0) sb.append(digits, 0, firstGroup)
+  var i = firstGroup
+  while (i < digits.length) {
+    if (sb.isNotEmpty()) sb.append(',')
+    sb.append(digits, i, i + 3)
+    i += 3
+  }
+  return (if (negative) "-" else "") + sb.toString()
+}
