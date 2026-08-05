@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -1322,7 +1323,16 @@ private fun BoxScope.MapDataOverlay(
         // is off-canvas may still be delivering to a station that is on it.
         if (stationPos != null && (onCanvas(pos) || onCanvas(stationPos))) {
           val tint = missionColor(mission)
-          drawLine(tint.copy(alpha = 0.35f * blink), pos, stationPos, strokeWidth = 1.5.dp.toPx())
+          // Dashed, so it reads as a run between two places rather than another field border, and at
+          // a steady alpha: on the blink it bottomed out near 0.1 and all but vanished twice a
+          // second. The pulse belongs to the two ends, which are what you are looking for.
+          drawLine(
+            tint.copy(alpha = 0.65f),
+            pos,
+            stationPos,
+            strokeWidth = 2.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx())),
+          )
           if (onCanvas(stationPos)) {
             // The delivery point blinks like the work does — same language, smaller ring, because it
             // is the other half of one contract rather than a marker of its own. Deliberately
