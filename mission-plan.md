@@ -3,9 +3,9 @@
 Plan for a **Missions** app: the farm's available and running contracts, accepted and managed from the
 terminal, with their locations on the map.
 
-Status: **built on `17-mission-app`, not yet validated in game**. Written 2026-08-05 against `main` @
-`1c51871` (mod `VERSION 9`); see "How it landed" at the end for where the build differed from this
-plan and what is still open.
+Status: **built and validated in game on `17-mission-app`** (2026-08-05) — all four actions work, and
+the model is asserted against a real 27-contract capture. Written against `main` @ `1c51871` (mod
+`VERSION 9`); see "How it landed" at the end for where the build differed from this plan.
 
 Scope for round 1, decided with the user before writing this:
 
@@ -274,19 +274,37 @@ Six places the build differed from the plan above, or found something the plan d
    base class's answer (`AbstractMission.lua:658`); normalizing it would put a marker dead centre of
    the map. Every base-game type overrides it, so this only guards a type that doesn't.
 
-Still open before this is done: **an in-game capture** (`examples/json/missions/`) to assert the
-Kotlin model against real data rather than inline JSON — the working cadence from #58 — and
-**in-game validation**, singleplayer first: accept a contract and watch the status change land,
-accept one with equipment, give one up, collect one.
+### What the capture found (2026-08-05)
+
+`examples/json/missions/missions.json` — 27 contracts, 13 of the 16 base-game types, three of them
+the farm's own, the farm at its cap. **The user confirmed all four actions work in game.** Everything
+decoded on the first run, and three things came out of it:
+
+7. **Forestry and rock contracts carry a farmland id too.** All three point-located types define
+   `getFarmlandId()` (`DeadwoodMission.lua:584`, `TreeTransportMission.lua:601`,
+   `DestructibleRockMission.lua:368`), resolving the farmland under their spot — so "no `fieldId`"
+   does **not** mark them, and the plan's field-missions-only wording was wrong on all three. The
+   real discriminator is **`areaHa`**: only a field mission has a field object to measure.
+8. **A successful contract can pay out negative.** The capture's finished fertilize contract completed
+   at 99.6% and pays **-171**: the leased machines cost more than the contract was worth. `totalReward`
+   is not "the reward minus a bit" and must never render unsigned.
+9. **The game's rows are in the player's currency; ours are raw engine values.** `getVehicleCosts()`
+   returns 960 where the game's own "Mietkosten" row prints €959 — `g_i18n:formatMoney(…, useCurrencyOffset)`
+   applies a conversion. The detail pane was stating the same cost twice with two different numbers,
+   so the panel now prints only what the game's rows don't: the reward while on offer, the payout once
+   done.
 
 ## Open questions
 
-- **Command outcomes have nowhere to go.** The engine answers every action with a state
-  (`MissionStartState` has 8 values, five of which are ordinary refusals a user should see). The
-  channel's next write shows the *result* but never the *reason* a nothing-happened action failed.
-  Options: a `lastCommand` block on the channel (cheap, fits the existing one-way plumbing), or a
-  real mod→app reply channel (bigger, and other controls would use it). Worth deciding before the
-  write side is built.
+- **Command outcomes have nowhere to go — deliberately, for now.** The engine answers every action
+  with a state (`MissionStartState` has 8 values, five of which are ordinary refusals a user should
+  see), and the mod can only log it. The user's call (2026-08-05) was to **skip the reply path** and
+  revisit if it turns out to bite. It is mitigated rather than absent: the app greys the accept
+  button at the farm's cap and hides the buttons without the `manageContracts` right, so the two
+  likeliest refusals are prevented rather than reported, and the channel's next write (event-driven)
+  shows the result within a tick. If it does bite, the options are a `lastCommand` block on the
+  channel (cheap, fits the existing one-way plumbing) or a real mod→app reply channel (bigger, and
+  every other control would use it).
 - **Mission vehicles.** An accepted-with-equipment contract spawns machines at the shop, and
   `mission.vehicles` is on the object. Showing them (and where they are) is a natural round 2.
 - **How much detail belongs on a driving screen.** The panel above is a menu; the widget is the thing
