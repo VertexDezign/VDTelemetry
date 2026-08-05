@@ -30,6 +30,10 @@ data class Vehicle(
   val workWidth: WorkWidth? = null,
   val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
+  val sowing: Sowing? = null,
+  val spraying: Spraying? = null,
+  val plow: Plow? = null,
+  val tillage: Tillage? = null,
   val precisionFarming: PrecisionFarming? = null,
   val implement: List<Implement> = emptyList(),
   val combined: Combined? = null,
@@ -555,6 +559,150 @@ data class BaleCounter(
   val lifetime: Int = 0,
 )
 
+/**
+ * A sowing machine's hopper — which crop is selected, out of the list the machine itself declares.
+ *
+ * The fill unit only ever says SEEDS, so this is the only place the crop appears. [fruitType] is the
+ * crop token (`WHEAT`), [fillType] the fill type it is carried as — which is what joins this to the
+ * matching [FillUnit] — and [title] the localized name to print. **All three are null together**,
+ * when the machine declares no seeds or the crop can't be resolved; the rest of the aspect still
+ * describes the hopper, so an unresolvable crop is a missing name rather than a missing subtree.
+ *
+ * [seedIndex] is 1-based into the machine's own list, so it pairs with [seedCount] as "2 of 3" and
+ * says whether there is a choice at all. Deliberately absent: whether the machine is currently
+ * working — `workAreas` answers that from the engine's own predicate, and the sowing spec's own flag
+ * does not survive on a multiplayer client.
+ */
+@Serializable
+data class Sowing(
+  val seedIndex: Int = 0,
+  val seedCount: Int = 0,
+  /** False while something else holds the hopper (a mission locking the crop). */
+  val changeAllowed: Boolean = true,
+  /** Sows straight into stubble — no seedbed needed. */
+  val directPlanting: Boolean = false,
+  /** Seed consumption multiplier; absent at the engine default of 1. */
+  val usageScale: Float? = null,
+  val fruitType: String? = null,
+  val fillType: String? = null,
+  val title: String? = null,
+)
+
+/**
+ * Anything that puts material on the ground: liquid sprayers, **solid fertilizer and lime spreaders**,
+ * slurry tankers and manure spreaders. The game has no separate spreader specialization — a disc
+ * spreader is a `Sprayer` as far as the engine is concerned — so they all arrive here.
+ *
+ * [kind] and [category] answer different questions and a panel wants both. [kind] is a **capability**:
+ * what the tank accepts, fixed for the machine, and what decides the unit a rate should be quoted in
+ * (kg/ha solid, l/ha liquid, m³/ha slurry, t/ha manure). [category] is **what is loaded right now**.
+ * A lime spreader is [SprayerKind.SOLID_FERTILIZER] carrying [SprayCategory.LIME].
+ *
+ * [fillType] is the join key to the matching [FillUnit]: the fill unit list carries no indices, and a
+ * combination machine has more than one tank, so this is the only way to know which one the sprayer
+ * draws from. It and [title] are null when the tank is empty. [sprayType] and [category] are null for
+ * a material the game registers no spray type for (water, an unregistered modded fill type) — the
+ * tank still reports.
+ */
+@Serializable
+data class Spraying(
+  val kind: SprayerKind = SprayerKind.SPRAYER,
+  /**
+   * The sprayer effect is running — material actually leaving the machine, not merely switched on
+   * (that is `isTurnedOn`).
+   *
+   * **A positive signal only.** It tracks work areas the *sprayer* processes, so a combination machine
+   * that applies through its cultivator areas instead — a fertilizing cultivator — reads false while
+   * visibly injecting. [WorkArea.processing] is the reliable "is it working".
+   */
+  val active: Boolean = false,
+  val doubledAmount: Boolean = false,
+  /**
+   * Whether the machine has the doubled-amount control at all. The base game offers it **only on
+   * slurry tankers and manure spreaders**, not on fertilizer sprayers — the opposite way round from
+   * how it reads. **Precision Farming removes it outright** (its variable-rate control replaces it),
+   * so with PF installed this is false on everything, which is the honest answer.
+   */
+  val doubledAmountAvailable: Boolean = false,
+  val allowsSpraying: Boolean = true,
+  val fillType: String? = null,
+  val title: String? = null,
+  val sprayType: String? = null,
+  val category: SprayCategory? = null,
+  /**
+   * The material is coming from a tank on **another vehicle** — a dribble bar, injector or disc
+   * harrow drawing from the barrel it is hitched to, which is a common rig rather than an exotic one.
+   * [fillType] still names the material (resolved from what the engine last applied), but the fill
+   * level worth watching belongs to the machine in front, not to this one — this implement's own
+   * `fillUnits` will read empty.
+   */
+  val externalSource: Boolean = false,
+  /**
+   * Litres per minute **at the machine's speed limit**, not the current draw — the game scales usage
+   * by the speed limit rather than actual speed to hold consumption per hectare constant, so this
+   * figure does not move as you slow down. Label it as a rating, never as live consumption.
+   * Precision Farming publishes true application rates when it is installed.
+   */
+  val nominalUsagePerMin: Float? = null,
+)
+
+/**
+ * What a spreader/sprayer is *for*, by what its tank accepts.
+ *
+ * The base game only splits out slurry and manure and lumps everything else together; this follows
+ * Precision Farming's finer split instead (which PF derives from base-game calls, so it holds whether
+ * or not PF is installed). [SPRAYER] is the remainder — herbicide, water, unclassified modded
+ * materials — not "a liquid sprayer".
+ */
+@Serializable
+enum class SprayerKind { SOLID_FERTILIZER, LIQUID_FERTILIZER, SLURRY_TANKER, MANURE_SPREADER, SPRAYER }
+
+@Serializable
+enum class SprayCategory { FERTILIZER, LIME, HERBICIDE }
+
+/**
+ * A plough.
+ *
+ * [side] is which way the bodies are turned, and is **null on a plough that does not reverse** — the
+ * engine stores a bool meaning "at the max end of the turn animation", whose left/right sense is a
+ * per-machine XML value, so a non-reversible plough has no side rather than a default one.
+ *
+ * [rotationAllowed] is the mechanical half (not mid-fold); [canToggleRotation] adds lowered and
+ * powered. They are separate so a terminal can eventually say *why* the plough will not turn.
+ *
+ * [limitToField] is not carried in the multiplayer join stream — only broadcast on change — so on a
+ * client that joined mid-session it reads the load default until somebody toggles it.
+ */
+@Serializable
+data class Plow(
+  val rotationAllowed: Boolean = false,
+  val canToggleRotation: Boolean = false,
+  val limitToField: Boolean = true,
+  /** The player does not get to choose — the machine or the platform forces it. */
+  val forceLimitToField: Boolean = false,
+  val side: PlowSide? = null,
+)
+
+@Serializable
+enum class PlowSide { LEFT, RIGHT }
+
+/**
+ * A cultivator, power harrow or subsoiler. Thin by design: width, sections and depth modes are
+ * already answered by [WorkWidth], [WorkArea] and [WorkMode].
+ *
+ * None of this is synchronized in multiplayer. [kind] is read from the vehicle XML so it is identical
+ * everywhere, but [limitToField] is engine state a client only ever sees at its load default.
+ */
+@Serializable
+data class Tillage(
+  val kind: TillageKind = TillageKind.CULTIVATOR,
+  val deepMode: Boolean = true,
+  val limitToField: Boolean = true,
+)
+
+@Serializable
+enum class TillageKind { CULTIVATOR, POWER_HARROW, SUBSOILER }
+
 // ---------------------------------------------------------------------------
 // Implements (recursive) + combined
 // ---------------------------------------------------------------------------
@@ -580,6 +728,10 @@ data class Implement(
   val workWidth: WorkWidth? = null,
   val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
+  val sowing: Sowing? = null,
+  val spraying: Spraying? = null,
+  val plow: Plow? = null,
+  val tillage: Tillage? = null,
   val precisionFarming: PrecisionFarming? = null,
   /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
   val jointDescIndex: Int? = null,

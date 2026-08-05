@@ -1,0 +1,331 @@
+{
+  "vehicle": {
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "type": "tractor",
+    "schema": {
+      "name": "VEHICLE",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    },
+    "ai": {
+      "active": false
+    },
+    "lowered": false,
+    "motor": {
+      "state": "ON",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 33,
+        "forward": 53
+      },
+      "fillUnits": {
+        "air": {
+          "fillLevelPercentage": 94,
+          "title": "Luft",
+          "value": 3777,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 99,
+          "value": 386,
+          "usage": 6.68,
+          "capacity": 390,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 48,
+          "capacity": 48,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "rpm": {
+        "value": 850,
+        "max": 2200,
+        "min": 0
+      },
+      "load": {
+        "value": 9.36,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 90,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "implement": [
+      {
+        "isTurnedOn": false,
+        "type": "manureBarrel",
+        "implement": [
+          {
+            "isTurnedOn": false,
+            "lowered": false,
+            "workAreas": [
+              {
+                "type": "SPRAYER",
+                "index": 1,
+                "active": false,
+                "processing": false,
+                "unit": "m",
+                "shape": [
+                  0.47645,
+                  0.43221,
+                  0.47677,
+                  0.44246,
+                  0.47635,
+                  0.43221
+                ],
+                "width": 21
+              }
+            ],
+            "brand": {
+              "name": "BOMECH",
+              "title": "Bomech"
+            },
+            "type": "sprayer",
+            "foldable": "FOLDED",
+            "fillUnits": {
+              "fillUnit": [
+                {
+                  "type": "",
+                  "title": "",
+                  "fillLevelPercentage": 0,
+                  "value": 0,
+                  "capacity": 0,
+                  "unit": ""
+                }
+              ]
+            },
+            "spraying": {
+              "doubledAmountAvailable": true,
+              "allowsSpraying": true,
+              "active": false,
+              "kind": "SLURRY_TANKER",
+              "doubledAmount": true
+            },
+            "selection": {
+              "selected": true
+            },
+            "name": "Bomech Multi Profi 21/15",
+            "position": "",
+            "jointDescIndex": 1,
+            "discharge": {
+              "state": "OFF",
+              "allowed": true
+            },
+            "schema": {
+              "name": "IMPLEMENT",
+              "borderLeft": 0.05,
+              "offsetY": 0,
+              "borderRight": 0.05,
+              "offsetX": 0
+            },
+            "wearable": {
+              "wear": 0,
+              "damage": 0,
+              "dirt": 0,
+              "unit": "%"
+            }
+          }
+        ],
+        "schema": {
+          "name": "IMPLEMENT",
+          "attacherJoint": [
+            {
+              "y": 0,
+              "x": 1,
+              "liftedOffsetY": 5,
+              "liftedOffsetX": 0,
+              "rotation": 0,
+              "invertX": false
+            }
+          ],
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "spraying": {
+          "allowsSpraying": true,
+          "active": false,
+          "fillType": "DIGESTATE",
+          "doubledAmountAvailable": true,
+          "title": "Gärreste",
+          "category": "FERTILIZER",
+          "nominalUsagePerMin": 4608,
+          "kind": "SLURRY_TANKER",
+          "sprayType": "DIGESTATE",
+          "doubledAmount": false
+        },
+        "fillUnits": {
+          "fillUnit": [
+            {
+              "type": "DIGESTATE",
+              "title": "Gärreste",
+              "fillLevelPercentage": 76,
+              "value": 15111,
+              "capacity": 20000,
+              "unit": "l"
+            }
+          ]
+        },
+        "brand": {
+          "name": "KAWECO",
+          "title": "Kaweco"
+        },
+        "selection": {
+          "selected": false
+        },
+        "name": "Kaweco Profi II",
+        "position": "BACK",
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 0,
+          "unit": "%"
+        },
+        "discharge": {
+          "fillUnitIndex": 1,
+          "hasObject": false,
+          "reason": "FILLTYPE_NOT_SUPPORTED",
+          "allowed": true,
+          "state": "OFF",
+          "nodeIndex": 1,
+          "hitTerrain": false
+        },
+        "jointDescIndex": 3
+      }
+    ],
+    "gps": {
+      "enabled": false,
+      "heading": 84,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "selection": {
+      "selected": false
+    },
+    "name": "Case IH Puma 185 CVXDrive",
+    "brand": {
+      "name": "CASEIH",
+      "title": "Case IH"
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 53
+    },
+    "operatingTime": {
+      "value": "0.34",
+      "unit": "h"
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 2,
+      "unit": "%"
+    }
+  },
+  "version": "9",
+  "environment": {
+    "date": "01.08.2024",
+    "weather": {
+      "temperature": {
+        "min": 24,
+        "current": 33,
+        "max": 34,
+        "unit": "°C"
+      }
+    },
+    "time": "13:49",
+    "pda": {
+      "height": 2048,
+      "player": {
+        "heading": 84,
+        "posX": 0.48252424411476,
+        "farmId": 1,
+        "posZ": 0.43707564473152,
+        "headingUnit": "°"
+      },
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",
+      "width": 2048
+    }
+  }
+}

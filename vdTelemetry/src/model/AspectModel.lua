@@ -132,3 +132,60 @@
 ---@class BaleCounterModel
 ---@field session number
 ---@field lifetime number
+
+-- A sowing machine's hopper: which crop is selected out of the machine's declared list, and how the
+-- hopper is set up. `fruitType` is the crop token (WHEAT), `fillType` the fill type it is carried as
+-- -- which is what joins this to the matching FillUnitModel -- and `title` the localized name to
+-- print. All three are absent when the machine declares no seeds. `usageScale` is absent at the
+-- engine default of 1. See collect/aspects/Sowing.lua for what is deliberately not here.
+---@class SowingModel
+---@field seedIndex number
+---@field seedCount number
+---@field changeAllowed boolean
+---@field directPlanting boolean
+---@field usageScale number?
+---@field fruitType string?
+---@field fillType string?
+---@field title string?
+
+-- Anything that puts material on the ground: liquid sprayers, solid fertilizer and lime spreaders,
+-- slurry tankers, manure spreaders. One engine spec covers all of them.
+--
+-- `kind` and `category` answer different questions and a panel wants both. `kind` is a CAPABILITY --
+-- what the tank accepts, fixed for the machine, and what decides the unit a rate is quoted in
+-- (kg/ha solid, l/ha liquid, m3/ha slurry, t/ha manure). `category` is what is loaded RIGHT NOW.
+-- A lime spreader is kind SOLID_FERTILIZER with category LIME.
+--
+-- `fillType` joins to the matching FillUnitModel (the fill unit list carries no indices, and a
+-- combination machine has several tanks). `sprayType` / `category` are absent for a material the game
+-- registers no spray type for. `nominalUsagePerMin` is measured at the machine's speed limit, NOT the
+-- current draw -- see collect/aspects/Spraying.lua.
+---@class SprayingModel
+---@field kind string SOLID_FERTILIZER | LIQUID_FERTILIZER | SLURRY_TANKER | MANURE_SPREADER | SPRAYER
+---@field active boolean sprayer effect running; a positive signal only -- see Spraying.lua's caveat
+---@field doubledAmount boolean
+---@field doubledAmountAvailable boolean base game: slurry/manure only. Always false under Precision Farming
+---@field allowsSpraying boolean
+---@field fillType string?
+---@field title string?
+---@field sprayType string?
+---@field category string? FERTILIZER | LIME | HERBICIDE
+---@field externalSource boolean? absent unless true: the material comes from a tank on another vehicle
+---@field nominalUsagePerMin number?
+
+-- A plough. `side` is which way the bodies are turned, absent on a plough that does not reverse; the
+-- engine stores a `rotationMax` bool whose meaning is per-machine, so see collect/aspects/Plow.lua
+-- for the mapping. `limitToField` is not in the join stream and can be stale on a client.
+---@class PlowModel
+---@field rotationAllowed boolean the mechanical half -- not mid-fold
+---@field canToggleRotation boolean rotationAllowed plus lowered and powered
+---@field limitToField boolean
+---@field forceLimitToField boolean the player does not get to choose
+---@field side string? LEFT | RIGHT
+
+-- A cultivator / power harrow / subsoiler. Thin by design -- width, sections and depth modes are
+-- already answered by workWidth / workAreas / workMode. None of it is synchronized in multiplayer.
+---@class TillageModel
+---@field kind string CULTIVATOR | POWER_HARROW | SUBSOILER
+---@field deepMode boolean
+---@field limitToField boolean

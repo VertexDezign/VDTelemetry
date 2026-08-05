@@ -1,0 +1,504 @@
+{
+  "vehicle": {
+    "brand": {
+      "name": "FENDT",
+      "title": "Fendt"
+    },
+    "workAreas": [
+      {
+        "type": "SPRAYER",
+        "index": 1,
+        "active": false,
+        "processing": false,
+        "unit": "m",
+        "shape": [
+          0.43502,
+          0.61012,
+          0.42351,
+          0.61653,
+          0.43479,
+          0.6097
+        ],
+        "width": 26.99
+      }
+    ],
+    "workWidth": {
+      "total": 0,
+      "rightMax": -13.5,
+      "right": -13.5,
+      "sections": [
+        {
+          "side": "LEFT",
+          "active": true
+        },
+        {
+          "side": "LEFT",
+          "active": true
+        },
+        {
+          "side": "LEFT",
+          "active": true
+        },
+        {
+          "side": "LEFT",
+          "active": true
+        },
+        {
+          "side": "CENTER",
+          "active": true
+        },
+        {
+          "side": "RIGHT",
+          "active": true
+        },
+        {
+          "side": "RIGHT",
+          "active": true
+        },
+        {
+          "side": "RIGHT",
+          "active": true
+        },
+        {
+          "side": "RIGHT",
+          "active": true
+        }
+      ],
+      "activeCount": 9,
+      "leftMax": 13.5,
+      "left": 13.5,
+      "unit": "m"
+    },
+    "fillUnits": {
+      "fillUnit": [
+        {
+          "type": "HERBICIDE",
+          "title": "Herbizid",
+          "fillLevelPercentage": 100,
+          "value": 4162.386,
+          "capacity": 4164,
+          "unit": "l"
+        }
+      ]
+    },
+    "precisionFarming": {
+      "auto": true,
+      "workAreas": [
+        {
+          "index": 1,
+          "subSections": [
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            },
+            {
+              "valid": false,
+              "ph": 4.5,
+              "phTarget": 4.5,
+              "nTarget": 140,
+              "n": 0
+            }
+          ]
+        }
+      ],
+      "mode": "OTHER",
+      "nozzles": {
+        "count": 71,
+        "active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "activeCount": 0,
+        "amount": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "individual": true
+      },
+      "spotSpray": true
+    },
+    "selection": {
+      "selected": true
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 58
+    },
+    "operatingTime": {
+      "value": "0.20",
+      "unit": "h"
+    },
+    "isTurnedOn": false,
+    "type": "selfPropelledSprayer",
+    "ai": {
+      "active": false
+    },
+    "spraying": {
+      "allowsSpraying": true,
+      "active": false,
+      "fillType": "HERBICIDE",
+      "doubledAmountAvailable": false,
+      "title": "Herbizid",
+      "category": "HERBICIDE",
+      "kind": "SPRAYER",
+      "sprayType": "HERBICIDE",
+      "doubledAmount": false
+    },
+    "foldable": "EXTENDED",
+    "discharge": {
+      "fillUnitIndex": 1,
+      "hasObject": false,
+      "allowed": true,
+      "state": "OFF",
+      "nodeIndex": 1,
+      "hitTerrain": false
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 150,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "lowered": false,
+    "name": "Fendt Rogator 932",
+    "motor": {
+      "state": "OFF",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 33,
+        "forward": 58
+      },
+      "fillUnits": {
+        "air": {
+          "fillLevelPercentage": 68,
+          "title": "Luft",
+          "value": 2709,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 99,
+          "value": 563,
+          "usage": 0,
+          "capacity": 567,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 66,
+          "capacity": 66,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "rpm": {
+        "value": 0,
+        "max": 2200,
+        "min": 0
+      },
+      "load": {
+        "value": 0,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 20,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 2,
+      "unit": "%"
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "schema": {
+      "name": "VEHICLE",
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0.5
+    }
+  },
+  "version": "9",
+  "environment": {
+    "date": "01.08.2024",
+    "weather": {
+      "temperature": {
+        "min": 24,
+        "current": 32,
+        "max": 34,
+        "unit": "°C"
+      }
+    },
+    "time": "12:22",
+    "pda": {
+      "height": 2048,
+      "player": {
+        "heading": 150,
+        "posX": 0.43001315742731,
+        "farmId": 1,
+        "posZ": 0.61466106027365,
+        "headingUnit": "°"
+      },
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",
+      "width": 2048
+    }
+  }
+}

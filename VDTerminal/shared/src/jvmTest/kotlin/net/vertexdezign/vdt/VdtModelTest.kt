@@ -9,6 +9,10 @@ import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.PipeState
+import net.vertexdezign.vdt.model.PlowSide
+import net.vertexdezign.vdt.model.SprayCategory
+import net.vertexdezign.vdt.model.SprayerKind
+import net.vertexdezign.vdt.model.TillageKind
 import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.VdtData
 import java.io.File
@@ -43,6 +47,11 @@ class VdtModelTest {
     val decoded = json.decodeFromString(VdtData.serializer(), encoded)
     assertEquals(data, decoded, "JSON round-trip should be lossless")
   }
+
+  // A whole capture, checked for a lossless round trip before anything is read off it. The targeted
+  // assertions on the captures below only ever see the fields they name, so this is what catches a
+  // field of the new subtrees that decodes but does not come back out again.
+  private fun capture(name: String): VdtData = model(name).also { assertJsonRoundTrips(it) }
 
   @Test
   fun parsesTractorWithCultivator() {
@@ -403,6 +412,489 @@ class VdtModelTest {
 
     // Absent means "not reported", not "forward" — a v5 capture must not be drawn as sitting in gear.
     assertEquals(null, model("combine.json").vehicle?.motor?.direction)
+  }
+
+  @Test
+  fun decodesTheSownCropOffTheSowingAspect() {
+    // The crop is the one thing a seeding terminal exists to say and the fill unit cannot: a hopper
+    // reports the fill type it holds, never which of the machine's declared seeds is selected. The
+    // first capture taken at v9 (issue #58), so it is also the in-game proof that the aspect works.
+    val data = model("telemetry/precisionFarming/sowingMachine.json")
+    assertEquals("9", data.version)
+    assertJsonRoundTrips(data)
+
+    val seeder = assertNotNull(data.vehicle?.implement?.single())
+    val sowing = assertNotNull(seeder.sowing)
+    assertEquals("WHEAT", sowing.fruitType)
+    assertEquals("Weizen", sowing.title)
+    // 1 of 9 — the index is into the machine's own seed list, so it pairs with the count to say
+    // whether there is a choice at all.
+    assertEquals(1, sowing.seedIndex)
+    assertEquals(9, sowing.seedCount)
+    assertTrue(sowing.changeAllowed)
+    assertTrue(sowing.directPlanting)
+
+    // Absent at the engine default rather than emitted as 1.
+    assertEquals(null, sowing.usageScale)
+  }
+
+  @Test
+  fun sowingJoinsItsHopperThroughFillTypeOnACombinationMachine() {
+    // This capture is a *fertilizing* seeder: two fill units, and `precisionFarming.mode` FERTILIZER.
+    // It is the case that decided the panel dispatches on aspect presence rather than on `type` —
+    // one machine that is two functions at once, and whose type name
+    // (`pdlc_skyAgriculturePack.fertilizingSowingMachineWorkEffects`) no switch could enumerate.
+    val seeder = assertNotNull(capture("telemetry/precisionFarming/sowingMachine.json").vehicle?.implement?.single())
+    val units = assertNotNull(seeder.fillUnits?.fillUnit)
+    assertEquals(listOf("WHEAT", "FERTILIZER"), units.map { it.type })
+
+    // `sowing.fillType` is what joins the aspect to the right one of the two — the panel must not
+    // assume the seed hopper is the first unit, and on this machine the fertilizer tank is the same
+    // size class, so there is nothing else to disambiguate them by.
+    val sowing = assertNotNull(seeder.sowing)
+    assertEquals("WHEAT", sowing.fillType)
+    val hopper = assertNotNull(units.singleOrNull { it.type == sowing.fillType })
+    assertEquals(1760f, hopper.value)
+    assertEquals(1760, hopper.capacity)
+  }
+
+  @Test
+  fun decodesASowingMachineThatNamesNoCrop() {
+    // A machine can declare no seeds at all, and a modded crop may not resolve. The three name fields
+    // go null together; everything else about the hopper still decodes, so the panel can say "no crop
+    // selected" rather than losing the section.
+    val text =
+      """{"version":"9","vehicle":{"sowing":{"seedIndex":1,"seedCount":0,"changeAllowed":false}}}"""
+    val sowing = assertNotNull(VdtParser.parseJson(text).vehicle?.sowing)
+
+    assertEquals(null, sowing.fruitType)
+    assertEquals(null, sowing.fillType)
+    assertEquals(null, sowing.title)
+    assertEquals(0, sowing.seedCount)
+    assertEquals(false, sowing.changeAllowed)
+    // Defaulted, not absent: a machine that reports a hopper always reports whether it sows direct.
+    assertEquals(false, sowing.directPlanting)
+  }
+
+  @Test
+  fun absentSowingAspectStaysNull() {
+    // The whole feature dispatches on aspect presence, so "no sowing subtree" must decode as null
+    // rather than a default-constructed hopper — otherwise every tractor grows a seeder section.
+    assertEquals(null, model("tractor_with_cultivator.json").vehicle?.sowing)
+    assertEquals(
+      null,
+      model("mutliple_implements.json")
+        .vehicle
+        ?.implement
+        ?.first()
+        ?.sowing,
+    )
+  }
+
+  @Test
+  fun everyIsobusAspectIsAbsentOnAMachineThatHasNone() {
+    // The dispatch contract, stated once for all four: a mower carries none of them, and each must
+    // decode as null rather than as a default-constructed section. A default here would put a
+    // cultivator readout on a mower — with `kind = CULTIVATOR` and `deepMode = true` invented whole.
+    val mower =
+      assertNotNull(
+        model("mutliple_implements.json")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+    assertEquals(null, mower.sowing)
+    assertEquals(null, mower.spraying)
+    assertEquals(null, mower.plow)
+    assertEquals(null, mower.tillage)
+  }
+
+  @Test
+  fun decodesTheSprayerAspectIncludingItsAbsentHalves() {
+    // A fertilizer spreader mid-pass. `category` and `sprayType` come from the spray-type manager,
+    // which is a different table from the vehicle's own — see collect/aspects/Spraying.lua.
+    val text =
+      """{"version":"9","vehicle":{"spraying":{"kind":"SOLID_FERTILIZER","active":true,""" +
+        """"doubledAmount":true,"doubledAmountAvailable":true,"allowsSpraying":true,""" +
+        """"fillType":"FERTILIZER","title":"Mineraldünger","sprayType":"FERTILIZER",""" +
+        """"category":"FERTILIZER","nominalUsagePerMin":42.38}}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+
+    val spraying = assertNotNull(data.vehicle?.spraying)
+    assertEquals(SprayerKind.SOLID_FERTILIZER, spraying.kind)
+    assertEquals(SprayCategory.FERTILIZER, spraying.category)
+    assertEquals("FERTILIZER", spraying.fillType)
+    assertTrue(spraying.active)
+    assertTrue(spraying.doubledAmountAvailable)
+    assertEquals(42.38f, spraying.nominalUsagePerMin)
+
+    // A slurry tanker with an empty tank: no material to name, and doubling is not its control. The
+    // machine is still fully described — absence here is the answer, not a gap.
+    val tanker =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"spraying":{"kind":"SLURRY_TANKER",""" +
+              """"doubledAmountAvailable":false}}}""",
+          ).vehicle
+          ?.spraying,
+      )
+    assertEquals(SprayerKind.SLURRY_TANKER, tanker.kind)
+    assertEquals(null, tanker.fillType)
+    assertEquals(null, tanker.category)
+    assertEquals(null, tanker.nominalUsagePerMin)
+    assertEquals(false, tanker.doubledAmountAvailable)
+  }
+
+  @Test
+  fun decodesTheSpreaderCaptures() {
+    // Real v9 captures, and the first proof the five-way kind split works on actual machines rather
+    // than on stubs. The same AgriSpread hopper appears twice — carrying fertilizer and carrying lime
+    // — which is exactly the pair the split exists for: one machine, one `kind`, two `category`s.
+    fun spraying(name: String) =
+      assertNotNull(
+        capture("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.spraying,
+      )
+
+    val fertilizer = spraying("fertilizerSpreader.json")
+    assertEquals(SprayerKind.SOLID_FERTILIZER, fertilizer.kind)
+    assertEquals(SprayCategory.FERTILIZER, fertilizer.category)
+    assertEquals("FERTILIZER", fertilizer.fillType)
+
+    val lime = spraying("fertilizerSpreader_lime.json")
+    assertEquals(SprayerKind.SOLID_FERTILIZER, lime.kind)
+    assertEquals(SprayCategory.LIME, lime.category)
+    assertEquals("LIME", lime.fillType)
+
+    // Manure and slurry keep their own kinds, and both are categorised as fertilizer by the game —
+    // the category is what the material *does*, the kind is what the machine is.
+    val manure = spraying("manureSpreader.json")
+    assertEquals(SprayerKind.MANURE_SPREADER, manure.kind)
+    assertEquals(SprayCategory.FERTILIZER, manure.category)
+    assertEquals("MANURE", manure.fillType)
+
+    val slurry = spraying("liquidManure_dribbleBar.json")
+    assertEquals(SprayerKind.SLURRY_TANKER, slurry.kind)
+    assertEquals("DIGESTATE", slurry.fillType)
+    // The barrel carries its own load, so nothing is sourced from elsewhere — unlike the dribble bar
+    // hanging off it, which is the subject of its own test below.
+    assertEquals(false, slurry.externalSource)
+
+    // The self-propelled Rogator is the catch-all: a herbicide boom is none of the four.
+    val boom = assertNotNull(capture("telemetry/precisionFarming/selfDrivingSprayer.json").vehicle?.spraying)
+    assertEquals(SprayerKind.SPRAYER, boom.kind)
+    assertEquals(SprayCategory.HERBICIDE, boom.category)
+    // Nothing has been sprayed this session, so the engine never computed a usage figure. Absent
+    // rather than zero — a rating of 0 l/min would be a claim.
+    assertEquals(null, boom.nominalUsagePerMin)
+  }
+
+  @Test
+  fun decodesThePlowCaptures() {
+    // The same LEMKEN plough folded for transport and unfolded to work. Rotation is barred while it
+    // is folded — which is the whole reason the two predicates are carried separately — and the side
+    // survives the fold, because a folded plough is still turned whichever way it was left.
+    fun plow(name: String) =
+      assertNotNull(
+        capture("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.plow,
+      )
+
+    val transport = plow("plow_transportMode.json")
+    assertEquals(false, transport.rotationAllowed)
+    assertEquals(false, transport.canToggleRotation)
+    assertEquals(PlowSide.RIGHT, transport.side)
+
+    val working = plow("plow_workingMode.json")
+    assertEquals(true, working.rotationAllowed)
+    assertEquals(true, working.canToggleRotation)
+    assertEquals(PlowSide.RIGHT, working.side)
+  }
+
+  @Test
+  fun decodesTheTillageCaptures() {
+    fun tillage(name: String) =
+      assertNotNull(
+        capture("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.tillage,
+      )
+
+    // A subsoiler that does not run in deep mode — the two flags are independent, which is why both
+    // are carried. `isSubsoiler` is what the machine is; `useDeepMode` is what it leaves behind.
+    val subsoiler = tillage("deepCultivator.json")
+    assertEquals(TillageKind.SUBSOILER, subsoiler.kind)
+    assertEquals(false, subsoiler.deepMode)
+
+    assertEquals(TillageKind.CULTIVATOR, tillage("seedingCultivator.json").kind)
+  }
+
+  @Test
+  fun combinationMachinesCarryTwoAspectsInTheRealCaptures() {
+    // Three different shapes of combination machine, all from real captures — the case the aspect
+    // dispatch exists for, and none of them expressible as a switch on `type`.
+    fun implement(name: String) =
+      assertNotNull(
+        capture("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+
+    // Seed + fertilizer: a drill that also spreads.
+    val drill = implement("sowingMachine.json")
+    assertEquals("WHEAT", assertNotNull(drill.sowing).fillType)
+    assertEquals(SprayerKind.SOLID_FERTILIZER, assertNotNull(drill.spraying).kind)
+
+    // Seed + tillage: a cultivator that also drills. `type` is `cultivatingSowingMachine`, a third
+    // name again — there is no enumerable set of these.
+    val topDown = implement("seedingCultivator.json")
+    assertEquals("OILSEEDRADISH", assertNotNull(topDown.sowing).fruitType)
+    assertEquals(TillageKind.CULTIVATOR, assertNotNull(topDown.tillage).kind)
+    assertEquals(null, topDown.spraying)
+
+    // Slurry + tillage: a disc harrow that injects.
+    val methys = implement("vredoLiquidManure_discHarrow.json")
+    assertEquals(SprayerKind.SLURRY_TANKER, assertNotNull(methys.spraying).kind)
+    assertEquals(TillageKind.CULTIVATOR, assertNotNull(methys.tillage).kind)
+  }
+
+  @Test
+  fun anApplicatorWithNoTankNamesWhatTheMachineInFrontIsFeedingIt() {
+    // Both captures taken mid-application. A dribble bar and an injecting disc harrow each carry
+    // nothing of their own — their `fillUnits` is a single blank unit — yet both must name the
+    // material, or a terminal shows an implement doing visible work with nothing to say about it.
+    fun applicator(
+      name: String,
+      index: Int,
+    ) = assertNotNull(
+      capture("telemetry/precisionFarming/$name")
+        .vehicle
+        ?.implement
+        ?.get(index),
+    )
+
+    // The Bomech hangs off the Kaweco barrel, so it is an implement of an implement.
+    val bomech = assertNotNull(applicator("liquidManure_dribbleBar.json", 0).implement.single())
+    val bomechSpray = assertNotNull(bomech.spraying)
+    assertEquals("DIGESTATE", bomechSpray.fillType)
+    assertEquals(SprayCategory.FERTILIZER, bomechSpray.category)
+    assertTrue(bomechSpray.externalSource, "material comes from the barrel it is hitched to")
+    // Its own tank really is empty — which is the point: the level to watch is the barrel's, and the
+    // barrel is the parent implement, so a panel has to walk *up* to find it.
+    assertEquals("", assertNotNull(bomech.fillUnits?.fillUnit?.single()).type)
+    assertEquals(
+      "DIGESTATE",
+      assertNotNull(
+        applicator("liquidManure_dribbleBar.json", 0)
+          .fillUnits
+          ?.fillUnit
+          ?.single(),
+      ).type,
+    )
+    // Sprayer effects are running here, and the work area agrees.
+    assertTrue(bomechSpray.active)
+    assertTrue(assertNotNull(bomech.workAreas.single()).processing)
+
+    val methys = applicator("vredoLiquidManure_discHarrow.json", 0)
+    val methysSpray = assertNotNull(methys.spraying)
+    assertEquals("LIQUIDMANURE", methysSpray.fillType)
+    assertTrue(methysSpray.externalSource, "material comes from the Vredo it is hitched to")
+    assertEquals("", assertNotNull(methys.fillUnits?.fillUnit?.single()).type)
+    // …and here is the caveat that `active` is a positive signal only: this machine applies through
+    // its CULTIVATOR work areas, not sprayer ones, so the effect predicate never fires even though
+    // it is demonstrably working. Anything asking "is this implement running" must use workAreas.
+    assertEquals(false, methysSpray.active)
+    assertTrue(assertNotNull(methys.workAreas.single()).processing)
+  }
+
+  @Test
+  fun theDoubledAmountControlIsOnlyVisibleWithoutPrecisionFarming() {
+    // The same rig captured with and without PF, which is the only way to see this field work: PF
+    // hard-overrides the getter to (false, false) because its variable-rate control replaces doubling
+    // outright, so every PF capture says false no matter the machine.
+    fun barrel(dir: String) =
+      assertNotNull(
+        capture("telemetry/$dir/liquidManure_dribbleBar.json")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.spraying,
+      )
+
+    // Vanilla: a slurry tanker *does* offer doubling. This is the base-game rule and it reads the
+    // opposite way round from how it sounds — the engine allows it when `not isFertilizerSprayer`,
+    // so slurry and manure get it and fertilizer sprayers do not.
+    assertTrue(barrel("vanilla").doubledAmountAvailable)
+    // …and the same machine under PF says no, correctly: the control really is gone.
+    assertEquals(false, barrel("precisionFarming").doubledAmountAvailable)
+
+    // The dribble bar behind it had doubling switched on when this was captured.
+    val bomech =
+      assertNotNull(
+        capture("telemetry/vanilla/liquidManure_dribbleBar.json")
+          .vehicle
+          ?.implement
+          ?.first()
+          ?.implement
+          ?.single()
+          ?.spraying,
+      )
+    assertTrue(bomech.doubledAmount)
+    assertTrue(bomech.doubledAmountAvailable)
+
+    // It is parked here rather than applying, so the engine never resolved a source material — the
+    // fallback's honest limit, and the reason the field is absent rather than guessed. The PF capture
+    // of the same machine mid-application is the counterpart: there it names DIGESTATE and sets
+    // externalSource. Same rig, and the difference is purely whether it has worked yet.
+    assertEquals(null, bomech.fillType)
+    assertEquals(false, bomech.externalSource)
+  }
+
+  @Test
+  fun theAspectsDoNotDependOnPrecisionFarming() {
+    // Everything above is derived from base-game calls, including the five-way `kind` split, which is
+    // only modelled on PF's. The vanilla capture is the evidence: no `precisionFarming` subtree
+    // anywhere, and the spraying aspect is fully populated regardless.
+    val barrel =
+      assertNotNull(
+        capture("telemetry/vanilla/liquidManure_dribbleBar.json")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+    assertEquals(null, barrel.precisionFarming)
+
+    val spraying = assertNotNull(barrel.spraying)
+    assertEquals(SprayerKind.SLURRY_TANKER, spraying.kind)
+    assertEquals(SprayCategory.FERTILIZER, spraying.category)
+    assertEquals("DIGESTATE", spraying.fillType)
+  }
+
+  @Test
+  fun aSelfPropelledMachineNeverReportsItsFuelTankAsSprayMaterial() {
+    // The Vredo VT5536's own Sprayer spec resolves its tank to fill unit 1, which on a self-propelled
+    // machine is the diesel tank — it used to publish `fillType: DIESEL`. The whole aspect is now
+    // withheld there, because the engine derives its material *and* its kind from that same index.
+    val vredo = assertNotNull(capture("telemetry/precisionFarming/vredoLiquidManure_discHarrow.json").vehicle)
+    assertEquals(null, vredo.spraying)
+
+    // The slurry it is actually carrying is still visible as ordinary cargo, and the implement doing
+    // the work reports for itself — so nothing is lost by withholding the broken subtree.
+    assertEquals("LIQUIDMANURE", assertNotNull(vredo.fillUnits?.fillUnit?.single()).type)
+    assertEquals("LIQUIDMANURE", assertNotNull(vredo.implement.single().spraying).fillType)
+  }
+
+  @Test
+  fun spreaderKindAndMaterialAreSeparateQuestions() {
+    // A lime spreader: the hardware is a solid-fertilizer hopper (which is what decides the rate is
+    // quoted in kg/ha), the material in it is lime. Collapsing the two would lose either the unit or
+    // the material — and the base game only offers the coarse split, so `kind` is deliberately finer
+    // than `isFertilizerSprayer`.
+    val limer =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"spraying":{"kind":"SOLID_FERTILIZER",""" +
+              """"fillType":"LIME","category":"LIME"}}}""",
+          ).vehicle
+          ?.spraying,
+      )
+    assertEquals(SprayerKind.SOLID_FERTILIZER, limer.kind)
+    assertEquals(SprayCategory.LIME, limer.category)
+
+    // And the kind holds while the hopper is empty — it is what the machine accepts, not what it has.
+    val empty =
+      assertNotNull(
+        VdtParser
+          .parseJson("""{"version":"9","vehicle":{"spraying":{"kind":"SOLID_FERTILIZER"}}}""")
+          .vehicle
+          ?.spraying,
+      )
+    assertEquals(SprayerKind.SOLID_FERTILIZER, empty.kind)
+    assertEquals(null, empty.category)
+  }
+
+  @Test
+  fun decodesThePlowSideAndLeavesItNullOnANonReversiblePlow() {
+    val turned =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"implement":[{"position":"BACK","plow":{"side":"LEFT",""" +
+              """"rotationAllowed":true,"canToggleRotation":false,"limitToField":true,""" +
+              """"forceLimitToField":false}}]}}""",
+          ).vehicle
+          ?.implement
+          ?.single()
+          ?.plow,
+      )
+    assertEquals(PlowSide.LEFT, turned.side)
+    // Mechanically free to turn but not right now (still lowered) — the two are separate answers.
+    assertTrue(turned.rotationAllowed)
+    assertEquals(false, turned.canToggleRotation)
+
+    // A plough with no turn animation reports no side at all. Null must survive as "does not
+    // reverse"; defaulting it to LEFT would draw a rotation indicator on a machine that has none.
+    val fixed =
+      assertNotNull(
+        VdtParser
+          .parseJson("""{"version":"9","vehicle":{"plow":{"limitToField":false}}}""")
+          .vehicle
+          ?.plow,
+      )
+    assertEquals(null, fixed.side)
+    assertEquals(false, fixed.limitToField)
+  }
+
+  @Test
+  fun decodesTheTillageKinds() {
+    val subsoiler =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"tillage":{"kind":"SUBSOILER","deepMode":true,""" +
+              """"limitToField":false}}}""",
+          ).vehicle
+          ?.tillage,
+      )
+    assertEquals(TillageKind.SUBSOILER, subsoiler.kind)
+    assertEquals(false, subsoiler.limitToField)
+  }
+
+  @Test
+  fun aCombinationMachineCarriesTwoAspectsAtOnce() {
+    // The case the dispatch rule exists for, stated as a decode contract: one implement, two
+    // functions. Nothing downstream may treat the ISOBUS aspects as mutually exclusive, and no
+    // switch on `type` could have produced both sections.
+    val both =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"9","vehicle":{"implement":[{"position":"BACK",""" +
+              """"type":"pdlc_skyAgriculturePack.fertilizingSowingMachineWorkEffects",""" +
+              """"sowing":{"seedIndex":1,"seedCount":9,"fruitType":"WHEAT","fillType":"WHEAT"},""" +
+              """"spraying":{"kind":"SPRAYER","fillType":"FERTILIZER"}}]}}""",
+          ).vehicle
+          ?.implement
+          ?.single(),
+      )
+    val hopper = assertNotNull(both.sowing)
+    val tank = assertNotNull(both.spraying)
+    assertEquals("WHEAT", hopper.fillType)
+    assertEquals("FERTILIZER", tank.fillType)
+    // …and the two join to different tanks, which is what `fillType` is carried for.
+    assertTrue(hopper.fillType != tank.fillType)
   }
 
   @Test
