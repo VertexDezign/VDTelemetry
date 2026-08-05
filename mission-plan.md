@@ -3,7 +3,9 @@
 Plan for a **Missions** app: the farm's available and running contracts, accepted and managed from the
 terminal, with their locations on the map.
 
-Status: **planned, nothing built**. Written 2026-08-05 against `main` @ `1c51871` (mod `VERSION 9`).
+Status: **built on `17-mission-app`, not yet validated in game**. Written 2026-08-05 against `main` @
+`1c51871` (mod `VERSION 9`); see "How it landed" at the end for where the build differed from this
+plan and what is still open.
 
 Scope for round 1, decided with the user before writing this:
 
@@ -247,6 +249,35 @@ frame. So the map work is app-side only — **no change to `MapExporter`**:
    change land, cancel one, collect one.
 
 ---
+
+## How it landed (2026-08-05)
+
+Six places the build differed from the plan above, or found something the plan didn't know.
+
+1. **`getUniqueId()` is nil on a multiplayer client** — the plan had it as the command handle. It is
+   assigned in `MissionManager:addMission` and saved to the savegame, but it is **not in
+   `AbstractMission:writeStream`**, and a client takes the `readStream` path (`:206`) which inserts
+   into `missions` directly rather than going through `addMission`. A command keyed on it would have
+   worked in singleplayer and failed silently in MP. The handle is the **network object id**
+   (`NetworkUtil.getObjectId`), which is what the mission events themselves serialize.
+2. **The order was commands-then-panel**, not panel-then-commands: the panel would otherwise have
+   been written twice, once read-only and once with buttons.
+3. **A stale id is resolved by walking the mission list**, not by `NetworkUtil.getObject(id)` — that
+   would hand back whatever object now carries the id, which after a contract expires is some
+   trailer.
+4. **Cancel and collect check the status before ownership.** A contract still on offer has
+   `farmId == nil`, so the ownership test fired first and called it "another farm's".
+5. **The widget shipped as a summary, not the page.** Active contracts with progress, plus counts of
+   what is ready to collect and what is on offer — a tile is glanced at while driving, and the
+   master/detail is a menu.
+6. **Position is omitted rather than normalized when `getWorldPosition()` returns 0,0.** That is the
+   base class's answer (`AbstractMission.lua:658`); normalizing it would put a marker dead centre of
+   the map. Every base-game type overrides it, so this only guards a type that doesn't.
+
+Still open before this is done: **an in-game capture** (`examples/json/missions/`) to assert the
+Kotlin model against real data rather than inline JSON — the working cadence from #58 — and
+**in-game validation**, singleplayer first: accept a contract and watch the status change land,
+accept one with equipment, give one up, collect one.
 
 ## Open questions
 
