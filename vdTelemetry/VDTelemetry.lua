@@ -70,6 +70,10 @@ local sourceFiles = {
   "src/collect/StorageExporter.lua",
   -- Husbandry channel: own-farm animal pens (reuses ProductionExporter's own-farm + id helpers)
   "src/collect/HusbandryExporter.lua",
+  -- Missions channel: the farm's contracts (event-driven + a slow interval). Reuses
+  -- ProductionExporter.ownFarmId for the farm scope and MapExporter's normalization for the marker
+  -- position, so it is sourced after both.
+  "src/collect/MissionExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",

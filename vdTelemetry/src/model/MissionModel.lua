@@ -1,0 +1,56 @@
+-- Model definitions for the missions export channel (missions.json,
+-- src/collect/MissionExporter.lua).
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Mission.kt) and the fixtures
+-- in examples/json/missions/*.
+--
+-- Scope: the contracts the game's own screen would list for the local farm -- everything still on
+-- offer, plus what this farm is running or has finished. See MissionExporter for the filter.
+--
+-- The per-type detail (which crop, which selling station, how many trees) is NOT modelled field by
+-- field: `details` carries the game's own already-localized rows verbatim, so all 16 base-game
+-- mission types -- and modded ones -- are covered by one path. See mission-plan.md.
+
+---@class MissionDetailModel one row of the game's contract detail list, already localized
+---@field title string the row's label ("Field", "Crop", "Reward per tree", ...)
+---@field value string the row's value, formatted by the game (money, area, counts)
+
+---@class MissionNpcModel the farmer offering the contract
+---@field name string the NPC's display name
+---@field image string? path to the NPC portrait, engine-relative (nil when it has none)
+
+---@class MissionModel one contract
+---@field id number the network object id -- the handle a command addresses. NOT getUniqueId():
+---  that is savegame-only and is nil on a multiplayer client (see MissionExporter's header)
+---@field type string mission type name ("harvestMission", "sowMission", "deadwoodMission", ...);
+---  a label/icon hint, never a dispatcher -- modded types appear here verbatim
+---@field title string localized title
+---@field description string? localized description
+---@field status string CREATED | PREPARING | RUNNING | FINISHED | DISMISSED
+---@field finishState string? SUCCESS | FAILED | TIMED_OUT | CANCELED; omitted while NONE
+---@field location string? localized location line ("Field 12"), as the contract list prints it
+---@field npc MissionNpcModel?
+---@field reward number the offered reward (whole currency units)
+---@field totalReward number? finished only: reward - vehicle costs - stealing + reimbursement
+---@field vehicleCosts number? cost of taking the contract with leased equipment
+---@field leasable boolean? true when the contract offers equipment to lease
+---@field completion number? work done in [0,1]; omitted before the contract is started
+---@field minutesLeft number? in-game minutes until it times out; omitted when it has no end date
+---@field extraProgress string? localized progress line ("3 trees remaining"), running contracts
+---@field fieldId number? farmland id -- joins to the map channel's fields[].id (field missions)
+---@field areaHa number? field size in hectares (field missions)
+---@field posX number? normalized [0,1] map x, same frame as the map channel and the player marker
+---@field posZ number? normalized [0,1] map z
+---@field own boolean? true when this farm is the one running it (absent while it is on offer)
+---@field details MissionDetailModel[]?
+
+---@class MissionLimitModel how many contracts this farm may run at once
+---@field active number contracts this farm has started (the engine's own count)
+---@field max number the engine's per-farm cap (MissionManager.MAX_MISSIONS_PER_FARM)
+
+---@class MissionsModel
+---@field version string channel version, independent of VDTelemetry.VERSION
+---@field limit MissionLimitModel?
+---@field canManage boolean? whether this player may accept/cancel/collect (manageContracts right)
+---@field missions MissionModel[]?
