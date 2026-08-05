@@ -9,6 +9,7 @@ import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.MissionsData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
@@ -143,6 +144,19 @@ sealed interface ServerMessage {
   @SerialName("husbandry")
   data class Husbandry(
     val data: HusbandriesData? = null,
+  ) : ServerMessage
+
+  /**
+   * The missions channel (the farm's contracts, `missions.json`). The mod writes it when a contract
+   * is generated, accepted, finished or deleted, plus on a slow interval for the countdown — its own
+   * cadence again, hence its own message. [data] is **null when `missions.json` is absent** (export
+   * disabled / no data yet): the app clears its contract list then rather than offering contracts
+   * that may no longer exist.
+   */
+  @Serializable
+  @SerialName("missions")
+  data class Missions(
+    val data: MissionsData? = null,
   ) : ServerMessage
 
   /**

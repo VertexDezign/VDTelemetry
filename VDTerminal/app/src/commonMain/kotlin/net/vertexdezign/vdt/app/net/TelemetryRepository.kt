@@ -23,6 +23,7 @@ import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.MissionsData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
@@ -111,6 +112,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // Owned animal pens, on the mod's own interval; same null-when-absent contract as production.
   private val _husbandry = MutableStateFlow<HusbandriesData?>(null)
   val husbandry: StateFlow<HusbandriesData?> = _husbandry.asStateFlow()
+
+  // The farm's contracts, event-driven plus the mod's slow countdown interval; same
+  // null-when-absent contract as production.
+  private val _missions = MutableStateFlow<MissionsData?>(null)
+  val missions: StateFlow<MissionsData?> = _missions.asStateFlow()
 
   // Server-measured observed cadence of every channel file (diagnostics), refreshed on the server's
   // own slow timer. Null until the first stats frame arrives.
@@ -208,6 +214,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.Husbandry -> {
                       _husbandry.value = msg.data
+                    }
+
+                    is ServerMessage.Missions -> {
+                      _missions.value = msg.data
                     }
 
                     is ServerMessage.ChannelStats -> {

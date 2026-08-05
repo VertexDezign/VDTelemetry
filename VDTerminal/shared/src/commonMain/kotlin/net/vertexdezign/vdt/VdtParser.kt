@@ -9,6 +9,7 @@ import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayersCatalog
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.MissionsData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
@@ -60,6 +61,9 @@ object VdtParser {
 
   /** Parse the `husbandry.json` channel (owned animal pens) into [HusbandriesData]. */
   fun parseHusbandry(text: String): HusbandriesData = json.decodeFromString(HusbandriesData.serializer(), text)
+
+  /** Parse the `missions.json` channel (the farm's contracts) into [MissionsData]. */
+  fun parseMissions(text: String): MissionsData = json.decodeFromString(MissionsData.serializer(), text)
 
   /** Parse one `mapLayers/<id>.json` raster plane into [MapLayerData]. */
   fun parseMapLayer(text: String): MapLayerData = json.decodeFromString(MapLayerData.serializer(), text)
