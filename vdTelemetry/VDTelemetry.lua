@@ -100,6 +100,9 @@ local sourceFiles = {
   "src/command/ProductionControl.lua",
   -- Object-storage unload (bales/pallets); same ProductionExporter helpers
   "src/command/ObjectStorageControl.lua",
+  -- Contract accept/cancel/collect; drives the game's own mission events and reuses
+  -- MissionExporter's permission + status helpers, so it is sourced after it
+  "src/command/MissionControl.lua",
   -- Ground-layer subscription: tells the mapLayers channel which raster planes the terminal is
   -- showing, so it sweeps only those (MapLayersExporter is sourced with the collectors above)
   "src/command/MapLayersControl.lua",

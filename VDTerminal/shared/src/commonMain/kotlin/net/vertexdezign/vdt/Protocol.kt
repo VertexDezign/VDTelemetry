@@ -468,6 +468,44 @@ sealed interface ClientMessage {
   ) : ClientMessage
 
   /**
+   * Take on the contract [missionId] — the same action as the in-game contracts screen's Accept, and
+   * with [lease] its "with equipment" variant, which spawns the contract's machines at the shop for a
+   * fee ([Mission.vehicleCosts]).
+   *
+   * [missionId] is [Mission.id], the mission's network object id. It identifies a contract in the
+   * *live* game only, so this must never be replayed on reconnect: like `unloadObjectStorage` it is
+   * an action, not a target state, and by the time a stale one arrives the id may name a different
+   * contract or none. The mod re-checks the contract is still on offer before sending anything.
+   */
+  @Serializable
+  @SerialName("acceptMission")
+  data class AcceptMission(
+    val missionId: Int,
+    val lease: Boolean = false,
+  ) : ClientMessage
+
+  /**
+   * Give up the running contract [missionId] — the in-game screen's Cancel, which forfeits it. The
+   * app confirms first for the same reason the game does. Same non-replayable id rules as
+   * [AcceptMission].
+   */
+  @Serializable
+  @SerialName("cancelMission")
+  data class CancelMission(
+    val missionId: Int,
+  ) : ClientMessage
+
+  /**
+   * Collect the finished contract [missionId] — the in-game screen's "complete", which pays out
+   * [Mission.totalReward] and clears the contract. Same non-replayable id rules as [AcceptMission].
+   */
+  @Serializable
+  @SerialName("dismissMission")
+  data class DismissMission(
+    val missionId: Int,
+  ) : ClientMessage
+
+  /**
    * The ground-layer raster planes this dashboard is currently showing (empty = none). The mod
    * grid-samples only what someone is looking at — its most expensive channel by far — so this is
    * what causes a plane to be swept at all.

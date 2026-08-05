@@ -68,6 +68,35 @@ class ClientMessageTest {
   }
 
   @Test
+  fun `contract commands round-trip through the wire`() {
+    val json = Json { encodeDefaults = true }
+    val messages =
+      listOf(
+        ClientMessage.AcceptMission(missionId = 12),
+        // Leasing is the same accept with the game's spawnVehicles flag, not a command of its own.
+        ClientMessage.AcceptMission(missionId = 12, lease = true),
+        ClientMessage.CancelMission(missionId = 7),
+        ClientMessage.DismissMission(missionId = 9),
+      )
+    for (message in messages) {
+      val encoded = json.encodeToString(ClientMessage.serializer(), message)
+      assertEquals(message, json.decodeFromString(ClientMessage.serializer(), encoded))
+    }
+  }
+
+  @Test
+  fun `an accept defaults to using your own equipment`() {
+    // The costly half must be opt-in: leasing spawns machines at the shop and charges for them, so a
+    // command that omits the flag has to mean "with my own", never "lease".
+    val decoded =
+      Json.decodeFromString(
+        ClientMessage.serializer(),
+        """{"type":"acceptMission","missionId":3}""",
+      )
+    assertEquals(ClientMessage.AcceptMission(missionId = 3, lease = false), decoded)
+  }
+
+  @Test
   fun `output mode maps to and from its read-model token`() {
     // The command enum and the read model's ProductionIo.mode string share one token vocabulary, so
     // the app can turn a rendered mode straight into a command.
