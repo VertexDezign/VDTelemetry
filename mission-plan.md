@@ -294,6 +294,30 @@ decoded on the first run, and three things came out of it:
    so the panel now prints only what the game's rows don't: the reward while on offer, the payout once
    done.
 
+### Adjustments after the first look (2026-08-05)
+
+Seven changes the user asked for once it was running, and what each one settled:
+
+- **The map marks only accepted contracts.** A full board is twenty-odd markers of work nobody is
+  doing, drawn over the work being done. Shopping happens in the app's list; the map is for what is
+  being worked.
+- **A "Contracts" toggle in the map's filter panel**, appearing only while a contract is running —
+  in multiplayer it is what gets a colleague's markers off your map.
+- **The marker is the game's**: a blinking circle sized in world metres, matching
+  `AbstractFieldMissionHotspot`'s 50 m radius, so it grows with the zoom like the in-game one. One
+  transition drives every marker so they pulse together.
+- **Selling stations are on the map**, joined by a position rather than a name — the mod takes it
+  from the station placeable's own map hotspot (`HarvestMission.lua:217-222`), which is where the
+  game puts its own marker. A line runs from the work to where it is sold.
+- **The board filters by kind of work**, with chips built from the contracts themselves (the game's
+  own name for each kind, plus a count), so a modded mission type gets a chip like any other.
+- **The list says what a job is for**, not just where: the crop on a harvest or sowing contract, the
+  bale form on a baling one. Both are resolved mod-side **by field presence** — `fruitTypeIndex`, and
+  either `needRoundbaler` or a `baleTypeIndex` the bale manager resolves — and handed over as an
+  already-localized `subtitle`, so the app translates nothing. Channel version 2.
+- **The tile carries the same**, plus the game's running commentary ("Noch 6 Bäume"), which beats a
+  percentage the bar is already showing.
+
 ## Open questions
 
 - **Command outcomes have nowhere to go — deliberately, for now.** The engine answers every action
