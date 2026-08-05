@@ -1324,17 +1324,17 @@ private fun BoxScope.MapDataOverlay(
           val tint = missionColor(mission)
           drawLine(tint.copy(alpha = 0.35f * blink), pos, stationPos, strokeWidth = 1.5.dp.toPx())
           if (onCanvas(stationPos)) {
-            val half = 4.dp.toPx()
-            drawRect(tint, topLeft = stationPos - Offset(half, half), size = Size(half * 2, half * 2))
-            drawRect(
-              VdtColors.White,
-              topLeft = stationPos - Offset(half, half),
-              size = Size(half * 2, half * 2),
-              style = Stroke(width = 1.5.dp.toPx()),
+            // The delivery point blinks like the work does — same language, smaller ring, because it
+            // is the other half of one contract rather than a marker of its own. Deliberately
+            // unlabelled: the station is a POI, and the POI layer has already written its name there.
+            val stationRadius = (worldRadiusPx * 0.55f).coerceAtLeast(5.dp.toPx())
+            drawCircle(
+              tint.copy(alpha = blink),
+              radius = stationRadius,
+              center = stationPos,
+              style = Stroke(width = 2.dp.toPx()),
             )
-            if (scale >= DETAIL_ZOOM && station.name.isNotBlank()) {
-              drawCenteredText(textMeasurer, station.name, stationPos + Offset(0f, 14.dp.toPx()), detailStyle)
-            }
+            drawCircle(tint, radius = 2.5.dp.toPx(), center = stationPos)
           }
         }
 
