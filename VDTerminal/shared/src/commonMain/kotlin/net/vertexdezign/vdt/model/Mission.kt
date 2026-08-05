@@ -93,6 +93,18 @@ data class Mission(
   /** True when this farm is the one running it; false while it is on offer to everyone. */
   val own: Boolean = false,
   /**
+   * What the contract is about beyond its type, already localized: the crop for a harvest or sowing
+   * job, the bale form for a baling one, both when it names both. Empty when the contract names
+   * neither (ploughing, mowing) — the mod assembles it, because the parts are the game's own strings.
+   */
+  val subtitle: String = "",
+  /** Engine fruit token (`WHEAT`, `OAT`, …) when the contract names a crop; joins to fill types. */
+  val fruitType: String? = null,
+  /** The bale form a baling or wrapping contract asks for. Null when it asks for none. */
+  val baleType: BaleForm? = null,
+  /** Where the load has to be delivered — harvest and tree-transport contracts. */
+  val sellingStation: MissionStation? = null,
+  /**
    * The game's own contract detail rows, already localized and formatted — the crop, the selling
    * station, the field size, the per-tree reward, whatever this mission type prints. Once the
    * contract is finished this is the reward breakdown instead. The app renders them as given: the
@@ -108,6 +120,28 @@ data class Mission(
 
   /** Over, and waiting to be collected. */
   val isFinished: Boolean get() = status == MissionStatus.FINISHED || status == MissionStatus.DISMISSED
+}
+
+/**
+ * Where a contract's load is delivered. The position comes from the station placeable's **own map
+ * hotspot** — the spot the game marks it at — so the app never has to match a station by name.
+ */
+@Serializable
+data class MissionStation(
+  val name: String = "",
+  /** Normalized `[0,1]` map coordinates, same frame as [Mission.posX]. Null when unresolvable. */
+  val posX: Float? = null,
+  val posZ: Float? = null,
+) {
+  /** Whether this station can be drawn; a station may be nameable but not placeable. */
+  val hasPosition: Boolean get() = posX != null && posZ != null
+}
+
+/** The bale form a contract asks for. */
+@Serializable
+enum class BaleForm {
+  ROUND,
+  SQUARE,
 }
 
 /** The farmer offering a contract. */

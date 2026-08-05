@@ -38,7 +38,8 @@ VDT.MissionExporter = {}
 VDT.MissionExporter.CHANNEL = "missions"
 VDT.MissionExporter.FILE_NAME = "missions.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin MissionsData.
-VDT.MissionExporter.VERSION = 1
+-- 2: added subtitle / fruitType / sellingStation.
+VDT.MissionExporter.VERSION = 2
 -- Write cadence in ms, on top of the event subscriptions: the countdown and the completion bar.
 VDT.MissionExporter.INTERVAL_MS = 10000
 
@@ -133,6 +134,98 @@ local function collectDetails(mission, isFinished)
     rows[#rows + 1] = detailRow(detail)
   end
   return #rows > 0 and rows or nil
+end
+
+-- The crop a contract names, when it names one. Set by every mission that works a specific fruit
+-- (harvest, sow, bale), and read by FIELD PRESENCE rather than by mission type -- same rule the
+-- aspect layer follows, so a modded mission that sets the same field is carried too.
+---@param mission table
+---@return string|nil token the engine's fruit type name (WHEAT, OAT, ...)
+---@return string|nil title the localized crop name
+local function collectCrop(mission)
+  local index = mission.fruitTypeIndex
+  if type(index) ~= "number" or index == 0 or g_fruitTypeManager == nil then
+    return nil, nil
+  end
+  local okName, name = pcall(g_fruitTypeManager.getFruitTypeNameByIndex, g_fruitTypeManager, index)
+  -- BaleMission resolves the title itself at setFruitType; everything else goes through the fill
+  -- type, because that is what the crop is carried and named as (see aspects/Sowing.lua).
+  local title = type(mission.fruitTypeTitle) == "string" and mission.fruitTypeTitle or nil
+  if title == nil then
+    local okFill, fillType = pcall(g_fruitTypeManager.getFillTypeByFruitTypeIndex, g_fruitTypeManager, index)
+    if okFill and type(fillType) == "table" then
+      title = fillType.title
+    end
+  end
+  return (okName and type(name) == "string") and name or nil, title
+end
+
+-- The bale form a contract asks for, when it asks for one. Two different fields say it: a baling
+-- contract carries `needRoundbaler` outright, a wrapping one carries a bale type index the bale
+-- manager resolves (BaleMission.lua:34, BaleWrapMission.lua:32). Both are stream-synced.
+---@param mission table
+---@return string|nil token ROUND | SQUARE
+---@return string|nil title the localized form ("Round bale")
+local function collectBaleForm(mission)
+  local round
+  if type(mission.needRoundbaler) == "boolean" then
+    round = mission.needRoundbaler
+  elseif type(mission.baleTypeIndex) == "number" and g_baleManager ~= nil then
+    local ok, isRound = pcall(g_baleManager.getIsRoundBale, g_baleManager, mission.baleTypeIndex)
+    if not ok or type(isRound) ~= "boolean" then
+      return nil, nil
+    end
+    round = isRound
+  else
+    return nil, nil
+  end
+  local key = round and "fillType_roundBale" or "fillType_squareBale"
+  local okText, title = pcall(g_i18n.getText, g_i18n, key)
+  return round and "ROUND" or "SQUARE", (okText and type(title) == "string") and title or nil
+end
+
+-- Where the load has to be delivered, for the contracts that sell something (harvest, tree
+-- transport). Taken from the station placeable's OWN map hotspot -- the very position the game puts
+-- its selling-station marker at (HarvestMission.lua:217-222) -- so the app never has to match a
+-- station by name.
+---@param mission table
+---@param sizeX number|nil
+---@param sizeZ number|nil
+---@return MissionStationModel|nil
+local function collectSellingStation(mission, sizeX, sizeZ)
+  -- A client receives the station as a pending network id and resolves it lazily; the engine's own
+  -- getDetails does this too, so a station that has not been looked up yet still reports.
+  if mission.pendingSellingStationId ~= nil and type(mission.tryToResolveSellingStation) == "function" then
+    pcall(mission.tryToResolveSellingStation, mission)
+  end
+  local station = mission.sellingStation
+  if type(station) ~= "table" then
+    return nil
+  end
+
+  local model = {}
+  local okName, name = pcall(station.getName, station)
+  if okName and type(name) == "string" and name ~= "" then
+    model.name = name
+  end
+
+  local placeable = station.owningPlaceable
+  if sizeX ~= nil and type(placeable) == "table" and type(placeable.getHotspot) == "function" then
+    local okHotspot, hotspot = pcall(placeable.getHotspot, placeable)
+    if okHotspot and type(hotspot) == "table" and type(hotspot.getWorldPosition) == "function" then
+      local okPos, worldX, worldZ = pcall(hotspot.getWorldPosition, hotspot)
+      if okPos and type(worldX) == "number" and type(worldZ) == "number" then
+        model.posX = VDT.MapExporter.normalizeCoord(worldX, sizeX)
+        model.posZ = VDT.MapExporter.normalizeCoord(worldZ, sizeZ)
+      end
+    end
+  end
+
+  -- A station we can neither name nor place is not worth a key.
+  if model.name == nil and model.posX == nil then
+    return nil
+  end
+  return model
 end
 
 ---The farmer offering the contract (AbstractMission:getNPC, :574).
@@ -281,6 +374,27 @@ function VDT.MissionExporter.collectMission(mission, ownFarmId, sizeX, sizeZ)
 
   model.posX, model.posZ = collectPosition(mission, sizeX, sizeZ)
   model.details = collectDetails(mission, isFinished)
+  model.sellingStation = collectSellingStation(mission, sizeX, sizeZ)
+
+  -- What this contract is about beyond its type: the crop for a harvest or a sowing job, the bale
+  -- form for a baling one -- the line a list shows under the title. Assembled here rather than in the
+  -- app because the parts are localized by the game, and joined so a contract that names both (a
+  -- baling job on a named crop) says both.
+  local fruitType, fruitTitle = collectCrop(mission)
+  local baleType, baleTitle = collectBaleForm(mission)
+  model.fruitType = fruitType
+  model.baleType = baleType
+  local parts = {}
+  if baleTitle ~= nil then
+    parts[#parts + 1] = baleTitle
+  end
+  if fruitTitle ~= nil then
+    parts[#parts + 1] = fruitTitle
+  end
+  if #parts > 0 then
+    -- U+00B7 MIDDLE DOT as raw UTF-8 bytes: \u{} is Luau/5.3 syntax and the specs run on 5.1.
+    model.subtitle = table.concat(parts, " \194\183 ")
+  end
 
   return model
 end

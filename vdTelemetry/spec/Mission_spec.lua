@@ -92,6 +92,35 @@ local function mission(over)
       return over.farmlandId
     end
   end
+  -- The engine sets these on the missions that have them; the collector reads them by presence, not
+  -- by mission type, so the spec adds them the same way.
+  m.fruitTypeIndex = over.fruitTypeIndex
+  m.fruitTypeTitle = over.fruitTypeTitle
+  m.needRoundbaler = over.needRoundbaler
+  m.baleTypeIndex = over.baleTypeIndex
+  m.pendingSellingStationId = over.pendingSellingStationId
+  if over.station ~= nil then
+    m.sellingStation = {
+      getName = function()
+        return over.station.name
+      end,
+      owningPlaceable = over.station.worldX ~= nil and {
+        getHotspot = function()
+          return {
+            getWorldPosition = function()
+              return over.station.worldX, over.station.worldZ
+            end,
+          }
+        end,
+      } or nil,
+    }
+  end
+  if over.resolveStation ~= nil then
+    m.tryToResolveSellingStation = function(self)
+      self.sellingStation = over.resolveStation
+      self.pendingSellingStationId = nil
+    end
+  end
   return m
 end
 
@@ -121,6 +150,24 @@ local function installWorld(missions, opts)
       return list
     end,
   }
+  _G.g_fruitTypeManager = {
+    getFruitTypeNameByIndex = function(_, index)
+      return ({ [4] = "WHEAT", [11] = "OAT", [20] = "GRASS" })[index]
+    end,
+    getFillTypeByFruitTypeIndex = function(_, index)
+      return ({ [4] = { title = "Weizen" }, [11] = { title = "Hafer" }, [20] = { title = "Gras" } })[index]
+    end,
+  }
+  _G.g_baleManager = {
+    getIsRoundBale = function(_, index)
+      return index == 1
+    end,
+  }
+  _G.g_i18n = {
+    getText = function(_, key)
+      return key == "fillType_roundBale" and "Rundballen" or "Quaderballen"
+    end,
+  }
   _G.g_currentMission = {
     terrainSize = TERRAIN_SIZE,
     getHasPlayerPermission = function()
@@ -138,6 +185,9 @@ after_each(function()
   _G.g_localPlayer = nil
   _G.g_missionManager = nil
   _G.g_currentMission = nil
+  _G.g_fruitTypeManager = nil
+  _G.g_baleManager = nil
+  _G.g_i18n = nil
 end)
 
 describe("MissionExporter.collect", function()
@@ -164,7 +214,7 @@ describe("MissionExporter.collect", function()
 
     local model = VDT.MissionExporter.collect()
 
-    assert.are.equal("1", model.version)
+    assert.are.equal("2", model.version)
     assert.are.equal(1, #model.missions)
     local m = model.missions[1]
     assert.are.equal(77, m.id)
@@ -306,7 +356,7 @@ describe("MissionExporter.collect", function()
     installWorld({ mission({}) }, { farmId = false })
 
     local model = VDT.MissionExporter.collect()
-    assert.are.equal("1", model.version)
+    assert.are.equal("2", model.version)
     assert.is_nil(model.missions)
     assert.is_nil(model.limit)
   end)
@@ -314,6 +364,102 @@ describe("MissionExporter.collect", function()
   it("is unavailable until the mission manager is up", function()
     assert.is_false(VDT.MissionExporter.isAvailable())
     assert.is_nil(VDT.MissionExporter.collect())
+  end)
+end)
+
+describe("MissionExporter contract subject", function()
+  it("names the crop a harvest contract is for", function()
+    installWorld({ mission({ fruitTypeIndex = 11 }) })
+
+    local m = VDT.MissionExporter.collect().missions[1]
+    assert.are.equal("OAT", m.fruitType)
+    assert.are.equal("Hafer", m.subtitle)
+    assert.is_nil(m.baleType)
+  end)
+
+  it("prefers the title the mission already resolved", function()
+    -- BaleMission caches the localized crop title at setFruitType; going back through the fill type
+    -- would only be a second way to reach the same string.
+    installWorld({ mission({ fruitTypeIndex = 4, fruitTypeTitle = "Weizen (Vertrag)" }) })
+    assert.are.equal("Weizen (Vertrag)", VDT.MissionExporter.collect().missions[1].subtitle)
+  end)
+
+  it("names the bale form from either field the engine states it in", function()
+    -- A baling contract says it outright; a wrapping one carries a bale type the manager resolves.
+    installWorld({
+      mission({ objectId = 1, needRoundbaler = true }),
+      mission({ objectId = 2, needRoundbaler = false }),
+      mission({ objectId = 3, baleTypeIndex = 1 }),
+      mission({ objectId = 4, baleTypeIndex = 2 }),
+    })
+
+    local ms = VDT.MissionExporter.collect().missions
+    assert.are.equal("ROUND", ms[1].baleType)
+    assert.are.equal("Rundballen", ms[1].subtitle)
+    assert.are.equal("SQUARE", ms[2].baleType)
+    assert.are.equal("Quaderballen", ms[2].subtitle)
+    assert.are.equal("ROUND", ms[3].baleType)
+    assert.are.equal("SQUARE", ms[4].baleType)
+  end)
+
+  it("says both when a contract names both", function()
+    -- A baling contract is for a form AND a crop; the list line should not have to pick one.
+    installWorld({ mission({ needRoundbaler = true, fruitTypeIndex = 20 }) })
+    assert.are.equal("Rundballen \194\183 Gras", VDT.MissionExporter.collect().missions[1].subtitle)
+  end)
+
+  it("leaves the subject out when the contract has none", function()
+    -- A ploughing or mowing contract names neither, and an empty string would still render a line.
+    installWorld({ mission({}) })
+
+    local model = VDT.MissionExporter.collect().missions[1]
+    assert.is_nil(model.subtitle)
+    assert.is_nil(model.fruitType)
+    assert.is_nil(model.baleType)
+  end)
+end)
+
+describe("MissionExporter selling station", function()
+  it("places the station where the game marks it, not by name", function()
+    installWorld({
+      mission({ station = { name = "Getreidemühle", worldX = 512, worldZ = -512 } }),
+    })
+
+    local station = VDT.MissionExporter.collect().missions[1].sellingStation
+    assert.are.equal("Getreidemühle", station.name)
+    -- the placeable's own hotspot position, normalized into the shared map frame
+    assert.are.equal(0.75, station.posX)
+    assert.are.equal(0.25, station.posZ)
+  end)
+
+  it("resolves a station the client has only as a pending id", function()
+    -- A client receives the station as a network id and looks it up lazily; the engine's own
+    -- getDetails does the same, so a station nobody has asked for yet must still report.
+    installWorld({
+      mission({
+        pendingSellingStationId = 77,
+        resolveStation = {
+          getName = function()
+            return "Sägemühle"
+          end,
+        },
+      }),
+    })
+
+    assert.are.equal("Sägemühle", VDT.MissionExporter.collect().missions[1].sellingStation.name)
+  end)
+
+  it("keeps a station it can name but not place", function()
+    installWorld({ mission({ station = { name = "Sägemühle" } }) })
+
+    local station = VDT.MissionExporter.collect().missions[1].sellingStation
+    assert.are.equal("Sägemühle", station.name)
+    assert.is_nil(station.posX)
+  end)
+
+  it("leaves the key out for a contract that delivers nowhere", function()
+    installWorld({ mission({}) })
+    assert.is_nil(VDT.MissionExporter.collect().missions[1].sellingStation)
   end)
 end)
 

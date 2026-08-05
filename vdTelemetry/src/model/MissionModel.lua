@@ -16,6 +16,12 @@
 ---@field title string the row's label ("Field", "Crop", "Reward per tree", ...)
 ---@field value string the row's value, formatted by the game (money, area, counts)
 
+---@class MissionStationModel where a contract's load has to be delivered
+---@field name string? the station's display name
+---@field posX number? normalized [0,1] map x -- taken from the station placeable's own map hotspot,
+---  the position the game marks it at, so nothing has to match a station by name
+---@field posZ number?
+
 ---@class MissionNpcModel the farmer offering the contract
 ---@field name string the NPC's display name
 ---@field image string? path to the NPC portrait, engine-relative (nil when it has none)
@@ -46,6 +52,11 @@
 ---@field posX number? normalized [0,1] map x, same frame as the map channel and the player marker
 ---@field posZ number? normalized [0,1] map z
 ---@field own boolean? true when this farm is the one running it (absent while it is on offer)
+---@field subtitle string? localized line saying what the contract is about beyond its type -- the
+---  crop for a harvest or sowing job, the bale form for a baling one, both when it names both
+---@field fruitType string? engine fruit token (WHEAT, OAT, ...) when the contract names a crop
+---@field baleType string? ROUND | SQUARE when the contract asks for a bale form
+---@field sellingStation MissionStationModel? for the contracts that deliver somewhere
 ---@field details MissionDetailModel[]?
 
 ---@class MissionLimitModel how many contracts this farm may run at once

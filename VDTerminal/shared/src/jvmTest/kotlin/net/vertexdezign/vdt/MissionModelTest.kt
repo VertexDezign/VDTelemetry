@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.BaleForm
 import net.vertexdezign.vdt.model.MissionFinishState
 import net.vertexdezign.vdt.model.MissionStatus
 import net.vertexdezign.vdt.model.MissionsData
@@ -46,6 +47,8 @@ class MissionModelTest {
   fun parsesTheContractBoard() {
     val data = capture()
 
+    // The capture is a v1 board — it predates the subtitle / selling-station fields, whose decoding
+    // is pinned below against the wire until it is retaken.
     assertEquals("1", data.version)
     assertTrue(data.canManage)
     assertEquals(27, data.missions.size)
@@ -168,6 +171,71 @@ class MissionModelTest {
         assertTrue(mission.description.isNotEmpty(), "$type should carry a description")
       }
     }
+  }
+
+  @Test
+  fun decodesWhatAContractIsAboutBeyondItsType() {
+    // The line the list prints under the title: the crop for a harvest job, the bale form for a
+    // baling one, and both when the contract names both. Assembled mod-side out of the game's own
+    // localized strings, so the app never builds it and never translates anything.
+    fun mission(fields: String) =
+      VdtParser
+        .parseMissions("""{"version":"2","missions":[{"id":1,$fields}]}""")
+        .missions
+        .single()
+
+    val harvest = mission(""""type":"harvestMission","subtitle":"Hafer","fruitType":"OAT"""")
+    assertEquals("Hafer", harvest.subtitle)
+    assertEquals("OAT", harvest.fruitType)
+    assertNull(harvest.baleType)
+
+    val wrapping = mission(""""type":"baleWrapMission","subtitle":"Quaderballen","baleType":"SQUARE"""")
+    assertEquals(BaleForm.SQUARE, wrapping.baleType)
+    assertNull(wrapping.fruitType)
+
+    val baling =
+      mission(""""type":"baleMission","subtitle":"Rundballen · Gras","baleType":"ROUND","fruitType":"GRASS"""")
+    assertEquals(BaleForm.ROUND, baling.baleType)
+    assertEquals("GRASS", baling.fruitType)
+    assertEquals("Rundballen · Gras", baling.subtitle)
+
+    // A ploughing contract names neither, and must not render an empty line.
+    val plow = mission(""""type":"plowMission"""")
+    assertEquals("", plow.subtitle)
+    assertNull(plow.fruitType)
+    assertNull(plow.baleType)
+  }
+
+  @Test
+  fun decodesTheDeliveryPointWithoutNamingIt() {
+    // The station arrives with the position the game marks it at, so the map draws it directly —
+    // matching a station by name (and by locale) is exactly what this avoids.
+    val station =
+      assertNotNull(
+        VdtParser
+          .parseMissions(
+            """{"version":"2","missions":[{"id":1,"type":"harvestMission","sellingStation":""" +
+              """{"name":"Getreidemühle","posX":0.75,"posZ":0.25}}]}""",
+          ).missions
+          .single()
+          .sellingStation,
+      )
+    assertEquals("Getreidemühle", station.name)
+    assertEquals(0.75f, station.posX)
+    assertTrue(station.hasPosition)
+
+    // A station the mod could name but not place must not be drawn at the map origin.
+    val unplaceable =
+      assertNotNull(
+        VdtParser
+          .parseMissions("""{"version":"2","missions":[{"id":1,"sellingStation":{"name":"Sägemühle"}}]}""")
+          .missions
+          .single()
+          .sellingStation,
+      )
+    assertEquals("Sägemühle", unplaceable.name)
+    assertFalse(unplaceable.hasPosition)
+    assertNull(unplaceable.posX)
   }
 
   @Test
