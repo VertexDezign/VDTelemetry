@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +39,7 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Mission
 import net.vertexdezign.vdt.model.MissionDetail
 import net.vertexdezign.vdt.model.MissionFinishState
+import net.vertexdezign.vdt.model.MissionLimit
 import net.vertexdezign.vdt.model.MissionsData
 import kotlin.math.roundToInt
 
@@ -73,13 +75,30 @@ fun MissionsPanel(
       else -> {
         // The caller may drive the selection (the map does); otherwise the panel keeps its own.
         var ownSelection by remember { mutableStateOf<Int?>(null) }
-        val ids = data.missions.map { it.id }
+        // A board runs to a couple of dozen contracts, most of which you are not shopping for.
+        // Filtering by type is the one cut that always makes sense; a type that vanishes from the
+        // board takes its filter with it (the `in kinds` check), rather than emptying the list.
+        var typeFilter by remember { mutableStateOf<String?>(null) }
+        val kinds = remember(data) { missionKinds(data.missions) }
+        val activeFilter = typeFilter?.takeIf { filter -> kinds.any { it.type == filter } }
+        val shown = remember(data, activeFilter) {
+          data.missions.filter {
+            activeFilter == null ||
+              it.type == activeFilter
+          }
+        }
+
+        val ids = shown.map { it.id }
         val currentId = (selectedId ?: ownSelection)?.takeIf { it in ids } ?: ids.first()
-        val current = data.missions.first { it.id == currentId }
+        val current = shown.first { it.id == currentId }
 
         Row(Modifier.fillMaxSize()) {
           MissionList(
-            data = data,
+            missions = shown,
+            limit = data.limit,
+            kinds = kinds,
+            activeFilter = activeFilter,
+            onFilter = { typeFilter = if (it == activeFilter) null else it },
             currentId = currentId,
             onSelect = {
               ownSelection = it
@@ -118,16 +137,23 @@ fun MissionsPanel(
 }
 
 @Composable
-private fun MissionList(data: MissionsData, currentId: Int, onSelect: (Int) -> Unit) {
+private fun MissionList(
+  missions: List<Mission>,
+  limit: MissionLimit?,
+  kinds: List<MissionKind>,
+  activeFilter: String?,
+  onFilter: (String) -> Unit,
+  currentId: Int,
+  onSelect: (Int) -> Unit,
+) {
   // The game's own two sections: on offer, and everything this farm has taken on (running or done).
-  val offered = data.missions.filter { it.isOffered }
-  val taken = data.missions.filterNot { it.isOffered }
+  val offered = missions.filter { it.isOffered }
+  val taken = missions.filterNot { it.isOffered }
 
   Column(
     Modifier.width(250.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 10.dp),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
-    val limit = data.limit
     if (limit != null) {
       Text(
         "${limit.active} / ${limit.max} ACTIVE",
@@ -135,6 +161,20 @@ private fun MissionList(data: MissionsData, currentId: Int, onSelect: (Int) -> U
         fontSize = 9.sp,
         fontWeight = FontWeight.Bold,
       )
+    }
+    // The chips carry the game's own name for each kind of work ("Ernten", "Ballen pressen"), taken
+    // off the contracts themselves — this module never spells out a mission type.
+    if (kinds.size > 1) {
+      FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (kind in kinds) {
+          TypeChip(
+            label = kind.label,
+            count = kind.count,
+            selected = kind.type == activeFilter,
+            onClick = { onFilter(kind.type) },
+          )
+        }
+      }
     }
     if (taken.isNotEmpty()) {
       ListLabel("Yours")
@@ -144,6 +184,45 @@ private fun MissionList(data: MissionsData, currentId: Int, onSelect: (Int) -> U
       ListLabel("On offer")
       offered.forEach { MissionRow(it, it.id == currentId) { onSelect(it.id) } }
     }
+  }
+}
+
+/** One kind of work on the board: the type token, the game's name for it, and how many there are. */
+internal data class MissionKind(val type: String, val label: String, val count: Int)
+
+/**
+ * The kinds of work present on a board, most-offered first. The label is the contracts' own [title],
+ * which is the game's localized name for that kind of work — so the filter reads in the player's
+ * language without this module knowing a single mission type.
+ */
+internal fun missionKinds(missions: List<Mission>): List<MissionKind> = missions
+  .groupBy { it.type }
+  .map { (type, ms) -> MissionKind(type, ms.first().title.ifBlank { type }, ms.size) }
+  .sortedWith(compareByDescending<MissionKind> { it.count }.thenBy { it.label })
+
+@Composable
+private fun TypeChip(label: String, count: Int, selected: Boolean, onClick: () -> Unit) {
+  Row(
+    Modifier
+      .clip(RoundedCornerShape(10.dp))
+      .background(if (selected) VdtColors.Green else VdtColors.TrackGray)
+      .clickable(onClick = onClick)
+      .padding(horizontal = 8.dp, vertical = 4.dp),
+    horizontalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    Text(
+      label,
+      color = if (selected) VdtColors.White else VdtColors.TextDark,
+      fontSize = 10.sp,
+      fontWeight = FontWeight.SemiBold,
+      maxLines = 1,
+    )
+    Text(
+      count.toString(),
+      color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.Gray,
+      fontSize = 10.sp,
+      fontWeight = FontWeight.Bold,
+    )
   }
 }
 
@@ -192,7 +271,7 @@ private fun MissionRow(mission: Mission, selected: Boolean, onClick: () -> Unit)
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
       Text(
-        mission.location.ifEmpty { mission.type },
+        rowSubject(mission),
         color = subFg,
         fontSize = 10.sp,
         maxLines = 1,
@@ -360,11 +439,34 @@ fun MissionsSummary(data: MissionsData?, modifier: Modifier = Modifier) {
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           active.forEach { mission ->
-            ProgressBar(
-              fraction = mission.completion ?: 0f,
-              leftLabel = mission.location.ifEmpty { mission.title },
-              rightLabel = mission.minutesLeft?.let { formatMinutes(it) } ?: statusLine(mission),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                // What the job is: its kind, and what it is for.
+                Text(
+                  mission.title,
+                  color = VdtColors.TextDark,
+                  fontSize = 12.sp,
+                  fontWeight = FontWeight.SemiBold,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                  modifier = Modifier.weight(1f, fill = false),
+                )
+                if (mission.subtitle.isNotEmpty()) {
+                  Text(
+                    mission.subtitle,
+                    color = VdtColors.DarkGray,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                  )
+                }
+              }
+              ProgressBar(
+                fraction = mission.completion ?: 0f,
+                leftLabel = widgetProgressLabel(mission),
+                rightLabel = mission.minutesLeft?.let { formatMinutes(it) } ?: statusLine(mission),
+              )
+            }
           }
           // Both are calls to action — one pays out now, the other is work available.
           if (finished > 0) {
@@ -381,6 +483,27 @@ fun MissionsSummary(data: MissionsData?, modifier: Modifier = Modifier) {
         }
     }
   }
+}
+
+/**
+ * The tile's progress label: where the work is, plus the running commentary the game supplies for the
+ * contracts that have one ("3 trees remaining") — on a tile that line is worth more than a percentage
+ * the bar is already showing.
+ */
+internal fun widgetProgressLabel(mission: Mission): String {
+  val where = mission.location.ifEmpty { mission.title }
+  return if (mission.extraProgress.isEmpty()) where else "$where · ${mission.extraProgress}"
+}
+
+/**
+ * A row's second line: where the contract is, and what it is for. The subject is the crop on a
+ * harvest or sowing job and the bale form on a baling one — the mod resolves it from the mission's
+ * own fields and hands it over already localized, so "Ernten" in the list is followed by "Hafer"
+ * without this module knowing what a harvest contract is.
+ */
+internal fun rowSubject(mission: Mission): String {
+  val where = mission.location.ifEmpty { mission.type }
+  return if (mission.subtitle.isEmpty()) where else "$where · ${mission.subtitle}"
 }
 
 /** The one-line state for a row: how it ended, how far along it is, or how long it is on offer for. */

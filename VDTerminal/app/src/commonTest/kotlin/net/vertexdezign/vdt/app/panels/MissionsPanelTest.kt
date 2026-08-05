@@ -17,8 +17,19 @@ class MissionsPanelTest {
     finishState: MissionFinishState? = null,
     completion: Float? = null,
     minutesLeft: Int? = null,
+    id: Int = 1,
+    type: String = "harvestMission",
+    title: String = "Ernten",
+    location: String = "",
+    subtitle: String = "",
+    extraProgress: String = "",
   ) = Mission(
-    id = 1,
+    id = id,
+    type = type,
+    title = title,
+    location = location,
+    subtitle = subtitle,
+    extraProgress = extraProgress,
     status = status,
     finishState = finishState,
     completion = completion,
@@ -87,6 +98,63 @@ class MissionsPanelTest {
     // A failed contract is still waiting to be cleared off the list, so it stays in the finished
     // colour rather than becoming an offer again.
     assertEquals(VdtColors.Green, missionColor(mission(MissionStatus.FINISHED, MissionFinishState.FAILED)))
+  }
+
+  @Test
+  fun aRowSaysWhereTheWorkIsAndWhatItIsFor() {
+    // The subject is the mod's, already localized — the crop on a harvest job, the bale form on a
+    // baling one. The row joins it to the location rather than spending a third line on it.
+    assertEquals(
+      "Land 49 · Hafer",
+      rowSubject(mission(location = "Land 49", subtitle = "Hafer")),
+    )
+    assertEquals(
+      "Land 35 · Rundballen",
+      rowSubject(mission(location = "Land 35", subtitle = "Rundballen", type = "baleMission")),
+    )
+    // A contract that is for nothing in particular (ploughing, mowing) just says where.
+    assertEquals("Land 2", rowSubject(mission(location = "Land 2")))
+    // And one the mod could not place falls back to naming its type rather than showing a blank.
+    assertEquals("plowMission", rowSubject(mission(type = "plowMission")))
+  }
+
+  @Test
+  fun theTypeFilterIsBuiltFromTheBoardItself() {
+    // The chips carry the game's own name for each kind of work, taken off the contracts — nothing
+    // here spells out a mission type, so a modded one gets a chip like any other.
+    val board =
+      listOf(
+        mission(id = 1, type = "harvestMission", title = "Ernten"),
+        mission(id = 2, type = "harvestMission", title = "Ernten"),
+        mission(id = 3, type = "plowMission", title = "Pflügen"),
+        mission(id = 4, type = "harvestMission", title = "Ernten"),
+        mission(id = 5, type = "modded.somethingNew", title = "Etwas Neues"),
+      )
+
+    val kinds = missionKinds(board)
+    // Most-offered first: the filter's job is to cut the board down, so the big piles come first.
+    assertEquals(listOf("Ernten", "Etwas Neues", "Pflügen"), kinds.map { it.label })
+    assertEquals(listOf(3, 1, 1), kinds.map { it.count })
+    assertEquals("modded.somethingNew", kinds[1].type)
+  }
+
+  @Test
+  fun aKindWithNoTitleFallsBackToItsType() {
+    // Better a raw token than a blank chip nobody can press with intent.
+    assertEquals("weirdMission", missionKinds(listOf(mission(type = "weirdMission", title = ""))).single().label)
+  }
+
+  @Test
+  fun theTileSaysWhatIsHappeningRatherThanRepeatingTheBar() {
+    // The bar already shows the percentage, so the label spends its room on the game's own running
+    // commentary where there is one.
+    assertEquals(
+      "Land 80 · Noch 6 Bäume",
+      widgetProgressLabel(mission(location = "Land 80", extraProgress = "Noch 6 Bäume")),
+    )
+    assertEquals("Land 12", widgetProgressLabel(mission(location = "Land 12")))
+    // With no location at all it names the job instead of showing nothing.
+    assertEquals("Ernten", widgetProgressLabel(mission()))
   }
 
   @Test
