@@ -1,0 +1,1030 @@
+{
+  "canManage": true,
+  "limit": {
+    "max": 3,
+    "active": 3
+  },
+  "version": "1",
+  "missions": [
+    {
+      "type": "treeTransportMission",
+      "description": "Transportiere die Bäume zur angegebenen Verkaufsstelle, um bezahlt zu werden. Sei vorsichtig, dass du sie nicht beschädigst, da jeglicher Schaden von deinem Lohn abgezogen wird.",
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Land",
+          "value": "33"
+        },
+        {
+          "title": "Verkaufsstation",
+          "value": "Sägemühle"
+        },
+        {
+          "title": "Belohnung pro Baum",
+          "value": "255 €"
+        },
+        {
+          "title": "Strafe pro Baum",
+          "value": "2.000 €"
+        },
+        {
+          "title": "Anzahl der Bäume",
+          "value": "21"
+        }
+      ],
+      "id": 648,
+      "posZ": 0.03754,
+      "npc": {
+        "name": "Noah",
+        "image": "dataS2/npc/forester/forester.png"
+      },
+      "vehicleCosts": 640,
+      "minutesLeft": 3056,
+      "fieldId": 33,
+      "title": "Holztransport",
+      "posX": 0.5621,
+      "location": "Land 33",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 5355
+    },
+    {
+      "description": "Im angegebenen Bereich gibt es Probleme mit Totholz. Hilf dem Eigentümer und fälle alle toten Bäume. Diese sind bereits markiert. Du kannst das Holz danach verkaufen.",
+      "completion": 0,
+      "npc": {
+        "name": "Noah",
+        "image": "dataS2/npc/forester/forester.png"
+      },
+      "fieldId": 80,
+      "posX": 0.5674,
+      "status": "RUNNING",
+      "leasable": true,
+      "type": "deadwoodMission",
+      "id": 649,
+      "own": true,
+      "details": [
+        {
+          "title": "Land",
+          "value": "80"
+        },
+        {
+          "title": "Belohnung pro Baum",
+          "value": "150 €"
+        },
+        {
+          "title": "Strafe pro Baum",
+          "value": "2.000 €"
+        },
+        {
+          "title": "Anzahl der Bäume",
+          "value": "6"
+        },
+        {
+          "title": "Anzahl der gefällten Bäume",
+          "value": "0"
+        }
+      ],
+      "extraProgress": "Noch 6 Bäume",
+      "title": "Totholz",
+      "vehicleCosts": 320,
+      "location": "Land 80",
+      "posZ": 0.706,
+      "minutesLeft": 3116,
+      "reward": 900
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 959"
+        },
+        {
+          "title": "Feld",
+          "value": "27"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.48 ha"
+        }
+      ],
+      "type": "herbicideMission",
+      "description": "Entferne das Unkraut auf dem Feld , indem du es mit Herbiziden besprühst.",
+      "posZ": 0.23726,
+      "id": 650,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 960,
+      "areaHa": 0.48,
+      "fieldId": 27,
+      "title": "Spritzen",
+      "posX": 0.3708,
+      "location": "Land 27",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 723
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Feld",
+          "value": "8"
+        },
+        {
+          "title": "Fläche",
+          "value": "2.21 ha"
+        }
+      ],
+      "type": "herbicideMission",
+      "description": "Entferne das Unkraut auf dem Feld , indem du es mit Herbiziden besprühst.",
+      "posZ": 0.48602,
+      "id": 651,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "David",
+        "image": "dataS2/npc/farmer/farmer.png"
+      },
+      "vehicleCosts": 640,
+      "areaHa": 2.21,
+      "fieldId": 8,
+      "title": "Spritzen",
+      "posX": 0.23471,
+      "location": "Land 8",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 3321
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Feld",
+          "value": "35"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.49 ha"
+        },
+        {
+          "title": "Ballenform",
+          "value": "Rundballen"
+        }
+      ],
+      "type": "baleWrapMission",
+      "description": "Wickel die Ballen mit einem Ballenwickler ein.",
+      "posZ": 0.14376,
+      "id": 652,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 640,
+      "areaHa": 0.49,
+      "fieldId": 35,
+      "title": "Ballen wickeln",
+      "posX": 0.57811,
+      "location": "Land 35",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 900
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Feld",
+          "value": "82"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.75 ha"
+        },
+        {
+          "title": "Ballenform",
+          "value": "Quaderballen"
+        }
+      ],
+      "type": "baleMission",
+      "description": "Presse Ballen auf dem angegebenen Feld.",
+      "posZ": 0.43101,
+      "id": 653,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "David",
+        "image": "dataS2/npc/farmer/farmer.png"
+      },
+      "vehicleCosts": 640,
+      "areaHa": 0.75,
+      "fieldId": 82,
+      "title": "Ballen pressen",
+      "posX": 0.59568,
+      "location": "Land 82",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 1661
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Feld",
+          "value": "26"
+        },
+        {
+          "title": "Fläche",
+          "value": "1.21 ha"
+        },
+        {
+          "title": "Ballenform",
+          "value": "Rundballen"
+        }
+      ],
+      "type": "baleMission",
+      "description": "Presse runde Ballen auf dem angegebenen Feld.",
+      "posZ": 0.24316,
+      "id": 654,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 640,
+      "areaHa": 1.21,
+      "fieldId": 26,
+      "title": "Ballen pressen",
+      "posX": 0.32959,
+      "location": "Land 26",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 2661
+    },
+    {
+      "description": "Wickel die Ballen mit einem Ballenwickler ein.",
+      "completion": 0,
+      "npc": {
+        "name": "Noah",
+        "image": "dataS2/npc/forester/forester.png"
+      },
+      "fieldId": 12,
+      "posX": 0.29418,
+      "status": "RUNNING",
+      "leasable": true,
+      "type": "baleWrapMission",
+      "id": 655,
+      "areaHa": 1.13,
+      "own": true,
+      "details": [
+        {
+          "title": "Feld",
+          "value": "12"
+        },
+        {
+          "title": "Fläche",
+          "value": "1.13 ha"
+        },
+        {
+          "title": "Ballenform",
+          "value": "Quaderballen"
+        }
+      ],
+      "title": "Ballen wickeln",
+      "vehicleCosts": 640,
+      "location": "Land 12",
+      "posZ": 0.28483,
+      "minutesLeft": 543,
+      "reward": 2701
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Feld",
+          "value": "10"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.81 ha"
+        }
+      ],
+      "type": "fertilizeMission",
+      "description": "Dünge das Feld mit einem beliebigen Dünger (Flüssigdünger, Mineraldünger, Gülle oder Mist).",
+      "posZ": 0.42311,
+      "id": 656,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Katie",
+        "image": "dataS2/npc/animalDealer/animalDealer.png"
+      },
+      "vehicleCosts": 640,
+      "areaHa": 0.81,
+      "fieldId": 10,
+      "title": "Düngen",
+      "posX": 0.31164,
+      "location": "Land 10",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 1219
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Feld",
+          "value": "56"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.46 ha"
+        }
+      ],
+      "type": "fertilizeMission",
+      "description": "Dünge das Feld mit einem beliebigen Dünger (Flüssigdünger, Mineraldünger, Gülle oder Mist).",
+      "posZ": 0.37345,
+      "id": 657,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Katie",
+        "image": "dataS2/npc/animalDealer/animalDealer.png"
+      },
+      "vehicleCosts": 640,
+      "areaHa": 0.46,
+      "fieldId": 56,
+      "title": "Düngen",
+      "posX": 0.69008,
+      "location": "Land 56",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 693
+    },
+    {
+      "description": "Dünge das Feld mit einem beliebigen Dünger (Flüssigdünger, Mineraldünger, Gülle oder Mist).",
+      "completion": 0.996,
+      "totalReward": -171,
+      "fieldId": 71,
+      "posX": 0.83262,
+      "status": "FINISHED",
+      "leasable": true,
+      "type": "fertilizeMission",
+      "id": 658,
+      "details": [
+        {
+          "title": "Vertragswert",
+          "value": "€ 788"
+        },
+        {
+          "title": "Rückzahlung",
+          "value": "€ 0"
+        },
+        {
+          "title": "Mietkosten",
+          "value": "€ -959"
+        },
+        {
+          "title": "Fehlende Erträge",
+          "value": "€ 0"
+        }
+      ],
+      "areaHa": 0.53,
+      "own": true,
+      "npc": {
+        "name": "Katie",
+        "image": "dataS2/npc/animalDealer/animalDealer.png"
+      },
+      "vehicleCosts": 960,
+      "title": "Düngen",
+      "minutesLeft": 543,
+      "location": "Land 71",
+      "posZ": 0.83985,
+      "finishState": "SUCCESS",
+      "reward": 789
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 959"
+        },
+        {
+          "title": "Feld",
+          "value": "44"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.71 ha"
+        }
+      ],
+      "type": "mowMission",
+      "description": "Mähe das Gras auf dem Feld mit einem Mähwerk.",
+      "posZ": 0.16466,
+      "id": 659,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 960,
+      "areaHa": 0.71,
+      "fieldId": 44,
+      "title": "Mähen",
+      "posX": 0.58118,
+      "location": "Land 44",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 1764
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 1.599"
+        },
+        {
+          "title": "Feld",
+          "value": "49"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.68 ha"
+        },
+        {
+          "title": "Verkaufsstation",
+          "value": "Getreidemühle"
+        },
+        {
+          "title": "Fruchtsorte",
+          "value": "Hafer"
+        }
+      ],
+      "type": "harvestMission",
+      "description": "Ernte das Feld ab und bringe die Erzeugnisse dann zur Verkaufsstation.",
+      "posZ": 0.25569,
+      "id": 660,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 1600,
+      "areaHa": 0.68,
+      "fieldId": 49,
+      "title": "Ernten",
+      "posX": 0.76538,
+      "location": "Land 49",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 1701
+    },
+    {
+      "type": "destructibleRockMission",
+      "description": "Der Besitzer möchte, dass du bestimmte Felsen in dem Gebiet entfernst.",
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Land",
+          "value": "26"
+        },
+        {
+          "title": "Belohnung pro Felsen",
+          "value": "550 €"
+        },
+        {
+          "title": "Strafe pro Felsen",
+          "value": "1.000 €"
+        },
+        {
+          "title": "Anzahl der Felsen",
+          "value": "5"
+        }
+      ],
+      "id": 661,
+      "posZ": 0.19365,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 640,
+      "minutesLeft": 3063,
+      "fieldId": 26,
+      "title": "Felsen entfernen",
+      "posX": 0.28232,
+      "location": "Land 26",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 2750
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 959"
+        },
+        {
+          "title": "Feld",
+          "value": "43"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.76 ha"
+        }
+      ],
+      "type": "stonePickMission",
+      "description": "Entferne Steine vom Feld.",
+      "posZ": 0.19342,
+      "id": 662,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Ben",
+        "image": "dataS2/npc/helper/helper.png"
+      },
+      "vehicleCosts": 960,
+      "areaHa": 0.76,
+      "fieldId": 43,
+      "title": "Steine sammeln",
+      "posX": 0.62977,
+      "location": "Land 43",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 1662
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 1.599"
+        },
+        {
+          "title": "Feld",
+          "value": "14"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.55 ha"
+        },
+        {
+          "title": "Verkaufsstation",
+          "value": "Ölmühle"
+        },
+        {
+          "title": "Fruchtsorte",
+          "value": "Raps"
+        }
+      ],
+      "type": "harvestMission",
+      "description": "Ernte das Feld ab und bringe die Erzeugnisse dann zur Verkaufsstation.",
+      "posZ": 0.31585,
+      "id": 663,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Ben",
+        "image": "dataS2/npc/helper/helper.png"
+      },
+      "vehicleCosts": 1600,
+      "areaHa": 0.55,
+      "fieldId": 14,
+      "title": "Ernten",
+      "posX": 0.21511,
+      "location": "Land 14",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 1363
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 959"
+        },
+        {
+          "title": "Feld",
+          "value": "11"
+        },
+        {
+          "title": "Fläche",
+          "value": "1.92 ha"
+        }
+      ],
+      "type": "mowMission",
+      "description": "Mähe das Gras auf dem Feld mit einem Mähwerk.",
+      "posZ": 0.35419,
+      "id": 664,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "David",
+        "image": "dataS2/npc/farmer/farmer.png"
+      },
+      "vehicleCosts": 960,
+      "areaHa": 1.92,
+      "fieldId": 11,
+      "title": "Mähen",
+      "posX": 0.2965,
+      "location": "Land 11",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 4811
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 959"
+        },
+        {
+          "title": "Feld",
+          "value": "2"
+        },
+        {
+          "title": "Fläche",
+          "value": "1.82 ha"
+        }
+      ],
+      "type": "plowMission",
+      "description": "Pflüge das Feld, um die Erde zu lockern und sie für die nächste Aussaat vorzubereiten.",
+      "posZ": 0.59364,
+      "id": 665,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 960,
+      "areaHa": 1.82,
+      "fieldId": 2,
+      "title": "Pflügen",
+      "posX": 0.05143,
+      "location": "Land 2",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 5097
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 959"
+        },
+        {
+          "title": "Feld",
+          "value": "45"
+        },
+        {
+          "title": "Fläche",
+          "value": "1.78 ha"
+        }
+      ],
+      "type": "mowMission",
+      "description": "Mähe das Gras auf dem Feld mit einem Mähwerk.",
+      "posZ": 0.20057,
+      "id": 666,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Katie",
+        "image": "dataS2/npc/animalDealer/animalDealer.png"
+      },
+      "vehicleCosts": 960,
+      "areaHa": 1.78,
+      "fieldId": 45,
+      "title": "Mähen",
+      "posX": 0.52789,
+      "location": "Land 45",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 4449
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Feld",
+          "value": "34"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.21 ha"
+        }
+      ],
+      "type": "tedderMission",
+      "description": "Trockne das gemähte Gras auf dem Feld mit einem Wender.",
+      "posZ": 0.14254,
+      "id": 667,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Katie",
+        "image": "dataS2/npc/animalDealer/animalDealer.png"
+      },
+      "vehicleCosts": 640,
+      "areaHa": 0.21,
+      "fieldId": 34,
+      "title": "Gras wenden",
+      "posX": 0.53064,
+      "location": "Land 34",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 320
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 1.599"
+        },
+        {
+          "title": "Feld",
+          "value": "76"
+        },
+        {
+          "title": "Fläche",
+          "value": "5.3 ha"
+        },
+        {
+          "title": "Verkaufsstation",
+          "value": "Getreide Flusssilo"
+        },
+        {
+          "title": "Fruchtsorte",
+          "value": "Weizen"
+        }
+      ],
+      "type": "harvestMission",
+      "description": "Ernte das Feld ab und bringe die Erzeugnisse dann zur Verkaufsstation.",
+      "posZ": 0.90055,
+      "id": 668,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 1600,
+      "areaHa": 5.3,
+      "fieldId": 76,
+      "title": "Ernten",
+      "posX": 0.79546,
+      "location": "Land 76",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 13242
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 640"
+        },
+        {
+          "title": "Feld",
+          "value": "3"
+        },
+        {
+          "title": "Fläche",
+          "value": "1 ha"
+        },
+        {
+          "title": "Ballenform",
+          "value": "Rundballen"
+        }
+      ],
+      "type": "baleMission",
+      "description": "Presse runde Ballen auf dem angegebenen Feld.",
+      "posZ": 0.61349,
+      "id": 669,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 640,
+      "areaHa": 1,
+      "fieldId": 3,
+      "title": "Ballen pressen",
+      "posX": 0.1238,
+      "location": "Land 3",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 2200
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 1.599"
+        },
+        {
+          "title": "Feld",
+          "value": "62"
+        },
+        {
+          "title": "Fläche",
+          "value": "1 ha"
+        },
+        {
+          "title": "Verkaufsstation",
+          "value": "Getreide Flusssilo"
+        },
+        {
+          "title": "Fruchtsorte",
+          "value": "Raps"
+        }
+      ],
+      "type": "harvestMission",
+      "description": "Ernte das Feld ab und bringe die Erzeugnisse dann zur Verkaufsstation.",
+      "posZ": 0.58388,
+      "id": 670,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 1600,
+      "areaHa": 1,
+      "fieldId": 62,
+      "title": "Ernten",
+      "posX": 0.77365,
+      "location": "Land 62",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 2499
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 959"
+        },
+        {
+          "title": "Feld",
+          "value": "30"
+        },
+        {
+          "title": "Fläche",
+          "value": "1.68 ha"
+        }
+      ],
+      "type": "hoeMission",
+      "description": "Beseitige die kleinen Unkrautpflanzen auf dem Feld mit einer Hacke.",
+      "posZ": 0.13504,
+      "id": 724,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Katie",
+        "image": "dataS2/npc/animalDealer/animalDealer.png"
+      },
+      "vehicleCosts": 960,
+      "areaHa": 1.68,
+      "fieldId": 30,
+      "title": "Hacken",
+      "posX": 0.44912,
+      "location": "Land 30",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 2526
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 959"
+        },
+        {
+          "title": "Feld",
+          "value": "46"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.48 ha"
+        }
+      ],
+      "type": "hoeMission",
+      "description": "Beseitige die kleinen Unkrautpflanzen auf dem Feld mit einer Hacke.",
+      "posZ": 0.22565,
+      "id": 725,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Ben",
+        "image": "dataS2/npc/helper/helper.png"
+      },
+      "vehicleCosts": 960,
+      "areaHa": 0.48,
+      "fieldId": 46,
+      "title": "Hacken",
+      "posX": 0.65506,
+      "location": "Land 46",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 715
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 1.599"
+        },
+        {
+          "title": "Feld",
+          "value": "86"
+        },
+        {
+          "title": "Fläche",
+          "value": "1.47 ha"
+        },
+        {
+          "title": "Verkaufsstation",
+          "value": "Getreide Flusssilo"
+        },
+        {
+          "title": "Fruchtsorte",
+          "value": "Raps"
+        }
+      ],
+      "type": "harvestMission",
+      "description": "Ernte das Feld ab und bringe die Erzeugnisse dann zur Verkaufsstation.",
+      "posZ": 0.77136,
+      "id": 738,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Noah",
+        "image": "dataS2/npc/forester/forester.png"
+      },
+      "vehicleCosts": 1600,
+      "areaHa": 1.47,
+      "fieldId": 86,
+      "title": "Ernten",
+      "posX": 0.37458,
+      "location": "Land 86",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 3671
+    },
+    {
+      "details": [
+        {
+          "title": "Mietkosten",
+          "value": "€ 1.599"
+        },
+        {
+          "title": "Feld",
+          "value": "5"
+        },
+        {
+          "title": "Fläche",
+          "value": "0.77 ha"
+        },
+        {
+          "title": "Verkaufsstation",
+          "value": "Getreide Flusssilo"
+        },
+        {
+          "title": "Fruchtsorte",
+          "value": "Raps"
+        }
+      ],
+      "type": "harvestMission",
+      "description": "Ernte das Feld ab und bringe die Erzeugnisse dann zur Verkaufsstation.",
+      "posZ": 0.61315,
+      "id": 739,
+      "minutesLeft": 543,
+      "npc": {
+        "name": "Walter",
+        "image": "dataS2/npc/grandpa/grandpa.png"
+      },
+      "vehicleCosts": 1600,
+      "areaHa": 0.77,
+      "fieldId": 5,
+      "title": "Ernten",
+      "posX": 0.19263,
+      "location": "Land 5",
+      "leasable": true,
+      "status": "CREATED",
+      "reward": 1921
+    }
+  ]
+}

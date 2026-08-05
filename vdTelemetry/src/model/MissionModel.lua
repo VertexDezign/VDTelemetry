@@ -38,8 +38,11 @@
 ---@field completion number? work done in [0,1]; omitted before the contract is started
 ---@field minutesLeft number? in-game minutes until it times out; omitted when it has no end date
 ---@field extraProgress string? localized progress line ("3 trees remaining"), running contracts
----@field fieldId number? farmland id -- joins to the map channel's fields[].id (field missions)
----@field areaHa number? field size in hectares (field missions)
+---@field fieldId number? the farmland the contract sits on -- the id the map channel keys its
+---  fields[] by, so it is the join for tinting. The point-located types (forestry, rock) carry it
+---  too: they resolve the farmland under their spot
+---@field areaHa number? field size in hectares -- only field missions have a field object, so this
+---  is what tells a field contract from a point-located one, not fieldId
 ---@field posX number? normalized [0,1] map x, same frame as the map channel and the player marker
 ---@field posZ number? normalized [0,1] map z
 ---@field own boolean? true when this farm is the one running it (absent while it is on offer)

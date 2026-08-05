@@ -75,9 +75,16 @@ data class Mission(
   val minutesLeft: Int? = null,
   /** Localized progress line ("3 trees remaining"); running contracts only. */
   val extraProgress: String = "",
-  /** Farmland id — joins to [MapField.id], which is how the map tints the contract's field. */
+  /**
+   * The farmland the contract sits on — the same id the map channel keys its field polygons by
+   * ([MapField.id]), which is how the map tints a contract's field. Present on the point-located
+   * types too (forestry, rock): they resolve the farmland under their spot.
+   */
   val fieldId: Int? = null,
-  /** Field size in hectares; field missions only. */
+  /**
+   * Field size in hectares. Only field missions have a field object, so **this** is what tells a
+   * field contract from a point-located one — not [fieldId], which both carry.
+   */
   val areaHa: Float? = null,
   /** Normalized `[0,1]` map x, the same frame as [Player.posX] and the map channel. */
   val posX: Float? = null,

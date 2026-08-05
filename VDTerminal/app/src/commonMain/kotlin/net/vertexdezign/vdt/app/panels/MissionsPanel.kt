@@ -233,16 +233,20 @@ private fun MissionDetailView(
       )
     }
 
-    // The reward line says both numbers when they differ, because they answer different questions:
-    // what the contract offered, and what collecting it actually pays after costs.
-    KeyValue("Reward", money(mission.reward))
-    mission.totalReward?.takeIf { it != mission.reward }?.let { KeyValue("Payout", money(it)) }
-    mission.minutesLeft?.let { KeyValue("Time left", formatMinutes(it)) }
-    if (mission.leasable) {
-      KeyValue("Lease equipment", mission.vehicleCosts?.let { money(it) } ?: "available")
+    // Only the number the game's own rows don't already carry. While a contract is on offer they
+    // list its terms but not the reward, so that is ours to state; once it is finished they are the
+    // reward breakdown, and the one thing missing from them is what collecting it actually pays —
+    // which is not the advertised reward, and on a leased contract can be negative.
+    if (mission.isFinished) {
+      mission.totalReward?.let { KeyValue("Payout", money(it)) }
+    } else {
+      KeyValue("Reward", money(mission.reward))
     }
+    mission.minutesLeft?.let { KeyValue("Time left", formatMinutes(it)) }
 
-    // The game's own rows, rendered as given.
+    // The game's own rows, rendered as given — including the lease cost, which it prints in the
+    // player's own currency (ours is the raw engine value, and the two differ by its currency
+    // offset, so printing both would show the same cost twice with different numbers).
     mission.details.forEach { DetailRow(it) }
 
     MissionActions(
