@@ -82,6 +82,18 @@ describe("Sowing.collect", function()
     assert.is_false(s.changeAllowed)
   end)
 
+  it("treats an undeclared seed lock as unlocked", function()
+    -- Only `false` bars a seed change: a spec that never went through setIsSeedChangeAllowed leaves
+    -- the field nil, and a nil there means the machine simply never said otherwise. Cleared on the
+    -- spec rather than through `sower(over)`, because a nil in `over` is not a key at all.
+    local machine = sower({ useDirectPlanting = true })
+    machine.spec_sowingMachine.allowsSeedChanging = nil
+
+    local s = VDT.Sowing.collect(machine)
+    assert.is_true(s.changeAllowed)
+    assert.is_true(s.directPlanting)
+  end)
+
   it("leaves the usage scale out at the engine default", function()
     assert.is_nil(VDT.Sowing.collect(sower()).usageScale)
     assert.are.equal(1.5, VDT.Sowing.collect(sower({ seedUsageScale = 1.5 })).usageScale)

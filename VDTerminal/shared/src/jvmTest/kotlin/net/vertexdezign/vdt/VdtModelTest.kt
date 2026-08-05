@@ -48,6 +48,11 @@ class VdtModelTest {
     assertEquals(data, decoded, "JSON round-trip should be lossless")
   }
 
+  // A whole capture, checked for a lossless round trip before anything is read off it. The targeted
+  // assertions on the captures below only ever see the fields they name, so this is what catches a
+  // field of the new subtrees that decodes but does not come back out again.
+  private fun capture(name: String): VdtData = model(name).also { assertJsonRoundTrips(it) }
+
   @Test
   fun parsesTractorWithCultivator() {
     val data = model("tractor_with_cultivator.json")
@@ -439,7 +444,7 @@ class VdtModelTest {
     // It is the case that decided the panel dispatches on aspect presence rather than on `type` —
     // one machine that is two functions at once, and whose type name
     // (`pdlc_skyAgriculturePack.fertilizingSowingMachineWorkEffects`) no switch could enumerate.
-    val seeder = assertNotNull(model("telemetry/precisionFarming/sowingMachine.json").vehicle?.implement?.single())
+    val seeder = assertNotNull(capture("telemetry/precisionFarming/sowingMachine.json").vehicle?.implement?.single())
     val units = assertNotNull(seeder.fillUnits?.fillUnit)
     assertEquals(listOf("WHEAT", "FERTILIZER"), units.map { it.type })
 
@@ -549,7 +554,7 @@ class VdtModelTest {
     // — which is exactly the pair the split exists for: one machine, one `kind`, two `category`s.
     fun spraying(name: String) =
       assertNotNull(
-        model("telemetry/precisionFarming/$name")
+        capture("telemetry/precisionFarming/$name")
           .vehicle
           ?.implement
           ?.first()
@@ -581,7 +586,7 @@ class VdtModelTest {
     assertEquals(false, slurry.externalSource)
 
     // The self-propelled Rogator is the catch-all: a herbicide boom is none of the four.
-    val boom = assertNotNull(model("telemetry/precisionFarming/selfDrivingSprayer.json").vehicle?.spraying)
+    val boom = assertNotNull(capture("telemetry/precisionFarming/selfDrivingSprayer.json").vehicle?.spraying)
     assertEquals(SprayerKind.SPRAYER, boom.kind)
     assertEquals(SprayCategory.HERBICIDE, boom.category)
     // Nothing has been sprayed this session, so the engine never computed a usage figure. Absent
@@ -596,7 +601,7 @@ class VdtModelTest {
     // survives the fold, because a folded plough is still turned whichever way it was left.
     fun plow(name: String) =
       assertNotNull(
-        model("telemetry/precisionFarming/$name")
+        capture("telemetry/precisionFarming/$name")
           .vehicle
           ?.implement
           ?.first()
@@ -618,7 +623,7 @@ class VdtModelTest {
   fun decodesTheTillageCaptures() {
     fun tillage(name: String) =
       assertNotNull(
-        model("telemetry/precisionFarming/$name")
+        capture("telemetry/precisionFarming/$name")
           .vehicle
           ?.implement
           ?.first()
@@ -640,7 +645,7 @@ class VdtModelTest {
     // dispatch exists for, and none of them expressible as a switch on `type`.
     fun implement(name: String) =
       assertNotNull(
-        model("telemetry/precisionFarming/$name")
+        capture("telemetry/precisionFarming/$name")
           .vehicle
           ?.implement
           ?.first(),
@@ -673,7 +678,7 @@ class VdtModelTest {
       name: String,
       index: Int,
     ) = assertNotNull(
-      model("telemetry/precisionFarming/$name")
+      capture("telemetry/precisionFarming/$name")
         .vehicle
         ?.implement
         ?.get(index),
@@ -720,7 +725,7 @@ class VdtModelTest {
     // outright, so every PF capture says false no matter the machine.
     fun barrel(dir: String) =
       assertNotNull(
-        model("telemetry/$dir/liquidManure_dribbleBar.json")
+        capture("telemetry/$dir/liquidManure_dribbleBar.json")
           .vehicle
           ?.implement
           ?.first()
@@ -737,7 +742,7 @@ class VdtModelTest {
     // The dribble bar behind it had doubling switched on when this was captured.
     val bomech =
       assertNotNull(
-        model("telemetry/vanilla/liquidManure_dribbleBar.json")
+        capture("telemetry/vanilla/liquidManure_dribbleBar.json")
           .vehicle
           ?.implement
           ?.first()
@@ -763,7 +768,7 @@ class VdtModelTest {
     // anywhere, and the spraying aspect is fully populated regardless.
     val barrel =
       assertNotNull(
-        model("telemetry/vanilla/liquidManure_dribbleBar.json")
+        capture("telemetry/vanilla/liquidManure_dribbleBar.json")
           .vehicle
           ?.implement
           ?.first(),
@@ -781,7 +786,7 @@ class VdtModelTest {
     // The Vredo VT5536's own Sprayer spec resolves its tank to fill unit 1, which on a self-propelled
     // machine is the diesel tank — it used to publish `fillType: DIESEL`. The whole aspect is now
     // withheld there, because the engine derives its material *and* its kind from that same index.
-    val vredo = assertNotNull(model("telemetry/precisionFarming/vredoLiquidManure_discHarrow.json").vehicle)
+    val vredo = assertNotNull(capture("telemetry/precisionFarming/vredoLiquidManure_discHarrow.json").vehicle)
     assertEquals(null, vredo.spraying)
 
     // The slurry it is actually carrying is still visible as ordinary cargo, and the implement doing
