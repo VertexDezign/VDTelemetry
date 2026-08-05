@@ -118,6 +118,8 @@ import net.vertexdezign.vdt.model.MapLayerLegendEntry
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehicle
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.Mission
+import net.vertexdezign.vdt.model.MissionsData
 import net.vertexdezign.vdt.model.Pda
 import net.vertexdezign.vdt.model.Player
 import net.vertexdezign.vdt.model.SweptArea
@@ -256,6 +258,8 @@ fun MapPanel(
   showSections: Boolean = false,
   onCommand: (ClientMessage) -> Unit = {},
   gpsCourse: GpsCourseData? = null,
+  /** The farm's contracts, drawn as markers and as a tint on the field each one is on. */
+  missions: MissionsData? = null,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
@@ -709,6 +713,7 @@ fun MapPanel(
           poiCats,
           vehStates,
           highlight,
+          missions,
         )
       }
 
@@ -1120,6 +1125,7 @@ private fun BoxScope.MapDataOverlay(
   poiCats: Set<String>,
   vehStates: Set<String>,
   highlight: Offset?,
+  missions: MissionsData?,
 ) {
   val density = LocalDensity.current
   val textMeasurer = rememberTextMeasurer()
@@ -1130,6 +1136,17 @@ private fun BoxScope.MapDataOverlay(
     remember(mapData) {
       (mapData?.farms ?: emptyList())
         .mapNotNull { farm -> parseHexColor(farm.color)?.let { farm.id to it } }
+        .toMap()
+    }
+
+  // farmlandId -> the colour of the contract on it, so a field under contract reads as one at a
+  // glance instead of only through its marker. Field missions carry the id the map channel already
+  // keys its polygons by; the point-located types (forestry, rock) contribute nothing here and are
+  // marker-only. Recomputed with the channel, not per frame.
+  val missionFieldTints =
+    remember(missions) {
+      (missions?.missions ?: emptyList())
+        .mapNotNull { mission -> mission.fieldId?.let { it to missionColor(mission) } }
         .toMap()
     }
 
@@ -1201,9 +1218,12 @@ private fun BoxScope.MapDataOverlay(
         // Stroke width divided back out of the transform: geometry scales, the line doesn't.
         val strokeWidth = 1.5.dp.toPx() / factor
         for ((field, path) in fieldPaths) {
-          val tint = fieldTint(field, playerFarmId, farmColors)
-          drawPath(path, tint.copy(alpha = 0.10f))
-          drawPath(path, tint, style = Stroke(width = strokeWidth))
+          // A contract's colour wins over the ownership tint: a field on offer is unowned, so the
+          // ownership tint has nothing to say about it, and the contract does.
+          val contractTint = missionFieldTints[field.id]
+          val tint = contractTint ?: fieldTint(field, playerFarmId, farmColors)
+          drawPath(path, tint.copy(alpha = if (contractTint != null) 0.22f else 0.10f))
+          drawPath(path, tint, style = Stroke(width = if (contractTint != null) strokeWidth * 2f else strokeWidth))
         }
       }
       for (field in mapData.fields) {
@@ -1227,6 +1247,31 @@ private fun BoxScope.MapDataOverlay(
         if (scale >= DETAIL_ZOOM && poi.name.isNotBlank()) {
           drawCenteredText(textMeasurer, poi.name, pos + Offset(0f, 12.dp.toPx()), detailStyle)
         }
+      }
+    }
+
+    // Contract markers. Drawn above the POIs so a contract on a farmyard is not buried by it, and
+    // below the vehicles, which are the live thing on the map.
+    for (mission in missions?.missions ?: emptyList()) {
+      val x = mission.posX ?: continue
+      val z = mission.posZ ?: continue
+      val pos = toScreen(x, z)
+      if (!onCanvas(pos)) continue
+      val tint = missionColor(mission)
+      // A diamond, so a contract is not another round POI dot at a glance.
+      val r = 5.dp.toPx()
+      val diamond =
+        Path().apply {
+          moveTo(pos.x, pos.y - r)
+          lineTo(pos.x + r, pos.y)
+          lineTo(pos.x, pos.y + r)
+          lineTo(pos.x - r, pos.y)
+          close()
+        }
+      drawPath(diamond, tint)
+      drawPath(diamond, VdtColors.White, style = Stroke(width = 1.5.dp.toPx()))
+      if (scale >= DETAIL_ZOOM && mission.title.isNotBlank()) {
+        drawCenteredText(textMeasurer, mission.title, pos + Offset(0f, 14.dp.toPx()), detailStyle)
       }
     }
 
@@ -1338,6 +1383,17 @@ private fun fieldTint(field: MapField, playerFarmId: Int?, farmColors: Map<Int, 
   val owner = field.ownerFarmId ?: return VdtColors.DarkGray
   farmColors[owner]?.let { return it }
   return if (playerFarmId == null || owner == playerFarmId) VdtColors.Green else VdtColors.Red
+}
+
+/**
+ * What a contract's marker (and its field) is coloured by: what you can do about it. Amber is an
+ * offer that is still open, green is money waiting to be collected, blue is work under way. Keyed on
+ * status rather than mission type — the type set is open-ended.
+ */
+internal fun missionColor(mission: Mission): Color = when {
+  mission.isFinished -> VdtColors.Green
+  mission.isActive -> VdtColors.ProgressBlue
+  else -> VdtColors.Amber
 }
 
 /** "#rrggbb" -> [Color]; null for anything else (missing, malformed, unexpected length). */

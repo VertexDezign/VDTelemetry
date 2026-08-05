@@ -77,6 +77,19 @@ class MissionsPanelTest {
   }
 
   @Test
+  fun theMapColoursAContractByWhatYouCanDoAboutIt() {
+    // Amber: still open. Blue: under way. Green: money waiting. The same colour tints the contract's
+    // field, so marker and field agree — and it is keyed off status, never off the mission type.
+    assertEquals(VdtColors.Amber, missionColor(mission()))
+    assertEquals(VdtColors.ProgressBlue, missionColor(mission(status = MissionStatus.RUNNING)))
+    assertEquals(VdtColors.ProgressBlue, missionColor(mission(status = MissionStatus.PREPARING)))
+    assertEquals(VdtColors.Green, missionColor(mission(status = MissionStatus.FINISHED)))
+    // A failed contract is still waiting to be cleared off the list, so it stays in the finished
+    // colour rather than becoming an offer again.
+    assertEquals(VdtColors.Green, missionColor(mission(MissionStatus.FINISHED, MissionFinishState.FAILED)))
+  }
+
+  @Test
   fun moneyReadsAsMoney() {
     assertEquals("5,400", money(5400))
     assertEquals("980", money(980))

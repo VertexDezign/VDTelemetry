@@ -93,6 +93,7 @@ object MapWidget : Widget {
     val mapLayers by store.mapLayers.collectAsState()
     val fieldInfo by store.fieldInfo.collectAsState()
     val gpsCourse by store.gpsCourse.collectAsState()
+    val missions by store.missions.collectAsState()
 
     val pda = telemetry?.environment?.pda
     // In a vehicle the heading is the vehicle's GPS; on foot it's the player's. Same compass
@@ -121,6 +122,7 @@ object MapWidget : Widget {
       showSections = sectionsOption.resolve(config) == SECTIONS_ON,
       onCommand = store.onCommand,
       gpsCourse = gpsCourse,
+      missions = missions,
     )
   }
 }
