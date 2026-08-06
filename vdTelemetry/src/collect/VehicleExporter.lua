@@ -88,6 +88,7 @@ function VDT.VehicleExporter.collect(vehicle)
 
   model.motor = VDT.Motor.collect(vehicle)
   model.lights = VDT.Lights.collect(vehicle)
+  model.steering = VDT.Steering.collect(vehicle)
   model.gps = VDT.SupportSystems.collectGps(vehicle)
   model.ai = VDT.SupportSystems.collectAi(vehicle)
   model.cruiseControl = VDT.SupportSystems.collectCruiseControl(vehicle)

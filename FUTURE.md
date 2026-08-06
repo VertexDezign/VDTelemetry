@@ -254,6 +254,37 @@ Each one is cheap to do while playing and settles something above.
   forage/carrot harvester's pass-through output carry `showOnHud="true"`? This gates the filter switch
   above.
 
+## Steering (#57)
+
+Built: `vehicle.steering` (mod version 10) and its two marks in the pillar readout, left of the gear.
+What is left is the part that needs a machine in front of it.
+
+- **Nobody has watched the layout derivation against a real machine.** `collect/vehicle/Steering.lua`
+  reads which axles steer off the live wheels — `wheel.physics.rotSpeed` for a wheel, `rotScale ×
+  rotSpeed` for a steering node, front/rear split at the midpoint of the wheelbase — and the specs only
+  prove the arithmetic. Drive a machine with modes (a telehandler, a Fastrac, a Xerion) through all of
+  them and check the glyph changes to the shape the wheels are actually in. This is the check that
+  matters; everything else here is a detail of it.
+- **Which way round left and right are is the one assumed thing.** Everywhere else the derivation
+  compares two axles against each other, so it needs no convention — except for a *parked* rear axle,
+  where the sign of the offset alone says whether it is a left dog walk or a right one. It is taken to
+  be left (+X is left, +Y rotation swings +Z towards +X). If `CRAB_LEFT` and `CRAB_RIGHT` come out
+  swapped in game, `OFFSET_POSITIVE_IS` in that file is the whole fix.
+- **A frame that steers on its own joint reports no layout.** `spec_articulatedAxis` is a third
+  mechanism the derivation doesn't read, so an articulated machine falls back to printing the mode's
+  number. Left out deliberately: it needs its own geometry and there is no way to tell here whether any
+  machine with steering modes actually uses it.
+- **Neither half is controllable.** `setCrabSteering(state)` and `setIsReverseDriving(state)` each take
+  an absolute value and each own their multiplayer event (`SetCrabSteeringEvent`,
+  `ReverseDrivingSetStateEvent`) — the same shape as `LightControl`, and the same reasoning as the pipe
+  and cover controls above. Not built because #57 asked to *see* them. `setIsReverseDriving` refuses
+  while an implement on a disabling attacher joint is fitted (`getIsReverseDrivingAllowed`), which a
+  control would want to reflect rather than fire and ignore.
+- **`count` is every mode, not every *available* mode.** The engine's own HUD hides its steering box on
+  `getNumCrabSteeringModesAvailable() <= 1`, and the mark uses `stateMax` for that test instead. Base
+  `getCrabSteeringModeAvailable` returns true for everything, so the two agree unless a mod overrides
+  it.
+
 ## Captures wanted as fixtures
 
 The schema, selection and work aspects are all tested synthetically, because none of the committed

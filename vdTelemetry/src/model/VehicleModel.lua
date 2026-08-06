@@ -24,6 +24,7 @@
 ---@field operatingTime OperatingTimeModel?
 ---@field motor MotorModel?
 ---@field lights LightsModel?
+---@field steering SteeringModel?
 ---@field gps GpsModel?
 ---@field ai AiModel?
 ---@field cruiseControl CruiseControlModel?

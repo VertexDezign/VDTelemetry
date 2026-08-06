@@ -22,6 +22,7 @@ local sourceFiles = {
   "src/collect/EnvironmentExporter.lua",
   "src/collect/vehicle/Motor.lua",
   "src/collect/vehicle/Lights.lua",
+  "src/collect/vehicle/Steering.lua",
   "src/collect/vehicle/SupportSystems.lua",
   -- Shared aspects (any vehicle or implement); Aspects.lua depends on the individual collectors
   "src/collect/aspects/TurnOn.lua",
@@ -155,7 +156,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 9: the ISOBUS aspects — per-class implement state, starting with `sowing` (which crop is in the
 --    hopper, out of the machine's declared seed list). The fill unit only ever said SEEDS; this says
 --    which. See issue #58 and isobus-plan.md.
-VDTelemetry.VERSION = 9
+-- 10: `steering` — the steering mode a crab-steering machine is in (with the shape of it derived from
+--    the wheels, since the mode's name is untranslatable free text) and whether the driving position
+--    has been turned round. See issue #57.
+VDTelemetry.VERSION = 10
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

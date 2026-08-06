@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.model.DriveDirection
+import net.vertexdezign.vdt.model.SteeringLayout
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -99,7 +100,15 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // is nothing provisional about it to flash. Only built while it is actually needed, so the pillar
   // phone isn't animating a frame at a time all the while it is parked.
   val holding = symbol?.icon != null && vehicle.speed?.direction == DriveDirection.STOPPED
-  val blink = if (holding) clusterBlinkPhase() else null
+
+  // How the machine is set up to be driven, which rides beside the gear — the two are one thought,
+  // and this is the middle of the cluster where a driver looks for what the machine is *in*.
+  //
+  // Beside whatever line is actually drawn, though, rather than beside the gear specifically: a
+  // machine with steering modes is quite likely to report no gear at all (a telehandler does), and
+  // these must not disappear along with a field they have nothing to do with.
+  val steering = steeringMarks(vehicle)
+  val blink = if (holding || steering.any { it.blinks }) clusterBlinkPhase() else null
 
   ClusterSurface(modifier) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -135,9 +144,10 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           valueColour = ClusterColors.Digits,
           size = digit,
           label = vehicle.speed?.unit.orEmpty().ifBlank { "SPEED" },
-          symbol = symbol,
+          marks = listOfNotNull(symbol?.mark(holding)) + if (cruise == null && gear == null) steering else emptyList(),
           note = symbol?.letter,
           noteColour = symbol?.colour ?: ClusterColors.Digits,
+          noteBlinks = holding,
           blink = blink,
         )
         // Cruise, amber because it is a value the driver set rather than one the machine reports.
@@ -152,6 +162,8 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             size = digit * CRUISE_SCALE,
             label = "CRUISE",
             labelColour = if (engaged) ClusterColors.Set else ClusterColors.Label,
+            marks = if (gear == null) steering else emptyList(),
+            blink = blink,
           )
         }
         // What the transmission is in. Amber like the cruise, and for the same reason — both are the
@@ -169,6 +181,8 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             size = digit * GEAR_SCALE,
             label = "GEAR",
             face = SegmentFace.Alphanumeric,
+            marks = steering,
+            blink = blink,
           )
         }
         vehicle.operatingTime?.let {
@@ -186,19 +200,43 @@ private const val GEAR_SCALE = 0.8f
 /** The direction letter, relative to the line it sits on. Big enough to read off-axis at a glance. */
 private const val NOTE_SCALE = 0.55f
 
+/** A mark that prints a number rather than drawing one, relative to the slot it has to sit inside. */
+private const val MARK_TEXT_SCALE = 0.8f
+
 /** Slack left over the lines for the operating-time caption and the air between them. */
 private const val LINE_AIR = 1f
 
 /**
- * One line of the readout: the value in its cells, right-aligned, with its unit and an optional
- * second line of detail stacked in a column beside it — the direction letter as [note], the arrow as
- * [symbol].
+ * One thing in a line's leading slot: the reverser's arrow, the steering mode, the seat.
+ *
+ * Either an [icon] or a short [text] — the text is the way out for a steering mode whose shape the
+ * mod couldn't work out, where the mode's *number* is all there is to show and drawing a guess at
+ * its geometry would be worse than printing it.
+ *
+ * [alpha] is how a mark that is present but not doing anything is drawn: the seat of a machine that
+ * has a reversible position and is facing the normal way is ghosted rather than dropped, on the same
+ * convention as an unlit telltale and an unlit segment.
+ */
+internal data class LineMark(
+  val icon: ImageVector?,
+  val label: String,
+  val colour: Color,
+  val text: String? = null,
+  val alpha: Float = 1f,
+  val blinks: Boolean = false,
+)
+
+/**
+ * One line of the readout: the value in its cells, right-aligned, its [marks] out on the left, and
+ * its unit with an optional second line of detail stacked in a column beside it — the direction
+ * letter as [note].
  *
  * [face] is the line's own, since not every line is a number: see the gear. The [note] is always
  * alphanumeric, being a letter by definition.
  *
- * [blink] flashes the symbol and the note together and leaves the value alone: it is the direction
- * that is provisional at a standstill, not the speed it sits beside.
+ * [blink] drives whatever has asked to flash — a mark that set `blinks`, and the note when
+ * [noteBlinks] — and leaves the value alone: it is the direction that is provisional at a standstill,
+ * not the speed it sits beside.
  */
 @Composable
 private fun Line(
@@ -211,24 +249,40 @@ private fun Line(
   face: SegmentFace = SegmentFace.Numeric,
   note: String? = null,
   noteColour: Color = ClusterColors.Digits,
-  symbol: DriveSymbol? = null,
+  noteBlinks: Boolean = false,
+  marks: List<LineMark> = emptyList(),
   blink: (() -> Float)? = null,
 ) {
   Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-    // The reverser's slot, out on the left and held open on every line whether or not anything is in
-    // it. It is the one thing in this tile that comes and goes, and inside the label column it
-    // dragged the unit and the digits sideways every time the machine started or stopped moving.
-    // Nothing here should move for a reason other than the number changing.
-    Box(Modifier.size((size * SYMBOL_EM).dp), contentAlignment = Alignment.Center) {
-      symbol?.icon?.let {
-        Icon(
-          it,
-          symbol.label,
-          tint = symbol.colour,
-          // In the draw layer, so a flashing arrow costs a repaint per frame and not a
-          // recomposition of the line it is on.
-          modifier = Modifier.fillMaxSize().graphicsLayer { alpha = blinkAlpha(blink) },
-        )
+    // The marks' slot, out on the left and held open on every line whether or not anything is in it.
+    // These are the things in this tile that come and go, and inside the label column they dragged
+    // the unit and the digits sideways every time the machine started or stopped moving. Nothing here
+    // should move for a reason other than the number changing.
+    //
+    // A second mark widens the slot instead of halving the first one: the digits are right-aligned
+    // against a fixed label column, so what the slot takes comes out of the slack between them and
+    // not out of the numbers' position.
+    val cell = size * SYMBOL_EM
+    Row(Modifier.width((cell * maxOf(1, marks.size)).dp)) {
+      for (mark in marks) {
+        Box(Modifier.size(cell.dp), contentAlignment = Alignment.Center) {
+          // In the draw layer, so a flashing mark costs a repaint per frame and not a recomposition
+          // of the line it is on.
+          val fade = Modifier.graphicsLayer { alpha = mark.alpha * if (mark.blinks) blinkAlpha(blink) else 1f }
+          if (mark.icon != null) {
+            Icon(mark.icon, mark.label, tint = mark.colour, modifier = Modifier.fillMaxSize().then(fade))
+          } else if (mark.text != null) {
+            Box(fade) {
+              ClusterDigits(
+                mark.text,
+                cells = mark.text.length,
+                size = (cell * MARK_TEXT_SCALE).sp,
+                colour = mark.colour,
+                face = SegmentFace.Alphanumeric,
+              )
+            }
+          }
+        }
       }
     }
     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
@@ -240,7 +294,7 @@ private fun Line(
     ) {
       ClusterLabel(label, color = labelColour)
       note?.let {
-        Box(Modifier.graphicsLayer { alpha = blinkAlpha(blink) }) {
+        Box(Modifier.graphicsLayer { alpha = if (noteBlinks) blinkAlpha(blink) else 1f }) {
           // The fourteen-segment face: seven cannot draw a capital R or N, and a lowercase one beside
           // a full-height F reads as a smaller letter rather than a different one. See [SegmentFace].
           ClusterDigits(
@@ -283,6 +337,71 @@ enum class DriveSymbol(val icon: ImageVector?, val letter: String, val label: St
   // Not [ClusterColors.Label]: neutral is a current state, as true as the other two, and the label
   // grey sits close enough to its own ghost that the N came out barely legible.
   Neutral(null, "N", "Transmission in neutral", ClusterColors.Digits),
+  ;
+
+  /** As a mark in the line's leading slot. [flashing] while the machine is held at a standstill in gear. */
+  internal fun mark(flashing: Boolean): LineMark? =
+    icon?.let { LineMark(icon = it, label = label, colour = colour, blinks = flashing) }
+}
+
+/**
+ * How the machine is set up to be driven: the steering mode it is in, and whether the seat has been
+ * swung round to face the back. Both are the driver's own selections, so both go on in amber, on the
+ * cruise line's convention — and both are absent on the great majority of machines, which have one
+ * steering mode and a seat that only faces one way.
+ *
+ * The seat stays in the slot when it is the normal way round, ghosted. That distinction is worth the
+ * space: a machine that *has* a reversible position and isn't using it is a different thing from one
+ * that hasn't got one, and only the first is something the driver can act on. The steering mode has
+ * no such resting state — its glyph always says something — so it is simply absent when there is
+ * nothing to choose between.
+ */
+internal fun steeringMarks(vehicle: Vehicle): List<LineMark> {
+  val steering = vehicle.steering ?: return emptyList()
+  val marks = mutableListOf<LineMark>()
+
+  // One mode is no choice, and the game hides its own steering-mode box on the same test.
+  steering.mode?.takeIf { it.count > 1 }?.let { mode ->
+    val icon = steeringLayoutIcon(mode.layout)
+    marks +=
+      LineMark(
+        icon = icon,
+        // Where the shape couldn't be derived, the mode's number — which is what the driver of that
+        // machine knows it by, and which claims nothing about geometry we couldn't read.
+        text = if (icon == null) mode.index.toString() else null,
+        label = mode.name.ifBlank { "Steering mode ${mode.index} of ${mode.count}" },
+        // Mode 1 is the one every machine loads in, so anything else is a mode the driver picked.
+        colour = if (mode.index == 1) ClusterColors.Digits else ClusterColors.Set,
+      )
+  }
+
+  steering.reversed?.let { reversed ->
+    marks +=
+      LineMark(
+        icon = ClusterIcons.SeatReversed,
+        label = if (reversed) "Driving position reversed" else "Driving position facing forward",
+        colour = if (reversed) ClusterColors.Set else ClusterColors.Digits,
+        alpha = if (reversed) 1f else GHOST_ALPHA,
+        // Mid-swivel the machine is neither way round, and the seat says so rather than jumping.
+        blinks = steering.changing,
+      )
+  }
+
+  return marks
+}
+
+/**
+ * The glyph for a steering mode's shape, or null when the mod couldn't read one off the machine —
+ * see [net.vertexdezign.vdt.model.SteeringMode.layout] for when that happens.
+ */
+internal fun steeringLayoutIcon(layout: SteeringLayout?): ImageVector? = when (layout) {
+  SteeringLayout.FRONT -> ClusterIcons.SteerFront
+  SteeringLayout.BACK -> ClusterIcons.SteerBack
+  SteeringLayout.ALL_WHEEL -> ClusterIcons.SteerAllWheel
+  SteeringLayout.CRAB -> ClusterIcons.SteerCrab
+  SteeringLayout.CRAB_LEFT -> ClusterIcons.SteerCrabLeft
+  SteeringLayout.CRAB_RIGHT -> ClusterIcons.SteerCrabRight
+  null -> null
 }
 
 /**
