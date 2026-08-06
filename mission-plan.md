@@ -276,8 +276,8 @@ Six places the build differed from the plan above, or found something the plan d
 
 ### What the capture found (2026-08-05)
 
-`examples/json/missions/missions.json` — 27 contracts, 13 of the 16 base-game types, three of them
-the farm's own, the farm at its cap. **The user confirmed all four actions work in game.** Everything
+`examples/json/missions/missions.json` — a full board, 13 of the 16 base-game types, three of them the
+farm's own, the farm at its cap. **The user confirmed all four actions work in game.** Everything
 decoded on the first run, and three things came out of it:
 
 7. **Forestry and rock contracts carry a farmland id too.** All three point-located types define
@@ -285,9 +285,11 @@ decoded on the first run, and three things came out of it:
    `DestructibleRockMission.lua:368`), resolving the farmland under their spot — so "no `fieldId`"
    does **not** mark them, and the plan's field-missions-only wording was wrong on all three. The
    real discriminator is **`areaHa`**: only a field mission has a field object to measure.
-8. **A successful contract can pay out negative.** The capture's finished fertilize contract completed
-   at 99.6% and pays **-171**: the leased machines cost more than the contract was worth. `totalReward`
-   is not "the reward minus a bit" and must never render unsigned.
+8. **A successful contract can pay out negative.** The first capture's finished fertilize contract
+   completed at 99.6% and paid **-171**: the leased machines cost more than the contract was worth.
+   `totalReward` is not "the reward minus a bit" and must never render unsigned. (The v2 retake caught
+   the same contract on the right side of that line — €693 of value less €640 of hire, so 53 — so the
+   negative case is pinned against the wire in `MissionModelTest` instead.)
 9. **The game's rows are in the player's currency; ours are raw engine values.** `getVehicleCosts()`
    returns 960 where the game's own "Mietkosten" row prints €959 — `g_i18n:formatMoney(…, useCurrencyOffset)`
    applies a conversion. The detail pane was stating the same cost twice with two different numbers,
@@ -317,6 +319,15 @@ Seven changes the user asked for once it was running, and what each one settled:
   already-localized `subtitle`, so the app translates nothing. Channel version 2.
 - **The tile carries the same**, plus the game's running commentary ("Noch 6 Bäume"), which beats a
   percentage the bar is already showing.
+
+### The v2 retake (2026-08-06)
+
+The capture was taken again once the seven adjustments were in, so the fixture matches the channel it
+documents: 26 contracts, the same 13 types, still at the cap. `subtitle`, `fruitType`, `baleType` and
+`sellingStation` are now asserted **from real game data** rather than from inline JSON — including a
+forestry contract that has no field at all and still delivers to a station, which is what proves the
+delivery run isn't a field-mission idea. Only the two cases the board can't show — a station the mod
+can name but not place, and a negative payout — stay pinned against the wire.
 
 ## Open questions
 
