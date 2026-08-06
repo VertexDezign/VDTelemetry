@@ -89,6 +89,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -287,6 +288,13 @@ fun MapPanel(
   // A mode you flip while driving, not a layout decision — so a header toggle beside auto-center
   // rather than widget config, persisted per placed tile like the zoom and the filters.
   var courseUp by remember { mutableStateOf(settings.getBoolean(KEY_COURSE_UP, false)) }
+  // Which individual contracts are drawn, holding only what the user has *said* — everything else
+  // follows [missionShownByDefault]. Deliberately not persisted like the filters around it: the key
+  // is the mission id, which is the network object id, and a later session hands that id to whatever
+  // object now carries it (the same trap that makes the mod resolve a command by walking the list).
+  // A stored "hide 648" would eventually hide a contract nobody hid. Kept for the session instead,
+  // and pruned as the board changes, which is also what lets the default reassert itself.
+  var missionChoices by remember { mutableStateOf(emptyMap<Int, Boolean>()) }
   var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
   var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
   var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, NO_GROUND_LAYER)) }
@@ -385,6 +393,17 @@ fun MapPanel(
       bitmap = it
     }
   }
+  // Only the contracts this farm has taken on: the board's offers are shopping, and the map is for
+  // work. Computed here rather than in the overlay because the filter list needs the same set.
+  val accepted = remember(missions) { (missions?.missions ?: emptyList()).filter { it.own } }
+
+  // Drop choices about contracts that have left the board, so a collected one takes its row with it —
+  // and so an id the game later reuses arrives with nothing stale attached to it.
+  LaunchedEffect(accepted) {
+    val live = accepted.mapTo(mutableSetOf()) { it.id }
+    if (missionChoices.keys.any { it !in live }) missionChoices = missionChoices.filterKeys { it in live }
+  }
+
   LaunchedEffect(scale) { settings.putFloat(KEY_ZOOM, scale) }
   LaunchedEffect(autoCenter) { settings.putBoolean(KEY_AUTO_CENTER, autoCenter) }
   LaunchedEffect(showFields) { settings.putBoolean(KEY_SHOW_FIELDS, showFields) }
@@ -731,7 +750,7 @@ fun MapPanel(
           poiCats,
           vehStates,
           highlight,
-          missions.takeIf { showMissions },
+          if (showMissions) shownMissions(accepted, missionChoices) else emptyList(),
         )
       }
 
@@ -816,9 +835,11 @@ fun MapPanel(
           onGroundLayer = { groundLayer = it },
           showFields = showFields,
           onShowFields = { showFields = it },
-          hasMissions = missions?.missions?.any { it.own } == true,
+          missions = accepted,
+          missionChoices = missionChoices,
           showMissions = showMissions,
           onShowMissions = { showMissions = it },
+          onShowMission = { id, on -> missionChoices = missionChoices + (id to on) },
           poiCats = poiCats,
           onPoiCats = { poiCats = it },
           vehStates = vehStates,
@@ -1146,7 +1167,8 @@ private fun BoxScope.MapDataOverlay(
   poiCats: Set<String>,
   vehStates: Set<String>,
   highlight: Offset?,
-  missions: MissionsData?,
+  /** The contracts to draw — already filtered by the panel; see [shownMissions]. */
+  accepted: List<Mission>,
 ) {
   val density = LocalDensity.current
   val textMeasurer = rememberTextMeasurer()
@@ -1159,11 +1181,6 @@ private fun BoxScope.MapDataOverlay(
         .mapNotNull { farm -> parseHexColor(farm.color)?.let { farm.id to it } }
         .toMap()
     }
-
-  // Only the contracts this farm has actually taken on. Every contract on offer would be twenty-odd
-  // markers of things nobody is doing — the map is for what is being worked, and the app's list is
-  // where you go shopping.
-  val accepted = remember(missions) { (missions?.missions ?: emptyList()).filter { it.own } }
 
   // farmlandId -> the colour of the contract on it, so a field under contract reads as one at a
   // glance instead of only through its marker. Every mission type carries the farmland it sits on,
@@ -1489,6 +1506,40 @@ internal fun missionColor(mission: Mission): Color = when {
   else -> VdtColors.Amber
 }
 
+/**
+ * Whether a contract is drawn when nobody has said otherwise: yes while it is being worked, no once
+ * it is done.
+ *
+ * A finished contract sits on the board until someone walks to the NPC, and its marker covers ground
+ * that no longer needs driving to — on a map showing three running jobs it is the one circle that
+ * means "nothing to do here". Collecting is the app's business, not the map's, so it comes off by
+ * default and goes back on per contract.
+ */
+internal fun missionShownByDefault(mission: Mission): Boolean = !mission.isFinished
+
+/**
+ * Whether one contract is drawn: the user's own answer where they gave one, the default otherwise.
+ * [choices] holds only explicit answers, which is what lets a contract that finishes while shown drop
+ * off by itself while one that was asked for stays.
+ */
+internal fun isMissionShown(mission: Mission, choices: Map<Int, Boolean>): Boolean =
+  choices[mission.id] ?: missionShownByDefault(mission)
+
+/** The accepted contracts the map draws, in board order. */
+internal fun shownMissions(accepted: List<Mission>, choices: Map<Int, Boolean>): List<Mission> =
+  accepted.filter { isMissionShown(it, choices) }
+
+/**
+ * How a contract reads in the filter list: the job, then where it is. The location is the
+ * discriminator on a board carrying six harvest contracts, so it wins the room over the subtitle —
+ * and a contract the mod could not place falls back to naming what it is for.
+ */
+internal fun missionFilterLabel(mission: Mission): String {
+  val where = mission.location.ifBlank { mission.subtitle }
+  val job = mission.title.ifBlank { mission.type }
+  return if (where.isBlank()) job else "$job · $where"
+}
+
 /** "#rrggbb" -> [Color]; null for anything else (missing, malformed, unexpected length). */
 private fun parseHexColor(hex: String?): Color? {
   if (hex == null || hex.length != 7 || !hex.startsWith("#")) return null
@@ -1593,9 +1644,11 @@ private fun BoxScope.MapFilterPanel(
   onGroundLayer: (String) -> Unit,
   showFields: Boolean,
   onShowFields: (Boolean) -> Unit,
-  hasMissions: Boolean,
+  missions: List<Mission>,
+  missionChoices: Map<Int, Boolean>,
   showMissions: Boolean,
   onShowMissions: (Boolean) -> Unit,
+  onShowMission: (Int, Boolean) -> Unit,
   poiCats: Set<String>,
   onPoiCats: (Set<String>) -> Unit,
   vehStates: Set<String>,
@@ -1679,10 +1732,24 @@ private fun BoxScope.MapFilterPanel(
       }
     }
 
-    // Only while this farm has a contract running: with none, the row would switch nothing. In
-    // multiplayer it is the row that gets a colleague's contract markers off your map.
-    if (hasMissions) {
+    // Only while this farm has contracts of its own: with none, the section would switch nothing. In
+    // multiplayer it is what gets a colleague's contract markers off your map. A collected contract
+    // keeps its row even though it is off the map by default — that row is how it is put back.
+    if (missions.isNotEmpty()) {
       FilterRow("Contracts", checked = showMissions, dot = VdtColors.ProgressBlue) { onShowMissions(it) }
+      // One row per contract under the switch that draws them all, the same way the course range sits
+      // under the course. Each carries its marker's colour, so the row and the circle on the map are
+      // obviously the same thing — which is the whole point of picking one out of three.
+      if (showMissions) {
+        for (mission in missions) {
+          FilterRow(
+            missionFilterLabel(mission),
+            checked = isMissionShown(mission, missionChoices),
+            dot = missionColor(mission),
+            indent = 22.dp,
+          ) { on -> onShowMission(mission.id, on) }
+        }
+      }
     }
 
     // Only while there is a course to hide: off a field the row would be a switch for nothing.
@@ -1843,9 +1910,17 @@ private fun CourseRangeRow(nearby: Int, onNearby: (Int) -> Unit) {
 
 /** One filter line: checkbox icon, optional legend color dot, label. */
 @Composable
-private fun FilterRow(label: String, checked: Boolean, dot: Color? = null, onToggle: (Boolean) -> Unit) {
+private fun FilterRow(
+  label: String,
+  checked: Boolean,
+  dot: Color? = null,
+  indent: Dp = 0.dp,
+  onToggle: (Boolean) -> Unit,
+) {
   Row(
-    Modifier.fillMaxWidth().clickableNoRipple { onToggle(!checked) },
+    // Indent inside the click handler, not outside it: an indented row is still tappable across the
+    // popover's full width, which is what a checkbox list on a touchscreen has to be.
+    Modifier.fillMaxWidth().clickableNoRipple { onToggle(!checked) }.padding(start = indent),
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
@@ -1858,7 +1933,9 @@ private fun FilterRow(label: String, checked: Boolean, dot: Color? = null, onTog
     if (dot != null) {
       Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
     }
-    Text(label, fontSize = 13.sp, color = VdtColors.TextDark)
+    // A contract's label carries a name the game wrote, so it can outrun the popover's width where a
+    // fixed category label never does: clip it rather than let the row wrap under its own checkbox.
+    Text(label, fontSize = 13.sp, color = VdtColors.TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
   }
 }
 

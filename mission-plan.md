@@ -329,6 +329,22 @@ forestry contract that has no field at all and still delivers to a station, whic
 delivery run isn't a field-mission idea. Only the two cases the board can't show — a station the mod
 can name but not place, and a negative payout — stay pinned against the wire.
 
+### Contract by contract on the map (2026-08-06)
+
+The "only accepted contracts" rule above cut the board down to what is being worked, but a *collected*
+contract is not being worked either — it sits on the board until someone walks to its NPC, drawing a
+circle over ground nobody needs to drive to again. So **a finished contract comes off the map by
+default**, and the map's Contracts switch grew **one row per contract** under it, each carrying that
+contract's marker colour, so a single job can be taken off (or a collected one put back) without
+touching the rest.
+
+The default is expressed as a default, not as a state: the panel stores only the answers the user
+actually gave, so a contract that finishes while shown drops off by itself, while one they asked for
+stays. Those answers are **session-scoped, unlike every other map filter** — they are keyed by mission
+id, which is the network object id, and a later session hands that id to whatever object now carries
+it. A persisted "hide 648" would eventually hide a contract nobody hid; the same trap that makes the
+mod resolve a command by walking the mission list rather than by `NetworkUtil.getObject`.
+
 ## Open questions
 
 - **Command outcomes have nowhere to go — deliberately, for now.** The engine answers every action

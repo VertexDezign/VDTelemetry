@@ -6,6 +6,8 @@ import net.vertexdezign.vdt.model.MissionFinishState
 import net.vertexdezign.vdt.model.MissionStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * The contract-row formatting that decides what a glance at the list actually says: the one-line
@@ -98,6 +100,68 @@ class MissionsPanelTest {
     // A failed contract is still waiting to be cleared off the list, so it stays in the finished
     // colour rather than becoming an offer again.
     assertEquals(VdtColors.Green, missionColor(mission(MissionStatus.FINISHED, MissionFinishState.FAILED)))
+  }
+
+  @Test
+  fun aCollectedContractComesOffTheMapByDefault() {
+    // The work is done and the marker sits over ground nobody needs to drive to again — it stays on
+    // the board only until someone walks to the NPC, which is the app's business rather than the map's.
+    val board =
+      listOf(
+        mission(id = 1, status = MissionStatus.RUNNING),
+        mission(id = 2, status = MissionStatus.FINISHED, finishState = MissionFinishState.SUCCESS),
+        mission(id = 3, status = MissionStatus.PREPARING),
+      )
+
+    assertEquals(listOf(1, 3), shownMissions(board, emptyMap()).map { it.id })
+    // A contract that failed or timed out is equally done, so it goes with it.
+    assertEquals(
+      emptyList(),
+      shownMissions(
+        listOf(mission(id = 4, status = MissionStatus.FINISHED, finishState = MissionFinishState.TIMED_OUT)),
+        emptyMap(),
+      ).map { it.id },
+    )
+  }
+
+  @Test
+  fun aContractCanBePickedOutOrPutBack() {
+    val running = mission(id = 1, status = MissionStatus.RUNNING)
+    val collected = mission(id = 2, status = MissionStatus.FINISHED, finishState = MissionFinishState.SUCCESS)
+    val board = listOf(running, collected)
+
+    // Switching one running job off leaves the others alone…
+    assertEquals(listOf<Int>(), shownMissions(listOf(running), mapOf(1 to false)).map { it.id })
+    // …and a collected one the user asks for comes back, default or no default.
+    assertEquals(listOf(1, 2), shownMissions(board, mapOf(2 to true)).map { it.id })
+    assertTrue(isMissionShown(collected, mapOf(2 to true)))
+    assertFalse(isMissionShown(running, mapOf(1 to false)))
+  }
+
+  @Test
+  fun aContractThatFinishesWhileShownDropsOffByItself() {
+    // Nothing was said about this contract while it ran, so nothing was stored — which is what lets
+    // the default take over the moment it completes, rather than leaving a stale "shown" behind.
+    val choices = emptyMap<Int, Boolean>()
+    assertTrue(isMissionShown(mission(id = 7, status = MissionStatus.RUNNING), choices))
+    assertFalse(isMissionShown(mission(id = 7, status = MissionStatus.FINISHED), choices))
+
+    // But a user who asked for it keeps it: an explicit answer outranks the status change.
+    assertTrue(isMissionShown(mission(id = 7, status = MissionStatus.FINISHED), mapOf(7 to true)))
+  }
+
+  @Test
+  fun theFilterRowNamesTheJobAndWhereItIs() {
+    // The board can carry six harvest contracts, so the location is what tells the rows apart — it
+    // wins the room over the subtitle the app's own list leads with.
+    assertEquals("Ernten · Land 49", missionFilterLabel(mission(location = "Land 49", subtitle = "Hafer")))
+    assertEquals("Pflügen", missionFilterLabel(mission(title = "Pflügen")))
+    // A contract the mod could not place says what it is for instead of just its type.
+    assertEquals(
+      "Ballen pressen · Rundballen",
+      missionFilterLabel(mission(title = "Ballen pressen", subtitle = "Rundballen")),
+    )
+    assertEquals("weirdMission", missionFilterLabel(mission(title = "", type = "weirdMission")))
   }
 
   @Test
