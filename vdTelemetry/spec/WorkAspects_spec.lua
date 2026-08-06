@@ -187,14 +187,33 @@ describe("Work.collectWidth", function()
   end)
 
   it("reports each side independently plus the total", function()
-    -- Right side folded in to half width, a normal headland technique.
-    local w = VDT.Work.collectWidth(widthObject(3, 3, 1.5, 3))
+    -- The engine measures a side by its section node's local X, so the right-hand one comes back
+    -- negative (VariableWorkWidth:onPostLoad) -- adding the two as they arrive totalled 0 on every
+    -- tool that has sections. Here the right side is folded in to half width, a normal headland
+    -- technique.
+    local w = VDT.Work.collectWidth(widthObject(3, 3, -1.5, -3))
     assert.are.equal(3, w.left)
     assert.are.equal(3, w.leftMax)
     assert.are.equal(1.5, w.right)
     assert.are.equal(3, w.rightMax)
     assert.are.equal(4.5, w.total)
     assert.are.equal("m", w.unit)
+  end)
+
+  it("counts a side with no sections as nothing, not as its placeholder", function()
+    -- A side the tool has no sections on answers `1, 1, false` -- not one meter.
+    local w = VDT.Work.collectWidth({
+      spec_variableWorkWidth = { hasSections = true },
+      getVariableWorkWidth = function(_, isLeft)
+        if isLeft then
+          return 6, 6, true
+        end
+        return 1, 1, false
+      end,
+    })
+    assert.are.equal(0, w.right)
+    assert.are.equal(0, w.rightMax)
+    assert.are.equal(6, w.total)
   end)
 end)
 

@@ -902,10 +902,12 @@ private val COVERAGE_TINT = Color(0xFFC026D3).copy(alpha = COVERAGE_TRAIL_ALPHA)
  * See [CoverageTrail] for why it never overlaps the raster — where it did, the two translucent fills
  * composited into a visibly darker band.
  *
- * **One path for the whole trail, filled once.** A fill per polygon shows every seam between them:
- * consecutive sweeps abut exactly, and two anti-aliased edges meeting on the same line each cover the
- * boundary pixels partly, so the pass comes out finely striped. Merged into one path they are a single
- * region with no interior edges, filled at one alpha however long the trail is.
+ * **One path for the whole trail, filled once.** A fill per polygon shows every join between them:
+ * where consecutive sweeps abut, two anti-aliased edges on the same line each cover the boundary
+ * pixels partly and the pass comes out finely striped; where they overlap — which they do, since a
+ * sweep spans both footprints — the shared ground takes the alpha twice and reads as a darker band.
+ * Merged into one path they are a single region with no interior edges, filled at one alpha however
+ * long the trail is.
  */
 @Composable
 private fun BoxScope.CoverageTrailOverlay(areas: List<SweptArea>, projection: MapProjection, tint: Color) {

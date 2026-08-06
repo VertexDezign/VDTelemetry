@@ -39,6 +39,8 @@ end
 
 local function tool(areas, over)
   local object = {
+    -- The frame widths are measured across; the stub below points its local +X down world +X.
+    components = { { node = "root" } },
     spec_workArea = { workAreas = areas },
     getIsWorkAreaActive = function(_, area)
       return area.isActive ~= false
@@ -75,6 +77,9 @@ describe("WorkAreas", function()
       end
       return pos[1], 0, pos[2]
     end)
+    rawset(_G, "localDirectionToWorld", function(_, x, y, z)
+      return x, y, z
+    end)
     rawset(_G, "g_workAreaTypeManager", {
       getWorkAreaTypeNameByIndex = function(_, index)
         return TYPE_NAMES[index]
@@ -89,6 +94,7 @@ describe("WorkAreas", function()
   after_each(function()
     rawset(_G, "MathUtil", nil)
     rawset(_G, "getWorldTranslation", nil)
+    rawset(_G, "localDirectionToWorld", nil)
     rawset(_G, "g_workAreaTypeManager", nil)
     rawset(_G, "g_currentMission", nil)
   end)
@@ -105,9 +111,27 @@ describe("WorkAreas", function()
     assert.are.equal("SPRAYER", areas[1].type)
     assert.is_true(areas[1].active)
     assert.is_true(areas[1].processing)
-    -- Measured start->width, not read off the spec's own workWidth (which starts at -1).
+    -- Measured across the tool, not read off the spec's own workWidth (which goes stale).
     assert.are.equal(24, areas[1].width)
     assert.are.equal("m", areas[1].unit)
+  end)
+
+  it("measures the width across the tool, not along an edge", function()
+    -- A solid spreader's fan: `start` on the centre line at the disc, `width` and `height` at the two
+    -- ends of it, and the derived corner back on the centre line 10 m behind. The start->width edge is
+    -- 18.68 m, which is what this used to report for a machine spreading 36 m (issue #62).
+    positions = { start = { 0, 0 }, width = { -18, 5 }, height = { 18, 5 } }
+    local areas = VDT.WorkAreas.collect(tool({ workArea() }))
+    assert.are.equal(36, areas[1].width)
+  end)
+
+  it("falls back to the edge when there is no frame to measure across", function()
+    -- No components and no root node: nothing says which way is across the tool. The edge length is
+    -- the right answer for the rectangle every other tool has anyway.
+    local bare = tool({ workArea() })
+    bare.components = nil
+    local areas = VDT.WorkAreas.collect(bare)
+    assert.are.equal(24, areas[1].width)
   end)
 
   it("keeps active and processing apart", function()

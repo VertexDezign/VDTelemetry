@@ -104,14 +104,15 @@
 ---@field active boolean
 ---@field side string LEFT | CENTER | RIGHT
 
--- Live width of a tool with retractable sections; sides are independent. `sections` is the same spec
--- one level deeper: the individual sections, absent on a tool that has none.
+-- Live width of a tool with retractable sections; sides are independent. Each side is measured from
+-- the tool's centre line, so `total` is the two of them added. `sections` is the same spec one level
+-- deeper: the individual sections, absent on a tool that has none.
 ---@class WorkWidthModel
 ---@field left number
 ---@field leftMax number
 ---@field right number
 ---@field rightMax number
----@field total number
+---@field total number left + right, the whole swath
 ---@field unit string
 ---@field sections WorkSectionModel[]?
 ---@field activeCount number?
@@ -120,12 +121,14 @@
 -- contact / direction / lowered, and the section it belongs to), `processing` means it actually
 -- touched ground within the last 200 ms. `shape` is three corners of the footprint parallelogram
 -- (start, width, height) in normalized [0,1] map coordinates, absent when the world size is unknown.
+-- The parallelogram is a rectangle on most tools and a rhombus on a spreader, where `start` sits on
+-- the centre line and `width`/`height` are the two ends of the fan.
 ---@class WorkAreaModel
 ---@field index number
 ---@field type string? SPRAYER | CULTIVATOR | COMBINE | ... (nil when the enum is unreachable)
 ---@field active boolean
 ---@field processing boolean
----@field width number?
+---@field width number? how far the area reaches across the tool, not the length of any one edge
 ---@field unit string?
 ---@field shape number[]?
 

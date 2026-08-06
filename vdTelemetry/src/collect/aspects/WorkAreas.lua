@@ -42,6 +42,27 @@ function VDT.WorkAreas.typeToken(areaType)
   return name
 end
 
+---The object's own lateral axis in world XZ — its local +X, which is what "across the tool" means for
+---every measurement below. Taken from the first component, the frame the engine itself measures a work
+---area's width in (WorkArea:updateWorkAreaWidth). nil when it can't be read.
+---@param object table
+---@return number|nil x, number|nil z unit vector
+local function lateralAxis(object)
+  local node = object.components ~= nil and object.components[1] ~= nil and object.components[1].node or object.rootNode
+  if node == nil then
+    return nil, nil
+  end
+  local ok, x, _, z = pcall(localDirectionToWorld, node, 1, 0, 0)
+  if not ok or type(x) ~= "number" or type(z) ~= "number" then
+    return nil, nil
+  end
+  local length = math.sqrt(x * x + z * z)
+  if length < 0.0001 then
+    return nil, nil
+  end
+  return x / length, z / length
+end
+
 ---World position of a work-area node, or nil when it can't be read.
 ---@param node any
 ---@return number|nil x, number|nil z
@@ -59,10 +80,10 @@ end
 ---Build one work area's model, or nil when it is a helper volume or its nodes can't be read.
 ---@param object table
 ---@param area table an entry of spec_workArea.workAreas
----@param sizeX number|nil world size for normalization; nil skips the footprint
----@param sizeZ number|nil
+---@param frame table the object's shared frame: `sizeX`/`sizeZ` world size for normalization (nil
+---             skips the footprint) and `axisX`/`axisZ` the lateral axis widths are measured across
 ---@return WorkAreaModel|nil
-local function collectArea(object, area, sizeX, sizeZ)
+local function collectArea(object, area, frame)
   local token = VDT.WorkAreas.typeToken(area.type)
   if token == VDT.WorkAreas.SKIPPED_TYPE then
     return nil
@@ -87,13 +108,37 @@ local function collectArea(object, area, sizeX, sizeZ)
     return model
   end
 
-  -- The engine's own workWidth is only recomputed when a section moves (WorkArea.lua:321-331) and
-  -- starts at -1, so measure the start->width edge instead: it is the same distance, from positions
-  -- already read, and it is never stale.
-  local dx, dz = widthX - startX, widthZ - startZ
-  model.width = tonumber(ValueMapper.mapFloat(math.sqrt(dx * dx + dz * dz)))
+  -- How far the area reaches across the tool -- the number a terminal calls working width, and the
+  -- one the game's own HUD prints (VariableWorkWidthHUDExtension:draw -> getWorkAreaWidth). Measured
+  -- here rather than read from workArea.workWidth because the engine only recomputes that when a
+  -- section node moves (WorkArea:updateWorkAreaWidth), so folding or a moving part leaves it stale.
+  --
+  -- NOT the start->width edge, which is what this used to measure. The two agree for a rectangle and
+  -- part company for a rhombus: a spreader anchors `start` on the centre line and puts `width` and
+  -- `height` at the two ends of the fan, so that edge is half the swath (issue #62).
+  local axisX, axisZ = frame.axisX, frame.axisZ
+  if axisX ~= nil then
+    -- All four corners: the derived one can be the outermost, even though the engine's own version of
+    -- this only looks at the three it was given.
+    local lo, hi = 0, 0
+    for _, corner in ipairs({
+      { widthX, widthZ },
+      { heightX, heightZ },
+      { widthX + heightX - startX, widthZ + heightZ - startZ },
+    }) do
+      local offset = (corner[1] - startX) * axisX + (corner[2] - startZ) * axisZ
+      lo, hi = math.min(lo, offset), math.max(hi, offset)
+    end
+    model.width = tonumber(ValueMapper.mapFloat(hi - lo))
+  else
+    -- No frame to measure across: the edge length is the honest fallback, and it is the right answer
+    -- for every rectangular area anyway.
+    local dx, dz = widthX - startX, widthZ - startZ
+    model.width = tonumber(ValueMapper.mapFloat(math.sqrt(dx * dx + dz * dz)))
+  end
   model.unit = "m"
 
+  local sizeX, sizeZ = frame.sizeX, frame.sizeZ
   if sizeX ~= nil then
     model.shape = {
       VDT.MapExporter.normalizeCoord(startX, sizeX),
@@ -116,16 +161,18 @@ function VDT.WorkAreas.collect(object)
     return nil
   end
 
-  -- Resolved once per object rather than per area. nil (no HUD map, no terrain yet) is not fatal:
-  -- the areas still report what they are doing, only without a footprint to draw it at.
-  local sizeX, sizeZ
+  -- Both resolved once per object rather than per area, and neither is fatal when it can't be: no
+  -- world size (no HUD map, no terrain yet) costs the footprint, no axis costs the exact width, and
+  -- the areas still report what they are doing either way.
+  local frame = {}
   if VDT.MapExporter ~= nil and g_currentMission ~= nil then
-    sizeX, sizeZ = VDT.MapExporter.resolveWorldSize()
+    frame.sizeX, frame.sizeZ = VDT.MapExporter.resolveWorldSize()
   end
+  frame.axisX, frame.axisZ = lateralAxis(object)
 
   local areas = {}
   for _, area in ipairs(spec.workAreas) do
-    areas[#areas + 1] = collectArea(object, area, sizeX, sizeZ)
+    areas[#areas + 1] = collectArea(object, area, frame)
   end
 
   -- Never an empty Lua table: the encoder would write `{}` where the consumer expects `[]`.

@@ -506,6 +506,7 @@ data class WorkWidth(
   val leftMax: Float = 0f,
   val right: Float = 0f,
   val rightMax: Float = 0f,
+  /** [left] + [right]: the whole swath, both sides being measured from the tool's centre line. */
   val total: Float = 0f,
   val unit: String = "",
   val sections: List<WorkSection> = emptyList(),
@@ -529,7 +530,7 @@ data class WorkSection(
 )
 
 /**
- * One work area of a tool: a rectangle of ground it processes.
+ * One work area of a tool: a parallelogram of ground it processes.
  *
  * The two flags are the engine's own and say different things. [active] is capability — the area is
  * lowered, in contact, driving the right way, and its section is switched on. [processing] is
@@ -539,6 +540,11 @@ data class WorkSection(
  * [shape] is three corners of the footprint parallelogram — start, width, height — in the same
  * normalized `[0,1]` map frame as [MapData] and [GpsCourseData], so it draws with the map's own
  * projection. The fourth corner is `width + height - start`. Absent when the world size is unknown.
+ *
+ * **Which corner is which is not fixed.** On most tools the parallelogram is a rectangle whose
+ * `start -> width` edge runs across the machine, but a solid spreader's is a rhombus: `start` and the
+ * derived corner sit on the centre line, and `width` and `height` are the two ends of the fan. Nothing
+ * may read a swath off one edge — see [WorkSweep], which learned that the hard way.
  */
 @Serializable
 data class WorkArea(
@@ -547,6 +553,7 @@ data class WorkArea(
   val type: String? = null,
   val active: Boolean = false,
   val processing: Boolean = false,
+  /** How far the area reaches across the tool, in [unit] — not the length of any one edge. */
   val width: Float? = null,
   val unit: String? = null,
   val shape: List<Float> = emptyList(),
