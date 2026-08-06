@@ -241,6 +241,11 @@ function VDT.Steering.collect(vehicle)
           -- and nothing downstream should have to tell an unnamed mode from a missing one.
           name = (name ~= nil and name ~= "") and name or nil,
           index = mode.index or cSpec.state,
+          -- Every mode the machine has, not every one it can be put in right now. The engine draws
+          -- that distinction — its own HUD hides the steering box on
+          -- `getNumCrabSteeringModesAvailable() <= 1` — but base `getCrabSteeringModeAvailable`
+          -- returns true for everything, so the two only differ on a mod that overrides it, and this
+          -- one does not go stale between ticks.
           count = cSpec.stateMax,
           layout = layoutOf(vehicle, mode),
         },

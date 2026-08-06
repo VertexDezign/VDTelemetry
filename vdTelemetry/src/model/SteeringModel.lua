@@ -9,7 +9,7 @@
 ---@class SteeringModeModel
 ---@field name string? absent when the vehicle's XML names no mode
 ---@field index number which mode of `count`, 1-based
----@field count number how many modes this machine has
+---@field count number how many modes this machine has, selectable right now or not
 --- `layout` is absent when the wheels can't be read that way. Its three crab values are not a
 --- redundancy: the usual dog walk holds every wheel over at a rest angle and steers on from there,
 --- which bakes the direction into the mode and so comes as two of them (CRAB_LEFT / CRAB_RIGHT),

@@ -81,7 +81,9 @@ data class Steering(
 )
 
 /**
- * The steering mode a crab-steering machine is in — [index] of [count], counting from 1.
+ * The steering mode a crab-steering machine is in — [index] of [count], counting from 1. [count] is
+ * every mode the machine has rather than every one it could be put in this moment; the engine draws
+ * that distinction but only a mod that overrides its availability test can make the two differ.
  *
  * [name] is the game's own wording, out of the vehicle's XML and translated; it is all the game
  * itself shows for a mode, and being free text it is not something a glyph can be picked from. That

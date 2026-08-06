@@ -275,10 +275,6 @@ all. What is left:
   and cover controls above. Not built because #57 asked to *see* them. `setIsReverseDriving` refuses
   while an implement on a disabling attacher joint is fitted (`getIsReverseDrivingAllowed`), which a
   control would want to reflect rather than fire and ignore.
-- **`count` is every mode, not every *available* mode.** The engine's own HUD hides its steering box on
-  `getNumCrabSteeringModesAvailable() <= 1`, and the mark uses `stateMax` for that test instead. Base
-  `getCrabSteeringModeAvailable` returns true for everything, so the two agree unless a mod overrides
-  it.
 
 ## Captures wanted as fixtures
 

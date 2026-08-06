@@ -360,7 +360,8 @@ internal fun steeringMarks(vehicle: Vehicle): List<LineMark> {
   val steering = vehicle.steering ?: return emptyList()
   val marks = mutableListOf<LineMark>()
 
-  // One mode is no choice, and the game hides its own steering-mode box on the same test.
+  // One mode is no choice, and the game hides its own steering-mode box on the same test — see
+  // [net.vertexdezign.vdt.model.SteeringMode] for the small print on what `count` counts.
   steering.mode?.takeIf { it.count > 1 }?.let { mode ->
     val icon = steeringLayoutIcon(mode.layout)
     marks +=
