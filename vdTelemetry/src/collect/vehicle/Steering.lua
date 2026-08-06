@@ -12,14 +12,17 @@ VDT.Steering = {}
 -- which is the unit every angle in the wheel data is in.
 local OFFSET_EPSILON = 0.01
 
--- Which way a positive steering offset points a wheel. The engine's vehicle space is +Z forward (its
--- own AI code takes localDirectionToWorld(rootNode, 0, 0, 1) as the way a vehicle faces) and +X left
--- (a work area's right-hand extent comes back with a negative local X), and a steering offset is a
--- rotation about +Y — which takes +Z towards +X. So a wheel held at a positive offset points left.
+-- Which way a positive steering offset points a wheel, and the one thing here that rests on a
+-- convention rather than on comparing two things that share one.
 --
--- This is the one thing here that assumes a convention rather than comparing two things that share
--- one, and it is worth knowing that if a dog-walk mode ever draws mirrored, this constant is the
--- whole fix.
+-- Derived: the engine's vehicle space is +Z forward (its own AI code takes
+-- localDirectionToWorld(rootNode, 0, 0, 1) as the way a vehicle faces) and +X left (a work area's
+-- right-hand extent comes back with a negative local X), and a steering offset is a rotation about +Y,
+-- which takes +Z towards +X. So a wheel held at a positive offset points left.
+--
+-- Confirmed in game: a machine whose modes the game names "Hundeganglenkung links" and "…rechts"
+-- reports CRAB_LEFT in the first. Flipping this constant is still the whole fix if a machine ever
+-- disagrees.
 local OFFSET_POSITIVE_IS = "LEFT"
 
 ---@param value number

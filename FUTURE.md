@@ -256,21 +256,15 @@ Each one is cheap to do while playing and settles something above.
 
 ## Steering (#57)
 
-Built: `vehicle.steering` (mod version 10) and its two marks in the pillar readout, left of the gear.
-What is left is the part that needs a machine in front of it.
+Built and driven: `vehicle.steering` (mod version 10) and its two marks in the pillar readout, left of
+the gear. The layout derivation was checked in game against a machine with dog-walk modes, sides and
+all. What is left:
 
-- **Nobody has watched the layout derivation against a real machine.** `collect/vehicle/Steering.lua`
-  reads which axles steer off the live wheels — `wheel.physics.rotSpeed` for a wheel, `rotScale ×
-  rotSpeed` for a steering node, front/rear split at the midpoint of the wheelbase — and the specs only
-  prove the arithmetic. Drive a machine with modes (a telehandler, a Fastrac, a Xerion) through all of
-  them and check the glyph changes to the shape the wheels are actually in. This is the check that
-  matters; everything else here is a detail of it.
-- **Which way round left and right are is the one assumed thing, and is unchecked.** Everywhere else
-  the derivation compares two axles against each other, so it needs no convention — except for the
-  offset that makes a dog walk, where the sign alone says which of the two it is. It is taken to be
-  left (+X is left, +Y rotation swings +Z towards +X). The check is free: the game names those modes,
-  so put a machine in the one called **"…links"** and see whether the layout says `CRAB_LEFT`. If they
-  are swapped, `OFFSET_POSITIVE_IS` in that file is the whole fix.
+- **`CRAB` has never been seen on a real machine.** It is the sideless dog walk — the rear axle steered
+  along with the front rather than held over — and it is in the model because the engine's data allows
+  it (a mode may set a steering node's `rotScale` negative with no offset), not because anything is
+  known to be built that way. The machines checked so far all use the offset, which is `CRAB_LEFT` /
+  `CRAB_RIGHT`. If it never turns up, the value and its share of the left glyph can go.
 - **A frame that steers on its own joint reports no layout.** `spec_articulatedAxis` is a third
   mechanism the derivation doesn't read, so an articulated machine falls back to printing the mode's
   number. Left out deliberately: it needs its own geometry and there is no way to tell here whether any
