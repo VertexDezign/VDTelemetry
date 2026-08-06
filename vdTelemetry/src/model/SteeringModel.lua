@@ -10,10 +10,11 @@
 ---@field name string? absent when the vehicle's XML names no mode
 ---@field index number which mode of `count`, 1-based
 ---@field count number how many modes this machine has
---- `layout` is absent when the wheels can't be read that way. Its two crab values are not a
---- redundancy: a machine that crabs by steering its rear axle along with the front does it in
---- whichever direction the driver turns (CRAB), while one that crabs by parking that axle over has
---- the direction baked into the mode, and so offers two of them (CRAB_LEFT / CRAB_RIGHT).
+--- `layout` is absent when the wheels can't be read that way. Its three crab values are not a
+--- redundancy: the usual dog walk holds every wheel over at a rest angle and steers on from there,
+--- which bakes the direction into the mode and so comes as two of them (CRAB_LEFT / CRAB_RIGHT),
+--- while a mode that instead steers the rear axle along with the front walks whichever way the driver
+--- turns and has no side of its own (CRAB).
 ---@field layout string? FRONT | BACK | ALL_WHEEL | CRAB | CRAB_LEFT | CRAB_RIGHT
 
 --- How the machine is set up to be driven. Both halves are independent and either can be absent: a

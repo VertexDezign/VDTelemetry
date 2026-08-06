@@ -145,12 +145,9 @@ object ClusterIcons {
    * borrowed from the diff-lock trio above for the same reason it works there: it is as close as a
    * single-tint glyph gets to saying "this end, not that one".
    *
-   * That second distinction is what keeps the two dog walks apart from everything else. A machine
-   * can crab either by steering its rear axle along with the front — one mode, walking whichever way
-   * the driver turns — or by parking that axle over at a fixed angle, which bakes the direction in
-   * and so comes as *two* modes, a left one and a right one. Drawn only as angles, a right-hand dog
-   * walk and four-wheel steering are the same picture; with the parked axle left as an outline they
-   * are not.
+   * The two dog walks are drawn the way the machine actually stands in one: all four wheels held
+   * over together, to the left or to the right. Both axles go on steering from there, which is why
+   * neither pair is an outline — a dog walk is a rest angle, not a locked axle.
    *
    * All four wheels appear on every one of them. A mode that dropped the wheels it doesn't steer
    * would be changing the machine's shape rather than its wheels' angle.
@@ -158,11 +155,17 @@ object ClusterIcons {
   val SteerFront = steering("Front", front = -STEER_ANGLE, back = 0f, backSteers = false)
   val SteerBack = steering("Back", front = 0f, back = -STEER_ANGLE, frontSteers = false)
   val SteerAllWheel = steering("AllWheel", front = -STEER_ANGLE, back = STEER_ANGLE)
-  val SteerCrab = steering("Crab", front = -STEER_ANGLE, back = -STEER_ANGLE)
 
-  /** The two parked-axle dog walks: the front wheels steering, the rear pair held over one way or the other. */
-  val SteerCrabLeft = steering("CrabLeft", front = -STEER_ANGLE, back = -STEER_ANGLE, backSteers = false)
-  val SteerCrabRight = steering("CrabRight", front = -STEER_ANGLE, back = STEER_ANGLE, backSteers = false)
+  /**
+   * The dog walks: every wheel over the same way, so the machine tracks diagonally.
+   *
+   * [SteerCrabLeft] does double duty for the crab that has no side of its own — the kind built by
+   * steering the rear axle along with the front, which walks whichever way the driver turns. Left is
+   * the same arbitrary reference every other glyph here is drawn against; there is nothing to mirror
+   * it against.
+   */
+  val SteerCrabLeft = steering("CrabLeft", front = -STEER_ANGLE, back = -STEER_ANGLE)
+  val SteerCrabRight = steering("CrabRight", front = STEER_ANGLE, back = STEER_ANGLE)
 
   /**
    * The driving position turned round: the seat itself, from the side, facing the back of the

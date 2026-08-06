@@ -244,12 +244,19 @@ class ClusterReadoutTest {
 
   @Test
   fun everySteeringLayoutHasItsOwnPicture() {
-    // Two layouts drawn the same are two modes the driver cannot tell apart. The pair worth checking
-    // is CRAB_RIGHT against ALL_WHEEL: both have the rear wheels leaning the opposite way to the
-    // front, and only whether that axle is *steering* separates them.
-    val icons = SteeringLayout.entries.map { steeringLayoutIcon(it) }
-    assertEquals(SteeringLayout.entries.size, icons.toSet().size, "two layouts share a glyph")
-    assertTrue(icons.none { it == null }, "a layout with no glyph would fall back to its bare number")
+    // Two layouts drawn the same are two modes the driver cannot tell apart — with one deliberate
+    // exception: a crab with no side of its own borrows the left dog walk's picture, because the
+    // wheels really are in that shape and there is nothing to mirror it against.
+    val icons = SteeringLayout.entries.associateWith { steeringLayoutIcon(it) }
+    assertTrue(icons.values.none { it == null }, "a layout with no glyph would fall back to its bare number")
+
+    // The exception, named: a sideless crab borrows the left dog walk's picture, which is the shape
+    // its wheels really are in.
+    assertEquals(ClusterIcons.SteerCrabLeft, icons[SteeringLayout.CRAB])
+    assertEquals(ClusterIcons.SteerCrabLeft, icons[SteeringLayout.CRAB_LEFT])
+    // ...and it is the *only* one. In particular the two dog walks must not collapse together: the
+    // machine leans the other way in each, and the driver chose which.
+    assertEquals(SteeringLayout.entries.size - 1, icons.values.toSet().size, "two layouts share a glyph")
     // An unread layout is the one case that legitimately has none.
     assertNull(steeringLayoutIcon(null))
   }
@@ -269,7 +276,7 @@ class ClusterReadoutTest {
     fun mode(layout: SteeringLayout?, index: Int = 2) =
       steeringMarks(Vehicle(steering = Steering(mode = SteeringMode("Crab", index, 3, layout)))).single()
 
-    assertEquals(ClusterIcons.SteerCrab, mode(SteeringLayout.CRAB).icon)
+    assertEquals(ClusterIcons.SteerCrabLeft, mode(SteeringLayout.CRAB).icon)
     assertNull(mode(SteeringLayout.CRAB).text, "a glyph and a number would be the same fact twice")
 
     // Nothing derived: the number is what is left, and it is at least true.
@@ -307,7 +314,7 @@ class ClusterReadoutTest {
       steeringMarks(
         Vehicle(steering = Steering(mode = SteeringMode("Crab", 2, 3, SteeringLayout.CRAB), reversed = true)),
       )
-    assertEquals(listOf(ClusterIcons.SteerCrab, ClusterIcons.SeatReversed), both.map { it.icon })
+    assertEquals(listOf(ClusterIcons.SteerCrabLeft, ClusterIcons.SeatReversed), both.map { it.icon })
   }
 
   @Test

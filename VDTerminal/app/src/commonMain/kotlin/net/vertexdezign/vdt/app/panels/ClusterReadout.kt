@@ -396,11 +396,18 @@ internal fun steeringMarks(vehicle: Vehicle): List<LineMark> {
  */
 internal fun steeringLayoutIcon(layout: SteeringLayout?): ImageVector? = when (layout) {
   SteeringLayout.FRONT -> ClusterIcons.SteerFront
+
   SteeringLayout.BACK -> ClusterIcons.SteerBack
+
   SteeringLayout.ALL_WHEEL -> ClusterIcons.SteerAllWheel
-  SteeringLayout.CRAB -> ClusterIcons.SteerCrab
+
+  // A crab with no side of its own borrows the left one's picture; see [ClusterIcons.SteerCrabLeft].
+  SteeringLayout.CRAB -> ClusterIcons.SteerCrabLeft
+
   SteeringLayout.CRAB_LEFT -> ClusterIcons.SteerCrabLeft
+
   SteeringLayout.CRAB_RIGHT -> ClusterIcons.SteerCrabRight
+
   null -> null
 }
 

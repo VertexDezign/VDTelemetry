@@ -45,11 +45,29 @@ local function element(z, rate, offset)
   return { z = z, rate = rate, offset = offset }
 end
 
----Every steerable element on the vehicle, positioned along it. nil when the vehicle has no wheels to
----place, or no scene root to place them against.
+---Index a mode's per-element entries by the wheel or steering node they are about, so the loops below
+---can ask "what does this mode do to this thing" instead of walking the list again per element.
+local function entriesBy(list, key)
+  local byObject = {}
+  for _, entry in ipairs(list or {}) do
+    if entry[key] ~= nil then
+      byObject[entry[key]] = entry
+    end
+  end
+  return byObject
+end
+
+---Every steerable element on the vehicle, positioned along it, as **this mode** leaves it. nil when
+---the vehicle has no wheels to place, or no scene root to place them against.
+---
+---Read from the mode's own declared entries rather than from the live wheel state. The live values
+---are animated towards the mode's over about a second, so a glyph built from them shows the shape the
+---machine is coming *from* for as long as it takes to get there — and a wheel the new mode does not
+---mention keeps the offset an older mode gave it, since nothing animates it back.
 ---@param vehicle Vehicle
+---@param mode table the current steering mode
 ---@return table[]|nil
-local function gatherElements(vehicle)
+local function gatherElements(vehicle, mode)
   local wSpec = vehicle.spec_wheels
   if wSpec == nil or wSpec.wheels == nil then
     return nil
@@ -61,29 +79,48 @@ local function gatherElements(vehicle)
   end
 
   local elements = {}
+  local wheelEntries = entriesBy(mode.wheels, "wheel")
   for _, wheel in ipairs(wSpec.wheels) do
     -- The wheel's own node, so its origin is the hub. It turns with the steering, but a node's origin
     -- does not move when the node rotates, so the position holds whatever lock the wheels are on.
     if wheel.repr ~= nil and wheel.physics ~= nil then
       local _, _, z = localToLocal(wheel.repr, root, 0, 0, 0)
-      -- A wheel's steering *sense* is fixed by its rotSpeed and a mode can only zero it (see
-      -- CrabSteering:updateSteeringAngle, which decays a locked wheel's rotSpeed to 0 and restores it
-      -- from `rotSpeedBackUp` when the mode releases it). So the live value already is the answer.
-      table.insert(elements, element(z, wheel.physics.rotSpeed or 0, wheel.steeringOffset or 0))
+      -- A wheel's steering sense is fixed by its own rotSpeed, and a mode can only take it away:
+      -- `rotSpeedBackUp` is where CrabSteering parks the built-in value while a mode holds the live
+      -- one at zero, so it is the one to read. A wheel this mode says nothing about steers as built.
+      local entry = wheelEntries[wheel]
+      local rate = wheel.rotSpeedBackUp or wheel.physics.rotSpeed or 0
+      local offset = 0
+      if entry ~= nil then
+        rate = entry.locked and 0 or rate
+        offset = entry.offset or 0
+      end
+      table.insert(elements, element(z, rate, offset))
     end
   end
   if #elements == 0 then
     return nil
   end
 
-  -- Steering nodes are the other half of the mechanism: a mode flips a whole axle by setting the
-  -- node's rotScale negative, which is how a machine steers all four wheels the *same* way. The base
-  -- rotSpeed carries the axle's own sense, so the product is the rate.
+  -- Steering nodes are the other half of the mechanism: a mode can flip a whole axle by setting the
+  -- node's rotScale negative, or stop it by locking it. The node's own rotSpeed carries the axle's
+  -- built-in sense, so the product is the rate.
+  local nodeEntries = entriesBy(mode.steeringNodes, "steeringNode")
   for _, steeringNode in ipairs(wSpec.steeringNodes or {}) do
     if steeringNode.node ~= nil then
       local _, _, z = localToLocal(steeringNode.node, root, 0, 0, 0)
-      local rate = (steeringNode.rotScale or 1) * (steeringNode.rotSpeed or 1)
-      table.insert(elements, element(z, rate, steeringNode.offset or 0))
+      local entry = nodeEntries[steeringNode]
+      local scale = steeringNode.rotScaleOrig or steeringNode.rotScale or 1
+      local offset = 0
+      if entry ~= nil then
+        if entry.locked then
+          scale = 0
+        elseif entry.rotScale ~= nil then
+          scale = entry.rotScale
+        end
+        offset = entry.offset or 0
+      end
+      table.insert(elements, element(z, scale * (steeringNode.rotSpeed or 1), offset))
     end
   end
 
@@ -108,8 +145,9 @@ local function axleOf(group)
   return {
     steers = rate ~= 0,
     sense = signOf(rate),
-    -- Kept signed: which way a parked axle is held over is the difference between the two dog walks.
-    held = math.abs(offset) > OFFSET_EPSILON and signOf(offset) or 0,
+    -- Kept signed and as an angle: which way the wheels are held over is the difference between the
+    -- two dog walks, and the two axles' offsets are added up to find the machine's own.
+    held = math.abs(offset) > OFFSET_EPSILON and offset or 0,
   }
 end
 
@@ -124,8 +162,8 @@ end
 ---out, so a consumer has something to fall back on.
 ---@param vehicle Vehicle
 ---@return string|nil "FRONT" / "BACK" / "ALL_WHEEL" / "CRAB" / "CRAB_LEFT" / "CRAB_RIGHT"
-local function layoutOf(vehicle)
-  local elements = gatherElements(vehicle)
+local function layoutOf(vehicle, mode)
+  local elements = gatherElements(vehicle, mode)
   if elements == nil then
     return nil
   end
@@ -152,20 +190,29 @@ local function layoutOf(vehicle)
   end
 
   local frontAxle, backAxle = axleOf(front), axleOf(back)
+
+  -- Being **held over** is what makes a dog walk, and it is checked before anything else because the
+  -- axles of one go on steering exactly as they did before. The offset is a *rest angle* — the engine
+  -- steers from it rather than instead of it (CrabSteering:updateSteeringAngle: `steeringAngle =
+  -- wheel.steeringOffset + rotatedTime * f * rotSpeed`) — so a machine in "dog walk left" still has
+  -- one axle counter-steering the other and reads as ordinary four-wheel steering if you only compare
+  -- the senses. That bakes the direction into the mode, which is why such a machine offers *two* of
+  -- them, and why the side belongs in the layout rather than being flattened into one "crab".
+  --
+  -- Summed across the two ends: a dog walk holds them the same way, so they add up, while a symmetric
+  -- toe-in cancels to nothing and falls through to the senses below, which is right — that is not a
+  -- machine tracking diagonally.
+  local held = frontAxle.held + backAxle.held
+  if math.abs(held) > OFFSET_EPSILON then
+    return held > 0 == (OFFSET_POSITIVE_IS == "LEFT") and "CRAB_LEFT" or "CRAB_RIGHT"
+  end
+
   if frontAxle.steers and backAxle.steers then
-    -- The whole point of comparing senses rather than reading them: both ends turning the same way is
-    -- a crab walk, opposite ways is the tight four-wheel turn. This crab has no side of its own —
-    -- both axles follow the wheel, so it walks whichever way the driver steers.
+    -- Nothing held over, so the shape is in the senses alone: both ends turning the same way is a
+    -- crab that has no side of its own — it walks whichever way the driver steers — and opposite ways
+    -- is the tight four-wheel turn.
     return frontAxle.sense == backAxle.sense and "CRAB" or "ALL_WHEEL"
   elseif frontAxle.steers then
-    -- The other way to build a crab mode: the rear axle doesn't steer at all, it is simply parked
-    -- over, and the machine tracks diagonally with only the front wheels answering the wheel. That
-    -- bakes the direction into the mode, which is why such a machine offers *two* of them — a left
-    -- dog walk and a right one — and why the side has to come out in the layout rather than being
-    -- flattened into one "crab".
-    if backAxle.held ~= 0 then
-      return backAxle.held > 0 == (OFFSET_POSITIVE_IS == "LEFT") and "CRAB_LEFT" or "CRAB_RIGHT"
-    end
     return "FRONT"
   elseif backAxle.steers then
     return "BACK"
@@ -192,7 +239,7 @@ function VDT.Steering.collect(vehicle)
           name = (name ~= nil and name ~= "") and name or nil,
           index = mode.index or cSpec.state,
           count = cSpec.stateMax,
-          layout = layoutOf(vehicle),
+          layout = layoutOf(vehicle, mode),
         },
       }
     end

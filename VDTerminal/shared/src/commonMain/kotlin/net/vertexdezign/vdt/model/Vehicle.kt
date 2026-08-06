@@ -103,10 +103,12 @@ data class SteeringMode(
 /**
  * Which wheels a steering mode steers, and whether the two ends agree.
  *
- * There are two ways a machine crabs, and they are not the same mode. Steering the rear axle *along
- * with* the front gives [CRAB], which walks whichever way the driver turns. Parking that axle at a
- * fixed angle instead bakes the direction into the mode — so a machine built that way offers two of
- * them, [CRAB_LEFT] and [CRAB_RIGHT], and its front wheels go on steering normally in both.
+ * There are two ways a machine crabs, and they are not the same mode. The usual one holds every
+ * wheel over at a rest angle and goes on steering from there — the axles keep whatever senses they
+ * had, so such a mode is *not* told apart from four-wheel steering by which way the wheels turn. It
+ * bakes the direction in, which is why a machine built that way offers two of them, [CRAB_LEFT] and
+ * [CRAB_RIGHT]. The other steers the rear axle along with the front and holds nothing over, giving
+ * [CRAB], which walks whichever way the driver turns and so has no side of its own.
  */
 @Serializable
 enum class SteeringLayout {
@@ -122,7 +124,7 @@ enum class SteeringLayout {
   /** Both ends the same way, so the machine tracks diagonally, in whichever direction it is steered. */
   CRAB,
 
-  /** The rear axle parked over to the left, the front still steering: a left dog walk. */
+  /** Every wheel held over to the left, so the machine tracks diagonally: a left dog walk. */
   CRAB_LEFT,
 
   /** The same, held the other way. */

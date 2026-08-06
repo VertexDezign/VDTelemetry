@@ -265,11 +265,12 @@ What is left is the part that needs a machine in front of it.
   prove the arithmetic. Drive a machine with modes (a telehandler, a Fastrac, a Xerion) through all of
   them and check the glyph changes to the shape the wheels are actually in. This is the check that
   matters; everything else here is a detail of it.
-- **Which way round left and right are is the one assumed thing.** Everywhere else the derivation
-  compares two axles against each other, so it needs no convention — except for a *parked* rear axle,
-  where the sign of the offset alone says whether it is a left dog walk or a right one. It is taken to
-  be left (+X is left, +Y rotation swings +Z towards +X). If `CRAB_LEFT` and `CRAB_RIGHT` come out
-  swapped in game, `OFFSET_POSITIVE_IS` in that file is the whole fix.
+- **Which way round left and right are is the one assumed thing, and is unchecked.** Everywhere else
+  the derivation compares two axles against each other, so it needs no convention — except for the
+  offset that makes a dog walk, where the sign alone says which of the two it is. It is taken to be
+  left (+X is left, +Y rotation swings +Z towards +X). The check is free: the game names those modes,
+  so put a machine in the one called **"…links"** and see whether the layout says `CRAB_LEFT`. If they
+  are swapped, `OFFSET_POSITIVE_IS` in that file is the whole fix.
 - **A frame that steers on its own joint reports no layout.** `spec_articulatedAxis` is a third
   mechanism the derivation doesn't read, so an articulated machine falls back to printing the mode's
   number. Left out deliberately: it needs its own geometry and there is no way to tell here whether any

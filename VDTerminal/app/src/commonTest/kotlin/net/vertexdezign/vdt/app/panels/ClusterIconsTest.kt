@@ -48,7 +48,6 @@ class ClusterIconsTest {
       "steerFront" to ClusterIcons.SteerFront,
       "steerBack" to ClusterIcons.SteerBack,
       "steerAllWheel" to ClusterIcons.SteerAllWheel,
-      "steerCrab" to ClusterIcons.SteerCrab,
       "steerCrabLeft" to ClusterIcons.SteerCrabLeft,
       "steerCrabRight" to ClusterIcons.SteerCrabRight,
       "seatReversed" to ClusterIcons.SeatReversed,
