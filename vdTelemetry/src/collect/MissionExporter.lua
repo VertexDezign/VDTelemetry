@@ -179,9 +179,16 @@ local function collectBaleForm(mission)
   else
     return nil, nil
   end
+  -- g_i18n is checked before it is indexed, not merely pcall'd: `pcall(g_i18n.getText, ...)`
+  -- evaluates the field access first, so a nil g_i18n throws outside the pcall's protection and
+  -- takes the whole channel write with it. Same guard as MapLayersExporter's localized().
+  local token = round and "ROUND" or "SQUARE"
+  if g_i18n == nil then
+    return token, nil
+  end
   local key = round and "fillType_roundBale" or "fillType_squareBale"
   local okText, title = pcall(g_i18n.getText, g_i18n, key)
-  return round and "ROUND" or "SQUARE", (okText and type(title) == "string") and title or nil
+  return token, (okText and type(title) == "string") and title or nil
 end
 
 -- Where the load has to be delivered, for the contracts that sell something (harvest, tree
@@ -210,7 +217,9 @@ local function collectSellingStation(mission, sizeX, sizeZ)
   end
 
   local placeable = station.owningPlaceable
-  if sizeX ~= nil and type(placeable) == "table" and type(placeable.getHotspot) == "function" then
+  -- Both edge lengths, not just one: normalizeCoord does arithmetic on the size, so a nil sizeZ
+  -- would throw here rather than simply skip the position. Same guard as collectPosition.
+  if sizeX ~= nil and sizeZ ~= nil and type(placeable) == "table" and type(placeable.getHotspot) == "function" then
     local okHotspot, hotspot = pcall(placeable.getHotspot, placeable)
     if okHotspot and type(hotspot) == "table" and type(hotspot.getWorldPosition) == "function" then
       local okPos, worldX, worldZ = pcall(hotspot.getWorldPosition, hotspot)

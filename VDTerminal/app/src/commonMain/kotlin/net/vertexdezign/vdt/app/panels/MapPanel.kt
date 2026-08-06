@@ -1193,13 +1193,24 @@ private fun BoxScope.MapDataOverlay(
 
   // The game marks a contract with a blinking circle, so this one blinks too — one transition for
   // every marker, so they pulse together rather than each on its own phase.
-  val blink by
-    rememberInfiniteTransition(label = "contract").animateFloat(
-      initialValue = 0.35f,
-      targetValue = 1f,
-      animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
-      label = "contractAlpha",
-    )
+  //
+  // Only while there is something to blink. An infinite transition holds the frame clock awake for
+  // as long as it is composed, so an unconditional one costs a repaint every frame on every map on
+  // the page — and `accepted` is already the drawn set (the Contracts switch and the per-contract
+  // rows are applied by the caller), so turning contracts off stops the animation with them.
+  val blink =
+    if (accepted.isEmpty()) {
+      1f
+    } else {
+      rememberInfiniteTransition(label = "contract")
+        .animateFloat(
+          initialValue = 0.35f,
+          targetValue = 1f,
+          animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
+          label = "contractAlpha",
+        )
+        .value
+    }
 
   // One Path per field, rebuilt only when the channel updates (never on pan/zoom).
   val fieldPaths =
