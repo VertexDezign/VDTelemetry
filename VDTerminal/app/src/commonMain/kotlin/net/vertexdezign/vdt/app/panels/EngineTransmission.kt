@@ -167,8 +167,10 @@ fun EngineTransmission(
       // The steering mode in the game's own words. The pillar cluster draws its *shape* instead,
       // because a glyph is what fits beside the gear there — but this panel has the width for the
       // name, and the name is the one thing about a mode that is never derived.
-      vehicle.steering?.mode?.takeIf { it.count > 1 && it.name.isNotBlank() }?.let { mode ->
-        Metric(mode.name, "STEERING")
+      // An unnamed mode still gets the row, showing where it sits in the list — the machine has modes
+      // either way, and dropping the row entirely would say it hasn't.
+      vehicle.steering?.mode?.takeIf { it.count > 1 }?.let { mode ->
+        Metric(mode.name.ifBlank { "${mode.index} / ${mode.count}" }, "STEERING")
       }
     }
   }

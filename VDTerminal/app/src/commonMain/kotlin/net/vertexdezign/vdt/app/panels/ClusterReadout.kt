@@ -44,13 +44,23 @@ private const val GEAR_CELLS = 2
 
 /**
  * Advance per cell, measured off the bundled faces, and used to size the type to the tile. One
- * constant covers both: DSEG7 is 0.8225em and DSEG14 0.83em, and the budget is set by the widest line
- * anyway, which is the four-cell rpm in the numeric face.
+ * constant covers both: DSEG7 is 0.8225em and DSEG14 0.83em, which is well inside the slack the
+ * widest line leaves.
  */
 private const val CELL_EM = 0.82f
 
-/** The reverser's slot, as a share of the digit size. */
+/** One mark's slot, as a share of the digit size. */
 private const val SYMBOL_EM = 0.8f
+
+/**
+ * How much of a line's width a set of values takes, in multiples of the digit size: its cells, its
+ * marks' slots, and the [scale] its type is drawn at. The label column is fixed and sits outside this.
+ *
+ * A line with no marks still reserves one slot — see [Line], which holds it open so nothing shifts
+ * sideways when a mark comes and goes.
+ */
+internal fun lineWidth(cells: Int, marks: Int, scale: Float = 1f): Float =
+  scale * (cells * CELL_EM + maxOf(1, marks) * SYMBOL_EM)
 
 /**
  * The label column, the same width on every line — wide enough for `CRUISE`, the longest of them, at
@@ -110,15 +120,33 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   val steering = steeringMarks(vehicle)
   val blink = if (holding || steering.any { it.blinks }) clusterBlinkPhase() else null
 
+  // Which line the steering marks land on, decided once so the width budget below can see it too.
+  val gearMarks = if (gear != null) steering else emptyList()
+  val cruiseMarks = if (gear == null) steering else emptyList()
+  val speedMarks =
+    listOfNotNull(symbol?.mark(holding)) + if (cruise == null && gear == null) steering else emptyList()
+
   ClusterSurface(modifier) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
       // Digits are sized from the tile rather than fixed, so the readout *fills* the panel instead of
-      // floating in the middle of it. Width is the widest line — the reverser's slot plus four rpm
-      // cells plus the labels; height is however many lines this vehicle actually has, since a
-      // machine with no gear and no cruise should spend that space on the two numbers it does have.
+      // floating in the middle of it. Width is the widest line the vehicle actually draws — cells plus
+      // marks plus the labels; height is however many lines it has, since a machine with no gear and
+      // no cruise should spend that space on the two numbers it does have.
+      //
+      // Every line is measured rather than the rpm being assumed the widest. It usually is — four
+      // cells beats anything below it even before their smaller type — but a line's marks are part of
+      // its width, and a line that carried more of them than the budget allowed for would run its
+      // digits under the label column.
       val weights = 1f + 1f + (if (cruise != null) CRUISE_SCALE else 0f) + (if (gear != null) GEAR_SCALE else 0f)
       val fromHeight = maxHeight.value / (weights + LINE_AIR)
-      val fromWidth = (maxWidth.value - LABEL_COLUMN.value) / (RPM_CELLS * CELL_EM + SYMBOL_EM)
+      val widest =
+        maxOf(
+          lineWidth(RPM_CELLS, 0),
+          lineWidth(SPEED_CELLS, speedMarks.size),
+          if (cruise != null) lineWidth(SPEED_CELLS, cruiseMarks.size, CRUISE_SCALE) else 0f,
+          if (gear != null) lineWidth(GEAR_CELLS, gearMarks.size, GEAR_SCALE) else 0f,
+        )
+      val fromWidth = (maxWidth.value - LABEL_COLUMN.value) / widest
       val digit = minOf(fromHeight, fromWidth).coerceIn(14f, 120f)
 
       Column(
@@ -144,7 +172,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           valueColour = ClusterColors.Digits,
           size = digit,
           label = vehicle.speed?.unit.orEmpty().ifBlank { "SPEED" },
-          marks = listOfNotNull(symbol?.mark(holding)) + if (cruise == null && gear == null) steering else emptyList(),
+          marks = speedMarks,
           note = symbol?.letter,
           noteColour = symbol?.colour ?: ClusterColors.Digits,
           noteBlinks = holding,
@@ -162,7 +190,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             size = digit * CRUISE_SCALE,
             label = "CRUISE",
             labelColour = if (engaged) ClusterColors.Set else ClusterColors.Label,
-            marks = if (gear == null) steering else emptyList(),
+            marks = cruiseMarks,
             blink = blink,
           )
         }
@@ -181,7 +209,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             size = digit * GEAR_SCALE,
             label = "GEAR",
             face = SegmentFace.Alphanumeric,
-            marks = steering,
+            marks = gearMarks,
             blink = blink,
           )
         }

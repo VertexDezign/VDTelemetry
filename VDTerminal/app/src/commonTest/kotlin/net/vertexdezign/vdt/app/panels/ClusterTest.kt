@@ -318,6 +318,17 @@ class ClusterReadoutTest {
   }
 
   @Test
+  fun aLinesMarksCountTowardsItsWidth() {
+    // The digit size is picked from the widest line, so a line whose marks were left out of that sum
+    // would size its type too big and run the digits under the label column.
+    assertTrue(lineWidth(2, 2) > lineWidth(2, 1), "a second mark has to cost width")
+    // An empty slot is still a slot: it is held open so nothing shifts when a mark appears.
+    assertEquals(lineWidth(2, 1), lineWidth(2, 0))
+    // ...and a line drawn smaller takes proportionally less.
+    assertEquals(lineWidth(2, 2) * 0.5f, lineWidth(2, 2, 0.5f))
+  }
+
+  @Test
   fun oneDecimalWithoutStringFormat() {
     // String.format is JVM-only and this also runs on wasmJs, hence the hand-rolled version.
     assertEquals("17.8", format1(17.83f))
