@@ -26,17 +26,35 @@ class SweptArea(
  * onto the map so the swath appears behind the machine at once rather than at the server's publish
  * cadence. One implementation means one set of guards to be right about.
  *
- * ### Why the polygons are between samples, not at them
+ * ### Why the polygons span samples rather than sitting at them
  *
- * A [WorkArea]'s footprint is tens of meters wide and a few tens of centimeters deep, and at working
- * speed the tool moves further between ticks than its own footprint is deep. Stamping the footprints
- * alone therefore leaves the pass striped. What is swept is the ground between where the tool's
- * leading edge *was* and where it *is*, and consecutive sweeps share that edge exactly — so they tile
- * the corridor the tool drove with no seam and no overlap.
+ * A [WorkArea]'s footprint on a boom or a cultivator is tens of meters wide and a few tens of
+ * centimeters deep, and at working speed the tool moves further between ticks than its own footprint
+ * is deep. Stamping the footprints alone therefore leaves the pass striped. What is claimed instead is
+ * the hull of where the footprint *was* and where it *is* — the ground it covered at both samples and
+ * everything it crossed on the way.
  *
- * That tiling is what lets a renderer test cell centres rather than "did the polygon touch this cell
- * at all": every point of the corridor lies in exactly one polygon, so nothing is missed, and nothing
- * is claimed a hand's breadth to either side of where the tool really went.
+ * ### Why the hull, and not the leading edge
+ *
+ * This used to sweep the `start -> width` edge alone, on the reading that it is the tool's leading
+ * edge and that consecutive sweeps of it therefore tile the corridor driven with no seam and no
+ * overlap. That reading holds for a rectangular work area and for no other kind. A solid spreader's is
+ * a **rhombus**: `start` sits on the centre line at the disc, `width` and `height` are the two side
+ * corners, and the derived fourth corner is back on the centre line at the far end of the fan. Its
+ * `start -> width` edge spans exactly half the swath — for the AgriSpread AS2100 the fixtures capture,
+ * 18 m of a 36 m spread — so a sweep built from it painted one side of every pass and left the other
+ * side bare (issue #62). Which side depends only on which corner the i3d calls `width`.
+ *
+ * The hull needs to know nothing about which corner is which, so it is right for the rhombus, the
+ * rectangle, and whatever a mod ships next. What it gives up is the tiling: consecutive polygons now
+ * overlap by a footprint. Neither consumer minds — the mask is a boolean per cell, and the trail is
+ * one merged path filled once — and the hull is wound consistently, which is what keeps overlapping
+ * subpaths from cancelling each other out where they cross.
+ *
+ * It still claims nothing to either side of where the tool really went: the hull of two footprints is
+ * no wider than the footprints unless the machine crabbed sideways, in which case it did cover the
+ * ground in between. So a metre missed between two mowers stays missed, which is the whole point of
+ * the layer.
  *
  * ### The guards
  *
@@ -49,13 +67,10 @@ class SweptArea(
  * Not thread-safe; hold one per consumer.
  */
 class WorkSweep {
+  /** The four corners of one work area at one sample, wound as a ring. */
   private class Footprint(
-    val startX: Float,
-    val startZ: Float,
-    val widthX: Float,
-    val widthZ: Float,
-    val heightX: Float,
-    val heightZ: Float,
+    val xs: FloatArray,
+    val zs: FloatArray,
     val atMs: Long,
   )
 
@@ -97,19 +112,15 @@ class WorkSweep {
     areas.forEach { (slot, area) ->
       val now = area.footprint(nowMs)
       val last = previous[slot]
-      if (last != null && nowMs - last.atMs <= MAX_SWEEP_MS && last.near(now, maxJump)) {
-        // The ground between the tool's leading edge then and now. Shares its far edge with the next
-        // sweep's near edge, which is what makes consecutive sweeps tile.
-        swept +=
-          SweptArea(
-            floatArrayOf(last.startX, last.widthX, now.widthX, now.startX),
-            floatArrayOf(last.startZ, last.widthZ, now.widthZ, now.startZ),
-          )
-      } else {
-        // No trail to continue: the tool has just come down, or arrived from somewhere it cannot have
-        // driven. Its own footprint is all that can honestly be claimed.
-        swept += SweptArea(now.cornersX(), now.cornersZ())
-      }
+      swept +=
+        if (last != null && nowMs - last.atMs <= MAX_SWEEP_MS && last.near(now, maxJump)) {
+          // Both footprints and the ground between them.
+          hullOf(last.xs + now.xs, last.zs + now.zs)
+        } else {
+          // No trail to continue: the tool has just come down, or arrived from somewhere it cannot
+          // have driven. Its own footprint is all that can honestly be claimed.
+          hullOf(now.xs, now.zs)
+        }
       next[slot] = now
     }
     previous = next
@@ -121,27 +132,63 @@ class WorkSweep {
     previous = emptyMap()
   }
 
+  /**
+   * The area's four corners at this sample.
+   *
+   * The mod sends three and leaves the fourth — the one opposite the start, at `width + height -
+   * start` — to be derived, as the map overlay also does.
+   */
   private fun WorkArea.footprint(atMs: Long) =
     Footprint(
-      startX = shape[0],
-      startZ = shape[1],
-      widthX = shape[2],
-      widthZ = shape[3],
-      heightX = shape[4],
-      heightZ = shape[5],
+      xs = floatArrayOf(shape[0], shape[2], shape[2] + shape[4] - shape[0], shape[4]),
+      zs = floatArrayOf(shape[1], shape[3], shape[3] + shape[5] - shape[1], shape[5]),
       atMs = atMs,
     )
 
-  /**
-   * The footprint's four corners, wound as a ring. The mod sends three and leaves the fourth — the one
-   * opposite the start, at `width + height - start` — to be derived, as the map overlay also does.
-   */
-  private fun Footprint.cornersX() = floatArrayOf(startX, widthX, widthX + heightX - startX, heightX)
-
-  private fun Footprint.cornersZ() = floatArrayOf(startZ, widthZ, widthZ + heightZ - startZ, heightZ)
-
+  /** Measured at the start corner, the one the engine anchors the area to. */
   private fun Footprint.near(
     other: Footprint,
     maxJump: Float,
-  ): Boolean = abs(startX - other.startX) <= maxJump && abs(startZ - other.startZ) <= maxJump
+  ): Boolean = abs(xs[0] - other.xs[0]) <= maxJump && abs(zs[0] - other.zs[0]) <= maxJump
+}
+
+/**
+ * The convex hull of [xs]/[zs], wound consistently whatever order the points arrive in.
+ *
+ * Andrew's monotone chain, over the eight points at most that a sweep ever holds. Duplicate and
+ * collinear points fall out of it, which is what a stationary tool (two identical footprints) and a
+ * folded one (a footprint with no area) produce; when too few survive to make a polygon the points are
+ * handed back as they came, since a degenerate ring fills nothing either way.
+ */
+internal fun hullOf(
+  xs: FloatArray,
+  zs: FloatArray,
+): SweptArea {
+  val n = xs.size
+  if (n < 3) return SweptArea(xs, zs)
+  val order = (0 until n).sortedWith(compareBy({ xs[it] }, { zs[it] }))
+
+  fun turn(
+    o: Int,
+    a: Int,
+    b: Int,
+  ): Float = (xs[a] - xs[o]) * (zs[b] - zs[o]) - (zs[a] - zs[o]) * (xs[b] - xs[o])
+
+  val chain = IntArray(2 * n)
+  var k = 0
+  for (i in order) {
+    while (k >= 2 && turn(chain[k - 2], chain[k - 1], i) <= 0f) k--
+    chain[k++] = i
+  }
+  val lower = k + 1
+  for (i in order.size - 2 downTo 0) {
+    val point = order[i]
+    while (k >= lower && turn(chain[k - 2], chain[k - 1], point) <= 0f) k--
+    chain[k++] = point
+  }
+
+  // The last point closes the ring onto the first, so it is not part of the polygon.
+  val size = k - 1
+  if (size < 3) return SweptArea(xs, zs)
+  return SweptArea(FloatArray(size) { xs[chain[it]] }, FloatArray(size) { zs[chain[it]] })
 }

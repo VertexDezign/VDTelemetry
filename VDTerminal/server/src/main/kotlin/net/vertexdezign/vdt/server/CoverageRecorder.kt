@@ -65,8 +65,8 @@ private const val WORKED_COLOR = "#c026d3"
  * anywhere. That distinction is the whole accuracy of the layer. Touch-filling over-reports by up to a
  * cell on every edge, so two mowers leaving a metre between them each bleed into the cell in the gap
  * and the miss disappears — at any resolution, which is why finer cells alone would not have fixed it.
- * Centre sampling costs nothing in coverage because [WorkSweep]'s polygons tile the corridor driven:
- * every point in it lies in exactly one of them.
+ * Centre sampling costs nothing in coverage because [WorkSweep]'s polygons cover the corridor driven
+ * without a gap — consecutive ones overlap by a footprint, which a boolean mask does not care about.
  *
  * ### What it is not
  *
@@ -188,8 +188,8 @@ class CoverageRecorder(
    *
    * Rows are tested at their own centre and columns are clipped to the cells whose centres fall within
    * the span — so a polygon claims a cell only when it actually covers the point that cell stands for.
-   * Where a turn makes a swept polygon slightly concave the outermost crossings paint its convex hull
-   * instead, which is ground the tool did sweep on the inside of that turn anyway.
+   * Taking the outermost crossings on each row fills the convex hull of the polygon, which is what
+   * [WorkSweep] hands over anyway.
    */
   private fun fill(area: SweptArea) {
     if (gridSize <= 0) return
