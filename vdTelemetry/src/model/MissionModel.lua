@@ -10,7 +10,7 @@
 --
 -- The per-type detail (which crop, which selling station, how many trees) is NOT modelled field by
 -- field: `details` carries the game's own already-localized rows verbatim, so all 16 base-game
--- mission types -- and modded ones -- are covered by one path. See mission-plan.md.
+-- mission types -- and modded ones -- are covered by one path. See issue #17.
 
 ---@class MissionDetailModel one row of the game's contract detail list, already localized
 ---@field title string the row's label ("Field", "Crop", "Reward per tree", ...)

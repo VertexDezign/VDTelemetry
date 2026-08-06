@@ -11,6 +11,17 @@ A telemetry pipeline for **Farming Simulator 25**, in two independent parts join
 
 The contract between the two is the shared Kotlin model **`VDTerminal/shared/.../Model.kt`** plus the **`examples/json/`** fixtures. Changing the data shape means changing the Lua collectors/model and the Kotlin model together, and refreshing the fixtures. (The project previously used XML + an XSD; that has been fully migrated to JSON.)
 
+## Planned and deferred work
+
+**`FUTURE.md`** collects everything planned, deferred or still open across the whole repo — the
+follow-ups the finished plans left behind, the in-game checks nobody has run, and the accepted
+limitations that are not bugs. Read it before proposing work that looks new; it may already be there,
+with the reason it was left.
+
+Feature plans live at the repo root as `<topic>-plan.md` while their feature is being built, and are
+**deleted once it is** — the reasoning moves into the code, which is where it gets read, and whatever
+the plan left undone moves to `FUTURE.md`. `isobus-plan.md` (issue #58) is the only live one.
+
 ## Commit messages
 
 Follow the commit-subject convention documented in `README.md` ("Commit messages"): `<issue> <modifier> <[area]> <subject>`, where the modifier is a gitmoji (a `commit-msg` hook rewrites the one-letter shorthands like `+`, `!`, `r`, `c` to their emoji).

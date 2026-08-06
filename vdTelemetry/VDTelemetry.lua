@@ -135,14 +135,13 @@ VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 -- Registry name of the main telemetry export channel (see src/export/ExportChannels.lua).
 VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 2: fill-unit `value` is fractional (consumables are measured in slots and report the part-used one),
---    plus the optional `precision` / `display` hints. See vehicle-data-plan.md §1.
+--    plus the optional `precision` / `display` hints.
 -- 3: `pipe` and `cover` are objects rather than bare state strings — multi-state pipes and
---    multi-cover vehicles could not be expressed as one label. See vehicle-data-plan.md §2.
+--    multi-cover vehicles could not be expressed as one label.
 -- 4: `schema` (the rig-diagram silhouette + attacher joints), `selection` (what the player's
 --    controls act on, plus the Cylindered control group) and the implement's `jointDescIndex`.
---    See vehicle-data-plan.md §3.
 -- 5: `discharge`, `tipping`, `harvest`, `workMode`, `workWidth` and `baleCounter` aspects.
---    See vehicle-data-plan.md §4.
+--    Versions 2-5 were exported ahead of any UI; what still renders none of them is in FUTURE.md.
 -- 6: `motor.direction` — the direction the transmission is *in*, as distinct from `speed.direction`,
 --    which is the way the machine is actually travelling and reads STOPPED below walking pace.
 -- 7: `gps.course` — the live half of the steering course (which line, how far off it, how far to its

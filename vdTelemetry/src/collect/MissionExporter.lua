@@ -14,7 +14,7 @@
 -- already returns what the in-game screen prints -- {title, value} pairs, localized by the game and
 -- overridden per mission type -- and getFinishedDetails (:563) the reward breakdown for a finished
 -- one. Exporting those rows verbatim covers all 16 base-game types, and carries modded types for
--- free. See mission-plan.md.
+-- free. See issue #17.
 --
 -- TWO CADENCES. Event-driven off MISSION_GENERATED / MISSION_DELETED / MISSION_STATUS_CHANGED
 -- (AbstractMission.lua:291,72,365), which is generation, acceptance, completion and deletion -- plus

@@ -12,7 +12,8 @@
 -- place before sending the event. Subscribing would miss all of that (a new plan only appeared after
 -- a save+reload). So we diff a cheap per-tick signature of the planner instead (see tick()); the file
 -- is still only written when that signature moves. This also sidesteps the CROP_ROTATIONS_CHANGED id
--- landmine (see farm-page-plan.md) since we never rely on that id.
+-- landmine (see FUTURE.md, "Accepted limitations": the mod sets that id by counting entries rather
+-- than reserving one, so another mod can be handed the same id) since we never rely on that id.
 --
 -- **Written against FS25_CropRotation 1.0.1.0** — everything below reads that mod's *internals*
 -- (planner fields, the YieldCalculator), which it is free to rename in any release. So fail soft,
@@ -20,7 +21,7 @@
 -- (an empty panel beats a Lua error in the collector, which would take the whole telemetry write down
 -- with it). Same contract on the write side (src/command/CropRotationControl.lua).
 --
--- Mod-environment isolation (see farm-page-plan.md "Mod-environment isolation"): FS25_CropRotation's
+-- Mod-environment isolation: FS25_CropRotation's
 -- `g_cropRotationPlanner` / `g_cropRotation` are globals in *its own* Lua environment, not the shared
 -- `_G`, so from our env they're reachable only as `FS25_CropRotation.g_cropRotationPlanner` /
 -- `.g_cropRotation` — the bare globals are nil here. (This is exactly what made the earlier probe

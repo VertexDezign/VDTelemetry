@@ -20,7 +20,7 @@
 --
 -- The guards below mirror the in-game screen's rather than inventing rules: they exist so a refused
 -- action leaves a clear log line instead of a silent no-op, since the mod has no way to answer the
--- app yet (see mission-plan.md, "Open questions"). The engine remains the authority -- every one of
+-- app yet (see FUTURE.md, "Missions"). The engine remains the authority -- every one of
 -- these is re-checked server-side.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).

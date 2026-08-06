@@ -108,8 +108,8 @@ function VDT.PrecisionFarming.isActive()
   return type(g_modIsLoaded) == "table" and g_modIsLoaded[VDT.PrecisionFarming.MOD_NAME] == true
 end
 
----PF's own singleton. **Mod-environment isolation** (see farm-page-plan.md, and CropRotation.lua which
----resolves the same way): FS25 gives each mod its own Lua env, so PF's `g_precisionFarming` is a global
+---PF's own singleton. **Mod-environment isolation** (see CropRotation.lua, which resolves the same
+---way): FS25 gives each mod its own Lua env, so PF's `g_precisionFarming` is a global
 ---in *its* env, not in the shared `_G` — from here the bare global is nil, and it has to be reached
 ---through the env global named after the mod. Only shared engine tables (`g_currentMission`,
 ---`g_modIsLoaded`, `MathUtil`) are readable directly.
