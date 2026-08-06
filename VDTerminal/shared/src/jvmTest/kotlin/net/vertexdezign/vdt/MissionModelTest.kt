@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
  * ([VdtParser.parseMissions]) and asserts the field mapping, the omission defaults, and a lossless
  * round-trip — the missions channel's half of the mod↔Kotlin contract.
  *
- * The capture is a real contract board: 27 contracts across 13 of the game's 16 mission types, three
+ * The capture is a real contract board: 26 contracts across 13 of the game's 16 mission types, three
  * of them this farm's (two running, one finished and uncollected) — which is also the farm at its
  * three-contract cap.
  */
@@ -47,11 +47,9 @@ class MissionModelTest {
   fun parsesTheContractBoard() {
     val data = capture()
 
-    // The capture is a v1 board — it predates the subtitle / selling-station fields, whose decoding
-    // is pinned below against the wire until it is retaken.
-    assertEquals("1", data.version)
+    assertEquals("2", data.version)
     assertTrue(data.canManage)
-    assertEquals(27, data.missions.size)
+    assertEquals(26, data.missions.size)
 
     // The farm is at its cap in this capture, and the three it is running are exactly the ones it
     // owns — the count the engine's own limit check walks.
@@ -74,7 +72,7 @@ class MissionModelTest {
     assertEquals(723, mission.reward)
     assertEquals(27, mission.fieldId)
     assertEquals(0.48f, mission.areaHa)
-    assertEquals(543, mission.minutesLeft)
+    assertEquals(506, mission.minutesLeft)
     assertEquals(0.3708f, mission.posX)
     assertEquals(0.23726f, mission.posZ)
 
@@ -110,7 +108,7 @@ class MissionModelTest {
     // would read as "not started" on a contract that is.
     assertEquals(0f, mission.completion)
     assertEquals("Noch 6 Bäume", mission.extraProgress)
-    assertEquals(3116, mission.minutesLeft)
+    assertEquals(3153, mission.minutesLeft)
     // Its detail rows count the trees, which is the per-type state a typed model would have needed a
     // deadwood-shaped branch for.
     assertEquals("Anzahl der Bäume", mission.details[3].title)
@@ -123,7 +121,7 @@ class MissionModelTest {
     // spot, so `fieldId` is populated for them too. What tells the two apart is `areaHa`: only a
     // field mission has a field object to measure. Anything keyed on "no fieldId means no field"
     // would be wrong on all three of these.
-    val pointLocated = capture().missions.filter { it.id in setOf(648, 649, 661) }
+    val pointLocated = capture().missions.filter { it.id in setOf(648, 649, 659) }
     assertEquals(
       listOf("treeTransportMission", "deadwoodMission", "destructibleRockMission"),
       pointLocated.map { it.type },
@@ -139,23 +137,32 @@ class MissionModelTest {
 
   @Test
   fun aSuccessfulContractCanStillCostMoney() {
-    // The capture's one finished contract was completed successfully and pays out **-171**: the
-    // leased machines cost more than the contract was worth. So `totalReward` is not "reward minus a
-    // bit" and must never be rendered as unsigned — the payout can be negative on a success.
-    val mission = assertNotNull(capture().missions.firstOrNull { it.id == 658 })
+    // The payout is the contract's worth *net of the machines it was worked with*: this one finished
+    // at 99.5% for €693 of contract value against €640 of hire, leaving 53. The same arithmetic goes
+    // negative whenever the hire outruns the job — an earlier capture of this board paid **-171** on
+    // a success — so `totalReward` is not "reward minus a bit" and must never render unsigned.
+    val mission = assertNotNull(capture().missions.firstOrNull { it.id == 656 })
 
     assertTrue(mission.isFinished)
     assertEquals(MissionFinishState.SUCCESS, mission.finishState)
-    assertEquals(789, mission.reward)
-    assertEquals(-171, mission.totalReward)
-    assertEquals(960, mission.vehicleCosts)
-    assertEquals(0.996f, mission.completion)
+    assertEquals(693, mission.reward)
+    assertEquals(53, mission.totalReward)
+    assertEquals(640, mission.vehicleCosts)
+    assertEquals(0.9952f, mission.completion)
 
     // A finished contract carries the reward breakdown instead of the terms.
     assertEquals(
       listOf("Vertragswert", "Rückzahlung", "Mietkosten", "Fehlende Erträge"),
       mission.details.map { it.title },
     )
+
+    // The negative case itself, pinned against the wire now that the board no longer holds one.
+    val underwater =
+      VdtParser
+        .parseMissions("""{"version":"2","missions":[{"id":1,"status":"FINISHED","reward":789,"totalReward":-171}]}""")
+        .missions
+        .single()
+    assertEquals(-171, underwater.totalReward)
   }
 
   @Test
@@ -178,29 +185,36 @@ class MissionModelTest {
     // The line the list prints under the title: the crop for a harvest job, the bale form for a
     // baling one, and both when the contract names both. Assembled mod-side out of the game's own
     // localized strings, so the app never builds it and never translates anything.
-    fun mission(fields: String) =
-      VdtParser
-        .parseMissions("""{"version":"2","missions":[{"id":1,$fields}]}""")
-        .missions
-        .single()
+    val byId = capture().missions.associateBy { it.id }
 
-    val harvest = mission(""""type":"harvestMission","subtitle":"Hafer","fruitType":"OAT"""")
+    fun mission(id: Int) = assertNotNull(byId[id], "contract $id should be in the capture")
+
+    val harvest = mission(658)
     assertEquals("Hafer", harvest.subtitle)
     assertEquals("OAT", harvest.fruitType)
     assertNull(harvest.baleType)
 
-    val wrapping = mission(""""type":"baleWrapMission","subtitle":"Quaderballen","baleType":"SQUARE"""")
-    assertEquals(BaleForm.SQUARE, wrapping.baleType)
+    // Wrapping names the bale form only — there is no crop in a bale to name.
+    val wrapping = mission(652)
+    assertEquals("Rundballen", wrapping.subtitle)
+    assertEquals(BaleForm.ROUND, wrapping.baleType)
     assertNull(wrapping.fruitType)
 
-    val baling =
-      mission(""""type":"baleMission","subtitle":"Rundballen · Gras","baleType":"ROUND","fruitType":"GRASS"""")
-    assertEquals(BaleForm.ROUND, baling.baleType)
-    assertEquals("GRASS", baling.fruitType)
-    assertEquals("Rundballen · Gras", baling.subtitle)
+    // Baling names both, and the mod joins them into the one line the list prints.
+    val baling = mission(653)
+    assertEquals("Quaderballen · Hafer", baling.subtitle)
+    assertEquals(BaleForm.SQUARE, baling.baleType)
+    assertEquals("OAT", baling.fruitType)
+
+    // Mowing names its crop without ever touching a bale.
+    val mowing = mission(657)
+    assertEquals("Gras", mowing.subtitle)
+    assertEquals("GRASS", mowing.fruitType)
+    assertNull(mowing.baleType)
 
     // A ploughing contract names neither, and must not render an empty line.
-    val plow = mission(""""type":"plowMission"""")
+    val plow = mission(663)
+    assertEquals("plowMission", plow.type)
     assertEquals("", plow.subtitle)
     assertNull(plow.fruitType)
     assertNull(plow.baleType)
@@ -210,19 +224,23 @@ class MissionModelTest {
   fun decodesTheDeliveryPointWithoutNamingIt() {
     // The station arrives with the position the game marks it at, so the map draws it directly —
     // matching a station by name (and by locale) is exactly what this avoids.
-    val station =
-      assertNotNull(
-        VdtParser
-          .parseMissions(
-            """{"version":"2","missions":[{"id":1,"type":"harvestMission","sellingStation":""" +
-              """{"name":"Getreidemühle","posX":0.75,"posZ":0.25}}]}""",
-          ).missions
-          .single()
-          .sellingStation,
-      )
+    val byId = capture().missions.associateBy { it.id }
+
+    val station = assertNotNull(assertNotNull(byId[658]).sellingStation)
     assertEquals("Getreidemühle", station.name)
-    assertEquals(0.75f, station.posX)
+    assertEquals(0.55882f, station.posX)
+    assertEquals(0.51935f, station.posZ)
     assertTrue(station.hasPosition)
+
+    // Delivery isn't a field-contract idea: this forestry job has no field at all and still hauls its
+    // trees somewhere, so the run is drawn from a point marker to a station like any other.
+    val forestry = assertNotNull(byId[648])
+    assertNull(forestry.areaHa)
+    assertEquals("Sägemühle", assertNotNull(forestry.sellingStation).name)
+    assertTrue(assertNotNull(forestry.sellingStation).hasPosition)
+
+    // Most of the board is worked in place: no station, nothing to draw.
+    assertNull(assertNotNull(byId[663]).sellingStation)
 
     // A station the mod could name but not place must not be drawn at the map origin.
     val unplaceable =
