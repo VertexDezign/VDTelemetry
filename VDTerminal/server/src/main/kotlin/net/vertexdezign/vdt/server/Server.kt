@@ -118,6 +118,9 @@ fun main() {
     watcher.register("storage.json", nullOnAbsent = true) { VdtParser.parseStorage(it) }
   // husbandry.json is interval-driven too (own animal pens); same absence rule.
   val husbandryState = watcher.register("husbandry.json", nullOnAbsent = true) { VdtParser.parseHusbandry(it) }
+  // missions.json is event-driven (a contract generated/accepted/finished) plus a slow interval for
+  // the countdown; same absence rule -- the app must clear contracts rather than offer stale ones.
+  val missionsState = watcher.register("missions.json", nullOnAbsent = true) { VdtParser.parseMissions(it) }
   watcher.launchIn(appScope)
 
   // The ground-layer rasters live in their own folder, one file per plane plus index.json naming the
@@ -298,6 +301,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val missionsJob =
+          launch {
+            missionsState.collect { data ->
+              val message: ServerMessage = ServerMessage.Missions(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         val channelStatsJob =
           launch {
             channelStatsState.collect { data ->
@@ -357,6 +367,7 @@ fun main() {
           productionJob.cancel()
           storageJob.cancel()
           husbandryJob.cancel()
+          missionsJob.cancel()
           channelStatsJob.cancel()
           mapLayersJob.cancel()
         }

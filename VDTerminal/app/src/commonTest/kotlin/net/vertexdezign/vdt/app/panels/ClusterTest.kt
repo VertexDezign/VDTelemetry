@@ -13,6 +13,9 @@ import net.vertexdezign.vdt.model.Lights
 import net.vertexdezign.vdt.model.Motor
 import net.vertexdezign.vdt.model.MotorFillUnits
 import net.vertexdezign.vdt.model.Speed
+import net.vertexdezign.vdt.model.Steering
+import net.vertexdezign.vdt.model.SteeringLayout
+import net.vertexdezign.vdt.model.SteeringMode
 import net.vertexdezign.vdt.model.Temperatur
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.Wearable
@@ -237,6 +240,92 @@ class ClusterReadoutTest {
     assertNull(driveSymbol(Vehicle()))
     // A motor that reports no direction is still the older shape, even though the motor exists.
     assertNull(driveSymbol(Vehicle(motor = Motor())))
+  }
+
+  @Test
+  fun everySteeringLayoutHasItsOwnPicture() {
+    // Two layouts drawn the same are two modes the driver cannot tell apart — with one deliberate
+    // exception: a crab with no side of its own borrows the left dog walk's picture, because the
+    // wheels really are in that shape and there is nothing to mirror it against.
+    val icons = SteeringLayout.entries.associateWith { steeringLayoutIcon(it) }
+    assertTrue(icons.values.none { it == null }, "a layout with no glyph would fall back to its bare number")
+
+    // The exception, named: a sideless crab borrows the left dog walk's picture, which is the shape
+    // its wheels really are in.
+    assertEquals(ClusterIcons.SteerCrabLeft, icons[SteeringLayout.CRAB])
+    assertEquals(ClusterIcons.SteerCrabLeft, icons[SteeringLayout.CRAB_LEFT])
+    // ...and it is the *only* one. In particular the two dog walks must not collapse together: the
+    // machine leans the other way in each, and the driver chose which.
+    assertEquals(SteeringLayout.entries.size - 1, icons.values.toSet().size, "two layouts share a glyph")
+    // An unread layout is the one case that legitimately has none.
+    assertNull(steeringLayoutIcon(null))
+  }
+
+  @Test
+  fun theSteeringMarksAreAbsentOnAMachineThatHasNeither() {
+    assertTrue(steeringMarks(Vehicle()).isEmpty())
+    assertTrue(steeringMarks(Vehicle(steering = Steering())).isEmpty())
+    // One mode is no choice at all — the game hides its own steering box on the same test.
+    assertTrue(
+      steeringMarks(Vehicle(steering = Steering(mode = SteeringMode(name = "Front", index = 1, count = 1)))).isEmpty(),
+    )
+  }
+
+  @Test
+  fun theSteeringModeDrawsItsShapeAndFallsBackToItsNumber() {
+    fun mode(layout: SteeringLayout?, index: Int = 2) =
+      steeringMarks(Vehicle(steering = Steering(mode = SteeringMode("Crab", index, 3, layout)))).single()
+
+    assertEquals(ClusterIcons.SteerCrabLeft, mode(SteeringLayout.CRAB).icon)
+    assertNull(mode(SteeringLayout.CRAB).text, "a glyph and a number would be the same fact twice")
+
+    // Nothing derived: the number is what is left, and it is at least true.
+    assertNull(mode(null).icon)
+    assertEquals("2", mode(null).text)
+    assertEquals("Crab", mode(null).label)
+
+    // Amber is a value the driver set, so only a mode other than the one the machine loads in.
+    assertEquals(ClusterColors.Set, mode(SteeringLayout.CRAB).colour)
+    assertEquals(ClusterColors.Digits, mode(SteeringLayout.FRONT, index = 1).colour)
+  }
+
+  @Test
+  fun theSeatKeepsItsSlotWhenItIsTheNormalWayRound() {
+    // Ghosted rather than dropped: a machine that *has* a reversible position and isn't using it is a
+    // different thing from one that hasn't got one, and only the first is something to act on.
+    val forward = steeringMarks(Vehicle(steering = Steering(reversed = false))).single()
+    assertEquals(ClusterIcons.SeatReversed, forward.icon)
+    assertEquals(GHOST_ALPHA, forward.alpha)
+
+    val reversed = steeringMarks(Vehicle(steering = Steering(reversed = true))).single()
+    assertEquals(1f, reversed.alpha)
+    assertEquals(ClusterColors.Set, reversed.colour)
+    assertFalse(reversed.blinks)
+
+    // Mid-swivel it is neither way round, and says so.
+    assertTrue(steeringMarks(Vehicle(steering = Steering(reversed = true, changing = true))).single().blinks)
+  }
+
+  @Test
+  fun theTwoMarksSitTogetherInTheOrderTheyAreRead() {
+    // The mode first, then the seat: the steering is about the machine and the seat about the driver,
+    // and a mark must not move sideways because the other one appeared.
+    val both =
+      steeringMarks(
+        Vehicle(steering = Steering(mode = SteeringMode("Crab", 2, 3, SteeringLayout.CRAB), reversed = true)),
+      )
+    assertEquals(listOf(ClusterIcons.SteerCrabLeft, ClusterIcons.SeatReversed), both.map { it.icon })
+  }
+
+  @Test
+  fun aLinesMarksCountTowardsItsWidth() {
+    // The digit size is picked from the widest line, so a line whose marks were left out of that sum
+    // would size its type too big and run the digits under the label column.
+    assertTrue(lineWidth(2, 2) > lineWidth(2, 1), "a second mark has to cost width")
+    // An empty slot is still a slot: it is held open so nothing shifts when a mark appears.
+    assertEquals(lineWidth(2, 1), lineWidth(2, 0))
+    // ...and a line drawn smaller takes proportionally less.
+    assertEquals(lineWidth(2, 2) * 0.5f, lineWidth(2, 2, 0.5f))
   }
 
   @Test

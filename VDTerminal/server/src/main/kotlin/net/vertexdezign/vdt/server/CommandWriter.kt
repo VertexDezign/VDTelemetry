@@ -161,6 +161,19 @@ class CommandWriter(
         """<command id="$id" type="setMapLayers" ids="${esc(message.ids.joinToString(","))}"/>"""
       }
 
+      // Contract actions: the id is the mission's network object id, an int, so no escaping needed.
+      is ClientMessage.AcceptMission -> {
+        """<command id="$id" type="acceptMission" missionId="${message.missionId}" lease="${message.lease}"/>"""
+      }
+
+      is ClientMessage.CancelMission -> {
+        """<command id="$id" type="cancelMission" missionId="${message.missionId}"/>"""
+      }
+
+      is ClientMessage.DismissMission -> {
+        """<command id="$id" type="dismissMission" missionId="${message.missionId}"/>"""
+      }
+
       is ClientMessage.UnloadObjectStorage -> {
         """<command id="$id" type="unloadObjectStorage" storageId="${esc(
           message.storageId,

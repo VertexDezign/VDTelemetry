@@ -1,0 +1,25 @@
+-- Model definitions for the steering subtree. Annotation-only (see EnvironmentModel.lua).
+-- Maps to Model.kt Steering / SteeringMode.
+
+--- The steering mode a crab-steering machine is in.
+---
+--- `name` is the game's own wording for it, straight out of the vehicle's XML and translated — the
+--- only thing the game itself shows. `layout` is derived from the wheels instead (see
+--- collect/vehicle/Steering.lua), because that name is free text a consumer cannot draw from.
+---@class SteeringModeModel
+---@field name string? absent when the vehicle's XML names no mode
+---@field index number which mode of `count`, 1-based
+---@field count number how many modes this machine has, selectable right now or not
+--- `layout` is absent when the wheels can't be read that way. Its three crab values are not a
+--- redundancy: the usual dog walk holds every wheel over at a rest angle and steers on from there,
+--- which bakes the direction into the mode and so comes as two of them (CRAB_LEFT / CRAB_RIGHT),
+--- while a mode that instead steers the rear axle along with the front walks whichever way the driver
+--- turns and has no side of its own (CRAB).
+---@field layout string? FRONT | BACK | ALL_WHEEL | CRAB | CRAB_LEFT | CRAB_RIGHT
+
+--- How the machine is set up to be driven. Both halves are independent and either can be absent: a
+--- telehandler has steering modes and no reversible seat, a Fendt the other way round, a Xerion both.
+---@class SteeringModel
+---@field mode SteeringModeModel? absent unless the vehicle has crab-steering modes
+---@field reversed boolean? the driving position is turned round; absent unless the vehicle has one
+---@field changing boolean? mid-swivel, while the seat animation runs

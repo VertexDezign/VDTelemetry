@@ -134,6 +134,57 @@ object ClusterIcons {
   val DriveForward = telltale("DriveForward") { fill("M12 1.4 L21.8 11.2 H15.7 V22.6 H8.3 V11.2 H2.2 Z") }
   val DriveReverse = telltale("DriveReverse") { fill("M12 22.6 L2.2 12.8 H8.3 V1.4 H15.7 V12.8 H21.8 Z") }
 
+  /**
+   * The steering modes, on the same plan view as the drivetrain above — its own chassis, though,
+   * pulled in narrow ([STEER_CHASSIS]) so that four wheels turned [STEER_ANGLE] have room to swing
+   * clear of the axle ends instead of fusing with them.
+   *
+   * The wheels carry the whole value, and they say two things at once. **Their angle** is which way
+   * that end of the machine points — both ends the same way is the crab walk, opposite ways the
+   * tight four-wheel turn. **Solid or outline** is whether they answer the steering wheel at all,
+   * borrowed from the diff-lock trio above for the same reason it works there: it is as close as a
+   * single-tint glyph gets to saying "this end, not that one".
+   *
+   * The two dog walks are drawn the way the machine actually stands in one: all four wheels held
+   * over together, to the left or to the right. Both axles go on steering from there, which is why
+   * neither pair is an outline — a dog walk is a rest angle, not a locked axle.
+   *
+   * All four wheels appear on every one of them. A mode that dropped the wheels it doesn't steer
+   * would be changing the machine's shape rather than its wheels' angle.
+   */
+  val SteerFront = steering("Front", front = -STEER_ANGLE, back = 0f, backSteers = false)
+  val SteerBack = steering("Back", front = 0f, back = -STEER_ANGLE, frontSteers = false)
+  val SteerAllWheel = steering("AllWheel", front = -STEER_ANGLE, back = STEER_ANGLE)
+
+  /**
+   * The dog walks: every wheel over the same way, so the machine tracks diagonally.
+   *
+   * [SteerCrabLeft] does double duty for the crab that has no side of its own — the kind built by
+   * steering the rear axle along with the front, which walks whichever way the driver turns. Left is
+   * the same arbitrary reference every other glyph here is drawn against; there is nothing to mirror
+   * it against.
+   */
+  val SteerCrabLeft = steering("CrabLeft", front = -STEER_ANGLE, back = -STEER_ANGLE)
+  val SteerCrabRight = steering("CrabRight", front = STEER_ANGLE, back = STEER_ANGLE)
+
+  /**
+   * The driving position turned round: the seat itself, from the side, facing the back of the
+   * machine — which is to the right here, since every machine drawn in this cluster faces left (see
+   * [WorkFront]).
+   *
+   * The seat rather than the machine, because it is the seat that moved. And the seat *alone*: a
+   * swivel arc over it and an arrow beside it were both tried against the render loop and both
+   * closed up into the chair's own back at the size this gets, which is the same lesson [DriveForward]
+   * learned. It does not need one — a telltale says "this is happening" by being lit, and what is
+   * happening is that the driver is facing the other way.
+   */
+  val SeatReversed = telltale("SeatReversed") {
+    fill(
+      "M5 3.5 L9 3.5 L10.5 13.8 L6.5 13.8 Z M6.5 13.8 H18.5 V17.2 H6.5 Z " +
+        "M6.6 17.2 H9.2 V22.5 H6.6 Z M15.4 17.2 H18 V22.5 H15.4 Z",
+    )
+  }
+
   // ---------------------------------------------------------------------------------------------
   // The level strip's gauges. Not lamps — these caption a bar rather than lighting on their own —
   // but drawn here and to the same rules, because a strip of Material icons under a row of hand-drawn
@@ -264,6 +315,55 @@ private const val REAR_WHEELS = "M4 14.2 H7.6 V21.4 H4 Z M16.4 14.2 H20 V21.4 H1
 
 private const val REAR_WHEELS_OPEN =
   "M4 14.2 H7.6 V21.4 H4 Z M5 15.2 H6.6 V20.4 H5 Z M16.4 14.2 H20 V21.4 H16.4 Z M17.4 15.2 H19 V20.4 H17.4 Z"
+
+/**
+ * How far a steered wheel is turned in the steering glyphs. Far enough to read as *turned* at the
+ * ~26dp the pillar's gear line gives it, and not so far that a rotated wheel leaves the viewport:
+ * at 25° the outer corner of an outermost wheel lands at 22.2 of 24.
+ */
+private const val STEER_ANGLE = 25f
+
+/**
+ * The steering glyphs' chassis: two short axles on a spine. Narrower than [DRIVETRAIN], which the
+ * diff-lock lamps use — those wheels never move, so they can sit on the axle *ends*, while these
+ * have to swing without the wheel and the axle running into one shape.
+ */
+private const val STEER_CHASSIS = "M8 6.2 H16 V7.8 H8 Z M11.2 7 H12.8 V17 H11.2 Z M8 16.2 H16 V17.8 H8 Z"
+
+/**
+ * One wheel of the steering glyphs, centred on the origin so a group can rotate it about itself —
+ * driven by the steering wheel, or merely held where the mode put it.
+ */
+private const val STEER_WHEEL = "M-1.6 -3.3 H1.6 V3.3 H-1.6 Z"
+
+private const val STEER_WHEEL_OPEN = "M-1.6 -3.3 H1.6 V3.3 H-1.6 Z M-0.7 -2.4 H0.7 V2.4 H-0.7 Z"
+
+/** Where the four wheels sit: outboard of [STEER_CHASSIS]'s axles, front pair first. */
+private val WHEEL_POSITIONS = listOf(4.5f to 7f, 19.5f to 7f, 4.5f to 17f, 19.5f to 17f)
+
+/**
+ * A steering glyph: the chassis, and its four wheels turned by [front] and [back] degrees, each pair
+ * solid if it answers the steering wheel and left as an outline if it does not.
+ *
+ * Negative is turned to the left, which is arbitrary in itself — it is the reference the *other*
+ * axle's angle is read against.
+ */
+private fun steering(
+  name: String,
+  front: Float,
+  back: Float,
+  frontSteers: Boolean = true,
+  backSteers: Boolean = true,
+): ImageVector = telltale("Steer$name") {
+  fill(STEER_CHASSIS)
+  for ((index, position) in WHEEL_POSITIONS.withIndex()) {
+    val (x, y) = position
+    val steers = if (index < 2) frontSteers else backSteers
+    addGroup(rotate = if (index < 2) front else back, translationX = x, translationY = y)
+    if (steers) fill(STEER_WHEEL) else fill(STEER_WHEEL_OPEN, PathFillType.EvenOdd)
+    clearGroup()
+  }
+}
 
 /** The differential itself, shut, on one axle or the other. */
 private const val DIFF_FRONT = "M9.1 6.4 A2.9 2.9 0 1 1 14.9 6.4 A2.9 2.9 0 1 1 9.1 6.4 Z"

@@ -10,12 +10,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Which previous footprint a work area is swept from — the pairing that decides where the swath is
- * drawn, both on the map and in the server's coverage mask.
+ * What ground a work area claims between two samples, and which previous footprint it claims it from
+ * — the two things that decide where the swath is drawn, on the map and in the server's coverage mask.
  *
- * The case worth pinning is a tool whose parts switch on and off while it works: a spot sprayer does
- * that several times a second. Pair an area with its neighbour's last footprint and the sweep claims
- * the ground between the two, which is the one thing this whole feature exists not to do.
+ * The pairing case worth pinning is a tool whose parts switch on and off while it works: a spot
+ * sprayer does that several times a second. Pair an area with its neighbour's last footprint and the
+ * sweep claims the ground between the two, which is the one thing this whole feature exists not to do.
+ *
+ * The shape case is the spreader (issue #62), whose footprint is a rhombus rather than a rectangle.
  */
 class WorkSweepModelTest {
   private val terrain = 2048f
@@ -84,5 +86,64 @@ class WorkSweepModelTest {
       "the left section stamps its footprint, with no stripe back over the ground it was off for",
     )
     assertTrue(rightSwept.metresZ().minOf { it } <= 505.1f, "the right section bridges 505 -> 510 unbroken")
+  }
+
+  /**
+   * A solid spreader's fan, in the shape the engine describes it by and the fixtures capture: `start`
+   * on the centre line at the disc, `width` and `height` at the two ends of the spread, and the
+   * derived fourth corner back on the centre line at the far end. Sweeping the `start -> width` edge
+   * — which is the leading edge of every *rectangular* area — covers half of this one.
+   */
+  private fun fan(
+    z: Float,
+    centre: Float = 500f,
+    width: Float = 36f,
+    depth: Float = 10f,
+  ) = WorkArea(
+    index = 1,
+    active = true,
+    shape =
+      listOf(
+        centre / terrain,
+        z / terrain,
+        (centre - width / 2f) / terrain,
+        (z + depth / 2f) / terrain,
+        (centre + width / 2f) / terrain,
+        (z + depth / 2f) / terrain,
+      ),
+  )
+
+  /** Positive or negative according to which way the ring is wound; only the sign is read. */
+  private fun SweptArea.signedArea(): Float {
+    var sum = 0f
+    for (i in xs.indices) {
+      val j = (i + 1) % xs.size
+      sum += xs[i] * zs[j] - xs[j] * zs[i]
+    }
+    return sum
+  }
+
+  @Test
+  fun sweepsTheWholeSpreadOfARhombusFootprint() {
+    val sweep = WorkSweep()
+
+    val stamped = sweep.advance(rig(fan(500f)), terrain, nowMs = 0).single()
+    assertEquals(482f, stamped.metresX().minOf { it }, 0.01f, "the footprint alone already covers the fan")
+    assertEquals(518f, stamped.metresX().maxOf { it }, 0.01f)
+
+    // Three meters on, the tool has swept the whole 36 m of ground behind it — not the 18 m from the
+    // centre line to whichever end the i3d happens to call `width`.
+    val bridged = sweep.advance(rig(fan(503f)), terrain, nowMs = 100).single()
+    assertEquals(482f, bridged.metresX().minOf { it }, 0.01f, "the far end of the fan is swept too")
+    assertEquals(518f, bridged.metresX().maxOf { it }, 0.01f)
+    assertEquals(500f, bridged.metresZ().minOf { it }, 0.01f, "and it bridges the ground back to where it was")
+    assertEquals(513f, bridged.metresZ().maxOf { it }, 0.01f)
+
+    // Both branches wind the same way, which is what stops the app's merged trail path from
+    // cancelling itself out where two polygons overlap.
+    assertTrue(
+      stamped.signedArea() * bridged.signedArea() > 0f,
+      "the stamped footprint and the bridge are wound alike",
+    )
   }
 }

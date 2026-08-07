@@ -22,6 +22,7 @@ local sourceFiles = {
   "src/collect/EnvironmentExporter.lua",
   "src/collect/vehicle/Motor.lua",
   "src/collect/vehicle/Lights.lua",
+  "src/collect/vehicle/Steering.lua",
   "src/collect/vehicle/SupportSystems.lua",
   -- Shared aspects (any vehicle or implement); Aspects.lua depends on the individual collectors
   "src/collect/aspects/TurnOn.lua",
@@ -70,6 +71,10 @@ local sourceFiles = {
   "src/collect/StorageExporter.lua",
   -- Husbandry channel: own-farm animal pens (reuses ProductionExporter's own-farm + id helpers)
   "src/collect/HusbandryExporter.lua",
+  -- Missions channel: the farm's contracts (event-driven + a slow interval). Reuses
+  -- ProductionExporter.ownFarmId for the farm scope and MapExporter's normalization for the marker
+  -- position, so it is sourced after both.
+  "src/collect/MissionExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",
@@ -96,6 +101,9 @@ local sourceFiles = {
   "src/command/ProductionControl.lua",
   -- Object-storage unload (bales/pallets); same ProductionExporter helpers
   "src/command/ObjectStorageControl.lua",
+  -- Contract accept/cancel/collect; drives the game's own mission events and reuses
+  -- MissionExporter's permission + status helpers, so it is sourced after it
+  "src/command/MissionControl.lua",
   -- Ground-layer subscription: tells the mapLayers channel which raster planes the terminal is
   -- showing, so it sweeps only those (MapLayersExporter is sourced with the collectors above)
   "src/command/MapLayersControl.lua",
@@ -128,14 +136,13 @@ VDTelemetry.STATE_FILE_NAME = "vdTelemetry.json"
 -- Registry name of the main telemetry export channel (see src/export/ExportChannels.lua).
 VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 2: fill-unit `value` is fractional (consumables are measured in slots and report the part-used one),
---    plus the optional `precision` / `display` hints. See vehicle-data-plan.md §1.
+--    plus the optional `precision` / `display` hints.
 -- 3: `pipe` and `cover` are objects rather than bare state strings — multi-state pipes and
---    multi-cover vehicles could not be expressed as one label. See vehicle-data-plan.md §2.
+--    multi-cover vehicles could not be expressed as one label.
 -- 4: `schema` (the rig-diagram silhouette + attacher joints), `selection` (what the player's
 --    controls act on, plus the Cylindered control group) and the implement's `jointDescIndex`.
---    See vehicle-data-plan.md §3.
 -- 5: `discharge`, `tipping`, `harvest`, `workMode`, `workWidth` and `baleCounter` aspects.
---    See vehicle-data-plan.md §4.
+--    Versions 2-5 were exported ahead of any UI; what still renders none of them is in FUTURE.md.
 -- 6: `motor.direction` — the direction the transmission is *in*, as distinct from `speed.direction`,
 --    which is the way the machine is actually travelling and reads STOPPED below walking pace.
 -- 7: `gps.course` — the live half of the steering course (which line, how far off it, how far to its
@@ -149,7 +156,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 9: the ISOBUS aspects — per-class implement state, starting with `sowing` (which crop is in the
 --    hopper, out of the machine's declared seed list). The fill unit only ever said SEEDS; this says
 --    which. See issue #58 and isobus-plan.md.
-VDTelemetry.VERSION = 9
+-- 10: `steering` — the steering mode a crab-steering machine is in (with the shape of it derived from
+--    the wheels, since the mode's name is untranslatable free text) and whether the driving position
+--    has been turned round. See issue #57.
+VDTelemetry.VERSION = 10
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

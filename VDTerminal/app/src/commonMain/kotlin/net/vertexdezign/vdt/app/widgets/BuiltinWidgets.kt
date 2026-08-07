@@ -3,6 +3,7 @@ package net.vertexdezign.vdt.app.widgets
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Checklist
@@ -24,6 +25,7 @@ import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
 import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
+import net.vertexdezign.vdt.app.panels.MissionsSummary
 import net.vertexdezign.vdt.app.panels.Navigation
 import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.panels.RigSlotPanel
@@ -91,6 +93,7 @@ object MapWidget : Widget {
     val mapLayers by store.mapLayers.collectAsState()
     val fieldInfo by store.fieldInfo.collectAsState()
     val gpsCourse by store.gpsCourse.collectAsState()
+    val missions by store.missions.collectAsState()
 
     val pda = telemetry?.environment?.pda
     // In a vehicle the heading is the vehicle's GPS; on foot it's the player's. Same compass
@@ -119,6 +122,7 @@ object MapWidget : Widget {
       showSections = sectionsOption.resolve(config) == SECTIONS_ON,
       onCommand = store.onCommand,
       gpsCourse = gpsCourse,
+      missions = missions,
     )
   }
 }
@@ -263,6 +267,19 @@ object TaskListWidget : Widget {
     val store = LocalVdtStore.current
     val taskList by store.taskList.collectAsState()
     TaskListPanel(taskList, modifier, onCommand = store.onCommand)
+  }
+}
+
+/** Contract progress at a glance; the full accept/collect flow lives in the Missions app. */
+object MissionsWidget : Widget {
+  override val id = "missions"
+  override val title = "Contracts"
+  override val icon: ImageVector = Icons.AutoMirrored.Filled.Assignment
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val missions by LocalVdtStore.current.missions.collectAsState()
+    MissionsSummary(missions, modifier)
   }
 }
 

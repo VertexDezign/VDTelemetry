@@ -12,6 +12,7 @@ import net.vertexdezign.vdt.model.PipeState
 import net.vertexdezign.vdt.model.PlowSide
 import net.vertexdezign.vdt.model.SprayCategory
 import net.vertexdezign.vdt.model.SprayerKind
+import net.vertexdezign.vdt.model.SteeringLayout
 import net.vertexdezign.vdt.model.TillageKind
 import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.VdtData
@@ -412,6 +413,56 @@ class VdtModelTest {
 
     // Absent means "not reported", not "forward" — a v5 capture must not be drawn as sitting in gear.
     assertEquals(null, model("combine.json").vehicle?.motor?.direction)
+  }
+
+  @Test
+  fun decodesTheSteeringModeAndTheDrivingPosition() {
+    // Mod version 10. Both halves are optional and independent — this is the machine that has both,
+    // which is the one the whole block was added for (a Xerion turns its cab *and* crab-steers).
+    val text =
+      """{"version":"10","vehicle":{"steering":{"mode":{"name":"Crab steering","index":3,"count":3,""" +
+        """"layout":"CRAB_LEFT"},"reversed":true,"changing":false}}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+
+    val steering = data.vehicle?.steering
+    assertEquals("Crab steering", steering?.mode?.name)
+    assertEquals(3, steering?.mode?.index)
+    assertEquals(SteeringLayout.CRAB_LEFT, steering?.mode?.layout)
+    assertEquals(true, steering?.reversed)
+
+    // A machine whose wheels the mod couldn't read sends the name and no layout; the terminal has to
+    // tell that from a machine that sent no mode at all.
+    val unread = VdtParser.parseJson("""{"vehicle":{"steering":{"mode":{"name":"4WS","index":2,"count":2}}}}""")
+    assertEquals(
+      null,
+      unread.vehicle
+        ?.steering
+        ?.mode
+        ?.layout,
+    )
+    assertEquals(
+      "4WS",
+      unread.vehicle
+        ?.steering
+        ?.mode
+        ?.name,
+    )
+    assertEquals(null, unread.vehicle?.steering?.reversed, "no reversible seat is null, not false")
+
+    // A layout this build has never heard of coerces to null rather than failing the whole feed —
+    // the mod is allowed to run ahead of the terminal.
+    val ahead = VdtParser.parseJson("""{"vehicle":{"steering":{"mode":{"index":1,"count":2,"layout":"DIAGONAL"}}}}""")
+    assertEquals(
+      null,
+      ahead.vehicle
+        ?.steering
+        ?.mode
+        ?.layout,
+    )
+
+    // And the captures, all taken before the field existed, must not invent one.
+    assertEquals(null, model("combine.json").vehicle?.steering)
   }
 
   @Test

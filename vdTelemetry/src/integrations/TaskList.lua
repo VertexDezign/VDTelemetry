@@ -5,7 +5,7 @@
 -- writes (and a file left over from a session where it *was* installed is deleted at startup).
 --
 -- Verified (2026-07-10): on a dedicated-server client both ACTIVE_TASKS_UPDATED and
--- TASK_GROUPS_UPDATED fire and `g_currentMission.taskList` is fully readable (see farm-page-plan.md).
+-- TASK_GROUPS_UPDATED fire and `g_currentMission.taskList` is fully readable.
 --
 -- **Written against FS25_TaskList 1.2.0.1** — everything below reads that mod's *internals*, which it
 -- is free to rename in any release. So fail soft, never throw: guard every field read and treat a

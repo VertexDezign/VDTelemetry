@@ -42,6 +42,24 @@ local function sideOf(section)
   return section.isLeft and "LEFT" or "RIGHT"
 end
 
+---One side of the tool as a width in meters, from what `getVariableWorkWidth` hands back.
+---
+---Two things have to be undone. The engine measures a side by its section node's **local X**
+---(VariableWorkWidth:onPostLoad), so the right-hand side arrives negative — summing the two as they
+---come gave a total of exactly 0 for every tool that has sections. And a side with no sections at all
+---returns the placeholder `1, 1, false` from VariableWorkWidth:getVariableWorkWidth, which is not a
+---measurement in any unit; that side contributes nothing.
+---@param width number
+---@param max number
+---@param hasSections boolean|nil
+---@return number width, number max both in meters, both zero when the side has no sections
+local function sideWidth(width, max, hasSections)
+  if hasSections == false then
+    return 0, 0
+  end
+  return math.abs(width), math.abs(max)
+end
+
 ---@param object table
 ---@return WorkWidthModel|nil nil when the object has no variable-width sections
 function VDT.Work.collectWidth(object)
@@ -50,10 +68,11 @@ function VDT.Work.collectWidth(object)
     return nil
   end
 
-  -- Each side reports (currentWidth, maxWidth); the engine walks its own section list, which is
-  -- short. Sides are independent — half-width work on one side is a normal headland technique.
-  local left, leftMax = object:getVariableWorkWidth(true)
-  local right, rightMax = object:getVariableWorkWidth(false)
+  -- Each side reports (currentWidth, maxWidth, hasSections); the engine walks its own section list,
+  -- which is short. Sides are independent — half-width work on one side is a normal headland
+  -- technique — and each is measured from the tool's centre line, so the two add up to the whole.
+  local left, leftMax = sideWidth(object:getVariableWorkWidth(true))
+  local right, rightMax = sideWidth(object:getVariableWorkWidth(false))
 
   ---@type WorkWidthModel
   local model = {

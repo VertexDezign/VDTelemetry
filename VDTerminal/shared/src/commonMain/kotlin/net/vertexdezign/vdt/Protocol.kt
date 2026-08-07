@@ -9,6 +9,7 @@ import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.MissionsData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
@@ -143,6 +144,19 @@ sealed interface ServerMessage {
   @SerialName("husbandry")
   data class Husbandry(
     val data: HusbandriesData? = null,
+  ) : ServerMessage
+
+  /**
+   * The missions channel (the farm's contracts, `missions.json`). The mod writes it when a contract
+   * is generated, accepted, finished or deleted, plus on a slow interval for the countdown — its own
+   * cadence again, hence its own message. [data] is **null when `missions.json` is absent** (export
+   * disabled / no data yet): the app clears its contract list then rather than offering contracts
+   * that may no longer exist.
+   */
+  @Serializable
+  @SerialName("missions")
+  data class Missions(
+    val data: MissionsData? = null,
   ) : ServerMessage
 
   /**
@@ -451,6 +465,44 @@ sealed interface ClientMessage {
     val index: Int,
     val title: String,
     val amount: Int,
+  ) : ClientMessage
+
+  /**
+   * Take on the contract [missionId] — the same action as the in-game contracts screen's Accept, and
+   * with [lease] its "with equipment" variant, which spawns the contract's machines at the shop for a
+   * fee ([Mission.vehicleCosts]).
+   *
+   * [missionId] is [Mission.id], the mission's network object id. It identifies a contract in the
+   * *live* game only, so this must never be replayed on reconnect: like `unloadObjectStorage` it is
+   * an action, not a target state, and by the time a stale one arrives the id may name a different
+   * contract or none. The mod re-checks the contract is still on offer before sending anything.
+   */
+  @Serializable
+  @SerialName("acceptMission")
+  data class AcceptMission(
+    val missionId: Int,
+    val lease: Boolean = false,
+  ) : ClientMessage
+
+  /**
+   * Give up the running contract [missionId] — the in-game screen's Cancel, which forfeits it. The
+   * app confirms first for the same reason the game does. Same non-replayable id rules as
+   * [AcceptMission].
+   */
+  @Serializable
+  @SerialName("cancelMission")
+  data class CancelMission(
+    val missionId: Int,
+  ) : ClientMessage
+
+  /**
+   * Collect the finished contract [missionId] — the in-game screen's "complete", which pays out
+   * [Mission.totalReward] and clears the contract. Same non-replayable id rules as [AcceptMission].
+   */
+  @Serializable
+  @SerialName("dismissMission")
+  data class DismissMission(
+    val missionId: Int,
   ) : ClientMessage
 
   /**

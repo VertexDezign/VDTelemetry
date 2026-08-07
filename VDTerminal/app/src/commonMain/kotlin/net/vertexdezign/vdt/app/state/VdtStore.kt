@@ -16,6 +16,7 @@ import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.MissionsData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
@@ -46,6 +47,8 @@ class VdtStore(
   val production: StateFlow<ProductionData?>,
   val storage: StateFlow<StorageData?>,
   val husbandry: StateFlow<HusbandriesData?>,
+  /** The farm's contracts — on offer, running, finished; null when the channel is absent. */
+  val missions: StateFlow<MissionsData?>,
   /** Server-measured observed cadence of each channel file (diagnostics app); null until first frame. */
   val channelStats: StateFlow<ChannelStatsData?>,
   val wakeLock: StateFlow<WakeLockStatus>,

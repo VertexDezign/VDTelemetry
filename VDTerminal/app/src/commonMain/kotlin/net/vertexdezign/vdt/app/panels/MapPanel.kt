@@ -1,8 +1,12 @@
 package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateOffsetAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -66,10 +70,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -83,6 +89,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -118,6 +125,8 @@ import net.vertexdezign.vdt.model.MapLayerLegendEntry
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehicle
 import net.vertexdezign.vdt.model.MapVehiclesData
+import net.vertexdezign.vdt.model.Mission
+import net.vertexdezign.vdt.model.MissionsData
 import net.vertexdezign.vdt.model.Pda
 import net.vertexdezign.vdt.model.Player
 import net.vertexdezign.vdt.model.SweptArea
@@ -128,6 +137,7 @@ import org.jetbrains.skia.Image
 import kotlin.math.hypot
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import kotlin.time.TimeSource
 
 private const val MIN_ZOOM = 0.25f
@@ -142,10 +152,19 @@ private val FIELD_TAP_RADIUS_DP = 20.dp
 
 // Persistence names, scoped per placed tile by WidgetSettings — two maps on one page each keep their
 // own zoom, filters and ground layer. Each is read and written in separate places, so name them once.
+
+/**
+ * The ground a contract marker covers, in metres — the game's own field-contract circle is 50 m
+ * (`AbstractFieldMissionHotspot`), and this is the knob for how big the marker reads: the drawn
+ * radius is this, converted through the map's own scale and then damped by √zoom.
+ */
+private const val MISSION_MARKER_RADIUS_M = 50f
+
 private const val KEY_ZOOM = "zoom"
 private const val KEY_AUTO_CENTER = "autoCenter"
 private const val KEY_SHOW_FIELDS = "showFields"
 private const val KEY_SHOW_COURSE = "showCourse"
+private const val KEY_SHOW_MISSIONS = "showMissions"
 private const val KEY_COURSE_UP = "courseUp"
 private const val KEY_COURSE_NEARBY = "courseNearby"
 private const val KEY_POI_CATS = "poiCats"
@@ -256,16 +275,26 @@ fun MapPanel(
   showSections: Boolean = false,
   onCommand: (ClientMessage) -> Unit = {},
   gpsCourse: GpsCourseData? = null,
+  /** The farm's contracts, drawn as markers and as a tint on the field each one is on. */
+  missions: MissionsData? = null,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
   var showFields by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_FIELDS, true)) }
   var showCourse by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_COURSE, true)) }
+  var showMissions by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_MISSIONS, true)) }
   // How much of the course to draw: 0 is the whole field, N is the lines within N swaths of the rig.
   var courseNearby by remember { mutableStateOf(settings.getInt(KEY_COURSE_NEARBY, 0)) }
   // A mode you flip while driving, not a layout decision — so a header toggle beside auto-center
   // rather than widget config, persisted per placed tile like the zoom and the filters.
   var courseUp by remember { mutableStateOf(settings.getBoolean(KEY_COURSE_UP, false)) }
+  // Which individual contracts are drawn, holding only what the user has *said* — everything else
+  // follows [missionShownByDefault]. Deliberately not persisted like the filters around it: the key
+  // is the mission id, which is the network object id, and a later session hands that id to whatever
+  // object now carries it (the same trap that makes the mod resolve a command by walking the list).
+  // A stored "hide 648" would eventually hide a contract nobody hid. Kept for the session instead,
+  // and pruned as the board changes, which is also what lets the default reassert itself.
+  var missionChoices by remember { mutableStateOf(emptyMap<Int, Boolean>()) }
   var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
   var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
   var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, NO_GROUND_LAYER)) }
@@ -364,10 +393,22 @@ fun MapPanel(
       bitmap = it
     }
   }
+  // Only the contracts this farm has taken on: the board's offers are shopping, and the map is for
+  // work. Computed here rather than in the overlay because the filter list needs the same set.
+  val accepted = remember(missions) { (missions?.missions ?: emptyList()).filter { it.own } }
+
+  // Drop choices about contracts that have left the board, so a collected one takes its row with it —
+  // and so an id the game later reuses arrives with nothing stale attached to it.
+  LaunchedEffect(accepted) {
+    val live = accepted.mapTo(mutableSetOf()) { it.id }
+    if (missionChoices.keys.any { it !in live }) missionChoices = missionChoices.filterKeys { it in live }
+  }
+
   LaunchedEffect(scale) { settings.putFloat(KEY_ZOOM, scale) }
   LaunchedEffect(autoCenter) { settings.putBoolean(KEY_AUTO_CENTER, autoCenter) }
   LaunchedEffect(showFields) { settings.putBoolean(KEY_SHOW_FIELDS, showFields) }
   LaunchedEffect(showCourse) { settings.putBoolean(KEY_SHOW_COURSE, showCourse) }
+  LaunchedEffect(showMissions) { settings.putBoolean(KEY_SHOW_MISSIONS, showMissions) }
   LaunchedEffect(courseNearby) { settings.putInt(KEY_COURSE_NEARBY, courseNearby) }
   LaunchedEffect(courseUp) { settings.putBoolean(KEY_COURSE_UP, courseUp) }
   LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
@@ -709,6 +750,7 @@ fun MapPanel(
           poiCats,
           vehStates,
           highlight,
+          if (showMissions) shownMissions(accepted, missionChoices) else emptyList(),
         )
       }
 
@@ -793,6 +835,11 @@ fun MapPanel(
           onGroundLayer = { groundLayer = it },
           showFields = showFields,
           onShowFields = { showFields = it },
+          missions = accepted,
+          missionChoices = missionChoices,
+          showMissions = showMissions,
+          onShowMissions = { showMissions = it },
+          onShowMission = { id, on -> missionChoices = missionChoices + (id to on) },
           poiCats = poiCats,
           onPoiCats = { poiCats = it },
           vehStates = vehStates,
@@ -855,10 +902,12 @@ private val COVERAGE_TINT = Color(0xFFC026D3).copy(alpha = COVERAGE_TRAIL_ALPHA)
  * See [CoverageTrail] for why it never overlaps the raster — where it did, the two translucent fills
  * composited into a visibly darker band.
  *
- * **One path for the whole trail, filled once.** A fill per polygon shows every seam between them:
- * consecutive sweeps abut exactly, and two anti-aliased edges meeting on the same line each cover the
- * boundary pixels partly, so the pass comes out finely striped. Merged into one path they are a single
- * region with no interior edges, filled at one alpha however long the trail is.
+ * **One path for the whole trail, filled once.** A fill per polygon shows every join between them:
+ * where consecutive sweeps abut, two anti-aliased edges on the same line each cover the boundary
+ * pixels partly and the pass comes out finely striped; where they overlap — which they do, since a
+ * sweep spans both footprints — the shared ground takes the alpha twice and reads as a darker band.
+ * Merged into one path they are a single region with no interior edges, filled at one alpha however
+ * long the trail is.
  */
 @Composable
 private fun BoxScope.CoverageTrailOverlay(areas: List<SweptArea>, projection: MapProjection, tint: Color) {
@@ -1120,6 +1169,8 @@ private fun BoxScope.MapDataOverlay(
   poiCats: Set<String>,
   vehStates: Set<String>,
   highlight: Offset?,
+  /** The contracts to draw — already filtered by the panel; see [shownMissions]. */
+  accepted: List<Mission>,
 ) {
   val density = LocalDensity.current
   val textMeasurer = rememberTextMeasurer()
@@ -1131,6 +1182,36 @@ private fun BoxScope.MapDataOverlay(
       (mapData?.farms ?: emptyList())
         .mapNotNull { farm -> parseHexColor(farm.color)?.let { farm.id to it } }
         .toMap()
+    }
+
+  // farmlandId -> the colour of the contract on it, so a field under contract reads as one at a
+  // glance instead of only through its marker. Every mission type carries the farmland it sits on,
+  // so the forestry and rock contracts tint their land too. Recomputed with the channel, not per
+  // frame.
+  val missionFieldTints =
+    remember(accepted) {
+      accepted.mapNotNull { mission -> mission.fieldId?.let { it to missionColor(mission) } }.toMap()
+    }
+
+  // The game marks a contract with a blinking circle, so this one blinks too — one transition for
+  // every marker, so they pulse together rather than each on its own phase.
+  //
+  // Only while there is something to blink. An infinite transition holds the frame clock awake for
+  // as long as it is composed, so an unconditional one costs a repaint every frame on every map on
+  // the page — and `accepted` is already the drawn set (the Contracts switch and the per-contract
+  // rows are applied by the caller), so turning contracts off stops the animation with them.
+  val blink =
+    if (accepted.isEmpty()) {
+      1f
+    } else {
+      rememberInfiniteTransition(label = "contract")
+        .animateFloat(
+          initialValue = 0.35f,
+          targetValue = 1f,
+          animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
+          label = "contractAlpha",
+        )
+        .value
     }
 
   // One Path per field, rebuilt only when the channel updates (never on pan/zoom).
@@ -1201,9 +1282,12 @@ private fun BoxScope.MapDataOverlay(
         // Stroke width divided back out of the transform: geometry scales, the line doesn't.
         val strokeWidth = 1.5.dp.toPx() / factor
         for ((field, path) in fieldPaths) {
-          val tint = fieldTint(field, playerFarmId, farmColors)
-          drawPath(path, tint.copy(alpha = 0.10f))
-          drawPath(path, tint, style = Stroke(width = strokeWidth))
+          // A contract's colour wins over the ownership tint: a field on offer is unowned, so the
+          // ownership tint has nothing to say about it, and the contract does.
+          val contractTint = missionFieldTints[field.id]
+          val tint = contractTint ?: fieldTint(field, playerFarmId, farmColors)
+          drawPath(path, tint.copy(alpha = if (contractTint != null) 0.22f else 0.10f))
+          drawPath(path, tint, style = Stroke(width = if (contractTint != null) strokeWidth * 2f else strokeWidth))
         }
       }
       for (field in mapData.fields) {
@@ -1226,6 +1310,90 @@ private fun BoxScope.MapDataOverlay(
         drawCircle(poiCategoryColor(category), radius = 3.dp.toPx(), center = pos)
         if (scale >= DETAIL_ZOOM && poi.name.isNotBlank()) {
           drawCenteredText(textMeasurer, poi.name, pos + Offset(0f, 12.dp.toPx()), detailStyle)
+        }
+      }
+    }
+
+    // Contract markers, the way the game draws them: a blinking circle, sized in world meters so it
+    // grows with the zoom like the game's own (AbstractFieldMissionHotspot uses a 50 m radius).
+    // Above the POIs so a contract on a farmyard is not buried by one, below the vehicles, which are
+    // the live thing on the map.
+    //
+    // CLIPPED, unlike everything else on this canvas. The rest of the overlay gets away with culling
+    // alone because every one of its markers is a few dp across, so a cull margin covers the overhang
+    // -- but this circle is sized in world meters and grows without bound as you zoom in, and a
+    // delivery run is a line between two points that need not both be on screen. A Compose Canvas
+    // does not clip to its own bounds, so unclipped either one paints over the page around the map.
+    // Sized off the ground it covers, so it reacts to the zoom the way the game's own marker does.
+    // `factor` is already side * scale -- multiplying by it *and* by side is what pinned this at its
+    // cap at every zoom, which is the bug that made the circle look like a fixed-size overlay.
+    //
+    // The growth is damped by √zoom rather than left linear: linear is faithful to a 50 m circle but
+    // reaches ~40% of the map at 16x, so it would spend the top third of the zoom range pinned at a
+    // cap and stop reacting again. √ keeps it a marker across the whole 0.25x-16x range.
+    val terrainSize = mapData?.terrainSize ?: 0f
+    val worldRadiusPx =
+      if (terrainSize > 0f) {
+        (MISSION_MARKER_RADIUS_M / terrainSize * projection.side * sqrt(scale))
+          .coerceIn(6.dp.toPx(), 72.dp.toPx())
+      } else {
+        7.dp.toPx()
+      }
+
+    clipRect {
+      for (mission in accepted) {
+        val x = mission.posX ?: continue
+        val z = mission.posZ ?: continue
+        val pos = toScreen(x, z)
+        val station = mission.sellingStation?.takeIf { it.hasPosition }
+        val stationPos = station?.let { toScreen(it.posX ?: 0f, it.posZ ?: 0f) }
+
+        // Where the load goes, and the run between the two. Drawn under the marker so the circle
+        // stays readable on top of it, and kept when either end is on screen: a contract whose field
+        // is off-canvas may still be delivering to a station that is on it.
+        if (stationPos != null && (onCanvas(pos) || onCanvas(stationPos))) {
+          val tint = missionColor(mission)
+          // Dashed, so it reads as a run between two places rather than another field border, and at
+          // a steady alpha: on the blink it bottomed out near 0.1 and all but vanished twice a
+          // second. The pulse belongs to the two ends, which are what you are looking for.
+          drawLine(
+            tint.copy(alpha = 0.65f),
+            pos,
+            stationPos,
+            strokeWidth = 2.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx())),
+          )
+          if (onCanvas(stationPos)) {
+            // The delivery point blinks like the work does — same language, smaller ring, because it
+            // is the other half of one contract rather than a marker of its own. Deliberately
+            // unlabelled: the station is a POI, and the POI layer has already written its name there.
+            val stationRadius = (worldRadiusPx * 0.55f).coerceAtLeast(5.dp.toPx())
+            drawCircle(
+              tint.copy(alpha = blink),
+              radius = stationRadius,
+              center = stationPos,
+              style = Stroke(width = 2.dp.toPx()),
+            )
+            drawCircle(tint, radius = 2.5.dp.toPx(), center = stationPos)
+          }
+        }
+
+        // The circle's own cull has to allow for its radius, or a contract just off screen loses the
+        // arc that should still be reaching onto it.
+        if (!projection.isVisible(pos, worldRadiusPx + OVERLAY_CULL_MARGIN)) continue
+        val tint = missionColor(mission)
+        drawCircle(tint.copy(alpha = 0.18f * blink), radius = worldRadiusPx, center = pos)
+        drawCircle(
+          tint.copy(alpha = blink),
+          radius = worldRadiusPx,
+          center = pos,
+          style = Stroke(width = 2.dp.toPx()),
+        )
+        // A solid centre, so a contract is still findable when the map is zoomed far enough out that
+        // its circle is down to the minimum.
+        drawCircle(tint, radius = 2.5.dp.toPx(), center = pos)
+        if (scale >= DETAIL_ZOOM && mission.title.isNotBlank() && onCanvas(pos)) {
+          drawCenteredText(textMeasurer, mission.title, pos + Offset(0f, worldRadiusPx + 8.dp.toPx()), detailStyle)
         }
       }
     }
@@ -1340,6 +1508,51 @@ private fun fieldTint(field: MapField, playerFarmId: Int?, farmColors: Map<Int, 
   return if (playerFarmId == null || owner == playerFarmId) VdtColors.Green else VdtColors.Red
 }
 
+/**
+ * What a contract's marker (and its field) is coloured by: what you can do about it. Amber is an
+ * offer that is still open, green is money waiting to be collected, blue is work under way. Keyed on
+ * status rather than mission type — the type set is open-ended.
+ */
+internal fun missionColor(mission: Mission): Color = when {
+  mission.isFinished -> VdtColors.Green
+  mission.isActive -> VdtColors.ProgressBlue
+  else -> VdtColors.Amber
+}
+
+/**
+ * Whether a contract is drawn when nobody has said otherwise: yes while it is being worked, no once
+ * it is done.
+ *
+ * A finished contract sits on the board until someone walks to the NPC, and its marker covers ground
+ * that no longer needs driving to — on a map showing three running jobs it is the one circle that
+ * means "nothing to do here". Collecting is the app's business, not the map's, so it comes off by
+ * default and goes back on per contract.
+ */
+internal fun missionShownByDefault(mission: Mission): Boolean = !mission.isFinished
+
+/**
+ * Whether one contract is drawn: the user's own answer where they gave one, the default otherwise.
+ * [choices] holds only explicit answers, which is what lets a contract that finishes while shown drop
+ * off by itself while one that was asked for stays.
+ */
+internal fun isMissionShown(mission: Mission, choices: Map<Int, Boolean>): Boolean =
+  choices[mission.id] ?: missionShownByDefault(mission)
+
+/** The accepted contracts the map draws, in board order. */
+internal fun shownMissions(accepted: List<Mission>, choices: Map<Int, Boolean>): List<Mission> =
+  accepted.filter { isMissionShown(it, choices) }
+
+/**
+ * How a contract reads in the filter list: the job, then where it is. The location is the
+ * discriminator on a board carrying six harvest contracts, so it wins the room over the subtitle —
+ * and a contract the mod could not place falls back to naming what it is for.
+ */
+internal fun missionFilterLabel(mission: Mission): String {
+  val where = mission.location.ifBlank { mission.subtitle }
+  val job = mission.title.ifBlank { mission.type }
+  return if (where.isBlank()) job else "$job · $where"
+}
+
 /** "#rrggbb" -> [Color]; null for anything else (missing, malformed, unexpected length). */
 private fun parseHexColor(hex: String?): Color? {
   if (hex == null || hex.length != 7 || !hex.startsWith("#")) return null
@@ -1444,6 +1657,11 @@ private fun BoxScope.MapFilterPanel(
   onGroundLayer: (String) -> Unit,
   showFields: Boolean,
   onShowFields: (Boolean) -> Unit,
+  missions: List<Mission>,
+  missionChoices: Map<Int, Boolean>,
+  showMissions: Boolean,
+  onShowMissions: (Boolean) -> Unit,
+  onShowMission: (Int, Boolean) -> Unit,
   poiCats: Set<String>,
   onPoiCats: (Set<String>) -> Unit,
   vehStates: Set<String>,
@@ -1524,6 +1742,26 @@ private fun BoxScope.MapFilterPanel(
           checked = category in poiCats,
           dot = poiCategoryColor(category),
         ) { on -> onPoiCats(if (on) poiCats + category else poiCats - category) }
+      }
+    }
+
+    // Only while this farm has contracts of its own: with none, the section would switch nothing. In
+    // multiplayer it is what gets a colleague's contract markers off your map. A collected contract
+    // keeps its row even though it is off the map by default — that row is how it is put back.
+    if (missions.isNotEmpty()) {
+      FilterRow("Contracts", checked = showMissions, dot = VdtColors.ProgressBlue) { onShowMissions(it) }
+      // One row per contract under the switch that draws them all, the same way the course range sits
+      // under the course. Each carries its marker's colour, so the row and the circle on the map are
+      // obviously the same thing — which is the whole point of picking one out of three.
+      if (showMissions) {
+        for (mission in missions) {
+          FilterRow(
+            missionFilterLabel(mission),
+            checked = isMissionShown(mission, missionChoices),
+            dot = missionColor(mission),
+            indent = 22.dp,
+          ) { on -> onShowMission(mission.id, on) }
+        }
       }
     }
 
@@ -1685,9 +1923,17 @@ private fun CourseRangeRow(nearby: Int, onNearby: (Int) -> Unit) {
 
 /** One filter line: checkbox icon, optional legend color dot, label. */
 @Composable
-private fun FilterRow(label: String, checked: Boolean, dot: Color? = null, onToggle: (Boolean) -> Unit) {
+private fun FilterRow(
+  label: String,
+  checked: Boolean,
+  dot: Color? = null,
+  indent: Dp = 0.dp,
+  onToggle: (Boolean) -> Unit,
+) {
   Row(
-    Modifier.fillMaxWidth().clickableNoRipple { onToggle(!checked) },
+    // Indent inside the click handler, not outside it: an indented row is still tappable across the
+    // popover's full width, which is what a checkbox list on a touchscreen has to be.
+    Modifier.fillMaxWidth().clickableNoRipple { onToggle(!checked) }.padding(start = indent),
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
@@ -1700,7 +1946,9 @@ private fun FilterRow(label: String, checked: Boolean, dot: Color? = null, onTog
     if (dot != null) {
       Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
     }
-    Text(label, fontSize = 13.sp, color = VdtColors.TextDark)
+    // A contract's label carries a name the game wrote, so it can outrun the popover's width where a
+    // fixed category label never does: clip it rather than let the row wrap under its own checkbox.
+    Text(label, fontSize = 13.sp, color = VdtColors.TextDark, maxLines = 1, overflow = TextOverflow.Ellipsis)
   }
 }
 

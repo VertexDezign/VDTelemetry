@@ -8,7 +8,17 @@ import androidx.compose.runtime.Composable
  */
 object AppRegistry {
   val apps: List<VdtApp> =
-    listOf(VehicleApp, MapApp, ProductionApp, StorageApp, AnimalsApp, TasksApp, CropRotationApp, DiagnosticsApp)
+    listOf(
+      VehicleApp,
+      MapApp,
+      ProductionApp,
+      StorageApp,
+      AnimalsApp,
+      MissionsApp,
+      TasksApp,
+      CropRotationApp,
+      DiagnosticsApp,
+    )
 
   fun byId(id: String): VdtApp? = apps.firstOrNull { it.id == id }
 }

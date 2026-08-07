@@ -11,6 +11,7 @@ data class Vehicle(
   val operatingTime: OperatingTime? = null,
   val motor: Motor? = null,
   val lights: Lights? = null,
+  val steering: Steering? = null,
   val gps: Gps? = null,
   val ai: Ai? = null,
   val cruiseControl: CruiseControl? = null,
@@ -56,6 +57,81 @@ data class Brand(
   val name: String? = null,
   val title: String? = null,
 )
+
+// ---------------------------------------------------------------------------
+// Steering (mod version 10)
+// ---------------------------------------------------------------------------
+
+/**
+ * How the machine is set up to be driven, as opposed to where it is going.
+ *
+ * The two halves are independent and either can be absent: a telehandler has steering modes and a
+ * fixed seat, a Fendt with a reversible console the other way round, a Xerion both at once.
+ *
+ * [reversed] is null when the vehicle has no reversible driving position at all — which is a
+ * different thing from `false`, meaning it has one and is facing the normal way. Only the second is
+ * worth drawing an indicator for.
+ */
+@Serializable
+data class Steering(
+  val mode: SteeringMode? = null,
+  val reversed: Boolean? = null,
+  /** The seat is mid-swivel: the animation is running and the machine is briefly neither way round. */
+  val changing: Boolean = false,
+)
+
+/**
+ * The steering mode a crab-steering machine is in — [index] of [count], counting from 1. [count] is
+ * every mode the machine has rather than every one it could be put in this moment; the engine draws
+ * that distinction but only a mod that overrides its availability test can make the two differ.
+ *
+ * [name] is the game's own wording, out of the vehicle's XML and translated; it is all the game
+ * itself shows for a mode, and being free text it is not something a glyph can be picked from. That
+ * is what [layout] is for: the mod derives it from the wheels themselves — which of them answer the
+ * steering wheel, and whether the two ends turn the same way — so it means the same thing on a base
+ * game telehandler and on a mod nobody has seen.
+ *
+ * [layout] is null when the machine can't be read that way (a single axle, a frame that steers on
+ * its own joint). [name] still arrives, so there is always something to fall back on.
+ */
+@Serializable
+data class SteeringMode(
+  val name: String = "",
+  val index: Int = 0,
+  val count: Int = 0,
+  val layout: SteeringLayout? = null,
+)
+
+/**
+ * Which wheels a steering mode steers, and whether the two ends agree.
+ *
+ * There are two ways a machine crabs, and they are not the same mode. The usual one holds every
+ * wheel over at a rest angle and goes on steering from there — the axles keep whatever senses they
+ * had, so such a mode is *not* told apart from four-wheel steering by which way the wheels turn. It
+ * bakes the direction in, which is why a machine built that way offers two of them, [CRAB_LEFT] and
+ * [CRAB_RIGHT]. The other steers the rear axle along with the front and holds nothing over, giving
+ * [CRAB], which walks whichever way the driver turns and so has no side of its own.
+ */
+@Serializable
+enum class SteeringLayout {
+  /** Only the front wheels answer the steering wheel — what most machines do all the time. */
+  FRONT,
+
+  /** Only the rear ones, as a combine or a telehandler steers. */
+  BACK,
+
+  /** Both ends, turning opposite ways: the tight turn a four-wheel-steer machine is bought for. */
+  ALL_WHEEL,
+
+  /** Both ends the same way, so the machine tracks diagonally, in whichever direction it is steered. */
+  CRAB,
+
+  /** Every wheel held over to the left, so the machine tracks diagonally: a left dog walk. */
+  CRAB_LEFT,
+
+  /** The same, held the other way. */
+  CRAB_RIGHT,
+}
 
 @Serializable
 data class OperatingTime(
@@ -506,6 +582,7 @@ data class WorkWidth(
   val leftMax: Float = 0f,
   val right: Float = 0f,
   val rightMax: Float = 0f,
+  /** [left] + [right]: the whole swath, both sides being measured from the tool's centre line. */
   val total: Float = 0f,
   val unit: String = "",
   val sections: List<WorkSection> = emptyList(),
@@ -529,7 +606,7 @@ data class WorkSection(
 )
 
 /**
- * One work area of a tool: a rectangle of ground it processes.
+ * One work area of a tool: a parallelogram of ground it processes.
  *
  * The two flags are the engine's own and say different things. [active] is capability — the area is
  * lowered, in contact, driving the right way, and its section is switched on. [processing] is
@@ -539,6 +616,11 @@ data class WorkSection(
  * [shape] is three corners of the footprint parallelogram — start, width, height — in the same
  * normalized `[0,1]` map frame as [MapData] and [GpsCourseData], so it draws with the map's own
  * projection. The fourth corner is `width + height - start`. Absent when the world size is unknown.
+ *
+ * **Which corner is which is not fixed.** On most tools the parallelogram is a rectangle whose
+ * `start -> width` edge runs across the machine, but a solid spreader's is a rhombus: `start` and the
+ * derived corner sit on the centre line, and `width` and `height` are the two ends of the fan. Nothing
+ * may read a swath off one edge — see [WorkSweep], which learned that the hard way.
  */
 @Serializable
 data class WorkArea(
@@ -547,6 +629,7 @@ data class WorkArea(
   val type: String? = null,
   val active: Boolean = false,
   val processing: Boolean = false,
+  /** How far the area reaches across the tool, in [unit] — not the length of any one edge. */
   val width: Float? = null,
   val unit: String? = null,
   val shape: List<Float> = emptyList(),

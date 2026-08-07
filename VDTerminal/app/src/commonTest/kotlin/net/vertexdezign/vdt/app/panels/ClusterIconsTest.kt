@@ -45,6 +45,12 @@ class ClusterIconsTest {
       "generalWarning" to ClusterIcons.GeneralWarning,
       "brakeSystem" to ClusterIcons.BrakeSystem,
       "service" to ClusterIcons.Service,
+      "steerFront" to ClusterIcons.SteerFront,
+      "steerBack" to ClusterIcons.SteerBack,
+      "steerAllWheel" to ClusterIcons.SteerAllWheel,
+      "steerCrabLeft" to ClusterIcons.SteerCrabLeft,
+      "steerCrabRight" to ClusterIcons.SteerCrabRight,
+      "seatReversed" to ClusterIcons.SeatReversed,
     )
 
   private fun paths(node: VectorNode): List<VectorPath> = when (node) {
