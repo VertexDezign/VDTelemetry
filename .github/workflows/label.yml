@@ -1,0 +1,27 @@
+name: Label
+
+# pull_request_target, not pull_request: a PR opened from a fork gets a read-only
+# token under pull_request and cannot add labels. This is the safe use of that
+# trigger — the job checks out nothing and runs no code from the PR; it only reads
+# the changed-file list through the API.
+on: pull_request_target
+
+# Rules live in .github/labeler.yml.
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: Area labels
+    runs-on: ubuntu-latest
+    steps:
+      # sync-labels also *removes* an area label once the PR stops touching that
+      # area, so the labels keep describing the PR as it is rewritten.
+      - uses: actions/labeler@v7
+        with:
+          sync-labels: true
