@@ -264,7 +264,11 @@ private fun AlertChip(title: String, severity: AlertSeverity, extra: Int, onClic
       overflow = TextOverflow.Ellipsis,
     )
     if (extra > 0) {
-      Text("+$extra", color = VdtColors.OnBlackMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+      // White, not a dimmed grey: this text is on the severity fill, not on the bar's black, and the
+      // lightest tone that still clears AA on [VdtColors.Amber] is 88% white — indistinguishable from
+      // white, so it would cost a tone and buy nothing. The count reads as the subordinate of the
+      // title it follows by dropping the weight instead.
+      Text("+$extra", color = VdtColors.White, fontSize = 11.sp)
     }
   }
 }
