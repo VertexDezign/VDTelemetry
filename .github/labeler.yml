@@ -1,0 +1,18 @@
+# Path -> label rules for .github/workflows/label.yml (actions/labeler).
+# The two areas are the repo's two independent subsystems; a change that touches
+# neither (README, FUTURE.md, CI) gets no area label, which is correct.
+
+"area:kotlin":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "VDTerminal/**"
+          # The fixtures are the contract between the two parts: sample mod output
+          # that doubles as the VDTerminal parser's test data. Touching one is a
+          # change to both sides, so they carry both labels.
+          - "examples/json/**"
+
+"area:lua":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "vdTelemetry/**"
+          - "examples/json/**"
