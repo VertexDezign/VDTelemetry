@@ -78,7 +78,7 @@ fun TaskListPanel(data: TaskListData?, modifier: Modifier = Modifier, onCommand:
         ) {
           Text(
             "$activeCount DUE NOW",
-            color = if (activeCount > 0) VdtColors.Green else VdtColors.Gray,
+            color = if (activeCount > 0) VdtColors.Green else VdtColors.DarkGray,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
           )
@@ -156,7 +156,7 @@ private fun GroupSection(
       ActionIcon(Icons.Filled.Add, "add task", VdtColors.Green, onAdd)
     }
     if (group.tasks.isEmpty()) {
-      Text("No tasks yet", color = VdtColors.Gray, fontSize = 11.sp)
+      Text("No tasks yet", color = VdtColors.DarkGray, fontSize = 11.sp)
     } else {
       // Due tasks first, then the rest — the "what to do now" list is what the farm page is for.
       group.tasks
@@ -179,7 +179,7 @@ private fun TaskRow(task: Task, onComplete: (Task) -> Unit, onEdit: (Task) -> Un
     )
     Text(
       task.label(),
-      color = if (task.active) VdtColors.TextDark else VdtColors.Gray,
+      color = if (task.active) VdtColors.TextDark else VdtColors.DarkGray,
       fontSize = 12.sp,
       fontWeight = if (task.active) FontWeight.SemiBold else FontWeight.Normal,
       maxLines = 1,

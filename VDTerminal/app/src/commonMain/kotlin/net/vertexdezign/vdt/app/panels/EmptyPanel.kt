@@ -17,7 +17,7 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 fun EmptyPanel(modifier: Modifier = Modifier) {
   Panel(title = "ToDo", icon = Icons.Filled.Bolt, modifier = modifier) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-      Text("TODO", color = VdtColors.Gray, fontSize = 12.sp)
+      Text("TODO", color = VdtColors.DarkGray, fontSize = 12.sp)
     }
   }
 }

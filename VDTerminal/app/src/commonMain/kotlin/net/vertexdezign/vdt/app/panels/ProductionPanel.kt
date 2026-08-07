@@ -111,7 +111,7 @@ private fun ProductionPointDetail(point: ProductionPoint, onCommand: (ClientMess
   ) {
     Text(point.name, color = VdtColors.TextDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     if (point.lines.isEmpty()) {
-      Text("This production has no production lines", color = VdtColors.Gray, fontSize = 11.sp)
+      Text("This production has no production lines", color = VdtColors.DarkGray, fontSize = 11.sp)
     }
     point.lines.forEach { line -> LineCard(point.id, line, byType, point.isFactory, onCommand) }
   }
@@ -169,7 +169,7 @@ private fun LineCard(
 
     Text(
       "${formatInt(line.cyclesPerMonth)} cycles/mo · ${formatInt(line.costsPerMonth)}/mo",
-      color = VdtColors.Gray,
+      color = VdtColors.DarkGray,
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
     )
@@ -184,7 +184,7 @@ private fun IoGroup(
   onSetMode: ((String, OutputMode) -> Unit)?,
 ) {
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-    Text(label.uppercase(), color = VdtColors.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    Text(label.uppercase(), color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     io.forEach { entry ->
       val fill = storageByType[entry.type]
       IoRow(entry, fill, onSetMode)
@@ -331,7 +331,7 @@ private fun statusStyle(status: String): Pair<Color, String> = when (status) {
   "running" -> VdtColors.Green to "Running"
   "missingInputs" -> VdtColors.Amber to "Missing input"
   "noOutputSpace" -> VdtColors.Red to "Out of space"
-  else -> VdtColors.Gray to "Inactive"
+  else -> VdtColors.DarkGray to "Inactive"
 }
 
 private fun modeLabel(mode: String): String = when (mode) {

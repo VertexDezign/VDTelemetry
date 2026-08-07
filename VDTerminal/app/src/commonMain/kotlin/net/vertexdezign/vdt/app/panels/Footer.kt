@@ -24,7 +24,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,9 +36,6 @@ import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.state.Favourite
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
-
-private val Gray400 = Color(0xFF9CA3AF)
-private val Gray600 = Color(0xFF4B5563)
 
 /**
  * Bottom bar — a **shell** surface, not a vehicle readout.
@@ -230,7 +226,7 @@ private fun PageDots(pages: List<Page>, currentPageId: String?, onSelectPage: (S
         Modifier
           .size(if (active) 9.dp else 6.dp)
           .clip(CircleShape)
-          .background(if (active) VdtColors.White else Gray600)
+          .background(if (active) VdtColors.White else VdtColors.OnBlackTrack)
           .clickable(interactionSource = null, indication = null) { onSelectPage(page.id) },
       )
     }
@@ -247,7 +243,7 @@ private fun AlertChip(title: String, severity: AlertSeverity, extra: Int, onClic
   val background = when (severity) {
     AlertSeverity.Critical -> VdtColors.Red
     AlertSeverity.Warning -> VdtColors.Amber
-    AlertSeverity.Info -> Gray600
+    AlertSeverity.Info -> VdtColors.OnBlackTrack
   }
   Row(
     Modifier
@@ -268,7 +264,7 @@ private fun AlertChip(title: String, severity: AlertSeverity, extra: Int, onClic
       overflow = TextOverflow.Ellipsis,
     )
     if (extra > 0) {
-      Text("+$extra", color = Gray400, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+      Text("+$extra", color = VdtColors.OnBlackMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
   }
 }

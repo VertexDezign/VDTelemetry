@@ -94,7 +94,7 @@ fun NotificationCenter(
             Icon(
               Icons.Filled.NotificationsNone,
               null,
-              tint = VdtColors.Gray,
+              tint = VdtColors.TextDisabled,
               modifier = Modifier.size(28.dp),
             )
             Text("Nothing has come up", fontSize = 12.sp, color = VdtColors.DarkGray)

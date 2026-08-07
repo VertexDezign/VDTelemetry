@@ -276,10 +276,9 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
 }
 
 /**
- * A field name in the toolbar. [VdtColors.DarkGray], not [VdtColors.Gray]: the toolbar's tinted
- * background leaves the lighter tone at roughly 1.2:1 against it, which is not a faint label but an
- * invisible one. This is the same tone the unselected [Chip]s and icons beside it use, so the labels
- * read as secondary without disappearing.
+ * A field name in the toolbar. [VdtColors.DarkGray] is the palette's quiet ink — see [VdtColors] for
+ * why there is no paler one. It is the same tone the unselected [Chip]s and icons beside it use, so
+ * the labels read as secondary without disappearing into the toolbar's tinted background.
  */
 @Composable
 private fun Label(text: String) {

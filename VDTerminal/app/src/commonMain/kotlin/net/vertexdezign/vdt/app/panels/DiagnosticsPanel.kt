@@ -40,7 +40,7 @@ fun DiagnosticsPanel(stats: ChannelStatsData?, modifier: Modifier = Modifier) {
   Panel(title = "Channel Diagnostics", icon = Icons.Filled.Schedule, modifier = modifier) {
     if (stats == null) {
       Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("WAITING FOR STATS…", color = VdtColors.Gray, fontSize = 12.sp)
+        Text("WAITING FOR STATS…", color = VdtColors.DarkGray, fontSize = 12.sp)
       }
       return@Panel
     }
@@ -90,7 +90,7 @@ private fun RowScope.HeaderCell(text: String, weight: Float) {
   Text(
     text,
     modifier = Modifier.weight(weight),
-    color = VdtColors.Gray,
+    color = VdtColors.DarkGray,
     fontSize = 9.sp,
     fontWeight = FontWeight.Bold,
   )

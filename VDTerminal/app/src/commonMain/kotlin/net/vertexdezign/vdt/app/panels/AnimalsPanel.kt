@@ -105,7 +105,7 @@ private fun PenRow(name: String, subtitle: String, selected: Boolean, onClick: (
       maxLines = 1,
       overflow = TextOverflow.Ellipsis,
     )
-    Text(subtitle, color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.Gray, fontSize = 10.sp)
+    Text(subtitle, color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray, fontSize = 10.sp)
   }
 }
 
@@ -150,7 +150,7 @@ private fun HusbandryDetail(pen: Husbandry) {
 
 @Composable
 private fun SectionLabel(text: String) {
-  Text(text.uppercase(), color = VdtColors.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+  Text(text.uppercase(), color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
 }
 
 @Composable
@@ -206,7 +206,7 @@ private fun AnimalGroupRow(group: HusbandryAnimalGroup) {
     val repro = if (group.supportsReproduction) " · Repro ${group.reproduction}%" else ""
     Text(
       "Age ${group.age} mo · Health ${group.health}%$repro",
-      color = VdtColors.Gray,
+      color = VdtColors.DarkGray,
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
     )

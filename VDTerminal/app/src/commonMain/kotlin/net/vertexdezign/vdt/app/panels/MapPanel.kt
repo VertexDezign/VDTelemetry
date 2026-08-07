@@ -1914,7 +1914,7 @@ private fun CourseRangeRow(nearby: Int, onNearby: (Int) -> Unit) {
         label,
         fontSize = 12.sp,
         fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-        color = if (on) VdtColors.Accent else VdtColors.DarkGray,
+        color = if (on) VdtColors.AccentText else VdtColors.DarkGray,
         modifier = Modifier.clickableNoRipple { onNearby(value) },
       )
     }

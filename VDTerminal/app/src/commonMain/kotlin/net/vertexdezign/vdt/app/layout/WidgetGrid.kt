@@ -302,7 +302,7 @@ private fun AddSlot(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Icon(
       Icons.Filled.Add,
       "add widget",
-      tint = VdtColors.DarkGray.copy(alpha = 0.6f),
+      tint = VdtColors.TextDisabled,
       modifier = Modifier.size(18.dp),
     )
   }
@@ -329,6 +329,11 @@ private fun CtrlButton(
       .clickable(enabled = enabled, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
-    Icon(icon, description, tint = if (enabled) VdtColors.DarkGray else VdtColors.Gray, modifier = Modifier.size(16.dp))
+    Icon(
+      icon,
+      description,
+      tint = if (enabled) VdtColors.DarkGray else VdtColors.TextDisabled,
+      modifier = Modifier.size(16.dp),
+    )
   }
 }

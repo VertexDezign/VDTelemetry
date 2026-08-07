@@ -183,7 +183,7 @@ private fun MissingTarget(target: String) {
     Text(
       "This device is pinned to “$target”, which no longer exists.\n" +
         "Exit display mode, or open ?display=<page> for one that does.",
-      color = VdtColors.DarkGray,
+      color = VdtColors.OnBlackMuted,
       fontSize = 13.sp,
       textAlign = TextAlign.Center,
       modifier = Modifier.padding(top = 10.dp, start = 24.dp, end = 24.dp),

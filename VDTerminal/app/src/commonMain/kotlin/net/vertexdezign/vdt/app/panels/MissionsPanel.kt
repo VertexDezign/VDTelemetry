@@ -157,7 +157,7 @@ private fun MissionList(
     if (limit != null) {
       Text(
         "${limit.active} / ${limit.max} ACTIVE",
-        color = if (limit.isReached) VdtColors.Amber else VdtColors.Gray,
+        color = if (limit.isReached) VdtColors.Amber else VdtColors.DarkGray,
         fontSize = 9.sp,
         fontWeight = FontWeight.Bold,
       )
@@ -219,7 +219,7 @@ private fun TypeChip(label: String, count: Int, selected: Boolean, onClick: () -
     )
     Text(
       count.toString(),
-      color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.Gray,
+      color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray,
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
     )
@@ -230,7 +230,7 @@ private fun TypeChip(label: String, count: Int, selected: Boolean, onClick: () -
 private fun ListLabel(text: String) {
   Text(
     text.uppercase(),
-    color = VdtColors.Gray,
+    color = VdtColors.DarkGray,
     fontSize = 9.sp,
     fontWeight = FontWeight.Bold,
     modifier = Modifier.padding(top = 4.dp),
@@ -241,7 +241,7 @@ private fun ListLabel(text: String) {
 private fun MissionRow(mission: Mission, selected: Boolean, onClick: () -> Unit) {
   val bg = if (selected) VdtColors.Green else VdtColors.TrackGray
   val fg = if (selected) VdtColors.White else VdtColors.TextDark
-  val subFg = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.Gray
+  val subFg = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray
 
   Column(
     Modifier
@@ -298,7 +298,12 @@ private fun MissionDetailView(
   ) {
     Text(mission.title, color = VdtColors.TextDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     mission.npc?.let { npc ->
-      Text("${npc.name} · ${mission.location}", color = VdtColors.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+      Text(
+        "${npc.name} · ${mission.location}",
+        color = VdtColors.DarkGray,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+      )
     }
     if (mission.description.isNotEmpty()) {
       Text(mission.description, color = VdtColors.DarkGray, fontSize = 11.sp)
@@ -353,7 +358,7 @@ private fun MissionActions(
       // Saying why beats three dead buttons: the right is granted per farmhand in the game's own menu.
       Text(
         "You may not manage this farm's contracts",
-        color = VdtColors.Gray,
+        color = VdtColors.DarkGray,
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
       )
@@ -384,7 +389,7 @@ private fun MissionActions(
 @Composable
 private fun ActionButton(label: String, color: Color, enabled: Boolean = true, onClick: () -> Unit) {
   val bg = if (enabled) color else VdtColors.TrackGray
-  val fg = if (enabled) VdtColors.White else VdtColors.Gray
+  val fg = if (enabled) VdtColors.White else VdtColors.TextDisabled
   Box(
     Modifier
       .clip(RoundedCornerShape(4.dp))
@@ -402,7 +407,7 @@ private fun DetailRow(detail: MissionDetail) = KeyValue(detail.title, detail.val
 @Composable
 private fun KeyValue(key: String, value: String) {
   Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-    Text(key, color = VdtColors.Gray, fontSize = 11.sp)
+    Text(key, color = VdtColors.DarkGray, fontSize = 11.sp)
     Text(
       value,
       color = VdtColors.TextDark,
@@ -478,7 +483,7 @@ fun MissionsSummary(data: MissionsData?, modifier: Modifier = Modifier) {
             )
           }
           if (offered > 0) {
-            Text("$offered ON OFFER", color = VdtColors.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("$offered ON OFFER", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
           }
         }
     }

@@ -43,7 +43,7 @@ internal fun OwnedRow(name: String, subtitle: String, selected: Boolean, onClick
     )
     Text(
       subtitle,
-      color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.Gray,
+      color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray,
       fontSize = 10.sp,
     )
   }

@@ -47,6 +47,6 @@ fun ActionIcon(
 @Composable
 fun Centered(text: String, modifier: Modifier = Modifier) {
   Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-    Text(text, color = VdtColors.Gray, fontSize = 12.sp)
+    Text(text, color = VdtColors.DarkGray, fontSize = 12.sp)
   }
 }

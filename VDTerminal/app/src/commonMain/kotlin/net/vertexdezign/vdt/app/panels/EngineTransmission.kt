@@ -300,6 +300,6 @@ private fun usage(value: Float?, unit: String?): String = if (value == null) "--
 private fun Metric(value: String, label: String) {
   Column(horizontalAlignment = Alignment.CenterHorizontally) {
     Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
-    Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.Gray)
+    Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
   }
 }

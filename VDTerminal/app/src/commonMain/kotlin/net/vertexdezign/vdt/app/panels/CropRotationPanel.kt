@@ -88,12 +88,12 @@ fun CropRotationPanel(data: CropRotationData?, modifier: Modifier = Modifier, on
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically,
             ) {
-              Text("PLANS", color = VdtColors.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+              Text("PLANS", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
               ActionIcon(Icons.Filled.Add, "new rotation", VdtColors.Green, onClick = { showCreate = true })
             }
           }
           if (data.rotations.isEmpty()) {
-            Text("No rotation plans yet", color = VdtColors.Gray, fontSize = 11.sp)
+            Text("No rotation plans yet", color = VdtColors.DarkGray, fontSize = 11.sp)
           }
           data.rotations
             .sortedBy { it.index }
@@ -168,7 +168,7 @@ private fun PlanSection(
     }
 
     if (plan.sequence.isEmpty()) {
-      Text("No crops in this rotation", color = VdtColors.Gray, fontSize = 11.sp)
+      Text("No crops in this rotation", color = VdtColors.DarkGray, fontSize = 11.sp)
     } else {
       plan.sequence.forEachIndexed { i, slot ->
         SlotRow(
@@ -225,7 +225,7 @@ private fun SlotRow(
     Box(
       Modifier.size(8.dp).clip(CircleShape).background(if (fallow) VdtColors.TrackGray else VdtColors.Green),
     )
-    Text("$position.", color = VdtColors.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text("$position.", color = VdtColors.DarkGray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     // Crop + catch crop on one line (crop gets the extra room), current % on the right.
     CropDropdown(
       modifier = Modifier.weight(1.3f),
@@ -302,7 +302,7 @@ private fun CropDropdown(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f, fill = false),
       )
-      Icon(Icons.Filled.ArrowDropDown, "change", tint = VdtColors.Gray, modifier = Modifier.size(14.dp))
+      Icon(Icons.Filled.ArrowDropDown, "change", tint = VdtColors.DarkGray, modifier = Modifier.size(14.dp))
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
       options.forEach { option ->
