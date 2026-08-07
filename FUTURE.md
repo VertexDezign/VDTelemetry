@@ -36,7 +36,7 @@ none of it is drawn.
   that has since been closed. `RigSlotPanel` still finds its slots by string-matching `position ==
   "FRONT"` / `"BACK"`, so anything nested or sideways is unrepresentable: `examples/json/nested_trailers.json`
   is a committed fixture the app cannot draw. Mod version 4 exports what a real diagram needs —
-  `schema` (the engine's own `schemaOverlay`: name, offsets, and per joint `x`/`y`/`rotation`/`invertX`
+  `schema` (the engine's own `schemaOverlay`: name, offsets, and per-joint `x`/`y`/`rotation`/`invertX`
   plus the lifted offsets) and `jointDescIndex` on each implement, which is the link that turns flat
   per-object data into a drawable tree. The layout arithmetic was kept **out** of the mod on purpose so
   the diagram can change without a mod release; `InputHelpDisplay:collectVehicleSchemaDisplayOverlays`
@@ -125,7 +125,7 @@ started**: there is no `IsoBusApp`, no `IsoBusPanel`, no widget.
 
 ## Missions (#17)
 
-Built and validated in game. Four things were left.
+Built and validated in-game. Four things were left.
 
 - **Command outcomes have nowhere to go — deliberately, for now.** The engine answers every action with
   a state (`MissionStartState` has 8 values, five of them ordinary refusals a user should see) and the

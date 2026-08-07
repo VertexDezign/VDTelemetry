@@ -18,9 +18,10 @@ follow-ups the finished plans left behind, the in-game checks nobody has run, an
 limitations that are not bugs. Read it before proposing work that looks new; it may already be there,
 with the reason it was left.
 
-Feature plans live at the repo root as `<topic>-plan.md` while their feature is being built, and are
-**deleted once it is** — the reasoning moves into the code, which is where it gets read, and whatever
-the plan left undone moves to `FUTURE.md`. `isobus-plan.md` (issue #58) is the only live one.
+Feature plans live at the repo root as `<topic>-plan.md` while their feature is in progress, and are
+**deleted once the feature is built** — the reasoning moves into the code, which is where it gets
+read, and whatever the plan left undone moves to `FUTURE.md`. `isobus-plan.md` (issue #58) is the
+only live one.
 
 ## Commit messages
 
