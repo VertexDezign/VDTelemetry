@@ -44,7 +44,7 @@ class SectionViewTest {
     // Raised, or driving backwards, or switched off: the tool covers nothing.
     val off = workAreaStatus(listOf(area(active = false)))!!
     assertEquals("Sprayer · off", off.label)
-    assertEquals(VdtColors.Gray, off.color)
+    assertEquals(VdtColors.TextDisabled, off.color)
   }
 
   @Test

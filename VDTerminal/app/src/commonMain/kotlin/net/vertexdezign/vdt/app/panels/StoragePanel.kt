@@ -121,7 +121,7 @@ private fun StandaloneStorageDetail(storage: StandaloneStorage, onCommand: (Clie
       ObjectStorageBody(storage, onCommand)
     } else {
       if (storage.fills.isEmpty()) {
-        Text("This storage is empty", color = VdtColors.Gray, fontSize = 11.sp)
+        Text("This storage is empty", color = VdtColors.DarkGray, fontSize = 11.sp)
       }
       storage.fills.forEach { fill -> FillRow(fill) }
     }
@@ -143,7 +143,7 @@ private fun ObjectStorageBody(storage: StandaloneStorage, onCommand: (ClientMess
     rightLabel = "${formatInt(storage.count)} / ${formatInt(storage.capacity)}",
   )
   if (storage.count == 0) {
-    Text("This storage is empty", color = VdtColors.Gray, fontSize = 11.sp)
+    Text("This storage is empty", color = VdtColors.DarkGray, fontSize = 11.sp)
   }
   storage.objects.forEach { obj ->
     Row(

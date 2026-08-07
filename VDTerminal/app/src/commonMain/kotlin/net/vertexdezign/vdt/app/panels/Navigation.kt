@@ -257,8 +257,8 @@ internal fun GuidanceLamp(
   size: Dp = 20.dp,
 ) {
   val tint = when {
-    !enabled -> VdtColors.Gray
-    active -> VdtColors.Accent
+    !enabled -> VdtColors.TextDisabled
+    active -> VdtColors.AccentText
     else -> VdtColors.DarkGray
   }
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

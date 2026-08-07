@@ -94,7 +94,7 @@ object ShortcutWidget : Widget {
       ShortcutTile(
         Icons.AutoMirrored.Filled.HelpOutline,
         "Unavailable",
-        tint = VdtColors.Gray,
+        tint = VdtColors.TextDisabled,
         onClick = null,
         modifier = modifier,
       )

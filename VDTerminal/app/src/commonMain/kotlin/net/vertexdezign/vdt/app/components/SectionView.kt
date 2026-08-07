@@ -331,7 +331,7 @@ private fun SpotReadout(nozzles: PfNozzles, live: Boolean) {
       "SPOT",
       fontSize = 8.sp,
       fontWeight = FontWeight.Bold,
-      color = if (live) VdtColors.ProgressBlue else VdtColors.Gray,
+      color = if (live) VdtColors.ProgressBlue else VdtColors.DarkGray,
     )
     Text(
       if (live) "${(nozzles.saved * 100f).roundToInt()}% saved" else "—",
@@ -445,7 +445,7 @@ internal fun workAreaStatus(areas: List<WorkArea>): WorkStatus? {
     when {
       working > 0 -> VdtColors.Green
       active > 0 -> VdtColors.Amber
-      else -> VdtColors.Gray
+      else -> VdtColors.TextDisabled
     }
   return WorkStatus(label, color, active = active > 0, working = working > 0)
 }

@@ -100,7 +100,7 @@ fun WidgetConfigDialog(
       ) {
         for (option in options) {
           Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(option.label.uppercase(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.Gray)
+            Text(option.label.uppercase(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
             if (option.choices.isEmpty()) {
               Text("Nothing to choose from right now.", fontSize = 12.sp, color = VdtColors.DarkGray)
             } else if (option.multi) {
