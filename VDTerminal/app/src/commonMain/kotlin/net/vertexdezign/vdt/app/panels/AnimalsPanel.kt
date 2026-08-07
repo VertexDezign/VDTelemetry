@@ -31,6 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -213,7 +216,7 @@ private enum class AnimalColumn(val label: String, val width: Dp?) {
   /** Figures are end-aligned; the name is not. */
   val numeric: Boolean get() = this != NAME
 
-  fun valueOf(group: HusbandryAnimalGroup): String = when (this) {
+  fun cellText(group: HusbandryAnimalGroup): String = when (this) {
     NAME -> group.name
 
     COUNT -> group.count.toString()
@@ -278,7 +281,7 @@ private fun AnimalTable(groups: List<HusbandryAnimalGroup>, sort: AnimalSort?, o
       ) {
         AnimalColumn.entries.forEach { column ->
           Text(
-            column.valueOf(group),
+            column.cellText(group),
             color = if (column == AnimalColumn.NAME) VdtColors.TextDark else VdtColors.DarkGray,
             fontSize = 12.sp,
             fontWeight = if (column == AnimalColumn.NAME) FontWeight.SemiBold else FontWeight.Bold,
@@ -298,16 +301,27 @@ private fun AnimalTableHeader(sort: AnimalSort?, onSort: (AnimalColumn) -> Unit)
   Row(Modifier.fillMaxWidth().background(VdtColors.TrackGray), verticalAlignment = Alignment.CenterVertically) {
     AnimalColumn.entries.forEach { column ->
       val active = sort?.column == column
+      val descending = active && sort.descending
       Row(
         cellModifier(column)
-          .clickable { onSort(column) }
+          // A header is a button that reports where the sort currently sits; the arrow beside it is
+          // the same fact drawn, so it stays decorative rather than being announced a second time
+          // (`clickable` merges its descendants into this one node).
+          .clickable(role = Role.Button) { onSort(column) }
+          .semantics {
+            stateDescription = when {
+              !active -> "not sorted"
+              descending -> "sorted descending"
+              else -> "sorted ascending"
+            }
+          }
           .padding(horizontal = 6.dp, vertical = 6.dp),
         horizontalArrangement = if (column.numeric) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
       ) {
         // The arrow leads on the end-aligned figure columns so the label keeps the same right edge as
         // the values below it, and its slot is reserved even when inactive so nothing shifts on click.
-        if (column.numeric) SortArrow(active, sort?.descending == true)
+        if (column.numeric) SortArrow(active, descending)
         Text(
           column.label.uppercase(),
           color = if (active) VdtColors.TextDark else VdtColors.DarkGray,
@@ -316,7 +330,7 @@ private fun AnimalTableHeader(sort: AnimalSort?, onSort: (AnimalColumn) -> Unit)
           maxLines = 1,
           overflow = TextOverflow.Ellipsis,
         )
-        if (!column.numeric) SortArrow(active, sort?.descending == true)
+        if (!column.numeric) SortArrow(active, descending)
       }
     }
   }
@@ -328,7 +342,8 @@ private fun SortArrow(active: Boolean, descending: Boolean) {
     if (active) {
       Icon(
         if (descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
-        contentDescription = if (descending) "sorted descending" else "sorted ascending",
+        // Decorative: the header cell carries the sort state as its stateDescription.
+        contentDescription = null,
         tint = VdtColors.TextDark,
         modifier = Modifier.fillMaxSize(),
       )
