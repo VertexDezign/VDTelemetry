@@ -410,6 +410,13 @@ function VDT.FinanceExporter.collect()
     end
   end
 
+  -- The replacement loan system, when one is installed. Its presence is what tells the app to render
+  -- it instead of the base-game block above -- which is why that block is omitted rather than zeroed
+  -- (loansAvailable), and why this carries no "which system" discriminator.
+  if VDT.EnhancedLoanSystem ~= nil then
+    model.enhancedLoans = VDT.EnhancedLoanSystem.collect(VDT.ProductionExporter.ownFarmId())
+  end
+
   local environment = g_currentMission.environment
   local buckets = VDT.FinanceExporter.collectBuckets(farm.stats)
   if #buckets > 0 and type(environment) == "table" then
@@ -444,6 +451,11 @@ function VDT.FinanceExporter.tick(debugger, dt)
   end
   installHook(debugger)
   subscribe(debugger)
+  -- The replacement loan system's borrowing ceiling is expensive enough to cache; it ages here rather
+  -- than owning a timer of its own.
+  if VDT.EnhancedLoanSystem ~= nil then
+    VDT.EnhancedLoanSystem.tick(dt)
+  end
   local farm = VDT.FinanceExporter.ownFarm()
   if farm ~= nil then
     refreshHistory(farm, debugger, dt)

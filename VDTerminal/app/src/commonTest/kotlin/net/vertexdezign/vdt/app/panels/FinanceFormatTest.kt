@@ -3,6 +3,7 @@ package net.vertexdezign.vdt.app.panels
 import net.vertexdezign.vdt.app.theme.VdtColors
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * The finance panel's money formatting. Worth pinning down because the grouping is hand-rolled (no
@@ -36,6 +37,29 @@ class FinanceFormatTest {
   fun zeroIsNeverSigned() {
     // A "+0" in a table of transactions reads as a credit that didn't happen.
     assertEquals("0", formatMoney(0, withSign = true))
+  }
+
+  @Test
+  fun annuityMatchesTheModsOwnFormula() {
+    // ELS_loan:calculateAnnuity — amount * ((1+r)^n * r) / ((1+r)^n - 1) / 12, with n in YEARS.
+    // 200,000 over 20 years at 3.5%: (1.035)^20 = 1.98979, factor = 0.070361, /12 → 1172.68.
+    // Duplicated in the app only so the "take a loan" panel can price the deal before the command
+    // goes; the mod remains the authority, which is why this is pinned to its arithmetic.
+    assertEquals(1173L, annuity(200_000, 3.5f, 20))
+
+    // Shorter term, bigger instalment — the sanity check that `years` is not being read as months.
+    assertTrue(annuity(200_000, 3.5f, 5) > annuity(200_000, 3.5f, 20))
+  }
+
+  @Test
+  fun annuityDegradesRatherThanDividingByZero() {
+    // A zero rate makes the mod's denominator ((1+r)^n - 1) zero, so this falls back to plain equal
+    // instalments instead of producing NaN on screen.
+    assertEquals(1000L, annuity(120_000, 0f, 10))
+
+    // Nothing borrowed, or no term, is not a payment.
+    assertEquals(0L, annuity(0, 3.5f, 20))
+    assertEquals(0L, annuity(200_000, 3.5f, 0))
   }
 
   @Test

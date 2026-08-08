@@ -301,6 +301,68 @@ class FinanceModelTest {
   }
 
   @Test
+  fun parsesTheEnhancedLoanSystemBlock() {
+    val data =
+      VdtParser.parseFinance(
+        """
+        {
+          "version": "1",
+          "balance": 240500,
+          "loansAvailable": false, "canManageLoan": true,
+          "enhancedLoans": {
+            "canManage": true, "maxAmount": 486200,
+            "interest": 3.5, "dynamicInterest": true, "maxDurationYears": 20,
+            "redemptionFraction": 0.05,
+            "loans": [
+              { "id": 3, "amount": 120000, "restAmount": 0, "interest": 2.9,
+                "durationYears": 5, "restMonths": 0, "monthlyRate": 2148,
+                "monthlyInterest": 0, "paidOff": true, "specialRedemptionDone": true },
+              { "id": 8, "amount": 200000, "restAmount": 184320, "interest": 3.5,
+                "durationYears": 20, "restMonths": 221, "monthlyRate": 1159,
+                "monthlyInterest": 538, "totalCost": 278160 }
+            ]
+          }
+        }
+        """.trimIndent(),
+      )
+
+    val els = assertNotNull(data.enhancedLoans)
+    assertFalse(data.loansAvailable, "the base-game block must be gone when a replacement is present")
+    assertNull(data.loan)
+
+    assertTrue(els.canManage)
+    assertEquals(486200L, els.maxAmount)
+    assertEquals(3.5f, els.interest)
+    assertTrue(els.dynamicInterest)
+    assertEquals(20, els.maxDurationYears)
+    // Absent means false — one special redemption per loan per year, and the fraction cap applies.
+    assertFalse(els.multipleRedemptions)
+    assertEquals(0.05f, els.redemptionFraction)
+
+    // Paid-off and running arrive in one list; only the running ones count toward what is owed.
+    assertEquals(2, els.loans.size)
+    assertEquals(1, els.running.size)
+    assertEquals(184320L, els.totalOutstanding)
+    assertEquals(1159L, els.totalMonthlyRate)
+
+    val running = els.running.single()
+    assertEquals(8, running.id)
+    assertEquals(221, running.restMonths)
+    assertEquals(278160L, running.totalCost)
+    // The instalment splits into interest and principal.
+    assertEquals(621L, running.monthlyPrincipal)
+    assertEquals((200000 - 184320).toFloat() / 200000, running.progress)
+
+    // A cleared loan keeps its record but drops the figure that no longer means anything.
+    val cleared = els.loans.first { it.paidOff }
+    assertEquals(0L, cleared.restAmount)
+    assertNull(cleared.totalCost)
+    assertEquals(1f, cleared.progress)
+
+    assertRoundTrips(data)
+  }
+
+  @Test
   fun spectatorHasNoFarmRatherThanAZeroBalance() {
     // The mod keeps the channel present but omits every money field when there is no farm to report on.
     val data = VdtParser.parseFinance("""{"version":"1"}""")
