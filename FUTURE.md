@@ -183,9 +183,38 @@ the checks below.
   The in-game screen reads the same cached field and has the identical quirk, so we match it rather
   than walking every placeable ourselves. If it bites in practice, say "up to 500,000" rather than
   recomputing equity.
-- **Out of scope, explicitly:** the loan *is* the base-game one. #47 replaces it with Enhanced Loan
-  System's multi-loan model, and the plan's "Where #47 plugs in" section holds the seam — a sibling
-  `loans[]` from `src/integrations/`, dispatched on presence, with `setLoan` left alone.
+---
+
+## Enhanced Loan System (#47, under #46)
+
+Built on top of #48, **not yet validated in-game**. The `enhancedLoans` block on the finance channel
+carries the bank's terms and the farm's annuity loans; `takeLoan` / `repayLoan` drive the mod's own
+`ELS_loanManager`. Its *presence* is the whole signal — when it is there the base-game loan fields are
+absent and the app renders this instead, the same "dispatch on presence" rule the ISOBUS sections use.
+
+- **ELS does not disable base loans the way you would expect.** It overwrites
+  `InGameMenuStatisticsFrame.hasPlayerLoanPermission`, a method on the in-game *frame*, leaving both
+  `Platform.gameplay.hasLoans` and the `farmManager` right saying yes. Without the detector the
+  terminal kept offering Borrow/Repay for a system the player no longer has, and `setLoan` would have
+  created a base-game loan behind ELS's back. Fixed; recorded so nobody "simplifies" that check away.
+- **It uses a different permission from the base loan.** ELS gates on `MANAGE_RIGHTS`, the base loan on
+  `farmManager`, so `enhancedLoans.canManage` and `canManageLoan` are genuinely different questions and
+  can disagree for the same player.
+- **ELS clamps nothing outside its dialogs.** `addLoan` accepts any amount and any term; the mod's
+  limits live in the GUI's text-input handlers, which a terminal never goes through. Every bound is
+  therefore re-derived in `EnhancedLoanControl` — and the borrowing ceiling is recomputed *fresh* there
+  rather than trusted from the read side's 30 s cache.
+- **The ceiling is expensive.** `maxLoanAmountForFarm` walks every vehicle calling `getSellPrice()`
+  plus every farmland — the same cost that made us read `farm.loanMax` rather than recompute equity for
+  the base loan. Cached for 30 s. If that still shows up in a profile, the next step is to recompute it
+  only while the app actually has the take-loan controls open.
+- **The annuity formula is duplicated in the app**, so the take-loan panel can price a deal before the
+  command goes. `FinanceFormatTest` pins it to the mod's arithmetic; the mod stays the authority.
+- **Still open:** paid-off loans accumulate in the export (the mod keeps them forever, and the app only
+  shows a count). If a long-running farm ends up with dozens, cap or summarise them mod-side.
+- **Not built:** ELS's server settings (interest rate, mortgage ratios, max duration) are read-only
+  here. They are a settings screen, not a finance one, and changing them from a terminal is a different
+  feature.
 
 ---
 
@@ -305,6 +334,13 @@ Each one is cheap to do while playing and settles something above.
   Worth watching across several rollovers too: only one has been seen.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod
   subscribes to `ChangeLoanEvent`, which the engine publishes on both sides of the wire.
+- With Enhanced Loan System installed: does the app show its loans instead of the base-game block, and
+  do `takeLoan` / `repayLoan` actually land from a dedicated-server client? Both reach the mod's own
+  manager directly, which is exactly what its in-game buttons do — a client-created loan replicates
+  through `OBJECT_CREATED`, and a redemption through the client's dirty-object update stream — but that
+  is read off the engine source, not seen working from a terminal.
+- Does an ELS loan taken from the terminal survive a server restart? That is the end-to-end proof the
+  loan reached the server's table rather than only the client's.
 - Over a longer play, does the 100-entry log cap cover a useful span, or does an ordinary session
   overflow it in minutes? Cheap to raise; the answer only comes from playing.
 

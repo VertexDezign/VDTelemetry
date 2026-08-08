@@ -32,15 +32,47 @@
 ---@field date string in-game date, DD.MM.YYYY (same format as environment.date)
 ---@field time string in-game time, HH:MM
 
+---@class EnhancedLoanModel one annuity loan from FS25_EnhancedLoanSystem (src/integrations/)
+---@field id number the loan's NETWORK OBJECT id -- ELS_loan is a replicated Object, so this handle
+---  exists and agrees on both sides of the wire. Live-game only; never persisted, never replayed.
+---@field amount number the sum originally borrowed
+---@field restAmount number what is still outstanding
+---@field interest number annual rate in percent (3.5 means 3.5%)
+---@field durationYears number the agreed term, in years
+---@field restMonths number instalments left (the mod counts the term down in months)
+---@field monthlyRate number? the annuity -- what is debited at each period change
+---@field monthlyInterest number? how much of the next instalment is interest rather than repayment
+---@field totalCost number? what the loan will have cost in total when it runs to term; omitted once
+---  paid off, where it no longer means anything
+---@field paidOff boolean? true once cleared (omitted while running)
+---@field specialRedemptionDone boolean? true if this loan has had its extra payment this year
+
+---@class EnhancedLoansModel the FS25_EnhancedLoanSystem block. Its PRESENCE is what tells the app the
+---  base-game loan has been replaced -- there is no "which system" discriminator anywhere.
+---@field canManage boolean whether this player holds MANAGE_RIGHTS (NOT the base loan's farmManager)
+---@field maxAmount number? what the farm could still borrow; recomputed on its own slow throttle
+---  because the mod walks every vehicle and farmland to derive it
+---@field interest number? the bank's current annual rate, in percent (it drifts when dynamic)
+---@field dynamicInterest boolean? true when the rate moves on its own at each period change
+---@field maxDurationYears number? the longest term the bank offers
+---@field multipleRedemptions boolean? whether more than one special redemption per loan per year is allowed
+---@field redemptionFraction number? fraction of a loan's ORIGINAL amount one special redemption may
+---  clear -- a cap ELS applies only while multipleRedemptions is false
+---@field loans EnhancedLoanModel[]? current and paid-off together, flagged by `paidOff`, sorted by id
+
 ---@class FinanceModel
 ---@field version string channel version, independent of VDTelemetry.VERSION
 ---@field balance number? the farm's money
----@field loan number? outstanding loan
----@field loanMax number? borrowing ceiling (farm.loanMax -- read, never recomputed)
----@field loanStep number? the in-game borrow/repay granularity, 5000
----@field loanInterestPerDay number? what the current loan costs per in-game day
----@field loansAvailable boolean? false where the platform has no loans (Platform.gameplay.hasLoans)
+---@field loan number? outstanding loan; omitted when loansAvailable is false
+---@field loanMax number? borrowing ceiling (farm.loanMax -- read, never recomputed); omitted likewise
+---@field loanStep number? the in-game borrow/repay granularity, 5000; omitted likewise
+---@field loanInterestPerDay number? what the current loan costs per in-game day; omitted likewise
+---@field loansAvailable boolean? whether the BASE-GAME loan is in play: false where the platform has
+---  no loans (Platform.gameplay.hasLoans) OR where a mod has replaced the loan system outright
+---  (FS25_EnhancedLoanSystem). The four fields above are omitted with it.
 ---@field canManageLoan boolean? whether this player holds the farmManager right
+---@field enhancedLoans EnhancedLoansModel? present only when FS25_EnhancedLoanSystem is installed,
+---  in which case loansAvailable is false and the base-game loan fields above are absent
 ---@field periods FinancePeriodModel[]?
 ---@field stats FinanceStatModel[]?
 ---@field history FinanceEventModel[]?

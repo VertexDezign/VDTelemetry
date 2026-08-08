@@ -185,6 +185,16 @@ class CommandWriter(
       is ClientMessage.SetLoan -> {
         """<command id="$id" type="setLoan" amount="${message.amount}"/>"""
       }
+
+      // Enhanced Loan System writes. All ints (positives by the types' own requires, and loanId is a
+      // network object id), so nothing here needs escaping. Every bound is re-derived mod-side.
+      is ClientMessage.TakeLoan -> {
+        """<command id="$id" type="takeLoan" amount="${message.amount}" durationYears="${message.durationYears}"/>"""
+      }
+
+      is ClientMessage.RepayLoan -> {
+        """<command id="$id" type="repayLoan" loanId="${message.loanId}" amount="${message.amount}"/>"""
+      }
     }
 
   /** The shared `TaskInput` attributes for createTask / editTask (detail is user text → escaped). */
