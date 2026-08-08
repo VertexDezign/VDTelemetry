@@ -75,6 +75,10 @@ local sourceFiles = {
   -- ProductionExporter.ownFarmId for the farm scope and MapExporter's normalization for the marker
   -- position, so it is sourced after both.
   "src/collect/MissionExporter.lua",
+  -- Finance channel: the farm's books -- balance, loan, the month-by-month finances table and the
+  -- money notifications as a log (interval + event-driven). Reuses ProductionExporter.ownFarmId for
+  -- the farm scope, so it is sourced after it.
+  "src/collect/FinanceExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/registry.lua",
@@ -104,6 +108,9 @@ local sourceFiles = {
   -- Contract accept/cancel/collect; drives the game's own mission events and reuses
   -- MissionExporter's permission + status helpers, so it is sourced after it
   "src/command/MissionControl.lua",
+  -- Loan write-back (set the farm's loan to a target); drives the game's own ChangeLoanEvent and
+  -- reuses FinanceExporter's farm + permission helpers, so it is sourced after it
+  "src/command/FinanceControl.lua",
   -- Ground-layer subscription: tells the mapLayers channel which raster planes the terminal is
   -- showing, so it sweeps only those (MapLayersExporter is sourced with the collectors above)
   "src/command/MapLayersControl.lua",

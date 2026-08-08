@@ -1,0 +1,46 @@
+-- Model definitions for the finance export channel (finance.json, src/collect/FinanceExporter.lua).
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Finance.kt) and the fixtures in
+-- examples/json/finance/*.
+--
+-- Scope: the LOCAL player's farm only. Three parts, all of them what the in-game finances screen
+-- (InGameMenuStatisticsFrame, Finances sub-category) shows:
+--   * the headline balance + loan block
+--   * `periods` x `stats` -- the month-by-month table, ROW-MAJOR: stats[].values[i] belongs to
+--     periods[i]. Newest first, so index 0 is the period being played.
+--   * `history` -- the money notifications the HUD popped, newest first, session-scoped.
+
+---@class FinancePeriodModel one column of the finances table (one in-game period = one month)
+---@field index number 0 = the current period, 1 = one period back, ...
+---@field period number the game's period number, 1..12
+---@field label string localized month name (g_i18n:formatPeriod)
+---@field year number calendar year the period belongs to (ValueMapper.mapYearToCalendarYear)
+---@field current boolean? true on index 0 only (omitted elsewhere)
+---@field total number sum over every stat row for this period -- income minus expenses
+
+---@class FinanceStatModel one row of the finances table (one FinanceStats bucket)
+---@field name string the game's raw stat name (harvestIncome, purchaseFuel, ...) -- the stable key
+---@field title string localized row label (FinanceStats.statNamesI18n)
+---@field values number[] one signed amount per period, index-aligned with FinancePeriodModel.index
+
+---@class FinanceEventModel one money notification, as the HUD showed it
+---@field seq number monotonic within the session; newest first in the array, so this is the sort key
+---@field amount number signed amount (expenses negative)
+---@field type string? the MoneyType's `statistic` -- joins to FinanceStatModel.name where there is one
+---@field title string? the localized label the notification carried ("Harvest income")
+---@field date string in-game date, DD.MM.YYYY (same format as environment.date)
+---@field time string in-game time, HH:MM
+
+---@class FinanceModel
+---@field version string channel version, independent of VDTelemetry.VERSION
+---@field balance number? the farm's money
+---@field loan number? outstanding loan
+---@field loanMax number? borrowing ceiling (farm.loanMax -- read, never recomputed)
+---@field loanStep number? the in-game borrow/repay granularity, 5000
+---@field loanInterestPerDay number? what the current loan costs per in-game day
+---@field loansAvailable boolean? false where the platform has no loans (Platform.gameplay.hasLoans)
+---@field canManageLoan boolean? whether this player holds the farmManager right
+---@field periods FinancePeriodModel[]?
+---@field stats FinanceStatModel[]?
+---@field history FinanceEventModel[]?
