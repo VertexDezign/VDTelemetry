@@ -18,6 +18,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
@@ -117,6 +118,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // null-when-absent contract as production.
   private val _missions = MutableStateFlow<MissionsData?>(null)
   val missions: StateFlow<MissionsData?> = _missions.asStateFlow()
+
+  // The farm's books (balance, loan, the month-by-month table, the money log), on the mod's slow
+  // interval plus its event kicks; same null-when-absent contract as production.
+  private val _finance = MutableStateFlow<FinanceData?>(null)
+  val finance: StateFlow<FinanceData?> = _finance.asStateFlow()
 
   // Server-measured observed cadence of every channel file (diagnostics), refreshed on the server's
   // own slow timer. Null until the first stats frame arrives.
@@ -218,6 +224,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.Missions -> {
                       _missions.value = msg.data
+                    }
+
+                    is ServerMessage.Finance -> {
+                      _finance.value = msg.data
                     }
 
                     is ServerMessage.ChannelStats -> {

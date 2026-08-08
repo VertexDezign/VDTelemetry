@@ -11,6 +11,7 @@ import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
@@ -49,6 +50,8 @@ class VdtStore(
   val husbandry: StateFlow<HusbandriesData?>,
   /** The farm's contracts — on offer, running, finished; null when the channel is absent. */
   val missions: StateFlow<MissionsData?>,
+  /** The farm's books — balance, loan, the monthly table, the money log; null when absent. */
+  val finance: StateFlow<FinanceData?>,
   /** Server-measured observed cadence of each channel file (diagnostics app); null until first frame. */
   val channelStats: StateFlow<ChannelStatsData?>,
   val wakeLock: StateFlow<WakeLockStatus>,

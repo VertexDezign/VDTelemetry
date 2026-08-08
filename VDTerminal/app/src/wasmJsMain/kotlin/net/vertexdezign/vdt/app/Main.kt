@@ -101,6 +101,7 @@ fun main() {
       storage = repository.storage,
       husbandry = repository.husbandry,
       missions = repository.missions,
+      finance = repository.finance,
       channelStats = repository.channelStats,
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,
