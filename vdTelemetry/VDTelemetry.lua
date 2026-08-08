@@ -114,6 +114,9 @@ local sourceFiles = {
   -- Loan write-back (set the farm's loan to a target); drives the game's own ChangeLoanEvent and
   -- reuses FinanceExporter's farm + permission helpers, so it is sourced after it
   "src/command/FinanceControl.lua",
+  -- Enhanced Loan System write-back (take / specially redeem an annuity loan); drives that mod's own
+  -- manager and reuses its integration handle, sourced with the integrations above
+  "src/command/EnhancedLoanControl.lua",
   -- Ground-layer subscription: tells the mapLayers channel which raster planes the terminal is
   -- showing, so it sweeps only those (MapLayersExporter is sourced with the collectors above)
   "src/command/MapLayersControl.lua",

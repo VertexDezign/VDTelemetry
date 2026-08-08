@@ -107,8 +107,13 @@ private fun FinanceContent(data: FinanceData, hideEmpty: Boolean, onCommand: (Cl
     val sideBySide = maxWidth.value >= SIDE_BY_SIDE_ABOVE
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       FinanceHeadline(data)
-      if (data.loansAvailable) {
-        LoanControls(data, onCommand)
+      // Which loan section appears is decided purely by whether the mod sent a replacement block —
+      // no discriminator, the same "dispatch on presence" rule the ISOBUS sections follow. The two are
+      // mutually exclusive by construction: the mod omits the base-game fields whenever it sends this.
+      val els = data.enhancedLoans
+      when {
+        els != null -> EnhancedLoansSection(els, data.balance ?: 0, onCommand = onCommand)
+        data.loansAvailable -> LoanControls(data, onCommand)
       }
 
       if (sideBySide) {
@@ -452,27 +457,5 @@ private fun TotalsRow(columns: List<FinancePeriod>) {
         modifier = Modifier.width(COLUMN_WIDTH).padding(horizontal = 6.dp, vertical = 7.dp),
       )
     }
-  }
-}
-
-/** A flat action button, matching the contracts panel's. Panel-local: the summary tile has none. */
-@Composable
-private fun FinanceButton(
-  label: String,
-  color: Color,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier,
-  enabled: Boolean = true,
-) {
-  val bg = if (enabled) color else VdtColors.TrackGray
-  val fg = if (enabled) VdtColors.White else VdtColors.TextDisabled
-  Box(
-    modifier
-      .clip(RoundedCornerShape(4.dp))
-      .background(bg)
-      .clickable(enabled = enabled, onClick = onClick)
-      .padding(horizontal = 12.dp, vertical = 7.dp),
-  ) {
-    Text(label.uppercase(), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
   }
 }

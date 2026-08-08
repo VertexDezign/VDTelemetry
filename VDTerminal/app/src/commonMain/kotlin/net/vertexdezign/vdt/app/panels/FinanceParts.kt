@@ -102,15 +102,32 @@ fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
       // The game's threshold, not zero: InGameMenuStatisticsFrame goes red at <= -1.
       color = if (balance <= -1) VdtColors.Red else VdtColors.TextDark,
     )
-    if (data.loansAvailable) {
-      FinanceFigure(
-        label = "Loan",
-        value = formatMoney(data.loan ?: 0),
-        color = if ((data.loan ?: 0) > 0) VdtColors.Amber else VdtColors.DarkGray,
-      )
-      val interest = data.loanInterestPerDay ?: 0
-      if (interest > 0) {
-        FinanceFigure(label = "Interest / day", value = formatMoney(-interest), color = VdtColors.Red)
+    val els = data.enhancedLoans
+    when {
+      // A replacement loan system owns the headline figures too: its debt is the farm's debt, and its
+      // instalment is what actually leaves the account.
+      els != null -> {
+        val owed = els.totalOutstanding
+        FinanceFigure(
+          label = "Loans",
+          value = formatMoney(owed),
+          color = if (owed > 0) VdtColors.Amber else VdtColors.DarkGray,
+        )
+        if (owed > 0) {
+          FinanceFigure(label = "Per month", value = formatMoney(-els.totalMonthlyRate), color = VdtColors.Red)
+        }
+      }
+
+      data.loansAvailable -> {
+        FinanceFigure(
+          label = "Loan",
+          value = formatMoney(data.loan ?: 0),
+          color = if ((data.loan ?: 0) > 0) VdtColors.Amber else VdtColors.DarkGray,
+        )
+        val interest = data.loanInterestPerDay ?: 0
+        if (interest > 0) {
+          FinanceFigure(label = "Interest / day", value = formatMoney(-interest), color = VdtColors.Red)
+        }
       }
     }
   }
@@ -210,9 +227,11 @@ fun FinanceSummary(data: FinanceData?, modifier: Modifier = Modifier) {
               color = moneyColor(current.total),
             )
           }
-          if (data.loansAvailable && (data.loan ?: 0) > 0) {
+          // Whichever loan system is in play, if either owes anything.
+          val owed = data.enhancedLoans?.totalOutstanding ?: (data.loan ?: 0).takeIf { data.loansAvailable } ?: 0
+          if (owed > 0) {
             Text(
-              "Loan ${formatMoney(data.loan ?: 0)}",
+              "Loan ${formatMoney(owed)}",
               color = VdtColors.Amber,
               fontSize = 11.sp,
               fontWeight = FontWeight.SemiBold,
@@ -221,5 +240,29 @@ fun FinanceSummary(data: FinanceData?, modifier: Modifier = Modifier) {
         }
       }
     }
+  }
+}
+
+// ---- Buttons ---------------------------------------------------------------------------------
+
+/** A flat action button, matching the contracts panel's. Shared by the panel and the loan sections. */
+@Composable
+internal fun FinanceButton(
+  label: String,
+  color: Color,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  enabled: Boolean = true,
+) {
+  val bg = if (enabled) color else VdtColors.TrackGray
+  val fg = if (enabled) VdtColors.White else VdtColors.TextDisabled
+  Box(
+    modifier
+      .clip(RoundedCornerShape(4.dp))
+      .background(bg)
+      .clickable(enabled = enabled, onClick = onClick)
+      .padding(horizontal = 12.dp, vertical = 7.dp),
+  ) {
+    Text(label.uppercase(), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
   }
 }

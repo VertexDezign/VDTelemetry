@@ -68,12 +68,101 @@ data class FinanceData(
   val stats: List<FinanceStatRow> = emptyList(),
   /** The money notifications the HUD popped this session, newest first. Session-scoped; not persisted. */
   val history: List<MoneyEvent> = emptyList(),
+  /**
+   * The replacement loan system, present **only** when FS25_EnhancedLoanSystem is installed — and its
+   * presence is the whole signal, there is no "which system" discriminator. When it is here,
+   * [loansAvailable] is false and the base-game loan fields are absent.
+   */
+  val enhancedLoans: EnhancedLoans? = null,
 ) {
   /** Whether a farm was resolved at all — false for a spectator, and before the first good read. */
   val hasFarm: Boolean get() = balance != null
 
   /** Headroom left to borrow, floored at zero (the ceiling can drop below an existing loan). */
   val loanHeadroom: Long get() = ((loanMax ?: 0) - (loan ?: 0)).coerceAtLeast(0)
+}
+
+/**
+ * The FS25_EnhancedLoanSystem block: the bank's terms plus this farm's annuity loans.
+ *
+ * ELS replaces the base-game loan outright — several concurrent loans, each with its own rate, term
+ * and monthly instalment collected at every period change — so this is not an extension of the base
+ * loan fields but a substitute for them.
+ */
+@Serializable
+data class EnhancedLoans(
+  /**
+   * Whether this player may take or redeem a loan. ELS gates on the game's `MANAGE_RIGHTS` right —
+   * **not** the `farmManager` right the base-game loan uses, so this is a different question from
+   * [FinanceData.canManageLoan] and the two can disagree.
+   */
+  val canManage: Boolean = false,
+  /**
+   * What the farm could still borrow. Derived by the mod from cash, vehicle sell values and farmland
+   * at its mortgage ratios — expensive enough that the exporter refreshes it on a slow throttle, so
+   * treat it as a guide rather than a live figure. The mod recomputes it fresh before acting.
+   */
+  val maxAmount: Long? = null,
+  /** The bank's current annual rate, in percent (`3.5` means 3.5%). */
+  val interest: Float? = null,
+  /** True when the rate drifts on its own at each period change. */
+  val dynamicInterest: Boolean = false,
+  /** The longest term the bank offers, in years. */
+  val maxDurationYears: Int? = null,
+  /** Whether more than one special redemption per loan per year is allowed. */
+  val multipleRedemptions: Boolean = false,
+  /**
+   * Fraction of a loan's **original** amount that one special redemption may clear. ELS applies this
+   * cap only while [multipleRedemptions] is false — an asymmetry the app has to state, not smooth over.
+   */
+  val redemptionFraction: Float? = null,
+  /** Current and paid-off loans together, flagged by [EnhancedLoan.paidOff], sorted by id. */
+  val loans: List<EnhancedLoan> = emptyList(),
+) {
+  /** Loans still being paid. */
+  val running: List<EnhancedLoan> get() = loans.filterNot { it.paidOff }
+
+  /** Total still owed across every running loan. */
+  val totalOutstanding: Long get() = running.sumOf { it.restAmount }
+
+  /** What leaves the account each in-game month, across every running loan. */
+  val totalMonthlyRate: Long get() = running.sumOf { it.monthlyRate ?: 0 }
+}
+
+/** One annuity loan. */
+@Serializable
+data class EnhancedLoan(
+  /**
+   * The loan's **network object id** — `ELS_loan` is a replicated Object, so this handle exists and
+   * agrees on both sides of the wire. It identifies a loan in the *live* game only: never persisted,
+   * and a command carrying a stale one must fail to resolve rather than hit another object.
+   */
+  val id: Int = 0,
+  /** The sum originally borrowed. */
+  val amount: Long = 0,
+  /** What is still outstanding. */
+  val restAmount: Long = 0,
+  /** Annual rate in percent, fixed for this loan's life at whatever the bank offered when it was taken. */
+  val interest: Float = 0f,
+  /** The agreed term, in years. */
+  val durationYears: Int = 0,
+  /** Instalments left — the mod agrees the term in years but counts it down in months. */
+  val restMonths: Int = 0,
+  /** The annuity: what is debited at each period change. */
+  val monthlyRate: Long? = null,
+  /** How much of the next instalment is interest rather than repayment. */
+  val monthlyInterest: Long? = null,
+  /** What the loan will have cost in total if it runs to term. Absent once [paidOff]. */
+  val totalCost: Long? = null,
+  val paidOff: Boolean = false,
+  /** True if this loan has already had its extra payment this year (reset at each year change). */
+  val specialRedemptionDone: Boolean = false,
+) {
+  /** How much of the instalment actually reduces the debt. */
+  val monthlyPrincipal: Long get() = (monthlyRate ?: 0) - (monthlyInterest ?: 0)
+
+  /** Fraction of the original sum already repaid, in `[0,1]`. */
+  val progress: Float get() = if (amount <= 0) 0f else ((amount - restAmount).toFloat() / amount).coerceIn(0f, 1f)
 }
 
 /** One column of the finances table: one in-game period, which is one month. */

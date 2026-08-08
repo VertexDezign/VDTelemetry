@@ -550,6 +550,59 @@ sealed interface ClientMessage {
   }
 
   /**
+   * Take out an FS25_EnhancedLoanSystem annuity loan of [amount] over [durationYears] years, at
+   * whatever rate the bank is currently offering.
+   *
+   * An **action**, not a target state, and the one command here that creates something: a doubled
+   * delivery is a second loan. Like `createTask` it carries no target state and is never replayed on
+   * reconnect; safety comes from the command channel's at-most-once id watermark.
+   *
+   * Both values are **clamped mod-side** against freshly derived limits — the borrowing ceiling and
+   * the bank's longest term — because ELS's own `addLoan` clamps nothing at all (its dialog does it in
+   * the text input, which a terminal never goes through). The app should still bound its inputs by
+   * [net.vertexdezign.vdt.model.EnhancedLoans.maxAmount] and `maxDurationYears` so the button says
+   * what will happen.
+   */
+  @Serializable
+  @SerialName("takeLoan")
+  data class TakeLoan(
+    val amount: Int,
+    val durationYears: Int,
+  ) : ClientMessage {
+    init {
+      // The mod rejects both, so rejecting at the type boundary makes them unrepresentable end to end
+      // (the constructor also runs during kotlinx decode). The upper bounds are deliberately NOT here:
+      // they are server settings that change at runtime, so only the mod can know them.
+      require(amount > 0) { "loan amount must be > 0, was $amount" }
+      require(durationYears > 0) { "loan duration must be > 0 years, was $durationYears" }
+    }
+  }
+
+  /**
+   * Make a special redemption payment of [amount] against the FS25_EnhancedLoanSystem loan [loanId] —
+   * an extra payment beyond the monthly instalment, which shortens the term.
+   *
+   * [loanId] is [net.vertexdezign.vdt.model.EnhancedLoan.id], the loan's network object id, so this is
+   * a live-game handle: same non-replayable rules as [AcceptMission]. An **action**, not a target
+   * state.
+   *
+   * [amount] is clamped mod-side in the mod's own order — the farm's money, then (only while
+   * `multipleRedemptions` is false) the fraction of the loan's original sum ELS permits, then what is
+   * actually outstanding. A loan that has already had its redemption this year is **refused** rather
+   * than clamped: there is no smaller amount that would be allowed.
+   */
+  @Serializable
+  @SerialName("repayLoan")
+  data class RepayLoan(
+    val loanId: Int,
+    val amount: Int,
+  ) : ClientMessage {
+    init {
+      require(amount > 0) { "repayment must be > 0, was $amount" }
+    }
+  }
+
+  /**
    * The ground-layer raster planes this dashboard is currently showing (empty = none). The mod
    * grid-samples only what someone is looking at — its most expensive channel by far — so this is
    * what causes a plane to be swept at all.
