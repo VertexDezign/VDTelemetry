@@ -350,10 +350,23 @@ function VDT.FinanceExporter.canManageLoan()
   return ok and allowed == true
 end
 
----Whether this platform has loans at all -- the flag the in-game screen gates its whole loan block on.
----Absent (a stub, an older build) reads as yes, which is the PC truth.
+---Whether the BASE-GAME loan is in play -- which is the question the app actually has, and it has two
+---answers to combine.
+---
+---`Platform.gameplay.hasLoans` is the flag the in-game screen gates its whole loan block on; absent (a
+---stub, an older build) reads as yes, which is the PC truth.
+---
+---And a mod may have replaced the loan system outright. FS25_EnhancedLoanSystem does exactly that, but
+---it deactivates the base loan by overwriting the in-game *frame's* permission check -- leaving both
+---the platform flag and `getHasPlayerPermission("farmManager")` saying yes. Reading only those would
+---leave the terminal offering Borrow/Repay for a system the player no longer has, and `setLoan` would
+---quietly create a base-game loan behind the replacement's back (see integrations/EnhancedLoanSystem).
+---So the replacement's presence is part of this answer, and the whole loan block goes with it.
 ---@return boolean
 function VDT.FinanceExporter.loansAvailable()
+  if VDT.EnhancedLoanSystem ~= nil and VDT.EnhancedLoanSystem.isAvailable() then
+    return false
+  end
   if Platform == nil or type(Platform.gameplay) ~= "table" or type(Platform.gameplay.hasLoans) ~= "boolean" then
     return true
   end
@@ -376,22 +389,29 @@ function VDT.FinanceExporter.collect()
     return { version = tostring(VDT.FinanceExporter.VERSION) }
   end
 
+  local loansAvailable = VDT.FinanceExporter.loansAvailable()
+
   ---@type FinanceModel
   local model = {
     version = tostring(VDT.FinanceExporter.VERSION),
     balance = money(farm.money),
-    loan = money(farm.loan),
-    -- Read, never recomputed: Farm:getEquity walks every farmland and placeable on the map, and the
-    -- in-game screen reads this cached field too -- so we are exactly as accurate as it is.
-    loanMax = money(farm.loanMax),
-    loanStep = VDT.FinanceExporter.LOAN_STEP,
-    loansAvailable = VDT.FinanceExporter.loansAvailable(),
+    loansAvailable = loansAvailable,
     canManageLoan = VDT.FinanceExporter.canManageLoan(),
   }
 
-  local okInterest, interest = pcall(farm.calculateDailyLoanInterest, farm)
-  if okInterest and type(interest) == "number" then
-    model.loanInterestPerDay = money(interest)
+  -- The whole block goes when the base-game loan is not the farm's loan: `farm.loan` reads 0 under a
+  -- replacement that has swept it into its own system, and `farm.loanMax` is then an equity figure
+  -- that means nothing. Omitting beats publishing numbers whose subject no longer exists.
+  if loansAvailable then
+    model.loan = money(farm.loan)
+    -- Read, never recomputed: Farm:getEquity walks every farmland and placeable on the map, and the
+    -- in-game screen reads this cached field too -- so we are exactly as accurate as it is.
+    model.loanMax = money(farm.loanMax)
+    model.loanStep = VDT.FinanceExporter.LOAN_STEP
+    local okInterest, interest = pcall(farm.calculateDailyLoanInterest, farm)
+    if okInterest and type(interest) == "number" then
+      model.loanInterestPerDay = money(interest)
+    end
   end
 
   local environment = g_currentMission.environment

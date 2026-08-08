@@ -18,6 +18,9 @@ end
 if ValueMapper == nil then
   dofile("src/mapper/ValueMapper.lua")
 end
+if VDT.EnhancedLoanSystem == nil then
+  dofile("src/integrations/EnhancedLoanSystem.lua")
+end
 if VDT.FinanceExporter == nil then
   dofile("src/collect/FinanceExporter.lua")
 end
@@ -111,6 +114,7 @@ describe("FinanceExporter", function()
     _G.g_localPlayer = nil
     _G.g_currentMission = nil
     _G.g_i18n = nil
+    _G.FS25_EnhancedLoanSystem = nil
   end)
 
   describe("collectBuckets", function()
@@ -370,6 +374,34 @@ describe("FinanceExporter", function()
 
       assert.is_false(model.loansAvailable)
       assert.is_false(model.canManageLoan)
+      -- The loan figures go with the block they describe.
+      assert.is_nil(model.loan)
+      assert.is_nil(model.loanMax)
+      assert.is_nil(model.loanStep)
+      assert.is_nil(model.loanInterestPerDay)
+    end)
+
+    it("drops the base-game loan block when Enhanced Loan System has replaced it", function()
+      -- ELS deactivates the base loan by overwriting the in-game frame's permission check, so both the
+      -- platform flag and getHasPlayerPermission still say yes -- reading only those would leave the
+      -- terminal offering Borrow/Repay for a system the player no longer has.
+      stubGame({
+        farm = makeFarm({
+          loan = 0,
+          loanMax = 800000,
+          stats = { finances = makeBucket({ harvestIncome = 12000 }), financesHistory = {} },
+        }),
+      })
+      _G.FS25_EnhancedLoanSystem = { g_els_loanManager = { loans = {} } }
+
+      local model = VDT.FinanceExporter.collect()
+
+      assert.is_false(model.loansAvailable)
+      assert.is_nil(model.loan)
+      assert.is_nil(model.loanMax)
+      -- The rest of the books are untouched: only the loan block is the replacement's business.
+      assert.equals(100000, model.balance)
+      assert.is_table(model.stats)
     end)
 
     it("keeps the channel present but empty for a spectator", function()

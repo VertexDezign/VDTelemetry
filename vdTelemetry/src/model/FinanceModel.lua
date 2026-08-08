@@ -37,11 +37,13 @@
 ---@class FinanceModel
 ---@field version string channel version, independent of VDTelemetry.VERSION
 ---@field balance number? the farm's money
----@field loan number? outstanding loan
----@field loanMax number? borrowing ceiling (farm.loanMax -- read, never recomputed)
----@field loanStep number? the in-game borrow/repay granularity, 5000
----@field loanInterestPerDay number? what the current loan costs per in-game day
----@field loansAvailable boolean? false where the platform has no loans (Platform.gameplay.hasLoans)
+---@field loan number? outstanding loan; omitted when loansAvailable is false
+---@field loanMax number? borrowing ceiling (farm.loanMax -- read, never recomputed); omitted likewise
+---@field loanStep number? the in-game borrow/repay granularity, 5000; omitted likewise
+---@field loanInterestPerDay number? what the current loan costs per in-game day; omitted likewise
+---@field loansAvailable boolean? whether the BASE-GAME loan is in play: false where the platform has
+---  no loans (Platform.gameplay.hasLoans) OR where a mod has replaced the loan system outright
+---  (FS25_EnhancedLoanSystem). The four fields above are omitted with it.
 ---@field canManageLoan boolean? whether this player holds the farmManager right
 ---@field periods FinancePeriodModel[]?
 ---@field stats FinanceStatModel[]?

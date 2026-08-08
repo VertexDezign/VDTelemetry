@@ -187,7 +187,12 @@ the checks below.
   recomputing equity.
 - **Out of scope, explicitly:** the loan *is* the base-game one. #47 replaces it with Enhanced Loan
   System's multi-loan model, and the plan's "Where #47 plugs in" section holds the seam — a sibling
-  `loans[]` from `src/integrations/`, dispatched on presence, with `setLoan` left alone.
+  `loans[]` from `src/integrations/`, dispatched on presence, with `setLoan` left alone. The
+  **detector** for that already exists (`src/integrations/EnhancedLoanSystem.lua`), because it had to:
+  ELS deactivates the base loan by overwriting the in-game *frame's* permission check, which leaves
+  both `Platform.gameplay.hasLoans` and the `farmManager` right saying yes — so without it the terminal
+  kept offering Borrow/Repay for a system the player no longer has, and `setLoan` would have created a
+  base-game loan behind ELS's back.
 
 ---
 
