@@ -11,15 +11,10 @@ function VDT.EnvironmentExporter.collect(pda)
 
   ---@type EnvironmentModel
   local model = {
-    -- initial year is 2024 (game release), stored as year 1 -> 2023 + currentYear
-    date = string.format(
-      "%02d.%02d.%04d",
-      environment.currentDayInPeriod,
-      ValueMapper.mapPeriodToMonth(environment.currentPeriod),
-      2023 + environment.currentYear
-    ),
-    -- current time, fixed 24h format
-    time = string.format("%02d:%02d", environment.currentHour, environment.currentMinute),
+    -- Both formats live in ValueMapper: the finance channel stamps its notification log with the same
+    -- date/time, and the two must not drift apart.
+    date = ValueMapper.formatGameDate(environment),
+    time = ValueMapper.formatGameTime(environment),
   }
 
   -- weather

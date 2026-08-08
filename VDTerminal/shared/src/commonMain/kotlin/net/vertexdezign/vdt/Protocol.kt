@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
@@ -157,6 +158,19 @@ sealed interface ServerMessage {
   @SerialName("missions")
   data class Missions(
     val data: MissionsData? = null,
+  ) : ServerMessage
+
+  /**
+   * The finance channel (the local farm's books, `finance.json`). Interval-driven on the mod's own
+   * slow cadence, kicked by a money notification, a month rollover or a loan change — its own cadence
+   * again, hence its own message. [data] is **null when `finance.json` is absent** (export disabled /
+   * no data yet): the app clears the panel then rather than showing a stale balance, which of all the
+   * channels is the one most likely to be acted on.
+   */
+  @Serializable
+  @SerialName("finance")
+  data class Finance(
+    val data: FinanceData? = null,
   ) : ServerMessage
 
   /**
@@ -504,6 +518,36 @@ sealed interface ClientMessage {
   data class DismissMission(
     val missionId: Int,
   ) : ClientMessage
+
+  /**
+   * Set the farm's base-game loan to [amount] — borrowing the difference, or repaying it when the
+   * target is lower. Absolute state (idempotent) rather than the in-game screen's ±5000 delta: the
+   * mod converts it to the delta `ChangeLoanEvent` wants at execution time, so a redelivered command
+   * computes a zero delta and does nothing, where a redelivered delta would borrow twice.
+   *
+   * The mod **clamps** a target above the ceiling (matching what the server would do with the event
+   * anyway) but **refuses** a repayment larger than the balance (the engine would happily push the
+   * money negative; the in-game screen just doesn't offer the button). Both are re-checked mod-side,
+   * so an app one write out of date cannot do damage — but the app should still snap the target to
+   * [net.vertexdezign.vdt.model.FinanceData.loanStep] and respect
+   * [net.vertexdezign.vdt.model.FinanceData.loanMax], so the button says what will happen.
+   *
+   * `Int` rather than `Long` unlike the read model's amounts: the engine's `Farm.MAX_LOAN` is
+   * 3 000 000 and the mod parses this with the engine's 32-bit `XMLFile:getInt`.
+   */
+  @Serializable
+  @SerialName("setLoan")
+  data class SetLoan(
+    val amount: Int,
+  ) : ClientMessage {
+    init {
+      // A negative loan is not a thing the engine can represent (it clamps at 0), and the mod's
+      // guard would reject it — rejecting at the type boundary instead makes it unrepresentable end
+      // to end, the way SetCruiseControl does for a non-finite speed. The constructor also runs
+      // during kotlinx decode, so no wire value can smuggle one in either.
+      require(amount >= 0) { "loan target must be >= 0, was $amount" }
+    }
+  }
 
   /**
    * The ground-layer raster planes this dashboard is currently showing (empty = none). The mod

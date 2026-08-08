@@ -99,6 +99,35 @@ function ValueMapper.mapPeriodToMonth(currentPeriod)
   end
 end
 
+--- The calendar year a game year number stands for. The initial year is 1 and the game shipped in
+--- 2024, so year 1 reads as 2024.
+---@param currentYear number
+---@return number
+function ValueMapper.mapYearToCalendarYear(currentYear)
+  return 2023 + currentYear
+end
+
+--- The in-game date as DD.MM.YYYY. Shared by the telemetry `environment.date` and the finance
+--- channel's notification log, so a date means the same thing wherever it is printed -- keep them
+--- going through here rather than re-deriving the period->month and year offsets.
+---@param environment table g_currentMission.environment
+---@return string
+function ValueMapper.formatGameDate(environment)
+  return string.format(
+    "%02d.%02d.%04d",
+    environment.currentDayInPeriod,
+    ValueMapper.mapPeriodToMonth(environment.currentPeriod),
+    ValueMapper.mapYearToCalendarYear(environment.currentYear)
+  )
+end
+
+--- The in-game clock as HH:MM, fixed 24h. Sibling of formatGameDate; same reason for being shared.
+---@param environment table g_currentMission.environment
+---@return string
+function ValueMapper.formatGameTime(environment)
+  return string.format("%02d:%02d", environment.currentHour, environment.currentMinute)
+end
+
 --- Compass heading (degrees) from an engine y-rotation, i.e. the yaw of a facing direction as
 --- produced by MathUtil.getYRotationFromDirection / consumed by MathUtil.getDirectionFromYRotation.
 --- Both the vehicle heading and the on-foot player heading go through here, so the map marker means

@@ -146,6 +146,49 @@ Built and validated in-game. Four things were left.
 
 ---
 
+## Finance (#48, under #46)
+
+Built and **singleplayer-validated in-game (2026-08-08)**: a vehicle purchase and a farmland purchase
+both appeared in the app's log as they appeared in the game's own notifications (the
+`HUD:showMoneyChange` hook, end to end), and one month rollover shifted the table's columns correctly.
+**Multiplayer is unproven** — a client reaches the notification funnel through `MoneyChangeEvent:run`
+rather than `FSBaseMission:broadcastNotifications`, and refreshes its archived columns by re-requesting
+`FinanceStatsEvent`, neither of which the host path exercises. See `finance-plan.md` for the design and
+the checks below.
+
+- **The graphs.** The issue's own "Bonus: draw some graphs" was deliberately deferred until there was
+  real data in the panel to shape a chart around. The export already feeds it: the mod carries up to
+  twelve periods where the game has them (the app shows the in-game five by default), and each column
+  carries its own `total`, so a per-month income/expense chart needs no mod change at all.
+- **The money log is session-scoped and in memory.** It starts empty on every game launch, and a cap of
+  100 entries drops the oldest. Persisting it is the same open question as everything under "VDT-owned
+  data" below — it would be *savegame* state, and the FS25 sandbox makes reading anything back an XML
+  problem. Worth doing only if the log turns out to be something people look back through.
+- **Command outcomes have nowhere to go**, same as Missions. `setLoan` clamps a too-large borrow and
+  refuses an unaffordable repayment, and both only reach a log line. Mitigated the same way: the app
+  greys the buttons using `canManageLoan` / `loanMax` / the balance, so both refusals are prevented
+  rather than reported, and the channel is event-driven off `ChangeLoanEvent` so the result lands
+  within a tick.
+- **The stat-row set is not fixed, and third-party buckets ride along for free.** The first capture
+  came back with **34** rows rather than the base game's 33: a mod in that savegame had appended
+  `dryingCharge` ("Trocknungsgebühren") to `FinanceStats.statNames`, and it arrived with its localized
+  title and a correct column total without a line of code. That works because the exporter walks the
+  live `statNames` table; hardcoding the base-game 33 would have silently dropped it. Nothing to do —
+  recorded so nobody "tidies up" that read, and so nobody writes a test asserting a fixed row count.
+- **Only five periods survive a save.** `FarmStats:saveToXMLFile` writes the current bucket plus four,
+  so a long uninterrupted session accumulates more than five in memory and a reload drops back to five.
+  Not a bug and not fixable from here — the app must simply cope with the column count changing.
+- **`loanMax` on a freshly joined client may read `Farm.MIN_LOAN`.** `Farm:setInitialEconomy` calls
+  `updateMaxLoan` before any farmland is known, and it is only recomputed on `FARM_PROPERTY_CHANGED`.
+  The in-game screen reads the same cached field and has the identical quirk, so we match it rather
+  than walking every placeable ourselves. If it bites in practice, say "up to 500,000" rather than
+  recomputing equity.
+- **Out of scope, explicitly:** the loan *is* the base-game one. #47 replaces it with Enhanced Loan
+  System's multi-loan model, and the plan's "Where #47 plugs in" section holds the seam — a sibling
+  `loans[]` from `src/integrations/`, dispatched on presence, with `setLoan` left alone.
+
+---
+
 ## Map layers
 
 Both remaining items were declined on 2026-07-25. They are kept as the record of what they would cost,
@@ -253,6 +296,17 @@ Each one is cheap to do while playing and settles something above.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a
   forage/carrot harvester's pass-through output carry `showOnHud="true"`? This gates the filter switch
   above.
+- ~~Does the finance log catch the notifications the game shows?~~ **Done (2026-08-08, singleplayer):**
+  a vehicle and a farmland purchase both landed. Still open on a **multiplayer client**, which reaches
+  the same hook via `MoneyChangeEvent:run` instead of `FSBaseMission:broadcastNotifications`.
+- ~~Does a month rollover shift the finance columns in singleplayer?~~ **Done (2026-08-08):** one
+  rollover, correct. Still open on a **multiplayer client**, which does not read `FarmStats` directly
+  but re-requests `FinanceStatsEvent` against our own counter copy — a code path the host never takes.
+  Worth watching across several rollovers too: only one has been seen.
+- Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod
+  subscribes to `ChangeLoanEvent`, which the engine publishes on both sides of the wire.
+- Over a longer play, does the 100-entry log cap cover a useful span, or does an ordinary session
+  overflow it in minutes? Cheap to raise; the answer only comes from playing.
 
 ## Steering (#57)
 
@@ -283,6 +337,12 @@ captures contains a machine that has them.
 
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`,
   the `STEP` consumable bar, and they would give `jointDescIndex` its first real chain.
+- **More finance captures.** `examples/json/finance/vanilla.json` is a fresh singleplayer save, so it
+  has one period and an empty log. Still wanted: **a played-in save** (several archived periods, to see
+  how many a real game carries), **an MP client** (does the history really stop at five?), and **one
+  with notifications in the log** — the hook itself is confirmed working in singleplayer, so this is
+  now wanted as a fixture rather than as proof. `FinanceModelTest` covers those three shapes with
+  inline JSON meanwhile.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file
   claiming to be a capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not
   readable from here — inventing them would put made-up game data in `examples/json`.
