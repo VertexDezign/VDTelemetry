@@ -179,6 +179,12 @@ class CommandWriter(
           message.storageId,
         )}" index="${message.index}" title="${esc(message.title)}" amount="${message.amount}"/>"""
       }
+
+      // The target loan, a non-negative int (the type's own require), so no escaping needed. The mod
+      // turns it into the delta ChangeLoanEvent wants, and clamps/refuses against the live farm.
+      is ClientMessage.SetLoan -> {
+        """<command id="$id" type="setLoan" amount="${message.amount}"/>"""
+      }
     }
 
   /** The shared `TaskInput` attributes for createTask / editTask (detail is user text → escaped). */

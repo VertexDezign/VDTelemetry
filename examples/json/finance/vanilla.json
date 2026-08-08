@@ -1,0 +1,260 @@
+{
+  "periods": [
+    {
+      "current": true,
+      "index": 0,
+      "label": "August",
+      "total": 94506448,
+      "year": 2024,
+      "period": 6
+    }
+  ],
+  "canManageLoan": true,
+  "loanStep": 5000,
+  "loan": 0,
+  "balance": 95506440,
+  "version": "1",
+  "loanMax": 800000,
+  "stats": [
+    {
+      "values": [
+        -4567910
+      ],
+      "name": "newVehiclesCost",
+      "title": "Neue Fahrzeuge"
+    },
+    {
+      "values": [
+        182302
+      ],
+      "name": "soldVehicles",
+      "title": "Verkaufte Fahrzeuge"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "newHandtoolsCost",
+      "title": "Neue Werkzeuge"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "soldHandtools",
+      "title": "Verkaufte Werkzeuge"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "newAnimalsCost",
+      "title": "Neue Tiere"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "soldAnimals",
+      "title": "Verkaufte Tiere"
+    },
+    {
+      "values": [
+        -484524
+      ],
+      "name": "constructionCost",
+      "title": "Baukosten"
+    },
+    {
+      "values": [
+        24000
+      ],
+      "name": "soldBuildings",
+      "title": "Verkaufte Gebäude"
+    },
+    {
+      "values": [
+        -641688
+      ],
+      "name": "fieldPurchase",
+      "title": "Landkauf"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "fieldSelling",
+      "title": "Landverkauf"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "vehicleRunningCost",
+      "title": "Betriebskosten Fahrzeuge"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "vehicleLeasingCost",
+      "title": "Mietkosten Fahrzeuge"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "propertyMaintenance",
+      "title": "Betriebskosten Gebäude"
+    },
+    {
+      "values": [
+        383
+      ],
+      "name": "propertyIncome",
+      "title": "Einnahmen Gebäude"
+    },
+    {
+      "values": [
+        -15
+      ],
+      "name": "productionCosts",
+      "title": "Produktionskosten"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "soldWood",
+      "title": "Verkauftes Holz"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "soldBales",
+      "title": "Verkaufte Ballen"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "soldWool",
+      "title": "Verkaufte Wolle"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "soldMilk",
+      "title": "Verkaufte Milch"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "soldProducts",
+      "title": "Verkaufte Erzeugnisse"
+    },
+    {
+      "values": [
+        -138
+      ],
+      "name": "purchaseFuel",
+      "title": "Kosten Kraftstoff"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "purchaseSeeds",
+      "title": "Kosten Saatgut"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "purchaseFertilizer",
+      "title": "Kosten Dünger"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "purchaseSaplings",
+      "title": "Kosten Setzlinge"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "purchaseWater",
+      "title": "Kosten Wasser"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "purchaseBales",
+      "title": "Kosten Ballen"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "purchasePallets",
+      "title": "Kosten Paletten"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "harvestIncome",
+      "title": "Einnahmen Ernte"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "incomeBga",
+      "title": "Einnahmen Biogasanlage"
+    },
+    {
+      "values": [
+        3103
+      ],
+      "name": "missionIncome",
+      "title": "Auftragseinnahmen"
+    },
+    {
+      "values": [
+        -105
+      ],
+      "name": "wagePayment",
+      "title": "Lohnzahlungen"
+    },
+    {
+      "values": [
+        99991040
+      ],
+      "name": "other",
+      "title": "Sonstiges"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "loanInterest",
+      "title": "Kreditzinsen"
+    },
+    {
+      "values": [
+        0
+      ],
+      "name": "dryingCharge",
+      "title": "Trocknungsgebühren"
+    }
+  ],
+  "loansAvailable": true,
+  "loanInterestPerDay": 0
+}

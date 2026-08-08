@@ -121,6 +121,9 @@ fun main() {
   // missions.json is event-driven (a contract generated/accepted/finished) plus a slow interval for
   // the countdown; same absence rule -- the app must clear contracts rather than offer stale ones.
   val missionsState = watcher.register("missions.json", nullOnAbsent = true) { VdtParser.parseMissions(it) }
+  // finance.json is interval-driven plus kicked by a money notification / month rollover / loan
+  // change; same absence rule -- a stale balance is the last thing this dashboard should show.
+  val financeState = watcher.register("finance.json", nullOnAbsent = true) { VdtParser.parseFinance(it) }
   watcher.launchIn(appScope)
 
   // The ground-layer rasters live in their own folder, one file per plane plus index.json naming the
@@ -308,6 +311,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val financeJob =
+          launch {
+            financeState.collect { data ->
+              val message: ServerMessage = ServerMessage.Finance(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         val channelStatsJob =
           launch {
             channelStatsState.collect { data ->
@@ -368,6 +378,7 @@ fun main() {
           storageJob.cancel()
           husbandryJob.cancel()
           missionsJob.cancel()
+          financeJob.cancel()
           channelStatsJob.cancel()
           mapLayersJob.cancel()
         }

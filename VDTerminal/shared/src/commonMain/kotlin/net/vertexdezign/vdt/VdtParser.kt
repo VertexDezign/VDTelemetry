@@ -3,6 +3,7 @@ package net.vertexdezign.vdt
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.MapData
@@ -64,6 +65,9 @@ object VdtParser {
 
   /** Parse the `missions.json` channel (the farm's contracts) into [MissionsData]. */
   fun parseMissions(text: String): MissionsData = json.decodeFromString(MissionsData.serializer(), text)
+
+  /** Parse the `finance.json` channel (the farm's books) into [FinanceData]. */
+  fun parseFinance(text: String): FinanceData = json.decodeFromString(FinanceData.serializer(), text)
 
   /** Parse one `mapLayers/<id>.json` raster plane into [MapLayerData]. */
   fun parseMapLayer(text: String): MapLayerData = json.decodeFromString(MapLayerData.serializer(), text)
