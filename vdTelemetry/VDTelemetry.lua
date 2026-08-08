@@ -84,6 +84,9 @@ local sourceFiles = {
   "src/integrations/registry.lua",
   "src/integrations/TaskList.lua",
   "src/integrations/CropRotation.lua",
+  -- Enhanced Loan System detection. The finance channel asks it at *runtime* whether the base-game
+  -- loan has been replaced, so its position relative to that collector does not matter.
+  "src/integrations/EnhancedLoanSystem.lua",
   -- Per-field agronomy channel (field-info popup); reads base-game FieldState and, when present,
   -- enriches each field via the CropRotation integration above, so it is sourced after it.
   "src/collect/FieldInfoExporter.lua",

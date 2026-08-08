@@ -262,6 +262,45 @@ class FinanceModelTest {
   }
 
   @Test
+  fun aReplacedLoanSystemOmitsTheWholeBaseGameBlock() {
+    // FS25_EnhancedLoanSystem replaces base-game loans, so the mod drops the block rather than
+    // publishing figures whose subject no longer exists. The books themselves are unaffected.
+    val data =
+      VdtParser.parseFinance(
+        """
+        {
+          "version": "1",
+          "balance": 240500,
+          "loansAvailable": false, "canManageLoan": true,
+          "periods": [
+            { "index": 0, "period": 6, "label": "August", "year": 2026, "current": true, "total": -8200 }
+          ],
+          "stats": [
+            { "name": "loan", "title": "Kredit", "values": [-8200] }
+          ]
+        }
+        """.trimIndent(),
+      )
+
+    assertTrue(data.hasFarm)
+    assertEquals(240500L, data.balance)
+    assertFalse(data.loansAvailable)
+
+    // Null, not zero: the app must hide the section, never print a debt-free farm that may owe the
+    // replacement a great deal.
+    assertNull(data.loan)
+    assertNull(data.loanMax)
+    assertNull(data.loanInterestPerDay)
+    assertEquals(0L, data.loanHeadroom)
+
+    // ELS appends its own bucket to FinanceStats.statNames, so the table carries a loan row it never
+    // had before — the same live-table read that carried the modded row in the capture above.
+    assertEquals("Kredit", data.stats.first { it.name == "loan" }.title)
+
+    assertRoundTrips(data)
+  }
+
+  @Test
   fun spectatorHasNoFarmRatherThanAZeroBalance() {
     // The mod keeps the channel present but omits every money field when there is no farm to report on.
     val data = VdtParser.parseFinance("""{"version":"1"}""")

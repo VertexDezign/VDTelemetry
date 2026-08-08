@@ -37,7 +37,16 @@ data class FinanceData(
   val loanStep: Int = 5000,
   /** What the current loan costs per in-game day at the game's 4% annual rate. */
   val loanInterestPerDay: Long? = null,
-  /** False where the platform has no loans at all — the app hides the whole loan section then. */
+  /**
+   * Whether the **base-game** loan is in play. False on a platform without loans, and false when a
+   * mod has replaced the loan system outright — FS25_EnhancedLoanSystem does, and it deactivates the
+   * base loan by overwriting the in-game frame's own permission check, so neither the platform flag
+   * nor the farmManager right would give it away.
+   *
+   * When false the mod omits [loan], [loanMax], [loanStep] and [loanInterestPerDay] entirely, and the
+   * app must hide the whole loan section rather than print their defaults: a `0` there would claim a
+   * debt-free farm that may in fact owe the replacement a great deal.
+   */
   val loansAvailable: Boolean = true,
   /**
    * Whether this player holds the game's `farmManager` right. Drives whether the app offers
