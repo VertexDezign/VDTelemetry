@@ -33,6 +33,14 @@ class FinanceFormatTest {
   }
 
   @Test
+  fun survivesTheWidestNegativeLong() {
+    // Not a balance anyone will hold — it is the one value where taking the magnitude with abs()
+    // would return itself, still negative, and print a doubled sign.
+    assertEquals("-9,223,372,036,854,775,808", formatMoney(Long.MIN_VALUE))
+    assertEquals("-9,223,372,036,854,775,808", formatMoney(Long.MIN_VALUE, withSign = true))
+  }
+
+  @Test
   fun zeroIsNeverSigned() {
     // A "+0" in a table of transactions reads as a credit that didn't happen.
     assertEquals("0", formatMoney(0, withSign = true))

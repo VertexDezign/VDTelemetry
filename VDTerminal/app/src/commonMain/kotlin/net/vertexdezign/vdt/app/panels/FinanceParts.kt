@@ -29,7 +29,6 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.MoneyEvent
-import kotlin.math.abs
 
 // ---- Money formatting ----------------------------------------------------------------------------
 
@@ -40,7 +39,9 @@ import kotlin.math.abs
  * export, so printing one would be a guess. The panel labels its columns instead.
  */
 fun formatMoney(value: Long, withSign: Boolean = false): String {
-  val digits = abs(value).toString()
+  // The magnitude comes off the string, not off abs(): abs(Long.MIN_VALUE) is still negative, and
+  // grouping a "-" as a digit would print a doubled sign and a ragged first group.
+  val digits = value.toString().removePrefix("-")
   val grouped = StringBuilder()
   val firstGroup = digits.length % 3
   if (firstGroup > 0) grouped.append(digits, 0, firstGroup)
