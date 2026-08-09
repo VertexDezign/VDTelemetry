@@ -164,11 +164,13 @@ the checks below.
   100 entries drops the oldest. Persisting it is the same open question as everything under "VDT-owned
   data" below — it would be *savegame* state, and the FS25 sandbox makes reading anything back an XML
   problem. Worth doing only if the log turns out to be something people look back through.
-- **Command outcomes have nowhere to go**, same as Missions. `setLoan` clamps a too-large borrow and
-  refuses an unaffordable repayment, and both only reach a log line. Mitigated the same way: the app
-  greys the buttons using `canManageLoan` / `loanMax` / the balance, so both refusals are prevented
-  rather than reported, and the channel is event-driven off `ChangeLoanEvent` so the result lands
-  within a tick.
+- **Command outcomes have nowhere to go**, same as Missions. `setLoan`'s two guards are deliberately
+  asymmetric — a too-large borrow is **clamped** to the ceiling, an unaffordable repayment is
+  **refused** outright — and either outcome only reaches a log line. Mitigated the same way: the app
+  greys the buttons using `canManageLoan` / `loanMax` / the balance, so both outcomes are prevented
+  rather than reported, and the channel is event-driven off `ChangeLoanEvent`, which should land the
+  result within a tick — that last part is an expectation, not a measurement; it is the open in-game
+  check under "In-game checks" below.
 - **The stat-row set is not fixed, and third-party buckets ride along for free.** The first capture
   came back with **34** rows rather than the base game's 33: a mod in that savegame had appended
   `dryingCharge` ("Trocknungsgebühren") to `FinanceStats.statNames`, and it arrived with its localized

@@ -378,11 +378,14 @@ husbandry and missions.
 
 **Fixtures + docs**
 
-- **No `examples/json/finance/` fixture.** That folder holds *real game captures only* — a hand-written
-  file claiming to be one was rejected before, and nobody can take a finance capture from here. So
-  `FinanceModelTest` uses inline JSON with the game's real `FinanceStats.statNames` and invented
-  amounts, following `SectionViewModelTest`'s precedent, and "a finance capture" is now listed under
-  `FUTURE.md` → "Captures wanted as fixtures".
+- **`examples/json/finance/vanilla.json` is a committed real-game capture**, taken once the channel ran
+  in game, and `FinanceModelTest.parsesTheVanillaCapture` reads it. It is a fresh singleplayer save, so
+  it carries one period and an empty log — the shapes it cannot show (several archived periods, a
+  populated log, a short MP-client export) stay **inline synthetic JSON** in `FinanceModelTest`, built
+  from the game's real `FinanceStats.statNames` with invented amounts, following
+  `SectionViewModelTest`'s precedent. That folder holds *real game captures only* — a hand-written file
+  claiming to be one was rejected before — so the missing captures are listed under `FUTURE.md` →
+  "Captures wanted as fixtures" rather than faked.
 - `FUTURE.md` — graphs, persisting the log, the accepted limitations, and the in-game checks below.
 - delete `finance-plan.md` when the feature lands (repo convention).
 
