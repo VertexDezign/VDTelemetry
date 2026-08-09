@@ -74,7 +74,11 @@ local function num(v)
 end
 
 -- Whole currency units: the game's amounts are floats and no terminal prints cents. floor(x + 0.5)
--- rounds half up in both directions (-1250.6 -> -1251), same as MissionExporter's.
+-- rounds to nearest on both signs (-1250.6 -> -1251, not the -1250 a bare floor would give). An exact
+-- half goes UP rather than away from zero (-1250.5 -> -1250) -- deliberately, because this is
+-- character-for-character MissionExporter's money() and the two channels round the same kinds of
+-- amounts: a half-unit disagreement between two panels would read as a bug, where the half unit a tie
+-- costs here does not. Pinned by the spec so it cannot drift silently.
 local function money(value)
   return math.floor(num(value) + 0.5)
 end

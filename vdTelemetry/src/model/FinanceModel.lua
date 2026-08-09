@@ -29,8 +29,10 @@
 ---@field amount number signed amount (expenses negative)
 ---@field type string? the MoneyType's `statistic` -- joins to FinanceStatModel.name where there is one
 ---@field title string? the localized label the notification carried ("Harvest income")
----@field date string in-game date, DD.MM.YYYY (same format as environment.date)
----@field time string in-game time, HH:MM
+---@field date string? in-game date, DD.MM.YYYY (same format as environment.date) -- omitted when the
+---  environment was not readable at the moment of the notification (record() keeps the entry, drops
+---  the stamp), which is why the Kotlin MoneyEvent.date is nullable too
+---@field time string? in-game time, HH:MM -- omitted on the same terms as `date`
 
 ---@class FinanceModel
 ---@field version string channel version, independent of VDTelemetry.VERSION

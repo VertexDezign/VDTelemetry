@@ -207,14 +207,27 @@ describe("FinanceExporter", function()
       assert.same({ 0 }, rows[3].values)
     end)
 
-    it("rounds to whole currency units, half away from zero", function()
+    it("rounds to whole currency units, to nearest on both signs", function()
       stubGame()
       local rows = VDT.FinanceExporter.collectStats({
         makeBucket({ harvestIncome = 1250.6, purchaseFuel = -1250.6 }),
       })
 
       assert.same({ 1251 }, rows[1].values)
+      -- A bare floor would give -1250 here; the +0.5 is what makes the negative side round to nearest.
       assert.same({ -1251 }, rows[2].values)
+    end)
+
+    it("breaks an exact half upwards, matching MissionExporter rather than rounding away from zero", function()
+      stubGame()
+      local rows = VDT.FinanceExporter.collectStats({
+        makeBucket({ harvestIncome = 1250.5, purchaseFuel = -1250.5 }),
+      })
+
+      assert.same({ 1251 }, rows[1].values)
+      -- Not -1251: floor(x + 0.5) ties towards +inf. Asserted so the two channels' money() cannot
+      -- drift apart unnoticed -- see the comment on FinanceExporter's money().
+      assert.same({ -1250 }, rows[2].values)
     end)
   end)
 
