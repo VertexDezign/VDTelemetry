@@ -228,6 +228,121 @@ absent and the app renders this instead, the same "dispatch on presence" rule th
 
 ---
 
+## Invoices (#12, under #46)
+
+The last child of #46, on top of #48. Billing between farms via FS25_Invoices, in its own event-driven
+`invoices.json` channel (`src/integrations/Invoices.lua`) rendered as a second tab in the Finance app,
+plus five commands (`src/command/InvoiceControl.lua`). **Built, and not yet validated in-game at all —
+see the checks below.** The mod's own server is the boundary throughout: every command drives one of
+its service methods, which from a client sends its event, and its server re-checks the `farmManager`
+right, the invoice's state, which farm the caller is, and (for a payment) whether it can be afforded.
+
+- **This feature has no singleplayer form.** An invoice needs two different farms and singleplayer has
+  one, so the channel correctly exports the settings, the work-type catalogue, no farms and no invoices
+  there. Every check below needs a **two-farm multiplayer session** — a first for this repo, and the
+  reason there is no committed capture yet.
+- **Paying an invoice moves two different numbers, and the VAT between them is destroyed.** The payer
+  loses `total + penalty`; the issuer receives `totalHT + penalty`, and nobody collects the difference
+  (`InvoiceService:executePayment`). That is the mod's simulation, not a rounding error — so the
+  channel carries `totalDue` and `credit` separately and the app prints both. A single "total" would be
+  a lie to one of the two parties.
+- **Its money already lands in our finance table for free.** The mod registers `invoiceIncome` /
+  `invoiceExpense` as `FinanceStats` buckets, so invoice payments show up in the monthly table and the
+  money log with their localized titles and no code of ours — the same way `dryingCharge` did. Recorded
+  so nobody adds a second accounting of them.
+- **The manager is on the mission, not in the mod's environment.** `g_currentMission.invoicesManager`
+  is reachable directly; only `Invoice` / `InvoiceService` need `FS25_Invoices.*`. Both are required
+  before the channel reports available, because without the classes the state and unit tokens would
+  have to be hardcoded numbers. *Considered and rejected*: recovering the class tables from the live
+  objects (`getmetatable(manager.service).__index`), which would survive the mod being installed under
+  a renamed zip — left out because the ELS and CropRotation integrations already bet on the env key and
+  were validated that way, and the `Invoice` half only works when a repository row happens to exist.
+- **Change detection hooks the mod's own `InvoiceService:notifyUI`**, which every mutation funnels
+  through — creation, payment, deletion, proposal validation, the join sync, the penalty sync. Two
+  things do *not* go through it and had to be added separately: `loadFromXML` at mission start (so
+  `tick()` marks dirty once when it installs the hook), and **switching farm in game**, which changes
+  who is asking rather than what is stored — every farm-scoped field in the document moves with it, so
+  the channel subscribes to `MessageType.PLAYER_FARM_CHANGED` as well. A channel with a write interval
+  would have self-corrected within seconds; this one is purely event-driven, so it would have kept
+  showing the previous farm's invoices indefinitely.
+- **A farm needs a NAME to be billable.** `InvoicesMainDashboard:loadFarms`'s `isValidFarm` requires a
+  non-empty name on top of "not the spectator" — and a map or another mod can create a farm the player
+  never sees (one server had a nameless *farm 14*). Mirrored in `VDT.Invoices.isBillableFarm`, used by
+  both the exported recipient list and `createInvoice`'s guard, so the terminal cannot offer or send a
+  recipient the mod would refuse. An invoice such a farm somehow raised is still *shown* — it just has
+  no name, and the app falls back to "Farm 14".
+- **The proposal direction inverts, and it is genuinely confusing.** A proposal is raised by the
+  *payer* and answered by the *issuer*, so it is outgoing for the farm that asked and incoming for the
+  farm that must approve it. The mod computes `direction` with FS25_Invoices' own accessors rather than
+  letting the app rediscover the rule.
+- **`actions` is what the buttons dispatch on**, mirroring the mod's server-side checks — deliberately
+  *excluding* affordability, which moves faster than this channel writes. The app greys Pay against the
+  finance channel's balance instead.
+- **A discount's money value is recomputed, never reconstructed.** The mod's
+  `Invoice.computeLineDiscountAmount` takes `computeLineGross(price, quantity, unit) - amount`; deriving
+  it as `amount / (1 - discountRate)` instead disagrees by a unit or two, because the mod rounds twice
+  (once on the gross, once after the discount). `InvoiceLine.grossAmount` does it the mod's way, and
+  `Invoice.discountTotal` sums it for the list row and the detail footer, which is where the mod shows
+  it too. The per-line rate is entered in the builder and clamped mod-side by the mod's own
+  `sanitizeDiscountRate`.
+- **A list row shows the tax-inclusive total in both directions** (`totalDue`), which is what the mod's
+  own `InvoicesListRenderer` prints. `credit` — what the issuer actually banks, net of the destroyed
+  VAT — is a *detail* figure, shown in the expanded totals and in the pay confirmation where there is
+  room to explain it. A row that showed `credit` for outgoing invoices would not add up against the
+  header total above it.
+- **`createInvoice` is the first command with child elements.** Nothing in the channel prevented it —
+  `CommandChannel.poll` already hands each control the live `XMLFile` and its key — but `CommandWriter`
+  grew an open/close form for it, and line quantities go through `BigDecimal` so a ten-million-litre
+  figure does not reach the mod as `1.0E7`.
+- **The mod's server-side sanitising only runs on the client→server path.** On a host,
+  `createAndSendInvoice` is called directly and nothing recomputes the totals — so `InvoiceControl`
+  builds line amounts with the mod's own `Invoice.computeLineAmount` and totals with
+  `populateFromData`, correct on both paths rather than only on the re-checked one.
+- **Not built: the three picker-backed line types.** Vehicle sale, consumable (pallet/bale) sale and
+  product (fillType) sale transfer ownership of real objects on payment, which a command cannot
+  assemble — each would need a new pick-list export of its own. They are exported with a `needsPicker`
+  token and shown in the builder as in-game-only, rather than silently dropped.
+- **Not built: writing the mod's settings** (VAT simulation, penalties, reminders). They are
+  `serverOnly` and would be one more command, but they are a server-economy screen rather than a
+  finance one — the same call as ELS's settings above.
+- **Open: how long the list stays usable.** Paid invoices are never deleted by the mod, so a
+  long-running server accumulates them. The app sinks them below the live ones and offers a direction
+  filter; if that stops being enough, cap or summarise them mod-side (the same shape as ELS's
+  paid-off-loan problem).
+- **Command outcomes have nowhere to go**, same as Missions and the loans. `actions` is recomputed on
+  every write and the channel writes on every mutation, so the window is one file write — but a
+  proposal the other party validates between our write and the player's tap is simply refused by the
+  mod's server, leaving only a log line. Mitigated the same way as `setLoan`: the app greys the button
+  from `actions` and the balance, so the outcome is prevented rather than reported.
+- **The builder's line cap is the mod's, not a usable one.** `ClientMessage.CreateInvoice` rejects more
+  than 100 lines because that is where the mod's own server refuses, and the builder disables "Add
+  line" at that point — but a terminal form gets unwieldy long before 100. If anyone ever fills one,
+  the answer is a lower soft cap in the app, not a change to the contract.
+- **Not built: per-line names.** The in-game wizard lets a player rename a line (`customLabel`, and
+  `customLabelByField` for field work); the terminal sends the work type's own localized name. A
+  free-text name is one more optional attribute on `<line/>` if it turns out to matter — the read side
+  already carries `InvoiceLine.name` and displays it.
+
+### In-game checks nobody has run
+
+All of these need a **two-farm multiplayer session**.
+
+- The channel writes on join (the `applySyncData` path through `notifyUI`), and a savegame's existing
+  invoices appear without waiting for a change (the first-sight `markDirty`).
+- An invoice raised from the terminal reaches the other farm's in-game menu with the same totals, VAT
+  and lines — and the **host** path produces identical totals to the **client** path, which is the
+  sanitising asymmetry above.
+- Paying one moves both balances by `totalDue` and `credit` respectively, and shows up in the finance
+  table under `invoiceExpense` / `invoiceIncome`.
+- A proposal raised from the payer side can be validated, and refused, from the issuer side.
+- Letting one go overdue (two period rollovers) lands `penalty`, `overdue` and the recomputed
+  `totalDue`, and `daysUntilPenalty` counted down honestly on the way there.
+- A non-`farmManager` player gets no `actions` at all rather than buttons that fail.
+- The localized work-type and unit labels resolve through `customEnv` — no `Missing 'invoice_work_…'`
+  strings reach the panel — on a non-English client too.
+
+---
+
 ## Map layers
 
 Both remaining items were declined on 2026-07-25. They are kept as the record of what they would cost,
@@ -393,6 +508,10 @@ captures contains a machine that has them.
   with notifications in the log** — the hook itself is confirmed working in singleplayer, so this is
   now wanted as a fixture rather than as proof. `FinanceModelTest` covers those three shapes with
   inline JSON meanwhile.
+- **An invoices capture.** `examples/json/invoices/` is empty, because FS25_Invoices needs two farms to
+  produce anything and singleplayer has one. Wanted from a two-farm multiplayer session: a document
+  with invoices in both directions, a proposal, and one that has accrued a penalty. `InvoicesModelTest`
+  covers those shapes with inline JSON meanwhile, and says so at the top.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file
   claiming to be a capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not
   readable from here — inventing them would put made-up game data in `examples/json`.

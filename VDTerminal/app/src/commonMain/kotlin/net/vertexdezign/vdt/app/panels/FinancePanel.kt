@@ -48,6 +48,7 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.FinancePeriod
 import net.vertexdezign.vdt.model.FinanceStatRow
+import net.vertexdezign.vdt.model.InvoicesData
 
 /** Columns the in-game finances screen shows: the period being played plus four archived ones. */
 private const val DEFAULT_COLUMNS = 5
@@ -69,18 +70,32 @@ private val NAME_WIDTH = 168.dp
  * with no farm, which the mod reports as a present-but-empty document ([FinanceData.hasFarm]).
  */
 @Composable
-fun FinancePanel(data: FinanceData?, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
+fun FinancePanel(
+  data: FinanceData?,
+  modifier: Modifier = Modifier,
+  invoices: InvoicesData? = null,
+  onCommand: (ClientMessage) -> Unit = {},
+) {
   // Most of the table is zeroes in any given month, so the useful default is to hide them -- the
   // opposite of the in-game screen, which has a full page to spend and always shows every bucket.
   // (The row count is the game's 33 plus whatever a mod adds: one capture already carries 34.)
   var hideEmpty by remember { mutableStateOf(true) }
+  // Which half of the app is on screen. A driving-time view mode, so it lives on the panel header
+  // rather than in a config dialog -- and it only exists at all when FS25_Invoices is installed, so a
+  // player without it sees exactly the page they had before.
+  var showInvoices by remember { mutableStateOf(false) }
+  val hasInvoices = invoices != null
 
   Panel(
     title = "Finance",
     icon = Icons.Filled.AccountBalance,
     modifier = modifier,
     headerActions = {
-      if (data?.stats?.isNotEmpty() == true) {
+      if (hasInvoices) {
+        ViewTab("Books", !showInvoices) { showInvoices = false }
+        ViewTab("Invoices", showInvoices) { showInvoices = true }
+      }
+      if (!showInvoices && data?.stats?.isNotEmpty() == true) {
         Icon(
           if (hideEmpty) Icons.Filled.FilterAlt else Icons.Filled.FilterAltOff,
           contentDescription = if (hideEmpty) "show rows with no movement" else "hide rows with no movement",
@@ -94,11 +109,33 @@ fun FinancePanel(data: FinanceData?, modifier: Modifier = Modifier, onCommand: (
     },
   ) {
     when {
+      // The invoices view stands on its own: it has its own farm scope and its own empty states, and
+      // it is worth reading even while the books are still waiting for their first write.
+      showInvoices && hasInvoices -> InvoicesSection(invoices, data?.balance, onCommand = onCommand)
+
       data == null -> Centered("Waiting for finance data…")
+
       !data.hasFarm -> Centered("No farm")
+
       else -> FinanceContent(data, hideEmpty, onCommand)
     }
   }
+}
+
+/** One of the panel header's view tabs. */
+@Composable
+private fun ViewTab(label: String, active: Boolean, onClick: () -> Unit) {
+  Text(
+    label.uppercase(),
+    color = if (active) VdtColors.White else VdtColors.DarkGray,
+    fontSize = 9.sp,
+    fontWeight = FontWeight.Bold,
+    modifier = Modifier
+      .clip(RoundedCornerShape(4.dp))
+      .background(if (active) VdtColors.Green else VdtColors.TrackGray)
+      .clickable(role = Role.Button, onClick = onClick)
+      .padding(horizontal = 8.dp, vertical = 4.dp),
+  )
 }
 
 @Composable

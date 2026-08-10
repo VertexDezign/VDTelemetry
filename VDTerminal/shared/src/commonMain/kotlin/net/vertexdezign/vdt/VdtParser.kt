@@ -6,6 +6,7 @@ import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
+import net.vertexdezign.vdt.model.InvoicesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayersCatalog
@@ -68,6 +69,9 @@ object VdtParser {
 
   /** Parse the `finance.json` channel (the farm's books) into [FinanceData]. */
   fun parseFinance(text: String): FinanceData = json.decodeFromString(FinanceData.serializer(), text)
+
+  /** Parse the optional `invoices.json` channel (FS25_Invoices) into [InvoicesData]. */
+  fun parseInvoices(text: String): InvoicesData = json.decodeFromString(InvoicesData.serializer(), text)
 
   /** Parse one `mapLayers/<id>.json` raster plane into [MapLayerData]. */
   fun parseMapLayer(text: String): MapLayerData = json.decodeFromString(MapLayerData.serializer(), text)

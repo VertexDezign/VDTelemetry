@@ -87,6 +87,10 @@ local sourceFiles = {
   -- Enhanced Loan System detection. The finance channel asks it at *runtime* whether the base-game
   -- loan has been replaced, so its position relative to that collector does not matter.
   "src/integrations/EnhancedLoanSystem.lua",
+  -- Invoices channel: billing between farms, when FS25_Invoices is installed (event-driven off that
+  -- mod's own notifyUI funnel). Reuses ProductionExporter.ownFarmId for the farm scope, so it is
+  -- sourced after it.
+  "src/integrations/Invoices.lua",
   -- Per-field agronomy channel (field-info popup); reads base-game FieldState and, when present,
   -- enriches each field via the CropRotation integration above, so it is sourced after it.
   "src/collect/FieldInfoExporter.lua",
@@ -117,6 +121,9 @@ local sourceFiles = {
   -- Enhanced Loan System write-back (take / specially redeem an annuity loan); drives that mod's own
   -- manager and reuses its integration handle, sourced with the integrations above
   "src/command/EnhancedLoanControl.lua",
+  -- Invoices write-back (pay / cancel / answer a proposal / issue one); drives that mod's own service
+  -- and reuses its integration handle, sourced with the integrations above
+  "src/command/InvoiceControl.lua",
   -- Ground-layer subscription: tells the mapLayers channel which raster planes the terminal is
   -- showing, so it sweeps only those (MapLayersExporter is sourced with the collectors above)
   "src/command/MapLayersControl.lua",

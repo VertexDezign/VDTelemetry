@@ -10,23 +10,30 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import net.vertexdezign.vdt.app.panels.FinancePanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.widgets.FinanceWidget
+import net.vertexdezign.vdt.app.widgets.InvoicesWidget
 import net.vertexdezign.vdt.app.widgets.Widget
 
 /**
  * The Finance app: the local farm's books — the balance and loan, the month-by-month finances table,
  * and the money notifications as a running log — plus borrow/repay against the base-game loan.
  * Base-game data, so it is always available (the panel renders its own waiting/empty states).
+ *
+ * With FS25_Invoices installed the page also carries an Invoices tab: billing between farms, and the
+ * four things that can be done about an invoice plus raising a new one.
  */
 object FinanceApp : VdtApp {
   override val id = "finance"
   override val title = "Finance"
   override val icon: ImageVector = Icons.Filled.AccountBalance
-  override val widgets: List<Widget> = listOf(FinanceWidget)
+  override val widgets: List<Widget> = listOf(FinanceWidget, InvoicesWidget)
 
   @Composable
   override fun FullPage(modifier: Modifier) {
     val store = LocalVdtStore.current
     val finance by store.finance.collectAsState()
-    FinancePanel(finance, modifier, onCommand = store.onCommand)
+    // The invoices channel is a separate file with its own cadence, so the panel takes both and shows
+    // its Invoices tab only when that mod is installed (a null here).
+    val invoices by store.invoices.collectAsState()
+    FinancePanel(finance, modifier, invoices, store.onCommand)
   }
 }

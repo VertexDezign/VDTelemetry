@@ -7,6 +7,7 @@ import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
+import net.vertexdezign.vdt.model.InvoicesData
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
@@ -171,6 +172,21 @@ sealed interface ServerMessage {
   @SerialName("finance")
   data class Finance(
     val data: FinanceData? = null,
+  ) : ServerMessage
+
+  /**
+   * The invoices channel (`invoices.json`, FS25_Invoices): billing between farms. Purely event-driven
+   * — the mod hooks that mod's own "something changed" funnel, so a document arrives when an invoice
+   * is raised, paid, withdrawn, answered or penalised, and not otherwise.
+   *
+   * [data] is **null when the file is absent, which here means the mod is not installed** — the app
+   * must say so rather than showing an empty list, which is a different statement. An installed mod
+   * with nothing to show sends a document whose `invoices` list is empty.
+   */
+  @Serializable
+  @SerialName("invoices")
+  data class Invoices(
+    val data: InvoicesData? = null,
   ) : ServerMessage
 
   /**
@@ -619,6 +635,108 @@ sealed interface ClientMessage {
   data class SetMapLayers(
     val ids: List<String> = emptyList(),
   ) : ClientMessage
+
+  /**
+   * Settle an FS25_Invoices invoice billed to this farm.
+   *
+   * This and the three below are **actions, not target states** — like [TakeLoan] they carry nothing
+   * to restate, are never replayed on reconnect, and rely on the command channel's at-most-once id
+   * watermark. A redelivered pay is harmless only because the mod refuses to settle something already
+   * paid; that is the mod's guard, not a property of this message.
+   *
+   * The mod re-checks everything the app used to decide the button existed — the `farmManager` right,
+   * the invoice's state, that this farm is its payer, and that it can afford it — so a stale command
+   * is refused rather than acted on.
+   */
+  @Serializable
+  @SerialName("payInvoice")
+  data class PayInvoice(
+    val invoiceId: Int,
+  ) : ClientMessage
+
+  /**
+   * Withdraw an invoice: one we issued and nobody has paid, or a proposal we raised. Deletes the
+   * record outright — the mod keeps no cancelled state — so the app confirms before sending it.
+   */
+  @Serializable
+  @SerialName("cancelInvoice")
+  data class CancelInvoice(
+    val invoiceId: Int,
+  ) : ClientMessage
+
+  /**
+   * Accept a proposal addressed to this farm, turning it into a real unpaid invoice. Only the issuer a
+   * proposal names may do this, and the mod restamps its creation date on the way through — so a
+   * proposal that sat pending for months does not land already overdue.
+   */
+  @Serializable
+  @SerialName("validateProposal")
+  data class ValidateProposal(
+    val invoiceId: Int,
+  ) : ClientMessage
+
+  /** Reject a proposal addressed to this farm. Deletes it, same as [CancelInvoice]. */
+  @Serializable
+  @SerialName("refuseProposal")
+  data class RefuseProposal(
+    val invoiceId: Int,
+  ) : ClientMessage
+
+  /**
+   * Raise a new FS25_Invoices invoice against [farmId], or — with [proposal] set — ask that farm to
+   * bill *us* for the work, which they then validate or refuse.
+   *
+   * The **only command that carries a list**, and so the only one the mod reads child elements for
+   * (`<line/>` under `<command>`). Everything a line needs beyond its work type and quantity is
+   * optional: the mod fills the price from its own catalogue, the VAT from the server's settings, and
+   * computes the line total with its own arithmetic — the app never sends an amount, because the two
+   * would then have to agree and one of them would eventually be wrong.
+   */
+  @Serializable
+  @SerialName("createInvoice")
+  data class CreateInvoice(
+    val farmId: Int,
+    val lines: List<InvoiceLineInput>,
+    val proposal: Boolean = false,
+  ) : ClientMessage {
+    init {
+      // The mod refuses all three, so rejecting them at the type boundary makes them unrepresentable
+      // end to end (the constructor also runs during kotlinx decode). MAX_LINES is the mod's own cap.
+      require(farmId > 0) { "invoice recipient must be a real farm, was $farmId" }
+      require(lines.isNotEmpty()) { "an invoice needs at least one line" }
+      require(lines.size <= MAX_LINES) { "an invoice may carry at most $MAX_LINES lines, had ${lines.size}" }
+    }
+
+    companion object {
+      /** The mod's own per-invoice line cap (`InvoiceCreateEvent:run`). */
+      const val MAX_LINES = 100
+    }
+  }
+}
+
+/**
+ * One line of a [ClientMessage.CreateInvoice]. Deliberately thin: the work type and how much of it,
+ * plus the two things a player can override.
+ */
+@Serializable
+data class InvoiceLineInput(
+  /** The mod's work type id — see [net.vertexdezign.vdt.model.WorkType.id]. */
+  val workTypeId: Int,
+  /** Hectares / hours / pieces / **litres** — the last of which is priced per 1000 l by the mod. */
+  val quantity: Double,
+  /** Unit price. Null takes the catalogue's difficulty-adjusted price, which is the usual case. */
+  val price: Double? = null,
+  /** Fraction knocked off, `0.1` being 10%. The mod clamps into `[0,1]`. */
+  val discount: Double? = null,
+  /** Free text for the line. */
+  val note: String? = null,
+  /** The field this line bills for, when it is field work. */
+  val fieldId: Int? = null,
+) {
+  init {
+    require(quantity > 0) { "an invoice line needs a quantity > 0, was $quantity" }
+    require(price == null || price >= 0) { "a line price cannot be negative, was $price" }
+  }
 }
 
 /**

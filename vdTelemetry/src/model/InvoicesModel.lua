@@ -1,0 +1,96 @@
+-- Model definitions for the invoices export channel (invoices.json,
+-- src/integrations/Invoices.lua) -- the FS25_Invoices mod's billing between farms.
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Invoices.kt) and the fixtures in
+-- examples/json/invoices/*.
+--
+-- Scope: the LOCAL player's farm only -- the invoices it owes and the ones it is owed, as the mod's
+-- own in-game page lists them. The document also carries the two CATALOGUES the app's builder needs
+-- (the farms that can be billed, and the mod's work types with their live prices), because a command
+-- channel has no request/response half to fetch them with.
+--
+-- MONEY IS ASYMMETRIC. An invoice's `total` is tax-INCLUSIVE, and paying it moves two different
+-- numbers: the payer loses `totalDue` (total + penalty) while the issuer gains `credit`
+-- (total-excluding-VAT + penalty). The VAT is destroyed -- collected by nobody. That is the mod's
+-- simulation, not a rounding error, and it is why both figures are carried rather than one.
+
+---@class InvoiceFarmModel a farm that can be billed (the local farm and the spectator are excluded)
+---@field id number farmId
+---@field name string? the farm's name; omitted when the game has none
+
+---@class WorkTypeModel one row of the mod's work-type catalogue, priced for THIS server
+---@field id number the mod's own work type id -- the stable key, and what a command carries
+---@field name string localized label, resolved out of the mod's own i18n environment
+---@field unit string piece | hour | hectare | liter -- derived from the mod's UNIT_* constant NAMES
+---@field price number the difficulty-adjusted unit price, two decimals. NOT whole currency units, and
+---  for a `liter` row it is the price per 1000 l (the mod's own pricing rule)
+---@field vatRate number? the EFFECTIVE VAT rate for this work type (0 -- omitted -- when the server has
+---  VAT simulation switched off, so the app's preview matches what the invoice will actually say)
+---@field needsPicker string? vehicle | consumable | fillType -- set on the three rows whose line items
+---  are built by an in-game picker the terminal does not have. Exported (rather than dropped) so the
+---  app can say why they are not offered here; a command naming one of these is refused.
+
+---@class InvoiceLineModel one line item
+---@field workTypeId number joins to WorkTypeModel.id
+---@field name string? the label the line was created with
+---@field quantity number hectares / hours / pieces / litres, per `unit`
+---@field unit string piece | hour | hectare | liter
+---@field price number unit price as invoiced (per 1000 l on a `liter` line) -- fractional, not rounded
+---@field amount number the line's tax-inclusive total AFTER its discount
+---@field vatRate number? the VAT fraction inside `amount` (0.2 means 20%); omitted when zero
+---@field discountRate number? fraction knocked off before VAT was extracted; omitted when zero
+---@field fieldId number? the field this line was billed for; omitted when it is not field work
+---@field fieldArea number? that field's area in ha
+---@field note string? free text the issuer typed
+
+---@class InvoiceModel one invoice, from the local farm's point of view
+---@field id number the mod's repository id -- server-assigned, unique per savegame, and what every
+---  command addresses. Stable across a save/load, unlike the ELS loans' network object ids.
+---@field direction string incoming | outgoing. Computed with the MOD's own rule, which inverts for
+---  proposals: a proposal is raised by the payer, so it is outgoing for them and incoming for the
+---  issuer who has to answer it.
+---@field state string new | paid | proposed (the mod also defines `sent` and `cancelled`, which
+---  nothing ever assigns -- cancelling deletes the row -- but they are mapped through rather than
+---  silently rewritten if one ever appears)
+---@field counterpartyId number? the OTHER farm's id -- who is billing us, or who we are billing
+---@field counterpartyName string? that farm's name
+---@field senderFarmId number the issuer; money flows to them
+---@field recipientFarmId number the payer; money flows from them
+---@field total number tax-inclusive total, before any penalty
+---@field totalNet number total excluding VAT
+---@field vat number? the VAT inside `total`; omitted when zero
+---@field penalty number? accrued late penalty, on TOP of `total`; omitted when zero
+---@field totalDue number what the payer parts with: total + penalty
+---@field credit number what the issuer receives: totalNet + penalty (the VAT goes nowhere)
+---@field overdue boolean? true once a penalty has accrued -- the mod's own definition of overdue
+---@field daysUntilPenalty number? in-game days until the first penalty accrues, floored at 0. Present
+---  only while penalties are enabled and this invoice can still accrue one; absent once it has.
+---@field date string? in-game creation date, DD.MM.YYYY -- the same reading as environment.date
+---@field time string? in-game creation time, HH:MM
+---@field actions string[]? what this player may do: pay | cancel | validate | refuse. Mirrors the
+---  mod's own server-side checks (state, which side of the invoice this farm is, and the farmManager
+---  right) and is what the app's buttons dispatch on -- presence, not a state machine restated in
+---  Kotlin. Deliberately says nothing about AFFORDABILITY: the balance moves faster than this channel
+---  writes, so the app greys Pay against the finance channel instead.
+---@field lines InvoiceLineModel[]?
+
+---@class PenaltyTermsModel the server's late-payment rules, so the app can explain a penalty rather
+---  than just print it
+---@field enabled boolean whether penalties accrue at all (a server setting)
+---@field ratePercent number percent of the invoice total per elapsed month
+---@field gracePeriods number months before the first penalty lands
+---@field capPercent number the most a penalty can ever reach, as a percent of the total
+---@field daysPerPeriod number in-game days in a month on this server -- what the clock actually counts
+
+---@class InvoicesModel
+---@field version string channel version, independent of VDTelemetry.VERSION
+---@field farmId number? the local farm, so the app can tell the two sides apart without inferring it
+---@field canManage boolean? whether this player holds the farmManager right, which every one of the
+---  mod's own events checks. False means `actions` is empty everywhere.
+---@field vatEnabled boolean? whether the server simulates VAT
+---@field penaltyTerms PenaltyTermsModel?
+---@field farms InvoiceFarmModel[]? who can be billed; empty in singleplayer, which is why the feature
+---  has no singleplayer form at all
+---@field workTypes WorkTypeModel[]? the catalogue, priced for this server's difficulty and vatRates.xml
+---@field invoices InvoiceModel[]? both directions in one array flagged by `direction`, sorted by id
