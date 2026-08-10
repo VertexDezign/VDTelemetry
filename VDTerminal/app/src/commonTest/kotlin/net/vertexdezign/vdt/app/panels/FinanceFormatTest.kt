@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import androidx.compose.ui.text.AnnotatedString
 import net.vertexdezign.vdt.app.theme.VdtColors
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -68,6 +69,52 @@ class FinanceFormatTest {
     // Nothing borrowed, or no term, is not a payment.
     assertEquals(0L, annuity(0, 3.5f, 20))
     assertEquals(0L, annuity(200_000, 3.5f, 0))
+  }
+
+  @Test
+  fun totalRepaymentMatchesTheLoanTheGameActuallyWrote() {
+    // examples/json/finance/els.json, captured in-game: 250,000 over 8 years at 2.7% came back from
+    // ELS_loan:calculateTotalAmount as 277,900. Pinning the app's estimate to a figure the mod itself
+    // produced is the only check that the amortization is being run the way ELS runs it.
+    assertEquals(277_900L, totalRepayment(250_000, 2.7f, 8))
+
+    // And it is genuinely below instalment × term — the debt clears early because the instalment is
+    // priced on annual compounding but charged against a twelfth of the rate each month.
+    assertTrue(totalRepayment(250_000, 2.7f, 8) < annuity(250_000, 2.7f, 8) * 8 * 12)
+  }
+
+  @Test
+  fun totalRepaymentIsTheLoanItselfWhenNothingIsCharged() {
+    // No rate, no interest: the total is what was borrowed, not a rounding artefact of the loop.
+    assertEquals(120_000L, totalRepayment(120_000, 0f, 10))
+
+    // A longer term always costs more in total, however much easier the instalment looks.
+    assertTrue(totalRepayment(200_000, 3.5f, 20) > totalRepayment(200_000, 3.5f, 5))
+
+    assertEquals(0L, totalRepayment(0, 3.5f, 20))
+    assertEquals(0L, totalRepayment(200_000, 3.5f, 0))
+  }
+
+  @Test
+  fun amountGroupingKeepsEveryCursorPositionInRange() {
+    // The field renders grouped digits through an offset mapping, and Compose asks it where the
+    // cursor and the selection sit. An index that disagrees with the rendered string throws — so this
+    // walks every position of every group shape rather than trusting the arithmetic.
+    for (digits in listOf("", "5", "50", "500", "5000", "50000", "1234567", "999999999999")) {
+      val transformed = ThousandsGrouping.filter(AnnotatedString(digits))
+      assertEquals(groupDigits(digits), transformed.text.text)
+
+      for (offset in 0..digits.length) {
+        val mapped = transformed.offsetMapping.originalToTransformed(offset)
+        assertTrue(mapped in 0..transformed.text.length, "digit offset $offset of '$digits' mapped to $mapped")
+        // Round-tripping is what keeps typing in the middle of a number from jumping the caret.
+        assertEquals(offset, transformed.offsetMapping.transformedToOriginal(mapped))
+      }
+      for (offset in 0..transformed.text.length) {
+        val back = transformed.offsetMapping.transformedToOriginal(offset)
+        assertTrue(back in 0..digits.length, "display offset $offset of '$digits' mapped to $back")
+      }
+    }
   }
 
   @Test

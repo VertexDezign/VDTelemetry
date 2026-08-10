@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,8 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
@@ -19,7 +23,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,7 +53,19 @@ import net.vertexdezign.vdt.model.MoneyEvent
 fun formatMoney(value: Long, withSign: Boolean = false): String {
   // The magnitude comes off the string, not off abs(): abs(Long.MIN_VALUE) is still negative, and
   // grouping a "-" as a digit would print a doubled sign and a ragged first group.
-  val digits = value.toString().removePrefix("-")
+  val sign = when {
+    value < 0 -> "-"
+    withSign && value > 0 -> "+"
+    else -> ""
+  }
+  return sign + groupDigits(value.toString().removePrefix("-"))
+}
+
+/**
+ * Thousands-group an unsigned digit string, from the right. Split out from [formatMoney] because the
+ * amount field groups what the user is typing, which is a string and not yet a number.
+ */
+internal fun groupDigits(digits: String): String {
   val grouped = StringBuilder()
   val firstGroup = digits.length % 3
   if (firstGroup > 0) grouped.append(digits, 0, firstGroup)
@@ -51,12 +75,7 @@ fun formatMoney(value: Long, withSign: Boolean = false): String {
     grouped.append(digits, i, i + 3)
     i += 3
   }
-  val sign = when {
-    value < 0 -> "-"
-    withSign && value > 0 -> "+"
-    else -> ""
-  }
-  return sign + grouped
+  return grouped.toString()
 }
 
 /**
@@ -264,5 +283,86 @@ internal fun FinanceButton(
       .padding(horizontal = 12.dp, vertical = 7.dp),
   ) {
     Text(label.uppercase(), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+  }
+}
+
+// ---- Amount entry --------------------------------------------------------------------------------
+
+/** Digits a money field accepts, wide enough for any balance the game holds and short of Long overflow. */
+private const val MAX_AMOUNT_DIGITS = 12
+
+/**
+ * A typed money amount, grouped as it is entered. The loan screens pair it with ± buttons, but the
+ * field is what makes six figures reachable — the game's own loan dialogs take a typed number, and
+ * stepping to one 5,000 at a time is not a substitute.
+ *
+ * The **caller owns the raw digits**: what they mean is `text.toLongOrNull() ?: 0`, and the buttons
+ * beside the field write digits back through [onTextChange], so there is one source of truth and no
+ * state to re-sync. Entry above [ceiling] is clamped as it is typed rather than on commit — the field
+ * must never show a number the button under it would not send.
+ */
+@Composable
+internal fun AmountField(
+  text: String,
+  ceiling: Long,
+  onTextChange: (String) -> Unit,
+  modifier: Modifier = Modifier,
+  enabled: Boolean = true,
+) {
+  BasicTextField(
+    value = text,
+    onValueChange = { new ->
+      // Digits only, capped in width before parsing: a paste of 30 digits overflows Long, and
+      // toLongOrNull() would then read as "empty" rather than as "far too much".
+      val digits = new.filter { it.isDigit() }.take(MAX_AMOUNT_DIGITS).trimStart('0')
+      val value = digits.toLongOrNull()
+      onTextChange(if (value != null && value > ceiling) ceiling.toString() else digits)
+    },
+    enabled = enabled,
+    singleLine = true,
+    textStyle = TextStyle(
+      fontSize = 12.sp,
+      fontWeight = FontWeight.Bold,
+      color = if (enabled) VdtColors.TextDark else VdtColors.TextDisabled,
+      textAlign = TextAlign.End,
+    ),
+    cursorBrush = SolidColor(VdtColors.TextDark),
+    visualTransformation = ThousandsGrouping,
+    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+    modifier = modifier
+      .width(110.dp)
+      .clip(RoundedCornerShape(4.dp))
+      .background(if (enabled) VdtColors.White else VdtColors.TrackGray)
+      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
+      .padding(horizontal = 8.dp, vertical = 7.dp),
+  )
+}
+
+/**
+ * Groups the digits of an amount field for display only — `250000` reads as `250,000` while what the
+ * field stores stays parseable. The offset mapping is the part that matters: Compose places the cursor
+ * and the selection through it, and an index that disagrees with the rendered string by even one
+ * throws rather than merely looking wrong.
+ */
+internal object ThousandsGrouping : VisualTransformation {
+  override fun filter(text: AnnotatedString): TransformedText {
+    val digits = text.text
+    val grouped = groupDigits(digits)
+    val mapping = object : OffsetMapping {
+      /** Commas sit *between* groups, so the count before a digit is the total minus those after it. */
+      override fun originalToTransformed(offset: Int): Int {
+        val n = digits.length
+        val at = offset.coerceIn(0, n)
+        val commasBefore = (n - 1) / 3 - (n - at - 1).coerceAtLeast(0) / 3
+        return at + commasBefore
+      }
+
+      /** Counting the commas passed is exact by construction, which a second formula would not be. */
+      override fun transformedToOriginal(offset: Int): Int {
+        val at = offset.coerceIn(0, grouped.length)
+        return at - grouped.take(at).count { it == ',' }
+      }
+    }
+    return TransformedText(AnnotatedString(grouped), mapping)
   }
 }

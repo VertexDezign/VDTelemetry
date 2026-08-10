@@ -4,12 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +33,13 @@ import kotlin.math.roundToLong
 
 /** The step the amount pickers move in. ELS takes any integer, so this is purely for tapping speed. */
 private const val AMOUNT_STEP = 5000L
+
+/**
+ * The widest amount either loan command can carry — both are `Int` on the wire. Every ceiling here is
+ * capped to it: the model's money is `Long` and a farm rich enough to be offered more than this is
+ * rare but representable, and `toInt()` on the way into the command would wrap it to a negative.
+ */
+private val MAX_COMMAND_AMOUNT = Int.MAX_VALUE.toLong()
 
 /**
  * The FS25_EnhancedLoanSystem section: the bank's terms, this farm's annuity loans, and the two things
@@ -180,9 +189,21 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
     } else {
       ((els.redemptionFraction ?: 0f) * loan.amount).roundToLong()
     }
-  val ceiling = min(min(balance.coerceAtLeast(0), fractionCap), loan.restAmount)
+  val ceiling = minOf(balance.coerceAtLeast(0), fractionCap, loan.restAmount, MAX_COMMAND_AMOUNT)
 
-  var amount by remember(loan.id, ceiling) { mutableStateOf(min(AMOUNT_STEP, ceiling)) }
+  // The field's digits are the state; the amount is what they parse to. Keeping the number derived
+  // rather than mirrored is what lets the buttons and the keyboard edit the same value without one
+  // of them having to overwrite the other mid-edit.
+  //
+  // Deliberately **not** keyed on the ceiling: it moves with the farm's balance, which moves every
+  // time a drop of fuel is burnt, and re-keying would blank a half-typed amount several times a
+  // second. A ceiling that drops below what is in the field trims it instead.
+  var amountText by remember(loan.id) { mutableStateOf(min(AMOUNT_STEP, ceiling).toString()) }
+  LaunchedEffect(ceiling) {
+    val typed = amountText.toLongOrNull()
+    if (typed != null && typed > ceiling) amountText = ceiling.toString()
+  }
+  val amount = amountText.toLongOrNull()?.coerceIn(0L, ceiling) ?: 0L
 
   Column(Modifier.fillMaxWidth().padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
     when {
@@ -199,29 +220,33 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
       )
 
       else -> {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        FlowRow(
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
+          itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
           FinanceButton(
             label = "−",
             color = VdtColors.ProgressBlue,
-            onClick = { amount = (amount - AMOUNT_STEP).coerceIn(0L, ceiling) },
+            onClick = { amountText = (amount - AMOUNT_STEP).coerceIn(0L, ceiling).toString() },
             enabled = els.canManage && amount > 0,
           )
-          Text(
-            formatMoney(amount),
-            color = VdtColors.TextDark,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
+          AmountField(
+            text = amountText,
+            ceiling = ceiling,
+            onTextChange = { amountText = it },
+            enabled = els.canManage,
           )
           FinanceButton(
             label = "+",
             color = VdtColors.ProgressBlue,
-            onClick = { amount = (amount + AMOUNT_STEP).coerceIn(0L, ceiling) },
+            onClick = { amountText = (amount + AMOUNT_STEP).coerceIn(0L, ceiling).toString() },
             enabled = els.canManage && amount < ceiling,
           )
           FinanceButton(
             label = "Max",
             color = VdtColors.ProgressBlue,
-            onClick = { amount = ceiling },
+            onClick = { amountText = ceiling.toString() },
             enabled = els.canManage && amount < ceiling,
           )
           FinanceButton(
@@ -246,26 +271,43 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
 /** Take a new loan: an amount and a term, both bounded by what the bank currently offers. */
 @Composable
 private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onCommand: (ClientMessage) -> Unit) {
-  val ceiling = (els.maxAmount ?: 0).coerceAtLeast(0)
+  val ceiling = (els.maxAmount ?: 0).coerceIn(0, MAX_COMMAND_AMOUNT)
   val maxYears = (els.maxDurationYears ?: 1).coerceAtLeast(1)
 
-  var amount by remember(ceiling) { mutableStateOf(min(50_000L, ceiling)) }
+  // Typed digits, as in RepayControls — including why the ceiling does not key them: the bank's offer
+  // is derived from the farm's cash, so it drifts under the cursor while an amount is being typed.
+  var amountText by remember { mutableStateOf(min(50_000L, ceiling).toString()) }
   var years by remember(maxYears) { mutableStateOf(min(10, maxYears)) }
+  LaunchedEffect(ceiling) {
+    val typed = amountText.toLongOrNull()
+    if (typed != null && typed > ceiling) amountText = ceiling.toString()
+  }
+  val amount = amountText.toLongOrNull()?.coerceIn(0L, ceiling) ?: 0L
 
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+    FlowRow(
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
+      itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
       Text("AMOUNT", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
       FinanceButton(
         label = "−",
         color = VdtColors.ProgressBlue,
-        onClick = { amount = (amount - AMOUNT_STEP * 2).coerceIn(0L, ceiling) },
+        onClick = { amountText = (amount - AMOUNT_STEP * 2).coerceIn(0L, ceiling).toString() },
         enabled = amount > 0,
       )
-      Text(formatMoney(amount), color = VdtColors.TextDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+      AmountField(text = amountText, ceiling = ceiling, onTextChange = { amountText = it })
       FinanceButton(
         label = "+",
         color = VdtColors.ProgressBlue,
-        onClick = { amount = (amount + AMOUNT_STEP * 2).coerceIn(0L, ceiling) },
+        onClick = { amountText = (amount + AMOUNT_STEP * 2).coerceIn(0L, ceiling).toString() },
+        enabled = amount < ceiling,
+      )
+      FinanceButton(
+        label = "Max",
+        color = VdtColors.ProgressBlue,
+        onClick = { amountText = ceiling.toString() },
         enabled = amount < ceiling,
       )
     }
@@ -295,6 +337,16 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
     )
+    // The figure the monthly instalment hides: what the loan costs in total. Given its own weight
+    // because it is the one number that makes two terms comparable — a longer term always shows the
+    // easier instalment and the larger bill.
+    val total = totalRepayment(amount, rate, years)
+    Text(
+      "Total ≈ ${formatMoney(total)} · ${formatMoney(total - amount)} interest",
+      color = VdtColors.TextDark,
+      fontSize = 11.sp,
+      fontWeight = FontWeight.SemiBold,
+    )
 
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
       FinanceButton(
@@ -316,14 +368,52 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
  * factor applied to the principal, divided into twelve. A zero rate would divide by zero in that
  * formula, so it degrades to plain equal instalments.
  */
-internal fun annuity(amount: Long, ratePercent: Float, years: Int): Long {
-  if (amount <= 0 || years <= 0) return 0
+internal fun annuity(amount: Long, ratePercent: Float, years: Int): Long =
+  annuityExact(amount, ratePercent, years).roundToLong()
+
+/** The same instalment before it is rounded for display — what an amortization has to be run with. */
+private fun annuityExact(amount: Long, ratePercent: Float, years: Int): Double {
+  if (amount <= 0 || years <= 0) return 0.0
   val r = ratePercent / 100.0
-  if (r <= 0.0) return (amount.toDouble() / (years * 12)).roundToLong()
+  if (r <= 0.0) return amount.toDouble() / (years * 12)
   var compounded = 1.0
   repeat(years) { compounded *= (1 + r) }
   val factor = (compounded * r) / (compounded - 1)
-  return (amount * factor / 12).roundToLong()
+  return amount * factor / 12
+}
+
+/**
+ * Everything a loan will have cost by the time it clears — principal plus all the interest —
+ * mirroring `ELS_loan:calculateTotalAmount`, which does not close a formula but *runs the loan*:
+ * each month charges interest on what is still owed at a twelfth of the annual rate, the annuity
+ * pays that plus whatever is left over off the principal, and the last instalment is only as large
+ * as the remainder. That is why this comes out **below** `monthlyRate × months`: the instalment is
+ * derived from annual compounding but charged against monthly interest, so the debt clears a month
+ * or two early. Pricing it any other way would over-state the bill by an instalment.
+ *
+ * The loop is bounded by the agreed term, which the amortization always finishes inside; a payment
+ * too small to cover its own interest (only reachable at a degenerate rate) leaves the remaining
+ * balance in the total rather than spinning.
+ */
+internal fun totalRepayment(amount: Long, ratePercent: Float, years: Int): Long {
+  if (amount <= 0 || years <= 0) return 0
+  val payment = annuityExact(amount, ratePercent, years)
+  val monthlyRate = ratePercent / 100.0 / 12
+  var rest = amount.toDouble()
+  var total = 0.0
+  repeat(years * 12) {
+    if (rest <= 0) return total.roundToLong()
+    val interest = rest * monthlyRate
+    val principal = payment - interest
+    if (principal >= rest) {
+      total += rest + interest
+      rest = 0.0
+    } else {
+      total += payment
+      rest -= principal
+    }
+  }
+  return (total + rest.coerceAtLeast(0.0)).roundToLong()
 }
 
 /** `3.5` → `"3.5"`, `3.0` → `"3"` — the mod stores a float but usually means one decimal. */
