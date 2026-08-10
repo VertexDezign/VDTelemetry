@@ -209,7 +209,9 @@ data class MoneyEvent(
   val amount: Long = 0,
   /**
    * The money type's `statistic` — joins to [FinanceStatRow.name] where the game keeps a bucket for
-   * it. Null for the few types with none (a loan movement is a balance-sheet item, not income).
+   * it. Every base-game `MoneyType` registers one, loans included (`"loan"`, as the ELS capture
+   * shows), and a few of them share a bucket or name one the table has no row for; null is reachable
+   * only for a money type some mod registered without a statistic.
    */
   val type: String? = null,
   /** The localized label the notification carried ("Harvest income"). */

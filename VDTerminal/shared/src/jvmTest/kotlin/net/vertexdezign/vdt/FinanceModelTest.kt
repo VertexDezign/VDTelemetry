@@ -14,11 +14,12 @@ import kotlin.test.assertTrue
  * The finance channel's half of the mod↔Kotlin contract: field mapping, the omission defaults, and a
  * lossless round-trip.
  *
- * Driven by the committed `examples/json/finance/vanilla.json` capture where it can be. That capture is
- * a fresh singleplayer save, so it covers exactly one period and carries no log — the shapes it cannot
- * show (several periods, a populated log, a client with no manage right, a spectator) are inline JSON
- * below, with the game's real `FinanceStats` names and invented amounts. More captures are wanted; see
- * FUTURE.md. The mod's side of the same contract is `spec/FinanceExporter_spec.lua`.
+ * Driven by the committed captures where it can be: `examples/json/finance/vanilla.json` (a fresh
+ * singleplayer save — one period, no log) and `examples/json/finance/els.json` (the same save later,
+ * with FS25_EnhancedLoanSystem installed and two loans on the books). The shapes neither can show
+ * (several periods, a client with no manage right, a spectator) are inline JSON below, with the game's
+ * real `FinanceStats` names and invented amounts. More captures are wanted; see FUTURE.md. The mod's
+ * side of the same contract is `spec/FinanceExporter_spec.lua`.
  *
  * The column alignment is what this exists for: `stats[].values[i]` belongs to `periods[i]`, and
  * getting that off by one would silently attribute every figure to the wrong month.
@@ -358,6 +359,69 @@ class FinanceModelTest {
     assertEquals(0L, cleared.restAmount)
     assertNull(cleared.totalCost)
     assertEquals(1f, cleared.progress)
+
+    assertRoundTrips(data)
+  }
+
+  @Test
+  fun parsesTheEnhancedLoanCapture() {
+    // The counterpart of the inline case above, and the one that had to come from a running game:
+    // FS25_EnhancedLoanSystem installed, two loans taken, one of them already cleared by extra
+    // payments. Everything asserted here is what the mod actually wrote, not what it was designed to.
+    val data = VdtParser.parseFinance(example("els.json"))
+
+    assertEquals(95756440L, data.balance)
+    // The replacement is in play, so the base-game loan fields are absent rather than zero — the one
+    // distinction the app leans on to decide it must not print a debt-free farm.
+    assertFalse(data.loansAvailable)
+    assertNull(data.loan)
+    assertNull(data.loanMax)
+    assertNull(data.loanInterestPerDay)
+    // ELS gates on MANAGE_RIGHTS and the base game on farmManager; on this save the player holds both.
+    assertTrue(data.canManageLoan)
+
+    val els = assertNotNull(data.enhancedLoans)
+    assertTrue(els.canManage)
+    assertEquals(97401651L, els.maxAmount)
+    assertEquals(2.7f, els.interest)
+    assertTrue(els.dynamicInterest)
+    assertEquals(20, els.maxDurationYears)
+    // This server allows repeated extra payments, which the inline case does not — the branch where
+    // the redemption fraction is *not* applied, and the one the app must not cap silently.
+    assertTrue(els.multipleRedemptions)
+    assertEquals(0.05f, els.redemptionFraction)
+
+    assertEquals(2, els.loans.size)
+    val running = els.running.single()
+    assertEquals(735, running.id)
+    assertEquals(250000L, running.amount)
+    // Taken and not yet instalment-paid: nothing repaid, and the term still at its full 8 × 12.
+    assertEquals(250000L, running.restAmount)
+    assertEquals(96, running.restMonths)
+    assertEquals(8, running.durationYears)
+    assertEquals(0f, running.progress)
+    assertEquals(2930L, running.monthlyRate)
+    assertEquals(563L, running.monthlyInterest)
+    assertEquals(2367L, running.monthlyPrincipal)
+    // What the mod's own calculateTotalAmount says this loan will cost — the figure the app's
+    // "take a loan" estimate is pinned to (see the app's FinanceFormatTest).
+    assertEquals(277900L, running.totalCost)
+
+    assertEquals(250000L, els.totalOutstanding)
+    assertEquals(2930L, els.totalMonthlyRate)
+
+    val cleared = els.loans.single { it.paidOff }
+    assertEquals(733, cleared.id)
+    assertEquals(0L, cleared.restAmount)
+    assertNull(cleared.totalCost)
+
+    // Loan movements do reach the notification log, and they carry the game's own `loan` statistic —
+    // borrowing positive, the extra payments negative.
+    val loanEvents = data.history.filter { it.type == "loan" }
+    assertEquals(4, loanEvents.size)
+    assertEquals(listOf(250000L, -95000L, -5000L, 100000L), loanEvents.map { it.amount })
+    // Newest first, by the mod's own sequence.
+    assertEquals(listOf(4, 3, 2, 1), loanEvents.map { it.seq })
 
     assertRoundTrips(data)
   }

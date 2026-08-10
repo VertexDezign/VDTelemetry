@@ -148,13 +148,13 @@ Built and validated in-game. Four things were left.
 
 ## Finance (#48, under #46)
 
-Built and **singleplayer-validated in-game (2026-08-08)**: a vehicle purchase and a farmland purchase
-both appeared in the app's log as they appeared in the game's own notifications (the
-`HUD:showMoneyChange` hook, end to end), and one month rollover shifted the table's columns correctly.
-**Multiplayer is unproven** — a client reaches the notification funnel through `MoneyChangeEvent:run`
-rather than `FSBaseMission:broadcastNotifications`, and refreshes its archived columns by re-requesting
-`FinanceStatsEvent`, neither of which the host path exercises. See `finance-plan.md` for the design and
-the checks below.
+Built and validated in-game: **singleplayer 2026-08-08** (a vehicle purchase and a farmland purchase
+both appeared in the app's log as they appeared in the game's own notifications — the
+`HUD:showMoneyChange` hook, end to end — and a month rollover shifted the table's columns correctly),
+then **on a multiplayer client 2026-08-09**, which is the path the host never takes: the notification
+funnel reached through `MoneyChangeEvent:run` rather than `FSBaseMission:broadcastNotifications`, and
+archived columns refreshed by re-requesting `FinanceStatsEvent`. Both hold. See `finance-plan.md` for
+the design and the checks below for what is still unseen.
 
 - **The graphs.** The issue's own "Bonus: draw some graphs" was deliberately deferred until there was
   real data in the panel to shape a chart around. The export already feeds it: the mod carries up to
@@ -189,7 +189,11 @@ the checks below.
 
 ## Enhanced Loan System (#47, under #46)
 
-Built on top of #48, **not yet validated in-game**. The `enhancedLoans` block on the finance channel
+Built on top of #48. **Validated in-game on 2026-08-09, singleplayer and on a multiplayer client:**
+the loans render instead of the base-game block, and `takeLoan` / `repayLoan` both land from a client
+against a dedicated server. The SP capture is committed as `examples/json/finance/els.json` and now
+drives `FinanceModelTest`. The one thing still unproven is whether a terminal-created loan survives a
+server restart (see the in-game checks). The `enhancedLoans` block on the finance channel
 carries the bank's terms and the farm's annuity loans; `takeLoan` / `repayLoan` drive the mod's own
 `ELS_loanManager`. Its *presence* is the whole signal — when it is there the base-game loan fields are
 absent and the app renders this instead, the same "dispatch on presence" rule the ISOBUS sections use.
@@ -211,7 +215,11 @@ absent and the app renders this instead, the same "dispatch on presence" rule th
   the base loan. Cached for 30 s. If that still shows up in a profile, the next step is to recompute it
   only while the app actually has the take-loan controls open.
 - **The annuity formula is duplicated in the app**, so the take-loan panel can price a deal before the
-  command goes. `FinanceFormatTest` pins it to the mod's arithmetic; the mod stays the authority.
+  command goes — both the monthly instalment and the total the loan will cost, the second by running
+  the amortization the way `calculateTotalAmount` runs it (monthly interest against an instalment
+  priced on annual compounding, so the debt clears a month or two inside the term and the total lands
+  *below* instalment × months). `FinanceFormatTest` pins both to the mod's arithmetic — the total to
+  the figure the ELS capture carries — and the mod stays the authority.
 - **Still open:** paid-off loans accumulate in the export (the mod keeps them forever, and the app only
   shows a count). If a long-running farm ends up with dozens, cap or summarise them mod-side.
 - **Not built:** ELS's server settings (interest rate, mortgage ratios, max duration) are read-only
@@ -327,20 +335,24 @@ Each one is cheap to do while playing and settles something above.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a
   forage/carrot harvester's pass-through output carry `showOnHud="true"`? This gates the filter switch
   above.
-- ~~Does the finance log catch the notifications the game shows?~~ **Done (2026-08-08, singleplayer):**
-  a vehicle and a farmland purchase both landed. Still open on a **multiplayer client**, which reaches
-  the same hook via `MoneyChangeEvent:run` instead of `FSBaseMission:broadcastNotifications`.
-- ~~Does a month rollover shift the finance columns in singleplayer?~~ **Done (2026-08-08):** one
-  rollover, correct. Still open on a **multiplayer client**, which does not read `FarmStats` directly
-  but re-requests `FinanceStatsEvent` against our own counter copy — a code path the host never takes.
-  Worth watching across several rollovers too: only one has been seen.
+- ~~Does the finance log catch the notifications the game shows?~~ **Done (2026-08-08 singleplayer;
+  2026-08-09 multiplayer client):** a vehicle and a farmland purchase both landed in SP, and the log
+  fills on a client too — so the `MoneyChangeEvent:run` path reaches the same hook as the host's
+  `FSBaseMission:broadcastNotifications`.
+- ~~Does a month rollover shift the finance columns?~~ **Done (2026-08-08 singleplayer; 2026-08-09
+  multiplayer client):** correct on both, including the client's `FinanceStatsEvent` re-request against
+  our own counter copy — a code path the host never takes. Worth watching across several rollovers
+  still: only a handful have been seen.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod
-  subscribes to `ChangeLoanEvent`, which the engine publishes on both sides of the wire.
-- With Enhanced Loan System installed: does the app show its loans instead of the base-game block, and
-  do `takeLoan` / `repayLoan` actually land from a dedicated-server client? Both reach the mod's own
-  manager directly, which is exactly what its in-game buttons do — a client-created loan replicates
-  through `OBJECT_CREATED`, and a redemption through the client's dirty-object update stream — but that
-  is read off the engine source, not seen working from a terminal.
+  subscribes to `ChangeLoanEvent`, which the engine publishes on both sides of the wire. **Still open**
+  — and note it is about the *base-game* loan, so an ELS save cannot answer it.
+- ~~With Enhanced Loan System installed, does the app show its loans instead of the base-game block?~~
+  **Done (2026-08-09, singleplayer and a multiplayer client):** two loans, one already cleared,
+  rendered from the live save — the SP capture is `examples/json/finance/els.json`.
+- ~~Do `takeLoan` / `repayLoan` actually land from a dedicated-server client?~~ **Done (2026-08-09):**
+  both reach the mod's own manager directly, as its in-game buttons do — a client-created loan
+  replicates through `OBJECT_CREATED`, a redemption through the client's dirty-object update stream.
+  That was read off the engine source before; it has now been driven from a terminal.
 - Does an ELS loan taken from the terminal survive a server restart? That is the end-to-end proof the
   loan reached the server's table rather than only the client's.
 - Over a longer play, does the 100-entry log cap cover a useful span, or does an ordinary session
