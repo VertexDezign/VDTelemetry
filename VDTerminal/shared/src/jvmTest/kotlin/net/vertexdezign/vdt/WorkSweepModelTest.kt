@@ -18,6 +18,9 @@ import kotlin.test.assertTrue
  * sweep claims the ground between the two, which is the one thing this whole feature exists not to do.
  *
  * The shape case is the spreader (issue #62), whose footprint is a rhombus rather than a rectangle.
+ *
+ * The third case is the combine, which has work areas that are not ground it worked at all: the straw
+ * it puts out behind is a wide area trailing the header, and only the header is the pass.
  */
 class WorkSweepModelTest {
   private val terrain = 2048f
@@ -29,10 +32,12 @@ class WorkSweepModelTest {
     width: Float = 6f,
     depth: Float = 0.4f,
     active: Boolean = true,
+    type: String? = null,
   ) = WorkArea(
     // The engine's per-object index, which is 1 on both of these: they are two areas of one tool.
     index = 1,
     active = active,
+    type = type,
     shape =
       listOf(
         x / terrain,
@@ -145,5 +150,45 @@ class WorkSweepModelTest {
       stamped.signedArea() * bridged.signedArea() > 0f,
       "the stamped footprint and the bridge are wound alike",
     )
+  }
+
+  /**
+   * A combine as the engine describes one: the straw areas belong to the machine and so come first in
+   * [net.vertexdezign.vdt.model.allWorkAreas], the header is an implement hitched to the front, and all
+   * three are active the whole time it threshes — which is why `active` alone cannot separate them.
+   *
+   * The chopper is the wide one on purpose — that is the shape of the machine. It spreads over ground
+   * the header has already cut, several meters wider than the header cut it, so a sweep that took it
+   * painted every combine pass at the width of the spread instead of the width of the cut.
+   */
+  private fun combine(z: Float) =
+    Vehicle(
+      workAreas =
+        listOf(
+          // Both sit behind the header, at the back of the machine.
+          area(x = 494f, z = z - 8f, width = 12f, depth = 1f, type = "COMBINECHOPPER"),
+          area(x = 498f, z = z - 8f, width = 4f, depth = 1f, type = "COMBINESWATH"),
+        ),
+      implement = listOf(Implement(workAreas = listOf(area(x = 495.5f, z = z, width = 9f, type = "CUTTER")))),
+    )
+
+  @Test
+  fun sweepsTheHeaderAndNotTheStrawBehindIt() {
+    val sweep = WorkSweep()
+
+    val stamped = sweep.advance(combine(600f), terrain, nowMs = 0)
+    assertEquals(1, stamped.size, "the chopper and the swath sweep nothing; only the header does")
+    assertEquals(495.5f, stamped.single().metresX().minOf { it }, 0.01f, "the swath drawn is the cut")
+    assertEquals(504.5f, stamped.single().metresX().maxOf { it }, 0.01f)
+
+    // Three meters on. The header keeps its own trail across the samples even though two areas it must
+    // not sweep sit in front of it in the rig's list — the slot an area is paired by is its place in
+    // that full list, so skipping the straw does not shift the header onto another area's history.
+    val bridged = sweep.advance(combine(603f), terrain, nowMs = 100)
+    assertEquals(1, bridged.size)
+    assertEquals(600f, bridged.single().metresZ().minOf { it }, 0.01f, "it bridged back to where it was")
+    assertEquals(603.4f, bridged.single().metresZ().maxOf { it }, 0.01f)
+    assertEquals(495.5f, bridged.single().metresX().minOf { it }, 0.01f, "and still at the header's width")
+    assertEquals(504.5f, bridged.single().metresX().maxOf { it }, 0.01f)
   }
 }

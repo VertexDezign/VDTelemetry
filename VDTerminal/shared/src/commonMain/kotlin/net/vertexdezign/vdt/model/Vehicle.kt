@@ -635,6 +635,34 @@ data class WorkArea(
   val shape: List<Float> = emptyList(),
 )
 
+/**
+ * Work-area types that put material out behind the machine instead of working the ground under them.
+ *
+ * A combine registers two (`Combine.lua`, at load): `COMBINESWATH` for the straw dropped in a windrow
+ * and `COMBINECHOPPER` for the same straw spread chopped. A potato harvester's cutter registers the
+ * third, `HAULMDROP`, for the haulm it throws out the back. All three trail the machine, and none of
+ * them is the width of anything the machine cut — a chopper's spread is deliberately wider than the
+ * header that fed it, and a swath is a fraction of it.
+ *
+ * They are exported like any other area and read like any other area by anything asking *is this
+ * machine working*: a threshing combine's chopper is active and processing, and the rig header says so.
+ * What they must not do is stand for **where the machine has been**. A combine covers the ground its
+ * header cuts; the straw behind it is that same pass again, a machine-length late and the wrong width.
+ */
+private val DEPOSIT_AREA_TYPES = setOf("COMBINESWATH", "COMBINECHOPPER", "HAULMDROP")
+
+/**
+ * Whether this area's footprint is ground the machine *works* — the question coverage and the map's
+ * swath overlay ask, as against "is this machine running", which [WorkArea.active] answers for every
+ * area including the ones in [DEPOSIT_AREA_TYPES].
+ *
+ * True for an unknown or absent [WorkArea.type], which is the safe default in both directions: a
+ * modded type nobody here has heard of is far more likely to be a tool that works ground than another
+ * way of dropping straw, and drawing one area too many is a smaller wrong than silently leaving a
+ * tool's coverage unrecorded.
+ */
+val WorkArea.coversGround: Boolean get() = type !in DEPOSIT_AREA_TYPES
+
 /** [session] is resettable from the vehicle's own action; [lifetime] is not. */
 @Serializable
 data class BaleCounter(
@@ -853,6 +881,9 @@ data class CombinedImplementState(
  *
  * Flattened in hitch order (the machine, then each implement depth-first) — see [allWorkAreas], which
  * this filters.
+ *
+ * "Able to work ground" in the engine's sense, which includes the areas that only spread material
+ * behind the machine. Anything drawing a swath or recording coverage wants [coversGround] on top.
  */
 fun Vehicle.activeWorkAreas(): List<WorkArea> = allWorkAreas().filter { it.active }
 
