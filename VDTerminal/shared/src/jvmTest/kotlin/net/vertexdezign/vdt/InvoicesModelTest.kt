@@ -1,7 +1,9 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.InvoiceTokens
 import net.vertexdezign.vdt.model.InvoicesData
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -13,12 +15,15 @@ import kotlin.test.assertTrue
  * The invoices channel's half of the mod↔Kotlin contract: field mapping, the omission defaults, and a
  * lossless round-trip.
  *
- * **Everything here is inline synthetic JSON**, unlike the finance tests. FS25_Invoices needs two
- * farms to do anything at all, and singleplayer has one — so a real capture can only come from a
- * two-farm multiplayer session, which has not happened yet. `examples/json/` holds real game captures
- * only (a hand-written file claiming to be one was rejected before), so the capture is listed under
- * FUTURE.md → "Captures wanted as fixtures" rather than faked here. The amounts below are invented but
- * the *shapes* are the mod's, and the mod's own side of the contract is `spec/Invoices_spec.lua`.
+ * Driven by the committed capture where it can be: `examples/json/invoices/invoices.json`, taken from
+ * the two-farm multiplayer session this feature was validated in. FS25_Invoices needs two farms to do
+ * anything at all and singleplayer has one, so that session is the only place a capture can come from
+ * — and it caught one state rather than all of them. The shapes it does not show (an *incoming*
+ * invoice, a paid one, and one that has accrued a penalty) stay inline synthetic JSON below, with
+ * invented amounts but the mod's own shapes; `examples/json/` holds real game captures only, a
+ * hand-written file claiming to be one having been rejected before. What is still wanted is listed
+ * under FUTURE.md → "Captures wanted as fixtures". The mod's side of the contract is
+ * `spec/Invoices_spec.lua`.
  *
  * What this exists for is the money asymmetry: paying an invoice moves `totalDue` out of one farm and
  * `credit` into the other, and the VAT between them is destroyed. A test that only checked `total`
@@ -31,6 +36,72 @@ class InvoicesModelTest {
     val encoded = json.encodeToString(InvoicesData.serializer(), data)
     val decoded = json.decodeFromString(InvoicesData.serializer(), encoded)
     assertEquals(data, decoded, "JSON round-trip should be lossless")
+  }
+
+  private fun example(name: String): String {
+    var dir: File? = File(".").absoluteFile
+    while (dir != null) {
+      val candidate = File(dir, "examples/json/invoices/$name")
+      if (candidate.exists()) return candidate.readText()
+      dir = dir.parentFile
+    }
+    error("Could not locate examples/json/invoices/$name from ${File(".").absolutePath}")
+  }
+
+  /**
+   * The real two-farm capture, taken from farm 1's terminal. Two of these are ordinary bills: farm 1
+   * did the work and invoiced farm 2 ("Komune") for it. The third is the reason the file is worth
+   * committing — farm 3 ("Rela Industries") did the work, and farm 1 *asked them to invoice it*, which
+   * is a proposal raised by the payer. So farm 1 is the invoice's recipient and will be the one paying,
+   * yet the direction reads `outgoing`: the inversion FUTURE.md warns about, now pinned from a running
+   * game rather than asserted from the docs.
+   */
+  @Test
+  fun parsesTheTwoFarmCapture() {
+    val data = VdtParser.parseInvoices(example("invoices.json"))
+
+    assertEquals("1", data.version)
+    assertEquals(1, data.farmId)
+    assertTrue(data.canManage)
+    assertTrue(data.vatEnabled)
+    assertEquals(3, data.invoices.size)
+    // A German client: the game hands over its own localization for the work-type catalogue.
+    assertEquals(56, data.workTypes.size)
+    assertEquals("Pflügen", data.workTypes.first { it.id == 2 }.name)
+    // The three picker-backed types come through flagged, so the builder can refuse them.
+    assertEquals(
+      listOf(37, 55, 56),
+      data.workTypes.filter { !it.isUsable }.map { it.id },
+    )
+
+    // The requested invoice: farm 3 did the work and farm 1 asked to be billed for it, so farm 1 is
+    // the recipient and the payer — and the direction is still "outgoing", because farm 1 raised it.
+    val proposal = data.invoices.first { it.id == 1 }
+    assertEquals(InvoiceTokens.PROPOSED, proposal.state)
+    assertEquals(InvoiceTokens.OUTGOING, proposal.direction)
+    assertEquals(1, proposal.recipientFarmId)
+    assertEquals(3, proposal.senderFarmId)
+    // Only cancel: a proposal you raised yourself is not one you can validate.
+    assertEquals(listOf(InvoiceTokens.CANCEL), proposal.actions)
+    // 800/h at 75% off: the gross is recomputed the mod's way, never derived back from the amount.
+    val rent = proposal.lines.single()
+    assertEquals(200L, rent.amount)
+    assertEquals(800L, rent.grossAmount)
+    assertEquals(600L, rent.discountAmount)
+    assertEquals("Solar Reinigung", rent.note)
+
+    // The VAT asymmetry, on real numbers: what the payer owes is not what the issuer banks.
+    val threeLines = data.invoices.first { it.id == 3 }
+    assertEquals(3, threeLines.lines.size)
+    assertEquals(8300L, threeLines.totalDue)
+    assertEquals(7545L, threeLines.credit)
+    assertEquals(755L, threeLines.vat)
+
+    // Nothing has gone overdue in this save, so the penalty fields are absent rather than zero.
+    assertTrue(data.invoices.none { it.overdue })
+    assertTrue(data.invoices.all { it.penalty == null })
+
+    assertRoundTrips(data)
   }
 
   /** A populated document: one incoming invoice (overdue), one outgoing, one proposal to answer. */

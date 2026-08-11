@@ -1,0 +1,535 @@
+{
+  "canManage": true,
+  "invoices": [
+    {
+      "lines": [
+        {
+          "note": "Solar Reinigung",
+          "vatRate": 0.20000000298023,
+          "workTypeId": 48,
+          "unit": "hour",
+          "quantity": 1,
+          "name": "Maschinenmiete",
+          "amount": 200,
+          "price": 800,
+          "discountRate": 0.75
+        }
+      ],
+      "total": 200,
+      "actions": [
+        "cancel"
+      ],
+      "totalDue": 200,
+      "totalNet": 167,
+      "counterpartyId": 3,
+      "direction": "outgoing",
+      "time": "08:56",
+      "state": "proposed",
+      "id": 1,
+      "credit": 167,
+      "date": "03.07.2025",
+      "counterpartyName": "Rela Industries",
+      "senderFarmId": 3,
+      "recipientFarmId": 1,
+      "vat": 33
+    },
+    {
+      "direction": "outgoing",
+      "totalDue": 300,
+      "totalNet": 273,
+      "counterpartyId": 2,
+      "credit": 273,
+      "actions": [
+        "cancel"
+      ],
+      "daysUntilPenalty": 8,
+      "total": 300,
+      "id": 2,
+      "state": "new",
+      "lines": [
+        {
+          "note": "Fw",
+          "quantity": 1,
+          "name": "Fällen",
+          "amount": 300,
+          "price": 300,
+          "vatRate": 0.10000000149012,
+          "workTypeId": 51,
+          "unit": "piece"
+        }
+      ],
+      "time": "08:58",
+      "date": "03.07.2025",
+      "counterpartyName": "Komune",
+      "senderFarmId": 1,
+      "recipientFarmId": 2,
+      "vat": 27
+    },
+    {
+      "direction": "outgoing",
+      "totalDue": 8300,
+      "totalNet": 7545,
+      "counterpartyId": 2,
+      "credit": 7545,
+      "actions": [
+        "cancel"
+      ],
+      "daysUntilPenalty": 8,
+      "total": 8300,
+      "id": 3,
+      "state": "new",
+      "lines": [
+        {
+          "quantity": 1,
+          "name": "Eggen",
+          "amount": 1800,
+          "price": 1800,
+          "vatRate": 0.10000000149012,
+          "workTypeId": 6,
+          "unit": "hectare"
+        },
+        {
+          "quantity": 2,
+          "name": "Säen",
+          "amount": 4000,
+          "price": 2000,
+          "vatRate": 0.10000000149012,
+          "workTypeId": 7,
+          "unit": "hectare"
+        },
+        {
+          "quantity": 1,
+          "name": "Rebschnitt",
+          "amount": 2500,
+          "price": 2500,
+          "vatRate": 0.10000000149012,
+          "workTypeId": 12,
+          "unit": "hectare"
+        }
+      ],
+      "time": "09:03",
+      "date": "03.07.2025",
+      "counterpartyName": "Komune",
+      "senderFarmId": 1,
+      "recipientFarmId": 2,
+      "vat": 755
+    }
+  ],
+  "version": "1",
+  "farms": [
+    {
+      "id": 2,
+      "name": "Komune"
+    },
+    {
+      "id": 3,
+      "name": "Rela Industries"
+    }
+  ],
+  "workTypes": [
+    {
+      "name": "Steine sammeln",
+      "price": 2200,
+      "vatRate": 0.10000000149012,
+      "id": 1,
+      "unit": "hectare"
+    },
+    {
+      "name": "Pflügen",
+      "price": 2800,
+      "vatRate": 0.10000000149012,
+      "id": 2,
+      "unit": "hectare"
+    },
+    {
+      "name": "Grubbern",
+      "price": 2300,
+      "vatRate": 0.10000000149012,
+      "id": 3,
+      "unit": "hectare"
+    },
+    {
+      "name": "Mulchen",
+      "price": 2000,
+      "vatRate": 0.10000000149012,
+      "id": 4,
+      "unit": "hectare"
+    },
+    {
+      "name": "Walzen",
+      "price": 1200,
+      "vatRate": 0.10000000149012,
+      "id": 5,
+      "unit": "hectare"
+    },
+    {
+      "name": "Eggen",
+      "price": 1800,
+      "vatRate": 0.10000000149012,
+      "id": 6,
+      "unit": "hectare"
+    },
+    {
+      "name": "Säen",
+      "price": 2000,
+      "vatRate": 0.10000000149012,
+      "id": 7,
+      "unit": "hectare"
+    },
+    {
+      "name": "Legen (Kartoffeln)",
+      "price": 2800,
+      "vatRate": 0.10000000149012,
+      "id": 8,
+      "unit": "hectare"
+    },
+    {
+      "name": "Pflanzen (Zuckerrohr)",
+      "price": 2800,
+      "vatRate": 0.10000000149012,
+      "id": 9,
+      "unit": "hectare"
+    },
+    {
+      "name": "Säen (Reis)",
+      "price": 2200,
+      "vatRate": 0.10000000149012,
+      "id": 10,
+      "unit": "hectare"
+    },
+    {
+      "name": "Säen (Wurzelfrüchte)",
+      "price": 2400,
+      "vatRate": 0.10000000149012,
+      "id": 11,
+      "unit": "hectare"
+    },
+    {
+      "name": "Rebschnitt",
+      "price": 2500,
+      "vatRate": 0.10000000149012,
+      "id": 12,
+      "unit": "hectare"
+    },
+    {
+      "name": "Pflanzenschutz",
+      "price": 1500,
+      "vatRate": 0.10000000149012,
+      "id": 13,
+      "unit": "hectare"
+    },
+    {
+      "name": "Ausbringen (Organisch)",
+      "price": 1800,
+      "vatRate": 0.10000000149012,
+      "id": 14,
+      "unit": "hectare"
+    },
+    {
+      "name": "Düngen",
+      "price": 1500,
+      "vatRate": 0.10000000149012,
+      "id": 15,
+      "unit": "hectare"
+    },
+    {
+      "name": "Striegeln/Hacken",
+      "price": 1500,
+      "vatRate": 0.10000000149012,
+      "id": 16,
+      "unit": "hectare"
+    },
+    {
+      "name": "Dreschen (Getreide)",
+      "price": 2500,
+      "vatRate": 0.10000000149012,
+      "id": 17,
+      "unit": "hectare"
+    },
+    {
+      "name": "Roden (Kartoffeln)",
+      "price": 3400,
+      "vatRate": 0.10000000149012,
+      "id": 18,
+      "unit": "hectare"
+    },
+    {
+      "name": "Roden (Rüben)",
+      "price": 3400,
+      "vatRate": 0.10000000149012,
+      "id": 19,
+      "unit": "hectare"
+    },
+    {
+      "name": "Ernten (Zuckerrohr)",
+      "price": 4500,
+      "vatRate": 0.10000000149012,
+      "id": 20,
+      "unit": "hectare"
+    },
+    {
+      "name": "Ernten (Baumwolle)",
+      "price": 3200,
+      "vatRate": 0.10000000149012,
+      "id": 21,
+      "unit": "hectare"
+    },
+    {
+      "name": "Weinlese",
+      "price": 3000,
+      "vatRate": 0.10000000149012,
+      "id": 22,
+      "unit": "hectare"
+    },
+    {
+      "name": "Ernten (Oliven)",
+      "price": 3400,
+      "vatRate": 0.10000000149012,
+      "id": 23,
+      "unit": "hectare"
+    },
+    {
+      "name": "Ernten (Reis)",
+      "price": 3600,
+      "vatRate": 0.10000000149012,
+      "id": 24,
+      "unit": "hectare"
+    },
+    {
+      "name": "Ernten (Spinat)",
+      "price": 3400,
+      "vatRate": 0.10000000149012,
+      "id": 25,
+      "unit": "hectare"
+    },
+    {
+      "name": "Ernten (Erbsen)",
+      "price": 3400,
+      "vatRate": 0.10000000149012,
+      "id": 26,
+      "unit": "hectare"
+    },
+    {
+      "name": "Ernten (Bohnen)",
+      "price": 3400,
+      "vatRate": 0.10000000149012,
+      "id": 27,
+      "unit": "hectare"
+    },
+    {
+      "name": "Gemüseernte",
+      "price": 3400,
+      "vatRate": 0.10000000149012,
+      "id": 28,
+      "unit": "hectare"
+    },
+    {
+      "name": "Ernten (Zwiebeln)",
+      "price": 3400,
+      "vatRate": 0.10000000149012,
+      "id": 29,
+      "unit": "hectare"
+    },
+    {
+      "name": "Häckseln",
+      "price": 2800,
+      "vatRate": 0.10000000149012,
+      "id": 30,
+      "unit": "hectare"
+    },
+    {
+      "name": "Mähen",
+      "price": 2500,
+      "vatRate": 0.10000000149012,
+      "id": 31,
+      "unit": "hectare"
+    },
+    {
+      "name": "Wenden",
+      "price": 1200,
+      "vatRate": 0.10000000149012,
+      "id": 32,
+      "unit": "hectare"
+    },
+    {
+      "name": "Schwaden",
+      "price": 1300,
+      "vatRate": 0.10000000149012,
+      "id": 33,
+      "unit": "hectare"
+    },
+    {
+      "name": "Pressen",
+      "price": 200,
+      "vatRate": 0.10000000149012,
+      "id": 34,
+      "unit": "piece"
+    },
+    {
+      "name": "Wickeln",
+      "price": 200,
+      "vatRate": 0.10000000149012,
+      "id": 35,
+      "unit": "piece"
+    },
+    {
+      "name": "Kauf (Rohstoff)",
+      "price": 100,
+      "vatRate": 0.054999999701977,
+      "id": 36,
+      "unit": "piece"
+    },
+    {
+      "needsPicker": "consumable",
+      "name": "Verkauf (Futter / Stroh)",
+      "price": 0,
+      "vatRate": 0.054999999701977,
+      "id": 37,
+      "unit": "piece"
+    },
+    {
+      "name": "Füttern",
+      "price": 1200,
+      "vatRate": 0.10000000149012,
+      "id": 38,
+      "unit": "hour"
+    },
+    {
+      "name": "Stallreinigung",
+      "price": 1200,
+      "vatRate": 0.10000000149012,
+      "id": 39,
+      "unit": "hour"
+    },
+    {
+      "name": "Tiertransport",
+      "price": 2200,
+      "vatRate": 0.10000000149012,
+      "id": 40,
+      "unit": "hour"
+    },
+    {
+      "name": "Winterdienst",
+      "price": 1800,
+      "vatRate": 0.20000000298023,
+      "id": 41,
+      "unit": "hour"
+    },
+    {
+      "name": "Handarbeit",
+      "price": 1500,
+      "vatRate": 0.20000000298023,
+      "id": 42,
+      "unit": "hour"
+    },
+    {
+      "name": "Frontladerarbeiten",
+      "price": 2000,
+      "vatRate": 0.20000000298023,
+      "id": 43,
+      "unit": "hour"
+    },
+    {
+      "name": "Fahrer",
+      "price": 1200,
+      "vatRate": 0.20000000298023,
+      "id": 44,
+      "unit": "hour"
+    },
+    {
+      "name": "Silo verdichten",
+      "price": 1500,
+      "vatRate": 0.10000000149012,
+      "id": 45,
+      "unit": "hour"
+    },
+    {
+      "name": "Lieferung",
+      "price": 1800,
+      "vatRate": 0.20000000298023,
+      "id": 46,
+      "unit": "hour"
+    },
+    {
+      "name": "Transport",
+      "price": 1600,
+      "vatRate": 0.20000000298023,
+      "id": 47,
+      "unit": "hour"
+    },
+    {
+      "name": "Maschinenmiete",
+      "price": 800,
+      "vatRate": 0.20000000298023,
+      "id": 48,
+      "unit": "hour"
+    },
+    {
+      "name": "Haufenverladung (Feldrand)",
+      "price": 1800,
+      "vatRate": 0.10000000149012,
+      "id": 49,
+      "unit": "hour"
+    },
+    {
+      "name": "Aufforstung",
+      "price": 300,
+      "vatRate": 0.10000000149012,
+      "id": 50,
+      "unit": "piece"
+    },
+    {
+      "name": "Fällen",
+      "price": 300,
+      "vatRate": 0.10000000149012,
+      "id": 51,
+      "unit": "piece"
+    },
+    {
+      "name": "Holzrücken",
+      "price": 300,
+      "vatRate": 0.10000000149012,
+      "id": 52,
+      "unit": "piece"
+    },
+    {
+      "name": "Verbrauchsgüter",
+      "price": 0.5,
+      "vatRate": 0.054999999701977,
+      "id": 53,
+      "unit": "liter"
+    },
+    {
+      "name": "Sonstiges",
+      "price": 100,
+      "vatRate": 0.20000000298023,
+      "id": 54,
+      "unit": "piece"
+    },
+    {
+      "needsPicker": "fillType",
+      "name": "Produkte",
+      "price": 0,
+      "vatRate": 0.054999999701977,
+      "id": 55,
+      "unit": "liter"
+    },
+    {
+      "needsPicker": "vehicle",
+      "name": "Fahrzeugverkauf",
+      "price": 0,
+      "vatRate": 0.20000000298023,
+      "id": 56,
+      "unit": "piece"
+    }
+  ],
+  "farmId": 1,
+  "vatEnabled": true,
+  "penaltyTerms": {
+    "enabled": true,
+    "gracePeriods": 1,
+    "ratePercent": 5,
+    "daysPerPeriod": 4,
+    "capPercent": 25
+  }
+}
