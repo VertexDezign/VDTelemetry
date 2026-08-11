@@ -32,7 +32,8 @@ object FinanceApp : VdtApp {
     val store = LocalVdtStore.current
     val finance by store.finance.collectAsState()
     // The invoices channel is a separate file with its own cadence, so the panel takes both and shows
-    // its Invoices tab only when that mod is installed (a null here).
+    // its Invoices tab only when that mod is installed -- which is exactly what a non-null here means,
+    // the file's absence being the "not installed" signal.
     val invoices by store.invoices.collectAsState()
     FinancePanel(finance, modifier, invoices, store.onCommand)
   }

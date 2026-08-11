@@ -734,8 +734,15 @@ data class InvoiceLineInput(
   val fieldId: Int? = null,
 ) {
   init {
-    require(quantity > 0) { "an invoice line needs a quantity > 0, was $quantity" }
-    require(price == null || price >= 0) { "a line price cannot be negative, was $price" }
+    // Finiteness is checked as well as the range, because an infinity passes every range test and
+    // then reaches CommandWriter, whose BigDecimal cannot represent it at all. NaN is excluded by
+    // `> 0` on its own — comparisons are how it fails — but the infinities are not, and this
+    // constructor (which also runs on decode) is the only place both are unrepresentable.
+    require(quantity.isFinite() && quantity > 0) { "an invoice line needs a finite quantity > 0, was $quantity" }
+    require(
+      price == null || (price.isFinite() && price >= 0),
+    ) { "a line price cannot be negative or infinite, was $price" }
+    require(discount == null || discount.isFinite()) { "a line discount must be a finite fraction, was $discount" }
   }
 }
 

@@ -52,7 +52,7 @@
 ---  issuer who has to answer it.
 ---@field state string new | paid | proposed (the mod also defines `sent` and `cancelled`, which
 ---  nothing ever assigns -- cancelling deletes the row -- but they are mapped through rather than
----  silently rewritten if one ever appears)
+---  silently rewritten if one ever appears), or `unknown` for a value its STATE enum has no name for
 ---@field counterpartyId number? the OTHER farm's id -- who is billing us, or who we are billing
 ---@field counterpartyName string? that farm's name
 ---@field senderFarmId number the issuer; money flows to them

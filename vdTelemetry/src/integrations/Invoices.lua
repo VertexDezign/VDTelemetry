@@ -70,9 +70,12 @@ end
 -- The key lives in the MOD's i18n namespace: I18N:addModI18N gives every mod its own `texts` table, so
 -- from our environment the only way in is the customEnv argument. A miss returns the literal string
 -- "Missing '<key>' in l10n_xx.xml" rather than nil, which must not reach the panel -- hence hasText.
+--
+-- Public because the write side needs the same lookup: a line's stored name is a work-type text too,
+-- and MOD_NAME must not be spelled out a second time (src/command/InvoiceControl.lua).
 ---@param key string|nil
 ---@return string|nil
-local function modText(key)
+function VDT.Invoices.modText(key)
   if type(key) ~= "string" or key == "" or g_i18n == nil then
     return nil
   end
@@ -325,7 +328,10 @@ function VDT.Invoices.collectInvoice(invoice, direction, ctx)
   local model = {
     id = invoice.id,
     direction = direction,
-    state = ctx.stateTokens[invoice.state] or nil,
+    -- A state the mod's own STATE enum does not carry cannot be named, but the field is required:
+    -- "unknown" (MissionExporter's fallback for the same situation) keeps the chip labelled and the
+    -- app's `else` branch prints it, where an omitted field would decode to an empty chip.
+    state = ctx.stateTokens[invoice.state] or "unknown",
     senderFarmId = math.floor(num(invoice.senderFarmId)),
     recipientFarmId = math.floor(num(invoice.recipientFarmId)),
     total = money(total),
@@ -379,7 +385,7 @@ function VDT.Invoices.collectWorkTypes(service, serviceClass, units)
   local types = {}
   for _, workType in ipairs(rows) do
     if type(workType) == "table" and type(workType.id) == "number" then
-      local name = modText(workType.nameKey)
+      local name = VDT.Invoices.modText(workType.nameKey)
       ---@type WorkTypeModel
       local entry = {
         id = workType.id,

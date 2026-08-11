@@ -41,7 +41,7 @@ rarely, so they are written only when their data actually changes — they never
 | `mapLayers/` | ground layers: `index.json` (catalogue) + one raster file per plane — crops/growth/soil (core, `src/collect/MapLayersExporter.lua`) | own sweep cadence, per plane |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
 | `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
-| `invoices.json` | [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) | on invoice change |
+| `invoices.json` | [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) | on invoice or player-farm change |
 
 Each channel file carries its **own `version`**, evolving independently of the telemetry one.
 

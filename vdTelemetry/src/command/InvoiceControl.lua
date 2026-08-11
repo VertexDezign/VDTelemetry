@@ -40,6 +40,13 @@ local function num(v)
   return type(v) == "number" and v or 0
 end
 
+-- A number the arithmetic below can survive. NaN fails every comparison, so a `<= 0` test alone never
+-- sees it, and an infinity passes every range test and then poisons the total it is summed into --
+-- both have to be named (the same screen FillUnit applies to a bottomless fill capacity).
+local function finite(v)
+  return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
 ---Shared preamble: the mod is up, this player may act, and we know which farm we are.
 ---@return table|nil manager, number|nil farmId, table|nil service
 local function resolve(debugger, label)
@@ -177,26 +184,25 @@ function VDT.InvoiceControl.buildLine(request, service, invoiceClass, debugger, 
   end
 
   local quantity = num(request.quantity)
-  -- NaN fails every comparison, so it is screened by the `<= 0` test only if checked first.
-  if quantity ~= quantity or quantity <= 0 then
+  if not finite(quantity) or quantity <= 0 then
     debugger:warn("%s: line %d has no usable quantity (%s) -- dropping", label, workTypeId, tostring(request.quantity))
     return nil
   end
 
   local price = request.price
-  if type(price) ~= "number" or price ~= price or price < 0 then
+  if not finite(price) or price < 0 then
     local okPrice, adjusted = pcall(service.getAdjustedPrice, service, workTypeId)
     price = (okPrice and type(adjusted) == "number") and adjusted or 0
   end
 
   local okDiscount, discount = pcall(invoiceClass.sanitizeDiscountRate, request.discount)
-  if not okDiscount or type(discount) ~= "number" then
+  if not okDiscount or not finite(discount) then
     discount = 0
   end
 
   local unitType = math.floor(num(workType.unit))
   local okAmount, amount = pcall(invoiceClass.computeLineAmount, price, quantity, unitType, discount)
-  if not okAmount or type(amount) ~= "number" or amount ~= amount then
+  if not okAmount or not finite(amount) then
     debugger:warn("%s: line %d could not be priced -- dropping", label, workTypeId)
     return nil
   end
@@ -211,13 +217,10 @@ function VDT.InvoiceControl.buildLine(request, service, invoiceClass, debugger, 
     end
   end
 
-  local name = nil
-  if g_i18n ~= nil and type(g_i18n.getText) == "function" and type(workType.nameKey) == "string" then
-    local okName, text = pcall(g_i18n.getText, g_i18n, workType.nameKey, "FS25_Invoices")
-    if okName and type(text) == "string" then
-      name = text
-    end
-  end
+  -- The read side's lookup, not a second one: it checks hasText first, so a key the mod has no
+  -- translation for leaves the name empty instead of storing the engine's literal
+  -- "Missing '<key>' in l10n_xx.xml" on the invoice and broadcasting it to every farm.
+  local name = VDT.Invoices.modText(workType.nameKey)
 
   -- Every field Invoice:writeStream reads, defaulted the way the wizard defaults them -- a missing one
   -- would be a nil write on the network stream.

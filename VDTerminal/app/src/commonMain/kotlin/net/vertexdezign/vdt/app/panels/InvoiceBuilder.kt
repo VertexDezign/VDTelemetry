@@ -65,16 +65,13 @@ private class DraftLine(val workType: WorkType) {
   val discountFraction: Double get() = ((discount.toDoubleOrNull() ?: 0.0) / 100).coerceIn(0.0, 1.0)
 
   /**
-   * The line total, computed exactly as the mod computes it (`Invoice.computeLineGross` then the
-   * discount): a litre line is priced per 1000 l, and the rounding is to the nearest whole unit. This
-   * is a preview of a number the mod will recompute — it must agree, or the invoice that arrives will
-   * not be the one that was previewed.
+   * The line total, computed exactly as the mod computes it: the discount comes off the already
+   * rounded [grossAmount], and the result is rounded again to a whole unit. This is a preview of a
+   * number the mod will recompute — it must agree, or the invoice that arrives will not be the one
+   * that was previewed, so the gross is taken from the one place that knows how to price a litre.
    */
   val amount: Long
-    get() {
-      val gross = if (workType.unit == "liter") priceValue * quantityValue / 1000 else priceValue * quantityValue
-      return kotlin.math.round(kotlin.math.round(gross) * (1 - discountFraction)).toLong()
-    }
+    get() = kotlin.math.round(grossAmount * (1 - discountFraction)).toLong()
 
   /** What this line would have cost undiscounted, the mod's `computeLineGross`. */
   val grossAmount: Long

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -125,7 +126,11 @@ fun FinancePanel(
   }
 }
 
-/** One of the panel header's view tabs. */
+/**
+ * One of the panel header's view tabs. `selectable` rather than `clickable`: which of the two is
+ * showing is carried by fill and text colour, which a screen reader cannot see, so the selected state
+ * has to be in the semantics as well.
+ */
 @Composable
 private fun ViewTab(label: String, active: Boolean, onClick: () -> Unit) {
   Text(
@@ -136,7 +141,7 @@ private fun ViewTab(label: String, active: Boolean, onClick: () -> Unit) {
     modifier = Modifier
       .clip(RoundedCornerShape(4.dp))
       .background(if (active) VdtColors.Green else VdtColors.TrackGray)
-      .clickable(role = Role.Button, onClick = onClick)
+      .selectable(selected = active, role = Role.Tab, onClick = onClick)
       .padding(horizontal = 8.dp, vertical = 4.dp),
   )
 }

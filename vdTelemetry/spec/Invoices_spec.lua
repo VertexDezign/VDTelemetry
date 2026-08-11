@@ -181,6 +181,10 @@ local function stubMod(over)
 end
 
 describe("Invoices integration", function()
+  -- Captured before any case can swap it: the hook and farm-change cases count markDirty calls, and a
+  -- restore in the test body would be skipped by the failing assertion that made it matter.
+  local realMarkDirty = VDT.ExportChannels.markDirty
+
   after_each(function()
     _G.FS25_Invoices = nil
     _G.g_currentMission = nil
@@ -188,6 +192,9 @@ describe("Invoices integration", function()
     _G.g_farmManager = nil
     _G.g_i18n = nil
     _G.Utils = nil
+    _G.MessageType = nil
+    _G.g_messageCenter = nil
+    VDT.ExportChannels.markDirty = realMarkDirty
     VDT.Invoices.reset()
   end)
 
@@ -234,6 +241,13 @@ describe("Invoices integration", function()
       class.SOMETHING_ELSE = 9
       local tokens = VDT.Invoices.unitTokens(class)
       assert.is_nil(tokens[9])
+    end)
+
+    it("names a state the enum has no name for rather than omitting the field", function()
+      -- `state` is required on the app's side, and the chip prints whatever token it does not know:
+      -- omitting it would draw an empty chip, which reads as a rendering bug rather than as data.
+      stubMod({ incoming = { makeInvoice({ state = 99 }) } })
+      assert.equals("unknown", VDT.Invoices.collect().invoices[1].state)
     end)
   end)
 
@@ -570,7 +584,6 @@ describe("Invoices integration", function()
           subscriptions[#subscriptions + 1] = { message = message, callback = callback, target = target }
         end,
       }
-      local realMarkDirty = VDT.ExportChannels.markDirty
       VDT.ExportChannels.markDirty = function(name)
         if name == VDT.Invoices.CHANNEL then
           dirty = dirty + 1
@@ -592,10 +605,6 @@ describe("Invoices integration", function()
       local before = dirty
       farmChange.callback(farmChange.target)
       assert.equals(before + 1, dirty)
-
-      VDT.ExportChannels.markDirty = realMarkDirty
-      _G.MessageType = nil
-      _G.g_messageCenter = nil
     end)
   end)
 
@@ -603,7 +612,6 @@ describe("Invoices integration", function()
     it("appends to the mod's own notifyUI funnel and marks dirty once on install", function()
       local _, service = stubMod()
       local dirty = 0
-      local realMarkDirty = VDT.ExportChannels.markDirty
       VDT.ExportChannels.markDirty = function(name)
         if name == VDT.Invoices.CHANNEL then
           dirty = dirty + 1
@@ -623,8 +631,6 @@ describe("Invoices integration", function()
       VDT.Invoices.tick(debugger)
       _G.FS25_Invoices.InvoiceService.notifyUI(service)
       assert.equals(3, dirty)
-
-      VDT.ExportChannels.markDirty = realMarkDirty
     end)
   end)
 end)
