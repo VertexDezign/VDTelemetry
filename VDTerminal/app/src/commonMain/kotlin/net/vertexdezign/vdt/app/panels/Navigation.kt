@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
@@ -241,7 +242,23 @@ internal fun CourseReadout(course: GpsCourseState, modifier: Modifier = Modifier
 }
 
 /**
- * Read-only subsystem lamp: greyed when absent, dark when idle, green when live.
+ * Read-only subsystem lamp: greyed when absent, dark ink when idle, and **filled** when live.
+ *
+ * A live lamp is a solid green chip with its mark knocked out in white, not the same mark recoloured
+ * green. Recolouring was what this did, and it did not work: idle sat at `DarkGray` (5.0:1 on the
+ * panel) and live at `AccentText` (5.3:1), so the two states were the same weight, the same size and
+ * the same shape, and *only* a hue apart — green against grey, which is the axis a red-green
+ * colour-blind reader has least of. There was nothing else in the lamp to fall back on.
+ *
+ * Filling it changes what the eye actually measures: light mark on dark against dark mark on light,
+ * a full inversion that reads across the room and survives any colour vision, sunlight on the screen,
+ * or a greyscale screenshot. It is also the app's existing vocabulary for on — see
+ * [net.vertexdezign.vdt.app.components.StatusIconButton], which fills its chip the same way — so
+ * these lamps now say "on" the way every other control here says it.
+ *
+ * The chip's padding is always spent, transparent when the lamp is not live, so a lamp coming on
+ * does not nudge the row it is in sideways. The state rides on the content description too, which is
+ * the one reading of a lamp that never depended on colour in the first place.
  *
  * [showLabel] off is the map's guidance strip, where the row has to stay narrow enough not to cover
  * the terrain it sits on — the label survives as the icon's content description, so what a lamp means
@@ -257,12 +274,24 @@ internal fun GuidanceLamp(
   size: Dp = 20.dp,
 ) {
   val tint = when {
-    !enabled -> VdtColors.TextDisabled
-    active -> VdtColors.AccentText
-    else -> VdtColors.DarkGray
+    active -> VdtColors.White
+    enabled -> VdtColors.DarkGray
+    else -> VdtColors.TextDisabled
   }
-  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-    Icon(icon, label, tint = tint, modifier = Modifier.size(size))
+  val state = when {
+    active -> "active"
+    enabled -> "idle"
+    else -> "not available"
+  }
+  Row(
+    Modifier
+      .clip(RoundedCornerShape(4.dp))
+      .background(if (active) VdtColors.Green else Color.Transparent)
+      .padding(horizontal = 4.dp, vertical = 2.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Icon(icon, "$label $state", tint = tint, modifier = Modifier.size(size))
     if (showLabel) {
       Text(label.uppercase(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = tint)
     }
