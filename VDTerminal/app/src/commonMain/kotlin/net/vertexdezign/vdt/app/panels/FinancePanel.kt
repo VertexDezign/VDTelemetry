@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.FilterAltOff
 import androidx.compose.material3.Icon
@@ -428,14 +431,26 @@ private fun HeaderCell(
       .padding(horizontal = 6.dp, vertical = 6.dp),
     horizontalAlignment = if (numeric) Alignment.End else Alignment.Start,
   ) {
-    Text(
-      label.uppercase() + if (active) (if (descending) " ▼" else " ▲") else "",
-      color = if (active) VdtColors.TextDark else VdtColors.DarkGray,
-      fontSize = 9.sp,
-      fontWeight = FontWeight.Bold,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Text(
+        label.uppercase(),
+        color = if (active) VdtColors.TextDark else VdtColors.DarkGray,
+        fontSize = 9.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+      )
+      // An Icon, not a "▲" — the wasm build ships no font fallback, so a Geometric Shapes glyph
+      // renders as tofu. Decorative: the header cell above carries the sort state in its semantics.
+      if (active) {
+        Icon(
+          if (descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
+          contentDescription = null,
+          tint = VdtColors.TextDark,
+          modifier = Modifier.size(12.dp),
+        )
+      }
+    }
     if (sublabel != null) {
       Text(sublabel, color = VdtColors.DarkGray, fontSize = 8.sp, maxLines = 1)
     }

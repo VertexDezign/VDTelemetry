@@ -12,12 +12,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -306,14 +310,17 @@ private fun DraftLineRow(line: DraftLine, onRemove: () -> Unit) {
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
       )
-      Text(
-        "✕",
-        color = VdtColors.DarkGray,
-        fontSize = 12.sp,
+      // An Icon rather than a "✕": the wasm build has no font fallback, so a dingbat outside the
+      // bundled font's coverage renders as tofu.
+      Icon(
+        Icons.Filled.Close,
+        contentDescription = "Remove ${line.workType.name}",
+        tint = VdtColors.DarkGray,
         modifier = Modifier
           .clip(RoundedCornerShape(4.dp))
           .clickable(role = Role.Button, onClick = onRemove)
-          .padding(horizontal = 6.dp, vertical = 2.dp),
+          .padding(horizontal = 6.dp, vertical = 2.dp)
+          .size(14.dp),
       )
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {

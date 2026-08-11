@@ -10,11 +10,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -267,13 +271,15 @@ private fun InvoiceRow(
       horizontalArrangement = Arrangement.spacedBy(10.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      // Which way the money goes, in one glyph — the word "incoming" is ambiguous about whether it is
-      // the invoice or the money that is arriving, and here they point opposite ways.
-      Text(
-        if (invoice.isIncoming) "▼" else "▲",
-        color = if (invoice.isIncoming) VdtColors.Red else VdtColors.AccentText,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
+      // Which way the money goes, in one mark — the word "incoming" is ambiguous about whether it is
+      // the invoice or the money that is arriving, and here they point opposite ways. An Icon, not a
+      // text arrow: the wasm build ships no font fallback, so a glyph outside the bundled font's
+      // coverage renders as tofu (see AnimalsPanel's SortArrow, which is why that one is an Icon).
+      Icon(
+        if (invoice.isIncoming) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
+        contentDescription = if (invoice.isIncoming) "You owe" else "You're owed",
+        tint = if (invoice.isIncoming) VdtColors.Red else VdtColors.AccentText,
+        modifier = Modifier.size(13.dp),
       )
       Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(
