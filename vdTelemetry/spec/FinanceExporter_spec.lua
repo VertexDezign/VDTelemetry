@@ -399,6 +399,10 @@ describe("FinanceExporter", function()
       assert.is_false(model.loansAvailable)
       assert.is_nil(model.loan)
       assert.is_nil(model.loanMax)
+      -- ...and the replacement's own block takes its place -- present, which is what tells the app
+      -- which system to render, and empty, because this stub's manager keeps no loans.
+      assert.is_table(model.enhancedLoans)
+      assert.is_nil(model.enhancedLoans.loans)
       -- The rest of the books are untouched: only the loan block is the replacement's business.
       assert.equals(100000, model.balance)
       assert.is_table(model.stats)

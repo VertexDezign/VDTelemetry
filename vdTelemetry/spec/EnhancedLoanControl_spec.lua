@@ -199,6 +199,21 @@ describe("EnhancedLoanControl", function()
       end
     end)
 
+    it("refuses a rate the annuity maths cannot use", function()
+      -- Zero is a division by zero in ELS's own annuity formula, and a non-number is what a renamed
+      -- (or restyled) settings field reads as; either would build a loan paying NaN instalments.
+      for _, rate in ipairs({ 0, -1, "3.5" }) do
+        stubGame()
+        _G.FS25_EnhancedLoanSystem.g_els_loanManager.loanManagerProperties.loanInterest = rate
+        warnings, added = {}, nil
+
+        run("takeLoan", { amount = 10000, durationYears = 5 })
+
+        assert.is_nil(added)
+        assert.is_truthy(warnings[1]:find("no usable interest rate", 1, true))
+      end
+    end)
+
     it("refuses without MANAGE_RIGHTS", function()
       stubGame({ canManage = false })
 

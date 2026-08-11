@@ -3,11 +3,12 @@
 -- farm still has a loan, it will be transferred to the new system" (it sweeps existing base loans into
 -- its own at mission start and on farm creation, ELS_main.convertIngameLoans).
 --
--- This file is currently only the detector. The full integration -- the annuity loans themselves, and
--- taking / specially redeeming them from the terminal -- is issue #47; this is the seat it will grow
--- from, and it exists ahead of that because of the leak below.
+-- The read half of that system: whether it is installed at all, the bank's terms (rate, longest term,
+-- what a special redemption may clear), the farm's borrowing ceiling, and both of the manager's loan
+-- lists -- running and paid off -- as one array. Taking a loan and paying one down live on the write
+-- side, in command/EnhancedLoanControl.lua, which resolves the mod through this file's handles.
 --
--- WHY THE DETECTOR ALONE IS ALREADY LOAD-BEARING. ELS deactivates the base loan by overwriting
+-- WHY THE DETECTION ALONE IS ALREADY LOAD-BEARING. ELS deactivates the base loan by overwriting
 -- `InGameMenuStatisticsFrame.hasPlayerLoanPermission` to return false. That is a method on the
 -- *in-game frame* -- it does not touch `Platform.gameplay.hasLoans`, and it does not touch
 -- `g_currentMission:getHasPlayerPermission("farmManager")`, which is what our finance channel reads.
@@ -35,7 +36,7 @@ local function env()
   return type(FS25_EnhancedLoanSystem) == "table" and FS25_EnhancedLoanSystem or nil
 end
 
----The mod's loan manager, or nil when it isn't installed. Public so the #47 read and write sides
+---The mod's loan manager, or nil when it isn't installed. Public so the read and write sides
 ---resolve it identically -- one definition of the mod-environment handle, so the isolation rule above
 ---cannot drift between them.
 ---@return table|nil
@@ -212,14 +213,24 @@ function VDT.EnhancedLoanSystem.collect(farmId)
   -- toggle, which is a view choice the app can make for itself. Sorted by id -- creation order, and
   -- stable, where the manager's own pairs() walk is not.
   local loans = {}
-  for _, list in ipairs({ manager.currentLoans, manager.paidOffLoans }) do
+  -- Each getter is asked separately rather than looped over a { currentLoans, paidOffLoans } table: a
+  -- renamed (so nil) first entry would end an ipairs walk before it ever reached the second, costing
+  -- the list that is still there along with the one that isn't.
+  local function append(list)
+    if type(list) ~= "function" then
+      return
+    end
     local okList, rows = pcall(list, manager, farmId)
-    if okList and type(rows) == "table" then
-      for _, loan in ipairs(rows) do
-        loans[#loans + 1] = VDT.EnhancedLoanSystem.collectLoan(loan)
-      end
+    if not okList or type(rows) ~= "table" then
+      return
+    end
+    for _, loan in ipairs(rows) do
+      loans[#loans + 1] = VDT.EnhancedLoanSystem.collectLoan(loan)
     end
   end
+  append(manager.currentLoans)
+  append(manager.paidOffLoans)
+
   table.sort(loans, function(a, b)
     return a.id < b.id
   end)

@@ -32,17 +32,10 @@ local function num(v)
   return type(v) == "number" and v or 0
 end
 
----The local farm id, or nil (logging why).
-local function ownFarmId(debugger, label)
-  local farmId = VDT.ProductionExporter.ownFarmId()
-  if farmId == nil then
-    debugger:warn("%s: no local farm resolved, refusing to act on a loan", label)
-  end
-  return farmId
-end
-
----Shared preamble: the mod is up, and this player may manage its loans.
----@return table|nil manager, number|nil farmId
+---Shared preamble: the mod is up, this player may manage its loans, and there is a local farm to act
+---on. The farm OBJECT is returned rather than its id alone -- the redemption clamp needs its money too,
+---and resolving it a second time would only invite the two halves to disagree.
+---@return table|nil manager, table|nil farm
 local function resolve(debugger, label)
   local manager = VDT.EnhancedLoanSystem.loanManager()
   if manager == nil then
@@ -54,11 +47,12 @@ local function resolve(debugger, label)
     debugger:warn("%s: this player may not manage the farm's loans -- ignoring", label)
     return nil, nil
   end
-  local farmId = ownFarmId(debugger, label)
-  if farmId == nil then
+  local farm = VDT.FinanceExporter.ownFarm()
+  if farm == nil then
+    debugger:warn("%s: no local farm resolved, refusing to act on a loan", label)
     return nil, nil
   end
-  return manager, farmId
+  return manager, farm
 end
 
 ---Resolve a live loan by the exported network object id, restricted to this farm's own.
@@ -94,7 +88,7 @@ VDT.CommandRegistry.register("takeLoan", {
   end,
   execute = function(_, params, debugger)
     local label = "takeLoan"
-    local manager, farmId = resolve(debugger, label)
+    local manager, farm = resolve(debugger, label)
     if manager == nil then
       return
     end
@@ -106,7 +100,7 @@ VDT.CommandRegistry.register("takeLoan", {
     end
 
     -- Freshly computed, never the read side's cached figure: the ceiling moves with the farm's money.
-    local ceiling = VDT.EnhancedLoanSystem.maxAmount(farmId, true)
+    local ceiling = VDT.EnhancedLoanSystem.maxAmount(farm.farmId, true)
     if ceiling == nil then
       debugger:warn("%s: could not determine the borrowing ceiling", label)
       return
@@ -136,6 +130,15 @@ VDT.CommandRegistry.register("takeLoan", {
       duration = maxDuration
     end
 
+    -- The rate is the bank's, never the app's -- but it still has to be a usable one. Checked rather
+    -- than passed through, because ELS's annuity divides by (1+r)^n - 1: at a zero (or absent) rate
+    -- that is a division by zero, and the loan it would create pays NaN instalments forever.
+    local interest = props.loanInterest
+    if type(interest) ~= "number" or interest ~= interest or interest <= 0 then
+      debugger:warn("%s: the bank quotes no usable interest rate (%s)", label, tostring(interest))
+      return
+    end
+
     local loanClass = VDT.EnhancedLoanSystem.loanClass()
     if loanClass == nil or type(loanClass.new) ~= "function" then
       debugger:warn("%s: the loan class is not available", label)
@@ -149,9 +152,15 @@ VDT.CommandRegistry.register("takeLoan", {
       debugger:warn("%s: could not create the loan", label)
       return
     end
-    local okInit = pcall(loan.init, loan, farmId, amount, props.loanInterest, duration)
+    local okInit = pcall(loan.init, loan, farm.farmId, amount, interest, duration)
     if not okInit then
-      debugger:warn("%s: could not initialise the loan", label)
+      debugger:warn(
+        "%s: could not initialise the loan (%d over %d years at %s%%)",
+        label,
+        amount,
+        duration,
+        tostring(interest)
+      )
       return
     end
 
@@ -160,7 +169,7 @@ VDT.CommandRegistry.register("takeLoan", {
       debugger:error("%s: the loan system refused the loan", label)
       return
     end
-    debugger:debug("%s %d over %d years at %s%%", label, amount, duration, tostring(props.loanInterest))
+    debugger:debug("%s %d over %d years at %s%%", label, amount, duration, tostring(interest))
   end,
 })
 
@@ -174,11 +183,11 @@ VDT.CommandRegistry.register("repayLoan", {
   end,
   execute = function(_, params, debugger)
     local label = "repayLoan"
-    local manager, farmId = resolve(debugger, label)
+    local manager, farm = resolve(debugger, label)
     if manager == nil then
       return
     end
-    local loan = resolveLoan(manager, farmId, params.loanId, debugger, label)
+    local loan = resolveLoan(manager, farm.farmId, params.loanId, debugger, label)
     if loan == nil then
       return
     end
@@ -198,12 +207,6 @@ VDT.CommandRegistry.register("repayLoan", {
     local amount = params.amount
     if type(amount) ~= "number" or amount ~= amount or amount <= 0 then
       debugger:warn("%s: missing or invalid amount (%s)", label, tostring(amount))
-      return
-    end
-
-    local farm = VDT.FinanceExporter.ownFarm()
-    if farm == nil then
-      debugger:warn("%s: no local farm resolved", label)
       return
     end
 

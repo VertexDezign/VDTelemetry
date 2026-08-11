@@ -418,7 +418,7 @@ function VDT.FinanceExporter.collect()
   -- it instead of the base-game block above -- which is why that block is omitted rather than zeroed
   -- (loansAvailable), and why this carries no "which system" discriminator.
   if VDT.EnhancedLoanSystem ~= nil then
-    model.enhancedLoans = VDT.EnhancedLoanSystem.collect(VDT.ProductionExporter.ownFarmId())
+    model.enhancedLoans = VDT.EnhancedLoanSystem.collect(farm.farmId)
   end
 
   local environment = g_currentMission.environment

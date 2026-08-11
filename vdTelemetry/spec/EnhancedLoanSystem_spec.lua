@@ -194,6 +194,16 @@ describe("EnhancedLoanSystem", function()
       assert.is_nil(VDT.EnhancedLoanSystem.collect(1).loans)
     end)
 
+    it("still reads the list that is there when the other getter has been renamed away", function()
+      local manager = stubMod({ paid = { makeLoan({ objectId = 1, paidOff = true }) } })
+      manager.currentLoans = nil
+
+      local model = VDT.EnhancedLoanSystem.collect(1)
+
+      assert.equals(1, #model.loans)
+      assert.is_true(model.loans[1].paidOff)
+    end)
+
     it("survives the mod's settings object being absent", function()
       stubMod({ props = false })
       local model = VDT.EnhancedLoanSystem.collect(1)
