@@ -8,6 +8,14 @@
 if VDT == nil or VDT.CommandRegistry == nil then
   dofile("src/command/CommandRegistry.lua")
 end
+-- The control resolves which machine to drive through the integration, so that loads first -- the
+-- same order VDTelemetry.lua sources them in.
+if VDT == nil or VDT.PrecisionFarming == nil then
+  if ValueMapper == nil then
+    dofile("src/mapper/ValueMapper.lua")
+  end
+  dofile("src/integrations/PrecisionFarming.lua")
+end
 dofile("src/command/PrecisionFarmingControl.lua")
 
 local debugger = { debug = function() end, warn = function() end }
@@ -21,23 +29,31 @@ local function fakeSprayer()
   function sprayer:setSprayAmountManualValue(value)
     self.calls[#self.calls + 1] = { "step", value }
   end
-  -- PF registers this on every ExtendedSprayer and it answers for the whole rig, so every child that
-  -- has it returns the same machine.
-  function sprayer:getValidSprayerToUse()
-    return sprayer
-  end
   return sprayer
 end
 
--- A tractor with `sprayer` hitched behind it: the rig as childVehicles reports it, tractor first.
+-- The rig as PF answers for it. `getValidSprayerToUse` is a static on PF's spec class and NOT a
+-- registered vehicle function, so it is only reachable through the mod-env global -- which is what
+-- this stubs, and what the first version of this control got wrong.
 local function fakeRig(sprayer)
-  local tractor = {}
-  tractor.childVehicles = { tractor }
-  if sprayer ~= nil then
-    tractor.childVehicles[2] = sprayer
-  end
-  return tractor
+  rawset(_G, "FS25_precisionFarming", {
+    ExtendedSprayer = {
+      getValidSprayerToUse = function()
+        return sprayer
+      end,
+    },
+  })
+  return { name = "the controlled vehicle" }
 end
+
+before_each(function()
+  rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+end)
+
+after_each(function()
+  rawset(_G, "g_modIsLoaded", nil)
+  rawset(_G, "FS25_precisionFarming", nil)
+end)
 
 describe("PrecisionFarmingControl.setSprayAmountAuto", function()
   it("drives the sprayer behind the controlled vehicle, not the vehicle", function()
@@ -102,12 +118,32 @@ describe("PrecisionFarmingControl.setSprayAmountStep", function()
     assert.are.same({}, sprayer.calls)
   end)
 
-  it("survives a vehicle that reports no rig at all", function()
-    -- childVehicles is set on every Vehicle (`{ self }` at load), but a stub or a half-built vehicle
-    -- may not have it yet; falling back to the vehicle itself keeps a self-propelled sprayer working.
+  -- The regression this control shipped with: `getValidSprayerToUse` is a static on PF's spec class
+  -- and is absent from ExtendedSprayer.registerFunctions, so it is NOT on the vehicle. Reading it off
+  -- the vehicle found nothing on every machine there is -- a self-propelled sprayer included, which
+  -- is what made it obvious in game. Only the mod-env lookup resolves it.
+  it("reaches PF's resolver through the mod env, not through the vehicle", function()
     local sprayer = fakeSprayer()
-    sprayer.childVehicles = nil
-    VDT.PrecisionFarmingControl.setSprayAmountStep(sprayer, 2, debugger)
+    local rig = fakeRig(sprayer)
+    rawset(_G, "FS25_precisionFarming", nil)
+    VDT.PrecisionFarmingControl.setSprayAmountStep(rig, 2, debugger)
+    assert.are.same({}, sprayer.calls, "no env, no sprayer -- and no crash")
+
+    fakeRig(sprayer)
+    VDT.PrecisionFarmingControl.setSprayAmountStep(rig, 2, debugger)
     assert.are.same({ { "step", 2 } }, sprayer.calls)
+  end)
+
+  it("survives a resolver that throws", function()
+    rawset(_G, "FS25_precisionFarming", {
+      ExtendedSprayer = {
+        getValidSprayerToUse = function()
+          error("PF internals moved")
+        end,
+      },
+    })
+    assert.has_no.errors(function()
+      VDT.PrecisionFarmingControl.setSprayAmountStep({}, 2, debugger)
+    end)
   end)
 end)

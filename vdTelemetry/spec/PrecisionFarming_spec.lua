@@ -428,6 +428,97 @@ describe("PrecisionFarming.collectSprayer", function()
   end)
 end)
 
+-- A slurry tanker with a dribble bar or an injecting disc harrow hitched to it (rateSource). The
+-- barrel applies nothing itself, so PF keeps the rates on the tool -- and the barrel is the implement
+-- a rig panel finds, with the tool one level below it where no slot looks.
+describe("PrecisionFarming barrel with an attached tool", function()
+  local function specOf(over)
+    local spec = {
+      isFertilizing = true,
+      nActualValue = 3,
+      nTargetValue = 6,
+      nitrogenMap = {
+        maxValue = 10,
+        getNitrogenValueFromInternalValue = function(_, internal)
+          return ({ [3] = 45, [6] = 90 })[internal] or 0
+        end,
+      },
+    }
+    for k, v in pairs(over or {}) do
+      spec[k] = v
+    end
+    return spec
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v, decimals)
+        local mult = 10 ^ (decimals or 0)
+        return math.floor(v * mult + 0.5) / mult
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+  end)
+
+  it("reports the tool's rates, which is what the game's own HUD does", function()
+    -- The barrel's own spec is a set of zeroes that never move: the base game shuts its work areas off
+    -- while a tool is attached, so PF never refreshes it. Reading it gave a mode and no readings --
+    -- exactly what examples/json/telemetry/precisionFarming/liquidManure_dribbleBar.json caught.
+    local tool = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(),
+      spec_workArea = { workAreas = { { index = 1, numSubSections = 1, subSectionData = { { isValid = true } } } } },
+    }
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ isFertilizing = false, nActualValue = 0, nTargetValue = 0 }),
+      spec_manureBarrel = { attachedTool = tool },
+    }
+
+    local pf = VDT.PrecisionFarming.collectSprayer(barrel)
+    assert.are.equal("FERTILIZER", pf.mode)
+    assert.are.same({ level = 45, target = 90, unit = "kg/ha" }, pf.nitrogen)
+  end)
+
+  it("keeps its own reading once the tool is unhitched", function()
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ nActualValue = 6 }),
+      spec_manureBarrel = { attachedTool = nil },
+    }
+    assert.are.equal(90, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen.level)
+  end)
+
+  it("does not borrow a strip whose indices belong to the tool", function()
+    -- `index` joins to the *object's* own workAreas, so a borrowed strip would sit on the barrel and
+    -- index the tool's areas: a join that reads fine and is wrong. The readout is what the barrel
+    -- needs; the tool still exports the strip against the areas it belongs to.
+    local tool = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(),
+      spec_workArea = { workAreas = { { index = 1, numSubSections = 1, subSectionData = { { isValid = true } } } } },
+    }
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(),
+      spec_manureBarrel = { attachedTool = tool },
+      spec_workArea = { workAreas = { { index = 1 } } },
+    }
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(barrel).workAreas)
+    assert.is_not_nil(VDT.PrecisionFarming.collectSprayer(tool).workAreas)
+  end)
+
+  it("ignores an attached tool that is no PF sprayer", function()
+    -- Not everything hitched to a barrel is an applicator; without the spec there is nothing to
+    -- borrow, and the barrel's own reading is still the best answer available.
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ nActualValue = 6 }),
+      spec_manureBarrel = { attachedTool = { name = "a trailer" } },
+    }
+    assert.are.equal(90, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen.level)
+  end)
+end)
+
 -- The manual application rate (collectManual, via collectSprayer): PF's step, and what one pass at it
 -- does. Pure arithmetic over the value maps and whatever is in the tank -- no server-only state -- so
 -- unlike the sub-section strip it is exact on a multiplayer client too.

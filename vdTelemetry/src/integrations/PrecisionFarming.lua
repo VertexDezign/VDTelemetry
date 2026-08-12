@@ -174,6 +174,34 @@ local function valueMap(name)
   return type(map) == "table" and map or nil
 end
 
+---The sprayer on this rig that PF's own controls drive, or nil when there is none.
+---
+---**`getValidSprayerToUse` is a static on PF's spec class, not a registered vehicle function.** It is
+---absent from `ExtendedSprayer.registerFunctions`, and PF calls it as
+---`ExtendedSprayer.getValidSprayerToUse(self)` — so asking the vehicle for it finds nothing on *every*
+---machine, self-propelled sprayers included, and it has to come through the mod-env lookup like the
+---rest of PF's internals.
+---
+---Worth delegating rather than re-deriving: it walks the whole rig (`rootVehicle.childVehicles`), and
+---it carries the exception that a manure barrel with a tool hitched to it is not the sprayer — the
+---tool behind it is. See rateSource, which is the same rule on the read side.
+---@param vehicle table any vehicle on the rig; the walk starts from its root
+---@return table|nil
+function VDT.PrecisionFarming.validSprayer(vehicle)
+  if type(vehicle) ~= "table" then
+    return nil
+  end
+  local extended = pfClass("ExtendedSprayer")
+  if extended == nil or type(extended.getValidSprayerToUse) ~= "function" then
+    return nil
+  end
+  local ok, sprayer = pcall(extended.getValidSprayerToUse, vehicle)
+  if not ok or type(sprayer) ~= "table" then
+    return nil
+  end
+  return sprayer
+end
+
 ---True when PF is installed but its singleton can't be reached from here — the mod-environment trap
 ---above. Distinguishes "no PF" from "PF, but we can't see it", which is the difference between the
 ---layers being correctly absent and being silently broken (see MapLayersExporter's one-shot warning).
@@ -524,6 +552,34 @@ local function collectManual(object, spec, mode)
   }
 end
 
+---The machine whose ExtendedSprayer spec says what `object` is applying -- itself, or the tool hitched
+---to it.
+---
+---A slurry tanker with a dribble bar or an injecting disc harrow on the back applies nothing itself.
+---The base game shuts its work areas off while one is attached (`ManureBarrel:getIsWorkAreaActive`
+---returns false when `attachedTool` is set) and PF agrees twice over: `getIsVehicleValid` refuses the
+---barrel as the rig's sprayer, and `getShowExtendedSprayerHudExtension` hides the barrel's own HUD so
+---the tool's is drawn instead.
+---
+---Its spec is then a set of zeroes that never move -- which is exactly what the terminal showed,
+---because the barrel is the implement a rig panel finds and the machine holding the live readings
+---hangs one level below it, where no slot looks. `examples/json/telemetry/precisionFarming/` has both
+---halves of this: the Kaweco barrel reports a mode and no readings, the Bomech behind it reports the
+---rates.
+---
+---So the barrel reports the tool's rates -- the same substitution the game's own HUD makes. One hop,
+---because one hop is all PF models.
+---@param object table a vehicle or implement
+---@return table the machine to read the rates off
+local function rateSource(object)
+  local barrel = object.spec_manureBarrel
+  local tool = type(barrel) == "table" and barrel.attachedTool or nil
+  if type(tool) == "table" and type(tool[VDT.PrecisionFarming.SPRAYER_SPEC]) == "table" then
+    return tool
+  end
+  return object
+end
+
 ---Application rates for one object, or nil when it is not a PF sprayer/spreader.
 ---
 ---**The parts have different reach.** `nitrogen`/`ph` are the boom averages PF streams to every
@@ -538,7 +594,10 @@ function VDT.PrecisionFarming.collectSprayer(object)
   if not VDT.PrecisionFarming.isActive() then
     return nil
   end
-  local spec = object[VDT.PrecisionFarming.SPRAYER_SPEC]
+  -- Every read below is off `source`, not `object`: on a barrel with a tool hitched to it they are
+  -- different machines, and the tool is the one PF keeps the rates on. See rateSource.
+  local source = rateSource(object)
+  local spec = source[VDT.PrecisionFarming.SPRAYER_SPEC]
   if type(spec) ~= "table" then
     return nil
   end
@@ -567,7 +626,7 @@ function VDT.PrecisionFarming.collectSprayer(object)
     -- The shipped machines all allow it; a mod's need not, and a terminal that offered the switch
     -- anyway would draw a button the game silently undoes.
     canToggleAuto = spec.sprayAmountAutoModeChangeAllowed ~= false,
-    manual = collectManual(object, spec, mode),
+    manual = collectManual(source, spec, mode),
     nitrogen = spec.isFertilizing and valuePair(
       spec.nitrogenMap,
       "getNitrogenValueFromInternalValue",
@@ -577,16 +636,21 @@ function VDT.PrecisionFarming.collectSprayer(object)
     ) or nil,
     ph = spec.isLiming and valuePair(spec.pHMap, "getPhValueFromInternalValue", spec.phActualValue, spec.phTargetValue)
       or nil,
-    spotSpray = spotSprayEnabled(object),
+    spotSpray = spotSprayEnabled(source),
     -- Off a different spec, but the same machine and the same question, so it rides here rather than
     -- becoming a second subtree. ExtendedSprayerEffects requires ExtendedSprayer
     -- (`prerequisitesPresent`), so gating both on this one loses nothing.
-    nozzles = collectNozzles(object),
+    nozzles = collectNozzles(source),
   }
 
   -- Walked from the base-game work areas rather than PF's own three lists, so the exported `index`
   -- is the one WorkAreaModel carries and the two can be joined.
-  local workAreaSpec = object.spec_workArea
+  --
+  -- Only for a machine reading its own spec. `index` joins to this object's `workAreas`, and a
+  -- borrowed strip would index the tool's areas while sitting on the barrel -- a join that reads fine
+  -- and is wrong. The strip is detail on top of the readout (see the note above), so the barrel gives
+  -- up the detail and keeps the numbers; the tool still exports its own strip against its own areas.
+  local workAreaSpec = source == object and object.spec_workArea or nil
   local areas = {}
   for _, area in ipairs(workAreaSpec ~= nil and workAreaSpec.workAreas or {}) do
     areas[#areas + 1] = collectSubSections(spec, area)

@@ -104,8 +104,8 @@ local sourceFiles = {
   "src/command/ImplementControl.lua",
   "src/command/MotorControl.lua",
   "src/command/CruiseControl.lua",
-  -- Precision Farming application rate (auto/manual + the manual step). Calls that mod's own vehicle
-  -- setters, so it needs nothing from src/integrations/PrecisionFarming.lua and no order against it.
+  -- Precision Farming application rate (auto/manual + the manual step). Resolves which machine on the
+  -- rig to drive through src/integrations/PrecisionFarming.lua, sourced above.
   "src/command/PrecisionFarmingControl.lua",
   "src/command/GpsControl.lua",
   "src/command/TaskListControl.lua",

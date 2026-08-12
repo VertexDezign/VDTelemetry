@@ -12,40 +12,27 @@
 -- of its own -- the same shape as MotorControl and LightControl. `setSprayAmountManualValue` clamps
 -- to the machine's own min/max, so a stale step from the app is corrected rather than rejected.
 --
+-- Finding *which* machine to call them on goes through src/integrations/PrecisionFarming.lua, which
+-- owns every read of PF's internals; this file must be sourced after it.
+--
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
 VDT = VDT or {}
 VDT.PrecisionFarmingControl = {}
 
----The sprayer on this rig that PF's own keybinds would drive, or nil when there is none.
+---Resolve the sprayer PF's own keybinds would drive and check it carries `setter`, logging why not.
 ---
----Not the controlled vehicle: the sprayer is usually the implement behind it. PF answers exactly this
----question in `getValidSprayerToUse` -- first valid machine in the rig, skipping a manure barrel that
----is feeding an attached tool -- and it registers that as a vehicle function, so any child carrying
----the spec can be asked and they all give the same answer (it walks `rootVehicle.childVehicles`).
----Delegating keeps PF's exceptions PF's problem rather than a copy here that goes stale.
+---Not the controlled vehicle: the sprayer is usually the implement behind it, and on a slurry rig it
+---is the tool behind *that*. VDT.PrecisionFarming.validSprayer delegates the whole question to PF,
+---including the manure-barrel exception -- and, the reason this is not inline here, including the
+---fact that the function is only reachable through PF's mod env. Asking the vehicle for it, which is
+---what this first shipped doing, found nothing on every machine there is.
 ---@param vehicle Vehicle the controlled vehicle
----@return table|nil
-local function sprayerToControl(vehicle)
-  local children = type(vehicle.childVehicles) == "table" and vehicle.childVehicles or { vehicle }
-  for _, child in ipairs(children) do
-    if type(child) == "table" and type(child.getValidSprayerToUse) == "function" then
-      local ok, sprayer = pcall(child.getValidSprayerToUse, child)
-      if ok and type(sprayer) == "table" then
-        return sprayer
-      end
-    end
-  end
-  return nil
-end
-
----Resolve the sprayer and check it carries `setter`, logging why not.
----@param vehicle Vehicle
 ---@param setter string
 ---@param debugger GrisuDebug
 ---@return table|nil
 local function sprayerWith(vehicle, setter, debugger)
-  local sprayer = sprayerToControl(vehicle)
+  local sprayer = VDT.PrecisionFarming.validSprayer(vehicle)
   if sprayer == nil then
     debugger:debug("%s: no Precision Farming sprayer on this rig, ignoring", setter)
     return nil

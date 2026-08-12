@@ -503,11 +503,17 @@ Built: the arrow in the rate readout is a Material Icon rather than a "→" that
 manual application rate is exported (`precisionFarming.manual`, mod version 11), rendered, and
 drivable from the rig panel — auto/manual on the chip, the step on the two buttons either side.
 
-- **In game, nobody has driven it yet.** The Lua side is covered synthetically; the checks that matter
-  are that the mode chip and the step follow PF's own HUD on a real spreader, that the product rate
-  agrees with what that HUD prints in all four machine kinds (kg/ha, l/ha, m³/ha, t/ha), and that a
-  step from the terminal survives a **multiplayer client** — `setSprayAmountManualValue` sends
-  `ExtendedSprayerAmountEvent` to the server from there, which is the path the specs cannot exercise.
+- **Driven in singleplayer 2026-08-12**, on a self-propelled sprayer and on a Vredo with a manure
+  cultivator, which found the two faults the synthetic specs could not: `getValidSprayerToUse` is not
+  a registered vehicle function (so no control worked at all), and a manure barrel with a tool hitched
+  to it keeps its rates on the tool (so the tile a rig panel draws showed a dead readout). Both fixed
+  and pinned. **Still unchecked:** that the product rate agrees with PF's own HUD in each of the four
+  machine kinds — the slurry m³/ha path is the one now known to be exercised — and that a step from
+  the terminal survives a **multiplayer client**, where `setSprayAmountManualValue` sends
+  `ExtendedSprayerAmountEvent` to the server. That is the path no spec can reach.
+- **The barrel and its tool now report the same rates**, deliberately: whichever tile you have placed
+  shows what the rig is applying, which is the substitution PF's own HUD makes. The barrel gives up
+  only the per-slice strip, whose `index` joins to work areas it does not own.
 - **The live rate in auto mode is not exported.** `spec.lastLitersPerHectar` is what PF's HUD prints
   when the tool picks its own rate, and it is maintained on clients too (`getSprayerUsage` runs from
   `onStartWorkAreaProcessing`, with no `isServer` gate). It was left out because it is only meaningful
