@@ -428,6 +428,219 @@ describe("PrecisionFarming.collectSprayer", function()
   end)
 end)
 
+-- The manual application rate (collectManual, via collectSprayer): PF's step, and what one pass at it
+-- does. Pure arithmetic over the value maps and whatever is in the tank -- no server-only state -- so
+-- unlike the sub-section strip it is exact on a multiplayer client too.
+describe("PrecisionFarming manual rate", function()
+  local FERTILIZER, LIME = 7, 8
+
+  -- Steps worth 15 kg N/ha (or 0.1 pH) each, costing 200 l/ha (or 1000 l/ha of lime) each.
+  local function sprayer(over)
+    local spec = {
+      isFertilizing = true,
+      isSolidFertilizerSprayer = true,
+      sprayAmountAutoMode = false,
+      sprayAmountManual = 3,
+      sprayAmountManualMin = 1,
+      sprayAmountManualMax = 7,
+      nActualValue = 3,
+      nTargetValue = 6,
+      nitrogenMap = {
+        maxValue = 10,
+        getNitrogenValueFromInternalValue = function(_, internal)
+          return ({ [3] = 45, [6] = 90 })[internal] or 0
+        end,
+        getNitrogenFromChangedStates = function(_, states)
+          return states * 15
+        end,
+        getFertilizerUsageByStateChange = function(_, states)
+          -- PF returns liters, mass and the nitrogen proportion; only the first is the per-hectare
+          -- figure, and reading the wrong one is a plausible-looking mistake, so it is pinned here.
+          return states * 200, states * 0.2, 0.1
+        end,
+      },
+      pHMap = {
+        maxValue = 10,
+        getPhValueFromInternalValue = function(_, internal)
+          return ({ [2] = 6.2, [4] = 6.8 })[internal] or 0
+        end,
+        getPhValueFromChangedStates = function(_, states)
+          return states * 0.1
+        end,
+        getLimeUsageByStateChange = function(_, states)
+          return states * 1000
+        end,
+      },
+    }
+    for k, v in pairs(over or {}) do
+      spec[k] = v
+    end
+    return {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = spec,
+      getSprayerFillUnitIndex = function()
+        return 1
+      end,
+      getFillUnitFillType = function(_, index)
+        return index == 1 and FERTILIZER or 0
+      end,
+    }
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v, decimals)
+        local mult = 10 ^ (decimals or 0)
+        return math.floor(v * mult + 0.5) / mult
+      end,
+    })
+    rawset(_G, "FillType", { UNKNOWN = 0 })
+    rawset(_G, "FillTypeManager", { MASS_SCALE = 1 })
+    rawset(_G, "g_fillTypeManager", {
+      getFillTypeByIndex = function(_, index)
+        -- Tonnes per liter, as the engine stores it: a kilo of solid fertilizer per liter.
+        return ({ [FERTILIZER] = { massPerLiter = 0.001 }, [LIME] = { massPerLiter = 0.0012 } })[index]
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+    rawset(_G, "FillType", nil)
+    rawset(_G, "FillTypeManager", nil)
+    rawset(_G, "g_fillTypeManager", nil)
+    rawset(_G, "FS25_precisionFarming", nil)
+  end)
+
+  it("reports the step, its bounds, and what one pass at it does", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer())
+    assert.is_false(pf.auto)
+    assert.are.same({ step = 3, min = 1, max = 7, change = 45, rate = 600, rateUnit = "kg/ha" }, pf.manual)
+  end)
+
+  -- Each of PF's four machine kinds is weighed in the unit its own HUD prints, off the same liters
+  -- per hectare -- so the terminal and the in-game display agree rather than merely both being right.
+  it("weighs the rate in the unit PF's HUD uses for this kind of machine", function()
+    local function rateOf(over, object)
+      return VDT.PrecisionFarming.collectSprayer(object or sprayer(over)).manual
+    end
+
+    local liquid = rateOf({ isSolidFertilizerSprayer = false, isLiquidFertilizerSprayer = true })
+    assert.are.equal(600, liquid.rate)
+    assert.are.equal("l/ha", liquid.rateUnit)
+
+    local slurry = rateOf({ isSolidFertilizerSprayer = false, isSlurryTanker = true })
+    assert.are.equal(0.6, slurry.rate)
+    assert.are.equal("m³/ha", slurry.rateUnit)
+
+    local manure = rateOf({ isSolidFertilizerSprayer = false, isManureSpreader = true })
+    assert.are.equal(0.6, manure.rate)
+    assert.are.equal("t/ha", manure.rateUnit)
+
+    -- Lime is decided by what is in the tank, not by the machine: the same spreader does both, which
+    -- is why PF's HUD branches on the loaded fill type before it looks at the machine's kind.
+    local limeTool = sprayer({ isFertilizing = false, isLiming = true })
+    limeTool.getFillUnitFillType = function()
+      return LIME
+    end
+    local lime = rateOf(nil, limeTool)
+    assert.are.equal(3.6, lime.rate)
+    assert.are.equal("t/ha", lime.rateUnit)
+    assert.are.equal(0.3, lime.change)
+  end)
+
+  it("costs the rate against the trailer feeding an empty sprayer, the way PF does", function()
+    -- PF walks the supply sources in getFillTypeSourceVehicle -- a static on its spec class, so it is
+    -- only reachable through the mod-env global (see pfClass). An empty sprayer pulled behind a full
+    -- tank trailer is spreading the trailer's product, and the rate has to be costed against that.
+    local trailer = {
+      getFillUnitFillType = function()
+        return LIME
+      end,
+    }
+    rawset(_G, "FS25_precisionFarming", {
+      ExtendedSprayer = {
+        getFillTypeSourceVehicle = function()
+          return trailer, 2
+        end,
+      },
+    })
+    local tool = sprayer({ isFertilizing = false, isLiming = true })
+    assert.are.equal(3.6, VDT.PrecisionFarming.collectSprayer(tool).manual.rate)
+  end)
+
+  it("falls back to the fill type the tank last held", function()
+    -- An empty machine still knows what it last spread, and PF's own mode check falls back the same
+    -- way -- so running dry must not blank the rate at the moment you are deciding whether to refill.
+    local tool = sprayer()
+    tool.getFillUnitFillType = function()
+      return 0
+    end
+    tool.getFillUnitLastValidFillType = function()
+      return FERTILIZER
+    end
+    assert.are.equal(600, VDT.PrecisionFarming.collectSprayer(tool).manual.rate)
+  end)
+
+  it("keeps the step when the product cost is unknowable", function()
+    -- No fill type anywhere: the step and what it does to the soil are still exact, only the product
+    -- it costs is not. Reporting the step without a rate beats reporting neither.
+    local tool = sprayer()
+    tool.getFillUnitFillType = function()
+      return 0
+    end
+    local manual = VDT.PrecisionFarming.collectSprayer(tool).manual
+    assert.are.equal(3, manual.step)
+    assert.are.equal(45, manual.change)
+    assert.is_nil(manual.rate)
+    assert.is_nil(manual.rateUnit)
+  end)
+
+  it("omits the block with herbicide, where the step changes nothing", function()
+    -- PF keeps no rates in this mode and deactivates its own adjust action, so a terminal that showed
+    -- the step would draw a live-looking control the machine ignores.
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayer({ isFertilizing = false })).manual)
+  end)
+
+  it("carries PF's own gate on leaving auto", function()
+    assert.is_true(VDT.PrecisionFarming.collectSprayer(sprayer()).canToggleAuto)
+    local locked = sprayer({ sprayAmountAutoModeChangeAllowed = false })
+    assert.is_false(VDT.PrecisionFarming.collectSprayer(locked).canToggleAuto)
+  end)
+
+  it("never answers a liming tool with the nitrogen change", function()
+    -- The `and`/`or` trap: with the pH converter gone, a fallthrough would put a kg N/ha figure next
+    -- to a pH reading. A plausible number for the wrong substance is worse than no number.
+    local tool = sprayer({
+      isFertilizing = false,
+      isLiming = true,
+      pHMap = { maxValue = 10, getLimeUsageByStateChange = function() end },
+    })
+    tool.getFillUnitFillType = function()
+      return LIME
+    end
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(tool).manual.change)
+  end)
+
+  it("survives value-map methods that have moved", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({
+      nitrogenMap = {
+        maxValue = 10,
+        getNitrogenValueFromInternalValue = function(_, internal)
+          return ({ [3] = 45, [6] = 90 })[internal] or 0
+        end,
+        getFertilizerUsageByStateChange = function()
+          error("PF internals moved")
+        end,
+      },
+    }))
+    assert.are.equal(3, pf.manual.step)
+    assert.is_nil(pf.manual.change)
+    assert.is_nil(pf.manual.rate)
+  end)
+end)
+
 -- The nozzle bar (collectNozzles, via collectSprayer): PF's own per-nozzle effect states. Unlike the
 -- sub-sections these are recomputed on every client, so this is the one per-position signal that
 -- survives multiplayer -- and the only one that says anything with herbicide in the tank.
