@@ -309,8 +309,13 @@ fun RigSlotPanel(
 
         // What this tool is doing across its width — absent on anything that works no ground, which
         // is most of a rig. Above the controls: it is what the fold/raise buttons under it change.
+        //
+        // Given the same onCommand as those buttons, so the Precision Farming rate can be driven from
+        // here too. Addressed at the rig rather than at this slot: PF drives whichever machine on the
+        // rig is its valid sprayer, so a front tank and a rear boom are one rate, and the tile that
+        // shows it is whichever one has the readout.
         if (state != null) {
-          SectionView(state.workWidth, state.workAreas, state.precisionFarming)
+          SectionView(state.workWidth, state.workAreas, state.precisionFarming, onCommand = onCommand)
         }
 
         // Each control is clickable only when this slot has that aspect; the tap sends the ABSOLUTE

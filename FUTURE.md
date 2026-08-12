@@ -497,6 +497,32 @@ all. What is left:
   while an implement on a disabling attacher joint is fitted (`getIsReverseDrivingAllowed`), which a
   control would want to reflect rather than fire and ignore.
 
+## Precision Farming rates (#77)
+
+Built: the arrow in the rate readout is a Material Icon rather than a "→" that renders as tofu, and the
+manual application rate is exported (`precisionFarming.manual`, mod version 11), rendered, and
+drivable from the rig panel — auto/manual on the chip, the step on the two buttons either side.
+
+- **In game, nobody has driven it yet.** The Lua side is covered synthetically; the checks that matter
+  are that the mode chip and the step follow PF's own HUD on a real spreader, that the product rate
+  agrees with what that HUD prints in all four machine kinds (kg/ha, l/ha, m³/ha, t/ha), and that a
+  step from the terminal survives a **multiplayer client** — `setSprayAmountManualValue` sends
+  `ExtendedSprayerAmountEvent` to the server from there, which is the path the specs cannot exercise.
+- **The live rate in auto mode is not exported.** `spec.lastLitersPerHectar` is what PF's HUD prints
+  when the tool picks its own rate, and it is maintained on clients too (`getSprayerUsage` runs from
+  `onStartWorkAreaProcessing`, with no `isServer` gate). It was left out because it is only meaningful
+  while the tool is turned on and working, so it needs a "nothing coming out right now" state the
+  step-derived manual rate does not — and the manual rate was what the issue asked for.
+- **PF's third keybind is not mirrored.** In auto with no crop in the ground, `TOGGLE_SEEDS` cycles
+  which fruit the tool fertilises *for* (`setSprayAmountDefaultFruitRequirementIndex`, off
+  `nApplyAutoModeFruitRequirementDefaultIndex`). It changes the auto target, so it belongs next to
+  these two if auto mode is ever given more than a badge — and it would need the fruit list exported,
+  which nothing does today.
+- **The step is a rig-wide command.** It addresses whatever PF calls the rig's valid sprayer rather
+  than a slot, so a hypothetical rig with two PF machines is driven as one. That is PF's own model
+  (`getValidSprayerToUse` returns the first valid machine), and a rig you would tow two sprayers on is
+  not a rig anyone drives — but it is the assumption to revisit if one ever turns up.
+
 ## Captures wanted as fixtures
 
 The schema, selection and work aspects are all tested synthetically, because none of the committed

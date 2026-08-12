@@ -2,6 +2,7 @@ package net.vertexdezign.vdt.app.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -9,12 +10,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowRightAlt
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,15 +31,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Implement
+import net.vertexdezign.vdt.model.PfManual
 import net.vertexdezign.vdt.model.PfMode
 import net.vertexdezign.vdt.model.PfNozzles
 import net.vertexdezign.vdt.model.PfSubSection
@@ -77,6 +93,9 @@ private val STRIP_HEIGHT = 8.dp
  * from what the machine is capable of and then let their contents come and go, because what goes in
  * them changes several times a second and a panel that reflows while you read it is worse than one
  * with a gap in it.
+ *
+ * [onCommand] makes the rate row live — the auto/manual switch and the manual step. Left out, every
+ * row is a readout and nothing in the view is tappable.
  */
 @Composable
 fun SectionView(
@@ -84,6 +103,7 @@ fun SectionView(
   workAreas: List<WorkArea>,
   precisionFarming: PrecisionFarming?,
   modifier: Modifier = Modifier,
+  onCommand: ((ClientMessage) -> Unit)? = null,
 ) {
   val status = workAreaStatus(workAreas)
   val bar = sprayBar(workWidth, precisionFarming)
@@ -150,7 +170,7 @@ fun SectionView(
           // One line here, never two: the rate where there is one, and otherwise — herbicide, where PF
           // keeps no rates at all — what spot spraying is saving.
           if (rate != null) {
-            RateReadout(precisionFarming, rate)
+            RateReadout(precisionFarming, rate, onCommand)
           } else {
             spotNozzles(precisionFarming)?.let { SpotReadout(it, live = status?.active == true) }
           }
@@ -279,11 +299,22 @@ internal fun nozzleAlpha(amount: Float): Float = NOZZLE_MIN_ALPHA + (1f - NOZZLE
 private const val NOZZLE_MIN_ALPHA = 0.45f
 
 /**
- * The boom average: what the ground has, and what the tool is aiming for. Both are network-synced, so
- * this is the one part of the Precision Farming view that reads the same in multiplayer.
+ * The boom average: what the ground has, and where this pass takes it. Both halves are network-synced,
+ * so this is the one part of the Precision Farming view that reads the same in multiplayer.
+ *
+ * *Where this pass takes it* is a different number in the two modes, and that is the point of the
+ * readout. In auto the tool aims at the map's target, so the target is what it moves to. In manual it
+ * applies a fixed step whatever the ground says, so it moves to `reading + step` — which may fall
+ * short of the target, overshoot it, or be the only figure there is on ground PF has no target for.
+ * Showing the target in manual mode would name something the machine is not aiming at.
+ *
+ * [onCommand] wires the mode switch and the step; without it the row is a readout, which is what the
+ * map's own strip wants.
  */
 @Composable
-private fun RateReadout(pf: PrecisionFarming, value: PfValue) {
+private fun RateReadout(pf: PrecisionFarming, value: PfValue, onCommand: ((ClientMessage) -> Unit)?) {
+  val manual = pf.manual?.takeUnless { pf.auto }
+  val figures = rateFigures(pf.mode, value, manual)
   Row(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -295,19 +326,109 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue) {
       fontWeight = FontWeight.Bold,
       color = VdtColors.DarkGray,
     )
+    val ink = if (value.deficit > 0f) VdtColors.Amber else VdtColors.Green
     Text(
-      rateLabel(pf.mode, value),
+      rateText(figures),
       fontSize = READOUT_TEXT_SIZE,
       fontWeight = FontWeight.Bold,
-      color = if (value.deficit > 0f) VdtColors.Amber else VdtColors.Green,
+      color = ink,
       maxLines = 1,
       overflow = TextOverflow.Ellipsis,
+      inlineContent = mapOf(ARROW_SLOT to arrowGlyph(ink)),
       modifier = Modifier.weight(1f),
     )
-    if (pf.auto) {
-      Text("AUTO", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.ProgressBlue)
+    // What the pass costs in product, which is the number PF's own HUD leads with — and the one a
+    // manual rate is chosen by. Absent in auto, where the tool picks the rate per square metre and a
+    // single per-hectare figure would be a fiction.
+    manual?.let { rate ->
+      rateCost(rate)?.let {
+        Text(it, fontSize = 9.sp, color = VdtColors.DarkGray, maxLines = 1)
+      }
+    }
+    RateModeControls(pf, manual, onCommand)
+  }
+}
+
+/**
+ * The mode switch and, in manual, the step either side of it.
+ *
+ * The chip is the switch: it already had to say which mode the tool is in, and a separate button for
+ * that would be a second thing saying the same word. Which mode it is reads off the **word**, not the
+ * colour — the whole panel is read at a glance by people who cannot rely on hue.
+ *
+ * Every tap sends an absolute target computed from what is rendered, so a dropped or doubled command
+ * over the file channel settles back to what the machine reports rather than drifting.
+ *
+ * The two step buttons make this row a few dp taller than the reserved line above it, so switching
+ * modes nudges what is under it. Left that way on purpose: the reserved slot exists for content that
+ * changes several times a second while you drive (see [SectionView]), and the mode changes when
+ * somebody presses this chip — reserving the taller height permanently would put a gap under every
+ * automatic sprayer to avoid a reflow nobody can be surprised by.
+ */
+@Composable
+private fun RateModeControls(pf: PrecisionFarming, manual: PfManual?, onCommand: ((ClientMessage) -> Unit)?) {
+  Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+    if (manual != null) {
+      StepButton(Icons.Filled.Remove, "lower the application rate", manual.canStep(-1), onCommand) {
+        ClientMessage.SetSprayAmountStep(manual.stepped(-1))
+      }
+    }
+    // Tappable only where PF itself allows the switch: it gates its own keybind on the same flag and
+    // forces manual straight back off, so a chip that looked live would be a button the game undoes.
+    val toggle = onCommand?.takeIf { pf.canToggleAuto }
+    Text(
+      // Which mode reads off `auto`, never off having a step: a machine in manual whose step the mod
+      // could not read is still in manual, and a chip saying AUTO there would be the one lie in the
+      // row. The step joins the word when there is one.
+      modeLabel(pf.auto, manual),
+      fontSize = 8.sp,
+      fontWeight = FontWeight.Bold,
+      color = if (pf.auto) VdtColors.ProgressBlue else VdtColors.TextDark,
+      maxLines = 1,
+      modifier = Modifier
+        .clip(RoundedCornerShape(3.dp))
+        .then(if (toggle != null) Modifier.background(VdtColors.TrackGray) else Modifier)
+        .then(
+          if (toggle == null) {
+            Modifier
+          } else {
+            Modifier.clickable { toggle(ClientMessage.SetSprayAmountAuto(!pf.auto)) }
+          },
+        )
+        .padding(horizontal = 3.dp, vertical = 1.dp),
+    )
+    if (manual != null) {
+      StepButton(Icons.Filled.Add, "raise the application rate", manual.canStep(1), onCommand) {
+        ClientMessage.SetSprayAmountStep(manual.stepped(1))
+      }
     }
   }
+}
+
+/**
+ * One end of the step control. Greyed at the machine's own limit rather than hidden, so the row keeps
+ * its width as the rate is driven up and down — and so "this is as far as it goes" is visible.
+ */
+@Composable
+private fun StepButton(
+  icon: ImageVector,
+  description: String,
+  enabled: Boolean,
+  onCommand: ((ClientMessage) -> Unit)?,
+  message: () -> ClientMessage,
+) {
+  val live = enabled && onCommand != null
+  Icon(
+    icon,
+    contentDescription = description,
+    tint = if (live) VdtColors.TextDark else VdtColors.TextDisabled,
+    modifier = Modifier
+      .size(18.dp)
+      .clip(RoundedCornerShape(3.dp))
+      .background(VdtColors.TrackGray)
+      .then(if (live) Modifier.clickable { onCommand(message()) } else Modifier)
+      .padding(2.dp),
+  )
 }
 
 /**
@@ -584,12 +705,91 @@ internal fun BoxScope.SectionStrip(boom: Boom, modifier: Modifier = Modifier, on
   }
 }
 
-/** `45 → 90 kg/ha`, or just the reading when it is already at target. */
-internal fun rateLabel(mode: PfMode, value: PfValue): String {
-  val unit = value.unit?.let { " $it" }.orEmpty()
+/**
+ * The two figures a rate readout puts either side of the arrow: what is in the ground, and where this
+ * pass leaves it. [setPoint] is null when the pass moves nothing — at or above target in auto, or a
+ * manual step the machine reports no change for — and then the reading stands alone.
+ *
+ * Pure, and separate from the drawing, because "which number goes on the right" is the whole
+ * difference between the two modes and is worth pinning in a test rather than in a screenshot.
+ */
+internal data class RateFigures(val level: String, val setPoint: String?, val unit: String?)
+
+/**
+ * `45 → 90 kg/ha` in auto — the reading and the map's target — and `45 → 60 kg/ha` in manual, where
+ * the right-hand figure is the reading plus the fixed step the machine is set to apply.
+ *
+ * The manual figure is deliberately **not** clamped to the target: overshooting is a real outcome of
+ * choosing your own rate, and a readout that hid it would hide the reason to turn the step down.
+ */
+internal fun rateFigures(mode: PfMode, value: PfValue, manual: PfManual?): RateFigures {
   val level = formatRate(mode, value.level)
-  if (value.deficit <= 0f) return "$level$unit"
-  return "$level → ${formatRate(mode, value.target)}$unit"
+  val change = manual?.change
+  val setPoint = when {
+    manual != null -> if (change != null && change > 0f) formatRate(mode, value.level + change) else null
+    value.deficit > 0f -> formatRate(mode, value.target)
+    else -> null
+  }
+  return RateFigures(level, setPoint, value.unit)
+}
+
+/**
+ * What the mode chip says: `AUTO`, or `MAN` with the step out of however many the machine has.
+ *
+ * Reads the mode off [auto] alone. [manual] only decides whether the step can be named — the mod
+ * withholds it in a mode PF keeps no rates for, and a tool in manual is in manual either way.
+ */
+internal fun modeLabel(auto: Boolean, manual: PfManual?): String = when {
+  auto -> "AUTO"
+  manual != null -> "MAN ${manual.step}/${manual.max}"
+  else -> "MAN"
+}
+
+/** The product a manual pass costs per hectare, e.g. `600 kg/ha`; null when the tank says nothing. */
+internal fun rateCost(manual: PfManual): String? {
+  val rate = manual.rate ?: return null
+  val unit = manual.rateUnit ?: return null
+  // Whole units above 10, one decimal below: a spreader is set in kilos per hectare and a slurry
+  // tanker in a couple of cubic metres, and rounding the tanker to "2" loses the setting.
+  val text = if (rate >= 10f) rate.roundToInt().toString() else formatMeters(rate)
+  return "$text $unit"
+}
+
+/**
+ * The readout as one line of text, with the arrow as an **inline icon** rather than a character.
+ *
+ * A "→" here is what issue #77 was: the wasm build ships no font fallback, so a Unicode arrow lands
+ * outside the bundled font's coverage and renders as a box with a cross in it (see FinancePanel's sort
+ * caret and InvoiceBuilder's remove button, which went the same way). Inline content keeps it a single
+ * [Text], so the line still ellipsizes as one thing in a narrow tile — which a Row of three pieces
+ * would not.
+ *
+ * The alternate text is ASCII for the same reason: it is what shows if the slot is ever rendered
+ * without its content, and it must not be a second tofu.
+ */
+private fun rateText(figures: RateFigures): AnnotatedString = buildAnnotatedString {
+  append(figures.level)
+  if (figures.setPoint != null) {
+    append(' ')
+    appendInlineContent(ARROW_SLOT, "->")
+    append(' ')
+    append(figures.setPoint)
+  }
+  figures.unit?.let { append(" $it") }
+}
+
+private const val ARROW_SLOT = "arrow"
+
+/** The arrow itself, sized in `sp` so it scales with the line it sits in rather than beside it. */
+private fun arrowGlyph(tint: Color) = InlineTextContent(
+  Placeholder(READOUT_TEXT_SIZE, READOUT_TEXT_SIZE, PlaceholderVerticalAlign.Center),
+) {
+  Icon(
+    Icons.AutoMirrored.Filled.ArrowRightAlt,
+    contentDescription = "to",
+    tint = tint,
+    modifier = Modifier.fillMaxSize(),
+  )
 }
 
 private fun formatRate(mode: PfMode, value: Float): String =

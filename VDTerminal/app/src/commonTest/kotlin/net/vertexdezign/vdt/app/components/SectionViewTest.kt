@@ -2,6 +2,7 @@ package net.vertexdezign.vdt.app.components
 
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Implement
+import net.vertexdezign.vdt.model.PfManual
 import net.vertexdezign.vdt.model.PfMode
 import net.vertexdezign.vdt.model.PfNozzles
 import net.vertexdezign.vdt.model.PfSubSection
@@ -270,11 +271,72 @@ class SectionViewTest {
 
   @Test
   fun writesTheRateAsAReadingAndATarget() {
-    assertEquals("45 → 90 kg/ha", rateLabel(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha")))
+    assertEquals(
+      RateFigures("45", "90", "kg/ha"),
+      rateFigures(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), null),
+    )
     // At or above target there is nothing to aim for, so the arrow goes away rather than pointing back.
-    assertEquals("90 kg/ha", rateLabel(PfMode.FERTILIZER, PfValue(90f, 90f, "kg/ha")))
-    assertEquals("95 kg/ha", rateLabel(PfMode.FERTILIZER, PfValue(95f, 90f, "kg/ha")))
+    assertEquals(RateFigures("90", null, "kg/ha"), rateFigures(PfMode.FERTILIZER, PfValue(90f, 90f, "kg/ha"), null))
+    assertEquals(RateFigures("95", null, "kg/ha"), rateFigures(PfMode.FERTILIZER, PfValue(95f, 90f, "kg/ha"), null))
     // pH is a decimal, and carries no unit of its own.
-    assertEquals("5.9 → 6.8", rateLabel(PfMode.LIME, PfValue(5.9f, 6.8f)))
+    assertEquals(RateFigures("5.9", "6.8", null), rateFigures(PfMode.LIME, PfValue(5.9f, 6.8f), null))
+  }
+
+  // The difference between the modes, and the reason the readout could not simply keep printing the
+  // target: in manual the tool applies a fixed step whatever the ground says, so where it *leaves* the
+  // soil is the reading plus that step — nothing to do with the map's target.
+  @Test
+  fun readsTheManualStepRatherThanTheTargetWhenTheRateIsSetByHand() {
+    val manual = PfManual(step = 3, min = 1, max = 7, change = 15f, rate = 600f, rateUnit = "kg/ha")
+    assertEquals(
+      RateFigures("45", "60", "kg/ha"),
+      rateFigures(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), manual),
+    )
+    // Overshooting the target is a real outcome of choosing your own rate, and is shown, not clamped.
+    assertEquals(
+      RateFigures("85", "100", "kg/ha"),
+      rateFigures(PfMode.FERTILIZER, PfValue(85f, 90f, "kg/ha"), manual),
+    )
+    // A step the machine reports no change for moves nothing, so the reading stands alone.
+    assertEquals(
+      RateFigures("45", null, "kg/ha"),
+      rateFigures(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), manual.copy(change = 0f)),
+    )
+  }
+
+  @Test
+  fun stepsWithinTheMachinesOwnBounds() {
+    val manual = PfManual(step = 1, min = 1, max = 3)
+    assertFalse(manual.canStep(-1))
+    assertTrue(manual.canStep(1))
+    assertEquals(1, manual.stepped(-1))
+    assertEquals(2, manual.stepped(1))
+
+    val top = manual.copy(step = 3)
+    assertFalse(top.canStep(1))
+    assertEquals(3, top.stepped(1))
+  }
+
+  @Test
+  fun namesTheModeFromTheModeFlag() {
+    val manual = PfManual(step = 3, min = 1, max = 7)
+    assertEquals("AUTO", modeLabel(auto = true, manual = null))
+    assertEquals("MAN 3/7", modeLabel(auto = false, manual = manual))
+    // A tool PF gave us no step for is still in manual — the chip must not read AUTO there. The mod
+    // withholds the step in a mode with no rates, which is exactly when this happens.
+    assertEquals("MAN", modeLabel(auto = false, manual = null))
+    // And auto wins over a step that is simply the last one set: PF stores it in either mode.
+    assertEquals("AUTO", modeLabel(auto = true, manual = manual))
+  }
+
+  @Test
+  fun printsWhatTheManualPassCostsInProduct() {
+    assertEquals("600 kg/ha", rateCost(PfManual(rate = 600f, rateUnit = "kg/ha")))
+    // A slurry tanker is set in a couple of cubic metres per hectare; rounding that to a whole number
+    // would throw the setting away.
+    assertEquals("2.4 m³/ha", rateCost(PfManual(rate = 2.4f, rateUnit = "m³/ha")))
+    // Nothing in the tank, nothing to cost it against — the step is still real, the price is not ours.
+    assertNull(rateCost(PfManual(rate = null, rateUnit = "kg/ha")))
+    assertNull(rateCost(PfManual(rate = 600f, rateUnit = null)))
   }
 }

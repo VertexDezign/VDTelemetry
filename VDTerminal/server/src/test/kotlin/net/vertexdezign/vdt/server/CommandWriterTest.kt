@@ -41,6 +41,19 @@ class CommandWriterTest {
   }
 
   @Test
+  fun `writes the precision farming rate commands as absolute values`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    val writer = CommandWriter(path)
+    writer.submit(ClientMessage.SetSprayAmountAuto(false))
+    // The step is the target, not an increment: a `+` tap sends the value it computed from what it
+    // rendered, so a dropped or doubled command settles back rather than drifting the rate.
+    writer.submit(ClientMessage.SetSprayAmountStep(4))
+    val xml = path.readText()
+    assertTrue(xml.contains("""type="setSprayAmountAuto" auto="false""""), xml)
+    assertTrue(xml.contains("""type="setSprayAmountStep" step="4""""), xml)
+  }
+
+  @Test
   fun `writes the ground-layer subscription as a comma-separated set`() {
     val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
     val writer = CommandWriter(path)

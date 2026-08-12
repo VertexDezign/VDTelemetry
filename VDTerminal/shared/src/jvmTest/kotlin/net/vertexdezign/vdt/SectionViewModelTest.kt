@@ -194,6 +194,45 @@ class SectionViewModelTest {
   }
 
   @Test
+  fun readsTheManualApplicationRate() {
+    // Mod VERSION 11. The step is an index into PF's own level tables, so the mod converts it twice:
+    // into the units the readout speaks (`change`) and into the product it costs (`rate`).
+    val manual =
+      vehicle(
+        """
+        "precisionFarming":{"mode":"FERTILIZER","auto":false,"canToggleAuto":true,
+        "nitrogen":{"level":45,"target":90,"unit":"kg/ha"},
+        "manual":{"step":3,"min":1,"max":7,"change":15,"rate":600,"rateUnit":"kg/ha"}}
+        """.trimIndent(),
+      ).precisionFarming!!.manual!!
+
+    assertEquals(3, manual.step)
+    assertEquals(15f, manual.change)
+    assertEquals(600f, manual.rate)
+    assertEquals("kg/ha", manual.rateUnit)
+    // A control steps within the machine's bounds and never past them — though the mod's setter
+    // clamps anyway, because the bounds move with the fill type.
+    assertTrue(manual.canStep(1))
+    assertEquals(4, manual.stepped(1))
+    assertEquals(7, manual.copy(step = 7).stepped(1))
+    assertFalse(manual.copy(step = 7).canStep(1))
+  }
+
+  @Test
+  fun aToolWithNoManualRateSaysSoRatherThanReadingAsStepZero() {
+    // Herbicide: the step exists on the machine but changes nothing, so the mod withholds it. Auto
+    // defaults to allowed, which is what every shipped machine is.
+    val pf = vehicle(""""precisionFarming":{"mode":"OTHER","auto":true}""").precisionFarming!!
+    assertNull(pf.manual)
+    assertTrue(pf.canToggleAuto)
+
+    // And a machine PF forbids leaving auto on: the app has to leave the switch out.
+    val locked =
+      vehicle(""""precisionFarming":{"mode":"LIME","auto":true,"canToggleAuto":false}""").precisionFarming!!
+    assertFalse(locked.canToggleAuto)
+  }
+
+  @Test
   fun toleratesTokensThisClientHasNeverHeardOf() {
     // A modded work-area type passes through as its token — the type is open (mods call
     // addWorkAreaType), so it is a string and an unknown one must not cost us the area.
