@@ -82,6 +82,10 @@ class WorkSweep {
    * [terrainSize] is the map edge in meters, used only to put [MAX_SWEEP_METERS] into the same frame
    * as the coordinates.
    *
+   * Only areas that work ground are swept ([coversGround]) — a combine's straw chopper is active and
+   * processing the whole time it threshes, but it spreads over ground the header already cut, wider
+   * than the header cut it. Sweeping it made every combine pass read as one the width of the spread.
+   *
    * Areas are keyed by their slot in the rig's **full** area list ([allWorkAreas]) rather than their
    * place among the working ones: a boom section switching off — which spot spraying does several
    * times a second — would otherwise shift every area behind it up a place and pair it with its
@@ -99,7 +103,7 @@ class WorkSweep {
       vehicle
         ?.allWorkAreas()
         ?.withIndex()
-        ?.filter { (_, area) -> area.active && area.shape.size >= 6 }
+        ?.filter { (_, area) -> area.active && area.coversGround && area.shape.size >= 6 }
         .orEmpty()
     if (areas.isEmpty()) {
       previous = emptyMap()

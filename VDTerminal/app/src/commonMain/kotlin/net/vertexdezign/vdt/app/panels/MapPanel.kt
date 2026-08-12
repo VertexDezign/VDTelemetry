@@ -133,6 +133,7 @@ import net.vertexdezign.vdt.model.SweptArea
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
 import net.vertexdezign.vdt.model.activeWorkAreas
+import net.vertexdezign.vdt.model.coversGround
 import org.jetbrains.skia.Image
 import kotlin.math.hypot
 import kotlin.math.pow
@@ -1097,8 +1098,13 @@ private fun BoxScope.WorkOverlay(vehicle: Vehicle, projection: MapProjection) {
   }
 }
 
-/** Every work area of the rig that can currently work and knows where it is, tractor and tools alike. */
-private fun workFootprints(vehicle: Vehicle): List<WorkArea> = vehicle.activeWorkAreas().filter { it.shape.size >= 6 }
+/**
+ * Every work area of the rig that can currently work ground and knows where it is, tractor and tools
+ * alike — minus the ones that only spread material behind the machine ([coversGround]), which are the
+ * combine's straw areas and are not a picture of what it is cutting.
+ */
+private fun workFootprints(vehicle: Vehicle): List<WorkArea> =
+  vehicle.activeWorkAreas().filter { it.coversGround && it.shape.size >= 6 }
 
 /** The work area's parallelogram, from the three corners the engine describes it by. */
 private fun quadPath(shape: List<Float>): Path = Path().apply {

@@ -17,7 +17,10 @@ Multiplatform project (replacing the old React/Vite + Go stack in `../VDTerminal
 Most ground-layer planes (crops, growth, soil, …) are swept by the mod and read from its
 `mapLayers/` folder. **Coverage** is different: it is accumulated by the server from the work-area
 footprints already in the telemetry, because nothing the mod can sample records it — a tedder
-spreads a windrow and leaves the map exactly as it found it.
+spreads a windrow and leaves the map exactly as it found it. Not *every* work area: the ones that
+only put material out behind the machine (a combine's straw chopper and swath, a potato header's
+haulm drop) are skipped, here and in the map's swath overlay, since they trail the pass rather than
+being it — see `WorkArea.coversGround`.
 
 It reaches the app as an ordinary plane (same catalogue, same `/api/map-layer/coverage`, same
 legend), with three differences worth knowing:
