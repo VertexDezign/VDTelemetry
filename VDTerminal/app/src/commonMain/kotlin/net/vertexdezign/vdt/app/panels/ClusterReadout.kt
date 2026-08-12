@@ -120,11 +120,24 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   val steering = steeringMarks(vehicle)
   val blink = if (holding || steering.any { it.blinks }) clusterBlinkPhase() else null
 
-  // Which line the steering marks land on, decided once so the width budget below can see it too.
+  // Steering assist rides on the cruise line, where it belongs: both are the machine holding
+  // something for the driver — a speed, a line — and both are switched on the same way, armed first
+  // and engaged after. Read together they are one sentence about who is driving.
+  val guidance = listOfNotNull(guidanceMark(vehicle))
+
+  // Which line the marks land on, decided once so the width budget below can see it too. Guidance
+  // leads the cruise line so it holds one place: the steering marks beside it come and go with the
+  // gear line, and a lamp that slid sideways when they did would be a lamp you have to look for.
+  //
+  // It drops to the speed line only if the machine reports no cruise target at all — nothing with a
+  // steering spec does today, since both come off `spec_drivable`, but losing the lamp entirely is
+  // the wrong way to be wrong about that.
   val gearMarks = if (gear != null) steering else emptyList()
-  val cruiseMarks = if (gear == null) steering else emptyList()
+  val cruiseMarks = guidance + if (gear == null) steering else emptyList()
   val speedMarks =
-    listOfNotNull(symbol?.mark(holding)) + if (cruise == null && gear == null) steering else emptyList()
+    listOfNotNull(symbol?.mark(holding)) +
+      (if (cruise == null) guidance else emptyList()) +
+      (if (cruise == null && gear == null) steering else emptyList())
 
   ClusterSurface(modifier) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -186,7 +199,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           Line(
             value = format1(target),
             cells = SPEED_CELLS,
-            valueColour = if (engaged) ClusterColors.Set else ClusterColors.Set.copy(alpha = 0.45f),
+            valueColour = if (engaged) ClusterColors.Set else ClusterColors.Set.copy(alpha = ARMED_ALPHA),
             size = digit * CRUISE_SCALE,
             label = "CRUISE",
             labelColour = if (engaged) ClusterColors.Set else ClusterColors.Label,
@@ -221,6 +234,22 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   }
 }
 
+/**
+ * Armed but not yet doing anything: the cruise target the machine *will* hold, the guidance lamp
+ * waiting on a line. Drawn in its own colour at this alpha, and the lit state is the same colour at
+ * full — so **the difference between armed and engaged is brightness, never hue**.
+ *
+ * That is the accessible way round and the only one this cluster uses for a two-state thing you read
+ * at speed. Amber against green is the commonest confusion there is, and a driver who cannot separate
+ * those two is left with no signal at all; dim against bright survives any colour vision, and survives
+ * sunlight on the screen too. Where a hue *does* carry meaning here it is the only thing the mark
+ * says — see [DriveSymbol], where the arrow points and prints its letter as well.
+ *
+ * Well above [GHOST_ALPHA], which is the unlit level: armed is a live state the driver put the
+ * machine in, not an absence.
+ */
+internal const val ARMED_ALPHA = 0.45f
+
 /** The cruise and gear lines, relative to the two numbers you drive by. */
 private const val CRUISE_SCALE = 0.62f
 private const val GEAR_SCALE = 0.8f
@@ -230,6 +259,25 @@ private const val NOTE_SCALE = 0.55f
 
 /** A mark that prints a number rather than drawing one, relative to the slot it has to sit inside. */
 private const val MARK_TEXT_SCALE = 0.8f
+
+/**
+ * A caption's type size for a mark cell [cell] dp across, or **null when the cell is too small to
+ * set one** and the mark should keep its glyph alone.
+ *
+ * Scaled off the cell like everything else on this instrument, then held between two limits. The
+ * ceiling is [LABEL_SP], the line labels' own size, which a word captioning a mark half their height
+ * has no business exceeding. The floor is where the letters stop resolving into a word: below it the
+ * caption is a grey smudge under the glyph, so it is dropped instead — the mark is legible without
+ * it, which is why it is a caption and not the mark itself.
+ *
+ * [CAPTION_EM] is set by **width**, not by taste: the caption sits under a cell it may not be wider
+ * than, and four bold capitals run about 2.8em, which puts the ceiling near a third of the cell. That
+ * is the reason a caption cannot simply be made bigger — past this it has to be given a wider slot.
+ */
+internal fun captionSp(cell: Float): Float? = (cell * CAPTION_EM).coerceAtMost(LABEL_SP).takeIf { it >= CAPTION_MIN_SP }
+
+private const val CAPTION_EM = 0.3f
+internal const val CAPTION_MIN_SP = 6f
 
 /** Slack left over the lines for the operating-time caption and the air between them. */
 private const val LINE_AIR = 1f
@@ -252,6 +300,17 @@ internal data class LineMark(
   val text: String? = null,
   val alpha: Float = 1f,
   val blinks: Boolean = false,
+  /**
+   * A word printed under the glyph, as the reference cluster captions its own lamps — see
+   * [guidanceMark]'s AUTO, the only one so far.
+   *
+   * Worth the room it costs on a mark whose shape is borrowed rather than obvious: a driver who has
+   * not met this glyph before can read what it is instead of inferring it, and the word carries the
+   * lamp's identity without depending on its colour. It costs the glyph nothing — it hangs under the
+   * mark's cell rather than sharing it — and is dropped rather than shrunk to mush on a tile too
+   * small to set it. See [captionSp].
+   */
+  val caption: String? = null,
 )
 
 /**
@@ -293,14 +352,19 @@ private fun Line(
     val cell = size * SYMBOL_EM
     Row(Modifier.width((cell * maxOf(1, marks.size)).dp)) {
       for (mark in marks) {
-        Box(Modifier.size(cell.dp), contentAlignment = Alignment.Center) {
-          // In the draw layer, so a flashing mark costs a repaint per frame and not a recomposition
-          // of the line it is on.
-          val fade = Modifier.graphicsLayer { alpha = mark.alpha * if (mark.blinks) blinkAlpha(blink) else 1f }
-          if (mark.icon != null) {
-            Icon(mark.icon, mark.label, tint = mark.colour, modifier = Modifier.fillMaxSize().then(fade))
-          } else if (mark.text != null) {
-            Box(fade) {
+        // In the draw layer, so a flashing mark costs a repaint per frame and not a recomposition of
+        // the line it is on. On the whole mark rather than on the glyph inside it, so a captioned one
+        // fades as a piece — the word is part of the lamp, not a label beside it.
+        val fade = Modifier.graphicsLayer { alpha = mark.alpha * if (mark.blinks) blinkAlpha(blink) else 1f }
+        Column(Modifier.width(cell.dp).then(fade), horizontalAlignment = Alignment.CenterHorizontally) {
+          // The glyph keeps the whole cell whether or not it is captioned. The caption hangs *below*
+          // the cell instead of dividing it — a line is a good half taller than its marks' slot (the
+          // digits set the height, and [SYMBOL_EM] is well under 1), so the word costs slack the row
+          // already had rather than costing the picture, which is the thing being read.
+          Box(Modifier.size(cell.dp), contentAlignment = Alignment.Center) {
+            if (mark.icon != null) {
+              Icon(mark.icon, mark.label, tint = mark.colour, modifier = Modifier.fillMaxSize())
+            } else if (mark.text != null) {
               ClusterDigits(
                 mark.text,
                 cells = mark.text.length,
@@ -308,6 +372,11 @@ private fun Line(
                 colour = mark.colour,
                 face = SegmentFace.Alphanumeric,
               )
+            }
+          }
+          mark.caption?.let { caption ->
+            captionSp(cell)?.let { sp ->
+              ClusterLabel(caption, color = mark.colour, align = TextAlign.Center, size = sp.sp, tight = true)
             }
           }
         }
@@ -417,6 +486,40 @@ internal fun steeringMarks(vehicle: Vehicle): List<LineMark> {
   }
 
   return marks
+}
+
+/**
+ * Steering assist, as one mark: **absent** on a machine that isn't in guidance mode, dim once the
+ * driver has selected it, bright while it is actually holding the line.
+ *
+ * The three states are the two flags the mod sends. `enabled` is the AI mode selection sitting on
+ * steering assist — the driver has chosen to be guided; `active` is the assist having a line and
+ * steering to it. Nothing at all is drawn for a machine that *has* the spec but isn't in the mode,
+ * which is the one place this departs from the seat mark's ghosted rest state: guidance is off far
+ * more often than it is on, and a lamp lit on every tractor in the yard is a lamp nobody reads.
+ *
+ * **One colour, two brightnesses** — [ARMED_ALPHA] and full — rather than the amber-then-green a
+ * cluster usually reaches for, and rather than the reference lens's red. Armed against engaged is a
+ * distinction the driver has to make at a glance and often out of the corner of an eye, so it cannot
+ * rest on hue: amber against green is the commonest confusion there is, and red on this cluster
+ * already means [ClusterColors.Warn] — a fault, something to stop for — which armed guidance is not.
+ *
+ * [ClusterColors.Set] because it is exactly the cruise line's own state, in the mark slot of that
+ * same line: a thing the driver set, holding or about to hold. The two now dim and brighten together.
+ */
+internal fun guidanceMark(vehicle: Vehicle): LineMark? {
+  val gps = vehicle.gps ?: return null
+  if (!gps.enabled) return null
+  return LineMark(
+    icon = ClusterIcons.AutoSteer,
+    label = if (gps.active) "Steering assist engaged" else "Steering assist armed",
+    colour = ClusterColors.Set,
+    alpha = if (gps.active) 1f else ARMED_ALPHA,
+    // Captioned like the lamp it is copied from, and it earns the room twice over here: the glyph is
+    // borrowed rather than self-evident, and a word is one more thing about this mark that survives
+    // being read in any colour.
+    caption = "AUTO",
+  )
 }
 
 /**

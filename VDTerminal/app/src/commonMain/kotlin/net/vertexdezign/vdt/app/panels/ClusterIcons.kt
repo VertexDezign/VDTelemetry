@@ -185,6 +185,26 @@ object ClusterIcons {
     )
   }
 
+  /**
+   * Steering assist: the leaning `A` the reference cluster lights over the word AUTO, traced off
+   * `references/img.png` and redrawn to this viewport.
+   *
+   * Borrowed rather than invented, because it is the one glyph here the driver has already learnt
+   * somewhere else — a real machine's guidance lamp is this shape, and a satellite or a road would be
+   * our own idea of the same thing. It is a letter and a picture at once: an `A` for auto, and a lane
+   * running away to a vanishing point, which is what the assist is actually following.
+   *
+   * The counter is a hole rather than a gap between two strokes, so the whole mark scales as one
+   * shape — see the class doc on why nothing here is stroked.
+   */
+  val AutoSteer = telltale("AutoSteer") {
+    fill(
+      "M5.5 2.2 L7.8 2.2 L22.5 17 L20.8 18 L10.2 15.4 L3.2 21.8 L1.5 21.2 L7.3 14.5 L7.7 4.2 Z " +
+        "M9.2 6.5 L17.5 14.5 L12.8 14.5 Z",
+      PathFillType.EvenOdd,
+    )
+  }
+
   // ---------------------------------------------------------------------------------------------
   // The level strip's gauges. Not lamps — these caption a bar rather than lighting on their own —
   // but drawn here and to the same rules, because a strip of Material icons under a row of hand-drawn

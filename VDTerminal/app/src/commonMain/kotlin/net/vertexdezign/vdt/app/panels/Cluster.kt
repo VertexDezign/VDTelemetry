@@ -219,6 +219,8 @@ internal fun ClusterLabel(
   modifier: Modifier = Modifier,
   color: Color = ClusterColors.Label,
   align: TextAlign = TextAlign.Start,
+  size: TextUnit = LABEL_SP.sp,
+  tight: Boolean = false,
 ) {
   // One line always: the readout's label column is a fixed width now, and a speed unit long enough
   // to wrap would push that line's digits up out of alignment with the others.
@@ -226,9 +228,20 @@ internal fun ClusterLabel(
     text,
     modifier,
     color = color,
-    fontSize = 9.sp,
+    fontSize = size,
+    // [tight] drops the font's own leading, which is dead space above and below a single line of
+    // capitals — worth reclaiming where the label is squeezed in under something else rather than
+    // set on a line of its own. See the mark captions in ClusterReadout.
+    lineHeight = if (tight) size else TextUnit.Unspecified,
     fontWeight = FontWeight.Bold,
     maxLines = 1,
     textAlign = align,
   )
 }
+
+/**
+ * The caption size on this instrument: the line labels, and the ceiling for anything captioning
+ * something smaller. Nothing here is set larger — a label that outshouts the value it names is a
+ * label you read first and a value you read second, which is backwards.
+ */
+internal const val LABEL_SP = 9f

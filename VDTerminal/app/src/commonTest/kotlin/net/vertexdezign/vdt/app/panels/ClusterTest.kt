@@ -6,6 +6,7 @@ import net.vertexdezign.vdt.model.DriveDirection
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FillUnits
 import net.vertexdezign.vdt.model.Gear
+import net.vertexdezign.vdt.model.Gps
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Indicator
 import net.vertexdezign.vdt.model.Light
@@ -315,6 +316,64 @@ class ClusterReadoutTest {
         Vehicle(steering = Steering(mode = SteeringMode("Crab", 2, 3, SteeringLayout.CRAB), reversed = true)),
       )
     assertEquals(listOf(ClusterIcons.SteerCrabLeft, ClusterIcons.SeatReversed), both.map { it.icon })
+  }
+
+  @Test
+  fun guidanceIsAbsentUntilTheDriverAsksToBeGuided() {
+    // Off is *nothing*, not a dim lamp: a machine with the steering spec and the mode unselected is
+    // every tractor in the yard, and a mark lit on all of them is one nobody reads.
+    assertNull(guidanceMark(Vehicle()), "a machine with no steering spec has no guidance to report")
+    assertNull(guidanceMark(Vehicle(gps = Gps(enabled = false))))
+    // `active` without `enabled` cannot happen from the mod, and if it ever did the mode selection is
+    // still the thing that says whether the driver asked for this.
+    assertNull(guidanceMark(Vehicle(gps = Gps(enabled = false, active = true))))
+  }
+
+  @Test
+  fun guidanceBrightensRatherThanChangingColourWhenItEngages() {
+    // The accessibility rule this mark exists under: armed and engaged differ in *brightness only*.
+    // A driver who cannot separate amber from green has no signal at all if the hue carries it, and
+    // this is read at speed and off-axis. Cruise, on the same line, does the same thing.
+    val armed = assertNotNull(guidanceMark(Vehicle(gps = Gps(enabled = true, active = false))))
+    val steering = assertNotNull(guidanceMark(Vehicle(gps = Gps(enabled = true, active = true))))
+
+    assertEquals(armed.colour, steering.colour, "engaging must not change hue — see ARMED_ALPHA")
+    assertEquals(ClusterColors.Set, armed.colour, "guidance is a driver-set state, like the cruise beside it")
+    assertEquals(armed.icon, steering.icon, "one lamp in two states, not two glyphs")
+    assertEquals(ClusterIcons.AutoSteer, armed.icon)
+
+    assertEquals(ARMED_ALPHA, armed.alpha)
+    assertEquals(1f, steering.alpha)
+    assertTrue(steering.alpha > armed.alpha, "engaged has to be the brighter of the two")
+    // Armed is a live state the driver put the machine in, not an unlit lamp.
+    assertTrue(armed.alpha > GHOST_ALPHA, "armed guidance must not fall to the unlit level")
+
+    assertFalse(steering.blinks)
+    assertTrue(armed.label != steering.label, "a screen reader has to be able to tell them apart")
+  }
+
+  @Test
+  fun guidanceNamesItselfUnderTheGlyph() {
+    // AUTO, as on the lamp this is copied from. The mark is the one glyph here a driver hasn't
+    // necessarily met before, and a word is an identity that doesn't depend on colour.
+    assertEquals("AUTO", guidanceMark(Vehicle(gps = Gps(enabled = true)))?.caption)
+    // Nothing else captions itself: on the marks whose picture *is* the answer, a word under it would
+    // be the same fact twice in a slot that has room for neither.
+    val busy = Vehicle(steering = Steering(mode = SteeringMode("Crab", 2, 3, SteeringLayout.CRAB), reversed = true))
+    assertTrue(steeringMarks(busy).all { it.caption == null })
+    assertNull(DriveSymbol.Forward.mark(false)?.caption)
+  }
+
+  @Test
+  fun aCaptionIsDroppedRatherThanSetTooSmallToRead() {
+    // It is an extra hanging under the glyph. On a cell big enough it is set at the line labels' size
+    // at most; on one too small it goes, and the mark is still a mark.
+    assertNull(captionSp(4f), "a caption on a 4dp cell would be a smudge")
+    assertEquals(LABEL_SP, captionSp(200f), "a caption must never outgrow the line labels")
+    val mid = assertNotNull(captionSp(24f))
+    assertTrue(mid in CAPTION_MIN_SP..LABEL_SP, "$mid is outside the range a caption is allowed")
+    // Monotonic, so a bigger tile never sets a smaller caption.
+    assertTrue(assertNotNull(captionSp(28f)) >= mid)
   }
 
   @Test

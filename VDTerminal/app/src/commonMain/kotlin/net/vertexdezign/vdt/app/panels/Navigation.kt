@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
@@ -241,7 +242,26 @@ internal fun CourseReadout(course: GpsCourseState, modifier: Modifier = Modifier
 }
 
 /**
- * Read-only subsystem lamp: greyed when absent, dark when idle, green when live.
+ * Subsystem lamp: greyed when absent, dark ink when idle, and **filled** when live. Read-only unless
+ * given an [onClick], which is how the guide-lines toggle borrows it — a setting that is on or off is
+ * the same two states as a lamp that is lit or not, and there is no reason for the driver to learn
+ * two pictures of on.
+ *
+ * A live lamp is a solid green chip with its mark knocked out in white, not the same mark recoloured
+ * green. Recolouring was what this did, and it did not work: idle sat at `DarkGray` (5.0:1 on the
+ * panel) and live at `AccentText` (5.3:1), so the two states were the same weight, the same size and
+ * the same shape, and *only* a hue apart — green against grey, which is the axis a red-green
+ * colour-blind reader has least of. There was nothing else in the lamp to fall back on.
+ *
+ * Filling it changes what the eye actually measures: light mark on dark against dark mark on light,
+ * a full inversion that reads across the room and survives any colour vision, sunlight on the screen,
+ * or a greyscale screenshot. It is also the app's existing vocabulary for on — see
+ * [net.vertexdezign.vdt.app.components.StatusIconButton], which fills its chip the same way — so
+ * these lamps now say "on" the way every other control here says it.
+ *
+ * The chip's padding is always spent, transparent when the lamp is not live, so a lamp coming on
+ * does not nudge the row it is in sideways. The state rides on the content description too, which is
+ * the one reading of a lamp that never depended on colour in the first place.
  *
  * [showLabel] off is the map's guidance strip, where the row has to stay narrow enough not to cover
  * the terrain it sits on — the label survives as the icon's content description, so what a lamp means
@@ -255,14 +275,28 @@ internal fun GuidanceLamp(
   active: Boolean,
   showLabel: Boolean = true,
   size: Dp = 20.dp,
+  onClick: (() -> Unit)? = null,
 ) {
   val tint = when {
-    !enabled -> VdtColors.TextDisabled
-    active -> VdtColors.AccentText
-    else -> VdtColors.DarkGray
+    active -> VdtColors.White
+    enabled -> VdtColors.DarkGray
+    else -> VdtColors.TextDisabled
   }
-  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-    Icon(icon, label, tint = tint, modifier = Modifier.size(size))
+  val state = when {
+    active -> "on"
+    enabled -> "off"
+    else -> "not available"
+  }
+  Row(
+    Modifier
+      .clip(RoundedCornerShape(4.dp))
+      .background(if (active) VdtColors.Green else Color.Transparent)
+      .then(if (onClick != null) Modifier.clickableNoRipple(onClick) else Modifier)
+      .padding(horizontal = 4.dp, vertical = 2.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Icon(icon, "$label $state", tint = tint, modifier = Modifier.size(size))
     if (showLabel) {
       Text(label.uppercase(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = tint)
     }
@@ -335,17 +369,21 @@ fun BoxScope.GuidanceStrip(
           size = 16.dp,
         )
         // Same rule as the widget's button: offered only where it has an effect, and it sends the
-        // ABSOLUTE target rather than a toggle. Styled like the map's own header icons, because that
-        // is what it now sits among.
+        // ABSOLUTE target rather than a toggle.
+        //
+        // Drawn as one of the lamps beside it rather than as a bare tinted icon. It used to be
+        // `Green` when on and `DarkGray` when off — 5.5:1 against 5.0:1, the same near-identical pair
+        // the lamps themselves were caught on, and here it was worse: a *control* whose only signal
+        // for its own state was a hue, sitting on a moving map.
         if (gps != null) {
-          Icon(
+          GuidanceLamp(
             Icons.Filled.Timeline,
-            "guide lines",
-            tint = if (gps.linesVisible) VdtColors.Green else VdtColors.DarkGray,
-            modifier =
-            Modifier.size(16.dp).clickableNoRipple {
-              onCommand(ClientMessage.SetGpsLinesVisible(on = !gps.linesVisible))
-            },
+            "Guide lines",
+            enabled = true,
+            active = gps.linesVisible,
+            showLabel = false,
+            size = 16.dp,
+            onClick = { onCommand(ClientMessage.SetGpsLinesVisible(on = !gps.linesVisible)) },
           )
         }
       }
