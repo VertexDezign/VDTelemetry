@@ -41,6 +41,7 @@ rarely, so they are written only when their data actually changes — they never
 | `mapLayers/` | ground layers: `index.json` (catalogue) + one raster file per plane — crops/growth/soil (core, `src/collect/MapLayersExporter.lua`) | own sweep cadence, per plane |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
 | `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
+| `invoices.json` | [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) | on invoice or player-farm change |
 
 Each channel file carries its **own `version`**, evolving independently of the telemetry one.
 
@@ -198,6 +199,7 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
         <channel id="missions" enabled="true" intervalMs="10000"/>
         <channel id="taskList" enabled="true"/>
         <channel id="cropRotation" enabled="true"/>
+        <channel id="invoices" enabled="true"/>
         <channel id="fieldInfo" enabled="true" intervalMs="30000"/>
     </channels>
 </VDTS>
@@ -206,7 +208,7 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
 
 ### Supported Mods
 
-All three are **optional** — VDTelemetry detects each at runtime and simply omits its data when it
+These are all **optional** — VDTelemetry detects each at runtime and simply omits its data when it
 isn't installed. Because they are read through their *internals*, each is pinned to the version it was
 developed against (see the header comment of the file named below) and fails soft: a field a future mod
 version renames costs you that panel, never a Lua error.
@@ -227,6 +229,18 @@ version renames costs you that panel, never a Lua error.
   % the game shows. **Read and write:** VDTerminal can edit a plan's crops and catch crops, add/remove
   slots, and create/delete plans, again through the mod's own event wrappers
   (`src/command/CropRotationControl.lua`).
+* [FS25_EnhancedLoanSystem](https://www.farming-simulator.com/mod.php?mod_id=314906&title=fs2025)
+  `1.0.0.0` — **replaces** the base-game loan with annuity loans, so its presence suppresses the
+  base-game loan block on the finance channel and adds an `enhancedLoans` block in its place
+  (`src/integrations/EnhancedLoanSystem.lua`). **Read and write:** VDTerminal can take a loan and make
+  a special redemption payment against one (`src/command/EnhancedLoanControl.lua`).
+* [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) `1.2.0.0` —
+  invoices raised between farms, in its own `invoices.json` channel
+  (`src/integrations/Invoices.lua`), together with the work-type catalogue priced for this server and
+  the farms that can be billed. **Read and write:** VDTerminal can pay, withdraw, validate and refuse
+  invoices, and raise new ones from work-type lines, all through the mod's own server-authoritative
+  events (`src/command/InvoiceControl.lua`). Note this mod is **multiplayer-only in practice** — an
+  invoice needs two farms, and singleplayer has one.
 
 ## Tests
 

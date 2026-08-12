@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Checklist
@@ -23,6 +25,8 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
+import net.vertexdezign.vdt.app.panels.FinanceSummary
+import net.vertexdezign.vdt.app.panels.InvoicesSummary
 import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
 import net.vertexdezign.vdt.app.panels.MissionsSummary
@@ -280,6 +284,43 @@ object MissionsWidget : Widget {
   override fun Content(modifier: Modifier, config: WidgetConfig) {
     val missions by LocalVdtStore.current.missions.collectAsState()
     MissionsSummary(missions, modifier)
+  }
+}
+
+/**
+ * The farm's balance and this month's running total. The headline only — the finances table needs the
+ * full page, and a tile that tried to hold it would be unreadable at any placeable size.
+ */
+object FinanceWidget : Widget {
+  override val id = "finance"
+  override val title = "Finance"
+  override val icon: ImageVector = Icons.Filled.AccountBalance
+  override val defaultColSpan = 3
+  override val defaultRowSpan = 2
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val finance by LocalVdtStore.current.finance.collectAsState()
+    FinanceSummary(finance, modifier)
+  }
+}
+
+/**
+ * What this farm owes and is owed (FS25_Invoices). The glanceable half of the invoices view — a total
+ * and a count, red once anything has gone overdue. The tile renders its own "not installed" state, so
+ * a page that carries it survives the mod being removed.
+ */
+object InvoicesWidget : Widget {
+  override val id = "invoices"
+  override val title = "Invoices"
+  override val icon: ImageVector = Icons.AutoMirrored.Filled.ReceiptLong
+  override val defaultColSpan = 3
+  override val defaultRowSpan = 2
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val invoices by LocalVdtStore.current.invoices.collectAsState()
+    InvoicesSummary(invoices, modifier)
   }
 }
 

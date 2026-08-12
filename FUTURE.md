@@ -146,6 +146,224 @@ Built and validated in-game. Four things were left.
 
 ---
 
+## Finance (#48, under #46)
+
+Built and validated in-game: **singleplayer 2026-08-08** (a vehicle purchase and a farmland purchase
+both appeared in the app's log as they appeared in the game's own notifications — the
+`HUD:showMoneyChange` hook, end to end — and a month rollover shifted the table's columns correctly),
+then **on a multiplayer client 2026-08-09**, which is the path the host never takes: the notification
+funnel reached through `MoneyChangeEvent:run` rather than `FSBaseMission:broadcastNotifications`, and
+archived columns refreshed by re-requesting `FinanceStatsEvent`. Both hold. A third pass **2026-08-11**
+confirmed the current period's column ticks live on the 5 s interval — the only thing that surfaces it,
+since `FarmStats:changeFinanceStats` mutates the bucket in place with no message behind it. Only a
+handful of month rollovers have been watched, so that one is worth half an eye still. The design lives
+in the module headers of `src/collect/FinanceExporter.lua` and `src/command/FinanceControl.lua`; the
+checks below are what is still unseen.
+
+- **The graphs.** The issue's own "Bonus: draw some graphs" was deliberately deferred until there was
+  real data in the panel to shape a chart around. The export already feeds it: the mod carries up to
+  twelve periods where the game has them (the app shows the in-game five by default), and each column
+  carries its own `total`, so a per-month income/expense chart needs no mod change at all.
+- **The money log is session-scoped and in memory.** It starts empty on every game launch, and a cap of
+  100 entries drops the oldest. **The cap is settled for now (2026-08-11): 100 is enough in practice**,
+  so neither raising it nor making it configurable is worth doing. Persisting the log is the same open
+  question as everything under "VDT-owned data" below — it would be *savegame* state, and the FS25
+  sandbox makes reading anything back an XML problem. Worth doing only if the log turns out to be
+  something people look back through.
+- **Command outcomes have nowhere to go**, same as Missions. `setLoan`'s two guards are deliberately
+  asymmetric — a too-large borrow is **clamped** to the ceiling, an unaffordable repayment is
+  **refused** outright — and either outcome only reaches a log line. Mitigated the same way: the app
+  greys the buttons using `canManageLoan` / `loanMax` / the balance, so both outcomes are prevented
+  rather than reported, and the channel is event-driven off `ChangeLoanEvent`, which should land the
+  result within a tick — that last part is an expectation, not a measurement; it is the open in-game
+  check under "In-game checks" below. **The prevention half is confirmed (2026-08-11):** a
+  non-`farmManager`'s controls disable with a reason rather than firing a command the server drops.
+- **The too-large-borrow clamp cannot be provoked from the app**, so it will never be seen to work.
+  `LoanControls` coerces its target into `[0, max(loanMax, loan)]` and greys the step-up button at the
+  ceiling, so no sequence of taps asks for more. It is still not dead code — it covers a command built
+  against a *stale* `loanMax` (sell farmland between the export and the tap) — but that race cannot be
+  staged on demand. Recorded so nobody deletes the clamp on the strength of it never firing.
+- **The stat-row set is not fixed, and third-party buckets ride along for free.** The first capture
+  came back with **34** rows rather than the base game's 33: a mod in that savegame had appended
+  `dryingCharge` ("Trocknungsgebühren") to `FinanceStats.statNames`, and it arrived with its localized
+  title and a correct column total without a line of code. That works because the exporter walks the
+  live `statNames` table; hardcoding the base-game 33 would have silently dropped it. Nothing to do —
+  recorded so nobody "tidies up" that read, and so nobody writes a test asserting a fixed row count.
+- **Only five periods survive a save.** `FarmStats:saveToXMLFile` writes the current bucket plus four,
+  so a long uninterrupted session accumulates more than five in memory and a reload drops back to five.
+  Not a bug and not fixable from here — the app must simply cope with the column count changing.
+- **`loanMax` on a freshly joined client may read `Farm.MIN_LOAN`.** `Farm:setInitialEconomy` calls
+  `updateMaxLoan` before any farmland is known, and it is only recomputed on `FARM_PROPERTY_CHANGED`.
+  The in-game screen reads the same cached field and has the identical quirk, so we match it rather
+  than walking every placeable ourselves. If it bites in practice, say "up to 500,000" rather than
+  recomputing equity.
+---
+
+## Enhanced Loan System (#47, under #46)
+
+Built on top of #48. **Validated in-game on 2026-08-09, singleplayer and on a multiplayer client:**
+the loans render instead of the base-game block, and `takeLoan` / `repayLoan` both land from a client
+against a dedicated server — reaching the mod's own manager directly, as its in-game buttons do. **A
+terminal-created loan then survived a server restart (2026-08-11)**, which is the end-to-end proof it
+reached the server's table rather than only the client's: `ELS_loan` is a replicated Object, so a
+client creating one sends `OBJECT_CREATED` and the server files it into its own loan table, while a
+redemption's field changes ride the client's dirty-object update stream. The SP capture is committed as
+`examples/json/finance/els.json` and now drives `FinanceModelTest`. The `enhancedLoans` block on the
+finance channel carries the bank's terms and the farm's annuity loans; `takeLoan` / `repayLoan` drive
+the mod's own `ELS_loanManager`. Its *presence* is the whole signal — when it is there the base-game
+loan fields are absent and the app renders this instead, the same "dispatch on presence" rule the
+ISOBUS sections use.
+
+- **ELS does not disable base loans the way you would expect.** It overwrites
+  `InGameMenuStatisticsFrame.hasPlayerLoanPermission`, a method on the in-game *frame*, leaving both
+  `Platform.gameplay.hasLoans` and the `farmManager` right saying yes. Without the detector the
+  terminal kept offering Borrow/Repay for a system the player no longer has, and `setLoan` would have
+  created a base-game loan behind ELS's back. Fixed; recorded so nobody "simplifies" that check away.
+- **It uses a different permission from the base loan.** ELS gates on `MANAGE_RIGHTS`, the base loan on
+  `farmManager`, so `enhancedLoans.canManage` and `canManageLoan` are genuinely different questions and
+  can disagree for the same player.
+- **ELS clamps nothing outside its dialogs.** `addLoan` accepts any amount and any term; the mod's
+  limits live in the GUI's text-input handlers, which a terminal never goes through. Every bound is
+  therefore re-derived in `EnhancedLoanControl` — and the borrowing ceiling is recomputed *fresh* there
+  rather than trusted from the read side's 30 s cache.
+- **The ceiling is expensive.** `maxLoanAmountForFarm` walks every vehicle calling `getSellPrice()`
+  plus every farmland — the same cost that made us read `farm.loanMax` rather than recompute equity for
+  the base loan. Cached for 30 s. If that still shows up in a profile, the next step is to recompute it
+  only while the app actually has the take-loan controls open.
+- **The annuity formula is duplicated in the app**, so the take-loan panel can price a deal before the
+  command goes — both the monthly instalment and the total the loan will cost, the second by running
+  the amortization the way `calculateTotalAmount` runs it (monthly interest against an instalment
+  priced on annual compounding, so the debt clears a month or two inside the term and the total lands
+  *below* instalment × months). `FinanceFormatTest` pins both to the mod's arithmetic — the total to
+  the figure the ELS capture carries — and the mod stays the authority.
+- **Still open:** paid-off loans accumulate in the export (the mod keeps them forever, and the app only
+  shows a count). If a long-running farm ends up with dozens, cap or summarise them mod-side.
+- **Not built:** ELS's server settings (interest rate, mortgage ratios, max duration) are read-only
+  here. They are a settings screen, not a finance one, and changing them from a terminal is a different
+  feature.
+
+---
+
+## Invoices (#12, under #46)
+
+The last child of #46, on top of #48. Billing between farms via FS25_Invoices, in its own event-driven
+`invoices.json` channel (`src/integrations/Invoices.lua`) rendered as a second tab in the Finance app,
+plus five commands (`src/command/InvoiceControl.lua`). **Validated in a two-farm multiplayer session on
+2026-08-11:** an invoice raised from the terminal reaches the other farm, and paying it works as
+expected — the core round trip, and the first time this repo has been exercised with two farms at all.
+The narrower checks below are what that session did not cover. The mod's own server is the boundary
+throughout: every command drives one of its service methods, which from a client sends its event, and
+its server re-checks the `farmManager` right, the invoice's state, which farm the caller is, and (for a
+payment) whether it can be afforded.
+
+- **This feature has no singleplayer form.** An invoice needs two different farms and singleplayer has
+  one, so the channel correctly exports the settings, the work-type catalogue, no farms and no invoices
+  there. Every check below needs a **two-farm multiplayer session**, which is also the only place a
+  fixture can be captured — `examples/json/invoices/invoices.json` came from the first one.
+- **Paying an invoice moves two different numbers, and the VAT between them is destroyed.** The payer
+  loses `total + penalty`; the issuer receives `totalHT + penalty`, and nobody collects the difference
+  (`InvoiceService:executePayment`). That is the mod's simulation, not a rounding error — so the
+  channel carries `totalDue` and `credit` separately and the app prints both. A single "total" would be
+  a lie to one of the two parties.
+- **Its money already lands in our finance table for free.** The mod registers `invoiceIncome` /
+  `invoiceExpense` as `FinanceStats` buckets, so invoice payments show up in the monthly table and the
+  money log with their localized titles and no code of ours — the same way `dryingCharge` did. Recorded
+  so nobody adds a second accounting of them.
+- **The manager is on the mission, not in the mod's environment.** `g_currentMission.invoicesManager`
+  is reachable directly; only `Invoice` / `InvoiceService` need `FS25_Invoices.*`. Both are required
+  before the channel reports available, because without the classes the state and unit tokens would
+  have to be hardcoded numbers. *Considered and rejected*: recovering the class tables from the live
+  objects (`getmetatable(manager.service).__index`), which would survive the mod being installed under
+  a renamed zip — left out because the ELS and CropRotation integrations already bet on the env key and
+  were validated that way, and the `Invoice` half only works when a repository row happens to exist.
+- **Change detection hooks the mod's own `InvoiceService:notifyUI`**, which every mutation funnels
+  through — creation, payment, deletion, proposal validation, the join sync, the penalty sync. Two
+  things do *not* go through it and had to be added separately: `loadFromXML` at mission start (so
+  `tick()` marks dirty once when it installs the hook), and **switching farm in game**, which changes
+  who is asking rather than what is stored — every farm-scoped field in the document moves with it, so
+  the channel subscribes to `MessageType.PLAYER_FARM_CHANGED` as well. A channel with a write interval
+  would have self-corrected within seconds; this one is purely event-driven, so it would have kept
+  showing the previous farm's invoices indefinitely.
+- **A farm needs a NAME to be billable.** `InvoicesMainDashboard:loadFarms`'s `isValidFarm` requires a
+  non-empty name on top of "not the spectator" — and a map or another mod can create a farm the player
+  never sees (one server had a nameless *farm 14*). Mirrored in `VDT.Invoices.isBillableFarm`, used by
+  both the exported recipient list and `createInvoice`'s guard, so the terminal cannot offer or send a
+  recipient the mod would refuse. An invoice such a farm somehow raised is still *shown* — it just has
+  no name, and the app falls back to "Farm 14".
+- **The proposal direction inverts, and it is genuinely confusing.** A proposal is raised by the
+  *payer* and answered by the *issuer*, so it is outgoing for the farm that asked and incoming for the
+  farm that must approve it. The mod computes `direction` with FS25_Invoices' own accessors rather than
+  letting the app rediscover the rule.
+- **`actions` is what the buttons dispatch on**, mirroring the mod's server-side checks — deliberately
+  *excluding* affordability, which moves faster than this channel writes. The app greys Pay against the
+  finance channel's balance instead.
+- **A discount's money value is recomputed, never reconstructed.** The mod's
+  `Invoice.computeLineDiscountAmount` takes `computeLineGross(price, quantity, unit) - amount`; deriving
+  it as `amount / (1 - discountRate)` instead disagrees by a unit or two, because the mod rounds twice
+  (once on the gross, once after the discount). `InvoiceLine.grossAmount` does it the mod's way, and
+  `Invoice.discountTotal` sums it for the list row and the detail footer, which is where the mod shows
+  it too. The per-line rate is entered in the builder and clamped mod-side by the mod's own
+  `sanitizeDiscountRate`.
+- **A list row shows the tax-inclusive total in both directions** (`totalDue`), which is what the mod's
+  own `InvoicesListRenderer` prints. `credit` — what the issuer actually banks, net of the destroyed
+  VAT — is a *detail* figure, shown in the expanded totals and in the pay confirmation where there is
+  room to explain it. A row that showed `credit` for outgoing invoices would not add up against the
+  header total above it.
+- **`createInvoice` is the first command with child elements.** Nothing in the channel prevented it —
+  `CommandChannel.poll` already hands each control the live `XMLFile` and its key — but `CommandWriter`
+  grew an open/close form for it, and line quantities go through `BigDecimal` so a ten-million-litre
+  figure does not reach the mod as `1.0E7`.
+- **The mod's server-side sanitising only runs on the client→server path.** On a host,
+  `createAndSendInvoice` is called directly and nothing recomputes the totals — so `InvoiceControl`
+  builds line amounts with the mod's own `Invoice.computeLineAmount` and totals with
+  `populateFromData`, correct on both paths rather than only on the re-checked one.
+- **Not built: the three picker-backed line types.** Vehicle sale, consumable (pallet/bale) sale and
+  product (fillType) sale transfer ownership of real objects on payment, which a command cannot
+  assemble — each would need a new pick-list export of its own. They are exported with a `needsPicker`
+  token and shown in the builder as in-game-only, rather than silently dropped.
+- **Not built: writing the mod's settings** (VAT simulation, penalties, reminders). They are
+  `serverOnly` and would be one more command, but they are a server-economy screen rather than a
+  finance one — the same call as ELS's settings above.
+- **Open: how long the list stays usable.** Paid invoices are never deleted by the mod, so a
+  long-running server accumulates them. The app sinks them below the live ones and offers a direction
+  filter; if that stops being enough, cap or summarise them mod-side (the same shape as ELS's
+  paid-off-loan problem).
+- **Command outcomes have nowhere to go**, same as Missions and the loans. `actions` is recomputed on
+  every write and the channel writes on every mutation, so the window is one file write — but a
+  proposal the other party validates between our write and the player's tap is simply refused by the
+  mod's server, leaving only a log line. Mitigated the same way as `setLoan`: the app greys the button
+  from `actions` and the balance, so the outcome is prevented rather than reported.
+- **The builder's line cap is the mod's, not a usable one.** `ClientMessage.CreateInvoice` rejects more
+  than 100 lines because that is where the mod's own server refuses, and the builder disables "Add
+  line" at that point — but a terminal form gets unwieldy long before 100. If anyone ever fills one,
+  the answer is a lower soft cap in the app, not a change to the contract.
+- **Not built: per-line names.** The in-game wizard lets a player rename a line (`customLabel`, and
+  `customLabelByField` for field work); the terminal sends the work type's own localized name. A
+  free-text name is one more optional attribute on `<line/>` if it turns out to matter — the read side
+  already carries `InvoiceLine.name` and displays it.
+
+### In-game checks nobody has run
+
+All of these need a **two-farm multiplayer session**. Creating and paying an invoice is done
+(2026-08-11); what is left is everything that round trip does not touch.
+
+- **Both creation paths.** The 2026-08-11 session exercised one of them. `createAndSendInvoice` is
+  called directly on a **host** and nothing recomputes the totals, where a **client**'s goes through the
+  mod's server-side sanitising — so the untested side of that asymmetry still wants a look, and it is
+  the one place the two could disagree.
+- The channel writes on join (the `applySyncData` path through `notifyUI`), and a savegame's existing
+  invoices appear without waiting for a change (the first-sight `markDirty`).
+- A payment shows up in the finance table under `invoiceExpense` / `invoiceIncome`. Should follow from
+  the mod registering the buckets, but it is one glance at a panel that is already open.
+- A proposal raised from the payer side can be validated, and refused, from the issuer side.
+- Letting one go overdue (two period rollovers) lands `penalty`, `overdue` and the recomputed
+  `totalDue`, and `daysUntilPenalty` counted down honestly on the way there.
+- A non-`farmManager` player gets no `actions` at all rather than buttons that fail.
+- The localized work-type and unit labels resolve through `customEnv` — no `Missing 'invoice_work_…'`
+  strings reach the panel — on a non-English client too.
+
+---
+
 ## Map layers
 
 Both remaining items were declined on 2026-07-25. They are kept as the record of what they would cost,
@@ -253,6 +471,9 @@ Each one is cheap to do while playing and settles something above.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a
   forage/carrot harvester's pass-through output carry `showOnHud="true"`? This gates the filter switch
   above.
+- Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod
+  subscribes to `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is
+  about the *base-game* loan, so an ELS save cannot answer it.
 
 ## Steering (#57)
 
@@ -283,6 +504,18 @@ captures contains a machine that has them.
 
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`,
   the `STEP` consumable bar, and they would give `jointDescIndex` its first real chain.
+- **More finance captures.** `examples/json/finance/vanilla.json` is a fresh singleplayer save, so it
+  has one period and an empty log. Still wanted: **a played-in save** (several archived periods, to see
+  how many a real game carries), **an MP client** (does the history really stop at five?), and **one
+  with notifications in the log** — the hook itself is confirmed working in singleplayer, so this is
+  now wanted as a fixture rather than as proof. `FinanceModelTest` covers those three shapes with
+  inline JSON meanwhile.
+- **More invoices captures.** `examples/json/invoices/invoices.json` came out of the 2026-08-11
+  two-farm session and drives `InvoicesModelTest.parsesTheTwoFarmCapture`: three invoices from farm 1's
+  side, one of them a proposal showing the direction inversion, a discounted line, and the full 56-entry
+  German work-type catalogue. What it does not contain, because that session never got there: an
+  **incoming** invoice, a **paid** one, and one that has **accrued a penalty**. `InvoicesModelTest`
+  covers those three with inline JSON meanwhile, and says so at the top.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file
   claiming to be a capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not
   readable from here — inventing them would put made-up game data in `examples/json`.
@@ -290,6 +523,17 @@ captures contains a machine that has them.
 ---
 
 ## Accepted limitations — not bugs, and not worth re-deriving
+
+- **The wasm build has no font fallback, so an exotic glyph in a `Text` renders as tofu.** A browser
+  falls back through the system's fonts; Compose/wasm draws into a canvas with the fonts it bundles,
+  which here are the two DSEG faces plus the default — and that default does not cover Geometric Shapes
+  or Dingbats. `▲ ▼ ✕` therefore came out as boxes in the finance sort headers, the invoice direction
+  mark and the builder's remove button (fixed 2026-08-11 by using Material `Icon`s, which are vectors
+  and depend on no font at all). `SectionView`'s `"$level → $target"` rate readout is confirmed to have
+  it too and has an issue of its own — it is a character inside a sentence rather than a standalone
+  mark, so it wants a different answer. Latin-1 and General Punctuation are fine — `— · × − …` are used
+  throughout and render. The rule: **a mark that carries meaning is an `Icon`, not a character.** If a
+  new glyph is genuinely needed as text, look at it in a browser before shipping it.
 
 - **A 2-slot crop rotation's dropdown preview can be slightly off.** The 2-deep history window wraps
   modulo the rotation length, so in a 2-slot rotation "two back" lands on the slot itself, and the

@@ -179,7 +179,82 @@ class CommandWriter(
           message.storageId,
         )}" index="${message.index}" title="${esc(message.title)}" amount="${message.amount}"/>"""
       }
+
+      // The target loan, a non-negative int (the type's own require), so no escaping needed. The mod
+      // turns it into the delta ChangeLoanEvent wants, and clamps/refuses against the live farm.
+      is ClientMessage.SetLoan -> {
+        """<command id="$id" type="setLoan" amount="${message.amount}"/>"""
+      }
+
+      // Enhanced Loan System writes. All ints (positives by the types' own requires, and loanId is a
+      // network object id), so nothing here needs escaping. Every bound is re-derived mod-side.
+      is ClientMessage.TakeLoan -> {
+        """<command id="$id" type="takeLoan" amount="${message.amount}" durationYears="${message.durationYears}"/>"""
+      }
+
+      is ClientMessage.RepayLoan -> {
+        """<command id="$id" type="repayLoan" loanId="${message.loanId}" amount="${message.amount}"/>"""
+      }
+
+      // FS25_Invoices writes. The four id-addressed ones are a single int; the mod re-derives who may
+      // do what from the live invoice, so nothing here needs to be trusted.
+      is ClientMessage.PayInvoice -> {
+        """<command id="$id" type="payInvoice" invoiceId="${message.invoiceId}"/>"""
+      }
+
+      is ClientMessage.CancelInvoice -> {
+        """<command id="$id" type="cancelInvoice" invoiceId="${message.invoiceId}"/>"""
+      }
+
+      is ClientMessage.ValidateProposal -> {
+        """<command id="$id" type="validateProposal" invoiceId="${message.invoiceId}"/>"""
+      }
+
+      is ClientMessage.RefuseProposal -> {
+        """<command id="$id" type="refuseProposal" invoiceId="${message.invoiceId}"/>"""
+      }
+
+      // The one command with children, and so the only one rendered as an open/close pair rather than
+      // a self-closing element. The mod's parse reads `<line/>` under its own key, so the nesting is
+      // private to that command — the envelope reader never looks inside.
+      is ClientMessage.CreateInvoice -> {
+        renderCreateInvoice(id, message)
+      }
     }
+
+  /**
+   * `createInvoice` with one `<line/>` per line item. `note` is the only user-typed value on the whole
+   * command, so it is the only one escaped; everything else is a number the types already constrained.
+   */
+  private fun renderCreateInvoice(
+    id: Int,
+    message: ClientMessage.CreateInvoice,
+  ): String =
+    buildString {
+      append("""<command id="$id" type="createInvoice" farmId="${message.farmId}" proposal="${message.proposal}">""")
+      for (line in message.lines) {
+        append("\n        <line")
+        append(""" workTypeId="${line.workTypeId}"""")
+        append(""" quantity="${num(line.quantity)}"""")
+        line.price?.let { append(""" price="${num(it)}"""") }
+        line.discount?.let { append(""" discount="${num(it)}"""") }
+        line.fieldId?.let { append(""" fieldId="$it"""") }
+        line.note?.takeIf { it.isNotBlank() }?.let { append(""" note="${esc(it)}"""") }
+        append("/>")
+      }
+      append("\n    </command>")
+    }
+
+  /**
+   * A double as plain digits. `Double.toString` switches to scientific notation past seven digits
+   * (`1.0E7`), which the engine's XML reader would not parse back into the litre count somebody meant
+   * — so this goes through BigDecimal, which also drops the `.0` off a whole number.
+   */
+  private fun num(value: Double): String =
+    java.math.BigDecimal
+      .valueOf(value)
+      .stripTrailingZeros()
+      .toPlainString()
 
   /** The shared `TaskInput` attributes for createTask / editTask (detail is user text → escaped). */
   private fun taskAttrs(task: net.vertexdezign.vdt.TaskInput): String =
