@@ -503,17 +503,27 @@ Built: the arrow in the rate readout is a Material Icon rather than a "→" that
 manual application rate is exported (`precisionFarming.manual`, mod version 11), rendered, and
 drivable from the rig panel — auto/manual on the chip, the step on the two buttons either side.
 
-- **Driven in singleplayer 2026-08-12**, on a self-propelled sprayer and on a Vredo with a manure
-  cultivator, which found the two faults the synthetic specs could not: `getValidSprayerToUse` is not
-  a registered vehicle function (so no control worked at all), and a manure barrel with a tool hitched
-  to it keeps its rates on the tool (so the tile a rig panel draws showed a dead readout). Both fixed
-  and pinned. **Still unchecked:** that the product rate agrees with PF's own HUD in each of the four
-  machine kinds — the slurry m³/ha path is the one now known to be exercised — and that a step from
-  the terminal survives a **multiplayer client**, where `setSprayAmountManualValue` sends
-  `ExtendedSprayerAmountEvent` to the server. That is the path no spec can reach.
+- **Driven in singleplayer 2026-08-12** on a self-propelled sprayer, a Vredo with a manure cultivator,
+  and a Kaweco barrel with a Bomech dribble bar. It found three faults no synthetic spec could:
+  `getValidSprayerToUse` is not a registered vehicle function (so no control worked at all, on any
+  machine); a manure barrel with a tool hitched to it keeps its rates on the tool, not on itself; and
+  a rig slot drew only the head of a hitched chain, which on that rig is the machine with nothing to
+  say. All three fixed and pinned, and the readout, the step and the m³/ha product rate were seen
+  working on the barrel rig afterwards.
+- **Still unchecked:** that the product rate *agrees with PF's own HUD* rather than merely appearing —
+  the slurry m³/ha path is the only one known to be exercised at all, and the solid kg/ha, liquid l/ha
+  and manure t/ha paths have not been read side by side with the game. And a step from a
+  **multiplayer client**, where `setSprayAmountManualValue` sends `ExtendedSprayerAmountEvent` to the
+  server: no spec can reach that path.
 - **The barrel and its tool now report the same rates**, deliberately: whichever tile you have placed
   shows what the rig is applying, which is the substitution PF's own HUD makes. The barrel gives up
-  only the per-slice strip, whose `index` joins to work areas it does not own.
+  only the per-slice strip, whose `index` joins to work areas it does not own. Note this only fires
+  where the barrel's XML declares `manureBarrel#attacherJointIndex` — there is no default, so a barrel
+  omitting it never sets `attachedTool`. The app's chain walk covers that case from the other side.
+- **A nested implement has no slot of its own.** The mod reports the Bomech's `position` as an empty
+  string, so `RigSlotPanel` can never address it directly; it is seen through its parent's tile or not
+  at all. Fine for a section view, and the thing to fix properly whenever the rig diagram in the first
+  section of this file gets built.
 - **The live rate in auto mode is not exported.** `spec.lastLitersPerHectar` is what PF's HUD prints
   when the tool picks its own rate, and it is maintained on clients too (`getSprayerUsage` runs from
   `onStartWorkAreaProcessing`, with no `isServer` gate). It was left out because it is only meaningful
