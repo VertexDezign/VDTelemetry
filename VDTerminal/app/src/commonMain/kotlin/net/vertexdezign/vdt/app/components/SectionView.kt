@@ -592,6 +592,41 @@ internal fun sliceColor(slice: PfSubSection, mode: PfMode): Color {
 }
 
 /**
+ * The member of a hitched chain whose section view a slot should draw — itself, or something behind
+ * it.
+ *
+ * A rig slot is a *position*, not a machine. A slurry tanker with a dribble bar or an injector on the
+ * back is one thing you hitch and one thing you drive, and the panel already reads it that way for
+ * fill units — `collectFillUnits` has always walked the chain. The section view was the odd one out,
+ * reading the head and nothing else.
+ *
+ * On that rig the head has nothing to say: the base game shuts a barrel's work areas off while a tool
+ * is attached, and it reports none at all (`examples/json/telemetry/precisionFarming/`
+ * `liquidManure_dribbleBar.json` — the Kaweco's `workAreas` is empty, the Bomech behind it is the one
+ * with the 21 m sprayer area). Nor can that machine be given a slot of its own: the mod reports its
+ * `position` as an empty string, so no slot matches it. Through its parent is the only way it is ever
+ * seen.
+ *
+ * The test is **readings, not capability**: a barrel reports a Precision Farming mode with no numbers
+ * in it, so "has a PF block" would stop at the head and draw the empty line this was reported for.
+ * Only a machine with work areas, shutoff sections or an actual rate wins, and the walk stops at the
+ * first — a chain with a working head is unaffected, which is every ordinary implement.
+ */
+internal fun sectionMember(implement: Implement): Implement {
+  if (implement.showsSectionView()) return implement
+  for (child in implement.implement) {
+    val found = sectionMember(child)
+    if (found.showsSectionView()) return found
+  }
+  return implement
+}
+
+/** The three things [SectionView] draws from, asked as "is any of this actually here". */
+private fun Implement.showsSectionView(): Boolean = workAreas.isNotEmpty() ||
+  workWidth?.sections?.isNotEmpty() == true ||
+  precisionFarming?.primary != null
+
+/**
  * The one boom on a rig, and the facts a map strip draws from it.
  *
  * [width] is the live working width — [WorkWidth.total] where the tool reports one, and otherwise the

@@ -48,6 +48,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SectionView
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
+import net.vertexdezign.vdt.app.components.sectionMember
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.FillUnit
@@ -181,20 +182,26 @@ private fun Vehicle.slotState() = RigSlotState(
   precisionFarming = precisionFarming,
 )
 
-private fun Implement.slotState() = RigSlotState(
-  name = name,
-  type = type,
-  // The mod's old `combined.implement.front/back` was just the first front/back implement's own
-  // aspect state — which is exactly this implement — so read status/damage straight off it.
-  damage = wearable?.damage ?: 0,
-  foldable = foldable,
-  isTurnedOn = isTurnedOn,
-  lowered = lowered,
-  fillUnits = collectFillUnits(this),
-  workWidth = workWidth,
-  workAreas = workAreas,
-  precisionFarming = precisionFarming,
-)
+private fun Implement.slotState(): RigSlotState {
+  // The section view reads the chain, not just the head — the same way the fill units above always
+  // have. On a slurry tanker the machine working the ground is the tool hitched behind it, and it has
+  // no slot of its own to be shown in. See [sectionMember].
+  val working = sectionMember(this)
+  return RigSlotState(
+    name = name,
+    type = type,
+    // The mod's old `combined.implement.front/back` was just the first front/back implement's own
+    // aspect state — which is exactly this implement — so read status/damage straight off it.
+    damage = wearable?.damage ?: 0,
+    foldable = foldable,
+    isTurnedOn = isTurnedOn,
+    lowered = lowered,
+    fillUnits = collectFillUnits(this),
+    workWidth = working.workWidth,
+    workAreas = working.workAreas,
+    precisionFarming = working.precisionFarming,
+  )
+}
 
 /**
  * Below this the three controls can no longer sit in a row and still be worth aiming at: they need

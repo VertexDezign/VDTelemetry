@@ -318,6 +318,38 @@ class SectionViewTest {
   }
 
   @Test
+  fun aSlotDrawsTheChainMemberThatIsActuallyWorking() {
+    // The rig this was reported for: a slurry tanker with a dribble bar behind it. The barrel reports
+    // no work areas at all (the base game shuts them off while a tool is attached) and a Precision
+    // Farming block with a mode and no readings — so a panel reading the head drew an empty line
+    // while the machine 21 m wide behind it had everything.
+    val bar =
+      Implement(
+        workAreas = listOf(area().copy(width = 21f)),
+        precisionFarming = PrecisionFarming(mode = PfMode.FERTILIZER, nitrogen = PfValue(45f, 90f, "kg/ha")),
+      )
+    val barrel = Implement(precisionFarming = PrecisionFarming(mode = PfMode.FERTILIZER), implement = listOf(bar))
+    assertEquals(bar, sectionMember(barrel))
+
+    // Capability is not the test: the barrel has a PF block, and stopping there is the bug.
+    assertEquals(PfMode.FERTILIZER, barrel.precisionFarming?.mode)
+    assertNull(barrel.precisionFarming?.primary)
+
+    // A head with anything of its own wins outright — every ordinary implement, unaffected.
+    val cultivator = Implement(workAreas = listOf(area()), implement = listOf(bar))
+    assertEquals(cultivator, sectionMember(cultivator))
+    // Shutoff sections count as much as work areas do.
+    val folding =
+      Implement(workWidth = WorkWidth(sections = listOf(WorkSection(active = true))), implement = listOf(bar))
+    assertEquals(folding, sectionMember(folding))
+
+    // And a chain with nothing anywhere stays on the head rather than picking an arbitrary trailer:
+    // the view draws nothing either way, and the slot should still describe what is hitched to it.
+    val trailer = Implement(implement = listOf(Implement()))
+    assertEquals(trailer, sectionMember(trailer))
+  }
+
+  @Test
   fun namesTheModeFromTheModeFlag() {
     val manual = PfManual(step = 3, min = 1, max = 7)
     assertEquals("AUTO", modeLabel(auto = true, manual = null))
