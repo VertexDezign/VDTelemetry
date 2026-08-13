@@ -514,8 +514,9 @@ drivable from the rig panel — auto/manual on the chip, the step on the two but
   slurry m³/ha (Vredo, Kaweco), solid kg/ha and lime t/ha (the same AgriSpread hopper, which is the
   pair that proves the unit follows the tank rather than the machine), manure t/ha (Bunning) and
   liquid l/ha (Case IH Patriot). Every branch of `ratePerHectare` now has a real machine behind it.
-- **Still unchecked:** a step from a **multiplayer client**, where `setSprayAmountManualValue` sends
-  `ExtendedSprayerAmountEvent` to the server: no spec can reach that path.
+- **The controls work from a multiplayer client**, auto toggle and manual step both, so
+  `setSprayAmountManualValue`'s `ExtendedSprayerAmountEvent` round trip is confirmed — the one path no
+  spec can reach. #77 has nothing left open.
 - **The barrel and its tool now report the same rates**, deliberately: whichever tile you have placed
   shows what the rig is applying, which is the substitution PF's own HUD makes. The barrel gives up
   only the per-slice strip, whose `index` joins to work areas it does not own.
@@ -560,11 +561,16 @@ drivable from the rig panel — auto/manual on the chip, the step on the two but
   with the rate still present, which is why the gate is `getIsWorkAreaActive`: gated on processing,
   that machine would blink its rate away several times a second while visibly spreading.
 
-  **Still open: a multiplayer client.** A zero is dropped rather than reported, which is what a client
-  should compute on a pulse-width-modulation boom in auto, since PF averages the deficit over
-  `subSectionData` and that is server-only. On a non-PWM machine the client uses the synced aggregates
-  and should read a real number. Which of those two a player actually meets decides whether the auto
-  readout is a singleplayer feature or not, and no spec can reach it.
+  **Confirmed on a joined multiplayer client**, on a Vredo and on a pulse-width-modulation liquid
+  fertilizer sprayer, in both modes, matching the in-game HUD each time. This is **not** what was
+  predicted here: a client was expected to compute zero in auto on a PWM boom, since the sub-section
+  data PF averages the deficit over is refreshed inside `ExtendedSprayer:onUpdate`'s `if self.isServer`
+  block. The prediction missed that the same block sets `isPrecisionFarmingDataUncovered`, so on a
+  client the auto branch's `if not dataUncovered then changeValue = getDefaultNitrogenStateChange()`
+  replaces the average with a real default. A client therefore reads PF's default-derived figure
+  rather than the server's deficit-derived one — and agrees with PF's own HUD on that client, which is
+  the agreement the mod promises. Whether a client's number equals the server's authoritative pass is
+  PF's own property, not something exporting it introduces.
 - **PF's third keybind is not mirrored.** In auto with no crop in the ground, `TOGGLE_SEEDS` cycles
   which fruit the tool fertilises *for* (`setSprayAmountDefaultFruitRequirementIndex`, off
   `nApplyAutoModeFruitRequirementDefaultIndex`). It changes the auto target, so it belongs next to

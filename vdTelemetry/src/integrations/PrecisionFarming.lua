@@ -583,11 +583,19 @@ end
 ---ended -- a live-looking number for something that is not happening. Absent is the honest answer, and
 ---the app holds the line open rather than reflowing.
 ---
----Reaches multiplayer clients: it is set inside `getSprayerUsage`, which PF overrides and the base
----game calls from `onStartWorkAreaProcessing` -- raised by `WorkArea:onUpdateTick` with no `isServer`
----gate. **Except on a pulse-width-modulation boom in auto**, where PF averages the deficit over
----`subSectionData` instead of the synced aggregates, and that is server-only; a client then reads 0,
----which this drops rather than reports.
+---Reaches multiplayer clients, confirmed in a joined session on a Vredo and on a pulse-width-
+---modulation sprayer, in both modes: it is set inside `getSprayerUsage`, which PF overrides and the
+---base game calls from `onStartWorkAreaProcessing` -- raised by `WorkArea:onUpdateTick` with no
+---`isServer` gate.
+---
+---A client's auto figure is PF's *default* state change rather than the deficit it would compute on
+---the server. `ExtendedSprayer:onUpdate` refreshes the sub-sections inside `if self.isServer`, and
+---that block is also what sets `isPrecisionFarmingDataUncovered`; with the flag false everywhere, the
+---auto branch's `if not dataUncovered then changeValue = getDefaultNitrogenStateChange() end`
+---replaces whatever it just averaged. So a client computes a real number, not the zero this was
+---expected to produce -- and it is the same number PF's own HUD draws on that client, which is the
+---agreement we promise. Whether it matches the server's authoritative pass is PF's property, not
+---something reporting it introduces.
 ---@param object table the machine, for its work areas
 ---@param spec table the ExtendedSprayer spec
 ---@param mode string LIME | FERTILIZER | OTHER

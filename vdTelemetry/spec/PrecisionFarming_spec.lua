@@ -847,9 +847,10 @@ describe("PrecisionFarming manual rate", function()
     end)
 
     it("drops a zero rather than reporting it", function()
-      -- What a multiplayer client reads on a pulse-width-modulation boom in auto: PF averages the
-      -- deficit over sub-section data it only maintains on the server, so the client computes 0.
-      -- A machine visibly spraying must not be captioned "0 kg/ha".
+      -- A machine that is down and working but computing nothing per hectare says more by staying
+      -- quiet: "0 kg/ha" under a running boom reads as a broken figure rather than an absent one.
+      -- This was added expecting multiplayer clients to hit it; they do not (see liveRate), so it
+      -- guards only the cases nobody has enumerated -- which is the reason to keep it.
       local object = working()
       object[VDT.PrecisionFarming.SPRAYER_SPEC].lastLitersPerHectar = 0
       assert.is_nil(VDT.PrecisionFarming.collectSprayer(object).rate)

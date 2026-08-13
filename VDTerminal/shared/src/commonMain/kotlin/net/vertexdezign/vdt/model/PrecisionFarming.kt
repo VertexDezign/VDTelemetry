@@ -42,9 +42,12 @@ data class PrecisionFarming(
    * from the deficit it is closing, the working width, the speed, and the share of the boom open.
    *
    * Absent whenever the tool is not working — PF leaves the field at whatever the last processed area
-   * needed, so the mod withholds it rather than pass on the rate of a pass that has ended. Also absent
-   * on a multiplayer client driving a pulse-width-modulation boom in auto, where PF averages the
-   * deficit over server-only sub-section data.
+   * needed, so the mod withholds it rather than pass on the rate of a pass that has ended.
+   *
+   * Present on a multiplayer client, in both modes, confirmed in a joined session. In auto a client's
+   * figure comes from PF's default state change rather than the deficit the server averages, because
+   * the sub-section data that averaging reads is refreshed server-side only — but it is the number PF
+   * draws on that same client, so the terminal and the game agree, which is the promise.
    *
    * Distinct from [PfManual.rate], which is nominal — what one pass at the chosen step *would* cost,
    * whether or not the tool is running. That is the number to pick a step by; this is the number to
