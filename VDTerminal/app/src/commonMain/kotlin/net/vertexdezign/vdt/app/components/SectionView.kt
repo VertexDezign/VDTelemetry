@@ -70,9 +70,13 @@ import kotlin.math.roundToInt
  * is a guess at how tall a line of text is, and a wrong one clips the glyphs — which it did, at the
  * ordinary font scale, the moment there was a rate to draw. Reserving with the same text metric the
  * content uses cannot be wrong at any scale. The strip has no text and is genuinely a fixed height.
+ *
+ * That height is what the strip's columns are measured against, so it is no longer only a reservation:
+ * at the 8dp this started at, the difference between a slice needing a little and one needing a lot
+ * came to about a pixel. See [RateStrip].
  */
 private val READOUT_TEXT_SIZE = 10.sp
-private val STRIP_HEIGHT = 8.dp
+private val STRIP_HEIGHT = 14.dp
 
 /**
  * What the tool is doing across its width — the terminal's section view.
@@ -525,18 +529,64 @@ internal fun readoutSlotShown(precisionFarming: PrecisionFarming?): Boolean {
 internal fun stripSlotShown(precisionFarming: PrecisionFarming): Boolean =
   precisionFarming.mode != PfMode.OTHER && precisionFarming.workAreas.any { it.subSections.isNotEmpty() }
 
-/** One cell per ~2 m slice across the boom, tinted by how far that slice is below its target. */
+/**
+ * One column per ~2 m slice across the boom, filled from the bottom by how much of the target that
+ * slice is still short of.
+ *
+ * **Height carries it, not colour.** This drew flat full-height cells separated only by a red → amber
+ * → green ramp, which is no signal at all to a reader who cannot split those hues — and next to the
+ * nozzle bar right above it, a flat row of cells reads as a lesser copy of that bar rather than as a
+ * different measurement. The deficit is a magnitude, so it is drawn as one. The ramp stays on top of
+ * the shape as a second, redundant cue.
+ *
+ * Three states stay distinct without hue: an empty track is ground PF has no reading for, a sliver is
+ * a slice at or above target, and a full column is one with nothing in the ground.
+ */
 @Composable
 internal fun RateStrip(subSections: List<PfSubSection>, mode: PfMode, modifier: Modifier = Modifier) {
   Row(
-    modifier.fillMaxWidth().height(STRIP_HEIGHT).clip(RoundedCornerShape(2.dp)),
-    verticalAlignment = Alignment.CenterVertically,
+    modifier
+      .fillMaxWidth()
+      .height(STRIP_HEIGHT)
+      .clip(RoundedCornerShape(2.dp))
+      .background(VdtColors.TrackGray),
+    horizontalArrangement = Arrangement.spacedBy(0.5.dp),
   ) {
     for (slice in subSections) {
-      Box(Modifier.weight(1f).fillMaxHeight().background(sliceColor(slice, mode)))
+      val fill = sliceFill(slice, mode)
+      Box(Modifier.weight(1f).fillMaxHeight()) {
+        if (fill != null) {
+          Box(
+            Modifier
+              .align(Alignment.BottomCenter)
+              .fillMaxWidth()
+              .fillMaxHeight(fill)
+              .background(sliceColor(slice, mode)),
+          )
+        }
+      }
     }
   }
 }
+
+/**
+ * How much of a slice's column is filled, `0..1` — the share of the target still missing from the
+ * ground — or null where PF has no reading and the track is left empty.
+ *
+ * Floored at [MIN_SLICE_FILL] so a slice that needs nothing is still visibly *a reading*: the
+ * difference between "measured, and fine" and "never measured" is one a variable-rate strip must not
+ * blur, and it is the whole distance between a green cell and a grey one in the old drawing.
+ */
+internal fun sliceFill(slice: PfSubSection, mode: PfMode): Float? {
+  if (!slice.valid) return null
+  val level = if (mode == PfMode.LIME) slice.ph else slice.n
+  val target = if (mode == PfMode.LIME) slice.phTarget else slice.nTarget
+  if (level == null || target == null || target <= 0f) return MIN_SLICE_FILL
+  return (1f - (level / target).coerceIn(0f, 1f)).coerceAtLeast(MIN_SLICE_FILL)
+}
+
+/** Tall enough to survive rounding to whole pixels at any font scale, short enough to read as "none". */
+private const val MIN_SLICE_FILL = 0.2f
 
 /**
  * What a work-area set says about the tool, as a lamp and a word.
@@ -579,9 +629,14 @@ internal fun workAreaStatus(areas: List<WorkArea>): WorkStatus? {
 }
 
 /**
- * How one slice reads: grey where PF has no data, and otherwise a red-to-green ramp on how much of
- * the target is already in the ground. Green means "nothing needed here", which on a variable-rate
- * strip is the same message as a shut-off section — the tool should be putting little or nothing down.
+ * What colour one slice's column is: a red-to-green ramp on how much of the target is already in the
+ * ground. Green means "nothing needed here", which on a variable-rate strip is the same message as a
+ * shut-off section — the tool should be putting little or nothing down.
+ *
+ * A **second** cue only. [sliceFill] is what actually distinguishes the slices, because this ramp is
+ * invisible to a reader who cannot split red from green; nothing here may be the sole carrier of a
+ * state. The grey no-data case is kept for callers that ask about a slice directly — [RateStrip] never
+ * reaches it, since a slice PF has no reading for draws no column at all.
  */
 internal fun sliceColor(slice: PfSubSection, mode: PfMode): Color {
   if (!slice.valid) return VdtColors.Gray
@@ -614,24 +669,35 @@ internal fun sliceColor(slice: PfSubSection, mode: PfMode): Color {
  * `position` as an empty string, so no slot matches it. Through its parent is the only way it is ever
  * seen.
  *
- * The test is **readings, not capability**: a barrel reports a Precision Farming mode with no numbers
- * in it, so "has a PF block" would stop at the head and draw the empty line this was reported for.
- * Only a machine with work areas, shutoff sections or an actual rate wins, and the walk stops at the
- * first — a chain with a working head is unaffected, which is every ordinary implement.
+ * The test is **working the ground, not carrying a number**, and the difference is not cosmetic. A PF
+ * reading can be borrowed: the mod's `rateSource` hands a machine that applies nothing itself the
+ * rates of the one it is driving, so the Kaweco reports the Bomech's step and reading. Stopping there
+ * costs the strip and the status line, because the barrel deliberately does *not* take the per-slice
+ * detail — its `index` joins to work areas the barrel does not own.
+ *
+ * Work areas and shutoff sections cannot be borrowed, which is what makes them the right test, and the
+ * rule is exact rather than a heuristic: PF's `getIsVehicleValid` requires non-empty work areas before
+ * it will call a machine the rig's sprayer, so a machine whose rates are its **own** always has them.
+ * A machine with a reading but no work areas and no sections is therefore always holding somebody
+ * else's, and the thing that owns them is below it.
+ *
+ * The walk stops at the first member that works — a chain with a working head is unaffected, which is
+ * every ordinary implement — and falls back to the head when nothing anywhere does, so a machine whose
+ * rates are all it has still shows them.
  */
-internal fun sectionMember(implement: Implement): Implement {
-  if (implement.showsSectionView()) return implement
+internal fun sectionMember(implement: Implement): Implement = workingMember(implement) ?: implement
+
+private fun workingMember(implement: Implement): Implement? {
+  if (implement.worksGround()) return implement
   for (child in implement.implement) {
-    val found = sectionMember(child)
-    if (found.showsSectionView()) return found
+    workingMember(child)?.let { return it }
   }
-  return implement
+  return null
 }
 
-/** The three things [SectionView] draws from, asked as "is any of this actually here". */
-private fun Implement.showsSectionView(): Boolean = workAreas.isNotEmpty() ||
-  workWidth?.sections?.isNotEmpty() == true ||
-  precisionFarming?.primary != null
+/** The two things a machine can only report about itself — see [sectionMember] for why a rate is not. */
+private fun Implement.worksGround(): Boolean = workAreas.isNotEmpty() ||
+  workWidth?.sections?.isNotEmpty() == true
 
 /**
  * The Precision Farming rates a **vehicle** slot should draw — its own, or none at all.

@@ -17,6 +17,7 @@ import net.vertexdezign.vdt.model.WorkWidth
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -70,6 +71,33 @@ class SectionViewTest {
     // that to green would paint "nothing needed here" over ground we know nothing about.
     val blank = PfSubSection(valid = false, n = 0f, nTarget = 0f)
     assertEquals(VdtColors.Gray, sliceColor(blank, PfMode.FERTILIZER))
+    // …and it draws no column at all, which is what separates it from a slice that needs nothing
+    // without asking anyone to tell two colours apart.
+    assertNull(sliceFill(blank, PfMode.FERTILIZER))
+  }
+
+  @Test
+  fun fillsASliceByHowFarBelowTargetItIs() {
+    // The deficit is a magnitude, so the strip draws it as one: colour is a second cue on top of the
+    // height, never the only one. Nothing here depends on telling red from green.
+    fun slice(level: Float) = PfSubSection(valid = true, n = level, nTarget = 100f)
+    assertEquals(1f, sliceFill(slice(0f), PfMode.FERTILIZER))
+    assertEquals(0.5f, sliceFill(slice(50f), PfMode.FERTILIZER))
+
+    // At target the column does not vanish: "measured, and fine" must stay distinct from "never
+    // measured", which draws nothing at all.
+    val ok = assertNotNull(sliceFill(slice(100f), PfMode.FERTILIZER))
+    assertTrue(ok > 0f && ok < 0.25f)
+    // Past target is not less than nothing, and never grows back.
+    assertEquals(ok, sliceFill(slice(400f), PfMode.FERTILIZER))
+    // A zero target is a fine place to be, not a divide by it.
+    assertEquals(ok, sliceFill(PfSubSection(valid = true, n = 0f, nTarget = 0f), PfMode.FERTILIZER))
+
+    // And it reads the mode's own value, exactly as the colour does: the same slice is empty of
+    // nitrogen and already at its pH target.
+    val both = PfSubSection(valid = true, n = 0f, nTarget = 100f, ph = 6.8f, phTarget = 6.8f)
+    assertEquals(1f, sliceFill(both, PfMode.FERTILIZER))
+    assertEquals(ok, sliceFill(both, PfMode.LIME))
   }
 
   @Test
@@ -334,6 +362,15 @@ class SectionViewTest {
     // Capability is not the test: the barrel has a PF block, and stopping there is the bug.
     assertEquals(PfMode.FERTILIZER, barrel.precisionFarming?.mode)
     assertNull(barrel.precisionFarming?.primary)
+
+    // …and neither is carrying a *reading*, which is the same bug wearing the mod's substitution.
+    // `rateSource` gives the barrel the tool's numbers, so this barrel has a primary value and still
+    // owns nothing to draw a strip or a status line from. Stopping here is what lost the strip on the
+    // Kaweco. The rule is exact: PF will not call a machine the rig's sprayer without work areas, so
+    // rates without work areas are always somebody else's.
+    val lending = barrel.copy(precisionFarming = bar.precisionFarming)
+    assertNotNull(lending.precisionFarming?.primary)
+    assertEquals(bar, sectionMember(lending))
 
     // A head with anything of its own wins outright — every ordinary implement, unaffected.
     val cultivator = Implement(workAreas = listOf(area()), implement = listOf(bar))
