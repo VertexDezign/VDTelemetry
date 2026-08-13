@@ -36,6 +36,8 @@ data class Vehicle(
   val plow: Plow? = null,
   val tillage: Tillage? = null,
   val precisionFarming: PrecisionFarming? = null,
+  /** Advanced Damage System, when that mod is installed and manages this machine. See [Ads]. */
+  val ads: Ads? = null,
   val implement: List<Implement> = emptyList(),
   val combined: Combined? = null,
 )
@@ -171,6 +173,15 @@ data class Motor(
   val parkingBrake: Boolean? = null,
 )
 
+/**
+ * A temperature and the gauge it is read on. [min] / [max] are the scale's ends, not the safe range —
+ * the base game's coolant gauge is 20..120 °C and the mod keeps that frame whatever drives the value,
+ * so two temperature bars stay comparable.
+ *
+ * Under Advanced Damage System [value] is **that mod's** engine temperature, which is the only one
+ * worth having: it can sit below [min] on a cold morning (the model is anchored to the ambient
+ * temperature), and the vanilla figure it replaces is never synced to a multiplayer client at all.
+ */
 @Serializable
 data class Temperatur(
   val value: Int = 0,
@@ -392,6 +403,14 @@ data class CruiseControl(
 // Wear
 // ---------------------------------------------------------------------------
 
+/**
+ * Vanilla wear, wash and damage.
+ *
+ * [damage] is **pinned to 0 on any vehicle Advanced Damage System manages** — ADS replaces the
+ * vanilla damage model and the server zeroes this every tick. An implement's is still real (ADS
+ * attaches to motorized vehicles only). Where ADS is installed, condition lives in [Ads.inspected]
+ * instead, and only as far as an inspection has revealed it.
+ */
 @Serializable
 data class Wearable(
   val damage: Int = 0,

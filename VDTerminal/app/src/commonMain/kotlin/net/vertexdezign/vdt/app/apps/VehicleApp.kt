@@ -16,6 +16,7 @@ import net.vertexdezign.vdt.app.alerts.ThresholdAlertRule
 import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.ClusterLevelsWidget
 import net.vertexdezign.vdt.app.widgets.ClusterReadoutWidget
+import net.vertexdezign.vdt.app.widgets.ClusterServiceWidget
 import net.vertexdezign.vdt.app.widgets.EngineWidget
 import net.vertexdezign.vdt.app.widgets.LightingWidget
 import net.vertexdezign.vdt.app.widgets.NavigationWidget
@@ -50,6 +51,7 @@ object VehicleApp : VdtApp {
       TelltaleWidget,
       ClusterReadoutWidget,
       ClusterLevelsWidget,
+      ClusterServiceWidget,
     )
 
   override val alerts: List<AlertRule> =

@@ -242,8 +242,29 @@ object ClusterIcons {
   }
 
   /** Coolant temperature: the thermometer standing in the water it is reading. */
-  val Temperature = telltale("Temperature") {
-    fill("M15.4 3 H18.6 V14.5 H15.4 Z M13.4 17.3 A3.6 3.6 0 1 1 20.6 17.3 A3.6 3.6 0 1 1 13.4 17.3 Z $WAVES")
+  val Temperature = telltale("Temperature") { fill("$THERMOMETER $WAVES") }
+
+  /**
+   * The same thermometer, not yet warmed up — the blue lamp a machine shows before it will take
+   * load, which under Advanced Damage System is the state that wears an engine if you work it.
+   *
+   * A snowflake where [Temperature] has its water, rather than the same glyph in another colour: not
+   * warmed up is not a milder version of boiling, and one shape for both would leave the difference
+   * resting entirely on hue.
+   */
+  val TemperatureCold = telltale("TemperatureCold") { fill("$THERMOMETER $SNOWFLAKE") }
+
+  /**
+   * A CVT's oil temperature: the same thermometer, over a gear rather than over water.
+   *
+   * It exists because the level strip is read by **icon alone** — the labels there are for the screen
+   * reader — so a second thermometer beside the coolant one would be two marks that cannot be told
+   * apart at the size the bars are drawn at. What is being measured is the difference, so what is
+   * being measured is what changes in the glyph.
+   */
+  val TemperatureTransmission = telltale("TemperatureTransmission") {
+    fill("$THERMOMETER $GEAR_TEETH")
+    fill(GEAR_RING, PathFillType.EvenOdd)
   }
 
   /** The general warning triangle, as the reference cluster shows it. */
@@ -291,6 +312,40 @@ private fun airCourse(y: Float): String =
   "M2 $y C5.2 ${y - 2} 8.4 ${y + 2} 11.6 $y C14.8 ${y - 2} 18 ${y + 2} 21.2 $y " +
     "L21.2 ${y + 2.2f} C18 ${y + 4.2f} 14.8 ${y + 0.2f} 11.6 ${y + 2.2f} " +
     "C8.4 ${y + 4.2f} 5.2 ${y + 0.2f} 2 ${y + 2.2f} Z"
+
+/**
+ * The instrument itself: bulb and stem, standing to the right of the viewport. Three lamps are built
+ * on it, each putting something different in the space to its left — water, snow or a gear — so what
+ * is being measured is what changes and the reading stays the same shape.
+ */
+private const val THERMOMETER =
+  "M15.4 3 H18.6 V14.5 H15.4 Z M13.4 17.3 A3.6 3.6 0 1 1 20.6 17.3 A3.6 3.6 0 1 1 13.4 17.3 Z"
+
+/**
+ * A gear beside the thermometer, in two parts because it has a hole in it: a ring drawn even-odd, and
+ * eight teeth that live entirely in the annulus so they never fill that hole back in.
+ */
+private const val GEAR_RING =
+  "M3.2 11.5 A4 4 0 1 1 11.2 11.5 A4 4 0 1 1 3.2 11.5 Z " +
+    "M5.3 11.5 A1.9 1.9 0 1 1 9.1 11.5 A1.9 1.9 0 1 1 5.3 11.5 Z"
+
+private const val GEAR_TEETH =
+  "M10.7 10.4 H12.6 V12.6 H10.7 Z M1.8 10.4 H3.7 V12.6 H1.8 Z " +
+    "M6.1 15 H8.3 V16.9 H6.1 Z M6.1 6.1 H8.3 V8 H6.1 Z " +
+    "M10.45 13.2 L11.8 14.54 L10.24 16.1 L8.9 14.75 Z " +
+    "M5.5 14.75 L4.16 16.1 L2.6 14.54 L3.95 13.2 Z " +
+    "M3.95 9.8 L2.6 8.46 L4.16 6.9 L5.5 8.25 Z " +
+    "M8.9 8.25 L10.24 6.9 L11.8 8.46 L10.45 9.8 Z"
+
+/**
+ * Snow beside the thermometer: six spokes through one centre, which is how a dashboard draws a
+ * snowflake at a size where anything finer would close up. Sits in the same space [WAVES] does, so
+ * the two coolant lamps are the same thermometer with the same weight of mark beside it.
+ */
+private const val SNOWFLAKE =
+  "M2.2 10.75 H12.2 V12.25 H2.2 Z " +
+    "M4.05 7.55 L9.05 16.21 L10.35 15.46 L5.35 6.8 Z " +
+    "M9.05 6.8 L4.05 15.46 L5.35 16.21 L10.35 7.55 Z"
 
 /** Water under the thermometer. */
 private const val WAVES =

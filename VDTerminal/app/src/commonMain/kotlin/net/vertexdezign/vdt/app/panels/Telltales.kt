@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import net.vertexdezign.vdt.model.AdsLamp
 import net.vertexdezign.vdt.model.Vehicle
 
 /** Above this fraction of its own min..max span the coolant reads as overheating. */
@@ -71,8 +72,11 @@ enum class BandSide { Start, Middle, End }
  * [EngineWarning] used to be a *derived* lamp, lit on coolant temperature **or** damage. Those are now
  * [Temperature] and [GeneralWarning], said separately, which is how the cluster this copies shows
  * them — and three lamps drawn from two facts, one of them the union of the other two, would be a
- * band saying the same thing twice. The engine lamp keeps its key and its glyph, and waits for the
- * maintenance mod's own engine fault, which is a different claim from either of the two.
+ * band saying the same thing twice. The engine lamp keeps its key and its glyph, and takes its state
+ * from Advanced Damage System's own engine fault, which is a different claim from either of the two.
+ *
+ * The six maintenance lamps are ADS's, and there [colour] is only their **resting** colour: what they
+ * light in is the severity ADS reports (see [Reading.colour]).
  */
 enum class Telltale(
   val key: String,
@@ -94,16 +98,29 @@ enum class Telltale(
   Awd("awd", "All-wheel drive", ClusterIcons.Awd, ClusterColors.Go),
 
   // The maintenance family, at the end because that is the order a cluster reads in: what you are
-  // doing, then what the machine is doing, then what is wrong with it. Four of the six have no source
-  // in the telemetry yet — the maintenance mod that will feed them exports nothing — so they are
-  // permanently absent rather than permanently off, which is the same rule the drivetrain lamps
-  // follow and costs nothing but a line in the band's config dialog until the channel arrives.
+  // doing, then what the machine is doing, then what is wrong with it. All six come from Advanced
+  // Damage System and are absent without it — the same rule the drivetrain lamps follow, and one that
+  // costs nothing but a line in the band's config dialog on a game that doesn't run the mod.
   EngineWarning("engineWarning", "Engine warning", ClusterIcons.EngineWarning, ClusterColors.Warn),
   Temperature("temperature", "Coolant temperature", ClusterIcons.Temperature, ClusterColors.Warn),
   Battery("battery", "Charging system", ClusterIcons.Battery, ClusterColors.Warn),
   BrakeSystem("brakeSystem", "Brake system", ClusterIcons.BrakeSystem, ClusterColors.Warn),
   Service("service", "Service due", ClusterIcons.Service, ClusterColors.Set),
   GeneralWarning("generalWarning", "Needs attention", ClusterIcons.GeneralWarning, ClusterColors.Set),
+  ;
+
+  /** The lamp Advanced Damage System drives this one from, or null for the lamps that are ours. */
+  internal fun adsLampIn(vehicle: Vehicle): AdsLamp? = vehicle.ads?.lamps?.let {
+    when (this) {
+      EngineWarning -> it.engine
+      GeneralWarning -> it.warning
+      BrakeSystem -> it.brakes
+      Battery -> it.battery
+      Temperature -> it.coolant
+      Service -> it.service
+      else -> null
+    }
+  }
 }
 
 /**
@@ -115,28 +132,64 @@ enum class Telltale(
  * decorates the vehicle you're controlling. An unlit diff-lock lamp is a claim about the drivetrain,
  * and without the mod we have no standing to make it — so we say nothing instead.
  *
- * [Telltale.EngineWarning], [Telltale.Battery], [Telltale.BrakeSystem] and [Telltale.Service] are the
- * same rule taken to its end: the maintenance mod that will feed them exports nothing yet, so they
- * are constantly null and the band constantly leaves them out.
+ * The maintenance six are the same rule taken to its end, twice over. Without Advanced Damage System
+ * there is nothing to say at all; *with* it, a lamp the machine is too old to have (ADS gates each on
+ * the vehicle's production year) is null too, so a 1960s tractor's band does not grow an engine-fault
+ * lamp its dashboard never had.
  */
 fun Telltale.stateIn(vehicle: Vehicle): Boolean? = when (this) {
   Telltale.TurnLeft -> vehicle.lights?.indicator?.left
+
   Telltale.TurnRight -> vehicle.lights?.indicator?.right
+
   Telltale.HighBeam -> vehicle.lights?.light?.highBeam
+
   Telltale.LowBeam -> vehicle.lights?.light?.lowBeam
+
   Telltale.WorkFront -> vehicle.lights?.workLight?.front
+
   Telltale.WorkRear -> vehicle.lights?.workLight?.back
+
   Telltale.Beacon -> vehicle.lights?.beaconLight
+
   Telltale.ParkingBrake -> vehicle.motor?.parkingBrake
+
   Telltale.DiffLock -> diffLockEngaged(vehicle)
+
   Telltale.Awd -> vehicle.motor?.awd
-  Telltale.Temperature -> overheating(vehicle)
-  Telltale.GeneralWarning -> needsAttention(vehicle)
-  Telltale.EngineWarning -> null
-  Telltale.Battery -> null
-  Telltale.BrakeSystem -> null
-  Telltale.Service -> null
+
+  // ADS's answer where there is one, and otherwise the two the base game can still support on its
+  // own: a coolant gauge in the red, and vanilla damage. Those are what these lamps were lit from
+  // before ADS existed, and a game without the mod has no reason to lose them.
+  else -> adsLampIn(vehicle)?.let { it != AdsLamp.OFF } ?: when (this) {
+    Telltale.Temperature -> overheating(vehicle)
+    Telltale.GeneralWarning -> needsAttention(vehicle)
+    else -> null
+  }
 }
+
+/**
+ * The colour this lamp lights in for [vehicle] — [Telltale.colour] unless Advanced Damage System is
+ * driving it, where the severity it reports is the colour, exactly as ADS's own dashboard shows it.
+ *
+ * Severity is also carried by [blinksIn], because a ladder told apart by hue alone is a ladder some
+ * people cannot read. Colour and flash say the same thing twice, on purpose.
+ */
+fun Telltale.colourIn(vehicle: Vehicle): Color = when (adsLampIn(vehicle)) {
+  AdsLamp.COLD -> ClusterColors.Beam
+  AdsLamp.WARN -> ClusterColors.Set
+  AdsLamp.CRIT -> ClusterColors.Warn
+  else -> colour
+}
+
+/**
+ * Whether this lamp flashes for [vehicle]: the signals always, and any ADS lamp at its top severity.
+ *
+ * The band's rule is that a state that flashed would read as a fault — and this *is* the fault. A
+ * critical lamp is the one thing on the band you are meant to stop for, so it gets the one treatment
+ * the rest of the band never uses.
+ */
+fun Telltale.blinksIn(vehicle: Vehicle): Boolean = blinks || adsLampIn(vehicle) == AdsLamp.CRIT
 
 /**
  * Either differential shut, over the two ends Enhanced Vehicle reports separately.
@@ -150,9 +203,9 @@ fun diffLockEngaged(vehicle: Vehicle): Boolean? = vehicle.motor?.diffLock?.let {
 }
 
 /**
- * The glyph this lamp draws for [vehicle] — [Telltale.icon] for all but one of them.
+ * The glyph this lamp draws for [vehicle] — [Telltale.icon] for all but two of them.
  *
- * [Telltale.DiffLock] is the exception, and the reason this exists: it is one lamp over two
+ * [Telltale.DiffLock] is the first exception, and the reason this exists: it is one lamp over two
  * independent differentials, so *which* end is shut is a difference in the symbol rather than in
  * which of two lamps came on. Front-only and rear-only get the axle in question drawn solid with the
  * other left open; both — and the resting state, where the lamp is ghosted — get both.
@@ -160,15 +213,25 @@ fun diffLockEngaged(vehicle: Vehicle): Boolean? = vehicle.motor?.diffLock?.let {
  * An axle Enhanced Vehicle says nothing about is drawn as not-locked, which is the honest reading:
  * the lamp is only on this band at all because it reports at least one end (see [stateIn]), and an
  * end it does not report is one we cannot claim is shut.
+ *
+ * [Telltale.Temperature] is the second, for the same reason: under Advanced Damage System one lamp
+ * covers both ends of the gauge, and *not warmed up yet* is not a milder version of *boiling*. The
+ * cold state is a real machine's blue lamp, and it gets its own symbol so that being cold and being
+ * hot are not one shape in two colours.
  */
-fun Telltale.iconIn(vehicle: Vehicle): ImageVector {
-  if (this != Telltale.DiffLock) return icon
-  val lock = vehicle.motor?.diffLock
-  return when {
-    lock?.front == true && lock.back != true -> ClusterIcons.DiffLockFront
-    lock?.back == true && lock.front != true -> ClusterIcons.DiffLockRear
-    else -> ClusterIcons.DiffLockBoth
+fun Telltale.iconIn(vehicle: Vehicle): ImageVector = when {
+  this == Telltale.DiffLock -> {
+    val lock = vehicle.motor?.diffLock
+    when {
+      lock?.front == true && lock.back != true -> ClusterIcons.DiffLockFront
+      lock?.back == true && lock.front != true -> ClusterIcons.DiffLockRear
+      else -> ClusterIcons.DiffLockBoth
+    }
   }
+
+  this == Telltale.Temperature && adsLampIn(vehicle) == AdsLamp.COLD -> ClusterIcons.TemperatureCold
+
+  else -> icon
 }
 
 /**
@@ -216,7 +279,7 @@ fun TelltaleBand(vehicle: Vehicle, lamps: List<Telltale>, modifier: Modifier = M
     // Only run the flasher when something is actually flashing. The pillar display is a screen that
     // stays awake on a clamped phone for a whole session, and an infinite transition nobody can see
     // is a wake-up every frame for the entire time you are not indicating.
-    val blink = if (!checking && shown.any { it.lamp.blinks && it.lit }) clusterBlinkPhase() else null
+    val blink = if (!checking && shown.any { it.blinks && it.lit }) clusterBlinkPhase() else null
 
     val start = shown.filter { it.lamp.side == BandSide.Start }
     val end = shown.filter { it.lamp.side == BandSide.End }
@@ -243,15 +306,22 @@ fun TelltaleBand(vehicle: Vehicle, lamps: List<Telltale>, modifier: Modifier = M
 }
 
 /**
- * What one lamp has to say about a vehicle: whether it is [lit], and the glyph that says it — the
- * two answers taken together, because [Telltale.DiffLock] has a glyph per state and asking for one
- * without the other would draw a lamp lit for one end while showing the other.
+ * What one lamp has to say about a vehicle: whether it is [lit], and the glyph, colour and flash
+ * that say it — all of it read in one go, because they are answers to the same question and asking
+ * for them apart would draw a lamp lit for one state while showing another. [Telltale.DiffLock] has
+ * a glyph per state; the ADS lamps have a colour and a flash per severity.
  */
-private data class Reading(val lamp: Telltale, val lit: Boolean, val icon: ImageVector)
+private data class Reading(
+  val lamp: Telltale,
+  val lit: Boolean,
+  val icon: ImageVector,
+  val colour: Color,
+  val blinks: Boolean,
+)
 
 /** Null for a lamp this vehicle has no state for, which is the band leaving it out entirely. */
 private fun Telltale.readingIn(vehicle: Vehicle): Reading? =
-  stateIn(vehicle)?.let { Reading(this, it, iconIn(vehicle)) }
+  stateIn(vehicle)?.let { Reading(this, it, iconIn(vehicle), colourIn(vehicle), blinksIn(vehicle)) }
 
 /**
  * One lamp, lit or ghosted at [GHOST_ALPHA]. The alpha is set in the draw layer so a blinking lamp
@@ -260,7 +330,7 @@ private fun Telltale.readingIn(vehicle: Vehicle): Reading? =
  */
 @Composable
 private fun Lamp(reading: Reading, size: Dp, checking: Boolean, blink: (() -> Float)?, modifier: Modifier = Modifier) {
-  val (lamp, lit, icon) = reading
+  val (lamp, lit, icon, colour, blinks) = reading
   val on = lit || checking
   // Flashing is gated on being handed a [blink] at all, and under the lamp check it isn't: there,
   // every lamp is simply proving that it works, the flashers included. It flashes back to the ghost
@@ -272,11 +342,11 @@ private fun Lamp(reading: Reading, size: Dp, checking: Boolean, blink: (() -> Fl
   Icon(
     icon,
     contentDescription = if (on) lamp.label else null,
-    tint = lamp.colour,
+    tint = colour,
     modifier = modifier.size(size).graphicsLayer {
       alpha = when {
         !on -> GHOST_ALPHA
-        lamp.blinks && blink != null -> if (blink() < 0.5f) 1f else GHOST_ALPHA
+        blinks && blink != null -> if (blink() < 0.5f) 1f else GHOST_ALPHA
         else -> 1f
       }
     },

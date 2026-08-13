@@ -113,17 +113,30 @@ declares no `start_url`, so a shortcut launches the URL it was made from — ins
 
 ## Pillar cluster
 
-Three widgets that stack into an A-pillar instrument cluster, after the small display a modern
+Four widgets that stack into an A-pillar instrument cluster, after the small display a modern
 tractor puts between the windscreen and the right-hand window:
 
 - **Telltales** — a wrapping band of lamps (turn signals, beams, work lights, beacon, parking brake,
-  diff locks, AWD, coolant temperature and a general "needs attention"). Which lamps a band shows is
-  per instance, since what matters differs per rig. A lamp the vehicle reports *nothing* about is
-  absent rather than unlit — the drivetrain trio comes from Enhanced Vehicle, and an unlit diff-lock
-  lamp is a claim we can't make without it. Engine warning, battery, brake system and service are
-  drawn and offered but permanently absent: they wait on a maintenance mod that exports nothing yet.
-  (The engine lamp used to be derived from temperature *or* damage; those are now their own two
-  lamps, and it waits for the mod's own engine fault, which is a different claim from either.)
+  diff locks, AWD, and the six maintenance lamps). Which lamps a band shows is per instance, since
+  what matters differs per rig. A lamp the vehicle reports *nothing* about is absent rather than
+  unlit — the drivetrain trio comes from Enhanced Vehicle, and an unlit diff-lock lamp is a claim we
+  can't make without it.
+
+  The maintenance six (engine warning, coolant temperature, battery, brake system, service, needs
+  attention) come from **Advanced Damage System**, and follow the same rule twice over: without the
+  mod there is nothing to say, and *with* it a lamp the machine is too old to have stays absent too —
+  ADS gates each on the vehicle's production year, so a 1960s tractor's band doesn't grow lamps its
+  dashboard never had. Two of them keep a base-game fallback for a game without the mod: coolant
+  temperature off the gauge, and "needs attention" off vanilla damage.
+
+  A lamp lights in the **severity ADS reports** — blue for a coolant lamp that hasn't warmed up,
+  amber, then red — and a critical lamp **flashes** as well, so the ladder never rests on hue alone.
+  The cold coolant lamp gets its own glyph rather than the hot one in another colour: not warmed up
+  is not a milder version of boiling.
+- **Service** — how long this machine has before its service is due, the pre-shift walk-round
+  (radiator, air intake, lubrication) in Advanced Damage System's own coarse bands, and system
+  voltage. It answers the one question the rest of the cluster can't: whether to take this machine
+  out today. Nothing on it is a number ADS hides behind a workshop diagnostic.
 - **Cluster Readout** — engine speed over ground speed in the largest type that fits, then the cruise
   target and the gear under them in amber. Both numbers are tweened over one sample interval so they
   read continuously rather than stepping at the telemetry rate. The transmission's direction rides
@@ -134,8 +147,10 @@ tractor puts between the windscreen and the right-hand window:
   It comes from `motor.direction` (mod version 6), *not* from the engine's `getReverserDirection()` —
   that is written only by the reversible-driving-position specialization (the seat swivelled round),
   so on an ordinary tractor it reads forward for ever.
-- **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, then the
-  engine's fuel, DEF and air. Each is an open-topped frame — green over the working range, red across
+- **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, a CVT's own
+  transmission temperature where Advanced Damage System reports one, then the engine's fuel, DEF and
+  air. The two temperatures are told apart by their glyphs — a thermometer over water, and one over a
+  gear — because the strip is read by icon alone. Each is an open-topped frame — green over the working range, red across
   the tenth where the gauge is in trouble — with a light, ten-band level standing in it, so where the
   trouble *starts* is visible before you are in it. Engine gauges only; what's in the hopper changes
   shape as you hitch things up and belongs to the rig-slot tiles, which name it and give figures.

@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.widgets
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.WarningAmber
@@ -12,13 +13,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import net.vertexdezign.vdt.app.panels.ClusterEmpty
 import net.vertexdezign.vdt.app.panels.ClusterLevels
 import net.vertexdezign.vdt.app.panels.ClusterReadout
+import net.vertexdezign.vdt.app.panels.ClusterService
 import net.vertexdezign.vdt.app.panels.Telltale
 import net.vertexdezign.vdt.app.panels.TelltaleBand
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 
-// The three tiles that make an A-pillar instrument cluster — the lamps, the numbers and the levels.
+// The tiles that make an A-pillar instrument cluster — the lamps, the numbers, the levels and what
+// the machine is due for.
 //
-// Three widgets rather than one "cluster" widget, so they can be stacked into the cluster *and*
+// Separate widgets rather than one "cluster" widget, so they can be stacked into the cluster *and*
 // placed individually on the tablet's pages: a telltale band above a map is a perfectly good thing to
 // want, and it matches how widgets work everywhere else, where a tile is a tile and its configuration
 // is per instance.
@@ -96,7 +99,38 @@ object ClusterReadoutWidget : Widget {
   }
 }
 
-/** Vertical bars for the engine's own levels — coolant temperature and its tanks. Never cargo. */
+/**
+ * Service interval, pre-shift checks and system voltage, from Advanced Damage System.
+ *
+ * A cluster tile rather than a panel because it belongs beside the lamps: the lamps say what has
+ * already gone wrong, this says whether to set off at all. It renders its own "no data" state on a
+ * game without the mod, like every other tile whose source is optional.
+ */
+object ClusterServiceWidget : Widget {
+  override val id = "clusterService"
+  override val title = "Service"
+  override val icon: ImageVector = Icons.Filled.Build
+
+  // A wide short tile: three rows of small type, none of which wants height.
+  override val defaultColSpan = 4
+  override val defaultRowSpan = 2
+  override val minColSpan = 2
+  override val minRowSpan = 2
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val store = LocalVdtStore.current
+    val telemetry by store.telemetry.collectAsState()
+    val vehicle = telemetry?.vehicle
+    if (vehicle == null) {
+      ClusterEmpty(modifier)
+    } else {
+      ClusterService(vehicle, modifier)
+    }
+  }
+}
+
+/** Vertical bars for the engine's own levels — the temperatures and the tanks. Never cargo. */
 object ClusterLevelsWidget : Widget {
   override val id = "clusterLevels"
   override val title = "Level Strip"

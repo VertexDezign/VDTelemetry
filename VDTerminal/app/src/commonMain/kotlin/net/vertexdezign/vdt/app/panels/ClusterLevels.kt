@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import net.vertexdezign.vdt.model.FillUnit
+import net.vertexdezign.vdt.model.Temperatur
 import net.vertexdezign.vdt.model.Vehicle
 
 /** At or beyond this share of the gauge a level is critical… */
@@ -105,23 +106,34 @@ fun ClusterLevels(vehicle: Vehicle, modifier: Modifier = Modifier) {
  * The gauges, in a fixed order — so a bar is always in the same place, whatever this machine happens
  * to carry.
  *
- * Condition before contents, as on the reference cluster: the coolant gauge sits to the left of the
- * tanks. That ordering is also where the maintenance mod's gauges will go when it starts exporting —
- * oil, brake fluid and the rest belong beside the temperature, so adding them will not shove the fuel
- * bar the driver has learned the position of.
+ * Condition before contents, as on the reference cluster: the temperatures sit to the left of the
+ * tanks. That ordering is what lets the strip grow without moving anything — the CVT bar arrived
+ * beside the coolant one rather than shoving the fuel bar the driver has learned the position of, and
+ * anything else Advanced Damage System comes to export belongs in the same place.
  */
 internal fun levelsOf(vehicle: Vehicle): List<Level> = buildList {
-  vehicle.motor?.temperatur?.let { t ->
-    val span = (t.max - t.min).toFloat()
-    // A gauge with no span cannot be read; better no bar than a bar sat at zero.
-    if (span > 0f) {
-      add(Level("TEMP", ((t.value - t.min) / span).coerceIn(0f, 1f), ClusterIcons.Temperature, Danger.High))
-    }
-  }
+  vehicle.motor?.temperatur?.level("TEMP", ClusterIcons.Temperature)?.let { add(it) }
+  // A CVT's own oil, which Advanced Damage System models separately — on slow heavy work it is the
+  // one that cooks while the coolant still reads fine. Straight after the coolant it is compared
+  // against, and only on a machine that has one, which is most of the point of a bar being here at
+  // all. Its glyph is a thermometer over a gear rather than a second plain thermometer: this strip is
+  // read by icon alone, so two identical marks would be two bars nobody could tell apart.
+  vehicle.ads?.transmissionTemperatur?.level("TRANS", ClusterIcons.TemperatureTransmission)?.let { add(it) }
   val engine = vehicle.motor?.fillUnits ?: return@buildList
   engine.fuel?.let { add(it.level(ClusterIcons.Fuel, "FUEL")) }
   engine.def?.let { add(it.level(ClusterIcons.Def, "DEF")) }
   engine.air?.let { add(it.level(ClusterIcons.Air, "AIR")) }
+}
+
+/**
+ * A temperature as a bar, read against its own gauge's ends and in trouble at the top.
+ *
+ * Null for a gauge with no span, which cannot be read at all — better no bar than a bar sat at zero.
+ */
+private fun Temperatur.level(label: String, icon: ImageVector): Level? {
+  val span = (max - min).toFloat()
+  if (span <= 0f) return null
+  return Level(label, ((value - min) / span).coerceIn(0f, 1f), icon, Danger.High)
 }
 
 /** A named engine tank always shows, even full — a missing air bar reads as a fault, not as "fine". */
