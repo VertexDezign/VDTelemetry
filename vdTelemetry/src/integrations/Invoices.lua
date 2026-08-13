@@ -531,7 +531,7 @@ function VDT.Invoices.collect()
     return nil
   end
 
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
 
   ---@type InvoicesModel
   local model = {

@@ -6,7 +6,10 @@
 -- time), and ProductionExporter must be loaded before StorageExporter — StorageExporter reuses its
 -- ownFarmId / placeableId / storageRows helpers.
 
-if VDT == nil or VDT.ExportChannels == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 if VDT.ProductionExporter == nil then

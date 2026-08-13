@@ -5,7 +5,10 @@
 -- registry another spec populated). The collector reads the mod through its env global
 -- `FS25_CropRotation` (mod-environment isolation) plus the shared `g_localPlayer`, both stubbed here.
 
-if VDT == nil or VDT.ExportChannels == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 dofile("src/integrations/CropRotation.lua")

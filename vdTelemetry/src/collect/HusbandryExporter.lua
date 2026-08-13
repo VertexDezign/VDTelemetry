@@ -3,9 +3,10 @@
 -- this is interval-driven like the production channel, not tied to the 100 ms main tick.
 --
 -- Reads only base-game state (g_currentMission.husbandrySystem), so it lives in collect/, not
--- integrations/. Every engine read is pcall-guarded (fail-soft house rule). Own-farm only: reuses
--- ProductionExporter.ownFarmId / .placeableId so ownership scoping and the app-selection id match the
--- other channels. Absence of husbandry.json means "no data yet / export off", same as the others.
+-- integrations/. Every engine read is pcall-guarded (fail-soft house rule). Own-farm only: scoped by
+-- the mod-wide VDT.Farm.ownFarmId, with the app-selection id from ProductionExporter.placeableId, so
+-- both match the other channels. Absence of husbandry.json means "no data yet / export off", same as
+-- the others.
 --
 -- Each pen exposes the game's own aggregated display data: getConditionInfos() (the food/water/straw/
 -- output/cleanliness bars, already localized), getGlobalProductionFactor() (productivity), the
@@ -158,7 +159,7 @@ function VDT.HusbandryExporter.collect()
   if not VDT.HusbandryExporter.isAvailable() then
     return nil
   end
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil then
     -- spectator / no owned farm: keep the channel present but empty
     return { version = tostring(VDT.HusbandryExporter.VERSION) }

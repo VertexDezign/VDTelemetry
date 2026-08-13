@@ -475,7 +475,7 @@ function VDT.MissionExporter.collect()
   if not VDT.MissionExporter.isAvailable() then
     return nil
   end
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil then
     -- spectator / no owned farm: nothing to accept and nothing running, but keep the channel present
     return { version = tostring(VDT.MissionExporter.VERSION) }

@@ -11,7 +11,10 @@
 -- every refusal is the difference between a clear log line and a silent no-op, because the mod has no
 -- way to answer the app yet.
 
-if VDT == nil or VDT.CommandRegistry == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.CommandRegistry == nil then
   dofile("src/command/CommandRegistry.lua")
 end
 if VDT.ExportChannels == nil then

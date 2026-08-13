@@ -12,7 +12,10 @@
 -- buttons dispatch on; and that a creation date reads the same as every other date in the app despite
 -- the mod storing it with a calendar roll ours does not have.
 
-if VDT == nil or VDT.ExportChannels == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 if VDT.ProductionExporter == nil then

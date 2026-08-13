@@ -60,7 +60,7 @@ local function resolve(debugger, label)
     debugger:warn("%s: this player may not manage the farm's invoices -- ignoring", label)
     return nil, nil, nil
   end
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil then
     debugger:warn("%s: no local farm resolved, refusing to act on an invoice", label)
     return nil, nil, nil

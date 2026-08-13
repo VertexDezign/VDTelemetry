@@ -7,9 +7,9 @@
 --   * the money notifications the HUD popped, as a running log.
 --
 -- Reads only base-game state (g_farmManager, FinanceStats), so it lives in collect/, not integrations/.
--- Every engine read is pcall-guarded (fail-soft house rule). Own-farm only: reuses
--- ProductionExporter.ownFarmId so the farm scope matches the other channels. Absence of finance.json
--- means "no data yet / export off", same as the others.
+-- Every engine read is pcall-guarded (fail-soft house rule). Own-farm only: scoped by the mod-wide
+-- VDT.Farm.ownFarmId, so the farm scope matches the other channels. Absence of finance.json means
+-- "no data yet / export off", same as the others.
 --
 -- PERIODS ARE MONTHS. FarmStats.finances is the bucket for the period being played;
 -- FarmStats:archiveFinances (off MessageType.PERIOD_CHANGED) pushes it onto financesHistory
@@ -100,7 +100,7 @@ end
 ---The local farm object, or nil when there is none (spectator, or the farm manager isn't up).
 ---@return table|nil farm
 function VDT.FinanceExporter.ownFarm()
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil or g_farmManager == nil then
     return nil
   end

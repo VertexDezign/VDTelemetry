@@ -10,7 +10,10 @@
 -- the multiplayer filter that hides another farm's contracts, and that a mission type whose
 -- getDetails() trips costs its own rows and nothing else.
 
-if VDT == nil or VDT.ExportChannels == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 if VDT.ProductionExporter == nil then

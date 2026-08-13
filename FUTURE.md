@@ -400,13 +400,12 @@ measurement all shipped. One thing was left, and it is a trap rather than a feat
 ## Farm-scoped channels (#78)
 
 `ExportChannels` owns one `PLAYER_FARM_CHANGED` subscription for the whole mod and marks every channel
-registered `farmScoped = true` dirty from it. What was left:
+registered `farmScoped = true` dirty from it, and the local farm id has one resolver for the whole mod
+(`VDT.Farm.ownFarmId`, `src/utils/Farm.lua` — it used to live in `ProductionExporter` and, a second
+time, in `CropRotation`). What was decided along the way:
 
-- **The local farm id still has two resolvers with identical bodies** — `VDT.ProductionExporter.ownFarmId()`
-  (used by ~10 modules, an odd home for it) and `VDT.CropRotation.localFarmId()`. #78 named the fold as
-  separable and it was left separable: the natural home is a new shared file, which every spec that
-  stubs `g_localPlayer` would then have to `dofile`, and that is a wide diff for a rename. `TaskList` is
-  deliberately *not* one of them — it asks the other mod's own `getCurrentFarmId`.
+- **`TaskList` deliberately does not use it** — it asks the other mod's own `getCurrentFarmId`, which is
+  the farm *that mod* thinks we are on.
 - **`map.json` and `fieldInfo.json` are deliberately NOT flagged**, though #78's own list named
   `fieldInfo`. `map.json` names every farm and every farmland's owner by id and leaves "which of them is
   us" to the app; `fieldInfo.json` samples its agronomy per position and keeps a field's owner in the

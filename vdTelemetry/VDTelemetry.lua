@@ -16,6 +16,9 @@ local sourceFiles = {
   "src/utils/Set.lua",
   "src/utils/MapUtil.lua",
   "src/utils/Json.lua",
+  -- "which farm are we": read by collectors, integrations and the write side alike, so it is sourced
+  -- before all of them
+  "src/utils/Farm.lua",
   -- Mappers
   "src/mapper/ValueMapper.lua",
   -- Collectors (model/ holds annotation-only @class defs and is not sourced)
@@ -66,18 +69,16 @@ local sourceFiles = {
   -- Production channel: own-farm production points + factories (own interval, base-game state only,
   -- self-registers into the channel registry)
   "src/collect/ProductionExporter.lua",
-  -- Storage channel: own-farm standalone silos + object storages (reuses ProductionExporter's
-  -- own-farm / id / storage-row helpers, so it is sourced after it)
+  -- Storage channel: own-farm standalone silos + object storages (reuses ProductionExporter's id /
+  -- storage-row helpers, so it is sourced after it)
   "src/collect/StorageExporter.lua",
-  -- Husbandry channel: own-farm animal pens (reuses ProductionExporter's own-farm + id helpers)
+  -- Husbandry channel: own-farm animal pens (reuses ProductionExporter's id helper)
   "src/collect/HusbandryExporter.lua",
-  -- Missions channel: the farm's contracts (event-driven + a slow interval). Reuses
-  -- ProductionExporter.ownFarmId for the farm scope and MapExporter's normalization for the marker
-  -- position, so it is sourced after both.
+  -- Missions channel: the farm's contracts (event-driven + a slow interval). Reuses MapExporter's
+  -- normalization for the marker position, so it is sourced after it.
   "src/collect/MissionExporter.lua",
   -- Finance channel: the farm's books -- balance, loan, the month-by-month finances table and the
-  -- money notifications as a log (interval + event-driven). Reuses ProductionExporter.ownFarmId for
-  -- the farm scope, so it is sourced after it.
+  -- money notifications as a log (interval + event-driven).
   "src/collect/FinanceExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
@@ -88,8 +89,7 @@ local sourceFiles = {
   -- loan has been replaced, so its position relative to that collector does not matter.
   "src/integrations/EnhancedLoanSystem.lua",
   -- Invoices channel: billing between farms, when FS25_Invoices is installed (event-driven off that
-  -- mod's own notifyUI funnel). Reuses ProductionExporter.ownFarmId for the farm scope, so it is
-  -- sourced after it.
+  -- mod's own notifyUI funnel).
   "src/integrations/Invoices.lua",
   -- Per-field agronomy channel (field-info popup); reads base-game FieldState and, when present,
   -- enriches each field via the CropRotation integration above, so it is sourced after it.

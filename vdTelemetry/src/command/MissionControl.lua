@@ -76,7 +76,7 @@ end
 
 ---The local farm, or nil when there is none to act for.
 local function ownFarmId(debugger, label)
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil then
     debugger:warn("%s: no local farm resolved, refusing to act on a contract", label)
   end

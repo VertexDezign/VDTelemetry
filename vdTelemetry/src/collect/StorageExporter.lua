@@ -4,10 +4,10 @@
 -- interval-driven like mapVehicles.json, not tied to the main tick.
 --
 -- Split off the sibling PRODUCTION channel (src/collect/ProductionExporter.lua, production.json) so
--- each app/channel can evolve on its own. This module REUSES ProductionExporter's own-farm / id /
--- storage-row helpers (ownFarmId, placeableId, storageRows) — one definition, so ownership scoping,
--- stable ids, and fill-row formatting can't drift between the two channels (same pattern as
--- HusbandryExporter). ProductionExporter is sourced first (see VDTelemetry.lua sourceFiles).
+-- each app/channel can evolve on its own. This module REUSES ProductionExporter's id / storage-row
+-- helpers (placeableId, storageRows) — one definition, so stable ids and fill-row formatting can't
+-- drift between the two channels (same pattern as HusbandryExporter). ProductionExporter is sourced
+-- first (see VDTelemetry.lua sourceFiles). The farm scope is the mod-wide VDT.Farm.ownFarmId.
 --
 -- Reads only base-game state (g_currentMission.placeableSystem), so it lives in collect/, not
 -- integrations/. Every engine read is pcall-guarded (fail-soft house rule): a placeable that throws
@@ -166,7 +166,7 @@ function VDT.StorageExporter.collect()
   if not VDT.StorageExporter.isAvailable() then
     return nil
   end
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil then
     -- spectator / no owned farm: keep the channel present but empty (no storages)
     return { version = tostring(VDT.StorageExporter.VERSION) }
