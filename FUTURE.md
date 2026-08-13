@@ -510,11 +510,10 @@ drivable from the rig panel — auto/manual on the chip, the step on the two but
   a rig slot drew only the head of a hitched chain, which on that rig is the machine with nothing to
   say. All three fixed and pinned, and the readout, the step and the m³/ha product rate were seen
   working on the barrel rig afterwards.
-- **Four of the five unit paths now agree with PF's own HUD**, read side by side with the game and
-  captured: slurry m³/ha (Vredo, Kaweco), solid kg/ha and lime t/ha (the same AgriSpread hopper, which
-  is the pair that proves the unit follows the tank rather than the machine), and manure t/ha
-  (Bunning). **Only liquid l/ha is left** — a liquid fertilizer sprayer, the one branch of
-  `ratePerHectare` no capture has ever exercised.
+- **All five unit paths agree with PF's own HUD**, read side by side with the game and captured:
+  slurry m³/ha (Vredo, Kaweco), solid kg/ha and lime t/ha (the same AgriSpread hopper, which is the
+  pair that proves the unit follows the tank rather than the machine), manure t/ha (Bunning) and
+  liquid l/ha (Case IH Patriot). Every branch of `ratePerHectare` now has a real machine behind it.
 - **Still unchecked:** a step from a **multiplayer client**, where `setSprayAmountManualValue` sends
   `ExtendedSprayerAmountEvent` to the server: no spec can reach that path.
 - **The barrel and its tool now report the same rates**, deliberately: whichever tile you have placed
@@ -551,11 +550,15 @@ drivable from the rig panel — auto/manual on the chip, the step on the two but
   area goes inactive behaves. In-game the HUD keeps showing the stale value there, so the terminal is
   the better readout of the two on exactly the point this gate was added for.
 
-  Two captures are worth keeping in mind. `vredoLiquidManure_discHarrow.json` is applying 10 m³/ha in
-  auto against a step-4 nominal of 5 — the evidence that the two rates are different questions rather
-  than one number twice. `fertilizerSpreader_lime.json` caught a work area **active but not
-  processing**, with the rate still present, which is why the gate is `getIsWorkAreaActive`: gated on
-  processing, that machine would blink its rate away several times a second while visibly spreading.
+  Three captures are worth keeping in mind. `vredoLiquidManure_discHarrow.json` is applying 10 m³/ha
+  in auto against a step-4 nominal of 5, and `selfDrivingSprayer_liquidFertilizer.json` is applying
+  12.82 l/ha in **manual** against a step-2 nominal of 25.64 — the two rates diverge in both modes and
+  for opposite reasons, auto exceeding the step to close a deficit and manual falling short of it when
+  most of the boom is shut (PF scales its state change by the active-nozzle share, then floors it at
+  its minimum rate). Between them they are the evidence that these are different questions rather than
+  one number twice. `fertilizerSpreader_lime.json` caught a work area **active but not processing**,
+  with the rate still present, which is why the gate is `getIsWorkAreaActive`: gated on processing,
+  that machine would blink its rate away several times a second while visibly spreading.
 
   **Still open: a multiplayer client.** A zero is dropped rather than reported, which is what a client
   should compute on a pulse-width-modulation boom in auto, since PF averages the deficit over

@@ -968,6 +968,50 @@ class VdtModelTest {
     assertEquals("t/ha", manure.rateUnit)
     assertEquals(5f, assertNotNull(manure.manual).rate)
     assertEquals("t/ha", manure.manual.rateUnit)
+
+    // Liquid fertilizer: measured in liters and weighed against nothing, the only branch that needs
+    // no `massPerLiter` at all. The Patriot is self-propelled, so its rates hang off the vehicle.
+    val liquid =
+      assertNotNull(
+        capture("telemetry/precisionFarming/selfDrivingSprayer_liquidFertilizer.json").vehicle?.precisionFarming,
+      )
+    assertEquals(12.82f, liquid.rate)
+    assertEquals("l/ha", liquid.rateUnit)
+    assertEquals(25.64f, assertNotNull(liquid.manual).rate)
+    assertEquals("l/ha", liquid.manual.rateUnit)
+  }
+
+  @Test
+  fun aBoomMostlyShutAppliesLessThanItsStepNominallyCosts() {
+    // The Patriot in **manual** on step 2, and the live rate is half what that step nominally costs:
+    // 12.82 against 25.64 l/ha. Not an error — PF scales the state change it applies by the share of
+    // the boom actually open (`changeValue * alpha`, where alpha is
+    // `getNumExtendedSprayerNozzleEffectsActive`'s active-over-total), then floors it at its minimum
+    // rate. With 23 of 95 nozzles spraying that lands on the step-1 figure.
+    //
+    // So the nominal and the live rate diverge in *both* modes, for opposite reasons: auto exceeds
+    // the step to close a deficit (the Vredo), and manual falls short of it when the boom is mostly
+    // shut. Carrying only the step would have overstated this pass by half.
+    val patriot =
+      assertNotNull(capture("telemetry/precisionFarming/selfDrivingSprayer_liquidFertilizer.json").vehicle)
+    val pf = assertNotNull(patriot.precisionFarming)
+    assertEquals(false, pf.auto)
+    assertEquals(2, assertNotNull(pf.manual).step)
+    assertEquals(25.64f, pf.manual.rate)
+    assertEquals(12.82f, pf.rate)
+
+    val nozzles = assertNotNull(pf.nozzles)
+    assertEquals(95, nozzles.count)
+    assertEquals(23, nozzles.activeCount)
+
+    // And the reason the app draws that nozzle bar rather than the shutoff bar, captured for the
+    // first time: the base game's sections all read **on** while three quarters of the boom is shut.
+    // PF removes `VariableWorkWidth`'s controls on the machines it drives nozzles for, so those
+    // sections are frozen and say nothing — two bars here would be one honest and one stuck.
+    val width = assertNotNull(patriot.workWidth)
+    assertEquals(9, width.sections.size)
+    assertTrue(width.sections.all { it.active })
+    assertEquals(9, width.activeCount)
   }
 
   @Test
