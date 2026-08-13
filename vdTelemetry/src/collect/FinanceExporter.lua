@@ -485,4 +485,7 @@ VDT.ExportChannels.register({
   collect = VDT.FinanceExporter.collect,
   intervalMs = VDT.FinanceExporter.INTERVAL_MS,
   tick = VDT.FinanceExporter.tick,
+  -- Balance, loans and the whole monthly table are this farm's books (ownFarmId), and this is the
+  -- slowest interval of the lot -- a farm switch would show the previous farm's money for a while.
+  farmScoped = true,
 })

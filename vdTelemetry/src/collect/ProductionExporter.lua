@@ -286,4 +286,6 @@ VDT.ExportChannels.register({
   isAvailable = VDT.ProductionExporter.isAvailable,
   collect = VDT.ProductionExporter.collect,
   intervalMs = VDT.ProductionExporter.INTERVAL_MS,
+  -- Only this farm's production points are exported (ownFarmId).
+  farmScoped = true,
 })

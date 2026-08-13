@@ -12,6 +12,12 @@
 --   collect     fun(): table|nil  builds the model to serialize; nil => skip this flush
 --   tick        fun(debugger, dt)?  optional per-tick hook; event-driven channels subscribe lazily
 --                                 here, interval-driven ones accumulate dt (ms) and mark themselves
+--   farmScoped  boolean?          its content depends on WHICH FARM is asking -- whose books, whose
+--                                 tasks, which side of an invoice we are on. Switching farm publishes
+--                                 no change event of its own (it changes who is asking, not what is
+--                                 stored), so the registry owns one PLAYER_FARM_CHANGED subscription
+--                                 for the whole mod and marks every flagged channel dirty from it
+--                                 (see subscribeFarmChanges)
 --   minProfile  string?           lowest performance profile this channel runs at (see PROFILES);
 --                                 below it the channel is off entirely -- for channels too expensive
 --                                 to justify on a low-end machine. nil => runs at every profile
@@ -34,6 +40,7 @@ local dirty = {} -- name -> true while awaiting a write
 local dirtyAt = {} -- name -> monotonic ms when it went clean->dirty (the longest-waiting drains first)
 local timers = {} -- name -> ms accumulated since last fire, for interval-driven channels
 local nowMs = 0 -- monotonic clock accumulated from tick(dt); the timebase for dirtyAt
+local farmSubscribed = false -- the mod's single PLAYER_FARM_CHANGED subscription in place? (see tick)
 
 -- Per-channel user config (from the settings XML, see configure()); absent entries fall back to the
 -- channel's registered defaults (enabled, ch.intervalMs).
@@ -243,7 +250,10 @@ function VDT.ExportChannels.configurableChannels()
 end
 
 -- Test seam: drop all registrations + dirty state (busted insulates _G per block, but the module
--- upvalues persist within a block, so specs call this between cases).
+-- upvalues persist within a block, so specs call this between cases). Nothing in the mod calls it --
+-- in particular the farm subscription is one-shot for the whole session (see subscribeFarmChanges);
+-- clearing the guard here re-arms it against the NEXT spec's g_messageCenter stub, not against a live
+-- one.
 function VDT.ExportChannels.reset()
   channels = {}
   order = {}
@@ -251,6 +261,7 @@ function VDT.ExportChannels.reset()
   dirtyAt = {}
   timers = {}
   nowMs = 0
+  farmSubscribed = false
   intervalChannelCount = 0
   enabledOverride = {}
   intervalOverride = {}
@@ -263,6 +274,42 @@ function VDT.ExportChannels.markAllDirty()
   for _, name in ipairs(order) do
     VDT.ExportChannels.markDirty(name)
   end
+end
+
+---Mark every farm-scoped channel dirty -- the PLAYER_FARM_CHANGED callback, and the only place that
+---acts on the `farmScoped` flag. Public because this is the function handed to g_messageCenter (which
+---invokes callback(target, ...), so the target and the message's own arguments arrive here and are
+---ignored).
+---
+---Only channels that would actually be WRITTEN are marked. An unavailable channel (its mod isn't
+---installed) or a disabled one would otherwise be left holding a dirty flag nothing ever clears --
+---selectDirty drops it every frame without flushing it -- and that one flag costs writeDirty its
+---next(dirty) fast path for the rest of the session. Nothing is lost by skipping them: a channel that
+---is not writable now is not showing the previous farm's data either, and each one queues its own
+---first write when it comes up.
+function VDT.ExportChannels.markFarmScopedDirty()
+  for _, name in ipairs(order) do
+    if channels[name].farmScoped and isWritable(name) then
+      VDT.ExportChannels.markDirty(name)
+    end
+  end
+end
+
+-- Subscribe the whole registry to the farm switch, once. Lazy because the MessageType ids only exist
+-- once the game has loaded, so tick() retries until they do.
+--
+-- Deliberately never undone, and never re-armed: mod Lua state survives a savegame reload (loadMod is
+-- guarded by g_modIsLoaded, which only reloadDlcsAndMods clears and that refuses to run during
+-- gameplay), and g_messageCenter is constructed once at startup -- so a subscription made in the first
+-- mission is still live in the second, and re-arming this guard would only double-fire markDirty.
+---@param debugger GrisuDebug
+local function subscribeFarmChanges(debugger)
+  if g_messageCenter == nil or MessageType == nil or MessageType.PLAYER_FARM_CHANGED == nil then
+    return
+  end
+  g_messageCenter:subscribe(MessageType.PLAYER_FARM_CHANGED, VDT.ExportChannels.markFarmScopedDirty, VDT.ExportChannels)
+  farmSubscribed = true
+  debugger:debug("export channels subscribed to farm changes")
 end
 
 ---Distinct subfolders named by registered fileNames ("mapLayers/crops.json" -> "mapLayers/"), in
@@ -309,17 +356,24 @@ function VDT.ExportChannels.unavailableFileNames()
   return names
 end
 
----Per-tick hook. Two responsibilities:
+---Per-tick hook. Three responsibilities:
 ---  * interval-driven channels: the registry owns the cadence (was per-exporter) -- accumulate the
 ---    frame delta and markDirty each intervalMs. Reset-to-0 on fire preserves the registration-time
 ---    stagger phase, so channels sharing an interval keep firing on different frames.
 ---  * event/poll-driven channels: run their custom tick() (lazy messageCenter subscribe, change-diff).
----A channel may have either, both, or neither.
+---    A channel may have either, both, or neither.
+---  * the farm switch, for every channel at once: one subscription installed as soon as the game's
+---    MessageTypes exist, rather than the same lazy subscribe + one-shot guard in each farm-scoped
+---    channel. Outside the per-channel loop, and not gated on any channel being enabled -- it is the
+---    registry's own subscription, and markFarmScopedDirty applies the enable rules itself.
 ---@param debugger GrisuDebug
 ---@param dt number? frame delta in ms (from the engine's update)
 function VDT.ExportChannels.tick(debugger, dt)
   if type(dt) == "number" then
     nowMs = nowMs + dt
+  end
+  if not farmSubscribed then
+    subscribeFarmChanges(debugger)
   end
   for _, name in ipairs(order) do
     local ch = channels[name]

@@ -270,10 +270,12 @@ afforded. What that session did not cover, and what was left:
   through — creation, payment, deletion, proposal validation, the join sync, the penalty sync. Two
   things do *not* go through it and had to be added separately: `loadFromXML` at mission start (so
   `tick()` marks dirty once when it installs the hook), and **switching farm in game**, which changes
-  who is asking rather than what is stored — every farm-scoped field in the document moves with it, so
-  the channel subscribes to `MessageType.PLAYER_FARM_CHANGED` as well. A channel with a write interval
-  would have self-corrected within seconds; this one is purely event-driven, so it would have kept
-  showing the previous farm's invoices indefinitely.
+  who is asking rather than what is stored — every farm-scoped field in the document moves with it. A
+  channel with a write interval would have self-corrected within seconds; this one is purely
+  event-driven, so it would have kept showing the previous farm's invoices indefinitely. This channel
+  was where that was first solved, with a `PLAYER_FARM_CHANGED` subscription of its own; **#78
+  generalized it** — the registry now owns the mod's single subscription and marks every channel
+  registered `farmScoped = true` dirty, this one included (`src/export/ExportChannels.lua`).
 - **A farm needs a NAME to be billable.** `InvoicesMainDashboard:loadFarms`'s `isValidFarm` requires a
   non-empty name on top of "not the spectator" — and a map or another mod can create a farm the player
   never sees (one server had a nameless *farm 14*). Mirrored in `VDT.Invoices.isBillableFarm`, used by
@@ -392,6 +394,32 @@ measurement all shipped. One thing was left, and it is a trap rather than a feat
   command channel works. Checked 2026-08-06: nothing in `shared` carries channel config.
 - Related, if that is built: a per-channel `intervalOverride` is **ignored unless the profile is
   `custom`**, so an app doing the tuning has to stamp `profile = custom` as it goes.
+
+---
+
+## Farm-scoped channels (#78)
+
+`ExportChannels` owns one `PLAYER_FARM_CHANGED` subscription for the whole mod and marks every channel
+registered `farmScoped = true` dirty from it. What was left:
+
+- **The local farm id still has two resolvers with identical bodies** — `VDT.ProductionExporter.ownFarmId()`
+  (used by ~10 modules, an odd home for it) and `VDT.CropRotation.localFarmId()`. #78 named the fold as
+  separable and it was left separable: the natural home is a new shared file, which every spec that
+  stubs `g_localPlayer` would then have to `dofile`, and that is a wide diff for a rename. `TaskList` is
+  deliberately *not* one of them — it asks the other mod's own `getCurrentFarmId`.
+- **`map.json` and `fieldInfo.json` are deliberately NOT flagged**, though #78's own list named
+  `fieldInfo`. `map.json` names every farm and every farmland's owner by id and leaves "which of them is
+  us" to the app; `fieldInfo.json` samples its agronomy per position and keeps a field's owner in the
+  map channel. Neither document moves when the player switches farm — flagging `fieldInfo` would have
+  bought a full field sweep that changes nothing. `map` joins the list the day own-farm tinting happens
+  mod-side, `fieldInfo` the day an entry says whether *this* farm owns or leases the field.
+
+### In-game check nobody has run
+
+- **`taskList` and `cropRotation` refresh on a farm switch** — needs a **two-farm multiplayer session**,
+  since both only filter by farm id there. These are the two the flag actually rescues: neither has a
+  write interval, so before #78 they showed the previous farm's groups and rotations indefinitely.
+  Invoices was already correct and should stay correct (it is the same mechanism, moved).
 
 ---
 

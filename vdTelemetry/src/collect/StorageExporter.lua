@@ -191,4 +191,6 @@ VDT.ExportChannels.register({
   isAvailable = VDT.StorageExporter.isAvailable,
   collect = VDT.StorageExporter.collect,
   intervalMs = VDT.StorageExporter.INTERVAL_MS,
+  -- Only this farm's silos and object storages are exported (ownFarmId).
+  farmScoped = true,
 })

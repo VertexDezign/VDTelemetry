@@ -29,6 +29,11 @@
 -- The one thing the hook does not cover is `repository:loadFromXML` at mission start, which never
 -- calls notifyUI -- so tick() also marks dirty once when it first installs the hook, and a savegame's
 -- existing invoices land without waiting for someone to change one.
+-- Switching farm moves every farm-scoped field in this document -- which side of an invoice we are on,
+-- which farms are billable, every `actions` entry -- and goes through no funnel of the mod's either,
+-- because it changes who is asking rather than what is stored. That is not this file's problem any
+-- more: the channel registers `farmScoped = true` and the registry's single PLAYER_FARM_CHANGED
+-- subscription marks it dirty (see src/export/ExportChannels.lua, issue #78).
 --
 -- MULTIPLAYER is free here, unlike the finance channel's archived columns: invoice state is fully
 -- replicated (InvoiceSyncEvent at join, then every mutation broadcast), so host and client read the
@@ -51,7 +56,6 @@ VDT.Invoices.VERSION = 1
 local MOD_NAME = "FS25_Invoices"
 
 local hooked = false -- InvoiceService.notifyUI appended?
-local subscribed = false -- PLAYER_FARM_CHANGED subscription in place?
 
 local function num(v)
   return type(v) == "number" and v or 0
@@ -616,41 +620,18 @@ local function installHook(debugger)
   debugger:info("Invoices integration active (hooked InvoiceService:notifyUI)")
 end
 
--- Lazy subscribe, the same shape as the finance channel's: the MessageType ids exist once the game has
--- loaded, so we wait for them.
---
--- EVERY farm-scoped field in this document changes when the player switches farm -- which side of an
--- invoice we are on, which farms are billable, and every `actions` entry -- and NONE of that goes
--- through the mod's notifyUI funnel, because switching farm changes who is asking, not what is stored.
--- On a channel with a write interval that would self-correct within a few seconds; this one is purely
--- event-driven, so without this the terminal would keep showing the previous farm's invoices until
--- somebody happened to touch one. (The mod subscribes to the same message for its reminder system.)
-local function subscribe(debugger)
-  if subscribed or g_messageCenter == nil then
-    return
-  end
-  if MessageType == nil or MessageType.PLAYER_FARM_CHANGED == nil then
-    return
-  end
-  g_messageCenter:subscribe(MessageType.PLAYER_FARM_CHANGED, VDT.Invoices.markDirty, VDT.Invoices)
-  subscribed = true
-  VDT.Invoices.markDirty()
-  debugger:debug("Invoices channel subscribed to farm changes")
-end
-
----Per-tick hook: install the change hook and the farm-change subscription once the mod is up.
+---Per-tick hook: install the change hook once the mod is up. The farm switch, which no hook of the
+---mod's covers, is the registry's job -- see the header and `farmScoped` below.
 function VDT.Invoices.tick(debugger)
   if not VDT.Invoices.isAvailable() then
     return
   end
   installHook(debugger)
-  subscribe(debugger)
 end
 
 -- Test seam: drop the lazily-installed state between spec cases.
 function VDT.Invoices.reset()
   hooked = false
-  subscribed = false
 end
 
 -- Self-register the channel (see ExportChannels). Registered even when the mod isn't installed;
@@ -661,4 +642,6 @@ VDT.ExportChannels.register({
   isAvailable = VDT.Invoices.isAvailable,
   collect = VDT.Invoices.collect,
   tick = VDT.Invoices.tick,
+  -- Every invoice is read from one side or the other, and `actions` says what THIS farm may do with it.
+  farmScoped = true,
 })

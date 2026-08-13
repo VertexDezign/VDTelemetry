@@ -529,4 +529,7 @@ VDT.ExportChannels.register({
   collect = VDT.MissionExporter.collect,
   intervalMs = VDT.MissionExporter.INTERVAL_MS,
   tick = VDT.MissionExporter.tick,
+  -- Which contracts are visible, which are `own`, and the active-contract limit are all read against
+  -- the local farm (ownFarmId); none of the three mission messages fires on a farm switch.
+  farmScoped = true,
 })

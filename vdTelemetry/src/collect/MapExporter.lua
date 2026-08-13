@@ -391,7 +391,10 @@ function VDT.MapExporter.tick(debugger)
   debugger:info("Map channel active (subscribed to farmland/placeable updates)")
 end
 
--- Self-register the channel (see ExportChannels).
+-- Self-register the channel (see ExportChannels). Deliberately NOT farmScoped: this document names
+-- every farm and every farmland's owner by id, and leaves "which of them is us" to the app -- so a
+-- farm switch changes nothing in it. The day the map tints the own farm's land mod-side, this channel
+-- joins the farm-scoped list (issue #78).
 VDT.ExportChannels.register({
   name = VDT.MapExporter.CHANNEL,
   fileName = VDT.MapExporter.FILE_NAME,

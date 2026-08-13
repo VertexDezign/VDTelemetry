@@ -186,4 +186,6 @@ VDT.ExportChannels.register({
   isAvailable = VDT.HusbandryExporter.isAvailable,
   collect = VDT.HusbandryExporter.collect,
   intervalMs = VDT.HusbandryExporter.INTERVAL_MS,
+  -- Only this farm's pens are exported (ownFarmId).
+  farmScoped = true,
 })

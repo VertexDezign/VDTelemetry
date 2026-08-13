@@ -380,4 +380,7 @@ VDT.ExportChannels.register({
   isAvailable = VDT.CropRotation.isAvailable,
   collect = VDT.CropRotation.collect,
   tick = VDT.CropRotation.tick,
+  -- The rotations are filtered to the local farm, and the poll above cannot see a farm switch: the
+  -- planner's own state is unchanged by it, so the signature is identical and nothing is re-collected.
+  farmScoped = true,
 })

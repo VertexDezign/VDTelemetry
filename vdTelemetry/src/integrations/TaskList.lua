@@ -173,4 +173,7 @@ VDT.ExportChannels.register({
   isAvailable = VDT.TaskList.isAvailable,
   collect = VDT.TaskList.collect,
   tick = VDT.TaskList.tick,
+  -- In multiplayer only this farm's task groups are exported (the mod's own getCurrentFarmId), and
+  -- neither of the two messages above fires when the player switches farm.
+  farmScoped = true,
 })

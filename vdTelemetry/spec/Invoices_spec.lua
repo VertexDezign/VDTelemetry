@@ -574,7 +574,11 @@ describe("Invoices integration", function()
   end)
 
   describe("farm changes", function()
-    it("marks dirty when the player switches farm", function()
+    it("is marked dirty by the registry's subscription, and no longer subscribes itself", function()
+      -- Nothing about a farm switch goes through the mod's notifyUI funnel -- it changes who is
+      -- asking, not what is stored -- and this channel has no interval to fall back on. It used to
+      -- subscribe on its own; since #78 the flag on its registration is the whole of its side of it,
+      -- and ExportChannels owns the single subscription.
       stubMod()
       local subscriptions = {}
       local dirty = 0
@@ -591,20 +595,16 @@ describe("Invoices integration", function()
       end
 
       VDT.Invoices.tick(debugger)
+      assert.equals(0, #subscriptions) -- the channel's own tick subscribes to nothing
 
-      -- Nothing about a farm switch goes through the mod's notifyUI funnel -- it changes who is
-      -- asking, not what is stored -- and this channel has no interval to fall back on.
-      local farmChange = nil
-      for _, entry in ipairs(subscriptions) do
-        if entry.message == "playerFarmChanged" then
-          farmChange = entry
-        end
-      end
-      assert.is_not_nil(farmChange)
+      -- The registry's tick is what subscribes, once, for every farm-scoped channel there is.
+      VDT.ExportChannels.tick(debugger, 16)
+      assert.equals(1, #subscriptions)
+      assert.equals("playerFarmChanged", subscriptions[1].message)
 
       local before = dirty
-      farmChange.callback(farmChange.target)
-      assert.equals(before + 1, dirty)
+      subscriptions[1].callback(subscriptions[1].target)
+      assert.equals(before + 1, dirty) -- ...and it still reaches this channel
     end)
   end)
 
