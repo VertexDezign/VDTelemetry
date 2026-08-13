@@ -843,7 +843,12 @@ describe("PrecisionFarming manual rate", function()
     end)
 
     it("withholds it on a machine with no work areas to judge by", function()
-      assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayer()).rate)
+      -- PF's figure is there to be read; what is missing is any way to know whether the tool is
+      -- working, which is the gate under test. Set deliberately, because a machine with no figure
+      -- either would pass this whether or not the gate exists.
+      local object = sprayer()
+      object[VDT.PrecisionFarming.SPRAYER_SPEC].lastLitersPerHectar = 400
+      assert.is_nil(VDT.PrecisionFarming.collectSprayer(object).rate)
     end)
 
     it("drops a zero rather than reporting it", function()

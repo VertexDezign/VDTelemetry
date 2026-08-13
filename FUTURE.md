@@ -467,7 +467,7 @@ Each one is cheap to do while playing and settles something above.
 
 ## Steering (#57)
 
-Built and driven in game, layout derivation included, against a machine with dog-walk modes and sides:
+Built and driven in-game, layout derivation included, against a machine with dog-walk modes and sides:
 `vehicle.steering` (mod version 10) and its two marks in the pillar readout. What is left:
 
 - **`CRAB` has never been seen on a real machine.** It is the sideless dog walk — the rear axle steered

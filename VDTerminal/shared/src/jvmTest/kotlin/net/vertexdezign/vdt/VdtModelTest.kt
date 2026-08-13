@@ -850,9 +850,10 @@ class VdtModelTest {
   @Test
   fun theRecapturedRigsCarryTheManualApplicationRate() {
     // The captures taken since mod VERSION 11 added `precisionFarming.manual`/`canToggleAuto` and 12
-    // added the live `rate` — three of the eleven in this folder, so the other eight are still
-    // version 9 and have no rate block at all. That is the whole reason these are asserted here
-    // rather than the shape being left to `SectionViewModelTest`'s inline JSON.
+    // added the live `rate` — seven of the twelve in this folder, six of them carrying rate data (the
+    // seventh is a herbicide boom, which PF keeps no rates for). The other five are still version 9
+    // and have no rate block at all, which is the whole reason these are asserted here rather than
+    // the shape being left to `SectionViewModelTest`'s inline JSON.
     val vredo = capture("telemetry/precisionFarming/vredoLiquidManure_discHarrow.json")
     assertEquals("12", vredo.version)
 
