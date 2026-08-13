@@ -12,23 +12,25 @@
         "step": 4,
         "rate": 5
       },
-      "spotSpray": false,
       "auto": true,
       "nitrogen": {
-        "target": 220,
-        "level": 205,
+        "target": 110,
+        "level": 70,
         "unit": "kg/ha"
       },
+      "rateUnit": "m³/ha",
+      "rate": 10,
       "canToggleAuto": true,
-      "mode": "FERTILIZER"
+      "mode": "FERTILIZER",
+      "spotSpray": false
     },
     "fillUnits": {
       "fillUnit": [
         {
           "type": "LIQUIDMANURE",
           "title": "Gülle",
-          "fillLevelPercentage": 99,
-          "value": 21690.39,
+          "fillLevelPercentage": 92,
+          "value": 20304.496,
           "capacity": 22000,
           "unit": "l"
         }
@@ -46,14 +48,14 @@
             "processing": true,
             "unit": "m",
             "shape": [
-              0.4022,
-              0.63011,
-              0.39639,
-              0.6309,
-              0.40212,
-              0.62953
+              0.40056,
+              0.61813,
+              0.39668,
+              0.61378,
+              0.401,
+              0.61774
             ],
-            "width": 12
+            "width": 11.93
           }
         ],
         "precisionFarming": {
@@ -67,61 +69,63 @@
           },
           "auto": true,
           "nitrogen": {
-            "target": 220,
-            "level": 205,
+            "target": 110,
+            "level": 70,
             "unit": "kg/ha"
           },
-          "canToggleAuto": true,
-          "mode": "FERTILIZER",
+          "rateUnit": "m³/ha",
+          "rate": 10,
           "workAreas": [
             {
               "index": 1,
               "subSections": [
                 {
-                  "valid": true,
-                  "ph": 4.5,
-                  "phTarget": 4.5,
-                  "nTarget": 220,
-                  "n": 220
-                },
-                {
-                  "valid": true,
-                  "ph": 4.5,
-                  "phTarget": 4.5,
-                  "nTarget": 220,
-                  "n": 220
-                },
-                {
-                  "valid": true,
-                  "ph": 4.5,
-                  "phTarget": 4.5,
-                  "nTarget": 220,
-                  "n": 220
-                },
-                {
-                  "valid": true,
-                  "ph": 4.5,
-                  "phTarget": 4.5,
-                  "nTarget": 220,
-                  "n": 145
-                },
-                {
                   "valid": false,
                   "ph": 4.5,
                   "phTarget": 4.5,
-                  "nTarget": 220,
-                  "n": 205
+                  "nTarget": 110,
+                  "n": 70
                 },
                 {
-                  "valid": false,
+                  "valid": true,
                   "ph": 4.5,
                   "phTarget": 4.5,
-                  "nTarget": 220,
-                  "n": 205
+                  "nTarget": 110,
+                  "n": 70
+                },
+                {
+                  "valid": true,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 110,
+                  "n": 70
+                },
+                {
+                  "valid": true,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 110,
+                  "n": 70
+                },
+                {
+                  "valid": true,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 110,
+                  "n": 70
+                },
+                {
+                  "valid": true,
+                  "ph": 4.5,
+                  "phTarget": 4.5,
+                  "nTarget": 110,
+                  "n": 70
                 }
               ]
             }
           ],
+          "canToggleAuto": true,
+          "mode": "FERTILIZER",
           "spotSpray": false
         },
         "brand": {
@@ -138,7 +142,7 @@
           "doubledAmountAvailable": false,
           "title": "Gülle",
           "category": "FERTILIZER",
-          "nominalUsagePerMin": 1517.85,
+          "nominalUsagePerMin": 2381.6,
           "kind": "SLURRY_TANKER",
           "sprayType": "LIQUIDMANURE",
           "doubledAmount": false
@@ -146,7 +150,7 @@
         "wearable": {
           "wear": 0,
           "damage": 0,
-          "dirt": 11,
+          "dirt": 30,
           "unit": "%"
         },
         "selection": {
@@ -201,7 +205,7 @@
       }
     },
     "speed": {
-      "value": 7.69,
+      "value": 11.9,
       "direction": "FORWARD",
       "unit": "km/h"
     },
@@ -210,7 +214,7 @@
       "targetSpeed": 42
     },
     "operatingTime": {
-      "value": "0.26",
+      "value": "0.30",
       "unit": "h"
     },
     "isTurnedOn": true,
@@ -241,12 +245,12 @@
     "wearable": {
       "wear": 0,
       "damage": 0,
-      "dirt": 11,
+      "dirt": 27,
       "unit": "%"
     },
     "gps": {
       "enabled": false,
-      "heading": 172,
+      "heading": 228,
       "linesVisible": true,
       "active": false,
       "headingUnit": "°"
@@ -269,9 +273,9 @@
         "fuel": {
           "type": "diesel",
           "title": "Diesel",
-          "fillLevelPercentage": 100,
-          "value": 862,
-          "usage": 234.57,
+          "fillLevelPercentage": 99,
+          "value": 859,
+          "usage": 241.73,
           "capacity": 865,
           "unit": "l"
         }
@@ -286,7 +290,7 @@
         "min": 0
       },
       "load": {
-        "value": 89.57,
+        "value": 92.69,
         "min": 0,
         "max": 100,
         "unit": "%"
@@ -316,7 +320,7 @@
       "offsetX": 0
     }
   },
-  "version": "11",
+  "version": "12",
   "environment": {
     "date": "01.08.2024",
     "weather": {
@@ -327,14 +331,14 @@
         "unit": "°C"
       }
     },
-    "time": "17:25",
+    "time": "17:39",
     "pda": {
       "height": 2048,
       "player": {
-        "heading": 172,
-        "posX": 0.39981061965227,
+        "heading": 228,
+        "posX": 0.39564257860184,
         "farmId": 1,
-        "posZ": 0.63437359035015,
+        "posZ": 0.61853402853012,
         "headingUnit": "°"
       },
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",

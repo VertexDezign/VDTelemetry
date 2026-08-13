@@ -35,6 +35,25 @@ data class PrecisionFarming(
    */
   val manual: PfManual? = null,
   /**
+   * Product per hectare **actually leaving the machine right now**, in [rateUnit].
+   *
+   * The rate PF's own HUD leads with in auto, and the only one that exists there: the tool reads the
+   * map and picks its own rate per square metre, so no step describes it. PF recomputes it every tick
+   * from the deficit it is closing, the working width, the speed, and the share of the boom open.
+   *
+   * Absent whenever the tool is not working — PF leaves the field at whatever the last processed area
+   * needed, so the mod withholds it rather than pass on the rate of a pass that has ended. Also absent
+   * on a multiplayer client driving a pulse-width-modulation boom in auto, where PF averages the
+   * deficit over server-only sub-section data.
+   *
+   * Distinct from [PfManual.rate], which is nominal — what one pass at the chosen step *would* cost,
+   * whether or not the tool is running. That is the number to pick a step by; this is the number to
+   * check the machine against.
+   */
+  val rate: Float? = null,
+  /** `kg/ha`, `l/ha`, `m³/ha` or `t/ha` — PF's own unit for this kind of machine. */
+  val rateUnit: String? = null,
+  /**
    * Present only while fertilizing. PF stops refreshing nitrogen the moment the tank holds anything
    * else and never resets it, so outside that mode the mod withholds it rather than passing on a
    * reading that is minutes or fields out of date.

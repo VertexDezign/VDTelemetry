@@ -537,11 +537,25 @@ drivable from the rig panel — auto/manual on the chip, the step on the two but
   string, so `RigSlotPanel` can never address it directly; it is seen through its parent's tile or not
   at all. Fine for a section view, and the thing to fix properly whenever the rig diagram in the first
   section of this file gets built.
-- **The live rate in auto mode is not exported.** `spec.lastLitersPerHectar` is what PF's HUD prints
-  when the tool picks its own rate, and it is maintained on clients too (`getSprayerUsage` runs from
-  `onStartWorkAreaProcessing`, with no `isServer` gate). It was left out because it is only meaningful
-  while the tool is turned on and working, so it needs a "nothing coming out right now" state the
-  step-derived manual rate does not — and the manual rate was what the issue asked for.
+- **The live rate in auto mode is exported** (`precisionFarming.rate`/`rateUnit`, mod version 12).
+  `spec.lastLitersPerHectar` weighed through the same four-way conversion the step rate uses — which
+  is legitimate because PF's HUD prints *one* application-rate line and only chooses its liters by
+  mode. The "nothing coming out right now" state this needed is `getIsWorkAreaActive` on the source
+  machine: PF never clears the field, so a raised boom would otherwise keep reporting the pass that
+  just ended. Deliberately not `getIsWorkAreaProcessing`, which flickers on a 200 ms window.
+
+  **Driven in singleplayer 2026-08-13** on the Vredo and the Kaweco rig, in both modes: the figure
+  agrees with PF's own HUD each time, and the reset when the work area goes inactive behaves. In-game
+  the HUD keeps showing the stale value there, so the terminal is the better readout of the two on
+  exactly the point this gate was added for. `vredoLiquidManure_discHarrow.json` is the capture worth
+  keeping in mind — in auto it is applying 10 m³/ha against a step-4 nominal of 5, which is the
+  evidence that the two rates are different questions rather than one number twice.
+
+  **Still open: a multiplayer client.** A zero is dropped rather than reported, which is what a client
+  should compute on a pulse-width-modulation boom in auto, since PF averages the deficit over
+  `subSectionData` and that is server-only. On a non-PWM machine the client uses the synced aggregates
+  and should read a real number. Which of those two a player actually meets decides whether the auto
+  readout is a singleplayer feature or not, and no spec can reach it.
 - **PF's third keybind is not mirrored.** In auto with no crop in the ground, `TOGGLE_SEEDS` cycles
   which fruit the tool fertilises *for* (`setSprayAmountDefaultFruitRequirementIndex`, off
   `nApplyAutoModeFruitRequirementDefaultIndex`). It changes the auto target, so it belongs next to

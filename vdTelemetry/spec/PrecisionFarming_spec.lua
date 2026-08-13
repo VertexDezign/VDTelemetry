@@ -799,6 +799,68 @@ describe("PrecisionFarming manual rate", function()
     assert.is_nil(pf.manual.change)
     assert.is_nil(pf.manual.rate)
   end)
+
+  -- The live rate (liveRate, via collectSprayer): `spec.lastLitersPerHectar`, weighed the same way
+  -- the step is. In AUTO this is the only rate there is -- the tool reads the map and picks its own
+  -- per square metre, so no step describes it -- and it is what PF's own HUD prints there.
+  describe("live rate", function()
+    ---A working machine: PF's last computed liters/ha, and a work area the engine calls active.
+    local function working(over, areaActive)
+      local object = sprayer(over)
+      object[VDT.PrecisionFarming.SPRAYER_SPEC].lastLitersPerHectar = 400
+      object.spec_workArea = { workAreas = { { index = 1 } } }
+      object.getIsWorkAreaActive = function()
+        return areaActive ~= false
+      end
+      return object
+    end
+
+    it("reports what is actually leaving the machine, in the same unit as the step", function()
+      local pf = VDT.PrecisionFarming.collectSprayer(working())
+      -- 400 l/ha of solid fertilizer at a kilo per liter, exactly as PF's HUD weighs it.
+      assert.are.equal(400, pf.rate)
+      assert.are.equal("kg/ha", pf.rateUnit)
+      -- The nominal step cost is a different number and is carried alongside, not replaced: one is
+      -- what the machine is doing, the other what the chosen step would cost.
+      assert.are.equal(600, pf.manual.rate)
+    end)
+
+    it("weighs it in the unit PF's HUD uses for this kind of machine", function()
+      local slurry =
+        VDT.PrecisionFarming.collectSprayer(working({ isSolidFertilizerSprayer = false, isSlurryTanker = true }))
+      assert.are.equal(0.4, slurry.rate)
+      assert.are.equal("m³/ha", slurry.rateUnit)
+    end)
+
+    it("withholds it the moment the boom comes up", function()
+      -- PF never clears the field: it holds whatever the last processed area needed. Reporting that
+      -- would put the rate of a finished pass on screen looking live, so absent is the honest answer.
+      local pf = VDT.PrecisionFarming.collectSprayer(working(nil, false))
+      assert.is_nil(pf.rate)
+      assert.is_nil(pf.rateUnit)
+      -- The step cost survives, because it never depended on the tool running.
+      assert.are.equal(600, pf.manual.rate)
+    end)
+
+    it("withholds it on a machine with no work areas to judge by", function()
+      assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayer()).rate)
+    end)
+
+    it("drops a zero rather than reporting it", function()
+      -- What a multiplayer client reads on a pulse-width-modulation boom in auto: PF averages the
+      -- deficit over sub-section data it only maintains on the server, so the client computes 0.
+      -- A machine visibly spraying must not be captioned "0 kg/ha".
+      local object = working()
+      object[VDT.PrecisionFarming.SPRAYER_SPEC].lastLitersPerHectar = 0
+      assert.is_nil(VDT.PrecisionFarming.collectSprayer(object).rate)
+    end)
+
+    it("has none with herbicide in the tank, where PF computes no rates at all", function()
+      local pf = VDT.PrecisionFarming.collectSprayer(working({ isFertilizing = false, isLiming = false }))
+      assert.are.equal("OTHER", pf.mode)
+      assert.is_nil(pf.rate)
+    end)
+  end)
 end)
 
 -- The nozzle bar (collectNozzles, via collectSprayer): PF's own per-nozzle effect states. Unlike the

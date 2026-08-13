@@ -228,6 +228,42 @@ class SectionViewModelTest {
   }
 
   @Test
+  fun readsTheLiveRateThatIsAllAutoModeHas() {
+    // Mod VERSION 12. In auto there is no step to derive a rate from — the tool reads the map and
+    // picks its own per square metre — so PF's own HUD prints what is actually leaving the machine,
+    // and this is that figure in the same units.
+    val auto =
+      vehicle(
+        """
+        "precisionFarming":{"mode":"FERTILIZER","auto":true,"canToggleAuto":true,
+        "rate":3.2,"rateUnit":"m³/ha",
+        "nitrogen":{"level":150,"target":190,"unit":"kg/ha"},
+        "manual":{"step":4,"min":1,"max":45,"change":20,"rate":5,"rateUnit":"m³/ha"}}
+        """.trimIndent(),
+      ).precisionFarming!!
+
+    assertEquals(3.2f, auto.rate)
+    assertEquals("m³/ha", auto.rateUnit)
+    // The two are different numbers answering different questions, and both are carried: the step
+    // would cost 5 m³/ha if it were applied, while the tool is actually laying down 3.2.
+    assertEquals(5f, auto.manual?.rate)
+
+    // The boom comes up and the mod withholds it — PF leaves the field at whatever the last pass
+    // needed, so absent is the only honest reading. The step cost is unaffected, because it never
+    // depended on the tool running.
+    val raised =
+      vehicle(
+        """
+        "precisionFarming":{"mode":"FERTILIZER","auto":true,
+        "manual":{"step":4,"min":1,"max":45,"rate":5,"rateUnit":"m³/ha"}}
+        """.trimIndent(),
+      ).precisionFarming!!
+    assertNull(raised.rate)
+    assertNull(raised.rateUnit)
+    assertEquals(5f, raised.manual?.rate)
+  }
+
+  @Test
   fun aToolWithNoManualRateSaysSoRatherThanReadingAsStepZero() {
     // Herbicide: the step exists on the machine but changes nothing, so the mod withholds it. Auto
     // defaults to allowed, which is what every shipped machine is.

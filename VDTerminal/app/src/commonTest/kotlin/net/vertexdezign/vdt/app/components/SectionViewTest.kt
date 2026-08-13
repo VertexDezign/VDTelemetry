@@ -389,12 +389,33 @@ class SectionViewTest {
 
   @Test
   fun printsWhatTheManualPassCostsInProduct() {
-    assertEquals("600 kg/ha", rateCost(PfManual(rate = 600f, rateUnit = "kg/ha")))
+    val manual = PrecisionFarming(auto = false)
+    assertEquals("600 kg/ha", rateCost(manual, PfManual(rate = 600f, rateUnit = "kg/ha")))
     // A slurry tanker is set in a couple of cubic metres per hectare; rounding that to a whole number
     // would throw the setting away.
-    assertEquals("2.4 m³/ha", rateCost(PfManual(rate = 2.4f, rateUnit = "m³/ha")))
+    assertEquals("2.4 m³/ha", rateCost(manual, PfManual(rate = 2.4f, rateUnit = "m³/ha")))
     // Nothing in the tank, nothing to cost it against — the step is still real, the price is not ours.
-    assertNull(rateCost(PfManual(rate = null, rateUnit = "kg/ha")))
-    assertNull(rateCost(PfManual(rate = 600f, rateUnit = null)))
+    assertNull(rateCost(manual, PfManual(rate = null, rateUnit = "kg/ha")))
+    assertNull(rateCost(manual, PfManual(rate = 600f, rateUnit = null)))
+  }
+
+  @Test
+  fun printsTheLiveRateInAutoWhereNoStepDescribesIt() {
+    // Auto: the tool reads the map and picks its own rate per square metre, so the only figure there
+    // is is what is actually coming out. The caller has already filtered `manual` to null here.
+    val auto = PrecisionFarming(auto = true, rate = 3.2f, rateUnit = "m³/ha")
+    assertEquals("3.2 m³/ha", rateCost(auto, null))
+
+    // The boom comes up and PF stops refreshing the field, so the mod withholds it rather than leave
+    // the rate of the pass that just ended on screen looking live.
+    assertNull(rateCost(PrecisionFarming(auto = true), null))
+
+    // In manual the nominal step cost wins over the live figure, exactly as PF's own HUD does: it is
+    // the number the step is chosen by, and it holds with the tool stopped.
+    val running = PrecisionFarming(auto = false, rate = 3.2f, rateUnit = "m³/ha")
+    assertEquals("600 kg/ha", rateCost(running, PfManual(rate = 600f, rateUnit = "kg/ha")))
+    // …but a step the mod could not cost falls through to what the machine is really applying,
+    // rather than printing nothing while the boom is visibly running.
+    assertEquals("3.2 m³/ha", rateCost(running, PfManual(rate = null)))
   }
 }

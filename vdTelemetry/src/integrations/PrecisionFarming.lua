@@ -108,11 +108,19 @@ VDT.PrecisionFarming.MOD_NAME = "FS25_precisionFarming"
 -- averages over the whole boom -- the numbers PF's own HUD shows -- and are network-synced, so they
 -- are there for every player. `workAreas` is the per-slice detail, which is not: see the note on
 -- collectSprayer.
+--
+-- The two rates answer different questions and PF's HUD prints whichever the mode makes meaningful.
+-- `manual.rate` is nominal: what one pass at the chosen step *would* cost, true whether or not the
+-- tool is running, which is what a driver picking a step needs. `rate` is what is actually leaving
+-- the machine this instant -- the only rate that exists in auto, where the tool reads the map and
+-- picks its own -- and is absent the moment the boom comes up.
 ---@class PrecisionFarmingModel
 ---@field mode string LIME | FERTILIZER | OTHER
 ---@field auto boolean
 ---@field canToggleAuto boolean PF's own gate on leaving auto (sprayAmountAutoModeChangeAllowed)
 ---@field manual PfManualModel? the manual step, in a mode that has rates
+---@field rate number? product per hectare actually leaving the machine, only while it is working
+---@field rateUnit string? kg/ha | l/ha | m³/ha | t/ha
 ---@field nitrogen PfValueModel? only while fertilizing -- PF stops maintaining it otherwise
 ---@field ph PfValueModel? only while liming, for the same reason
 ---@field spotSpray boolean?
@@ -485,7 +493,7 @@ local function mapNumber(map, method, ...)
   return value
 end
 
----What one pass at `step` costs in product, in the unit PF's own HUD prints for this machine.
+---Liters per hectare weighed into the unit PF's own HUD prints for this machine.
 ---
 ---The branches are PF's four machine kinds and the four lines of its HUD, in its order: a spreader is
 ---weighed in kilos, a sprayer measured in liters, a slurry tanker in cubic metres, a manure spreader
@@ -493,26 +501,23 @@ end
 ---`hasLimeLoaded` is -- the same spreader does both.
 ---
 ---Mirroring the arithmetic (rather than inventing a unit) is the point: the number on the terminal is
----then the number on the in-game display, and a player can read either.
+---then the number on the in-game display, and a player can read either. Shared by both rates for the
+---same reason it can be: PF's HUD prints ONE application-rate line and only chooses its liters by
+---mode (`ExtendedSprayerHUDExtension`), so the conversion below is the whole of that line.
 ---@param spec table the ExtendedSprayer spec
----@param step number
+---@param liters number|nil liters per hectare
 ---@param mode string LIME | FERTILIZER
----@param fillType number|nil
+---@param mass number|nil tonnes per liter of what is in the tank
 ---@return number|nil rate, string|nil unit
-local function manualRate(spec, step, mode, fillType)
-  local mass = massPerLiter(fillType)
+local function ratePerHectare(spec, liters, mode, mass)
+  if liters == nil then
+    return nil, nil
+  end
   if mode == "LIME" then
-    local liters = mapNumber(spec.pHMap, "getLimeUsageByStateChange", step)
-    if liters == nil or mass == nil then
+    if mass == nil then
       return nil, nil
     end
     return liters * mass, "t/ha"
-  end
-
-  -- Only the first return is the per-hectare figure; PF's HUD reads it the same way.
-  local liters = mapNumber(spec.nitrogenMap, "getFertilizerUsageByStateChange", step, fillType)
-  if liters == nil then
-    return nil, nil
   end
   if spec.isSolidFertilizerSprayer then
     return mass ~= nil and liters * mass * 1000 or nil, mass ~= nil and "kg/ha" or nil
@@ -523,16 +528,89 @@ local function manualRate(spec, step, mode, fillType)
   elseif spec.isManureSpreader then
     return mass ~= nil and liters * mass or nil, mass ~= nil and "t/ha" or nil
   end
-  -- A PF sprayer of no kind it prints a rate for: the step is still real, the cost is not ours to name.
+  -- A PF sprayer of no kind it prints a rate for: the liters are real, the unit is not ours to name.
   return nil, nil
 end
 
----The manual step and what it does, or nil in a mode PF keeps no rates for.
+---What one pass at `step` would cost in product -- the nominal rate for the chosen step, which is what
+---PF's HUD prints in manual mode.
+---@param spec table the ExtendedSprayer spec
+---@param step number
+---@param mode string LIME | FERTILIZER
+---@param fillType number|nil
+---@param mass number|nil
+---@return number|nil rate, string|nil unit
+local function manualRate(spec, step, mode, fillType, mass)
+  local liters
+  if mode == "LIME" then
+    liters = mapNumber(spec.pHMap, "getLimeUsageByStateChange", step)
+  else
+    -- Only the first return is the per-hectare figure; PF's HUD reads it the same way.
+    liters = mapNumber(spec.nitrogenMap, "getFertilizerUsageByStateChange", step, fillType)
+  end
+  return ratePerHectare(spec, liters, mode, mass)
+end
+
+---Whether this machine is in a position to work: lowered, in ground contact, driven the right way,
+---and its section switched on. The engine's own `getIsWorkAreaActive`, which is the steady signal --
+---deliberately NOT `getIsWorkAreaProcessing`, which is only true within 200 ms of ground actually
+---changing and so flickers several times a second on a tool passing over worked ground.
 ---@param object table a vehicle or implement
+---@return boolean
+local function isWorking(object)
+  local workArea = object.spec_workArea
+  if type(workArea) ~= "table" or type(object.getIsWorkAreaActive) ~= "function" then
+    return false
+  end
+  for _, area in ipairs(workArea.workAreas or {}) do
+    local ok, active = pcall(object.getIsWorkAreaActive, object, area)
+    if ok and active == true then
+      return true
+    end
+  end
+  return false
+end
+
+---What is actually leaving the machine right now, per hectare, or nil when nothing is.
+---
+---`spec.lastLitersPerHectar` is the figure PF's HUD leads with in **auto**, where there is no step to
+---derive one from: the tool reads the map and picks its own rate per square metre, so this is the only
+---answer to "how much is it putting down". PF recomputes it every tick from the deficit it is closing,
+---the working width, the speed and the share of the boom actually open.
+---
+---**Gated on the tool working, because PF does not clear it.** It is a plain field left at whatever
+---the last processed area needed, so a raised boom keeps reporting the rate of the pass that just
+---ended -- a live-looking number for something that is not happening. Absent is the honest answer, and
+---the app holds the line open rather than reflowing.
+---
+---Reaches multiplayer clients: it is set inside `getSprayerUsage`, which PF overrides and the base
+---game calls from `onStartWorkAreaProcessing` -- raised by `WorkArea:onUpdateTick` with no `isServer`
+---gate. **Except on a pulse-width-modulation boom in auto**, where PF averages the deficit over
+---`subSectionData` instead of the synced aggregates, and that is server-only; a client then reads 0,
+---which this drops rather than reports.
+---@param object table the machine, for its work areas
 ---@param spec table the ExtendedSprayer spec
 ---@param mode string LIME | FERTILIZER | OTHER
+---@param mass number|nil
+---@return number|nil rate, string|nil unit
+local function liveRate(object, spec, mode, mass)
+  if mode == "OTHER" or not isWorking(object) then
+    return nil, nil
+  end
+  local liters = tonumber(spec.lastLitersPerHectar)
+  if liters == nil or liters <= 0 then
+    return nil, nil
+  end
+  return ratePerHectare(spec, liters, mode, mass)
+end
+
+---The manual step and what it does, or nil in a mode PF keeps no rates for.
+---@param spec table the ExtendedSprayer spec
+---@param mode string LIME | FERTILIZER | OTHER
+---@param fillType number|nil
+---@param mass number|nil
 ---@return PfManualModel|nil
-local function collectManual(object, spec, mode)
+local function collectManual(spec, mode, fillType, mass)
   if mode == "OTHER" or type(spec.sprayAmountManual) ~= "number" then
     return nil
   end
@@ -546,7 +624,7 @@ local function collectManual(object, spec, mode)
   else
     change = mapNumber(spec.nitrogenMap, "getNitrogenFromChangedStates", step)
   end
-  local rate, unit = manualRate(spec, step, mode, sprayFillType(object))
+  local rate, unit = manualRate(spec, step, mode, fillType, mass)
   return {
     step = step,
     -- PF clamps every write to these (setSprayAmountManualValue), and re-derives the maximum from the
@@ -648,6 +726,12 @@ function VDT.PrecisionFarming.collectSprayer(object)
     mode = "FERTILIZER"
   end
 
+  -- Resolved once and handed to both rates: the fill type costs a walk of the rig's supply vehicles,
+  -- and the two rates weigh their liters against exactly the same tank.
+  local fillType = sprayFillType(source)
+  local mass = massPerLiter(fillType)
+  local rate, rateUnit = liveRate(source, spec, mode, mass)
+
   -- Each reading is emitted ONLY in the mode that maintains it, which is the same branch PF's own HUD
   -- picks. It has to be: `nitrogenLevel` is read under `if spec.isFertilizing` and `phLevel` under
   -- `if spec.isLiming` (ExtendedSprayer.lua:714-719), and the aggregates they feed are never reset --
@@ -663,7 +747,11 @@ function VDT.PrecisionFarming.collectSprayer(object)
     -- The shipped machines all allow it; a mod's need not, and a terminal that offered the switch
     -- anyway would draw a button the game silently undoes.
     canToggleAuto = spec.sprayAmountAutoModeChangeAllowed ~= false,
-    manual = collectManual(source, spec, mode),
+    manual = collectManual(spec, mode, fillType, mass),
+    -- What is coming out right now, which in auto is the only rate there is: the tool picks its own
+    -- per square metre and no step describes it. Absent whenever the boom is up -- see liveRate.
+    rate = rate ~= nil and tonumber(ValueMapper.mapFloat(rate)) or nil,
+    rateUnit = rateUnit,
     nitrogen = spec.isFertilizing and valuePair(
       spec.nitrogenMap,
       "getNitrogenValueFromInternalValue",

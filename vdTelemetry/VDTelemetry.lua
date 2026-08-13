@@ -186,7 +186,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    nitrogen/pH it adds, and the product per hectare it costs, in PF's own units), plus
 --    `canToggleAuto`. Enough to drive the rate from the terminal rather than only watch it. See
 --    issue #77.
-VDTelemetry.VERSION = 11
+-- 12: `precisionFarming.rate`/`rateUnit` — what is actually leaving the machine per hectare, in the
+--    same units. The rate PF's HUD leads with in AUTO, where the tool picks its own and no step
+--    describes it; absent whenever the boom is up, because PF never clears the field. See issue #77.
+VDTelemetry.VERSION = 12
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

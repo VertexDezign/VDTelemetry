@@ -849,12 +849,12 @@ class VdtModelTest {
 
   @Test
   fun theRecapturedRigsCarryTheManualApplicationRate() {
-    // The first captures taken since mod VERSION 11 added `precisionFarming.manual` and
-    // `canToggleAuto` — three of the eleven in this folder, so the other eight are still version 9
-    // and have no manual block to read. That is the whole reason these two are asserted here rather
-    // than the shape being left to `SectionViewModelTest`'s inline JSON.
+    // The captures taken since mod VERSION 11 added `precisionFarming.manual`/`canToggleAuto` and 12
+    // added the live `rate` — three of the eleven in this folder, so the other eight are still
+    // version 9 and have no rate block at all. That is the whole reason these are asserted here
+    // rather than the shape being left to `SectionViewModelTest`'s inline JSON.
     val vredo = capture("telemetry/precisionFarming/vredoLiquidManure_discHarrow.json")
-    assertEquals("11", vredo.version)
+    assertEquals("12", vredo.version)
 
     val methys =
       assertNotNull(
@@ -880,6 +880,15 @@ class VdtModelTest {
     assertTrue(manual.canStep(1))
     assertTrue(manual.canStep(-1))
 
+    // This machine was captured **in auto, mid-pass**, and it is the case that proves the two rates
+    // are not the same number dressed twice: it is laying down 10 m³/ha while step 4 would nominally
+    // cost 5, because auto sizes the pass to the deficit it is closing (70 against a 110 target) and
+    // is free to exceed any step. Reporting only the step would have understated it by half.
+    assertEquals(10f, methys.rate)
+    assertEquals("m³/ha", methys.rateUnit)
+    assertEquals(70f, assertNotNull(methys.primary).level)
+    assertEquals(110f, methys.primary?.target)
+
     // Herbicide on the Rogator, which is the negative half of the contract: PF keeps no rates in that
     // mode, so the mod withholds the step even though the machine still stores one. `canToggleAuto`
     // is unaffected — the mode switch exists on a machine with nothing to apply it to.
@@ -902,9 +911,16 @@ class VdtModelTest {
     val bomech = assertNotNull(assertNotNull(kaweco.implement.single()).precisionFarming)
     assertEquals(false, barrel.auto)
     assertEquals(2, assertNotNull(barrel.manual).step)
-    assertEquals(110f, assertNotNull(barrel.primary).level)
+    assertEquals(70f, assertNotNull(barrel.primary).level)
     assertEquals(barrel.manual, bomech.manual)
     assertEquals(barrel.primary, bomech.primary)
+
+    // In **manual**, mid-pass, the live rate and the step's nominal cost agree — and they should:
+    // PF derives the liters from the step in that mode, so the two run through the same conversion
+    // from the same figure. It is auto (the Vredo above) that separates them.
+    assertEquals(2.02f, barrel.rate)
+    assertEquals(barrel.manual.rate, barrel.rate)
+    assertEquals(barrel.rate, bomech.rate, "the borrowed block carries the live rate too")
 
     // What the barrel does NOT take is the per-slice strip: its `index` joins to work areas the
     // barrel does not own, so the numbers travel and the strip stays with the machine it describes.

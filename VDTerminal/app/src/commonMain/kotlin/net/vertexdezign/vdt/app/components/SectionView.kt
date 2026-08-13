@@ -343,13 +343,13 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue, onCommand: ((Clien
       inlineContent = arrow,
       modifier = Modifier.weight(1f),
     )
-    // What the pass costs in product, which is the number PF's own HUD leads with — and the one a
-    // manual rate is chosen by. Absent in auto, where the tool picks the rate per square metre and a
-    // single per-hectare figure would be a fiction.
-    manual?.let { rate ->
-      rateCost(rate)?.let {
-        Text(it, fontSize = 9.sp, color = VdtColors.DarkGray, maxLines = 1)
-      }
+    // What the pass costs in product, which is the number PF's own HUD leads with. Which figure that
+    // is depends on the mode, exactly as it does in game: in manual the nominal cost of the chosen
+    // step, which stands whether or not the tool is running and is what a step is picked by; in auto
+    // the live output, because there the tool picks its own rate per square metre and nothing else
+    // describes it. Auto therefore has it only while the boom is down and working.
+    rateCost(pf, manual)?.let {
+      Text(it, fontSize = 9.sp, color = VdtColors.DarkGray, maxLines = 1)
     }
     RateModeControls(pf, manual, onCommand)
   }
@@ -809,10 +809,17 @@ internal fun modeLabel(auto: Boolean, manual: PfManual?): String = when {
   else -> "MAN"
 }
 
-/** The product a manual pass costs per hectare, e.g. `600 kg/ha`; null when the tank says nothing. */
-internal fun rateCost(manual: PfManual): String? {
-  val rate = manual.rate ?: return null
-  val unit = manual.rateUnit ?: return null
+/**
+ * The product this pass costs per hectare, e.g. `600 kg/ha` — the line PF's own HUD leads with.
+ *
+ * [manual] is the step the machine is on, already filtered to null in auto by the caller. Given one,
+ * the nominal cost of that step is the answer: it is what the driver is choosing between, and it
+ * holds with the boom up. Without one — auto — the answer is what is actually leaving the machine,
+ * which is the only rate auto has and which goes absent the moment the tool stops working.
+ */
+internal fun rateCost(pf: PrecisionFarming, manual: PfManual?): String? {
+  val rate = manual?.rate ?: pf.rate ?: return null
+  val unit = (if (manual?.rate != null) manual.rateUnit else pf.rateUnit) ?: return null
   // Whole units above 10, one decimal below: a spreader is set in kilos per hectare and a slurry
   // tanker in a couple of cubic metres, and rounding the tanker to "2" loses the setting.
   val text = if (rate >= 10f) rate.roundToInt().toString() else formatMeters(rate)

@@ -67,9 +67,9 @@
       },
       "fillUnits": {
         "air": {
-          "fillLevelPercentage": 93,
+          "fillLevelPercentage": 92,
           "title": "Luft",
-          "value": 3729,
+          "value": 3666,
           "capacity": 4000,
           "unit": "l"
         },
@@ -77,8 +77,8 @@
           "type": "diesel",
           "title": "Diesel",
           "fillLevelPercentage": 99,
-          "value": 385,
-          "usage": 101.46,
+          "value": 384,
+          "usage": 99.2,
           "capacity": 390,
           "unit": "l"
         },
@@ -100,7 +100,7 @@
         "min": 0
       },
       "load": {
-        "value": 96.65,
+        "value": 94.22,
         "min": 0,
         "max": 100,
         "unit": "%"
@@ -125,15 +125,17 @@
             "step": 2,
             "rate": 2.02
           },
-          "spotSpray": false,
           "auto": false,
           "nitrogen": {
-            "target": 150,
-            "level": 110,
+            "target": 125,
+            "level": 70,
             "unit": "kg/ha"
           },
+          "rateUnit": "m³/ha",
+          "rate": 2.02,
           "canToggleAuto": true,
-          "mode": "FERTILIZER"
+          "mode": "FERTILIZER",
+          "spotSpray": false
         },
         "implement": [
           {
@@ -147,14 +149,14 @@
                 "processing": true,
                 "unit": "m",
                 "shape": [
-                  0.41158,
-                  0.62594,
-                  0.40179,
-                  0.62299,
-                  0.41161,
-                  0.62585
+                  0.42112,
+                  0.65841,
+                  0.41125,
+                  0.66119,
+                  0.42109,
+                  0.65832
                 ],
-                "width": 20.96
+                "width": 21
               }
             ],
             "precisionFarming": {
@@ -168,12 +170,12 @@
               },
               "auto": false,
               "nitrogen": {
-                "target": 150,
-                "level": 110,
+                "target": 125,
+                "level": 70,
                 "unit": "kg/ha"
               },
-              "canToggleAuto": true,
-              "mode": "FERTILIZER",
+              "rateUnit": "m³/ha",
+              "rate": 2.02,
               "workAreas": [
                 {
                   "index": 1,
@@ -182,82 +184,84 @@
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 120,
-                      "n": 80
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 190,
-                      "n": 150
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 190,
-                      "n": 150
+                      "nTarget": 110,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 190,
-                      "n": 150
+                      "nTarget": 110,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 190,
-                      "n": 150
+                      "nTarget": 110,
+                      "n": 70
                     }
                   ]
                 }
               ],
+              "canToggleAuto": true,
+              "mode": "FERTILIZER",
               "spotSpray": false
             },
             "brand": {
@@ -286,7 +290,7 @@
               "doubledAmountAvailable": false,
               "title": "Gärreste",
               "category": "FERTILIZER",
-              "nominalUsagePerMin": 442.82,
+              "nominalUsagePerMin": 429.41,
               "kind": "SLURRY_TANKER",
               "sprayType": "DIGESTATE",
               "doubledAmount": false
@@ -311,7 +315,7 @@
             "wearable": {
               "wear": 0,
               "damage": 0,
-              "dirt": 18,
+              "dirt": 33,
               "unit": "%"
             }
           }
@@ -340,7 +344,7 @@
           "doubledAmountAvailable": false,
           "title": "Gärreste",
           "category": "FERTILIZER",
-          "nominalUsagePerMin": 2531.26,
+          "nominalUsagePerMin": 2464.82,
           "kind": "SLURRY_TANKER",
           "sprayType": "DIGESTATE",
           "doubledAmount": false
@@ -350,8 +354,8 @@
             {
               "type": "DIGESTATE",
               "title": "Gärreste",
-              "fillLevelPercentage": 73,
-              "value": 14643.447,
+              "fillLevelPercentage": 69,
+              "value": 13763.699,
               "capacity": 20000,
               "unit": "l"
             }
@@ -369,7 +373,7 @@
         "wearable": {
           "wear": 0,
           "damage": 0,
-          "dirt": 17,
+          "dirt": 31,
           "unit": "%"
         },
         "discharge": {
@@ -385,7 +389,7 @@
     ],
     "gps": {
       "enabled": false,
-      "heading": 196,
+      "heading": 164,
       "linesVisible": true,
       "active": false,
       "headingUnit": "°"
@@ -411,7 +415,7 @@
       }
     },
     "speed": {
-      "value": 6.26,
+      "value": 6.11,
       "direction": "FORWARD",
       "unit": "km/h"
     },
@@ -420,35 +424,35 @@
       "targetSpeed": 53
     },
     "operatingTime": {
-      "value": "0.40",
+      "value": "0.44",
       "unit": "h"
     },
     "wearable": {
       "wear": 0,
       "damage": 0,
-      "dirt": 19,
+      "dirt": 33,
       "unit": "%"
     }
   },
-  "version": "11",
+  "version": "12",
   "environment": {
     "date": "01.08.2024",
     "weather": {
       "temperature": {
         "min": 15,
-        "current": 24,
+        "current": 23,
         "max": 24,
         "unit": "°C"
       }
     },
-    "time": "17:19",
+    "time": "17:34",
     "pda": {
       "height": 2048,
       "player": {
-        "heading": 196,
-        "posX": 0.40496855229139,
+        "heading": 164,
+        "posX": 0.41779211908579,
         "farmId": 1,
-        "posZ": 0.63008427619934,
+        "posZ": 0.66546630859375,
         "headingUnit": "°"
       },
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",
