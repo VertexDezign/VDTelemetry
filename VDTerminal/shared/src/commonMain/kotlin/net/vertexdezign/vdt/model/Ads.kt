@@ -26,6 +26,7 @@ data class Ads(
   val inspected: AdsInspected? = null,
   val checks: AdsChecks? = null,
   val electrical: AdsElectrical? = null,
+  val load: AdsLoad? = null,
   /**
    * A CVT's own oil temperature, which ADS models separately and which can cook while the engine
    * still reads fine. Null on any machine without one — never a very cold reading.
@@ -134,6 +135,29 @@ enum class AdsCheck(
 
   /** Do this before you set off. */
   CRITICAL(4),
+}
+
+/**
+ * The load Advanced Damage System wears the engine on.
+ *
+ * **Not the same quantity as [Motor.load]**, which is the plain engine load and is still exported and
+ * still true. This is that load plus what the driveline is doing under it — identical everywhere
+ * except on a field with an implement down and working, where ADS adds the draft term its wear model
+ * charges for. It is what the mod puts on its own dashboard, so it is the figure that agrees with
+ * what the driver sees in the cab.
+ *
+ * [value] can exceed 100. ADS clips its own readout there; we don't, because how far over is exactly
+ * what a driver would change their driving for. [overloadAt] is where ADS starts charging wear, and
+ * travels with the value because a player can move it in the mod's settings.
+ */
+@Serializable
+data class AdsLoad(
+  val value: Double = 0.0,
+  val overloadAt: Double = 0.0,
+  val unit: String = "",
+) {
+  /** Working the engine harder than ADS is willing to let you without wearing it for it. */
+  val overloaded: Boolean get() = overloadAt > 0.0 && value > overloadAt
 }
 
 /**

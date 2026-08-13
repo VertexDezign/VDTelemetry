@@ -228,6 +228,10 @@ version renames costs you that panel, never a Lua error.
       real one under ADS, and the vanilla figure it stands in for is never synced to a multiplayer
       client at all (`motorTemperature.valueSend` is dead code in the base game)
     * A CVT's own transmission temperature, which ADS models separately
+    * The load ADS wears the engine on — the plain engine load plus the draft term it adds while an
+      implement is down and working, which is what its own dashboard prints and can read past 100%.
+      `motor.load` stays exported beside it, unchanged: the plain engine load is still true, and this
+      is a second number rather than a correction of it
     * The service interval — hours since the last maintenance, and the hours this machine's
       manufacturer recommends between them
     * The pre-shift checks (radiator, air intake, lubrication) in ADS's own inspection bands, and

@@ -86,12 +86,23 @@ VDT.AdvancedDamageSystem = {}
 ---@field systemVoltage number
 ---@field unit string
 
+-- The load ADS wears the engine on, as a percentage. NOT the same quantity as `motor.load`, which is
+-- the plain engine load and stays exported unchanged: this is that load plus what the driveline is
+-- doing under it, so it can read past 100 (see collectLoad). `overloadAt` is where ADS starts
+-- charging wear for it, and is configurable, so it travels with the value rather than being a number
+-- the terminal knows.
+---@class AdsLoadModel
+---@field value number
+---@field overloadAt number
+---@field unit string
+
 ---@class AdsModel
 ---@field lamps AdsLampsModel?
 ---@field service AdsServiceModel?
 ---@field inspected AdsInspectedModel?
 ---@field checks AdsChecksModel?
 ---@field electrical AdsElectricalModel?
+---@field load AdsLoadModel?
 ---@field transmissionTemperatur TemperaturModel?
 
 ---@class VehicleModel
@@ -138,6 +149,9 @@ local COOLANT_CRIT_C = 110
 -- Fallbacks for the two cold thresholds when ADS's config is out of reach; its shipped defaults.
 local COLD_ENGINE_C = 50
 local COLD_TRANSMISSION_C = 45
+
+-- ... and for the load above which ADS starts charging the engine wear for being overloaded.
+local MOTOR_OVERLOADED = 0.85
 
 -- Below this much service left, ADS treats the machine as running on spent consumables.
 local SERVICE_OVERDUE_RATIO = 1.0
@@ -276,6 +290,14 @@ local function coldThresholds()
   local transmission = core ~= nil and core.TRANSMISSION_FACTOR_DATA or nil
   return tonumber(engine ~= nil and engine.COLD_MOTOR_TEMP_THRESHOLD or nil) or COLD_ENGINE_C,
     tonumber(transmission ~= nil and transmission.COLD_TRANSMISSION_THRESHOLD or nil) or COLD_TRANSMISSION_C
+end
+
+-- ADS's engine-overload threshold, also user-configurable, with its shipped default as the fallback.
+local function overloadThreshold()
+  local e = env()
+  local core = e ~= nil and type(e.ADS_Config) == "table" and e.ADS_Config.CORE or nil
+  local engine = core ~= nil and core.ENGINE_FACTOR_DATA or nil
+  return tonumber(engine ~= nil and engine.MOTOR_OVERLOADED_THRESHOLD or nil) or MOTOR_OVERLOADED
 end
 
 -- One of ADS's colour tables -> our severity name. Compared by identity, which is how ADS's own
@@ -500,6 +522,31 @@ local function band(level, bands, atLeast)
   return nil
 end
 
+---The load ADS wears the engine on, and where it starts charging for it.
+---
+---This is `dynamicMotorLoad`, which is the plain engine load everywhere except on a field with an
+---implement down and working -- there ADS adds what the driveline is doing under the draft, and the
+---sum is allowed past 100%. It is the figure ADS puts on its own dashboard and the one its overload
+---wear keys off, so under ADS it is the load that means something; `motor.load` stays exported
+---beside it, unchanged, because the plain engine load is still true and is not what this replaces.
+---
+---Reported uncapped. ADS's HUD clips its own readout at 100%, but the amount by which a machine is
+---over is exactly what a driver would change their driving for, and it is not a number ADS hides --
+---it colours the same readout to say so.
+---@param spec table
+---@return AdsLoadModel|nil
+local function collectLoad(spec)
+  local load = tonumber(spec.dynamicMotorLoad)
+  if load == nil then
+    return nil
+  end
+  return {
+    value = tonumber(ValueMapper.mapPercentage(math.max(load, 0), 0)),
+    overloadAt = tonumber(ValueMapper.mapPercentage(overloadThreshold(), 0)),
+    unit = "%",
+  }
+end
+
 ---The three pre-shift chores, in ADS's own inspection bands. A chore this machine does not need is
 ---absent: ADS decides per vehicle whether it takes an air blower or a grease gun at all.
 ---@param spec table
@@ -554,6 +601,7 @@ function VDT.AdvancedDamageSystem.contributeObject(object, model)
   ads.lamps = collectLamps(object, spec, service, cvt)
   ads.inspected = collectInspected(object)
   ads.checks = collectChecks(spec)
+  ads.load = collectLoad(spec)
 
   -- A CVT runs its own thermal model and its own gauge. Only a machine that HAS one gets the field:
   -- the terminal draws a second temperature bar off its presence, and a bar for oil that does not

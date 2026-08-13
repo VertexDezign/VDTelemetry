@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -113,6 +114,20 @@ fun EngineTransmission(
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Metric("${animRpm.roundToInt()}", "RPM")
+          // Engine load, which the mod has exported all along and nothing has ever drawn. Advanced
+          // Damage System's figure where there is one: it is what the mod shows in the cab, and the
+          // one it charges engine wear against — and it reads past 100% under draft, which is the
+          // part worth seeing. Amber once it is over, since that is the moment it starts costing.
+          val load = vehicle.ads?.load
+          if (load != null) {
+            Metric(
+              "${load.value.roundToInt()}${load.unit}",
+              "LOAD",
+              if (load.overloaded) VdtColors.Amber else VdtColors.DarkGray,
+            )
+          } else {
+            motor.load?.let { Metric("${it.value.roundToInt()}${it.unit}", "LOAD") }
+          }
           Metric(usage(motor.fuel()?.usage, motor.fuel()?.unit), "FUEL/HR")
         }
         // Center: speed gauge (tap toggles cruise) + cruise speed adjuster
@@ -300,10 +315,11 @@ private fun Motor.def() = fillUnits?.def
 
 private fun usage(value: Float?, unit: String?): String = if (value == null) "--" else "$value${unit ?: ""}"
 
+/** [colour] is the value's only; the caption stays neutral, so the eye lands on the figure. */
 @Composable
-private fun Metric(value: String, label: String) {
+private fun Metric(value: String, label: String, colour: Color = VdtColors.DarkGray) {
   Column(horizontalAlignment = Alignment.CenterHorizontally) {
-    Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+    Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colour)
     Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
   }
 }

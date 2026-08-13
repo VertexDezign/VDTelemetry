@@ -147,6 +147,12 @@ tractor puts between the windscreen and the right-hand window:
   It comes from `motor.direction` (mod version 6), *not* from the engine's `getReverserDirection()` —
   that is written only by the reversible-driving-position specialization (the seat swivelled round),
   so on an ordinary tractor it reads forward for ever.
+Engine **load** finally appears too, on the Engine and Transmission panel — it has been exported
+since long before this and drawn nowhere. Advanced Damage System's figure where there is one, since
+that is what the mod shows in the cab and what it charges engine wear against; it goes amber past the
+mod's own overload threshold, and is deliberately not clipped at 100%, because how far over you are
+is the part you would change your driving for.
+
 - **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, a CVT's own
   transmission temperature where Advanced Damage System reports one, then the engine's fuel, DEF and
   air. The two temperatures are told apart by their glyphs — a thermometer over water, and one over a

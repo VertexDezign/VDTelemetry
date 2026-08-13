@@ -91,6 +91,7 @@ local function makeVehicle(over)
     lubricationLevel = over.lubricationLevel,
     isVehicleNeedBlowOut = over.needBlowOut,
     isVehicleNeedLubricate = over.needLubricate,
+    dynamicMotorLoad = over.dynamicMotorLoad,
     activeIndicators = over.activeIndicators or {},
   }
   local vehicle = { spec_AdvancedDamageSystem = spec }
@@ -439,6 +440,38 @@ describe("AdvancedDamageSystem integration", function()
 
     it("says nothing at all about a machine that needs neither", function()
       assert.is_nil(contribute(makeVehicle({ needLubricate = false, needBlowOut = false })).ads.checks)
+    end)
+  end)
+
+  describe("engine load", function()
+    it("reports the load ADS wears the engine on, with the threshold that goes with it", function()
+      local load = contribute(makeVehicle({ dynamicMotorLoad = 0.72 })).ads.load
+      assert.equals(72, load.value)
+      assert.equals(85, load.overloadAt)
+      assert.equals("%", load.unit)
+    end)
+
+    it("does not clip it at 100, because how far over is the whole point", function()
+      -- ADS adds a draft term on a field with an implement down, and lets the sum reach 1.15. Its own
+      -- HUD clips the readout there; the amount over is what a driver would change their driving for.
+      assert.equals(112, contribute(makeVehicle({ dynamicMotorLoad = 1.115 })).ads.load.value)
+    end)
+
+    it("takes the threshold from ADS's config, which a player can move", function()
+      _G.FS25_AdvancedDamageSystem.ADS_Config.CORE.ENGINE_FACTOR_DATA.MOTOR_OVERLOADED_THRESHOLD = 0.7
+      assert.equals(70, contribute(makeVehicle({ dynamicMotorLoad = 0.5 })).ads.load.overloadAt)
+    end)
+
+    it("leaves the plain engine load alone, which is a different number and still true", function()
+      local model = contribute(makeVehicle({ dynamicMotorLoad = 1.05 }), {
+        motor = { temperatur = { value = 20, min = 20, max = 120, unit = "°C" }, load = { value = 91 } },
+      })
+      assert.equals(91, model.motor.load.value)
+      assert.equals(105, model.ads.load.value)
+    end)
+
+    it("says nothing when ADS has not computed one", function()
+      assert.is_nil(contribute(makeVehicle({})).ads.load)
     end)
   end)
 

@@ -2,8 +2,10 @@ package net.vertexdezign.vdt
 
 import net.vertexdezign.vdt.model.AdsCheck
 import net.vertexdezign.vdt.model.AdsLamp
+import net.vertexdezign.vdt.model.AdsLoad
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -36,6 +38,7 @@ class AdsModelTest {
                   "inspected": { "condition": 73, "service": 42, "complete": true },
                   "checks": { "radiator": "HEAVY", "airIntake": "OK", "lubrication": "VERY_DRY" },
                   "electrical": { "systemVoltage": 13.8, "unit": "V" },
+                  "load": { "value": 112, "overloadAt": 85, "unit": "%" },
                   "transmissionTemperatur": { "value": 71, "min": 20, "max": 120, "unit": "°C" }
                 }
               }
@@ -66,6 +69,14 @@ class AdsModelTest {
     assertEquals(AdsCheck.OK, checks.airIntake)
     assertEquals(AdsCheck.VERY_DRY, checks.lubrication)
 
+    val load = assertNotNull(ads.load)
+    // Past 100 on purpose: ADS lets the draft term take it to 115, and the overrun is the point.
+    assertEquals(112.0, load.value)
+    assertTrue(load.overloaded)
+    assertFalse(AdsLoad(value = 84.0, overloadAt = 85.0).overloaded)
+    // A machine reporting no threshold must not read as permanently overloaded.
+    assertFalse(AdsLoad(value = 50.0, overloadAt = 0.0).overloaded)
+
     assertEquals(13.8f, assertNotNull(ads.electrical).systemVoltage)
     assertEquals(71, assertNotNull(ads.transmissionTemperatur).value)
   }
@@ -95,6 +106,7 @@ class AdsModelTest {
     assertNull(ads.service)
     assertNull(ads.inspected)
     assertNull(ads.electrical)
+    assertNull(ads.load)
     assertNull(ads.transmissionTemperatur, "no CVT is not a very cold one")
   }
 

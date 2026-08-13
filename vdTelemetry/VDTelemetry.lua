@@ -194,7 +194,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     service interval, what the last inspection found, the pre-shift checks and system voltage. Also
 --     *changes* `motor.temperatur.value`, which is ADS's engine temperature when ADS is installed —
 --     the first correct engine temperature this mod has exported to a multiplayer client, since the
---     vanilla figure is never synced. See issue #79.
+--     vanilla figure is never synced. Also `ads.load`, which is a DIFFERENT number from
+--     `motor.load` rather than a replacement for it: ADS's is the plain engine load plus what the
+--     driveline is doing under the draft, is what its own dashboard prints, and is what it charges
+--     engine wear against. See issue #79.
 VDTelemetry.VERSION = 13
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
