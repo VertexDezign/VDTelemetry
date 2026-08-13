@@ -509,6 +509,37 @@ and are named in `VdtModelTest`. What it did not do:
   (`getValidSprayerToUse` returns the first valid machine), and a rig you would tow two sprayers on is
   not a rig anyone drives — but it is the assumption to revisit if one ever turns up.
 
+## Advanced Damage System (#79)
+
+Built: the six dashboard lamps with ADS's severity and its production-year gating, the engine
+temperature as ADS's, the service interval, the pre-shift checks and system voltage. The reasoning is
+in `src/integrations/AdvancedDamageSystem.lua` and `panels/ClusterService.kt`. What it did not do:
+
+- **Nothing has been checked in game.** The whole integration is written against ADS's source, not
+  against a running session. Worth watching for specifically: whether the coolant lamp reads COLD for
+  a plausible length of time after a cold start, whether a lamp latched by a breakdown clears when the
+  breakdown is repaired, whether the bulb check on the starter looks like a bulb check rather than a
+  fault, and whether an ADS-managed machine's engine temperature really does arrive on an MP client
+  (which is the whole claim about the vanilla figure being unsynced).
+- **The `oil` lamp is exported by nobody and drawn by nobody.** ADS computes it (`serviceLevel < 0.2`)
+  and then hides it from its own HUD, so drawing it would tell the player something the mod chose to
+  withhold. `transmission` is worse: declared in `ADS_Breakdowns.DASHBOARD` and referenced by not one
+  breakdown in the mod. If a future ADS starts drawing either, they are two lamps and two glyphs away.
+- **The fleet is not exported.** `ADS_Main.vehicles` is every machine ADS manages, which is what its
+  own `P` menu lists — a "which of my machines is due, broken, or in the workshop" channel would be a
+  real second-screen feature, and the natural home for `currentState` / `getServiceFinishTime()` and
+  the visible breakdown list, none of which the vehicle model carries. It needs its own issue, and its
+  own care in multiplayer: that table is keyed by `uniqueId`, which is nil on an MP client.
+- **`ValueMapper.mapMotorState` predates the engine's four-value enum.** `MotorState` is
+  `OFF=1, IGNITION=2, STARTING=3, ON=4`; the mapper reports 2 as `STARTING` and folds 3 and 4 into
+  `ON`, so our "STARTING" is really "key turned, not cranking" and a cranking engine reads as running.
+  Found while wiring the ADS lamps, which are gated on exactly those states (the integration uses the
+  raw values and is unaffected). Fixing it means adding `IGNITION` to the Kotlin `MotorState`, and
+  auditing the `state != OFF` checks that currently mean "running" — `EngineTransmission`'s key button
+  is one.
+- **A fixture is wanted.** No committed capture has an `ads` block; `AdsModelTest` decodes the shape
+  with inline JSON and says so at the top. See the section below for the rule those follow.
+
 ## Captures wanted as fixtures
 
 The schema, selection and work aspects are all tested synthetically, because none of the committed
@@ -522,6 +553,10 @@ captures contains a machine that has them.
   with notifications in the log** — the hook itself is confirmed working in singleplayer, so this is
   now wanted as a fixture rather than as proof. `FinanceModelTest` covers those three shapes with
   inline JSON meanwhile.
+- **A capture with Advanced Damage System installed**, for the `ads` block — ideally a CVT machine
+  (so `transmissionTemperatur` is present) that is a little overdue for service and a little dirty, so
+  the lamps, the interval and the checks are all non-trivial in the one file. `AdsModelTest` covers the
+  shape with inline JSON meanwhile.
 - **More invoices captures.** `examples/json/invoices/invoices.json` came out of the 2026-08-11
   two-farm session and drives `InvoicesModelTest.parsesTheTwoFarmCapture`: three invoices from farm 1's
   side, one of them a proposal showing the direction inversion, a discounted line, and the full 56-entry
