@@ -8,6 +8,10 @@ reasoning moves into the code as it is written, which is where it is actually re
 hand to the code is the work it *didn't* do: the deferred item, the open call, the check nobody ran.
 That is what lands here. Each entry says what the work is and why it was left, not how to do it.
 
+Pruned 2026-08-13: entries describing work that is now finished were removed, and the "validated
+in-game" narratives compressed to a line. Nothing was lost that the code does not already carry —
+`git log -p FUTURE.md` has the long form if a decision needs its original reasoning.
+
 Retired plans, if the full reasoning is wanted (`git show <sha>:<file>`):
 
 | plan | last content at | covered |
@@ -52,7 +56,8 @@ none of it is drawn.
   count: the game draws one segment per slot with the part-used roll's fraction inside the next one,
   and labels it `"2 / 2"` (a `ceil`, not a percentage). `components/FillUnitsDisplay.kt` carries the
   note and renders a continuous bar.
-- **The work aspects.** `discharge`, `tipping`, `harvest`, `workMode`, `workWidth`, `baleCounter`.
+- **The work aspects.** `discharge`, `tipping`, `harvest`, `workMode`, `baleCounter` — `workWidth` is
+  the one that has since been drawn, by the section view.
   `discharge.reason` is the pick of them — the engine's own verdict on why unloading is refused
   (`NO_FREE_CAPACITY`, `NO_ACCESS_LAND`, …), the same code behind its on-screen warning, and nothing a
   dashboard could work out for itself.
@@ -148,17 +153,10 @@ Built and validated in-game. Four things were left.
 
 ## Finance (#48, under #46)
 
-Built and validated in-game: **singleplayer 2026-08-08** (a vehicle purchase and a farmland purchase
-both appeared in the app's log as they appeared in the game's own notifications — the
-`HUD:showMoneyChange` hook, end to end — and a month rollover shifted the table's columns correctly),
-then **on a multiplayer client 2026-08-09**, which is the path the host never takes: the notification
-funnel reached through `MoneyChangeEvent:run` rather than `FSBaseMission:broadcastNotifications`, and
-archived columns refreshed by re-requesting `FinanceStatsEvent`. Both hold. A third pass **2026-08-11**
-confirmed the current period's column ticks live on the 5 s interval — the only thing that surfaces it,
-since `FarmStats:changeFinanceStats` mutates the bucket in place with no message behind it. Only a
-handful of month rollovers have been watched, so that one is worth half an eye still. The design lives
-in the module headers of `src/collect/FinanceExporter.lua` and `src/command/FinanceControl.lua`; the
-checks below are what is still unseen.
+Built and validated in-game, in singleplayer and on a multiplayer client. The design lives in the
+module headers of `src/collect/FinanceExporter.lua` and `src/command/FinanceControl.lua`. Only a
+handful of month rollovers have been watched, so the current period's column is still worth half an
+eye. What was left:
 
 - **The graphs.** The issue's own "Bonus: draw some graphs" was deliberately deferred until there was
   real data in the panel to shape a chart around. The export already feeds it: the mod carries up to
@@ -197,22 +195,16 @@ checks below are what is still unseen.
   The in-game screen reads the same cached field and has the identical quirk, so we match it rather
   than walking every placeable ourselves. If it bites in practice, say "up to 500,000" rather than
   recomputing equity.
+
 ---
 
 ## Enhanced Loan System (#47, under #46)
 
-Built on top of #48. **Validated in-game on 2026-08-09, singleplayer and on a multiplayer client:**
-the loans render instead of the base-game block, and `takeLoan` / `repayLoan` both land from a client
-against a dedicated server — reaching the mod's own manager directly, as its in-game buttons do. **A
-terminal-created loan then survived a server restart (2026-08-11)**, which is the end-to-end proof it
-reached the server's table rather than only the client's: `ELS_loan` is a replicated Object, so a
-client creating one sends `OBJECT_CREATED` and the server files it into its own loan table, while a
-redemption's field changes ride the client's dirty-object update stream. The SP capture is committed as
-`examples/json/finance/els.json` and now drives `FinanceModelTest`. The `enhancedLoans` block on the
-finance channel carries the bank's terms and the farm's annuity loans; `takeLoan` / `repayLoan` drive
-the mod's own `ELS_loanManager`. Its *presence* is the whole signal — when it is there the base-game
-loan fields are absent and the app renders this instead, the same "dispatch on presence" rule the
-ISOBUS sections use.
+Built on top of #48 and validated in-game, in singleplayer and from a multiplayer client — including a
+terminal-created loan surviving a server restart, which is the proof it reached the server's table
+rather than only the client's. The `enhancedLoans` block carries the bank's terms and the farm's
+annuity loans; its *presence* is the whole signal, the same "dispatch on presence" rule the ISOBUS
+sections use. What was left:
 
 - **ELS does not disable base loans the way you would expect.** It overwrites
   `InGameMenuStatisticsFrame.hasPlayerLoanPermission`, a method on the in-game *frame*, leaving both
@@ -248,13 +240,11 @@ ISOBUS sections use.
 
 The last child of #46, on top of #48. Billing between farms via FS25_Invoices, in its own event-driven
 `invoices.json` channel (`src/integrations/Invoices.lua`) rendered as a second tab in the Finance app,
-plus five commands (`src/command/InvoiceControl.lua`). **Validated in a two-farm multiplayer session on
-2026-08-11:** an invoice raised from the terminal reaches the other farm, and paying it works as
-expected — the core round trip, and the first time this repo has been exercised with two farms at all.
-The narrower checks below are what that session did not cover. The mod's own server is the boundary
-throughout: every command drives one of its service methods, which from a client sends its event, and
-its server re-checks the `farmManager` right, the invoice's state, which farm the caller is, and (for a
-payment) whether it can be afforded.
+plus five commands (`src/command/InvoiceControl.lua`). Validated in a two-farm multiplayer session on
+2026-08-11 — raising an invoice and paying it, the core round trip. The mod's own server is the
+boundary throughout: every command drives one of its service methods, whose server half re-checks the
+`farmManager` right, the invoice's state, which farm the caller is, and whether a payment can be
+afforded. What that session did not cover, and what was left:
 
 - **This feature has no singleplayer form.** An invoice needs two different farms and singleplayer has
   one, so the channel correctly exports the settings, the work-type catalogue, no farms and no invoices
@@ -477,9 +467,8 @@ Each one is cheap to do while playing and settles something above.
 
 ## Steering (#57)
 
-Built and driven: `vehicle.steering` (mod version 10) and its two marks in the pillar readout, left of
-the gear. The layout derivation was checked in game against a machine with dog-walk modes, sides and
-all. What is left:
+Built and driven in game, layout derivation included, against a machine with dog-walk modes and sides:
+`vehicle.steering` (mod version 10) and its two marks in the pillar readout. What is left:
 
 - **`CRAB` has never been seen on a real machine.** It is the sideless dog walk — the rear axle steered
   along with the front rather than held over — and it is in the model because the engine's data allows
@@ -499,83 +488,20 @@ all. What is left:
 
 ## Precision Farming rates (#77)
 
-Built: the arrow in the rate readout is a Material Icon rather than a "→" that renders as tofu, and the
-manual application rate is exported (`precisionFarming.manual`, mod version 11), rendered, and
-drivable from the rig panel — auto/manual on the chip, the step on the two buttons either side.
+Built, and validated in singleplayer and from a multiplayer client across all five of PF's rate units
+and both modes. The reasoning lives in `src/integrations/PrecisionFarming.lua` and
+`components/SectionView.kt`; the captures that pin it are in `examples/json/telemetry/precisionFarming/`
+and are named in `VdtModelTest`. What it did not do:
 
-- **Driven in singleplayer 2026-08-12** on a self-propelled sprayer, a Vredo with a manure cultivator,
-  and a Kaweco barrel with a Bomech dribble bar. It found three faults no synthetic spec could:
-  `getValidSprayerToUse` is not a registered vehicle function (so no control worked at all, on any
-  machine); a manure barrel with a tool hitched to it keeps its rates on the tool, not on itself; and
-  a rig slot drew only the head of a hitched chain, which on that rig is the machine with nothing to
-  say. All three fixed and pinned, and the readout, the step and the m³/ha product rate were seen
-  working on the barrel rig afterwards.
-- **All five unit paths agree with PF's own HUD**, read side by side with the game and captured:
-  slurry m³/ha (Vredo, Kaweco), solid kg/ha and lime t/ha (the same AgriSpread hopper, which is the
-  pair that proves the unit follows the tank rather than the machine), manure t/ha (Bunning) and
-  liquid l/ha (Case IH Patriot). Every branch of `ratePerHectare` now has a real machine behind it.
-- **The controls work from a multiplayer client**, auto toggle and manual step both, so
-  `setSprayAmountManualValue`'s `ExtendedSprayerAmountEvent` round trip is confirmed — the one path no
-  spec can reach. #77 has nothing left open.
-- **The barrel and its tool now report the same rates**, deliberately: whichever tile you have placed
-  shows what the rig is applying, which is the substitution PF's own HUD makes. The barrel gives up
-  only the per-slice strip, whose `index` joins to work areas it does not own.
-
-  **Corrected 2026-08-13.** This first shipped keying the substitution on
-  `spec_manureBarrel.attachedTool`, and the entry claimed it therefore only fired where the barrel's
-  XML declares `manureBarrel#attacherJointIndex`. Both the mechanism and the diagnosis were wrong.
-  `ExtendedSprayer.getIsVehicleValid` — the one predicate PF's HUD, its keybinds and
-  `getValidSprayerToUse` all gate on — rejects a machine four ways, and the barrel case is only the
-  last of them: no ExtendedSprayer spec, no `WorkArea` spec, **no work areas at all**, or a manure
-  barrel holding an `attachedTool`. The Kaweco Profi II is the third: sold *without* a spreading tool
-  (`$l10n_function_slurrySpreaderWithoutTool`, with the vibro / SD700 / Bomech multiProfi as its store
-  combinations), it declares no `<workAreas>` element whatever. Its missing
-  `manureBarrel#attacherJointIndex` is not an omission either — that attribute exists to silence work
-  areas this machine does not have. `rateSource` now asks PF instead of re-deriving the rule, which
-  also makes it agree with `PrecisionFarmingControl`, which has resolved the rig through PF's own walk
-  since it shipped. **`liquidManure_dribbleBar.json` predates the fix**: the Kaweco's block in it is
-  the barrel's own idle spec, and a fresh capture should show it carrying the Bomech's step.
 - **A nested implement has no slot of its own.** The mod reports the Bomech's `position` as an empty
   string, so `RigSlotPanel` can never address it directly; it is seen through its parent's tile or not
   at all. Fine for a section view, and the thing to fix properly whenever the rig diagram in the first
   section of this file gets built.
-- **The live rate in auto mode is exported** (`precisionFarming.rate`/`rateUnit`, mod version 12).
-  `spec.lastLitersPerHectar` weighed through the same four-way conversion the step rate uses — which
-  is legitimate because PF's HUD prints *one* application-rate line and only chooses its liters by
-  mode. The "nothing coming out right now" state this needed is `getIsWorkAreaActive` on the source
-  machine: PF never clears the field, so a raised boom would otherwise keep reporting the pass that
-  just ended. Deliberately not `getIsWorkAreaProcessing`, which flickers on a 200 ms window.
-
-  **Driven in singleplayer 2026-08-13** on the Vredo, the Kaweco rig, both AgriSpread loads and the
-  Bunning, in both modes: the figure agrees with PF's own HUD each time, and the reset when the work
-  area goes inactive behaves. In-game the HUD keeps showing the stale value there, so the terminal is
-  the better readout of the two on exactly the point this gate was added for.
-
-  Three captures are worth keeping in mind. `vredoLiquidManure_discHarrow.json` is applying 10 m³/ha
-  in auto against a step-4 nominal of 5, and `selfDrivingSprayer_liquidFertilizer.json` is applying
-  12.82 l/ha in **manual** against a step-2 nominal of 25.64 — the two rates diverge in both modes and
-  for opposite reasons, auto exceeding the step to close a deficit and manual falling short of it when
-  most of the boom is shut (PF scales its state change by the active-nozzle share, then floors it at
-  its minimum rate). Between them they are the evidence that these are different questions rather than
-  one number twice. `fertilizerSpreader_lime.json` caught a work area **active but not processing**,
-  with the rate still present, which is why the gate is `getIsWorkAreaActive`: gated on processing,
-  that machine would blink its rate away several times a second while visibly spreading.
-
-  **Confirmed on a joined multiplayer client**, on a Vredo and on a pulse-width-modulation liquid
-  fertilizer sprayer, in both modes, matching the in-game HUD each time. This is **not** what was
-  predicted here: a client was expected to compute zero in auto on a PWM boom, since the sub-section
-  data PF averages the deficit over is refreshed inside `ExtendedSprayer:onUpdate`'s `if self.isServer`
-  block. The prediction missed that the same block sets `isPrecisionFarmingDataUncovered`, so on a
-  client the auto branch's `if not dataUncovered then changeValue = getDefaultNitrogenStateChange()`
-  replaces the average with a real default. A client therefore reads PF's default-derived figure
-  rather than the server's deficit-derived one — and agrees with PF's own HUD on that client, which is
-  the agreement the mod promises. Whether a client's number equals the server's authoritative pass is
-  PF's own property, not something exporting it introduces.
 - **PF's third keybind is not mirrored.** In auto with no crop in the ground, `TOGGLE_SEEDS` cycles
   which fruit the tool fertilises *for* (`setSprayAmountDefaultFruitRequirementIndex`, off
-  `nApplyAutoModeFruitRequirementDefaultIndex`). It changes the auto target, so it belongs next to
-  these two if auto mode is ever given more than a badge — and it would need the fruit list exported,
-  which nothing does today.
+  `nApplyAutoModeFruitRequirementDefaultIndex`). It changes the auto target, so it belongs beside the
+  auto toggle and the step if auto mode is ever given more than a badge — and it would need the fruit
+  list exported, which nothing does today.
 - **The step is a rig-wide command.** It addresses whatever PF calls the rig's valid sprayer rather
   than a slot, so a hypothetical rig with two PF machines is driven as one. That is PF's own model
   (`getValidSprayerToUse` returns the first valid machine), and a rig you would tow two sprayers on is
@@ -613,9 +539,11 @@ captures contains a machine that has them.
   which here are the two DSEG faces plus the default — and that default does not cover Geometric Shapes
   or Dingbats. `▲ ▼ ✕` therefore came out as boxes in the finance sort headers, the invoice direction
   mark and the builder's remove button (fixed 2026-08-11 by using Material `Icon`s, which are vectors
-  and depend on no font at all). `SectionView`'s `"$level → $target"` rate readout is confirmed to have
-  it too and has an issue of its own — it is a character inside a sentence rather than a standalone
-  mark, so it wants a different answer. Latin-1 and General Punctuation are fine — `— · × − …` are used
+  and depend on no font at all). `SectionView`'s `"$level → $target"` rate readout had it too, and
+  needed a different answer because the arrow sits *inside* a sentence rather than standing alone:
+  fixed 2026-08-13 with `InlineTextContent`, which hosts the `Icon` while keeping the line a single
+  `Text` — so it still ellipsizes as one thing in a narrow tile, which a `Row` of three pieces would
+  not. Latin-1 and General Punctuation are fine — `— · × − …` are used
   throughout and render. The rule: **a mark that carries meaning is an `Icon`, not a character.** If a
   new glyph is genuinely needed as text, look at it in a browser before shipping it.
 
