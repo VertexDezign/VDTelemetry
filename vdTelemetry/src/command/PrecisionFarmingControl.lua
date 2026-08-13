@@ -82,9 +82,12 @@ function VDT.PrecisionFarmingControl.setSprayAmountStep(vehicle, step, debugger)
     return
   end
   -- Rounded because the value indexes PF's level tables and is written to the wire as an unsigned
-  -- int; PF clamps it to the machine's own min/max from there.
-  sprayer:setSprayAmountManualValue(math.floor(step + 0.5))
-  debugger:debug("setSprayAmountManualValue(%s)", tostring(step))
+  -- int; PF clamps it to the machine's own min/max from there. Logged as the rounded value, which is
+  -- what was actually sent -- a diagnostic naming the input rather than the command is one indirection
+  -- away from the machine's behaviour, which is the thing it exists to explain.
+  local target = math.floor(step + 0.5)
+  sprayer:setSprayAmountManualValue(target)
+  debugger:debug("setSprayAmountManualValue(%d)", target)
 end
 
 -- Command handlers (see CommandRegistry).

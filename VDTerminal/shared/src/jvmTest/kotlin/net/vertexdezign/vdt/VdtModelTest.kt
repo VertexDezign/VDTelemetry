@@ -8,6 +8,7 @@ import net.vertexdezign.vdt.model.FillDisplayType
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.MotorState
+import net.vertexdezign.vdt.model.PfMode
 import net.vertexdezign.vdt.model.PipeState
 import net.vertexdezign.vdt.model.PlowSide
 import net.vertexdezign.vdt.model.SprayCategory
@@ -844,6 +845,71 @@ class VdtModelTest {
     // the work reports for itself — so nothing is lost by withholding the broken subtree.
     assertEquals("LIQUIDMANURE", assertNotNull(vredo.fillUnits?.fillUnit?.single()).type)
     assertEquals("LIQUIDMANURE", assertNotNull(vredo.implement.single().spraying).fillType)
+  }
+
+  @Test
+  fun theRecapturedRigsCarryTheManualApplicationRate() {
+    // The first captures taken since mod VERSION 11 added `precisionFarming.manual` and
+    // `canToggleAuto` — three of the eleven in this folder, so the other eight are still version 9
+    // and have no manual block to read. That is the whole reason these two are asserted here rather
+    // than the shape being left to `SectionViewModelTest`'s inline JSON.
+    val vredo = capture("telemetry/precisionFarming/vredoLiquidManure_discHarrow.json")
+    assertEquals("11", vredo.version)
+
+    val methys =
+      assertNotNull(
+        vredo.vehicle
+          ?.implement
+          ?.single()
+          ?.precisionFarming,
+      )
+    assertTrue(methys.auto)
+    assertTrue(methys.canToggleAuto, "every shipped machine lets the player leave auto")
+
+    // The step is an index into PF's level tables and says nothing on its own, so the mod converts it
+    // twice: `change` in the units the nitrogen readout already speaks, `rate` in the product it
+    // costs — quoted in m³/ha here because a slurry tanker is what PF measures in cubic metres.
+    val manual = assertNotNull(methys.manual)
+    assertEquals(4, manual.step)
+    assertEquals(1, manual.min)
+    assertEquals(45, manual.max)
+    assertEquals(20f, manual.change)
+    assertEquals(5f, manual.rate)
+    assertEquals("m³/ha", manual.rateUnit)
+    // Well inside the machine's own range, so both ends of the step control are live.
+    assertTrue(manual.canStep(1))
+    assertTrue(manual.canStep(-1))
+
+    // Herbicide on the Rogator, which is the negative half of the contract: PF keeps no rates in that
+    // mode, so the mod withholds the step even though the machine still stores one. `canToggleAuto`
+    // is unaffected — the mode switch exists on a machine with nothing to apply it to.
+    val boom = assertNotNull(capture("telemetry/precisionFarming/selfDrivingSprayer.json").vehicle?.precisionFarming)
+    assertEquals(PfMode.OTHER, boom.mode)
+    assertEquals(null, boom.manual)
+    assertTrue(boom.canToggleAuto)
+
+    // The barrel rig, recaptured after the substitution was moved onto PF's own `getIsVehicleValid`.
+    // The Kaweco Profi II is sold *without* a spreading tool and declares no `<workAreas>` at all, so
+    // PF rejects it as the rig's sprayer and the mod hands it the Bomech's numbers — identical step,
+    // identical reading, which is the substitution PF's own HUD makes.
+    //
+    // Reading `spec_manureBarrel.attachedTool` instead, which is what this first shipped doing, never
+    // fired here: that field needs `manureBarrel#attacherJointIndex`, an attribute whose job is to
+    // silence work areas this machine does not have, so its absence from the XML is correct.
+    val kaweco =
+      assertNotNull(capture("telemetry/precisionFarming/liquidManure_dribbleBar.json").vehicle?.implement?.single())
+    val barrel = assertNotNull(kaweco.precisionFarming)
+    val bomech = assertNotNull(assertNotNull(kaweco.implement.single()).precisionFarming)
+    assertEquals(false, barrel.auto)
+    assertEquals(2, assertNotNull(barrel.manual).step)
+    assertEquals(110f, assertNotNull(barrel.primary).level)
+    assertEquals(barrel.manual, bomech.manual)
+    assertEquals(barrel.primary, bomech.primary)
+
+    // What the barrel does NOT take is the per-slice strip: its `index` joins to work areas the
+    // barrel does not own, so the numbers travel and the strip stays with the machine it describes.
+    assertTrue(barrel.workAreas.isEmpty())
+    assertEquals(1, bomech.workAreas.size)
   }
 
   @Test

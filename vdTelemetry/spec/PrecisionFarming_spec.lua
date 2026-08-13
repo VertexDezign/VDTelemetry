@@ -450,6 +450,42 @@ describe("PrecisionFarming barrel with an attached tool", function()
     return spec
   end
 
+  local function areas()
+    return { workAreas = { { index = 1, numSubSections = 1, subSectionData = { { isValid = true } } } } }
+  end
+
+  ---PF's env, with the two statics the substitution goes through. Both mirror the shipped source
+  ---rather than approximating it: `getIsVehicleValid` rejects a machine with no ExtendedSprayer spec,
+  ---no work areas, or a manure barrel holding an `attachedTool`, and `getValidSprayerToUse` returns
+  ---the first machine on the rig that passes. Getting these wrong is what the bug was.
+  ---@param rig table[] the rig in hitch order, as PF's rootVehicle.childVehicles
+  local function pfEnv(rig)
+    local function isValid(vehicle)
+      if type(vehicle[VDT.PrecisionFarming.SPRAYER_SPEC]) ~= "table" then
+        return false
+      end
+      local workArea = vehicle.spec_workArea
+      if type(workArea) ~= "table" or #(workArea.workAreas or {}) == 0 then
+        return false
+      end
+      local barrel = vehicle.spec_manureBarrel
+      return type(barrel) ~= "table" or barrel.attachedTool == nil
+    end
+    rawset(_G, "FS25_precisionFarming", {
+      ExtendedSprayer = {
+        getIsVehicleValid = isValid,
+        getValidSprayerToUse = function()
+          for _, vehicle in ipairs(rig) do
+            if isValid(vehicle) then
+              return vehicle
+            end
+          end
+          return nil
+        end,
+      },
+    })
+  end
+
   before_each(function()
     rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
     rawset(_G, "MathUtil", {
@@ -463,31 +499,49 @@ describe("PrecisionFarming barrel with an attached tool", function()
   after_each(function()
     rawset(_G, "g_modIsLoaded", nil)
     rawset(_G, "MathUtil", nil)
+    rawset(_G, "FS25_precisionFarming", nil)
   end)
 
   it("reports the tool's rates, which is what the game's own HUD does", function()
-    -- The barrel's own spec is a set of zeroes that never move: the base game shuts its work areas off
-    -- while a tool is attached, so PF never refreshes it. Reading it gave a mode and no readings --
-    -- exactly what examples/json/telemetry/precisionFarming/liquidManure_dribbleBar.json caught.
-    local tool = {
-      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(),
-      spec_workArea = { workAreas = { { index = 1, numSubSections = 1, subSectionData = { { isValid = true } } } } },
-    }
+    -- The Kaweco Profi II, from examples/json/telemetry/precisionFarming/liquidManure_dribbleBar.json:
+    -- a barrel sold WITHOUT a spreading tool, so it declares no work areas at all and its own spec is
+    -- a set of zeroes that never move. It fails PF's third check and never reaches the barrel one --
+    -- which is why reading `spec_manureBarrel.attachedTool` (nil here, and correctly so) missed it.
+    local tool = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(), spec_workArea = areas() }
     local barrel = {
       [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ isFertilizing = false, nActualValue = 0, nTargetValue = 0 }),
-      spec_manureBarrel = { attachedTool = tool },
+      spec_manureBarrel = { attachedTool = nil },
     }
+    pfEnv({ barrel, tool })
 
     local pf = VDT.PrecisionFarming.collectSprayer(barrel)
     assert.are.equal("FERTILIZER", pf.mode)
     assert.are.same({ level = 45, target = 90, unit = "kg/ha" }, pf.nitrogen)
   end)
 
+  it("substitutes for a barrel that does declare its tool, the same way", function()
+    -- The other half of the family: a barrel with work areas of its own, which the base game silences
+    -- while a tool is attached (`ManureBarrel:getIsWorkAreaActive`). PF rejects it on the fourth
+    -- check instead of the third -- a different route to the same answer, which is the point of
+    -- asking PF rather than testing for one of them.
+    local tool = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(), spec_workArea = areas() }
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ isFertilizing = false, nActualValue = 0, nTargetValue = 0 }),
+      spec_workArea = areas(),
+      spec_manureBarrel = { attachedTool = tool },
+    }
+    pfEnv({ barrel, tool })
+
+    assert.are.same({ level = 45, target = 90, unit = "kg/ha" }, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen)
+  end)
+
   it("keeps its own reading once the tool is unhitched", function()
     local barrel = {
       [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ nActualValue = 6 }),
+      spec_workArea = areas(),
       spec_manureBarrel = { attachedTool = nil },
     }
+    pfEnv({ barrel })
     assert.are.equal(90, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen.level)
   end)
 
@@ -495,27 +549,42 @@ describe("PrecisionFarming barrel with an attached tool", function()
     -- `index` joins to the *object's* own workAreas, so a borrowed strip would sit on the barrel and
     -- index the tool's areas: a join that reads fine and is wrong. The readout is what the barrel
     -- needs; the tool still exports the strip against the areas it belongs to.
-    local tool = {
-      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(),
-      spec_workArea = { workAreas = { { index = 1, numSubSections = 1, subSectionData = { { isValid = true } } } } },
-    }
+    local tool = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(), spec_workArea = areas() }
     local barrel = {
       [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(),
       spec_manureBarrel = { attachedTool = tool },
       spec_workArea = { workAreas = { { index = 1 } } },
     }
+    pfEnv({ barrel, tool })
     assert.is_nil(VDT.PrecisionFarming.collectSprayer(barrel).workAreas)
     assert.is_not_nil(VDT.PrecisionFarming.collectSprayer(tool).workAreas)
   end)
 
-  it("ignores an attached tool that is no PF sprayer", function()
-    -- Not everything hitched to a barrel is an applicator; without the spec there is nothing to
-    -- borrow, and the barrel's own reading is still the best answer available.
+  it("keeps its own reading when the rig has nothing better to offer", function()
+    -- Not everything hitched to a barrel is an applicator. PF finds no valid sprayer on the rig at
+    -- all, and the barrel's own reading is still the best answer available.
     local barrel = {
       [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ nActualValue = 6 }),
       spec_manureBarrel = { attachedTool = { name = "a trailer" } },
     }
+    pfEnv({ barrel, { name = "a trailer" } })
     assert.are.equal(90, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen.level)
+  end)
+
+  it("substitutes nothing when PF's internals cannot be reached", function()
+    -- No env, so `getIsVehicleValid` is unreachable and the answer is unknown rather than false. A
+    -- PF rename must cost the substitution, never redirect a readout onto a machine we guessed at.
+    local barrel = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ nActualValue = 6 }) }
+    assert.are.equal(90, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen.level)
+  end)
+
+  it("never gives a machine that is no PF sprayer the rates of the tool behind it", function()
+    -- The gate is the object's OWN spec, checked before any substitution: a tractor pulling the rig
+    -- would otherwise inherit the applicator's readout and draw a rate panel on the cab.
+    local tool = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(), spec_workArea = areas() }
+    local tractor = { name = "the tractor in front" }
+    pfEnv({ tractor, tool })
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(tractor))
   end)
 end)
 

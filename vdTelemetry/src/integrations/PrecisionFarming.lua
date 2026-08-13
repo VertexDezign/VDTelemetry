@@ -455,11 +455,18 @@ local function massPerLiter(fillType)
   if type(fillType) ~= "number" or type(g_fillTypeManager) ~= "table" then
     return nil
   end
+  -- The scale is checked before it is divided by, like every other read here: nothing in this file is
+  -- allowed to raise, because the object hooks run un-pcall'd inside the vehicle walk (registry.lua)
+  -- and an error thrown here would cost the whole export, not just the rate.
+  local scale = type(FillTypeManager) == "table" and FillTypeManager.MASS_SCALE or nil
+  if type(scale) ~= "number" or scale == 0 then
+    return nil
+  end
   local ok, desc = pcall(g_fillTypeManager.getFillTypeByIndex, g_fillTypeManager, fillType)
   if not ok or type(desc) ~= "table" or type(desc.massPerLiter) ~= "number" then
     return nil
   end
-  return desc.massPerLiter / FillTypeManager.MASS_SCALE
+  return desc.massPerLiter / scale
 end
 
 ---Call one of a value map's rate methods, fail-soft like every other read of PF's internals.
@@ -552,30 +559,55 @@ local function collectManual(object, spec, mode)
   }
 end
 
----The machine whose ExtendedSprayer spec says what `object` is applying -- itself, or the tool hitched
----to it.
----
----A slurry tanker with a dribble bar or an injecting disc harrow on the back applies nothing itself.
----The base game shuts its work areas off while one is attached (`ManureBarrel:getIsWorkAreaActive`
----returns false when `attachedTool` is set) and PF agrees twice over: `getIsVehicleValid` refuses the
----barrel as the rig's sprayer, and `getShowExtendedSprayerHudExtension` hides the barrel's own HUD so
----the tool's is drawn instead.
----
----Its spec is then a set of zeroes that never move -- which is exactly what the terminal showed,
----because the barrel is the implement a rig panel finds and the machine holding the live readings
----hangs one level below it, where no slot looks. `examples/json/telemetry/precisionFarming/` has both
----halves of this: the Kaweco barrel reports a mode and no readings, the Bomech behind it reports the
----rates.
----
----So the barrel reports the tool's rates -- the same substitution the game's own HUD makes. One hop,
----because one hop is all PF models.
+---Whether PF would accept this machine as the one applying -- its own `getIsVehicleValid`, a static on
+---the spec class like `getValidSprayerToUse`. Nil when PF's internals can't be reached, which the
+---caller treats as "don't substitute" rather than guessing.
 ---@param object table a vehicle or implement
+---@return boolean|nil
+local function isValidSprayer(object)
+  local extended = pfClass("ExtendedSprayer")
+  if extended == nil or type(extended.getIsVehicleValid) ~= "function" then
+    return nil
+  end
+  local ok, valid = pcall(extended.getIsVehicleValid, object)
+  if not ok then
+    return nil
+  end
+  return valid == true
+end
+
+---The machine whose ExtendedSprayer spec says what `object` is applying -- itself, or the machine on
+---the rig PF would actually drive.
+---
+---A slurry tanker with a dribble bar or an injecting disc harrow on the back applies nothing itself,
+---so its spec is a set of zeroes that never move -- which is exactly what the terminal showed, because
+---the barrel is the implement a rig panel finds and the machine holding the live readings hangs one
+---level below it, where no slot looks.
+---
+---**The question is PF's to answer, not ours.** `getIsVehicleValid` is the single predicate its HUD,
+---its keybinds and `getValidSprayerToUse` all gate on, and it rejects a machine four ways: no
+---ExtendedSprayer spec, no WorkArea spec, **no work areas at all**, or a manure barrel with
+---`attachedTool` set. Only the last is the barrel exception, and reading it directly -- which this
+---first shipped doing -- misses every barrel that reaches the same state by another route.
+---
+---The Kaweco Profi II is exactly that machine: sold *without* a spreading tool
+---(`$l10n_function_slurrySpreaderWithoutTool`), it declares no `<workAreas>` whatever, so it fails the
+---third check and never needs the fourth. It also declares no `manureBarrel#attacherJointIndex` -- and
+---correctly so, since that attribute exists to silence work areas it does not have -- leaving
+---`attachedTool` permanently nil. Delegating fixes the whole family at once, and makes this agree with
+---PrecisionFarmingControl, which has resolved the rig through PF's own walk since it shipped.
+---
+---The caller has already established that `object` is a PF sprayer, so this only ever moves *between*
+---applicators; a tractor is filtered out before it gets here.
+---@param object table a vehicle or implement carrying the ExtendedSprayer spec
 ---@return table the machine to read the rates off
 local function rateSource(object)
-  local barrel = object.spec_manureBarrel
-  local tool = type(barrel) == "table" and barrel.attachedTool or nil
-  if type(tool) == "table" and type(tool[VDT.PrecisionFarming.SPRAYER_SPEC]) == "table" then
-    return tool
+  if isValidSprayer(object) ~= false then
+    return object
+  end
+  local sprayer = VDT.PrecisionFarming.validSprayer(object)
+  if type(sprayer) == "table" and type(sprayer[VDT.PrecisionFarming.SPRAYER_SPEC]) == "table" then
+    return sprayer
   end
   return object
 end
@@ -594,8 +626,13 @@ function VDT.PrecisionFarming.collectSprayer(object)
   if not VDT.PrecisionFarming.isActive() then
     return nil
   end
-  -- Every read below is off `source`, not `object`: on a barrel with a tool hitched to it they are
-  -- different machines, and the tool is the one PF keeps the rates on. See rateSource.
+  -- The gate is the object's OWN spec: only a PF sprayer/spreader reports rates, and it has to be
+  -- checked before any substitution or a tractor would inherit the rates of the tool behind it.
+  if type(object[VDT.PrecisionFarming.SPRAYER_SPEC]) ~= "table" then
+    return nil
+  end
+  -- Every read below is off `source`, not `object`: on a barrel that applies nothing itself they are
+  -- different machines, and the one behind it is what PF drives. See rateSource.
   local source = rateSource(object)
   local spec = source[VDT.PrecisionFarming.SPRAYER_SPEC]
   if type(spec) ~= "table" then

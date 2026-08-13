@@ -48,6 +48,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SectionView
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
+import net.vertexdezign.vdt.app.components.ownRates
 import net.vertexdezign.vdt.app.components.sectionMember
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
@@ -176,10 +177,11 @@ private fun Vehicle.slotState() = RigSlotState(
   // Cargo only. The engine's own fuel/def/air stay with the engine readout, next to the rates.
   fillUnits = fillUnits?.fillUnit ?: emptyList(),
   // A self-propelled sprayer carries its own boom, so the vehicle slot shows a section view exactly
-  // as an implement slot does.
+  // as an implement slot does. A prime mover does not: the mod hands it the rates of the tool it is
+  // driving, and that tool has a slot of its own to show them in. See [ownRates].
   workWidth = workWidth,
   workAreas = workAreas,
-  precisionFarming = precisionFarming,
+  precisionFarming = ownRates(this),
 )
 
 private fun Implement.slotState(): RigSlotState {

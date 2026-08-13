@@ -350,6 +350,32 @@ class SectionViewTest {
   }
 
   @Test
+  fun aPrimeMoverDoesNotRedrawTheRatesOfTheToolItIsDriving() {
+    // The Vredo VT5536 with an injecting disc harrow, which is where this was reported. The mod's
+    // `rateSource` gives a machine that applies nothing itself the rates of the one it is driving, so
+    // the vehicle's block is byte-for-byte the harrow's — and the harrow is hitched at BACK with a
+    // slot of its own, so both tiles drew the same reading and the same live step buttons.
+    val rates = PrecisionFarming(mode = PfMode.FERTILIZER, nitrogen = PfValue(205f, 220f, "kg/ha"))
+    val harrow = Implement(position = "BACK", workAreas = listOf(area()), precisionFarming = rates)
+    val vredo = Vehicle(precisionFarming = rates, implement = listOf(harrow))
+    assertNull(ownRates(vredo))
+    // The tool keeps them, so the rig still shows the rates exactly once.
+    assertEquals(rates, sectionMember(harrow).precisionFarming)
+
+    // A self-propelled sprayer works its own ground, so it keeps them: the Rogator's own SPRAYER
+    // area is what separates the two, never the PF block, which is the thing that may be borrowed.
+    val rogator = Vehicle(workAreas = listOf(area()), precisionFarming = rates)
+    assertEquals(rates, ownRates(rogator))
+    // Shutoff sections count the same way work areas do, as everywhere else in this view.
+    val sectioned =
+      Vehicle(workWidth = WorkWidth(sections = listOf(WorkSection(active = true))), precisionFarming = rates)
+    assertEquals(rates, ownRates(sectioned))
+
+    // Nothing to borrow is still nothing to draw.
+    assertNull(ownRates(Vehicle(workAreas = listOf(area()))))
+  }
+
+  @Test
   fun namesTheModeFromTheModeFlag() {
     val manual = PfManual(step = 3, min = 1, max = 7)
     assertEquals("AUTO", modeLabel(auto = true, manual = null))

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
@@ -327,6 +329,10 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue, onCommand: ((Clien
       color = VdtColors.DarkGray,
     )
     val ink = if (value.deficit > 0f) VdtColors.Amber else VdtColors.Green
+    // Kept across recompositions: the figures either side of it change several times a second while
+    // the colour changes only when the reading crosses its target, so rebuilding the slot with them
+    // would rebuild a composable-holding map on every frame the numbers move.
+    val arrow = remember(ink) { mapOf(ARROW_SLOT to arrowGlyph(ink)) }
     Text(
       rateText(figures),
       fontSize = READOUT_TEXT_SIZE,
@@ -334,7 +340,7 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue, onCommand: ((Clien
       color = ink,
       maxLines = 1,
       overflow = TextOverflow.Ellipsis,
-      inlineContent = mapOf(ARROW_SLOT to arrowGlyph(ink)),
+      inlineContent = arrow,
       modifier = Modifier.weight(1f),
     )
     // What the pass costs in product, which is the number PF's own HUD leads with — and the one a
@@ -388,13 +394,11 @@ private fun RateModeControls(pf: PrecisionFarming, manual: PfManual?, onCommand:
       modifier = Modifier
         .clip(RoundedCornerShape(3.dp))
         .then(if (toggle != null) Modifier.background(VdtColors.TrackGray) else Modifier)
-        .then(
-          if (toggle == null) {
-            Modifier
-          } else {
-            Modifier.clickable { toggle(ClientMessage.SetSprayAmountAuto(!pf.auto)) }
-          },
-        )
+        // Disabled rather than absent, so the chip is announced as a switch that is currently locked
+        // instead of as a word — the same distinction the greyed step buttons make visually.
+        .clickable(enabled = toggle != null, role = Role.Button) {
+          toggle?.invoke(ClientMessage.SetSprayAmountAuto(!pf.auto))
+        }
         .padding(horizontal = 3.dp, vertical = 1.dp),
     )
     if (manual != null) {
@@ -426,7 +430,10 @@ private fun StepButton(
       .size(18.dp)
       .clip(RoundedCornerShape(3.dp))
       .background(VdtColors.TrackGray)
-      .then(if (live) Modifier.clickable { onCommand(message()) } else Modifier)
+      // At the machine's limit the button stays in place and stops responding, rather than losing its
+      // click handler entirely: `enabled` says "this is a button, and it is not available", which is
+      // the same thing the grey tint says to everyone who can see it.
+      .clickable(enabled = live, role = Role.Button) { onCommand?.invoke(message()) }
       .padding(2.dp),
   )
 }
@@ -625,6 +632,28 @@ internal fun sectionMember(implement: Implement): Implement {
 private fun Implement.showsSectionView(): Boolean = workAreas.isNotEmpty() ||
   workWidth?.sections?.isNotEmpty() == true ||
   precisionFarming?.primary != null
+
+/**
+ * The Precision Farming rates a **vehicle** slot should draw — its own, or none at all.
+ *
+ * [sectionMember] walks *down* a hitched chain to find the machine doing the work. This is the same
+ * question asked at the top of the rig, and it has to be asked separately because the mod answers it
+ * before the app ever sees the data: `rateSource` hands a machine that applies nothing itself the
+ * rates of the one it is driving, so on a Vredo VT5536 with an injecting disc harrow the vehicle's
+ * `precisionFarming` block is byte-for-byte the harrow's.
+ *
+ * That substitution is right for a barrel, whose tool is nested and has no slot to be shown in. It is
+ * wrong here: the harrow is hitched at BACK and has a slot of its own, so drawing the borrowed block
+ * on the vehicle tile too puts the same reading — and the same live step buttons — on screen twice.
+ *
+ * So the vehicle keeps the rates only when it is doing the work: a self-propelled sprayer with its own
+ * boom (the Rogator's `SPRAYER` work area) shows them, a prime mover for somebody else's tool does
+ * not. Work areas and shutoff sections are the test, never the PF block itself — that block is exactly
+ * the thing that may have been borrowed.
+ */
+internal fun ownRates(vehicle: Vehicle): PrecisionFarming? = vehicle.precisionFarming?.takeIf {
+  vehicle.workAreas.isNotEmpty() || vehicle.workWidth?.sections?.isNotEmpty() == true
+}
 
 /**
  * The one boom on a rig, and the facts a map strip draws from it.

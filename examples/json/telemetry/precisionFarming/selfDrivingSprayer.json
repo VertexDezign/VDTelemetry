@@ -1,8 +1,7 @@
 {
   "vehicle": {
-    "brand": {
-      "name": "FENDT",
-      "title": "Fendt"
+    "ai": {
+      "active": false
     },
     "workAreas": [
       {
@@ -12,20 +11,20 @@
         "processing": false,
         "unit": "m",
         "shape": [
-          0.43502,
-          0.61012,
-          0.42351,
-          0.61653,
-          0.43479,
-          0.6097
+          0.43501,
+          0.61008,
+          0.42348,
+          0.61647,
+          0.43478,
+          0.60966
         ],
-        "width": 26.99
+        "width": 27
       }
     ],
     "workWidth": {
-      "total": 0,
-      "rightMax": -13.5,
-      "right": -13.5,
+      "total": 27,
+      "rightMax": 13.5,
+      "right": 13.5,
       "sections": [
         {
           "side": "LEFT",
@@ -68,18 +67,6 @@
       "leftMax": 13.5,
       "left": 13.5,
       "unit": "m"
-    },
-    "fillUnits": {
-      "fillUnit": [
-        {
-          "type": "HERBICIDE",
-          "title": "Herbizid",
-          "fillLevelPercentage": 100,
-          "value": 4162.386,
-          "capacity": 4164,
-          "unit": "l"
-        }
-      ]
     },
     "precisionFarming": {
       "auto": true,
@@ -188,6 +175,7 @@
           ]
         }
       ],
+      "canToggleAuto": true,
       "mode": "OTHER",
       "nozzles": {
         "count": 71,
@@ -342,8 +330,36 @@
       },
       "spotSpray": true
     },
+    "fillUnits": {
+      "fillUnit": [
+        {
+          "type": "HERBICIDE",
+          "title": "Herbizid",
+          "fillLevelPercentage": 100,
+          "value": 4162.386,
+          "capacity": 4164,
+          "unit": "l"
+        }
+      ]
+    },
     "selection": {
       "selected": true
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
     },
     "speed": {
       "value": 0,
@@ -359,10 +375,7 @@
       "unit": "h"
     },
     "isTurnedOn": false,
-    "type": "selfPropelledSprayer",
-    "ai": {
-      "active": false
-    },
+    "lowered": false,
     "spraying": {
       "allowsSpraying": true,
       "active": false,
@@ -374,7 +387,6 @@
       "sprayType": "HERBICIDE",
       "doubledAmount": false
     },
-    "foldable": "EXTENDED",
     "discharge": {
       "fillUnitIndex": 1,
       "hasObject": false,
@@ -383,6 +395,27 @@
       "nodeIndex": 1,
       "hitTerrain": false
     },
+    "steering": {
+      "mode": {
+        "count": 4,
+        "layout": "ALL_WHEEL",
+        "name": "Allradlenkung",
+        "index": 1
+      }
+    },
+    "foldable": "EXTENDED",
+    "brand": {
+      "name": "FENDT",
+      "title": "Fendt"
+    },
+    "type": "selfPropelledSprayer",
+    "name": "Fendt Rogator 932",
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 2,
+      "unit": "%"
+    },
     "gps": {
       "enabled": false,
       "heading": 150,
@@ -390,8 +423,6 @@
       "active": false,
       "headingUnit": "°"
     },
-    "lowered": false,
-    "name": "Fendt Rogator 932",
     "motor": {
       "state": "OFF",
       "direction": "FORWARD",
@@ -446,28 +477,6 @@
         "unit": "°C"
       }
     },
-    "wearable": {
-      "wear": 0,
-      "damage": 0,
-      "dirt": 2,
-      "unit": "%"
-    },
-    "lights": {
-      "beaconLight": false,
-      "indicator": {
-        "right": false,
-        "left": false,
-        "hazard": false
-      },
-      "workLight": {
-        "front": false,
-        "back": false
-      },
-      "light": {
-        "highBeam": false,
-        "lowBeam": false
-      }
-    },
     "schema": {
       "name": "VEHICLE",
       "borderLeft": 0.05,
@@ -476,25 +485,25 @@
       "offsetX": 0.5
     }
   },
-  "version": "9",
+  "version": "11",
   "environment": {
     "date": "01.08.2024",
     "weather": {
       "temperature": {
-        "min": 24,
-        "current": 32,
-        "max": 34,
+        "min": 15,
+        "current": 23,
+        "max": 24,
         "unit": "°C"
       }
     },
-    "time": "12:22",
+    "time": "17:23",
     "pda": {
       "height": 2048,
       "player": {
         "heading": 150,
-        "posX": 0.43001315742731,
+        "posX": 0.42999274283648,
         "farmId": 1,
-        "posZ": 0.61466106027365,
+        "posZ": 0.61461791396141,
         "headingUnit": "°"
       },
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",

@@ -12,8 +12,11 @@ import kotlin.test.assertTrue
  * The section view (mod VERSION 8): the shutoff sections on `workWidth`, the `workAreas` each object
  * carries, and the Precision Farming rates hanging off the tool doing the work.
  *
- * Inline JSON rather than the `examples/json` captures: those are real, and none was taken since the
- * bump. The mod's side of the same contract is `spec/WorkAreas_spec.lua` and
+ * Inline JSON rather than the `examples/json` captures, because most of the shapes here are ones no
+ * committed capture holds — a machine at its step limit, a modded work-area token, a client without
+ * the strip. The three captures that were retaken at mod VERSION 11 pin the manual rate against real
+ * game data in `VdtModelTest.theRecapturedRigsCarryTheManualApplicationRate`; what is inline here is
+ * the rest of the contract around it. The mod's side is `spec/WorkAreas_spec.lua` and
  * `spec/PrecisionFarming_spec.lua`.
  */
 class SectionViewModelTest {
@@ -213,9 +216,15 @@ class SectionViewModelTest {
     // A control steps within the machine's bounds and never past them — though the mod's setter
     // clamps anyway, because the bounds move with the fill type.
     assertTrue(manual.canStep(1))
+    assertTrue(manual.canStep(-1))
     assertEquals(4, manual.stepped(1))
+    assertEquals(2, manual.stepped(-1))
+    // Both ends, because both buttons grey out: at the top the machine has no more to give, and at
+    // the bottom the minimum is a real step rather than "off" — PF's floor is 1, not 0.
     assertEquals(7, manual.copy(step = 7).stepped(1))
     assertFalse(manual.copy(step = 7).canStep(1))
+    assertEquals(1, manual.copy(step = 1).stepped(-1))
+    assertFalse(manual.copy(step = 1).canStep(-1))
   }
 
   @Test

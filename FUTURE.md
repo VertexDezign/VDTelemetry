@@ -517,9 +517,22 @@ drivable from the rig panel — auto/manual on the chip, the step on the two but
   server: no spec can reach that path.
 - **The barrel and its tool now report the same rates**, deliberately: whichever tile you have placed
   shows what the rig is applying, which is the substitution PF's own HUD makes. The barrel gives up
-  only the per-slice strip, whose `index` joins to work areas it does not own. Note this only fires
-  where the barrel's XML declares `manureBarrel#attacherJointIndex` — there is no default, so a barrel
-  omitting it never sets `attachedTool`. The app's chain walk covers that case from the other side.
+  only the per-slice strip, whose `index` joins to work areas it does not own.
+
+  **Corrected 2026-08-13.** This first shipped keying the substitution on
+  `spec_manureBarrel.attachedTool`, and the entry claimed it therefore only fired where the barrel's
+  XML declares `manureBarrel#attacherJointIndex`. Both the mechanism and the diagnosis were wrong.
+  `ExtendedSprayer.getIsVehicleValid` — the one predicate PF's HUD, its keybinds and
+  `getValidSprayerToUse` all gate on — rejects a machine four ways, and the barrel case is only the
+  last of them: no ExtendedSprayer spec, no `WorkArea` spec, **no work areas at all**, or a manure
+  barrel holding an `attachedTool`. The Kaweco Profi II is the third: sold *without* a spreading tool
+  (`$l10n_function_slurrySpreaderWithoutTool`, with the vibro / SD700 / Bomech multiProfi as its store
+  combinations), it declares no `<workAreas>` element whatever. Its missing
+  `manureBarrel#attacherJointIndex` is not an omission either — that attribute exists to silence work
+  areas this machine does not have. `rateSource` now asks PF instead of re-deriving the rule, which
+  also makes it agree with `PrecisionFarmingControl`, which has resolved the rig through PF's own walk
+  since it shipped. **`liquidManure_dribbleBar.json` predates the fix**: the Kaweco's block in it is
+  the barrel's own idle spec, and a fresh capture should show it carrying the Bomech's step.
 - **A nested implement has no slot of its own.** The mod reports the Bomech's `position` as an empty
   string, so `RigSlotPanel` can never address it directly; it is seen through its parent's tile or not
   at all. Fine for a section view, and the thing to fix properly whenever the rig diagram in the first
