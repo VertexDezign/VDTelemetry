@@ -397,31 +397,6 @@ measurement all shipped. One thing was left, and it is a trap rather than a feat
 
 ---
 
-## Farm-scoped channels (#78)
-
-`ExportChannels` owns one `PLAYER_FARM_CHANGED` subscription for the whole mod and marks every channel
-registered `farmScoped = true` dirty from it, and the local farm id has one resolver for the whole mod
-(`VDT.Farm.ownFarmId`, `src/utils/Farm.lua` — it used to live in `ProductionExporter` and, a second
-time, in `CropRotation`). What was decided along the way:
-
-- **`TaskList` deliberately does not use it** — it asks the other mod's own `getCurrentFarmId`, which is
-  the farm *that mod* thinks we are on.
-- **`map.json` and `fieldInfo.json` are deliberately NOT flagged**, though #78's own list named
-  `fieldInfo`. `map.json` names every farm and every farmland's owner by id and leaves "which of them is
-  us" to the app; `fieldInfo.json` samples its agronomy per position and keeps a field's owner in the
-  map channel. Neither document moves when the player switches farm — flagging `fieldInfo` would have
-  bought a full field sweep that changes nothing. `map` joins the list the day own-farm tinting happens
-  mod-side, `fieldInfo` the day an entry says whether *this* farm owns or leases the field.
-
-### In-game check nobody has run
-
-- **`taskList` and `cropRotation` refresh on a farm switch** — needs a **two-farm multiplayer session**,
-  since both only filter by farm id there. These are the two the flag actually rescues: neither has a
-  write interval, so before #78 they showed the previous farm's groups and rotations indefinitely.
-  Invoices was already correct and should stay correct (it is the same mechanism, moved).
-
----
-
 ## VDT-owned data
 
 Every write path today drives a *mod's* own state through its own multiplayer events; VDTelemetry
