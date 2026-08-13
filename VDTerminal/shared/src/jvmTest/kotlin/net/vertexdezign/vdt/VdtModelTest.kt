@@ -929,6 +929,70 @@ class VdtModelTest {
   }
 
   @Test
+  fun eachMachineKindIsWeighedInTheUnitPrecisionFarmingPrintsForIt() {
+    // PF quotes a rate in a different unit per kind of machine, and the mod mirrors that arithmetic
+    // rather than inventing one, so the terminal and the in-game display agree instead of merely
+    // both being plausible. These captures are the evidence, one machine per branch.
+    fun rates(name: String) =
+      assertNotNull(
+        capture("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+
+    // Solid fertilizer: weighed in kilos. Auto is putting down three times what step 2 would cost,
+    // because it is sizing the pass to a 90-against-120 deficit.
+    val solid = assertNotNull(rates("fertilizerSpreader.json").precisionFarming)
+    assertEquals(PfMode.FERTILIZER, solid.mode)
+    assertEquals(111.11f, solid.rate)
+    assertEquals("kg/ha", solid.rateUnit)
+    assertEquals(37.04f, assertNotNull(solid.manual).rate)
+    assertEquals("kg/ha", solid.manual.rateUnit)
+
+    // The same AgriSpread hopper carrying lime instead — and now it is weighed in tonnes. The unit
+    // follows what is in the tank, not what the machine is, exactly as PF's own `hasLimeLoaded`
+    // branch does: one machine, two materials, two units. Nothing about the hardware changed.
+    val lime = assertNotNull(rates("fertilizerSpreader_lime.json").precisionFarming)
+    assertEquals(PfMode.LIME, lime.mode)
+    assertEquals(4.38f, lime.rate)
+    assertEquals("t/ha", lime.rateUnit)
+    assertEquals(1.75f, assertNotNull(lime.manual).rate)
+    // The step moves pH by a quarter, which is the increment the readout speaks in that mode.
+    assertEquals(0.25f, lime.manual.change)
+    assertEquals(6.38f, assertNotNull(lime.primary).level)
+
+    // Manure: tonnes again, but decided by the machine this time rather than by the tank.
+    val manure = assertNotNull(rates("manureSpreader.json").precisionFarming)
+    assertEquals(5.71f, manure.rate)
+    assertEquals("t/ha", manure.rateUnit)
+    assertEquals(5f, assertNotNull(manure.manual).rate)
+    assertEquals("t/ha", manure.manual.rateUnit)
+  }
+
+  @Test
+  fun theLiveRateFollowsTheToolBeingDownRatherThanGroundChangingThisInstant() {
+    // The lime capture caught the exact moment the distinction matters: a work area is **active** —
+    // the spreader is lowered, in contact and driving forward — while none is **processing**, which
+    // is only true within 200 ms of ground actually changing.
+    val spreader =
+      assertNotNull(
+        capture("telemetry/precisionFarming/fertilizerSpreader_lime.json")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+    assertTrue(spreader.workAreas.any { it.active })
+    assertTrue(spreader.workAreas.none { it.processing })
+
+    // And the rate is there anyway, which is the whole reason the mod gates on `getIsWorkAreaActive`.
+    // Gated on processing, this machine would blink its rate away several times a second while
+    // visibly spreading — and gated on nothing, it would keep printing after the boom came up, which
+    // is what the in-game HUD does.
+    assertEquals(4.38f, assertNotNull(spreader.precisionFarming).rate)
+  }
+
+  @Test
   fun spreaderKindAndMaterialAreSeparateQuestions() {
     // A lime spreader: the hardware is a solid-fertilizer hopper (which is what decides the rate is
     // quoted in kg/ha), the material in it is lime. Collapsing the two would lose either the unit or

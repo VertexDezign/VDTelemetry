@@ -510,11 +510,13 @@ drivable from the rig panel — auto/manual on the chip, the step on the two but
   a rig slot drew only the head of a hitched chain, which on that rig is the machine with nothing to
   say. All three fixed and pinned, and the readout, the step and the m³/ha product rate were seen
   working on the barrel rig afterwards.
-- **Still unchecked:** that the product rate *agrees with PF's own HUD* rather than merely appearing —
-  the slurry m³/ha path is the only one known to be exercised at all, and the solid kg/ha, liquid l/ha
-  and manure t/ha paths have not been read side by side with the game. And a step from a
-  **multiplayer client**, where `setSprayAmountManualValue` sends `ExtendedSprayerAmountEvent` to the
-  server: no spec can reach that path.
+- **Four of the five unit paths now agree with PF's own HUD**, read side by side with the game and
+  captured: slurry m³/ha (Vredo, Kaweco), solid kg/ha and lime t/ha (the same AgriSpread hopper, which
+  is the pair that proves the unit follows the tank rather than the machine), and manure t/ha
+  (Bunning). **Only liquid l/ha is left** — a liquid fertilizer sprayer, the one branch of
+  `ratePerHectare` no capture has ever exercised.
+- **Still unchecked:** a step from a **multiplayer client**, where `setSprayAmountManualValue` sends
+  `ExtendedSprayerAmountEvent` to the server: no spec can reach that path.
 - **The barrel and its tool now report the same rates**, deliberately: whichever tile you have placed
   shows what the rig is applying, which is the substitution PF's own HUD makes. The barrel gives up
   only the per-slice strip, whose `index` joins to work areas it does not own.
@@ -544,12 +546,16 @@ drivable from the rig panel — auto/manual on the chip, the step on the two but
   machine: PF never clears the field, so a raised boom would otherwise keep reporting the pass that
   just ended. Deliberately not `getIsWorkAreaProcessing`, which flickers on a 200 ms window.
 
-  **Driven in singleplayer 2026-08-13** on the Vredo and the Kaweco rig, in both modes: the figure
-  agrees with PF's own HUD each time, and the reset when the work area goes inactive behaves. In-game
-  the HUD keeps showing the stale value there, so the terminal is the better readout of the two on
-  exactly the point this gate was added for. `vredoLiquidManure_discHarrow.json` is the capture worth
-  keeping in mind — in auto it is applying 10 m³/ha against a step-4 nominal of 5, which is the
-  evidence that the two rates are different questions rather than one number twice.
+  **Driven in singleplayer 2026-08-13** on the Vredo, the Kaweco rig, both AgriSpread loads and the
+  Bunning, in both modes: the figure agrees with PF's own HUD each time, and the reset when the work
+  area goes inactive behaves. In-game the HUD keeps showing the stale value there, so the terminal is
+  the better readout of the two on exactly the point this gate was added for.
+
+  Two captures are worth keeping in mind. `vredoLiquidManure_discHarrow.json` is applying 10 m³/ha in
+  auto against a step-4 nominal of 5 — the evidence that the two rates are different questions rather
+  than one number twice. `fertilizerSpreader_lime.json` caught a work area **active but not
+  processing**, with the rate still present, which is why the gate is `getIsWorkAreaActive`: gated on
+  processing, that machine would blink its rate away several times a second while visibly spreading.
 
   **Still open: a multiplayer client.** A zero is dropped rather than reported, which is what a client
   should compute on a pulse-width-modulation boom in auto, since PF averages the deficit over
