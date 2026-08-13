@@ -82,6 +82,7 @@ local sourceFiles = {
   "src/collect/FinanceExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
+  "src/integrations/AdvancedDamageSystem.lua",
   "src/integrations/registry.lua",
   "src/integrations/TaskList.lua",
   "src/integrations/CropRotation.lua",
@@ -189,7 +190,12 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 12: `precisionFarming.rate`/`rateUnit` — what is actually leaving the machine per hectare, in the
 --    same units. The rate PF's HUD leads with in AUTO, where the tool picks its own and no step
 --    describes it; absent whenever the boom is up, because PF never clears the field. See issue #77.
-VDTelemetry.VERSION = 12
+-- 13: `ads` — Advanced Damage System: the dashboard lamps it drives, where the machine is in its
+--     service interval, what the last inspection found, the pre-shift checks and system voltage. Also
+--     *changes* `motor.temperatur.value`, which is ADS's engine temperature when ADS is installed —
+--     the first correct engine temperature this mod has exported to a multiplayer client, since the
+--     vanilla figure is never synced. See issue #79.
+VDTelemetry.VERSION = 13
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

@@ -218,6 +218,22 @@ version renames costs you that panel, never a Lua error.
     * Differential
     * AWD
     * Parking Brake
+* [FS25_AdvancedDamageSystem](https://github.com/id577/FS25_AdvancedDamageSystem) — replaces the
+  vanilla damage model, and drives the cluster's warning lamps
+  (`src/integrations/AdvancedDamageSystem.lua`, `vehicle.ads`). **Read only:** every workshop
+  procedure stays in game, as with vanilla repair.
+    * The six dashboard lamps ADS drives, each with its severity — and only the lamps a machine of
+      that production year actually has
+    * The engine temperature, which **replaces** `motor.temperatur.value`. ADS's thermal model is the
+      real one under ADS, and the vanilla figure it stands in for is never synced to a multiplayer
+      client at all (`motorTemperature.valueSend` is dead code in the base game)
+    * A CVT's own transmission temperature, which ADS models separately
+    * The service interval — hours since the last maintenance, and the hours this machine's
+      manufacturer recommends between them
+    * The pre-shift checks (radiator, air intake, lubrication) in ADS's own inspection bands, and
+      system voltage
+    * What the last workshop inspection found. **Not** the live condition/stress/service values: ADS
+      hides those behind an inspection on purpose, so the terminal never knows more than the driver
 * [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) `1.2.0.1`
   ([source](https://github.com/Ozz-Modding/FS25_TaskList)) — the farm task list, in its own
   `taskList.json` channel (`src/integrations/TaskList.lua`). **Read and write:** VDTerminal can
