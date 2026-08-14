@@ -7,6 +7,7 @@ import net.vertexdezign.vdt.model.AdsService
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.Motor
 import net.vertexdezign.vdt.model.MotorFillUnits
+import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.Temperatur
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.Wearable
@@ -83,6 +84,21 @@ class TelltaleAdsTest {
     // blinksIn must not have quietly become "critical only" — the indicators were flashing first.
     assertTrue(Telltale.TurnLeft.blinksIn(Vehicle()))
     assertTrue(Telltale.TurnRight.blinksIn(withLamps(AdsLamps(engine = AdsLamp.OFF))))
+  }
+
+  @Test
+  fun theBulbCheckLightsBothHalvesOfTheBandTogether() {
+    // What ADS sends while the starter turns: every lamp the machine has, lit. The band's own check
+    // (see [lampCheck]) reads the same motor state out of the same sample, so the six and their
+    // neighbours come on and go out as one — a check timed here instead could have half the band
+    // still proving itself while the other half had gone back to reporting.
+    val cranking = Vehicle(
+      motor = Motor(state = MotorState.STARTING),
+      ads = Ads(lamps = AdsLamps(engine = AdsLamp.WARN, coolant = AdsLamp.WARN)),
+    )
+    assertTrue(lampCheck(cranking))
+    assertEquals(true, Telltale.EngineWarning.stateIn(cranking))
+    assertEquals(true, Telltale.Temperature.stateIn(cranking))
   }
 
   @Test

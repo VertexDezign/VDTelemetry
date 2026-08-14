@@ -10,11 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,8 +17,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import net.vertexdezign.vdt.model.AdsLamp
+import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.Vehicle
 
 /** Above this fraction of its own min..max span the coolant reads as overheating. */
@@ -284,7 +279,7 @@ fun needsAttention(vehicle: Vehicle): Boolean? = vehicle.wearable?.let { it.dama
 fun TelltaleBand(vehicle: Vehicle, lamps: List<Telltale>, modifier: Modifier = Modifier) {
   ClusterSurface(modifier) {
     val shown = lamps.mapNotNull { lamp -> lamp.readingIn(vehicle) }
-    val checking = lampCheck()
+    val checking = lampCheck(vehicle)
     // Only run the flasher when something is actually flashing. The pillar display is a screen that
     // stays awake on a clamped phone for a whole session, and an infinite transition nobody can see
     // is a wake-up every frame for the entire time you are not indicating.
@@ -363,33 +358,40 @@ private fun Lamp(reading: Reading, size: Dp, checking: Boolean, blink: (() -> Fl
 }
 
 /**
- * True for the first moment the band is on screen, which is what lights every lamp it has at once.
+ * Whether the band is doing its bulb check, which lights every lamp it has at once: **the key turned
+ * and the engine not yet running**, and nothing else.
  *
- * The bulb check a machine does at ignition, and it is doing the same job here: it is the only time
- * you see the band whole, so it is the only time you can tell that the tile is configured the way
- * you meant and that the display is alive at all. The band renders nothing at all when there is no
- * vehicle, so this runs again each time you climb into one.
+ * [MotorState.IGNITION] is the key at the position an ignition lock rests in, [MotorState.STARTING]
+ * is the starter cranking, and between them they are exactly the window a machine lights its whole
+ * dashboard in — the one moment a driver is shown that the lamps still work. It ends when the engine
+ * catches, because that is when a real cluster's check ends.
  *
- * It lights the lamps this band *has* — not every lamp in the enum. A lamp with no state behind it
- * has no bulb to check, and lighting it would mean the band changing shape as the check ended.
+ * This used to be a two-and-a-bit-second timer started the first time the band composed, which made
+ * it a statement about the *display* rather than about the machine: it ran when you climbed into
+ * something that had been idling for an hour, and it did not run when you actually started an engine
+ * — the only time it means anything. Vanilla reaches [MotorState.STARTING] on every start, so the
+ * check is there without any mod at all; [MotorState.IGNITION] additionally needs the game's ignition
+ * lock, and a machine that never rests there simply checks its lamps for the length of the crank.
+ *
+ * It is also the test Advanced Damage System makes for its own six, mod-side and against this same
+ * enum, so with ADS installed those lamps arrive already lit for the check and the rest of the band
+ * joins them **from the same sample**. Which is why there is no minimum on-screen duration softening
+ * this: a check held here past the sample that ended it would split the band in half, six lamps going
+ * out while their neighbours stayed lit.
+ *
+ * A vehicle with no motor has no ignition to turn, and so no check. What a check does light is the
+ * lamps this band *has* — not every lamp in the enum: a lamp with no state behind it has no bulb to
+ * check, and lighting it would mean the band changing shape as the engine caught.
  */
-@Composable
-private fun lampCheck(): Boolean {
-  var checking by remember { mutableStateOf(true) }
-  LaunchedEffect(Unit) {
-    delay(LAMP_CHECK_MS)
-    checking = false
-  }
-  return checking
+fun lampCheck(vehicle: Vehicle): Boolean = when (vehicle.motor?.state) {
+  MotorState.IGNITION, MotorState.STARTING -> true
+  else -> false
 }
 
 /** Internal because [lampSize]'s packing is tested against it — a test hard-coding 8 would drift. */
 internal val LAMP_GAP = 8.dp
 private val LAMP_MIN = 14.dp
 private val LAMP_MAX = 48.dp
-
-/** How long every lamp stays lit when the band appears. About as long as a machine takes to crank. */
-private const val LAMP_CHECK_MS = 2200L
 
 /**
  * The largest lamp that still packs [count] of them into [width] × [height], leaving room for
