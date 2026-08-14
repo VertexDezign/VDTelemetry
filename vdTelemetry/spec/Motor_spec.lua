@@ -1,4 +1,4 @@
--- Unit tests for src/collect/vehicle/Motor.lua, specifically the gear subtree.
+-- Unit tests for src/collect/vehicle/Motor.lua: the gear subtree, and the motor state.
 --
 -- Run with `busted` from the vdTelemetry/ directory. The collector needs ValueMapper (numeric fields
 -- run through it), and nothing else global as long as the motor reports no fill-type consumers.
@@ -43,11 +43,12 @@ local function fakeMotor(gear, groupName, groupsAvailable)
   }
 end
 
-local function fakeVehicle(motor)
+---@param motorState number|nil the engine's MotorState; a running engine (ON) unless a test says otherwise
+local function fakeVehicle(motor, motorState)
   return {
     spec_motorized = {
       getMotorState = function()
-        return 3
+        return motorState or 4
       end,
       motorTemperature = { value = 89, valueMin = 20, valueMax = 120 },
       getMotor = function()
@@ -85,5 +86,28 @@ describe("Motor.collect gear", function()
     -- terminal prints it against the gear the same as any other range.
     local model = VDT.Motor.collect(fakeVehicle(fakeMotor("2", "N", true)))
     assert.are.equal("N", model.gear.group)
+  end)
+end)
+
+describe("Motor.collect state", function()
+  -- The engine has four motor states and the exporter used to have three, which cost the two in the
+  -- middle their meaning: the key merely turned went out as STARTING, and a starter actually cranking
+  -- went out as ON. Each of the four is its own name now, and only ON is a running engine.
+  local function stateOf(motorState)
+    return VDT.Motor.collect(fakeVehicle(fakeMotor("D", "N", false), motorState)).state
+  end
+
+  it("names each of the engine's four states", function()
+    assert.are.equal("OFF", stateOf(1))
+    assert.are.equal("IGNITION", stateOf(2))
+    assert.are.equal("STARTING", stateOf(3))
+    assert.are.equal("ON", stateOf(4))
+  end)
+
+  it("does not report a cranking engine as running", function()
+    -- The regression this pair exists for: 3 is the starter turning, and it read as ON for as long as
+    -- the mapper folded it in with 4.
+    assert.are_not.equal(stateOf(3), stateOf(4))
+    assert.are.equal("STARTING", stateOf(3))
   end)
 end)

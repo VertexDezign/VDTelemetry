@@ -82,6 +82,7 @@ local sourceFiles = {
   "src/collect/FinanceExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
+  "src/integrations/AdvancedDamageSystem.lua",
   "src/integrations/registry.lua",
   "src/integrations/TaskList.lua",
   "src/integrations/CropRotation.lua",
@@ -189,7 +190,20 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 12: `precisionFarming.rate`/`rateUnit` — what is actually leaving the machine per hectare, in the
 --    same units. The rate PF's HUD leads with in AUTO, where the tool picks its own and no step
 --    describes it; absent whenever the boom is up, because PF never clears the field. See issue #77.
-VDTelemetry.VERSION = 12
+-- 13: `ads` — Advanced Damage System: the dashboard lamps it drives, where the machine is in its
+--     service interval, what the last inspection found, and system voltage. Also
+--     *changes* `motor.temperatur.value`, which is ADS's engine temperature when ADS is installed —
+--     the first correct engine temperature this mod has exported to a multiplayer client, since the
+--     vanilla figure is never synced. Also `ads.load`, which is a DIFFERENT number from
+--     `motor.load` rather than a replacement for it: ADS's is the plain engine load plus what the
+--     driveline is doing under the draft, is what its own dashboard prints, and is what it charges
+--     engine wear against. See issue #79.
+-- 14: `motor.state` says what the engine's own enum says. It has four values and the mapper only
+--     ever had three: 2 (IGNITION, the key turned and the starter untouched) was exported as
+--     STARTING, and 3 (STARTING, the starter cranking) was folded in with 4 into ON — so a cranking
+--     engine read as running and our STARTING never once meant cranking. IGNITION is new, STARTING
+--     changes meaning, and ON is now only the state the game itself calls started. See issue #86.
+VDTelemetry.VERSION = 14
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

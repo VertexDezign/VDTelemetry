@@ -218,6 +218,28 @@ version renames costs you that panel, never a Lua error.
     * Differential
     * AWD
     * Parking Brake
+* [FS25_AdvancedDamageSystem](https://github.com/id577/FS25_AdvancedDamageSystem) — replaces the
+  vanilla damage model, and drives the cluster's warning lamps
+  (`src/integrations/AdvancedDamageSystem.lua`, `vehicle.ads`). **Read only:** every workshop
+  procedure stays in game, as with vanilla repair.
+    * The six dashboard lamps ADS drives, each with its severity — and only the lamps a machine of
+      that production year actually has
+    * The engine temperature, which **replaces** `motor.temperatur.value`. ADS's thermal model is the
+      real one under ADS, and the vanilla figure it stands in for is never synced to a multiplayer
+      client at all (`motorTemperature.valueSend` is dead code in the base game)
+    * A CVT's own transmission temperature, which ADS models separately
+    * The load ADS wears the engine on — the plain engine load plus the draft term it adds while an
+      implement is down and working, which is what its own dashboard prints and can read past 100%.
+      `motor.load` stays exported beside it, unchanged: the plain engine load is still true, and this
+      is a second number rather than a correction of it
+    * The service interval — hours since the last maintenance, and the hours this machine's
+      manufacturer recommends between them
+    * The system voltage the machine's electrics see
+    * What the last workshop inspection found. **Not** the live condition/stress/service values: ADS
+      hides those behind an inspection on purpose, so the terminal never knows more than the driver.
+      The pre-shift chores (radiator, air intake, lubrication) are left out for the same reason, even
+      though ADS reports them in coarse bands — you learn them by getting out and walking round the
+      machine, and a dashboard that printed them would hand you that walk
 * [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) `1.2.0.1`
   ([source](https://github.com/Ozz-Modding/FS25_TaskList)) — the farm task list, in its own
   `taskList.json` channel (`src/integrations/TaskList.lua`). **Read and write:** VDTerminal can

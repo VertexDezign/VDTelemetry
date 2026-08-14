@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.KeyOff
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -35,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -70,17 +72,28 @@ fun EngineTransmission(
     modifier = modifier,
     headerActions = {
       // Engine start/stop lives here (not in the control row below): it's a panel-level toggle for the
-      // whole engine. Tap sends the absolute target (start when currently off), green when running.
+      // whole engine. Tap sends the absolute target, green when running.
+      //
+      // Running is [MotorState.isRunning] and nothing looser: a key turned (IGNITION) or a starter
+      // cranking (STARTING) is an engine that is not going yet, and lighting the key for either would
+      // claim it was. Those two keep the key *glyph* — the machine is awake and about to be, which is
+      // a different thing from off — and the crossed-out key is the fully-off state, so the three
+      // readings differ in shape as well as in colour.
+      //
+      // The tap targets ON from anywhere else, which makes an impatient second tap during the crank a
+      // repeat of the start rather than a cancellation of it. The channel is lossy and the state we
+      // hold is a sample old; "stop the engine you just started" is not a thing a stale reading should
+      // ever be able to say.
       if (motor != null) {
-        val running = motor.state != MotorState.OFF
+        val running = motor.state.isRunning
         Icon(
-          Icons.Filled.Key,
+          if (motor.state == MotorState.OFF) Icons.Filled.KeyOff else Icons.Filled.Key,
           contentDescription = "engine start/stop",
           tint = if (running) VdtColors.Green else VdtColors.DarkGray,
           modifier =
           Modifier
             .clip(RoundedCornerShape(4.dp))
-            .clickable { onCommand(ClientMessage.SetMotorState(on = motor.state == MotorState.OFF)) }
+            .clickable { onCommand(ClientMessage.SetMotorState(on = !running)) }
             .padding(2.dp),
         )
       }
@@ -113,6 +126,20 @@ fun EngineTransmission(
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Metric("${animRpm.roundToInt()}", "RPM")
+          // Engine load, which the mod has exported all along and nothing has ever drawn. Advanced
+          // Damage System's figure where there is one: it is what the mod shows in the cab, and the
+          // one it charges engine wear against — and it reads past 100% under draft, which is the
+          // part worth seeing. Amber once it is over, since that is the moment it starts costing.
+          val load = vehicle.ads?.load
+          if (load != null) {
+            Metric(
+              "${load.value.roundToInt()}${load.unit}",
+              "LOAD",
+              if (load.overloaded) VdtColors.Amber else VdtColors.DarkGray,
+            )
+          } else {
+            motor.load?.let { Metric("${it.value.roundToInt()}${it.unit}", "LOAD") }
+          }
           Metric(usage(motor.fuel()?.usage, motor.fuel()?.unit), "FUEL/HR")
         }
         // Center: speed gauge (tap toggles cruise) + cruise speed adjuster
@@ -146,6 +173,10 @@ fun EngineTransmission(
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Metric("${motor.temperatur?.value ?: 0}${motor.temperatur?.unit ?: ""}", "WATER")
+          // A CVT's oil, which Advanced Damage System models separately and which on slow heavy work
+          // cooks before the coolant does. Only shown on a machine that has one — nothing else here
+          // is a reading that only some machines can take.
+          vehicle.ads?.transmissionTemperatur?.let { Metric("${it.value}${it.unit}", "TRANS") }
           Metric(usage(motor.def()?.usage, null), "DEF/HR")
         }
       }
@@ -296,10 +327,11 @@ private fun Motor.def() = fillUnits?.def
 
 private fun usage(value: Float?, unit: String?): String = if (value == null) "--" else "$value${unit ?: ""}"
 
+/** [colour] is the value's only; the caption stays neutral, so the eye lands on the figure. */
 @Composable
-private fun Metric(value: String, label: String) {
+private fun Metric(value: String, label: String, colour: Color = VdtColors.DarkGray) {
   Column(horizontalAlignment = Alignment.CenterHorizontally) {
-    Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+    Text(value, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colour)
     Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
   }
 }

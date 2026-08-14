@@ -16,6 +16,7 @@ import net.vertexdezign.vdt.app.alerts.ThresholdAlertRule
 import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.ClusterLevelsWidget
 import net.vertexdezign.vdt.app.widgets.ClusterReadoutWidget
+import net.vertexdezign.vdt.app.widgets.ClusterServiceWidget
 import net.vertexdezign.vdt.app.widgets.EngineWidget
 import net.vertexdezign.vdt.app.widgets.LightingWidget
 import net.vertexdezign.vdt.app.widgets.NavigationWidget
@@ -45,11 +46,12 @@ object VehicleApp : VdtApp {
       RigSlotWidget,
       NavigationWidget,
       LightingWidget,
-      // The pillar-cluster trio. They belong to the vehicle like everything else here; what makes them
+      // The pillar-cluster four. They belong to the vehicle like everything else here; what makes them
       // a cluster is the page they are stacked on, not anything they know about each other.
       TelltaleWidget,
       ClusterReadoutWidget,
       ClusterLevelsWidget,
+      ClusterServiceWidget,
     )
 
   override val alerts: List<AlertRule> =

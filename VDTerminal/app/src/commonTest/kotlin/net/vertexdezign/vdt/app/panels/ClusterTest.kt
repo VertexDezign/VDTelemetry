@@ -13,6 +13,7 @@ import net.vertexdezign.vdt.model.Light
 import net.vertexdezign.vdt.model.Lights
 import net.vertexdezign.vdt.model.Motor
 import net.vertexdezign.vdt.model.MotorFillUnits
+import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.Speed
 import net.vertexdezign.vdt.model.Steering
 import net.vertexdezign.vdt.model.SteeringLayout
@@ -136,6 +137,46 @@ class TelltaleStateTest {
     // bands users have already configured.
     val keys = Telltale.entries.map { it.key }
     assertEquals(keys.size, keys.toSet().size, "duplicate telltale key in $keys")
+  }
+}
+
+/**
+ * When the band lights everything at once.
+ *
+ * The check is a claim about the *machine*, and it was a claim about the display for as long as it
+ * was a timer running off first composition: lit for a vehicle that had been idling all morning,
+ * dark for the one you had just turned the key in. Every case below is the same rule stated once —
+ * the key is on and the engine is not running yet — and it holds without a single mod installed.
+ */
+class LampCheckTest {
+  private fun at(state: MotorState) = Vehicle(motor = Motor(state = state))
+
+  @Test
+  fun theKeyIsOnAndTheEngineIsNotRunningYet() {
+    assertTrue(lampCheck(at(MotorState.IGNITION)), "the key is turned, so the dashboard lights up")
+    assertTrue(lampCheck(at(MotorState.STARTING)), "the starter is turning, which is the check itself")
+  }
+
+  @Test
+  fun aRunningEngineHasFinishedChecking() {
+    // The two that used to be one state. `!= OFF` would light the band for the whole of a shift.
+    assertFalse(lampCheck(at(MotorState.ON)), "a running engine's lamps mean what they say")
+    assertFalse(lampCheck(at(MotorState.OFF)))
+  }
+
+  @Test
+  fun aMachineWithNoMotorHasNoIgnitionToTurn() {
+    assertFalse(lampCheck(Vehicle()))
+  }
+
+  @Test
+  fun theCheckIsTheBaseGamesAndNotAModsToGive() {
+    // Vanilla passes through STARTING on every start, so the check needs nothing installed — and
+    // Advanced Damage System reaches the same verdict mod-side for its own six lamps, from this same
+    // enum, which is what keeps the two halves of the band lit and dark together.
+    val vanillaCranking = at(MotorState.STARTING)
+    assertTrue(lampCheck(vanillaCranking))
+    assertNull(vanillaCranking.ads, "no mod anywhere near this vehicle")
   }
 }
 

@@ -13,14 +13,23 @@ function ValueMapper.mapDirection(direction)
   end
 end
 
----@param state number The ignition state
+--- The engine's own MotorState (vehicles/specializations/enums/MotorState.lua), name for name.
+---
+--- All four are separate answers and none of them folds into another. IGNITION is the key turned
+--- with the starter untouched -- the state an ignition lock sits in, and the one the game's own
+--- `getIsMotorStarted` says no to. STARTING is the starter actually cranking, which lasts as long as
+--- the machine's start duration and is not a running engine either: only ON is. Anything reading
+--- this as "running" has to test for ON, not for "not OFF".
+---@param state number The engine's MotorState (OFF 1, IGNITION 2, STARTING 3, ON 4)
 ---@return string The enumified value
 function ValueMapper.mapMotorState(state)
   if state == 1 then
     return "OFF"
   elseif state == 2 then
+    return "IGNITION"
+  elseif state == 3 then
     return "STARTING"
-  elseif state == 3 or state == 4 then
+  elseif state == 4 then
     return "ON"
   else
     return string.format("<unknown(%d))>", state)
