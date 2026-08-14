@@ -2,6 +2,7 @@ package net.vertexdezign.vdt.app.components
 
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Implement
+import net.vertexdezign.vdt.model.PfManual
 import net.vertexdezign.vdt.model.PfMode
 import net.vertexdezign.vdt.model.PfNozzles
 import net.vertexdezign.vdt.model.PfSubSection
@@ -16,6 +17,7 @@ import net.vertexdezign.vdt.model.WorkWidth
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -69,6 +71,33 @@ class SectionViewTest {
     // that to green would paint "nothing needed here" over ground we know nothing about.
     val blank = PfSubSection(valid = false, n = 0f, nTarget = 0f)
     assertEquals(VdtColors.Gray, sliceColor(blank, PfMode.FERTILIZER))
+    // …and it draws no column at all, which is what separates it from a slice that needs nothing
+    // without asking anyone to tell two colours apart.
+    assertNull(sliceFill(blank, PfMode.FERTILIZER))
+  }
+
+  @Test
+  fun fillsASliceByHowFarBelowTargetItIs() {
+    // The deficit is a magnitude, so the strip draws it as one: colour is a second cue on top of the
+    // height, never the only one. Nothing here depends on telling red from green.
+    fun slice(level: Float) = PfSubSection(valid = true, n = level, nTarget = 100f)
+    assertEquals(1f, sliceFill(slice(0f), PfMode.FERTILIZER))
+    assertEquals(0.5f, sliceFill(slice(50f), PfMode.FERTILIZER))
+
+    // At target the column does not vanish: "measured, and fine" must stay distinct from "never
+    // measured", which draws nothing at all.
+    val ok = assertNotNull(sliceFill(slice(100f), PfMode.FERTILIZER))
+    assertTrue(ok > 0f && ok < 0.25f)
+    // Past target is not less than nothing, and never grows back.
+    assertEquals(ok, sliceFill(slice(400f), PfMode.FERTILIZER))
+    // A zero target is a fine place to be, not a divide by it.
+    assertEquals(ok, sliceFill(PfSubSection(valid = true, n = 0f, nTarget = 0f), PfMode.FERTILIZER))
+
+    // And it reads the mode's own value, exactly as the colour does: the same slice is empty of
+    // nitrogen and already at its pH target.
+    val both = PfSubSection(valid = true, n = 0f, nTarget = 100f, ph = 6.8f, phTarget = 6.8f)
+    assertEquals(1f, sliceFill(both, PfMode.FERTILIZER))
+    assertEquals(ok, sliceFill(both, PfMode.LIME))
   }
 
   @Test
@@ -270,11 +299,160 @@ class SectionViewTest {
 
   @Test
   fun writesTheRateAsAReadingAndATarget() {
-    assertEquals("45 → 90 kg/ha", rateLabel(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha")))
+    assertEquals(
+      RateFigures("45", "90", "kg/ha"),
+      rateFigures(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), null),
+    )
     // At or above target there is nothing to aim for, so the arrow goes away rather than pointing back.
-    assertEquals("90 kg/ha", rateLabel(PfMode.FERTILIZER, PfValue(90f, 90f, "kg/ha")))
-    assertEquals("95 kg/ha", rateLabel(PfMode.FERTILIZER, PfValue(95f, 90f, "kg/ha")))
+    assertEquals(RateFigures("90", null, "kg/ha"), rateFigures(PfMode.FERTILIZER, PfValue(90f, 90f, "kg/ha"), null))
+    assertEquals(RateFigures("95", null, "kg/ha"), rateFigures(PfMode.FERTILIZER, PfValue(95f, 90f, "kg/ha"), null))
     // pH is a decimal, and carries no unit of its own.
-    assertEquals("5.9 → 6.8", rateLabel(PfMode.LIME, PfValue(5.9f, 6.8f)))
+    assertEquals(RateFigures("5.9", "6.8", null), rateFigures(PfMode.LIME, PfValue(5.9f, 6.8f), null))
+  }
+
+  // The difference between the modes, and the reason the readout could not simply keep printing the
+  // target: in manual the tool applies a fixed step whatever the ground says, so where it *leaves* the
+  // soil is the reading plus that step — nothing to do with the map's target.
+  @Test
+  fun readsTheManualStepRatherThanTheTargetWhenTheRateIsSetByHand() {
+    val manual = PfManual(step = 3, min = 1, max = 7, change = 15f, rate = 600f, rateUnit = "kg/ha")
+    assertEquals(
+      RateFigures("45", "60", "kg/ha"),
+      rateFigures(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), manual),
+    )
+    // Overshooting the target is a real outcome of choosing your own rate, and is shown, not clamped.
+    assertEquals(
+      RateFigures("85", "100", "kg/ha"),
+      rateFigures(PfMode.FERTILIZER, PfValue(85f, 90f, "kg/ha"), manual),
+    )
+    // A step the machine reports no change for moves nothing, so the reading stands alone.
+    assertEquals(
+      RateFigures("45", null, "kg/ha"),
+      rateFigures(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), manual.copy(change = 0f)),
+    )
+  }
+
+  @Test
+  fun stepsWithinTheMachinesOwnBounds() {
+    val manual = PfManual(step = 1, min = 1, max = 3)
+    assertFalse(manual.canStep(-1))
+    assertTrue(manual.canStep(1))
+    assertEquals(1, manual.stepped(-1))
+    assertEquals(2, manual.stepped(1))
+
+    val top = manual.copy(step = 3)
+    assertFalse(top.canStep(1))
+    assertEquals(3, top.stepped(1))
+  }
+
+  @Test
+  fun aSlotDrawsTheChainMemberThatIsActuallyWorking() {
+    // The rig this was reported for: a slurry tanker with a dribble bar behind it. The barrel reports
+    // no work areas at all (the base game shuts them off while a tool is attached) and a Precision
+    // Farming block with a mode and no readings — so a panel reading the head drew an empty line
+    // while the machine 21 m wide behind it had everything.
+    val bar =
+      Implement(
+        workAreas = listOf(area().copy(width = 21f)),
+        precisionFarming = PrecisionFarming(mode = PfMode.FERTILIZER, nitrogen = PfValue(45f, 90f, "kg/ha")),
+      )
+    val barrel = Implement(precisionFarming = PrecisionFarming(mode = PfMode.FERTILIZER), implement = listOf(bar))
+    assertEquals(bar, sectionMember(barrel))
+
+    // Capability is not the test: the barrel has a PF block, and stopping there is the bug.
+    assertEquals(PfMode.FERTILIZER, barrel.precisionFarming?.mode)
+    assertNull(barrel.precisionFarming?.primary)
+
+    // …and neither is carrying a *reading*, which is the same bug wearing the mod's substitution.
+    // `rateSource` gives the barrel the tool's numbers, so this barrel has a primary value and still
+    // owns nothing to draw a strip or a status line from. Stopping here is what lost the strip on the
+    // Kaweco. The rule is exact: PF will not call a machine the rig's sprayer without work areas, so
+    // rates without work areas are always somebody else's.
+    val lending = barrel.copy(precisionFarming = bar.precisionFarming)
+    assertNotNull(lending.precisionFarming?.primary)
+    assertEquals(bar, sectionMember(lending))
+
+    // A head with anything of its own wins outright — every ordinary implement, unaffected.
+    val cultivator = Implement(workAreas = listOf(area()), implement = listOf(bar))
+    assertEquals(cultivator, sectionMember(cultivator))
+    // Shutoff sections count as much as work areas do.
+    val folding =
+      Implement(workWidth = WorkWidth(sections = listOf(WorkSection(active = true))), implement = listOf(bar))
+    assertEquals(folding, sectionMember(folding))
+
+    // And a chain with nothing anywhere stays on the head rather than picking an arbitrary trailer:
+    // the view draws nothing either way, and the slot should still describe what is hitched to it.
+    val trailer = Implement(implement = listOf(Implement()))
+    assertEquals(trailer, sectionMember(trailer))
+  }
+
+  @Test
+  fun aPrimeMoverDoesNotRedrawTheRatesOfTheToolItIsDriving() {
+    // The Vredo VT5536 with an injecting disc harrow, which is where this was reported. The mod's
+    // `rateSource` gives a machine that applies nothing itself the rates of the one it is driving, so
+    // the vehicle's block is byte-for-byte the harrow's — and the harrow is hitched at BACK with a
+    // slot of its own, so both tiles drew the same reading and the same live step buttons.
+    val rates = PrecisionFarming(mode = PfMode.FERTILIZER, nitrogen = PfValue(205f, 220f, "kg/ha"))
+    val harrow = Implement(position = "BACK", workAreas = listOf(area()), precisionFarming = rates)
+    val vredo = Vehicle(precisionFarming = rates, implement = listOf(harrow))
+    assertNull(ownRates(vredo))
+    // The tool keeps them, so the rig still shows the rates exactly once.
+    assertEquals(rates, sectionMember(harrow).precisionFarming)
+
+    // A self-propelled sprayer works its own ground, so it keeps them: the Rogator's own SPRAYER
+    // area is what separates the two, never the PF block, which is the thing that may be borrowed.
+    val rogator = Vehicle(workAreas = listOf(area()), precisionFarming = rates)
+    assertEquals(rates, ownRates(rogator))
+    // Shutoff sections count the same way work areas do, as everywhere else in this view.
+    val sectioned =
+      Vehicle(workWidth = WorkWidth(sections = listOf(WorkSection(active = true))), precisionFarming = rates)
+    assertEquals(rates, ownRates(sectioned))
+
+    // Nothing to borrow is still nothing to draw.
+    assertNull(ownRates(Vehicle(workAreas = listOf(area()))))
+  }
+
+  @Test
+  fun namesTheModeFromTheModeFlag() {
+    val manual = PfManual(step = 3, min = 1, max = 7)
+    assertEquals("AUTO", modeLabel(auto = true, manual = null))
+    assertEquals("MAN 3/7", modeLabel(auto = false, manual = manual))
+    // A tool PF gave us no step for is still in manual — the chip must not read AUTO there. The mod
+    // withholds the step in a mode with no rates, which is exactly when this happens.
+    assertEquals("MAN", modeLabel(auto = false, manual = null))
+    // And auto wins over a step that is simply the last one set: PF stores it in either mode.
+    assertEquals("AUTO", modeLabel(auto = true, manual = manual))
+  }
+
+  @Test
+  fun printsWhatTheManualPassCostsInProduct() {
+    val manual = PrecisionFarming(auto = false)
+    assertEquals("600 kg/ha", rateCost(manual, PfManual(rate = 600f, rateUnit = "kg/ha")))
+    // A slurry tanker is set in a couple of cubic metres per hectare; rounding that to a whole number
+    // would throw the setting away.
+    assertEquals("2.4 m³/ha", rateCost(manual, PfManual(rate = 2.4f, rateUnit = "m³/ha")))
+    // Nothing in the tank, nothing to cost it against — the step is still real, the price is not ours.
+    assertNull(rateCost(manual, PfManual(rate = null, rateUnit = "kg/ha")))
+    assertNull(rateCost(manual, PfManual(rate = 600f, rateUnit = null)))
+  }
+
+  @Test
+  fun printsTheLiveRateInAutoWhereNoStepDescribesIt() {
+    // Auto: the tool reads the map and picks its own rate per square metre, so the only figure there
+    // is is what is actually coming out. The caller has already filtered `manual` to null here.
+    val auto = PrecisionFarming(auto = true, rate = 3.2f, rateUnit = "m³/ha")
+    assertEquals("3.2 m³/ha", rateCost(auto, null))
+
+    // The boom comes up and PF stops refreshing the field, so the mod withholds it rather than leave
+    // the rate of the pass that just ended on screen looking live.
+    assertNull(rateCost(PrecisionFarming(auto = true), null))
+
+    // In manual the nominal step cost wins over the live figure, exactly as PF's own HUD does: it is
+    // the number the step is chosen by, and it holds with the tool stopped.
+    val running = PrecisionFarming(auto = false, rate = 3.2f, rateUnit = "m³/ha")
+    assertEquals("600 kg/ha", rateCost(running, PfManual(rate = 600f, rateUnit = "kg/ha")))
+    // …but a step the mod could not cost falls through to what the machine is really applying,
+    // rather than printing nothing while the boom is visibly running.
+    assertEquals("3.2 m³/ha", rateCost(running, PfManual(rate = null)))
   }
 }

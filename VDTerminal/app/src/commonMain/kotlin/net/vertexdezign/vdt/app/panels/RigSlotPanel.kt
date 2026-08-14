@@ -48,6 +48,8 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SectionView
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
+import net.vertexdezign.vdt.app.components.ownRates
+import net.vertexdezign.vdt.app.components.sectionMember
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.FillUnit
@@ -175,26 +177,33 @@ private fun Vehicle.slotState() = RigSlotState(
   // Cargo only. The engine's own fuel/def/air stay with the engine readout, next to the rates.
   fillUnits = fillUnits?.fillUnit ?: emptyList(),
   // A self-propelled sprayer carries its own boom, so the vehicle slot shows a section view exactly
-  // as an implement slot does.
+  // as an implement slot does. A prime mover does not: the mod hands it the rates of the tool it is
+  // driving, and that tool has a slot of its own to show them in. See [ownRates].
   workWidth = workWidth,
   workAreas = workAreas,
-  precisionFarming = precisionFarming,
+  precisionFarming = ownRates(this),
 )
 
-private fun Implement.slotState() = RigSlotState(
-  name = name,
-  type = type,
-  // The mod's old `combined.implement.front/back` was just the first front/back implement's own
-  // aspect state — which is exactly this implement — so read status/damage straight off it.
-  damage = wearable?.damage ?: 0,
-  foldable = foldable,
-  isTurnedOn = isTurnedOn,
-  lowered = lowered,
-  fillUnits = collectFillUnits(this),
-  workWidth = workWidth,
-  workAreas = workAreas,
-  precisionFarming = precisionFarming,
-)
+private fun Implement.slotState(): RigSlotState {
+  // The section view reads the chain, not just the head — the same way the fill units above always
+  // have. On a slurry tanker the machine working the ground is the tool hitched behind it, and it has
+  // no slot of its own to be shown in. See [sectionMember].
+  val working = sectionMember(this)
+  return RigSlotState(
+    name = name,
+    type = type,
+    // The mod's old `combined.implement.front/back` was just the first front/back implement's own
+    // aspect state — which is exactly this implement — so read status/damage straight off it.
+    damage = wearable?.damage ?: 0,
+    foldable = foldable,
+    isTurnedOn = isTurnedOn,
+    lowered = lowered,
+    fillUnits = collectFillUnits(this),
+    workWidth = working.workWidth,
+    workAreas = working.workAreas,
+    precisionFarming = working.precisionFarming,
+  )
+}
 
 /**
  * Below this the three controls can no longer sit in a row and still be worth aiming at: they need
@@ -309,8 +318,13 @@ fun RigSlotPanel(
 
         // What this tool is doing across its width — absent on anything that works no ground, which
         // is most of a rig. Above the controls: it is what the fold/raise buttons under it change.
+        //
+        // Given the same onCommand as those buttons, so the Precision Farming rate can be driven from
+        // here too. Addressed at the rig rather than at this slot: PF drives whichever machine on the
+        // rig is its valid sprayer, so a front tank and a rear boom are one rate, and the tile that
+        // shows it is whichever one has the readout.
         if (state != null) {
-          SectionView(state.workWidth, state.workAreas, state.precisionFarming)
+          SectionView(state.workWidth, state.workAreas, state.precisionFarming, onCommand = onCommand)
         }
 
         // Each control is clickable only when this slot has that aspect; the tap sends the ABSOLUTE

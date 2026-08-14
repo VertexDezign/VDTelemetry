@@ -8,6 +8,7 @@ import net.vertexdezign.vdt.model.FillDisplayType
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.MotorState
+import net.vertexdezign.vdt.model.PfMode
 import net.vertexdezign.vdt.model.PipeState
 import net.vertexdezign.vdt.model.PlowSide
 import net.vertexdezign.vdt.model.SprayCategory
@@ -844,6 +845,196 @@ class VdtModelTest {
     // the work reports for itself — so nothing is lost by withholding the broken subtree.
     assertEquals("LIQUIDMANURE", assertNotNull(vredo.fillUnits?.fillUnit?.single()).type)
     assertEquals("LIQUIDMANURE", assertNotNull(vredo.implement.single().spraying).fillType)
+  }
+
+  @Test
+  fun theRecapturedRigsCarryTheManualApplicationRate() {
+    // The captures taken since mod VERSION 11 added `precisionFarming.manual`/`canToggleAuto` and 12
+    // added the live `rate` — seven of the twelve in this folder, six of them carrying rate data (the
+    // seventh is a herbicide boom, which PF keeps no rates for). The other five are still version 9
+    // and have no rate block at all, which is the whole reason these are asserted here rather than
+    // the shape being left to `SectionViewModelTest`'s inline JSON.
+    val vredo = capture("telemetry/precisionFarming/vredoLiquidManure_discHarrow.json")
+    assertEquals("12", vredo.version)
+
+    val methys =
+      assertNotNull(
+        vredo.vehicle
+          ?.implement
+          ?.single()
+          ?.precisionFarming,
+      )
+    assertTrue(methys.auto)
+    assertTrue(methys.canToggleAuto, "every shipped machine lets the player leave auto")
+
+    // The step is an index into PF's level tables and says nothing on its own, so the mod converts it
+    // twice: `change` in the units the nitrogen readout already speaks, `rate` in the product it
+    // costs — quoted in m³/ha here because a slurry tanker is what PF measures in cubic metres.
+    val manual = assertNotNull(methys.manual)
+    assertEquals(4, manual.step)
+    assertEquals(1, manual.min)
+    assertEquals(45, manual.max)
+    assertEquals(20f, manual.change)
+    assertEquals(5f, manual.rate)
+    assertEquals("m³/ha", manual.rateUnit)
+    // Well inside the machine's own range, so both ends of the step control are live.
+    assertTrue(manual.canStep(1))
+    assertTrue(manual.canStep(-1))
+
+    // This machine was captured **in auto, mid-pass**, and it is the case that proves the two rates
+    // are not the same number dressed twice: it is laying down 10 m³/ha while step 4 would nominally
+    // cost 5, because auto sizes the pass to the deficit it is closing (70 against a 110 target) and
+    // is free to exceed any step. Reporting only the step would have understated it by half.
+    assertEquals(10f, methys.rate)
+    assertEquals("m³/ha", methys.rateUnit)
+    assertEquals(70f, assertNotNull(methys.primary).level)
+    assertEquals(110f, methys.primary?.target)
+
+    // Herbicide on the Rogator, which is the negative half of the contract: PF keeps no rates in that
+    // mode, so the mod withholds the step even though the machine still stores one. `canToggleAuto`
+    // is unaffected — the mode switch exists on a machine with nothing to apply it to.
+    val boom = assertNotNull(capture("telemetry/precisionFarming/selfDrivingSprayer.json").vehicle?.precisionFarming)
+    assertEquals(PfMode.OTHER, boom.mode)
+    assertEquals(null, boom.manual)
+    assertTrue(boom.canToggleAuto)
+
+    // The barrel rig, recaptured after the substitution was moved onto PF's own `getIsVehicleValid`.
+    // The Kaweco Profi II is sold *without* a spreading tool and declares no `<workAreas>` at all, so
+    // PF rejects it as the rig's sprayer and the mod hands it the Bomech's numbers — identical step,
+    // identical reading, which is the substitution PF's own HUD makes.
+    //
+    // Reading `spec_manureBarrel.attachedTool` instead, which is what this first shipped doing, never
+    // fired here: that field needs `manureBarrel#attacherJointIndex`, an attribute whose job is to
+    // silence work areas this machine does not have, so its absence from the XML is correct.
+    val kaweco =
+      assertNotNull(capture("telemetry/precisionFarming/liquidManure_dribbleBar.json").vehicle?.implement?.single())
+    val barrel = assertNotNull(kaweco.precisionFarming)
+    val bomech = assertNotNull(assertNotNull(kaweco.implement.single()).precisionFarming)
+    assertEquals(false, barrel.auto)
+    assertEquals(2, assertNotNull(barrel.manual).step)
+    assertEquals(70f, assertNotNull(barrel.primary).level)
+    assertEquals(barrel.manual, bomech.manual)
+    assertEquals(barrel.primary, bomech.primary)
+
+    // In **manual**, mid-pass, the live rate and the step's nominal cost agree — and they should:
+    // PF derives the liters from the step in that mode, so the two run through the same conversion
+    // from the same figure. It is auto (the Vredo above) that separates them.
+    assertEquals(2.02f, barrel.rate)
+    assertEquals(barrel.manual.rate, barrel.rate)
+    assertEquals(barrel.rate, bomech.rate, "the borrowed block carries the live rate too")
+
+    // What the barrel does NOT take is the per-slice strip: its `index` joins to work areas the
+    // barrel does not own, so the numbers travel and the strip stays with the machine it describes.
+    assertTrue(barrel.workAreas.isEmpty())
+    assertEquals(1, bomech.workAreas.size)
+  }
+
+  @Test
+  fun eachMachineKindIsWeighedInTheUnitPrecisionFarmingPrintsForIt() {
+    // PF quotes a rate in a different unit per kind of machine, and the mod mirrors that arithmetic
+    // rather than inventing one, so the terminal and the in-game display agree instead of merely
+    // both being plausible. These captures are the evidence, one machine per branch.
+    fun rates(name: String) =
+      assertNotNull(
+        capture("telemetry/precisionFarming/$name")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+
+    // Solid fertilizer: weighed in kilos. Auto is putting down three times what step 2 would cost,
+    // because it is sizing the pass to a 90-against-120 deficit.
+    val solid = assertNotNull(rates("fertilizerSpreader.json").precisionFarming)
+    assertEquals(PfMode.FERTILIZER, solid.mode)
+    assertEquals(111.11f, solid.rate)
+    assertEquals("kg/ha", solid.rateUnit)
+    assertEquals(37.04f, assertNotNull(solid.manual).rate)
+    assertEquals("kg/ha", solid.manual.rateUnit)
+
+    // The same AgriSpread hopper carrying lime instead — and now it is weighed in tonnes. The unit
+    // follows what is in the tank, not what the machine is, exactly as PF's own `hasLimeLoaded`
+    // branch does: one machine, two materials, two units. Nothing about the hardware changed.
+    val lime = assertNotNull(rates("fertilizerSpreader_lime.json").precisionFarming)
+    assertEquals(PfMode.LIME, lime.mode)
+    assertEquals(4.38f, lime.rate)
+    assertEquals("t/ha", lime.rateUnit)
+    assertEquals(1.75f, assertNotNull(lime.manual).rate)
+    // The step moves pH by a quarter, which is the increment the readout speaks in that mode.
+    assertEquals(0.25f, lime.manual.change)
+    assertEquals(6.38f, assertNotNull(lime.primary).level)
+
+    // Manure: tonnes again, but decided by the machine this time rather than by the tank.
+    val manure = assertNotNull(rates("manureSpreader.json").precisionFarming)
+    assertEquals(5.71f, manure.rate)
+    assertEquals("t/ha", manure.rateUnit)
+    assertEquals(5f, assertNotNull(manure.manual).rate)
+    assertEquals("t/ha", manure.manual.rateUnit)
+
+    // Liquid fertilizer: measured in liters and weighed against nothing, the only branch that needs
+    // no `massPerLiter` at all. The Patriot is self-propelled, so its rates hang off the vehicle.
+    val liquid =
+      assertNotNull(
+        capture("telemetry/precisionFarming/selfDrivingSprayer_liquidFertilizer.json").vehicle?.precisionFarming,
+      )
+    assertEquals(12.82f, liquid.rate)
+    assertEquals("l/ha", liquid.rateUnit)
+    assertEquals(25.64f, assertNotNull(liquid.manual).rate)
+    assertEquals("l/ha", liquid.manual.rateUnit)
+  }
+
+  @Test
+  fun aBoomMostlyShutAppliesLessThanItsStepNominallyCosts() {
+    // The Patriot in **manual** on step 2, and the live rate is half what that step nominally costs:
+    // 12.82 against 25.64 l/ha. Not an error — PF scales the state change it applies by the share of
+    // the boom actually open (`changeValue * alpha`, where alpha is
+    // `getNumExtendedSprayerNozzleEffectsActive`'s active-over-total), then floors it at its minimum
+    // rate. With 23 of 95 nozzles spraying that lands on the step-1 figure.
+    //
+    // So the nominal and the live rate diverge in *both* modes, for opposite reasons: auto exceeds
+    // the step to close a deficit (the Vredo), and manual falls short of it when the boom is mostly
+    // shut. Carrying only the step would have overstated this pass by half.
+    val patriot =
+      assertNotNull(capture("telemetry/precisionFarming/selfDrivingSprayer_liquidFertilizer.json").vehicle)
+    val pf = assertNotNull(patriot.precisionFarming)
+    assertEquals(false, pf.auto)
+    assertEquals(2, assertNotNull(pf.manual).step)
+    assertEquals(25.64f, pf.manual.rate)
+    assertEquals(12.82f, pf.rate)
+
+    val nozzles = assertNotNull(pf.nozzles)
+    assertEquals(95, nozzles.count)
+    assertEquals(23, nozzles.activeCount)
+
+    // And the reason the app draws that nozzle bar rather than the shutoff bar, captured for the
+    // first time: the base game's sections all read **on** while three quarters of the boom is shut.
+    // PF removes `VariableWorkWidth`'s controls on the machines it drives nozzles for, so those
+    // sections are frozen and say nothing — two bars here would be one honest and one stuck.
+    val width = assertNotNull(patriot.workWidth)
+    assertEquals(9, width.sections.size)
+    assertTrue(width.sections.all { it.active })
+    assertEquals(9, width.activeCount)
+  }
+
+  @Test
+  fun theLiveRateFollowsTheToolBeingDownRatherThanGroundChangingThisInstant() {
+    // The lime capture caught the exact moment the distinction matters: a work area is **active** —
+    // the spreader is lowered, in contact and driving forward — while none is **processing**, which
+    // is only true within 200 ms of ground actually changing.
+    val spreader =
+      assertNotNull(
+        capture("telemetry/precisionFarming/fertilizerSpreader_lime.json")
+          .vehicle
+          ?.implement
+          ?.first(),
+      )
+    assertTrue(spreader.workAreas.any { it.active })
+    assertTrue(spreader.workAreas.none { it.processing })
+
+    // And the rate is there anyway, which is the whole reason the mod gates on `getIsWorkAreaActive`.
+    // Gated on processing, this machine would blink its rate away several times a second while
+    // visibly spreading — and gated on nothing, it would keep printing after the boom came up, which
+    // is what the in-game HUD does.
+    assertEquals(4.38f, assertNotNull(spreader.precisionFarming).rate)
   }
 
   @Test

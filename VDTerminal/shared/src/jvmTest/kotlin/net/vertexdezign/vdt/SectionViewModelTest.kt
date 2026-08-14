@@ -12,8 +12,11 @@ import kotlin.test.assertTrue
  * The section view (mod VERSION 8): the shutoff sections on `workWidth`, the `workAreas` each object
  * carries, and the Precision Farming rates hanging off the tool doing the work.
  *
- * Inline JSON rather than the `examples/json` captures: those are real, and none was taken since the
- * bump. The mod's side of the same contract is `spec/WorkAreas_spec.lua` and
+ * Inline JSON rather than the `examples/json` captures, because most of the shapes here are ones no
+ * committed capture holds — a machine at its step limit, a modded work-area token, a client without
+ * the strip. The three captures that were retaken at mod VERSION 11 pin the manual rate against real
+ * game data in `VdtModelTest.theRecapturedRigsCarryTheManualApplicationRate`; what is inline here is
+ * the rest of the contract around it. The mod's side is `spec/WorkAreas_spec.lua` and
  * `spec/PrecisionFarming_spec.lua`.
  */
 class SectionViewModelTest {
@@ -191,6 +194,87 @@ class SectionViewModelTest {
     assertEquals(pf.ph, pf.primary)
     assertNull(pf.nitrogen)
     assertTrue(pf.workAreas.isEmpty())
+  }
+
+  @Test
+  fun readsTheManualApplicationRate() {
+    // Mod VERSION 11. The step is an index into PF's own level tables, so the mod converts it twice:
+    // into the units the readout speaks (`change`) and into the product it costs (`rate`).
+    val manual =
+      vehicle(
+        """
+        "precisionFarming":{"mode":"FERTILIZER","auto":false,"canToggleAuto":true,
+        "nitrogen":{"level":45,"target":90,"unit":"kg/ha"},
+        "manual":{"step":3,"min":1,"max":7,"change":15,"rate":600,"rateUnit":"kg/ha"}}
+        """.trimIndent(),
+      ).precisionFarming!!.manual!!
+
+    assertEquals(3, manual.step)
+    assertEquals(15f, manual.change)
+    assertEquals(600f, manual.rate)
+    assertEquals("kg/ha", manual.rateUnit)
+    // A control steps within the machine's bounds and never past them — though the mod's setter
+    // clamps anyway, because the bounds move with the fill type.
+    assertTrue(manual.canStep(1))
+    assertTrue(manual.canStep(-1))
+    assertEquals(4, manual.stepped(1))
+    assertEquals(2, manual.stepped(-1))
+    // Both ends, because both buttons grey out: at the top the machine has no more to give, and at
+    // the bottom the minimum is a real step rather than "off" — PF's floor is 1, not 0.
+    assertEquals(7, manual.copy(step = 7).stepped(1))
+    assertFalse(manual.copy(step = 7).canStep(1))
+    assertEquals(1, manual.copy(step = 1).stepped(-1))
+    assertFalse(manual.copy(step = 1).canStep(-1))
+  }
+
+  @Test
+  fun readsTheLiveRateThatIsAllAutoModeHas() {
+    // Mod VERSION 12. In auto there is no step to derive a rate from — the tool reads the map and
+    // picks its own per square metre — so PF's own HUD prints what is actually leaving the machine,
+    // and this is that figure in the same units.
+    val auto =
+      vehicle(
+        """
+        "precisionFarming":{"mode":"FERTILIZER","auto":true,"canToggleAuto":true,
+        "rate":3.2,"rateUnit":"m³/ha",
+        "nitrogen":{"level":150,"target":190,"unit":"kg/ha"},
+        "manual":{"step":4,"min":1,"max":45,"change":20,"rate":5,"rateUnit":"m³/ha"}}
+        """.trimIndent(),
+      ).precisionFarming!!
+
+    assertEquals(3.2f, auto.rate)
+    assertEquals("m³/ha", auto.rateUnit)
+    // The two are different numbers answering different questions, and both are carried: the step
+    // would cost 5 m³/ha if it were applied, while the tool is actually laying down 3.2.
+    assertEquals(5f, auto.manual?.rate)
+
+    // The boom comes up and the mod withholds it — PF leaves the field at whatever the last pass
+    // needed, so absent is the only honest reading. The step cost is unaffected, because it never
+    // depended on the tool running.
+    val raised =
+      vehicle(
+        """
+        "precisionFarming":{"mode":"FERTILIZER","auto":true,
+        "manual":{"step":4,"min":1,"max":45,"rate":5,"rateUnit":"m³/ha"}}
+        """.trimIndent(),
+      ).precisionFarming!!
+    assertNull(raised.rate)
+    assertNull(raised.rateUnit)
+    assertEquals(5f, raised.manual?.rate)
+  }
+
+  @Test
+  fun aToolWithNoManualRateSaysSoRatherThanReadingAsStepZero() {
+    // Herbicide: the step exists on the machine but changes nothing, so the mod withholds it. Auto
+    // defaults to allowed, which is what every shipped machine is.
+    val pf = vehicle(""""precisionFarming":{"mode":"OTHER","auto":true}""").precisionFarming!!
+    assertNull(pf.manual)
+    assertTrue(pf.canToggleAuto)
+
+    // And a machine PF forbids leaving auto on: the app has to leave the switch out.
+    val locked =
+      vehicle(""""precisionFarming":{"mode":"LIME","auto":true,"canToggleAuto":false}""").precisionFarming!!
+    assertFalse(locked.canToggleAuto)
   }
 
   @Test

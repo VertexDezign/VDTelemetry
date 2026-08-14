@@ -200,7 +200,7 @@ fun InvoiceBuilder(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
           Text("DISCOUNT", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
           Text(
-            "−${formatMoney(discount)}",
+            "-${formatMoney(discount)}",
             color = VdtColors.AccentText,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,

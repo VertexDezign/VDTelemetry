@@ -1,20 +1,8 @@
 {
   "vehicle": {
-    "lights": {
-      "beaconLight": false,
-      "indicator": {
-        "right": false,
-        "left": false,
-        "hazard": false
-      },
-      "workLight": {
-        "front": false,
-        "back": false
-      },
-      "light": {
-        "highBeam": false,
-        "lowBeam": false
-      }
+    "brand": {
+      "name": "CASEIH",
+      "title": "Case IH"
     },
     "type": "tractor",
     "schema": {
@@ -79,9 +67,9 @@
       },
       "fillUnits": {
         "air": {
-          "fillLevelPercentage": 83,
+          "fillLevelPercentage": 92,
           "title": "Luft",
-          "value": 3336,
+          "value": 3666,
           "capacity": 4000,
           "unit": "l"
         },
@@ -89,8 +77,8 @@
           "type": "diesel",
           "title": "Diesel",
           "fillLevelPercentage": 99,
-          "value": 385,
-          "usage": 93.88,
+          "value": 384,
+          "usage": 99.2,
           "capacity": 390,
           "unit": "l"
         },
@@ -112,7 +100,7 @@
         "min": 0
       },
       "load": {
-        "value": 88.47,
+        "value": 94.22,
         "min": 0,
         "max": 100,
         "unit": "%"
@@ -129,7 +117,23 @@
         "isTurnedOn": true,
         "type": "manureBarrel",
         "precisionFarming": {
-          "auto": true,
+          "manual": {
+            "min": 1,
+            "change": 10,
+            "max": 45,
+            "rateUnit": "m³/ha",
+            "step": 2,
+            "rate": 2.02
+          },
+          "auto": false,
+          "nitrogen": {
+            "target": 125,
+            "level": 70,
+            "unit": "kg/ha"
+          },
+          "rateUnit": "m³/ha",
+          "rate": 2.02,
+          "canToggleAuto": true,
           "mode": "FERTILIZER",
           "spotSpray": false
         },
@@ -145,23 +149,33 @@
                 "processing": true,
                 "unit": "m",
                 "shape": [
-                  0.40983,
-                  0.59997,
-                  0.40153,
-                  0.60599,
-                  0.40977,
-                  0.59989
+                  0.42112,
+                  0.65841,
+                  0.41125,
+                  0.66119,
+                  0.42109,
+                  0.65832
                 ],
-                "width": 20.99
+                "width": 21
               }
             ],
             "precisionFarming": {
-              "auto": true,
+              "manual": {
+                "min": 1,
+                "change": 10,
+                "max": 45,
+                "rateUnit": "m³/ha",
+                "step": 2,
+                "rate": 2.02
+              },
+              "auto": false,
               "nitrogen": {
-                "target": 150,
-                "level": 110,
+                "target": 125,
+                "level": 70,
                 "unit": "kg/ha"
               },
+              "rateUnit": "m³/ha",
+              "rate": 2.02,
               "workAreas": [
                 {
                   "index": 1,
@@ -170,71 +184,71 @@
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 130,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 110,
+                      "n": 70
                     },
                     {
                       "valid": true,
                       "ph": 4.5,
                       "phTarget": 4.5,
-                      "nTarget": 150,
-                      "n": 110
+                      "nTarget": 110,
+                      "n": 70
                     },
                     {
                       "valid": true,
@@ -246,6 +260,7 @@
                   ]
                 }
               ],
+              "canToggleAuto": true,
               "mode": "FERTILIZER",
               "spotSpray": false
             },
@@ -275,7 +290,7 @@
               "doubledAmountAvailable": false,
               "title": "Gärreste",
               "category": "FERTILIZER",
-              "nominalUsagePerMin": 2955.58,
+              "nominalUsagePerMin": 429.41,
               "kind": "SLURRY_TANKER",
               "sprayType": "DIGESTATE",
               "doubledAmount": false
@@ -300,7 +315,7 @@
             "wearable": {
               "wear": 0,
               "damage": 0,
-              "dirt": 1,
+              "dirt": 33,
               "unit": "%"
             }
           }
@@ -329,7 +344,7 @@
           "doubledAmountAvailable": false,
           "title": "Gärreste",
           "category": "FERTILIZER",
-          "nominalUsagePerMin": 4225.99,
+          "nominalUsagePerMin": 2464.82,
           "kind": "SLURRY_TANKER",
           "sprayType": "DIGESTATE",
           "doubledAmount": false
@@ -339,8 +354,8 @@
             {
               "type": "DIGESTATE",
               "title": "Gärreste",
-              "fillLevelPercentage": 74,
-              "value": 14804.42,
+              "fillLevelPercentage": 69,
+              "value": 13763.699,
               "capacity": 20000,
               "unit": "l"
             }
@@ -358,13 +373,12 @@
         "wearable": {
           "wear": 0,
           "damage": 0,
-          "dirt": 1,
+          "dirt": 31,
           "unit": "%"
         },
         "discharge": {
           "fillUnitIndex": 1,
           "hasObject": false,
-          "reason": "FILLTYPE_NOT_SUPPORTED",
           "allowed": true,
           "state": "OFF",
           "nodeIndex": 1,
@@ -375,7 +389,7 @@
     ],
     "gps": {
       "enabled": false,
-      "heading": 143,
+      "heading": 164,
       "linesVisible": true,
       "active": false,
       "headingUnit": "°"
@@ -384,12 +398,24 @@
       "selected": false
     },
     "name": "Case IH Puma 185 CVXDrive",
-    "brand": {
-      "name": "CASEIH",
-      "title": "Case IH"
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
     },
     "speed": {
-      "value": 10.44,
+      "value": 6.11,
       "direction": "FORWARD",
       "unit": "km/h"
     },
@@ -398,35 +424,35 @@
       "targetSpeed": 53
     },
     "operatingTime": {
-      "value": "0.36",
+      "value": "0.44",
       "unit": "h"
     },
     "wearable": {
       "wear": 0,
       "damage": 0,
-      "dirt": 3,
+      "dirt": 33,
       "unit": "%"
     }
   },
-  "version": "9",
+  "version": "12",
   "environment": {
     "date": "01.08.2024",
     "weather": {
       "temperature": {
-        "min": 24,
-        "current": 34,
-        "max": 34,
+        "min": 15,
+        "current": 23,
+        "max": 24,
         "unit": "°C"
       }
     },
-    "time": "13:53",
+    "time": "17:34",
     "pda": {
       "height": 2048,
       "player": {
-        "heading": 143,
-        "posX": 0.40915066003799,
+        "heading": 164,
+        "posX": 0.41779211908579,
         "farmId": 1,
-        "posZ": 0.60772854834795,
+        "posZ": 0.66546630859375,
         "headingUnit": "°"
       },
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",

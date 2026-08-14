@@ -247,8 +247,8 @@ private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) 
     }
 
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-      FinanceButton("−${compactStep(step * 10)}", VdtColors.ProgressBlue, { move(-step * 10) }, enabled = stepDown)
-      FinanceButton("−${compactStep(step)}", VdtColors.ProgressBlue, { move(-step) }, enabled = stepDown)
+      FinanceButton("-${compactStep(step * 10)}", VdtColors.ProgressBlue, { move(-step * 10) }, enabled = stepDown)
+      FinanceButton("-${compactStep(step)}", VdtColors.ProgressBlue, { move(-step) }, enabled = stepDown)
       FinanceButton("+${compactStep(step)}", VdtColors.ProgressBlue, { move(step) }, enabled = stepUp)
       FinanceButton("+${compactStep(step * 10)}", VdtColors.ProgressBlue, { move(step * 10) }, enabled = stepUp)
 

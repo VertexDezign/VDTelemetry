@@ -226,7 +226,7 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
           itemVerticalAlignment = Alignment.CenterVertically,
         ) {
           FinanceButton(
-            label = "−",
+            label = "-",
             color = VdtColors.ProgressBlue,
             onClick = { amountText = (amount - AMOUNT_STEP).coerceIn(0L, ceiling).toString() },
             enabled = els.canManage && amount > 0,
@@ -292,7 +292,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
     ) {
       Text("AMOUNT", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
       FinanceButton(
-        label = "−",
+        label = "-",
         color = VdtColors.ProgressBlue,
         onClick = { amountText = (amount - AMOUNT_STEP * 2).coerceIn(0L, ceiling).toString() },
         enabled = amount > 0,
@@ -314,7 +314,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
       Text("TERM", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
       FinanceButton(
-        label = "−",
+        label = "-",
         color = VdtColors.ProgressBlue,
         onClick = { years = (years - 1).coerceIn(1, maxYears) },
         enabled = years > 1,
@@ -333,7 +333,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
     val rate = els.interest ?: 0f
     val monthly = annuity(amount, rate, years)
     Text(
-      "≈ ${formatMoney(monthly)} a month for ${years * 12} months",
+      "~${formatMoney(monthly)} a month for ${years * 12} months",
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
     )
@@ -342,7 +342,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
     // easier instalment and the larger bill.
     val total = totalRepayment(amount, rate, years)
     Text(
-      "Total ≈ ${formatMoney(total)} · ${formatMoney(total - amount)} interest",
+      "Total ~${formatMoney(total)} · ${formatMoney(total - amount)} interest",
       color = VdtColors.TextDark,
       fontSize = 11.sp,
       fontWeight = FontWeight.SemiBold,

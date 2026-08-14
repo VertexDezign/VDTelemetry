@@ -303,7 +303,7 @@ private fun InvoiceRow(
           val discount = invoice.discountTotal
           if (discount > 0) {
             Text(
-              "−${formatMoney(discount)}",
+              "-${formatMoney(discount)}",
               color = VdtColors.AccentText,
               fontSize = 10.sp,
               fontWeight = FontWeight.SemiBold,
@@ -406,7 +406,7 @@ private fun LineRow(line: InvoiceLine) {
           // A litre line is priced per thousand, so the multiplication above does not read as
           // arithmetic unless it says so.
           if (line.unit == "liter") append(" / 1000 l")
-          line.discountRate?.let { append(" · −${trimPercent(it * 100)}%") }
+          line.discountRate?.let { append(" · -${trimPercent(it * 100)}%") }
           line.vatRate?.let { append(" · VAT ${trimPercent(it * 100)}%") }
           line.fieldId?.let { append(" · field $it") }
         },
@@ -449,7 +449,7 @@ private fun Totals(invoice: Invoice) {
     // Between net and VAT, where the mod's own detail dialog puts it. Informational: the discount is
     // already inside every figure here, so this says what was given away, not what is still owed.
     invoice.discountTotal.takeIf { it > 0 }?.let {
-      TotalLine("Discount", "−${formatMoney(it)}", VdtColors.AccentText)
+      TotalLine("Discount", "-${formatMoney(it)}", VdtColors.AccentText)
     }
     invoice.vat?.let { TotalLine("VAT", formatMoney(it), VdtColors.DarkGray) }
     invoice.penalty?.let { TotalLine("Penalty", formatMoney(it), VdtColors.Red) }

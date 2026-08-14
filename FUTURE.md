@@ -8,6 +8,10 @@ reasoning moves into the code as it is written, which is where it is actually re
 hand to the code is the work it *didn't* do: the deferred item, the open call, the check nobody ran.
 That is what lands here. Each entry says what the work is and why it was left, not how to do it.
 
+Pruned 2026-08-13: entries describing work that is now finished were removed, and the "validated
+in-game" narratives compressed to a line. Nothing was lost that the code does not already carry —
+`git log -p FUTURE.md` has the long form if a decision needs its original reasoning.
+
 Retired plans, if the full reasoning is wanted (`git show <sha>:<file>`):
 
 | plan | last content at | covered |
@@ -52,7 +56,8 @@ none of it is drawn.
   count: the game draws one segment per slot with the part-used roll's fraction inside the next one,
   and labels it `"2 / 2"` (a `ceil`, not a percentage). `components/FillUnitsDisplay.kt` carries the
   note and renders a continuous bar.
-- **The work aspects.** `discharge`, `tipping`, `harvest`, `workMode`, `workWidth`, `baleCounter`.
+- **The work aspects.** `discharge`, `tipping`, `harvest`, `workMode`, `baleCounter` — `workWidth` is
+  the one that has since been drawn, by the section view.
   `discharge.reason` is the pick of them — the engine's own verdict on why unloading is refused
   (`NO_FREE_CAPACITY`, `NO_ACCESS_LAND`, …), the same code behind its on-screen warning, and nothing a
   dashboard could work out for itself.
@@ -148,17 +153,10 @@ Built and validated in-game. Four things were left.
 
 ## Finance (#48, under #46)
 
-Built and validated in-game: **singleplayer 2026-08-08** (a vehicle purchase and a farmland purchase
-both appeared in the app's log as they appeared in the game's own notifications — the
-`HUD:showMoneyChange` hook, end to end — and a month rollover shifted the table's columns correctly),
-then **on a multiplayer client 2026-08-09**, which is the path the host never takes: the notification
-funnel reached through `MoneyChangeEvent:run` rather than `FSBaseMission:broadcastNotifications`, and
-archived columns refreshed by re-requesting `FinanceStatsEvent`. Both hold. A third pass **2026-08-11**
-confirmed the current period's column ticks live on the 5 s interval — the only thing that surfaces it,
-since `FarmStats:changeFinanceStats` mutates the bucket in place with no message behind it. Only a
-handful of month rollovers have been watched, so that one is worth half an eye still. The design lives
-in the module headers of `src/collect/FinanceExporter.lua` and `src/command/FinanceControl.lua`; the
-checks below are what is still unseen.
+Built and validated in-game, in singleplayer and on a multiplayer client. The design lives in the
+module headers of `src/collect/FinanceExporter.lua` and `src/command/FinanceControl.lua`. Only a
+handful of month rollovers have been watched, so the current period's column is still worth half an
+eye. What was left:
 
 - **The graphs.** The issue's own "Bonus: draw some graphs" was deliberately deferred until there was
   real data in the panel to shape a chart around. The export already feeds it: the mod carries up to
@@ -197,22 +195,16 @@ checks below are what is still unseen.
   The in-game screen reads the same cached field and has the identical quirk, so we match it rather
   than walking every placeable ourselves. If it bites in practice, say "up to 500,000" rather than
   recomputing equity.
+
 ---
 
 ## Enhanced Loan System (#47, under #46)
 
-Built on top of #48. **Validated in-game on 2026-08-09, singleplayer and on a multiplayer client:**
-the loans render instead of the base-game block, and `takeLoan` / `repayLoan` both land from a client
-against a dedicated server — reaching the mod's own manager directly, as its in-game buttons do. **A
-terminal-created loan then survived a server restart (2026-08-11)**, which is the end-to-end proof it
-reached the server's table rather than only the client's: `ELS_loan` is a replicated Object, so a
-client creating one sends `OBJECT_CREATED` and the server files it into its own loan table, while a
-redemption's field changes ride the client's dirty-object update stream. The SP capture is committed as
-`examples/json/finance/els.json` and now drives `FinanceModelTest`. The `enhancedLoans` block on the
-finance channel carries the bank's terms and the farm's annuity loans; `takeLoan` / `repayLoan` drive
-the mod's own `ELS_loanManager`. Its *presence* is the whole signal — when it is there the base-game
-loan fields are absent and the app renders this instead, the same "dispatch on presence" rule the
-ISOBUS sections use.
+Built on top of #48 and validated in-game, in singleplayer and from a multiplayer client — including a
+terminal-created loan surviving a server restart, which is the proof it reached the server's table
+rather than only the client's. The `enhancedLoans` block carries the bank's terms and the farm's
+annuity loans; its *presence* is the whole signal, the same "dispatch on presence" rule the ISOBUS
+sections use. What was left:
 
 - **ELS does not disable base loans the way you would expect.** It overwrites
   `InGameMenuStatisticsFrame.hasPlayerLoanPermission`, a method on the in-game *frame*, leaving both
@@ -248,13 +240,11 @@ ISOBUS sections use.
 
 The last child of #46, on top of #48. Billing between farms via FS25_Invoices, in its own event-driven
 `invoices.json` channel (`src/integrations/Invoices.lua`) rendered as a second tab in the Finance app,
-plus five commands (`src/command/InvoiceControl.lua`). **Validated in a two-farm multiplayer session on
-2026-08-11:** an invoice raised from the terminal reaches the other farm, and paying it works as
-expected — the core round trip, and the first time this repo has been exercised with two farms at all.
-The narrower checks below are what that session did not cover. The mod's own server is the boundary
-throughout: every command drives one of its service methods, which from a client sends its event, and
-its server re-checks the `farmManager` right, the invoice's state, which farm the caller is, and (for a
-payment) whether it can be afforded.
+plus five commands (`src/command/InvoiceControl.lua`). Validated in a two-farm multiplayer session on
+2026-08-11 — raising an invoice and paying it, the core round trip. The mod's own server is the
+boundary throughout: every command drives one of its service methods, whose server half re-checks the
+`farmManager` right, the invoice's state, which farm the caller is, and whether a payment can be
+afforded. What that session did not cover, and what was left:
 
 - **This feature has no singleplayer form.** An invoice needs two different farms and singleplayer has
   one, so the channel correctly exports the settings, the work-type catalogue, no farms and no invoices
@@ -477,9 +467,8 @@ Each one is cheap to do while playing and settles something above.
 
 ## Steering (#57)
 
-Built and driven: `vehicle.steering` (mod version 10) and its two marks in the pillar readout, left of
-the gear. The layout derivation was checked in game against a machine with dog-walk modes, sides and
-all. What is left:
+Built and driven in-game, layout derivation included, against a machine with dog-walk modes and sides:
+`vehicle.steering` (mod version 10) and its two marks in the pillar readout. What is left:
 
 - **`CRAB` has never been seen on a real machine.** It is the sideless dog walk — the rear axle steered
   along with the front rather than held over — and it is in the model because the engine's data allows
@@ -496,6 +485,27 @@ all. What is left:
   and cover controls above. Not built because #57 asked to *see* them. `setIsReverseDriving` refuses
   while an implement on a disabling attacher joint is fitted (`getIsReverseDrivingAllowed`), which a
   control would want to reflect rather than fire and ignore.
+
+## Precision Farming rates (#77)
+
+Built, and validated in singleplayer and from a multiplayer client across all five of PF's rate units
+and both modes. The reasoning lives in `src/integrations/PrecisionFarming.lua` and
+`components/SectionView.kt`; the captures that pin it are in `examples/json/telemetry/precisionFarming/`
+and are named in `VdtModelTest`. What it did not do:
+
+- **A nested implement has no slot of its own.** The mod reports the Bomech's `position` as an empty
+  string, so `RigSlotPanel` can never address it directly; it is seen through its parent's tile or not
+  at all. Fine for a section view, and the thing to fix properly whenever the rig diagram in the first
+  section of this file gets built.
+- **PF's third keybind is not mirrored.** In auto with no crop in the ground, `TOGGLE_SEEDS` cycles
+  which fruit the tool fertilises *for* (`setSprayAmountDefaultFruitRequirementIndex`, off
+  `nApplyAutoModeFruitRequirementDefaultIndex`). It changes the auto target, so it belongs beside the
+  auto toggle and the step if auto mode is ever given more than a badge — and it would need the fruit
+  list exported, which nothing does today.
+- **The step is a rig-wide command.** It addresses whatever PF calls the rig's valid sprayer rather
+  than a slot, so a hypothetical rig with two PF machines is driven as one. That is PF's own model
+  (`getValidSprayerToUse` returns the first valid machine), and a rig you would tow two sprayers on is
+  not a rig anyone drives — but it is the assumption to revisit if one ever turns up.
 
 ## Captures wanted as fixtures
 
@@ -529,9 +539,11 @@ captures contains a machine that has them.
   which here are the two DSEG faces plus the default — and that default does not cover Geometric Shapes
   or Dingbats. `▲ ▼ ✕` therefore came out as boxes in the finance sort headers, the invoice direction
   mark and the builder's remove button (fixed 2026-08-11 by using Material `Icon`s, which are vectors
-  and depend on no font at all). `SectionView`'s `"$level → $target"` rate readout is confirmed to have
-  it too and has an issue of its own — it is a character inside a sentence rather than a standalone
-  mark, so it wants a different answer. Latin-1 and General Punctuation are fine — `— · × − …` are used
+  and depend on no font at all). `SectionView`'s `"$level → $target"` rate readout had it too, and
+  needed a different answer because the arrow sits *inside* a sentence rather than standing alone:
+  fixed 2026-08-13 with `InlineTextContent`, which hosts the `Icon` while keeping the line a single
+  `Text` — so it still ellipsizes as one thing in a narrow tile, which a `Row` of three pieces would
+  not. Latin-1 and General Punctuation are fine — `— · × − …` are used
   throughout and render. The rule: **a mark that carries meaning is an `Icon`, not a character.** If a
   new glyph is genuinely needed as text, look at it in a browser before shipping it.
 

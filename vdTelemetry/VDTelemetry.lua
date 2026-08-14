@@ -104,6 +104,9 @@ local sourceFiles = {
   "src/command/ImplementControl.lua",
   "src/command/MotorControl.lua",
   "src/command/CruiseControl.lua",
+  -- Precision Farming application rate (auto/manual + the manual step). Resolves which machine on the
+  -- rig to drive through src/integrations/PrecisionFarming.lua, sourced above.
+  "src/command/PrecisionFarmingControl.lua",
   "src/command/GpsControl.lua",
   "src/command/TaskListControl.lua",
   "src/command/CropRotationControl.lua",
@@ -179,7 +182,14 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 10: `steering` — the steering mode a crab-steering machine is in (with the shape of it derived from
 --    the wheels, since the mode's name is untranslatable free text) and whether the driving position
 --    has been turned round. See issue #57.
-VDTelemetry.VERSION = 10
+-- 11: `precisionFarming.manual` — the manual application-rate step and what one pass at it does (the
+--    nitrogen/pH it adds, and the product per hectare it costs, in PF's own units), plus
+--    `canToggleAuto`. Enough to drive the rate from the terminal rather than only watch it. See
+--    issue #77.
+-- 12: `precisionFarming.rate`/`rateUnit` — what is actually leaving the machine per hectare, in the
+--    same units. The rate PF's HUD leads with in AUTO, where the tool picks its own and no step
+--    describes it; absent whenever the boom is up, because PF never clears the field. See issue #77.
+VDTelemetry.VERSION = 12
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

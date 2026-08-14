@@ -333,6 +333,36 @@ sealed interface ClientMessage {
   ) : ClientMessage
 
   /**
+   * Put the rig's Precision Farming sprayer into automatic (`auto = true`) or manual rate mode.
+   *
+   * Addressed at the rig rather than at a slot: PF drives whichever machine on it is the valid
+   * sprayer (its own `getValidSprayerToUse`), and a rig you would tow two of is not a rig you drive.
+   */
+  @Serializable
+  @SerialName("setSprayAmountAuto")
+  data class SetSprayAmountAuto(
+    val auto: Boolean,
+  ) : ClientMessage
+
+  /**
+   * Set the manual rate to an absolute [step] — PF's `sprayAmountManual`, an index into its level
+   * tables, not a rate.
+   *
+   * Absolute like everything else here, so a `+` tap sends `step + 1` computed from what it renders
+   * rather than an increment the channel could drop or double. Out-of-range values are safe: PF
+   * clamps to the machine's own bounds, which move with the fill type, so the machine has the last
+   * word rather than the app's copy of them.
+   *
+   * Leaves the mode alone. PF stores the step in either mode — it simply does nothing until manual is
+   * on — so a rate can be dialled in before switching.
+   */
+  @Serializable
+  @SerialName("setSprayAmountStep")
+  data class SetSprayAmountStep(
+    val step: Int,
+  ) : ClientMessage
+
+  /**
    * Cruise control. One command with an [action] (`enable`/`disable`/`setSpeed`) rather than
    * separate types: cruise is a single subsystem whose knobs move together. [speed] (km/h, a float
    * since mods allow sub-1 steps) is only meaningful for `setSpeed`.

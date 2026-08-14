@@ -82,13 +82,45 @@ VDT.PrecisionFarming.MOD_NAME = "FS25_precisionFarming"
 ---@field active boolean[]
 ---@field amount number[]?
 
+-- The manual application rate: PF's own step, and what one pass at that step does.
+--
+-- `step` is an index, not a rate. PF stores how many *levels* one pass moves the soil by and turns
+-- that into real numbers through the value maps, so the step alone says nothing to a reader: `change`
+-- is the same step in the units the readout already speaks (kg N/ha, or a pH increment), and
+-- `rate`/`rateUnit` is the product it costs -- the number PF's own HUD leads with in manual mode.
+--
+-- All of it is a pure function of the step and what is in the tank, so unlike the per-slice data this
+-- is exact on a multiplayer client too: `sprayAmountManual` is network-synced (ExtendedSprayer's
+-- read/write stream plus its own ExtendedSprayerAmountEvent) and the value maps are built everywhere.
+--
+-- Emitted only in a mode PF keeps rates for. With herbicide in the tank the step still exists and
+-- still saves, but it changes nothing and PF deactivates its own adjust action -- so reporting it
+-- would put a live-looking control on a machine that ignores it.
+---@class PfManualModel
+---@field step number PF's sprayAmountManual
+---@field min number
+---@field max number
+---@field change number? kg N/ha, or a pH increment, added by one pass at this step
+---@field rate number? product applied per hectare at this step
+---@field rateUnit string? kg/ha | l/ha | m³/ha | t/ha
+
 -- `mode` is what the tool is currently doing with what is in its tank. `nitrogen`/`ph` are the
 -- averages over the whole boom -- the numbers PF's own HUD shows -- and are network-synced, so they
 -- are there for every player. `workAreas` is the per-slice detail, which is not: see the note on
 -- collectSprayer.
+--
+-- The two rates answer different questions and PF's HUD prints whichever the mode makes meaningful.
+-- `manual.rate` is nominal: what one pass at the chosen step *would* cost, true whether or not the
+-- tool is running, which is what a driver picking a step needs. `rate` is what is actually leaving
+-- the machine this instant -- the only rate that exists in auto, where the tool reads the map and
+-- picks its own -- and is absent the moment the boom comes up.
 ---@class PrecisionFarmingModel
 ---@field mode string LIME | FERTILIZER | OTHER
 ---@field auto boolean
+---@field canToggleAuto boolean PF's own gate on leaving auto (sprayAmountAutoModeChangeAllowed)
+---@field manual PfManualModel? the manual step, in a mode that has rates
+---@field rate number? product per hectare actually leaving the machine, only while it is working
+---@field rateUnit string? kg/ha | l/ha | m³/ha | t/ha
 ---@field nitrogen PfValueModel? only while fertilizing -- PF stops maintaining it otherwise
 ---@field ph PfValueModel? only while liming, for the same reason
 ---@field spotSpray boolean?
@@ -123,6 +155,20 @@ local function pfInstance()
   return type(instance) == "table" and instance or nil
 end
 
+---One of PF's own class tables, reached the same way pfInstance reaches its singleton: a
+---specialization is a plain global in PF's env (`ExtendedSprayer = {}` at the top of its file), so
+---from here it is only visible through the env global named after the mod.
+---
+---Needed for the *static* helpers, the ones PF never registers onto the vehicle -- a vehicle function
+---like `getValidSprayerToUse` is reachable on the object itself and needs none of this.
+---@param name string PF's own class name, e.g. "ExtendedSprayer"
+---@return table|nil
+local function pfClass(name)
+  local env = type(FS25_precisionFarming) == "table" and FS25_precisionFarming or nil
+  local class = env ~= nil and env[name] or nil
+  return type(class) == "table" and class or nil
+end
+
 ---The live value map PF registered under `name` (it assigns each one onto itself by name), or nil when
 ---PF isn't loaded / hasn't built it yet.
 ---@param name string PF's own field name, e.g. "soilMap"
@@ -134,6 +180,34 @@ local function valueMap(name)
   local instance = pfInstance()
   local map = instance ~= nil and instance[name] or nil
   return type(map) == "table" and map or nil
+end
+
+---The sprayer on this rig that PF's own controls drive, or nil when there is none.
+---
+---**`getValidSprayerToUse` is a static on PF's spec class, not a registered vehicle function.** It is
+---absent from `ExtendedSprayer.registerFunctions`, and PF calls it as
+---`ExtendedSprayer.getValidSprayerToUse(self)` — so asking the vehicle for it finds nothing on *every*
+---machine, self-propelled sprayers included, and it has to come through the mod-env lookup like the
+---rest of PF's internals.
+---
+---Worth delegating rather than re-deriving: it walks the whole rig (`rootVehicle.childVehicles`), and
+---it carries the exception that a manure barrel with a tool hitched to it is not the sprayer — the
+---tool behind it is. See rateSource, which is the same rule on the read side.
+---@param vehicle table any vehicle on the rig; the walk starts from its root
+---@return table|nil
+function VDT.PrecisionFarming.validSprayer(vehicle)
+  if type(vehicle) ~= "table" then
+    return nil
+  end
+  local extended = pfClass("ExtendedSprayer")
+  if extended == nil or type(extended.getValidSprayerToUse) ~= "function" then
+    return nil
+  end
+  local ok, sprayer = pcall(extended.getValidSprayerToUse, vehicle)
+  if not ok or type(sprayer) ~= "table" then
+    return nil
+  end
+  return sprayer
 end
 
 ---True when PF is installed but its singleton can't be reached from here — the mod-environment trap
@@ -327,6 +401,303 @@ local function spotSprayEnabled(object)
   return spec.isEnabled == true
 end
 
+---The fill type in one unit, falling back to the last one it held. An empty tank still knows what it
+---last spread, and costing the rate against that is what PF does itself (`getCurrentSprayerMode`
+---falls back the same way) -- otherwise a machine that just ran dry loses its rate readout at exactly
+---the moment the driver is deciding whether to refill.
+---@param vehicle table|nil
+---@param index number|nil fill unit index
+---@return number|nil
+local function fillTypeAt(vehicle, index)
+  if type(vehicle) ~= "table" or type(index) ~= "number" or type(vehicle.getFillUnitFillType) ~= "function" then
+    return nil
+  end
+  local ok, fillType = pcall(vehicle.getFillUnitFillType, vehicle, index)
+  if ok and type(fillType) == "number" and fillType ~= FillType.UNKNOWN then
+    return fillType
+  end
+  if type(vehicle.getFillUnitLastValidFillType) ~= "function" then
+    return nil
+  end
+  local okLast, last = pcall(vehicle.getFillUnitLastValidFillType, vehicle, index)
+  if not okLast or type(last) ~= "number" or last == FillType.UNKNOWN then
+    return nil
+  end
+  return last
+end
+
+---The fill type the application rate has to be costed against.
+---
+---Not necessarily this machine's own: an empty sprayer draws from the tank trailer behind it, and PF
+---walks those supply sources in `getFillTypeSourceVehicle` -- a static on its spec class rather than a
+---vehicle function, hence the env lookup. Our own fill unit is the fallback, which is what that walk
+---returns anyway for every machine carrying its own product.
+---@param object table
+---@return number|nil
+local function sprayFillType(object)
+  local extended = pfClass("ExtendedSprayer")
+  if extended ~= nil and type(extended.getFillTypeSourceVehicle) == "function" then
+    local ok, source, index = pcall(extended.getFillTypeSourceVehicle, object)
+    if ok then
+      local fillType = fillTypeAt(source, index)
+      if fillType ~= nil then
+        return fillType
+      end
+    end
+  end
+  if type(object.getSprayerFillUnitIndex) ~= "function" then
+    return nil
+  end
+  local ok, index = pcall(object.getSprayerFillUnitIndex, object)
+  if not ok then
+    return nil
+  end
+  return fillTypeAt(object, index)
+end
+
+---Tonnes per liter of `fillType`. The engine stores mass scaled (FillTypeManager.MASS_SCALE) and
+---every rate PF's HUD prints unscales it the same way before weighing anything.
+---@param fillType number|nil
+---@return number|nil
+local function massPerLiter(fillType)
+  if type(fillType) ~= "number" or type(g_fillTypeManager) ~= "table" then
+    return nil
+  end
+  -- The scale is checked before it is divided by, like every other read here: nothing in this file is
+  -- allowed to raise, because the object hooks run un-pcall'd inside the vehicle walk (registry.lua)
+  -- and an error thrown here would cost the whole export, not just the rate.
+  local scale = type(FillTypeManager) == "table" and FillTypeManager.MASS_SCALE or nil
+  if type(scale) ~= "number" or scale == 0 then
+    return nil
+  end
+  local ok, desc = pcall(g_fillTypeManager.getFillTypeByIndex, g_fillTypeManager, fillType)
+  if not ok or type(desc) ~= "table" or type(desc.massPerLiter) ~= "number" then
+    return nil
+  end
+  return desc.massPerLiter / scale
+end
+
+---Call one of a value map's rate methods, fail-soft like every other read of PF's internals.
+---@param map table|nil
+---@param method string
+---@param ... any
+---@return number|nil
+local function mapNumber(map, method, ...)
+  if type(map) ~= "table" or type(map[method]) ~= "function" then
+    return nil
+  end
+  local ok, value = pcall(map[method], map, ...)
+  if not ok or type(value) ~= "number" then
+    return nil
+  end
+  return value
+end
+
+---Liters per hectare weighed into the unit PF's own HUD prints for this machine.
+---
+---The branches are PF's four machine kinds and the four lines of its HUD, in its order: a spreader is
+---weighed in kilos, a sprayer measured in liters, a slurry tanker in cubic metres, a manure spreader
+---in tonnes. Lime is decided by what is in the tank rather than by the machine, exactly as the HUD's
+---`hasLimeLoaded` is -- the same spreader does both.
+---
+---Mirroring the arithmetic (rather than inventing a unit) is the point: the number on the terminal is
+---then the number on the in-game display, and a player can read either. Shared by both rates for the
+---same reason it can be: PF's HUD prints ONE application-rate line and only chooses its liters by
+---mode (`ExtendedSprayerHUDExtension`), so the conversion below is the whole of that line.
+---@param spec table the ExtendedSprayer spec
+---@param liters number|nil liters per hectare
+---@param mode string LIME | FERTILIZER
+---@param mass number|nil tonnes per liter of what is in the tank
+---@return number|nil rate, string|nil unit
+local function ratePerHectare(spec, liters, mode, mass)
+  if liters == nil then
+    return nil, nil
+  end
+  if mode == "LIME" then
+    if mass == nil then
+      return nil, nil
+    end
+    return liters * mass, "t/ha"
+  end
+  if spec.isSolidFertilizerSprayer then
+    return mass ~= nil and liters * mass * 1000 or nil, mass ~= nil and "kg/ha" or nil
+  elseif spec.isLiquidFertilizerSprayer then
+    return liters, "l/ha"
+  elseif spec.isSlurryTanker then
+    return liters / 1000, "m³/ha"
+  elseif spec.isManureSpreader then
+    return mass ~= nil and liters * mass or nil, mass ~= nil and "t/ha" or nil
+  end
+  -- A PF sprayer of no kind it prints a rate for: the liters are real, the unit is not ours to name.
+  return nil, nil
+end
+
+---What one pass at `step` would cost in product -- the nominal rate for the chosen step, which is what
+---PF's HUD prints in manual mode.
+---@param spec table the ExtendedSprayer spec
+---@param step number
+---@param mode string LIME | FERTILIZER
+---@param fillType number|nil
+---@param mass number|nil
+---@return number|nil rate, string|nil unit
+local function manualRate(spec, step, mode, fillType, mass)
+  local liters
+  if mode == "LIME" then
+    liters = mapNumber(spec.pHMap, "getLimeUsageByStateChange", step)
+  else
+    -- Only the first return is the per-hectare figure; PF's HUD reads it the same way.
+    liters = mapNumber(spec.nitrogenMap, "getFertilizerUsageByStateChange", step, fillType)
+  end
+  return ratePerHectare(spec, liters, mode, mass)
+end
+
+---Whether this machine is in a position to work: lowered, in ground contact, driven the right way,
+---and its section switched on. The engine's own `getIsWorkAreaActive`, which is the steady signal --
+---deliberately NOT `getIsWorkAreaProcessing`, which is only true within 200 ms of ground actually
+---changing and so flickers several times a second on a tool passing over worked ground.
+---@param object table a vehicle or implement
+---@return boolean
+local function isWorking(object)
+  local workArea = object.spec_workArea
+  if type(workArea) ~= "table" or type(object.getIsWorkAreaActive) ~= "function" then
+    return false
+  end
+  for _, area in ipairs(workArea.workAreas or {}) do
+    local ok, active = pcall(object.getIsWorkAreaActive, object, area)
+    if ok and active == true then
+      return true
+    end
+  end
+  return false
+end
+
+---What is actually leaving the machine right now, per hectare, or nil when nothing is.
+---
+---`spec.lastLitersPerHectar` is the figure PF's HUD leads with in **auto**, where there is no step to
+---derive one from: the tool reads the map and picks its own rate per square metre, so this is the only
+---answer to "how much is it putting down". PF recomputes it every tick from the deficit it is closing,
+---the working width, the speed and the share of the boom actually open.
+---
+---**Gated on the tool working, because PF does not clear it.** It is a plain field left at whatever
+---the last processed area needed, so a raised boom keeps reporting the rate of the pass that just
+---ended -- a live-looking number for something that is not happening. Absent is the honest answer, and
+---the app holds the line open rather than reflowing.
+---
+---Reaches multiplayer clients, confirmed in a joined session on a Vredo and on a pulse-width-
+---modulation sprayer, in both modes: it is set inside `getSprayerUsage`, which PF overrides and the
+---base game calls from `onStartWorkAreaProcessing` -- raised by `WorkArea:onUpdateTick` with no
+---`isServer` gate.
+---
+---A client's auto figure is PF's *default* state change rather than the deficit it would compute on
+---the server. `ExtendedSprayer:onUpdate` refreshes the sub-sections inside `if self.isServer`, and
+---that block is also what sets `isPrecisionFarmingDataUncovered`; with the flag false everywhere, the
+---auto branch's `if not dataUncovered then changeValue = getDefaultNitrogenStateChange() end`
+---replaces whatever it just averaged. So a client computes a real number, not the zero this was
+---expected to produce -- and it is the same number PF's own HUD draws on that client, which is the
+---agreement we promise. Whether it matches the server's authoritative pass is PF's property, not
+---something reporting it introduces.
+---@param object table the machine, for its work areas
+---@param spec table the ExtendedSprayer spec
+---@param mode string LIME | FERTILIZER | OTHER
+---@param mass number|nil
+---@return number|nil rate, string|nil unit
+local function liveRate(object, spec, mode, mass)
+  if mode == "OTHER" or not isWorking(object) then
+    return nil, nil
+  end
+  local liters = tonumber(spec.lastLitersPerHectar)
+  if liters == nil or liters <= 0 then
+    return nil, nil
+  end
+  return ratePerHectare(spec, liters, mode, mass)
+end
+
+---The manual step and what it does, or nil in a mode PF keeps no rates for.
+---@param spec table the ExtendedSprayer spec
+---@param mode string LIME | FERTILIZER | OTHER
+---@param fillType number|nil
+---@param mass number|nil
+---@return PfManualModel|nil
+local function collectManual(spec, mode, fillType, mass)
+  if mode == "OTHER" or type(spec.sprayAmountManual) ~= "number" then
+    return nil
+  end
+  local step = spec.sprayAmountManual
+  -- Branched, not `and`/`or`: a liming tool whose pH converter has moved reads nil there, and an
+  -- `or` would quietly answer with the *nitrogen* change instead -- a plausible number for the wrong
+  -- substance, which is worse than none.
+  local change
+  if mode == "LIME" then
+    change = mapNumber(spec.pHMap, "getPhValueFromChangedStates", step)
+  else
+    change = mapNumber(spec.nitrogenMap, "getNitrogenFromChangedStates", step)
+  end
+  local rate, unit = manualRate(spec, step, mode, fillType, mass)
+  return {
+    step = step,
+    -- PF clamps every write to these (setSprayAmountManualValue), and re-derives the maximum from the
+    -- value map whenever the tank changes -- so they move with the fill type and are not a constant.
+    min = tonumber(spec.sprayAmountManualMin) or 1,
+    max = tonumber(spec.sprayAmountManualMax) or step,
+    change = change ~= nil and tonumber(ValueMapper.mapFloat(change)) or nil,
+    rate = rate ~= nil and tonumber(ValueMapper.mapFloat(rate)) or nil,
+    rateUnit = unit,
+  }
+end
+
+---Whether PF would accept this machine as the one applying -- its own `getIsVehicleValid`, a static on
+---the spec class like `getValidSprayerToUse`. Nil when PF's internals can't be reached, which the
+---caller treats as "don't substitute" rather than guessing.
+---@param object table a vehicle or implement
+---@return boolean|nil
+local function isValidSprayer(object)
+  local extended = pfClass("ExtendedSprayer")
+  if extended == nil or type(extended.getIsVehicleValid) ~= "function" then
+    return nil
+  end
+  local ok, valid = pcall(extended.getIsVehicleValid, object)
+  if not ok then
+    return nil
+  end
+  return valid == true
+end
+
+---The machine whose ExtendedSprayer spec says what `object` is applying -- itself, or the machine on
+---the rig PF would actually drive.
+---
+---A slurry tanker with a dribble bar or an injecting disc harrow on the back applies nothing itself,
+---so its spec is a set of zeroes that never move -- which is exactly what the terminal showed, because
+---the barrel is the implement a rig panel finds and the machine holding the live readings hangs one
+---level below it, where no slot looks.
+---
+---**The question is PF's to answer, not ours.** `getIsVehicleValid` is the single predicate its HUD,
+---its keybinds and `getValidSprayerToUse` all gate on, and it rejects a machine four ways: no
+---ExtendedSprayer spec, no WorkArea spec, **no work areas at all**, or a manure barrel with
+---`attachedTool` set. Only the last is the barrel exception, and reading it directly -- which this
+---first shipped doing -- misses every barrel that reaches the same state by another route.
+---
+---The Kaweco Profi II is exactly that machine: sold *without* a spreading tool
+---(`$l10n_function_slurrySpreaderWithoutTool`), it declares no `<workAreas>` whatever, so it fails the
+---third check and never needs the fourth. It also declares no `manureBarrel#attacherJointIndex` -- and
+---correctly so, since that attribute exists to silence work areas it does not have -- leaving
+---`attachedTool` permanently nil. Delegating fixes the whole family at once, and makes this agree with
+---PrecisionFarmingControl, which has resolved the rig through PF's own walk since it shipped.
+---
+---The caller has already established that `object` is a PF sprayer, so this only ever moves *between*
+---applicators; a tractor is filtered out before it gets here.
+---@param object table a vehicle or implement carrying the ExtendedSprayer spec
+---@return table the machine to read the rates off
+local function rateSource(object)
+  if isValidSprayer(object) ~= false then
+    return object
+  end
+  local sprayer = VDT.PrecisionFarming.validSprayer(object)
+  if type(sprayer) == "table" and type(sprayer[VDT.PrecisionFarming.SPRAYER_SPEC]) == "table" then
+    return sprayer
+  end
+  return object
+end
+
 ---Application rates for one object, or nil when it is not a PF sprayer/spreader.
 ---
 ---**The parts have different reach.** `nitrogen`/`ph` are the boom averages PF streams to every
@@ -341,7 +712,15 @@ function VDT.PrecisionFarming.collectSprayer(object)
   if not VDT.PrecisionFarming.isActive() then
     return nil
   end
-  local spec = object[VDT.PrecisionFarming.SPRAYER_SPEC]
+  -- The gate is the object's OWN spec: only a PF sprayer/spreader reports rates, and it has to be
+  -- checked before any substitution or a tractor would inherit the rates of the tool behind it.
+  if type(object[VDT.PrecisionFarming.SPRAYER_SPEC]) ~= "table" then
+    return nil
+  end
+  -- Every read below is off `source`, not `object`: on a barrel that applies nothing itself they are
+  -- different machines, and the one behind it is what PF drives. See rateSource.
+  local source = rateSource(object)
+  local spec = source[VDT.PrecisionFarming.SPRAYER_SPEC]
   if type(spec) ~= "table" then
     return nil
   end
@@ -355,6 +734,12 @@ function VDT.PrecisionFarming.collectSprayer(object)
     mode = "FERTILIZER"
   end
 
+  -- Resolved once and handed to both rates: the fill type costs a walk of the rig's supply vehicles,
+  -- and the two rates weigh their liters against exactly the same tank.
+  local fillType = sprayFillType(source)
+  local mass = massPerLiter(fillType)
+  local rate, rateUnit = liveRate(source, spec, mode, mass)
+
   -- Each reading is emitted ONLY in the mode that maintains it, which is the same branch PF's own HUD
   -- picks. It has to be: `nitrogenLevel` is read under `if spec.isFertilizing` and `phLevel` under
   -- `if spec.isLiming` (ExtendedSprayer.lua:714-719), and the aggregates they feed are never reset --
@@ -365,6 +750,16 @@ function VDT.PrecisionFarming.collectSprayer(object)
   local model = {
     mode = mode,
     auto = spec.sprayAmountAutoMode ~= false,
+    -- PF's own gate on the auto/manual toggle: it only registers that action event when this is set
+    -- (`onRegisterActionEvents`), and `setSprayAmountAutoMode` forces manual back off when it isn't.
+    -- The shipped machines all allow it; a mod's need not, and a terminal that offered the switch
+    -- anyway would draw a button the game silently undoes.
+    canToggleAuto = spec.sprayAmountAutoModeChangeAllowed ~= false,
+    manual = collectManual(spec, mode, fillType, mass),
+    -- What is coming out right now, which in auto is the only rate there is: the tool picks its own
+    -- per square metre and no step describes it. Absent whenever the boom is up -- see liveRate.
+    rate = rate ~= nil and tonumber(ValueMapper.mapFloat(rate)) or nil,
+    rateUnit = rateUnit,
     nitrogen = spec.isFertilizing and valuePair(
       spec.nitrogenMap,
       "getNitrogenValueFromInternalValue",
@@ -374,16 +769,21 @@ function VDT.PrecisionFarming.collectSprayer(object)
     ) or nil,
     ph = spec.isLiming and valuePair(spec.pHMap, "getPhValueFromInternalValue", spec.phActualValue, spec.phTargetValue)
       or nil,
-    spotSpray = spotSprayEnabled(object),
+    spotSpray = spotSprayEnabled(source),
     -- Off a different spec, but the same machine and the same question, so it rides here rather than
     -- becoming a second subtree. ExtendedSprayerEffects requires ExtendedSprayer
     -- (`prerequisitesPresent`), so gating both on this one loses nothing.
-    nozzles = collectNozzles(object),
+    nozzles = collectNozzles(source),
   }
 
   -- Walked from the base-game work areas rather than PF's own three lists, so the exported `index`
   -- is the one WorkAreaModel carries and the two can be joined.
-  local workAreaSpec = object.spec_workArea
+  --
+  -- Only for a machine reading its own spec. `index` joins to this object's `workAreas`, and a
+  -- borrowed strip would index the tool's areas while sitting on the barrel -- a join that reads fine
+  -- and is wrong. The strip is detail on top of the readout (see the note above), so the barrel gives
+  -- up the detail and keeps the numbers; the tool still exports its own strip against its own areas.
+  local workAreaSpec = source == object and object.spec_workArea or nil
   local areas = {}
   for _, area in ipairs(workAreaSpec ~= nil and workAreaSpec.workAreas or {}) do
     areas[#areas + 1] = collectSubSections(spec, area)

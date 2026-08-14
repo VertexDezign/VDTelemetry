@@ -22,6 +22,41 @@ data class PrecisionFarming(
   /** PF's auto mode: the tool picks the rate from the maps instead of the manual step. */
   val auto: Boolean = false,
   /**
+   * Whether this machine may leave auto at all — PF's own `sprayAmountAutoModeChangeAllowed`, the flag
+   * it gates its own toggle keybind on. Every shipped machine allows it; a modded one need not, and
+   * there the switch has to be left out rather than drawn and silently undone.
+   */
+  val canToggleAuto: Boolean = true,
+  /**
+   * The manual application-rate step and what one pass at it does — see [PfManual].
+   *
+   * Present only in a mode PF keeps rates for. With herbicide the step still exists and still saves,
+   * but nothing reads it and PF deactivates its own adjust key, so the mod withholds it.
+   */
+  val manual: PfManual? = null,
+  /**
+   * Product per hectare **actually leaving the machine right now**, in [rateUnit].
+   *
+   * The rate PF's own HUD leads with in auto, and the only one that exists there: the tool reads the
+   * map and picks its own rate per square metre, so no step describes it. PF recomputes it every tick
+   * from the deficit it is closing, the working width, the speed, and the share of the boom open.
+   *
+   * Absent whenever the tool is not working — PF leaves the field at whatever the last processed area
+   * needed, so the mod withholds it rather than pass on the rate of a pass that has ended.
+   *
+   * Present on a multiplayer client, in both modes, confirmed in a joined session. In auto a client's
+   * figure comes from PF's default state change rather than the deficit the server averages, because
+   * the sub-section data that averaging reads is refreshed server-side only — but it is the number PF
+   * draws on that same client, so the terminal and the game agree, which is the promise.
+   *
+   * Distinct from [PfManual.rate], which is nominal — what one pass at the chosen step *would* cost,
+   * whether or not the tool is running. That is the number to pick a step by; this is the number to
+   * check the machine against.
+   */
+  val rate: Float? = null,
+  /** `kg/ha`, `l/ha`, `m³/ha` or `t/ha` — PF's own unit for this kind of machine. */
+  val rateUnit: String? = null,
+  /**
    * Present only while fertilizing. PF stops refreshing nitrogen the moment the tank holds anything
    * else and never resets it, so outside that mode the mod withholds it rather than passing on a
    * reading that is minutes or fields out of date.
@@ -51,6 +86,40 @@ data class PrecisionFarming(
 
 @Serializable
 enum class PfMode { LIME, FERTILIZER, OTHER }
+
+/**
+ * The manual application rate: which step the machine is set to, and what one pass at that step does.
+ *
+ * [step] is an index into PF's own level tables, not a rate — on its own it says nothing to a reader,
+ * which is why the mod converts it twice. [change] is the step in the units the readout already
+ * speaks, so `level + change` is where this pass leaves the soil; [rate] is the product it costs per
+ * hectare, which is the number PF's own HUD leads with in manual mode.
+ *
+ * All of it is a function of the step and what is in the tank rather than of anything the server
+ * computes, so — unlike [PrecisionFarming.workAreas] — it is exact on a multiplayer client too.
+ *
+ * [min]/[max] are the machine's own bounds and **move with the fill type**: PF re-derives the maximum
+ * from the value map whenever the tank changes. A control steps within them but does not have to be
+ * right about them — the mod's setter clamps, so the machine has the last word.
+ */
+@Serializable
+data class PfManual(
+  val step: Int = 1,
+  val min: Int = 1,
+  val max: Int = 1,
+  /** kg N/ha, or a pH increment, that one pass at [step] adds. */
+  val change: Float? = null,
+  /** Product applied per hectare at [step], in [rateUnit]; absent when the tank's fill type is unknown. */
+  val rate: Float? = null,
+  /** `kg/ha`, `l/ha`, `m³/ha` or `t/ha` — PF's own unit for this kind of machine. */
+  val rateUnit: String? = null,
+) {
+  /** Whether stepping [by] would move at all — what a +/- control greys out on. */
+  fun canStep(by: Int): Boolean = (step + by) in min..max
+
+  /** [step] moved [by], clamped to the machine's bounds. The absolute value a step command carries. */
+  fun stepped(by: Int): Int = (step + by).coerceIn(min, max)
+}
 
 /**
  * A reading and what it should be, in the units a player reads: kg N/ha for nitrogen, a pH value for

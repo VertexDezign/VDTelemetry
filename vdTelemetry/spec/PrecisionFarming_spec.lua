@@ -428,6 +428,447 @@ describe("PrecisionFarming.collectSprayer", function()
   end)
 end)
 
+-- A slurry tanker with a dribble bar or an injecting disc harrow hitched to it (rateSource). The
+-- barrel applies nothing itself, so PF keeps the rates on the tool -- and the barrel is the implement
+-- a rig panel finds, with the tool one level below it where no slot looks.
+describe("PrecisionFarming barrel with an attached tool", function()
+  local function specOf(over)
+    local spec = {
+      isFertilizing = true,
+      nActualValue = 3,
+      nTargetValue = 6,
+      nitrogenMap = {
+        maxValue = 10,
+        getNitrogenValueFromInternalValue = function(_, internal)
+          return ({ [3] = 45, [6] = 90 })[internal] or 0
+        end,
+      },
+    }
+    for k, v in pairs(over or {}) do
+      spec[k] = v
+    end
+    return spec
+  end
+
+  local function areas()
+    return { workAreas = { { index = 1, numSubSections = 1, subSectionData = { { isValid = true } } } } }
+  end
+
+  ---PF's env, with the two statics the substitution goes through. Both mirror the shipped source
+  ---rather than approximating it: `getIsVehicleValid` rejects a machine with no ExtendedSprayer spec,
+  ---no work areas, or a manure barrel holding an `attachedTool`, and `getValidSprayerToUse` returns
+  ---the first machine on the rig that passes. Getting these wrong is what the bug was.
+  ---@param rig table[] the rig in hitch order, as PF's rootVehicle.childVehicles
+  local function pfEnv(rig)
+    local function isValid(vehicle)
+      if type(vehicle[VDT.PrecisionFarming.SPRAYER_SPEC]) ~= "table" then
+        return false
+      end
+      local workArea = vehicle.spec_workArea
+      if type(workArea) ~= "table" or #(workArea.workAreas or {}) == 0 then
+        return false
+      end
+      local barrel = vehicle.spec_manureBarrel
+      return type(barrel) ~= "table" or barrel.attachedTool == nil
+    end
+    rawset(_G, "FS25_precisionFarming", {
+      ExtendedSprayer = {
+        getIsVehicleValid = isValid,
+        getValidSprayerToUse = function()
+          for _, vehicle in ipairs(rig) do
+            if isValid(vehicle) then
+              return vehicle
+            end
+          end
+          return nil
+        end,
+      },
+    })
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v, decimals)
+        local mult = 10 ^ (decimals or 0)
+        return math.floor(v * mult + 0.5) / mult
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+    rawset(_G, "FS25_precisionFarming", nil)
+  end)
+
+  it("reports the tool's rates, which is what the game's own HUD does", function()
+    -- The Kaweco Profi II, from examples/json/telemetry/precisionFarming/liquidManure_dribbleBar.json:
+    -- a barrel sold WITHOUT a spreading tool, so it declares no work areas at all and its own spec is
+    -- a set of zeroes that never move. It fails PF's third check and never reaches the barrel one --
+    -- which is why reading `spec_manureBarrel.attachedTool` (nil here, and correctly so) missed it.
+    local tool = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(), spec_workArea = areas() }
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ isFertilizing = false, nActualValue = 0, nTargetValue = 0 }),
+      spec_manureBarrel = { attachedTool = nil },
+    }
+    pfEnv({ barrel, tool })
+
+    local pf = VDT.PrecisionFarming.collectSprayer(barrel)
+    assert.are.equal("FERTILIZER", pf.mode)
+    assert.are.same({ level = 45, target = 90, unit = "kg/ha" }, pf.nitrogen)
+  end)
+
+  it("substitutes for a barrel that does declare its tool, the same way", function()
+    -- The other half of the family: a barrel with work areas of its own, which the base game silences
+    -- while a tool is attached (`ManureBarrel:getIsWorkAreaActive`). PF rejects it on the fourth
+    -- check instead of the third -- a different route to the same answer, which is the point of
+    -- asking PF rather than testing for one of them.
+    local tool = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(), spec_workArea = areas() }
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ isFertilizing = false, nActualValue = 0, nTargetValue = 0 }),
+      spec_workArea = areas(),
+      spec_manureBarrel = { attachedTool = tool },
+    }
+    pfEnv({ barrel, tool })
+
+    assert.are.same({ level = 45, target = 90, unit = "kg/ha" }, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen)
+  end)
+
+  it("keeps its own reading once the tool is unhitched", function()
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ nActualValue = 6 }),
+      spec_workArea = areas(),
+      spec_manureBarrel = { attachedTool = nil },
+    }
+    pfEnv({ barrel })
+    assert.are.equal(90, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen.level)
+  end)
+
+  it("does not borrow a strip whose indices belong to the tool", function()
+    -- `index` joins to the *object's* own workAreas, so a borrowed strip would sit on the barrel and
+    -- index the tool's areas: a join that reads fine and is wrong. The readout is what the barrel
+    -- needs; the tool still exports the strip against the areas it belongs to.
+    local tool = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(), spec_workArea = areas() }
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(),
+      spec_manureBarrel = { attachedTool = tool },
+      spec_workArea = { workAreas = { { index = 1 } } },
+    }
+    pfEnv({ barrel, tool })
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(barrel).workAreas)
+    assert.is_not_nil(VDT.PrecisionFarming.collectSprayer(tool).workAreas)
+  end)
+
+  it("keeps its own reading when the rig has nothing better to offer", function()
+    -- Not everything hitched to a barrel is an applicator. PF finds no valid sprayer on the rig at
+    -- all, and the barrel's own reading is still the best answer available.
+    local barrel = {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ nActualValue = 6 }),
+      spec_manureBarrel = { attachedTool = { name = "a trailer" } },
+    }
+    pfEnv({ barrel, { name = "a trailer" } })
+    assert.are.equal(90, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen.level)
+  end)
+
+  it("substitutes nothing when PF's internals cannot be reached", function()
+    -- No env, so `getIsVehicleValid` is unreachable and the answer is unknown rather than false. A
+    -- PF rename must cost the substitution, never redirect a readout onto a machine we guessed at.
+    local barrel = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf({ nActualValue = 6 }) }
+    assert.are.equal(90, VDT.PrecisionFarming.collectSprayer(barrel).nitrogen.level)
+  end)
+
+  it("never gives a machine that is no PF sprayer the rates of the tool behind it", function()
+    -- The gate is the object's OWN spec, checked before any substitution: a tractor pulling the rig
+    -- would otherwise inherit the applicator's readout and draw a rate panel on the cab.
+    local tool = { [VDT.PrecisionFarming.SPRAYER_SPEC] = specOf(), spec_workArea = areas() }
+    local tractor = { name = "the tractor in front" }
+    pfEnv({ tractor, tool })
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(tractor))
+  end)
+end)
+
+-- The manual application rate (collectManual, via collectSprayer): PF's step, and what one pass at it
+-- does. Pure arithmetic over the value maps and whatever is in the tank -- no server-only state -- so
+-- unlike the sub-section strip it is exact on a multiplayer client too.
+describe("PrecisionFarming manual rate", function()
+  local FERTILIZER, LIME = 7, 8
+
+  -- Steps worth 15 kg N/ha (or 0.1 pH) each, costing 200 l/ha (or 1000 l/ha of lime) each.
+  local function sprayer(over)
+    local spec = {
+      isFertilizing = true,
+      isSolidFertilizerSprayer = true,
+      sprayAmountAutoMode = false,
+      sprayAmountManual = 3,
+      sprayAmountManualMin = 1,
+      sprayAmountManualMax = 7,
+      nActualValue = 3,
+      nTargetValue = 6,
+      nitrogenMap = {
+        maxValue = 10,
+        getNitrogenValueFromInternalValue = function(_, internal)
+          return ({ [3] = 45, [6] = 90 })[internal] or 0
+        end,
+        getNitrogenFromChangedStates = function(_, states)
+          return states * 15
+        end,
+        getFertilizerUsageByStateChange = function(_, states)
+          -- PF returns liters, mass and the nitrogen proportion; only the first is the per-hectare
+          -- figure, and reading the wrong one is a plausible-looking mistake, so it is pinned here.
+          return states * 200, states * 0.2, 0.1
+        end,
+      },
+      pHMap = {
+        maxValue = 10,
+        getPhValueFromInternalValue = function(_, internal)
+          return ({ [2] = 6.2, [4] = 6.8 })[internal] or 0
+        end,
+        getPhValueFromChangedStates = function(_, states)
+          return states * 0.1
+        end,
+        getLimeUsageByStateChange = function(_, states)
+          return states * 1000
+        end,
+      },
+    }
+    for k, v in pairs(over or {}) do
+      spec[k] = v
+    end
+    return {
+      [VDT.PrecisionFarming.SPRAYER_SPEC] = spec,
+      getSprayerFillUnitIndex = function()
+        return 1
+      end,
+      getFillUnitFillType = function(_, index)
+        return index == 1 and FERTILIZER or 0
+      end,
+    }
+  end
+
+  before_each(function()
+    rawset(_G, "g_modIsLoaded", { FS25_precisionFarming = true })
+    rawset(_G, "MathUtil", {
+      round = function(v, decimals)
+        local mult = 10 ^ (decimals or 0)
+        return math.floor(v * mult + 0.5) / mult
+      end,
+    })
+    rawset(_G, "FillType", { UNKNOWN = 0 })
+    rawset(_G, "FillTypeManager", { MASS_SCALE = 1 })
+    rawset(_G, "g_fillTypeManager", {
+      getFillTypeByIndex = function(_, index)
+        -- Tonnes per liter, as the engine stores it: a kilo of solid fertilizer per liter.
+        return ({ [FERTILIZER] = { massPerLiter = 0.001 }, [LIME] = { massPerLiter = 0.0012 } })[index]
+      end,
+    })
+  end)
+
+  after_each(function()
+    rawset(_G, "g_modIsLoaded", nil)
+    rawset(_G, "MathUtil", nil)
+    rawset(_G, "FillType", nil)
+    rawset(_G, "FillTypeManager", nil)
+    rawset(_G, "g_fillTypeManager", nil)
+    rawset(_G, "FS25_precisionFarming", nil)
+  end)
+
+  it("reports the step, its bounds, and what one pass at it does", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer())
+    assert.is_false(pf.auto)
+    assert.are.same({ step = 3, min = 1, max = 7, change = 45, rate = 600, rateUnit = "kg/ha" }, pf.manual)
+  end)
+
+  -- Each of PF's four machine kinds is weighed in the unit its own HUD prints, off the same liters
+  -- per hectare -- so the terminal and the in-game display agree rather than merely both being right.
+  it("weighs the rate in the unit PF's HUD uses for this kind of machine", function()
+    local function rateOf(over, object)
+      return VDT.PrecisionFarming.collectSprayer(object or sprayer(over)).manual
+    end
+
+    local liquid = rateOf({ isSolidFertilizerSprayer = false, isLiquidFertilizerSprayer = true })
+    assert.are.equal(600, liquid.rate)
+    assert.are.equal("l/ha", liquid.rateUnit)
+
+    local slurry = rateOf({ isSolidFertilizerSprayer = false, isSlurryTanker = true })
+    assert.are.equal(0.6, slurry.rate)
+    assert.are.equal("m³/ha", slurry.rateUnit)
+
+    local manure = rateOf({ isSolidFertilizerSprayer = false, isManureSpreader = true })
+    assert.are.equal(0.6, manure.rate)
+    assert.are.equal("t/ha", manure.rateUnit)
+
+    -- Lime is decided by what is in the tank, not by the machine: the same spreader does both, which
+    -- is why PF's HUD branches on the loaded fill type before it looks at the machine's kind.
+    local limeTool = sprayer({ isFertilizing = false, isLiming = true })
+    limeTool.getFillUnitFillType = function()
+      return LIME
+    end
+    local lime = rateOf(nil, limeTool)
+    assert.are.equal(3.6, lime.rate)
+    assert.are.equal("t/ha", lime.rateUnit)
+    assert.are.equal(0.3, lime.change)
+  end)
+
+  it("costs the rate against the trailer feeding an empty sprayer, the way PF does", function()
+    -- PF walks the supply sources in getFillTypeSourceVehicle -- a static on its spec class, so it is
+    -- only reachable through the mod-env global (see pfClass). An empty sprayer pulled behind a full
+    -- tank trailer is spreading the trailer's product, and the rate has to be costed against that.
+    local trailer = {
+      getFillUnitFillType = function()
+        return LIME
+      end,
+    }
+    rawset(_G, "FS25_precisionFarming", {
+      ExtendedSprayer = {
+        getFillTypeSourceVehicle = function()
+          return trailer, 2
+        end,
+      },
+    })
+    local tool = sprayer({ isFertilizing = false, isLiming = true })
+    assert.are.equal(3.6, VDT.PrecisionFarming.collectSprayer(tool).manual.rate)
+  end)
+
+  it("falls back to the fill type the tank last held", function()
+    -- An empty machine still knows what it last spread, and PF's own mode check falls back the same
+    -- way -- so running dry must not blank the rate at the moment you are deciding whether to refill.
+    local tool = sprayer()
+    tool.getFillUnitFillType = function()
+      return 0
+    end
+    tool.getFillUnitLastValidFillType = function()
+      return FERTILIZER
+    end
+    assert.are.equal(600, VDT.PrecisionFarming.collectSprayer(tool).manual.rate)
+  end)
+
+  it("keeps the step when the product cost is unknowable", function()
+    -- No fill type anywhere: the step and what it does to the soil are still exact, only the product
+    -- it costs is not. Reporting the step without a rate beats reporting neither.
+    local tool = sprayer()
+    tool.getFillUnitFillType = function()
+      return 0
+    end
+    local manual = VDT.PrecisionFarming.collectSprayer(tool).manual
+    assert.are.equal(3, manual.step)
+    assert.are.equal(45, manual.change)
+    assert.is_nil(manual.rate)
+    assert.is_nil(manual.rateUnit)
+  end)
+
+  it("omits the block with herbicide, where the step changes nothing", function()
+    -- PF keeps no rates in this mode and deactivates its own adjust action, so a terminal that showed
+    -- the step would draw a live-looking control the machine ignores.
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(sprayer({ isFertilizing = false })).manual)
+  end)
+
+  it("carries PF's own gate on leaving auto", function()
+    assert.is_true(VDT.PrecisionFarming.collectSprayer(sprayer()).canToggleAuto)
+    local locked = sprayer({ sprayAmountAutoModeChangeAllowed = false })
+    assert.is_false(VDT.PrecisionFarming.collectSprayer(locked).canToggleAuto)
+  end)
+
+  it("never answers a liming tool with the nitrogen change", function()
+    -- The `and`/`or` trap: with the pH converter gone, a fallthrough would put a kg N/ha figure next
+    -- to a pH reading. A plausible number for the wrong substance is worse than no number.
+    local tool = sprayer({
+      isFertilizing = false,
+      isLiming = true,
+      pHMap = { maxValue = 10, getLimeUsageByStateChange = function() end },
+    })
+    tool.getFillUnitFillType = function()
+      return LIME
+    end
+    assert.is_nil(VDT.PrecisionFarming.collectSprayer(tool).manual.change)
+  end)
+
+  it("survives value-map methods that have moved", function()
+    local pf = VDT.PrecisionFarming.collectSprayer(sprayer({
+      nitrogenMap = {
+        maxValue = 10,
+        getNitrogenValueFromInternalValue = function(_, internal)
+          return ({ [3] = 45, [6] = 90 })[internal] or 0
+        end,
+        getFertilizerUsageByStateChange = function()
+          error("PF internals moved")
+        end,
+      },
+    }))
+    assert.are.equal(3, pf.manual.step)
+    assert.is_nil(pf.manual.change)
+    assert.is_nil(pf.manual.rate)
+  end)
+
+  -- The live rate (liveRate, via collectSprayer): `spec.lastLitersPerHectar`, weighed the same way
+  -- the step is. In AUTO this is the only rate there is -- the tool reads the map and picks its own
+  -- per square metre, so no step describes it -- and it is what PF's own HUD prints there.
+  describe("live rate", function()
+    ---A working machine: PF's last computed liters/ha, and a work area the engine calls active.
+    local function working(over, areaActive)
+      local object = sprayer(over)
+      object[VDT.PrecisionFarming.SPRAYER_SPEC].lastLitersPerHectar = 400
+      object.spec_workArea = { workAreas = { { index = 1 } } }
+      object.getIsWorkAreaActive = function()
+        return areaActive ~= false
+      end
+      return object
+    end
+
+    it("reports what is actually leaving the machine, in the same unit as the step", function()
+      local pf = VDT.PrecisionFarming.collectSprayer(working())
+      -- 400 l/ha of solid fertilizer at a kilo per liter, exactly as PF's HUD weighs it.
+      assert.are.equal(400, pf.rate)
+      assert.are.equal("kg/ha", pf.rateUnit)
+      -- The nominal step cost is a different number and is carried alongside, not replaced: one is
+      -- what the machine is doing, the other what the chosen step would cost.
+      assert.are.equal(600, pf.manual.rate)
+    end)
+
+    it("weighs it in the unit PF's HUD uses for this kind of machine", function()
+      local slurry =
+        VDT.PrecisionFarming.collectSprayer(working({ isSolidFertilizerSprayer = false, isSlurryTanker = true }))
+      assert.are.equal(0.4, slurry.rate)
+      assert.are.equal("m³/ha", slurry.rateUnit)
+    end)
+
+    it("withholds it the moment the boom comes up", function()
+      -- PF never clears the field: it holds whatever the last processed area needed. Reporting that
+      -- would put the rate of a finished pass on screen looking live, so absent is the honest answer.
+      local pf = VDT.PrecisionFarming.collectSprayer(working(nil, false))
+      assert.is_nil(pf.rate)
+      assert.is_nil(pf.rateUnit)
+      -- The step cost survives, because it never depended on the tool running.
+      assert.are.equal(600, pf.manual.rate)
+    end)
+
+    it("withholds it on a machine with no work areas to judge by", function()
+      -- PF's figure is there to be read; what is missing is any way to know whether the tool is
+      -- working, which is the gate under test. Set deliberately, because a machine with no figure
+      -- either would pass this whether or not the gate exists.
+      local object = sprayer()
+      object[VDT.PrecisionFarming.SPRAYER_SPEC].lastLitersPerHectar = 400
+      assert.is_nil(VDT.PrecisionFarming.collectSprayer(object).rate)
+    end)
+
+    it("drops a zero rather than reporting it", function()
+      -- A machine that is down and working but computing nothing per hectare says more by staying
+      -- quiet: "0 kg/ha" under a running boom reads as a broken figure rather than an absent one.
+      -- This was added expecting multiplayer clients to hit it; they do not (see liveRate), so it
+      -- guards only the cases nobody has enumerated -- which is the reason to keep it.
+      local object = working()
+      object[VDT.PrecisionFarming.SPRAYER_SPEC].lastLitersPerHectar = 0
+      assert.is_nil(VDT.PrecisionFarming.collectSprayer(object).rate)
+    end)
+
+    it("has none with herbicide in the tank, where PF computes no rates at all", function()
+      local pf = VDT.PrecisionFarming.collectSprayer(working({ isFertilizing = false, isLiming = false }))
+      assert.are.equal("OTHER", pf.mode)
+      assert.is_nil(pf.rate)
+    end)
+  end)
+end)
+
 -- The nozzle bar (collectNozzles, via collectSprayer): PF's own per-nozzle effect states. Unlike the
 -- sub-sections these are recomputed on every client, so this is the one per-position signal that
 -- survives multiplayer -- and the only one that says anything with herbicide in the tank.
