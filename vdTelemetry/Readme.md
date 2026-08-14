@@ -234,10 +234,12 @@ version renames costs you that panel, never a Lua error.
       is a second number rather than a correction of it
     * The service interval — hours since the last maintenance, and the hours this machine's
       manufacturer recommends between them
-    * The pre-shift checks (radiator, air intake, lubrication) in ADS's own inspection bands, and
-      system voltage
+    * The system voltage the machine's electrics see
     * What the last workshop inspection found. **Not** the live condition/stress/service values: ADS
-      hides those behind an inspection on purpose, so the terminal never knows more than the driver
+      hides those behind an inspection on purpose, so the terminal never knows more than the driver.
+      The pre-shift chores (radiator, air intake, lubrication) are left out for the same reason, even
+      though ADS reports them in coarse bands — you learn them by getting out and walking round the
+      machine, and a dashboard that printed them would hand you that walk
 * [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) `1.2.0.1`
   ([source](https://github.com/Ozz-Modding/FS25_TaskList)) — the farm task list, in its own
   `taskList.json` channel (`src/integrations/TaskList.lua`). **Read and write:** VDTerminal can

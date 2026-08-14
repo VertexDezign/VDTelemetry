@@ -14,23 +14,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.vertexdezign.vdt.model.AdsCheck
 import net.vertexdezign.vdt.model.AdsService
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.math.abs
 
 /**
- * The maintenance tile: how long this machine has left before its service is due, what the pre-shift
- * walk-round would find, and what the electrics are doing.
+ * The maintenance tile: how long this machine has left before its service is due, and what the
+ * electrics are doing.
  *
- * All of it comes from Advanced Damage System, and all of it is what the mod already tells a player
- * who asks — the service interval is printed in the shop and the fleet menu, the checks are what a
- * field inspection reports (in its own coarse bands, which is why they are words and not
- * percentages), and the voltage is on ADS's own dashboard. Nothing here is a number ADS hides behind
- * a workshop diagnostic; see the mod's `src/integrations/AdvancedDamageSystem.lua`.
+ * Both come from Advanced Damage System, and both are what the mod already tells a player who asks —
+ * the service interval is printed in the shop and the fleet menu, and the voltage is on ADS's own
+ * dashboard. Nothing here is a number ADS hides behind a workshop diagnostic, and nothing here is a
+ * pre-shift chore either: those you learn by getting out and walking round the machine, so the mod
+ * doesn't export them at all. See `src/integrations/AdvancedDamageSystem.lua`.
  *
  * It answers a question the rest of the cluster cannot: *should I take this machine out today.* The
  * lamps say what has already gone wrong, the levels say what will run out this hour — this is the one
@@ -40,20 +38,13 @@ import kotlin.math.abs
 fun ClusterService(vehicle: Vehicle, modifier: Modifier = Modifier) {
   val ads = vehicle.ads
   ClusterSurface(modifier) {
-    if (ads?.service == null && ads?.checks == null && ads?.electrical == null) {
+    if (ads?.service == null && ads?.electrical == null) {
       // No ADS, or a machine it does not manage. Nothing to say beats a tile of zeroes.
       ClusterLabel("NO SERVICE DATA", Modifier.align(Alignment.Center), ClusterColors.Dim)
       return@ClusterSurface
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
       ads.service?.let { ServiceInterval(it) }
-      ads.checks?.let { checks ->
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-          Check("RAD", checks.radiator, Modifier.weight(1f))
-          Check("AIR", checks.airIntake, Modifier.weight(1f))
-          Check("LUBE", checks.lubrication, Modifier.weight(1f))
-        }
-      }
       ads.electrical?.let {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
           ClusterLabel("VOLTS", Modifier.weight(1f))
@@ -115,37 +106,6 @@ private fun ServiceBar(fraction: Float, colour: Color, modifier: Modifier = Modi
     drawRect(colour, size = Size((fraction / (1f + OVERRUN) * full).coerceIn(0f, full), size.height))
     drawRect(ClusterColors.Surface, topLeft = Offset(due, 0f), size = Size(MARK_WIDTH_PX, size.height))
   }
-}
-
-/**
- * One pre-shift chore: what it is, and how bad it is in ADS's own word for it.
- *
- * The word is the state, not a colour on a dot — these are read once before setting off rather than
- * at a glance while driving, and "HEAVY" is a thing you can act on where an amber pip is a thing you
- * have to look up. Colour still runs alongside it, so the worst of the three is findable first.
- */
-@Composable
-private fun Check(label: String, check: AdsCheck?, modifier: Modifier = Modifier) {
-  Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-    ClusterLabel(label, align = TextAlign.Center)
-    ClusterLabel(
-      check?.name ?: "--",
-      color = checkColour(check),
-      align = TextAlign.Center,
-      size = VALUE_SP.sp,
-    )
-  }
-}
-
-/**
- * How urgent a chore reads. Deliberately keyed off [AdsCheck.level] and not the enum's ordinal: two
- * ladders share that enum, so `DIRTY` and `DRY` are the same rung under different names.
- */
-internal fun checkColour(check: AdsCheck?): Color = when (check?.level ?: 0) {
-  0 -> ClusterColors.Label
-  1 -> ClusterColors.Fill
-  2, 3 -> ClusterColors.Set
-  else -> ClusterColors.Warn
 }
 
 /** Amber once the interval is this far gone: enough warning to plan the trip to the workshop. */

@@ -18,7 +18,7 @@ VDT.Integrations.all = {
   -- base-game data it supersedes), but its object hook belongs in the same list as any other optional
   -- mod's: it adds application rates to a sprayer that has them.
   VDT.PrecisionFarming,
-  -- Advanced Damage System: the dashboard lamps, the service interval and the pre-shift checks. Last
+  -- Advanced Damage System: the dashboard lamps, the service interval and the electrical system. Last
   -- because it is the one integration that *corrects* a core-collected value rather than only adding
   -- to it — the engine temperature, which is ADS's under ADS.
   VDT.AdvancedDamageSystem,

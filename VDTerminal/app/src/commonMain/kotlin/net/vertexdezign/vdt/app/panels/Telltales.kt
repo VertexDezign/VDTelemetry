@@ -158,13 +158,22 @@ fun Telltale.stateIn(vehicle: Vehicle): Boolean? = when (this) {
 
   Telltale.Awd -> vehicle.motor?.awd
 
-  // ADS's answer where there is one, and otherwise the two the base game can still support on its
-  // own: a coolant gauge in the red, and vanilla damage. Those are what these lamps were lit from
-  // before ADS existed, and a game without the mod has no reason to lose them.
-  else -> adsLampIn(vehicle)?.let { it != AdsLamp.OFF } ?: when (this) {
-    Telltale.Temperature -> overheating(vehicle)
-    Telltale.GeneralWarning -> needsAttention(vehicle)
-    else -> null
+  // ADS's answer wherever ADS is there at all — *including its silences*, which is why this turns on
+  // the mod rather than on the lamp: a machine ADS manages and reports no coolant lamp for is a
+  // machine with no coolant lamp, and a fallback that lit one anyway would be inventing a lamp the
+  // mod just said this dashboard does not have.
+  //
+  // Without the mod, the two the base game can still support on its own: a coolant gauge in the red,
+  // and vanilla damage. Those are what these lamps were lit from before ADS existed, and a game that
+  // doesn't run it has no reason to lose them.
+  else -> if (vehicle.ads != null) {
+    adsLampIn(vehicle)?.let { it != AdsLamp.OFF }
+  } else {
+    when (this) {
+      Telltale.Temperature -> overheating(vehicle)
+      Telltale.GeneralWarning -> needsAttention(vehicle)
+      else -> null
+    }
   }
 }
 

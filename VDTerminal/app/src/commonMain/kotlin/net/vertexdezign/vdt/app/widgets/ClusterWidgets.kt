@@ -100,7 +100,7 @@ object ClusterReadoutWidget : Widget {
 }
 
 /**
- * Service interval, pre-shift checks and system voltage, from Advanced Damage System.
+ * Service interval and system voltage, from Advanced Damage System.
  *
  * A cluster tile rather than a panel because it belongs beside the lamps: the lamps say what has
  * already gone wrong, this says whether to set off at all. It renders its own "no data" state on a
@@ -111,11 +111,13 @@ object ClusterServiceWidget : Widget {
   override val title = "Service"
   override val icon: ImageVector = Icons.Filled.Build
 
-  // A wide short tile: three rows of small type, none of which wants height.
+  // A wide short tile, and one cell tall by default: with the walk-round chores gone there is only
+  // the interval and the volts left in it, and two rows of small type in a two-cell tile is mostly
+  // empty space. Wide rather than tall is the shape it wants — the bar is read along its length.
   override val defaultColSpan = 4
-  override val defaultRowSpan = 2
+  override val defaultRowSpan = 1
   override val minColSpan = 2
-  override val minRowSpan = 2
+  override val minRowSpan = 1
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {

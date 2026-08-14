@@ -1,6 +1,5 @@
 package net.vertexdezign.vdt
 
-import net.vertexdezign.vdt.model.AdsCheck
 import net.vertexdezign.vdt.model.AdsLamp
 import net.vertexdezign.vdt.model.AdsLoad
 import kotlin.test.Test
@@ -36,7 +35,6 @@ class AdsModelTest {
                              "battery": "CRIT", "coolant": "COLD", "service": "OFF" },
                   "service": { "hours": 3.3, "interval": 5.4 },
                   "inspected": { "condition": 73, "service": 42, "complete": true },
-                  "checks": { "radiator": "HEAVY", "airIntake": "OK", "lubrication": "VERY_DRY" },
                   "electrical": { "systemVoltage": 13.8, "unit": "V" },
                   "load": { "value": 112, "overloadAt": 85, "unit": "%" },
                   "transmissionTemperatur": { "value": 71, "min": 20, "max": 120, "unit": "°C" }
@@ -64,11 +62,6 @@ class AdsModelTest {
     assertEquals(42, inspected.service)
     assertTrue(inspected.complete)
 
-    val checks = assertNotNull(ads.checks)
-    assertEquals(AdsCheck.HEAVY, checks.radiator)
-    assertEquals(AdsCheck.OK, checks.airIntake)
-    assertEquals(AdsCheck.VERY_DRY, checks.lubrication)
-
     val load = assertNotNull(ads.load)
     // Past 100 on purpose: ADS lets the draft term take it to 115, and the overrun is the point.
     assertEquals(112.0, load.value)
@@ -83,16 +76,15 @@ class AdsModelTest {
 
   @Test
   fun everyAbsentPartStaysNullRatherThanBecomingZero() {
-    // What a plain tractor under ADS looks like: no CVT, nothing to grease, never inspected, and too
-    // old for four of the six lamps. Each of those is a distinct answer from a zero or an OFF.
+    // What a plain tractor under ADS looks like: no CVT, never inspected, and too old for four of
+    // the six lamps. Each of those is a distinct answer from a zero or an OFF.
     val ads =
       assertNotNull(
         VdtParser
           .parseJson(
             """
             {"version":"13","vehicle":{"ads":{
-              "lamps":{"battery":"OFF","coolant":"WARN"},
-              "checks":{"radiator":"SLIGHT","airIntake":"OK"}
+              "lamps":{"battery":"OFF","coolant":"WARN"}
             }}}
             """.trimIndent(),
           ).vehicle
@@ -102,7 +94,6 @@ class AdsModelTest {
     assertEquals(AdsLamp.OFF, lamps.battery)
     assertNull(lamps.engine, "a lamp the machine does not have must not decode as OFF")
     assertNull(lamps.service)
-    assertNull(assertNotNull(ads.checks).lubrication, "nothing to grease is not 'grease is fine'")
     assertNull(ads.service)
     assertNull(ads.inspected)
     assertNull(ads.electrical)
@@ -118,13 +109,23 @@ class AdsModelTest {
   @Test
   fun anUnknownLampOrBandFromANewerModDoesNotBreakTheParse() {
     // The lenient contract the whole model relies on: the mod is free to add states ahead of the app.
+    // Both halves of it — a block the app has never heard of, and a severity it has never heard of.
     val vehicle =
       assertNotNull(
         VdtParser
           .parseJson(
-            """{"version":"14","vehicle":{"ads":{"lamps":{"engine":"OFF"},"somethingNew":{"a":1}}}}""",
+            """
+            {"version":"14","vehicle":{"ads":{
+              "lamps":{"engine":"OFF","coolant":"MELTDOWN"},
+              "somethingNew":{"a":1}
+            }}}
+            """.trimIndent(),
           ).vehicle,
       )
-    assertEquals(AdsLamp.OFF, assertNotNull(vehicle.ads?.lamps).engine)
+    val lamps = assertNotNull(vehicle.ads?.lamps)
+    assertEquals(AdsLamp.OFF, lamps.engine)
+    // A severity we cannot read is a severity we say nothing about — the same answer as a lamp the
+    // machine does not have, which is the honest one: we do not know how bad MELTDOWN is.
+    assertNull(lamps.coolant, "an unknown severity must coerce to null, not throw")
   }
 }

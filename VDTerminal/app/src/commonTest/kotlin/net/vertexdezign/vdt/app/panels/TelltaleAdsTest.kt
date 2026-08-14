@@ -1,7 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
 import net.vertexdezign.vdt.model.Ads
-import net.vertexdezign.vdt.model.AdsCheck
 import net.vertexdezign.vdt.model.AdsLamp
 import net.vertexdezign.vdt.model.AdsLamps
 import net.vertexdezign.vdt.model.AdsService
@@ -120,6 +119,24 @@ class TelltaleAdsTest {
     )
     assertEquals(true, Telltale.GeneralWarning.stateIn(vehicle))
   }
+
+  @Test
+  fun theBaseGameFallbacksDoNotPutBackALampAdsSaysIsNotThere() {
+    // The vintage tractor again, this time boiling and battered, so both fallbacks have something to
+    // say. They must stay quiet: ADS has just told us this dashboard has neither lamp, and lighting
+    // one from the gauge would be inventing it.
+    val vintage = Vehicle(
+      motor = Motor(temperatur = Temperatur(value = 118, min = 20, max = 120)),
+      wearable = Wearable(damage = 80),
+      ads = Ads(lamps = AdsLamps(battery = AdsLamp.OFF)),
+    )
+    assertNull(Telltale.Temperature.stateIn(vintage))
+    assertNull(Telltale.GeneralWarning.stateIn(vintage))
+    assertEquals(false, Telltale.Battery.stateIn(vintage), "the one lamp it does have still reports")
+    // Same again where ADS is there but reports no lamps at all — a machine it manages and has no
+    // dashboard for is still not a machine we can guess a dashboard for.
+    assertNull(Telltale.Temperature.stateIn(vintage.copy(ads = Ads())))
+  }
 }
 
 /** The CVT temperature's bar on the level strip, which only some machines have. */
@@ -158,7 +175,7 @@ class ClusterLevelsAdsTest {
   }
 }
 
-/** The service tile's own arithmetic: what "due" means, and which chore is the urgent one. */
+/** The service tile's own arithmetic: what "due" means. */
 class ClusterServiceTest {
   @Test
   fun theIntervalFractionIsHoursOverInterval() {
@@ -166,22 +183,5 @@ class ClusterServiceTest {
     assertTrue(AdsService(hours = 6f, interval = 5f).fraction > 1f, "past the interval is overdue")
     // A machine ADS reports no interval for must not divide by zero.
     assertEquals(0f, AdsService(hours = 3f, interval = 0f).fraction)
-  }
-
-  @Test
-  fun thetwoChoreLaddersSortTogether() {
-    // Two ladders share one enum and its ordinal is not the severity — a dirty radiator and dry
-    // grease are the same rung, and a colour keyed off ordinal would rank them apart.
-    assertEquals(AdsCheck.DIRTY.level, AdsCheck.DRY.level)
-    assertEquals(AdsCheck.HEAVY.level, AdsCheck.VERY_DRY.level)
-    assertEquals(checkColour(AdsCheck.DIRTY), checkColour(AdsCheck.DRY))
-    assertEquals(checkColour(AdsCheck.HEAVY), checkColour(AdsCheck.VERY_DRY))
-    assertTrue(AdsCheck.CRITICAL.level > AdsCheck.HEAVY.level)
-  }
-
-  @Test
-  fun aCleanMachineAndAnAbsentChoreDoNotShoutForAttention() {
-    assertEquals(checkColour(AdsCheck.OK), checkColour(null))
-    assertNotEquals(checkColour(AdsCheck.OK), checkColour(AdsCheck.CRITICAL))
   }
 }

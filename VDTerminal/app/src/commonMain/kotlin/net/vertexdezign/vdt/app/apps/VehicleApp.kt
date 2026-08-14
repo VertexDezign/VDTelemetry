@@ -46,7 +46,7 @@ object VehicleApp : VdtApp {
       RigSlotWidget,
       NavigationWidget,
       LightingWidget,
-      // The pillar-cluster trio. They belong to the vehicle like everything else here; what makes them
+      // The pillar-cluster four. They belong to the vehicle like everything else here; what makes them
       // a cluster is the page they are stacked on, not anything they know about each other.
       TelltaleWidget,
       ClusterReadoutWidget,

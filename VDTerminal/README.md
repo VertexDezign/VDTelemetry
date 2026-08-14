@@ -133,10 +133,11 @@ tractor puts between the windscreen and the right-hand window:
   amber, then red — and a critical lamp **flashes** as well, so the ladder never rests on hue alone.
   The cold coolant lamp gets its own glyph rather than the hot one in another colour: not warmed up
   is not a milder version of boiling.
-- **Service** — how long this machine has before its service is due, the pre-shift walk-round
-  (radiator, air intake, lubrication) in Advanced Damage System's own coarse bands, and system
-  voltage. It answers the one question the rest of the cluster can't: whether to take this machine
-  out today. Nothing on it is a number ADS hides behind a workshop diagnostic.
+- **Service** — how long this machine has before its service is due, and system voltage, both from
+  Advanced Damage System. It answers the one question the rest of the cluster can't: whether to take
+  this machine out today. Nothing on it is a number ADS hides behind a workshop diagnostic — and the
+  pre-shift walk-round (radiator, air intake, lubrication) is deliberately not here either, coarse
+  bands or not: you learn that by getting out and walking round the machine.
 - **Cluster Readout** — engine speed over ground speed in the largest type that fits, then the cruise
   target and the gear under them in amber. Both numbers are tweened over one sample interval so they
   read continuously rather than stepping at the telemetry rate. The transmission's direction rides
@@ -147,12 +148,6 @@ tractor puts between the windscreen and the right-hand window:
   It comes from `motor.direction` (mod version 6), *not* from the engine's `getReverserDirection()` —
   that is written only by the reversible-driving-position specialization (the seat swivelled round),
   so on an ordinary tractor it reads forward for ever.
-Engine **load** finally appears too, on the Engine and Transmission panel — it has been exported
-since long before this and drawn nowhere. Advanced Damage System's figure where there is one, since
-that is what the mod shows in the cab and what it charges engine wear against; it goes amber past the
-mod's own overload threshold, and is deliberately not clipped at 100%, because how far over you are
-is the part you would change your driving for.
-
 - **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, a CVT's own
   transmission temperature where Advanced Damage System reports one, then the engine's fuel, DEF and
   air. The two temperatures are told apart by their glyphs — a thermometer over water, and one over a
@@ -161,11 +156,19 @@ is the part you would change your driving for.
   trouble *starts* is visible before you are in it. Engine gauges only; what's in the hopper changes
   shape as you hitch things up and belongs to the rig-slot tiles, which name it and give figures.
 
+Engine **load** arrived with the same work but is not part of the cluster: it goes on the Engine and
+Transmission panel, having been exported since long before this and drawn nowhere. Advanced Damage
+System's figure where there is one, since that is what the mod shows in the cab and what it charges
+engine wear against; it goes amber past the mod's own overload threshold, and is deliberately not
+clipped at 100%, because how far over you are is the part you would change your driving for.
+
 They're ordinary widgets, placeable anywhere, and they render dark rather than in the usual panel
-chrome. A seeded **Pillar** page stacks all three; it never auto-shows, because it is the page you
-pin a second device to (`?display=pillar`). A pinned display paints the whole viewport black, so the
-gutters between cluster tiles don't read as a grid of seams; the hand-held tablet keeps the light
-terminal look.
+chrome. A seeded **Pillar** page stacks three of them — lamps, readout, levels, top to bottom, which
+is the whole page; Service is the one you add where you want it, and it arrives as a single-row slab,
+since an interval and a voltage is all that is left in it. The page never auto-shows, because it is
+the page you pin a second device to (`?display=pillar`). A pinned display paints the whole viewport
+black, so the gutters between cluster tiles don't read as a grid of seams; the hand-held tablet keeps
+the light terminal look.
 
 The type is **DSEG Classic**, bundled under the SIL Open Font License — see
 [`licenses/DSEG-OFL-1.1.txt`](licenses/DSEG-OFL-1.1.txt). Two faces: **DSEG7** for the rpm, speed and

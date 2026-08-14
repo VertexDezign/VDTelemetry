@@ -26,9 +26,12 @@
 -- inspection, and as percentages only after an expensive full defectoscopy. Exporting
 -- `spec.conditionLevel` to a dashboard would hand out a permanent free diagnostic and delete that
 -- mechanic. So `inspected` below carries what an inspection actually told the player
--- (getLastInspectedCondition / getLastInspectedService) and nothing else, and the pre-shift checks
--- are reported in ADS's own inspection *bands* rather than as the underlying floats. The dashboard
--- never knows more than the driver does.
+-- (getLastInspectedCondition / getLastInspectedService) and nothing else.
+--
+-- The pre-shift chores -- radiator and air-intake clogging, lubrication -- are out for the same
+-- reason, and coarse bands were not enough to save them: they are learned by getting out and walking
+-- round the machine, so a dashboard that printed them would hand the player that walk for free.
+-- Having to go and look is what they are for. The dashboard never knows more than the driver does.
 --
 -- Mod-environment isolation: ADS's `ADS_Breakdowns` / `ADS_Config` are globals in *its own* Lua
 -- environment, so from ours they are reachable only as `FS25_AdvancedDamageSystem.ADS_Breakdowns`
@@ -50,7 +53,7 @@ VDT.AdvancedDamageSystem = {}
 
 -- One dashboard lamp: "OFF", "COLD", "WARN" or "CRIT" — ADS's own four indicator colours (its
 -- DEFAULT / COOL / WARNING / CRITICAL), by name rather than by hue. A lamp this machine does not
--- have is absent, not "OFF" (see LAMP_YEARS).
+-- have is absent, not "OFF" (see lampYears).
 ---@alias AdsLampModel string
 
 ---@class AdsLampsModel
@@ -75,13 +78,6 @@ VDT.AdvancedDamageSystem = {}
 ---@field service number?
 ---@field complete boolean?
 
--- The pre-shift chores, in the bands ADS's own field inspection reports them in (see BANDS). A chore
--- this machine does not need is absent — a trailer has nothing to grease.
----@class AdsChecksModel
----@field radiator string?
----@field airIntake string?
----@field lubrication string?
-
 ---@class AdsElectricalModel
 ---@field systemVoltage number
 ---@field unit string
@@ -100,7 +96,6 @@ VDT.AdvancedDamageSystem = {}
 ---@field lamps AdsLampsModel?
 ---@field service AdsServiceModel?
 ---@field inspected AdsInspectedModel?
----@field checks AdsChecksModel?
 ---@field electrical AdsElectricalModel?
 ---@field load AdsLoadModel?
 ---@field transmissionTemperatur TemperaturModel?
@@ -121,18 +116,6 @@ VDT.AdvancedDamageSystem.MOD_NAME = "FS25_AdvancedDamageSystem"
 -- chose to withhold. Their glyphs are also the only two we would have to invent, which is a fair sign
 -- they are not part of what a driver sees.
 local LAMPS = { "engine", "warning", "brakes", "battery", "coolant", "service" }
-
--- The production year a machine must be newer than to have a given lamp at all. Read from ADS's own
--- HUD at runtime (see lampYears); this is only the fallback, for the case where that table cannot be
--- reached. A 1960s tractor has a battery and a coolant lamp and nothing else, which is exactly right.
-local LAMP_YEARS_FALLBACK = {
-  engine = 1990,
-  warning = 1990,
-  brakes = 1980,
-  battery = 1950,
-  coolant = 1950,
-  service = 1970,
-}
 
 -- MotorState (the engine's own enum, values from vehicles/specializations/enums/MotorState.lua):
 -- OFF = 1, IGNITION = 2, STARTING = 3, ON = 4. Named locally because the enum is a base-game global
@@ -169,22 +152,6 @@ local TEMP_GAUGE_MAX_C = 120
 -- It is only a sanity floor. Whether a machine HAS a transmission temperature is a question about the
 -- machine (see hasCVT), never about the value: a sentinel that drifts cannot be a presence test.
 local NO_TRANSMISSION_TEMP_C = -90
-
--- The bands ADS's field inspection reports a chore in, worst first, each as { threshold, name }.
--- Clogging is read as "at least this dirty", lubrication as "at most this wet" — which is why they
--- are two tables and not one with a flipped comparison.
-local CLOGGING_BANDS = {
-  { 0.85, "CRITICAL" },
-  { 0.60, "HEAVY" },
-  { 0.35, "DIRTY" },
-  { 0.15, "SLIGHT" },
-}
-local LUBRICATION_BANDS = {
-  { 0.15, "CRITICAL" },
-  { 0.35, "VERY_DRY" },
-  { 0.60, "DRY" },
-  { 0.85, "SLIGHT" },
-}
 
 -- Our own latch for the indicator lamps, per vehicle. ADS's `activeIndicators[id].isActive` is the
 -- same latch, but it is driven from ADS's HUD draw and only for the vehicle the local player is
@@ -244,8 +211,8 @@ local function colours()
 end
 
 -- Resolved once from ADS's HUD and then held: the indicator table is built at mission start and never
--- changes after. nil until a live read succeeds, so we keep retrying while only the fallback is in
--- play (a savegame reload rebuilds ADS's HUD, and this file's state outlives it).
+-- changes after. nil until a live read succeeds, so we keep retrying until one does (a savegame
+-- reload rebuilds ADS's HUD, and this file's state outlives it).
 local liveLampYears = nil
 
 ---The per-lamp year gate, straight out of the table ADS's own dashboard draws from
@@ -253,9 +220,12 @@ local liveLampYears = nil
 ---
 ---Read live rather than mirrored because it is the one part of ADS's lamp behaviour that IS a table
 ---we can reach: the thresholds around it are literals inside the mod's function bodies, and those we
----have no choice but to copy. Falls back to LAMP_YEARS_FALLBACK when the HUD has not been built —
----nothing that has a controlled vehicle to report is in that state, but the fallback costs one table.
----@return table<string, number> lamp id -> year
+---have no choice but to copy.
+---
+---nil when the HUD has not been built, and the lamps then go silent rather than falling back to a
+---mirrored copy of the years: which lamps a machine has is ADS's answer to give, and a machine with a
+---driver in it always has a HUD built.
+---@return table<string, number>|nil lamp id -> year
 local function lampYears()
   if liveLampYears ~= nil then
     return liveLampYears
@@ -264,7 +234,7 @@ local function lampYears()
   local hud = e ~= nil and type(e.ADS_Main) == "table" and e.ADS_Main.hud or nil
   local indicators = type(hud) == "table" and hud.indicators or nil
   if type(indicators) ~= "table" then
-    return LAMP_YEARS_FALLBACK
+    return nil
   end
   local years = {}
   for _, data in pairs(indicators) do
@@ -275,7 +245,7 @@ local function lampYears()
     end
   end
   if next(years) == nil then
-    return LAMP_YEARS_FALLBACK
+    return nil
   end
   liveLampYears = years
   return years
@@ -415,8 +385,9 @@ end
 ---@param vehicle table
 ---@return AdsServiceModel|nil nil when either getter is missing or the interval is degenerate
 local function collectService(vehicle)
-  local hours = tonumber(call(vehicle, "getHoursSinceLastMaintenance"))
-  local interval = tonumber(call(vehicle, "getMaintenanceInterval"))
+  -- Parenthesised: `call` returns two values, and tonumber's second argument is a *base*.
+  local hours = tonumber((call(vehicle, "getHoursSinceLastMaintenance")))
+  local interval = tonumber((call(vehicle, "getMaintenanceInterval")))
   if hours == nil or interval == nil or interval <= 0 then
     return nil
   end
@@ -438,7 +409,8 @@ end
 ---@return AdsLampsModel|nil
 local function collectLamps(vehicle, spec, service, cvt)
   local motorState = call(vehicle, "getMotorState")
-  if motorState == nil then
+  local years = lampYears()
+  if motorState == nil or years == nil then
     return nil
   end
   local latch = latches[vehicle]
@@ -448,7 +420,6 @@ local function collectLamps(vehicle, spec, service, cvt)
   end
 
   local year = tonumber(spec.year) or 0
-  local years = lampYears()
   local palette = colours()
   -- With the key out ADS's dashboard is dark and its latches are released; ours follow, so a lamp
   -- does not come back lit from before the machine was shut down.
@@ -490,36 +461,23 @@ end
 ---@param vehicle table
 ---@return AdsInspectedModel|nil
 local function collectInspected(vehicle)
-  local conditionLevel, conditionComplete = call(vehicle, "getLastInspectedCondition")
-  local serviceLevel = call(vehicle, "getLastInspectedService")
+  local rawCondition, conditionComplete = call(vehicle, "getLastInspectedCondition")
+  -- Coerced up front and used coerced from here on: a getter that answers with a numeric string
+  -- would otherwise pass the tonumber guard and then throw on the comparison right after it.
+  local conditionLevel = tonumber(rawCondition)
+  local serviceLevel = tonumber((call(vehicle, "getLastInspectedService")))
   -- ADS returns 0 for "no report in the log at all", which is not a reading of zero condition.
-  if tonumber(conditionLevel) == nil or conditionLevel <= 0 then
+  if conditionLevel == nil or conditionLevel <= 0 then
     return nil
   end
   local model = {
     condition = tonumber(ValueMapper.mapPercentage(conditionLevel, 0)),
     complete = conditionComplete == true,
   }
-  if tonumber(serviceLevel) ~= nil and serviceLevel > 0 then
+  if serviceLevel ~= nil and serviceLevel > 0 then
     model.service = tonumber(ValueMapper.mapPercentage(serviceLevel, 0))
   end
   return model
-end
-
--- The band a 0..1 chore level falls in, out of a worst-first table. `atLeast` picks the comparison:
--- clogging gets worse upwards, lubrication downwards. nil is the clean/full end, which needs no name.
-local function band(level, bands, atLeast)
-  local value = tonumber(level)
-  if value == nil then
-    return nil
-  end
-  for _, entry in ipairs(bands) do
-    local threshold, name = entry[1], entry[2]
-    if (atLeast and value >= threshold) or (not atLeast and value <= threshold) then
-      return name
-    end
-  end
-  return nil
 end
 
 ---The load ADS wears the engine on, and where it starts charging for it.
@@ -545,30 +503,6 @@ local function collectLoad(spec)
     overloadAt = tonumber(ValueMapper.mapPercentage(overloadThreshold(), 0)),
     unit = "%",
   }
-end
-
----The three pre-shift chores, in ADS's own inspection bands. A chore this machine does not need is
----absent: ADS decides per vehicle whether it takes an air blower or a grease gun at all.
----@param spec table
----@return AdsChecksModel|nil
-local function collectChecks(spec)
-  local checks = {}
-  local any = false
-  if spec.isVehicleNeedBlowOut ~= false then
-    -- Clogging below the lowest band is simply clean; ADS's inspection prints nothing there either,
-    -- so the key stays but says OK rather than vanishing on a machine that does need blowing out.
-    checks.radiator = band(spec.radiatorClogging, CLOGGING_BANDS, true) or "OK"
-    checks.airIntake = band(spec.airIntakeClogging, CLOGGING_BANDS, true) or "OK"
-    any = true
-  end
-  if spec.isVehicleNeedLubricate ~= false then
-    checks.lubrication = band(spec.lubricationLevel, LUBRICATION_BANDS, false) or "OK"
-    any = true
-  end
-  if not any then
-    return nil
-  end
-  return checks
 end
 
 ---Object stage: runs per vehicle/implement during the walk (see registry.lua).
@@ -600,7 +534,6 @@ function VDT.AdvancedDamageSystem.contributeObject(object, model)
   ads.service = service
   ads.lamps = collectLamps(object, spec, service, cvt)
   ads.inspected = collectInspected(object)
-  ads.checks = collectChecks(spec)
   ads.load = collectLoad(spec)
 
   -- A CVT runs its own thermal model and its own gauge. Only a machine that HAS one gets the field:

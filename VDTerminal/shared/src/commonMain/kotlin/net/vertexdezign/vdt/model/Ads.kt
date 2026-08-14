@@ -16,15 +16,15 @@ import kotlinx.serialization.Serializable
  * **Nothing here is a value ADS hides.** Condition, per-system condition and stress and the live
  * service level are known to a player only through a workshop inspection, and as exact percentages
  * only after a full defectoscopy — so [inspected] carries what an inspection actually reported and
- * the pre-shift [checks] come in ADS's own coarse bands. The dashboard never knows more than the
- * driver does. See the mod's `src/integrations/AdvancedDamageSystem.lua`.
+ * nothing else. The pre-shift chores (radiator and air-intake clogging, lubrication) are absent for
+ * the same reason: a driver learns those by getting out and walking round the machine. The dashboard
+ * never knows more than the driver does. See the mod's `src/integrations/AdvancedDamageSystem.lua`.
  */
 @Serializable
 data class Ads(
   val lamps: AdsLamps? = null,
   val service: AdsService? = null,
   val inspected: AdsInspected? = null,
-  val checks: AdsChecks? = null,
   val electrical: AdsElectrical? = null,
   val load: AdsLoad? = null,
   /**
@@ -98,44 +98,6 @@ data class AdsInspected(
   val service: Int? = null,
   val complete: Boolean = false,
 )
-
-/**
- * The pre-shift chores, in the bands ADS's own field inspection reports them in. A chore this
- * machine does not need is null — a trailer has nothing to grease.
- */
-@Serializable
-data class AdsChecks(
-  val radiator: AdsCheck? = null,
-  val airIntake: AdsCheck? = null,
-  val lubrication: AdsCheck? = null,
-)
-
-/**
- * How bad one chore is, in ADS's own words for it.
- *
- * Two ladders share one enum, because a radiator gets worse as it fills up and grease as it runs
- * out, and ADS names the rungs after what it saw rather than after how far along they are. What the
- * driver acts on is [level] — the same four rungs either way, so `DIRTY` and `DRY` are equally
- * urgent and sort together. Ordinal is deliberately not that ladder: read [level].
- */
-@Serializable
-enum class AdsCheck(
-  val level: Int,
-) {
-  OK(0),
-
-  /** Barely started, either way: a dusty grille, grease still mostly there. */
-  SLIGHT(1),
-
-  DIRTY(2),
-  DRY(2),
-
-  HEAVY(3),
-  VERY_DRY(3),
-
-  /** Do this before you set off. */
-  CRITICAL(4),
-}
 
 /**
  * The load Advanced Damage System wears the engine on.

@@ -191,7 +191,7 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    same units. The rate PF's HUD leads with in AUTO, where the tool picks its own and no step
 --    describes it; absent whenever the boom is up, because PF never clears the field. See issue #77.
 -- 13: `ads` — Advanced Damage System: the dashboard lamps it drives, where the machine is in its
---     service interval, what the last inspection found, the pre-shift checks and system voltage. Also
+--     service interval, what the last inspection found, and system voltage. Also
 --     *changes* `motor.temperatur.value`, which is ADS's engine temperature when ADS is installed —
 --     the first correct engine temperature this mod has exported to a multiplayer client, since the
 --     vanilla figure is never synced. Also `ads.load`, which is a DIFFERENT number from

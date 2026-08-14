@@ -8,7 +8,8 @@
 -- (a latched indicator stays lit after its switchOn stops holding), that the key-out and cranking
 -- states are what ADS says they are, that a machine only gets the lamps its production year gives it,
 -- that the engine temperature is a correction of the core-collected value rather than an addition,
--- and that nothing exact leaks out of the values ADS hides.
+-- and that nothing leaks out of what ADS hides -- neither the exact values behind its workshop
+-- diagnostic nor the chores it makes you get out of the cab to look at.
 
 if ValueMapper == nil then
   dofile("src/mapper/ValueMapper.lua")
@@ -35,7 +36,7 @@ end
 local function stubMod(over)
   over = over or {}
   _G.FS25_AdvancedDamageSystem = {
-    ADS_Breakdowns = { COLORS = COLORS },
+    ADS_Breakdowns = over.noColours and {} or { COLORS = COLORS },
     ADS_Config = {
       CORE = {
         ENGINE_FACTOR_DATA = { COLD_MOTOR_TEMP_THRESHOLD = 50 },
@@ -89,8 +90,6 @@ local function makeVehicle(over)
     radiatorClogging = over.radiatorClogging,
     airIntakeClogging = over.airIntakeClogging,
     lubricationLevel = over.lubricationLevel,
-    isVehicleNeedBlowOut = over.needBlowOut,
-    isVehicleNeedLubricate = over.needLubricate,
     dynamicMotorLoad = over.dynamicMotorLoad,
     activeIndicators = over.activeIndicators or {},
   }
@@ -223,11 +222,14 @@ describe("AdvancedDamageSystem integration", function()
       assert.same({ engine = "OFF" }, lamps)
     end)
 
-    it("falls back to the mirrored years when ADS's HUD has not been built", function()
+    it("reports no lamps at all when ADS's HUD has not been built", function()
+      -- Which lamps a machine has is ADS's answer to give. With its table out of reach there is no
+      -- second-guessing it from a mirrored copy of the years: the band simply stays empty.
       stubMod({ noHud = true })
       VDT.AdvancedDamageSystem.reset()
-      local lamps = contribute(makeVehicle({ year = 1975 })).ads.lamps
-      assert.same({ battery = "OFF", coolant = "OFF", service = "OFF" }, lamps)
+      local ads = contribute(makeVehicle({ year = 1975, systemVoltageV = 13.8 })).ads
+      assert.is_nil(ads.lamps)
+      assert.is_not_nil(ads.electrical, "only the lamps go quiet, not the whole block")
     end)
 
     it("carries ADS's severity, not just on/off", function()
@@ -414,32 +416,19 @@ describe("AdvancedDamageSystem integration", function()
   end)
 
   describe("pre-shift checks", function()
-    it("reports clogging in ADS's own inspection bands", function()
-      local checks = contribute(makeVehicle({ radiatorClogging = 0.62, airIntakeClogging = 0.9 })).ads.checks
-      assert.equals("HEAVY", checks.radiator)
-      assert.equals("CRITICAL", checks.airIntake)
-    end)
-
-    it("calls a barely dirty machine clean, as the inspection does", function()
-      local checks = contribute(makeVehicle({ radiatorClogging = 0.05, airIntakeClogging = 0.2 })).ads.checks
-      assert.equals("OK", checks.radiator)
-      assert.equals("SLIGHT", checks.airIntake)
-    end)
-
-    it("reports lubrication downwards, since there it is the low end that is bad", function()
-      assert.equals("OK", contribute(makeVehicle({ lubricationLevel = 0.95 })).ads.checks.lubrication)
-      assert.equals("DRY", contribute(makeVehicle({ lubricationLevel = 0.5 })).ads.checks.lubrication)
-      assert.equals("CRITICAL", contribute(makeVehicle({ lubricationLevel = 0.1 })).ads.checks.lubrication)
-    end)
-
-    it("leaves out a chore the machine does not need", function()
-      local checks = contribute(makeVehicle({ needLubricate = false, radiatorClogging = 0.5 })).ads.checks
-      assert.equals("DIRTY", checks.radiator)
-      assert.is_nil(checks.lubrication)
-    end)
-
-    it("says nothing at all about a machine that needs neither", function()
-      assert.is_nil(contribute(makeVehicle({ needLubricate = false, needBlowOut = false })).ads.checks)
+    it("says nothing about them, however filthy the machine is", function()
+      -- Deliberate, and the bands ADS reports them in were not enough to save them: a driver learns
+      -- these by getting out and walking round, so a dashboard that printed them would hand over the
+      -- walk (see the file header). The values are right there on the spec, and stay there.
+      local ads = contribute(makeVehicle({
+        radiatorClogging = 0.9,
+        airIntakeClogging = 0.9,
+        lubricationLevel = 0.05,
+      })).ads
+      assert.is_nil(ads.checks)
+      assert.is_nil(ads.radiator)
+      assert.is_nil(ads.airIntake)
+      assert.is_nil(ads.lubrication)
     end)
   end)
 
@@ -485,7 +474,8 @@ describe("AdvancedDamageSystem integration", function()
 
   describe("mod-environment isolation", function()
     it("still reports lit lamps when ADS's colour table is out of reach", function()
-      _G.FS25_AdvancedDamageSystem = nil
+      stubMod({ noColours = true })
+      VDT.AdvancedDamageSystem.reset()
       local vehicle = makeVehicle({ activeIndicators = { battery = indicator(COLORS.CRITICAL, true, false) } })
       -- The severity degrades to WARN, but the lamp is not lost -- which is the fail-soft contract.
       assert.equals("WARN", contribute(vehicle).ads.lamps.battery)

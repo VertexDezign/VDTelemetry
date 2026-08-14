@@ -512,15 +512,27 @@ and are named in `VdtModelTest`. What it did not do:
 ## Advanced Damage System (#79)
 
 Built: the six dashboard lamps with ADS's severity and its production-year gating, the engine
-temperature as ADS's, the service interval, the pre-shift checks and system voltage. The reasoning is
-in `src/integrations/AdvancedDamageSystem.lua` and `panels/ClusterService.kt`. What it did not do:
+temperature as ADS's, the engine load it wears the engine on, the service interval and system
+voltage. The reasoning is in `src/integrations/AdvancedDamageSystem.lua` and
+`panels/ClusterService.kt`. What it did not do:
+
+- **The pre-shift chores are not exported, and that is the decision rather than an omission.**
+  Radiator and air-intake clogging and the lubrication level were collected at first, in ADS's own
+  coarse bands, and then dropped: a driver learns them by getting out and walking round the machine,
+  so a dashboard that printed them would hand over the walk. The bands were not enough to save them —
+  the objection is to knowing at all, not to knowing exactly. The Lua spec pins it (`pre-shift
+  checks`), and reversing it means the collector, `AdsChecks`/`AdsCheck` and a row on the service
+  tile, all of which are in this branch's history.
 
 - **Nothing has been checked in game.** The whole integration is written against ADS's source, not
   against a running session. Worth watching for specifically: whether the coolant lamp reads COLD for
   a plausible length of time after a cold start, whether a lamp latched by a breakdown clears when the
   breakdown is repaired, whether the bulb check on the starter looks like a bulb check rather than a
   fault, and whether an ADS-managed machine's engine temperature really does arrive on an MP client
-  (which is the whole claim about the vanilla figure being unsynced).
+  (which is the whole claim about the vanilla figure being unsynced). Also that the lamps turn up at
+  all: the year gate is read from `ADS_Main.hud.indicators` and there is no mirrored fallback any
+  more, so anywhere that table is not built the band is simply empty — an empty band with the rest of
+  the `ads` block present is that case, not a machine with no lamps.
 - **The `oil` lamp is exported by nobody and drawn by nobody.** ADS computes it (`serviceLevel < 0.2`)
   and then hides it from its own HUD, so drawing it would tell the player something the mod chose to
   withhold. `transmission` is worse: declared in `ADS_Breakdowns.DASHBOARD` and referenced by not one
@@ -554,9 +566,9 @@ captures contains a machine that has them.
   now wanted as a fixture rather than as proof. `FinanceModelTest` covers those three shapes with
   inline JSON meanwhile.
 - **A capture with Advanced Damage System installed**, for the `ads` block — ideally a CVT machine
-  (so `transmissionTemperatur` is present) that is a little overdue for service and a little dirty, so
-  the lamps, the interval and the checks are all non-trivial in the one file. `AdsModelTest` covers the
-  shape with inline JSON meanwhile.
+  (so `transmissionTemperatur` is present) that is a little overdue for service and carrying a
+  breakdown or two, so the lamps, the interval and the load are all non-trivial in the one file.
+  `AdsModelTest` covers the shape with inline JSON meanwhile.
 - **More invoices captures.** `examples/json/invoices/invoices.json` came out of the 2026-08-11
   two-farm session and drives `InvoicesModelTest.parsesTheTwoFarmCapture`: three invoices from farm 1's
   side, one of them a proposal showing the direction inversion, a discounted line, and the full 56-entry
