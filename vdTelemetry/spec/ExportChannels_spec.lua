@@ -8,8 +8,8 @@ if VDT == nil or VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 
--- swallow the trace/error logging writeDirty emits
-local debugger = { trace = function() end, error = function() end }
+-- swallow the trace/error logging writeDirty emits, and the debug line the farm subscription logs
+local debugger = { trace = function() end, debug = function() end, error = function() end }
 
 -- Serializer stub: each channel's collect() returns { body = <string> }, so the written file content
 -- is exactly that string — lets us assert which model reached disk without pulling in Json.
@@ -710,5 +710,110 @@ describe("ExportChannels profile gating (minProfile)", function()
     VDT.ExportChannels.setProfile("high")
     VDT.ExportChannels.markDirty("mapLayers")
     assert.are.equal(1, #VDT.ExportChannels.selectDirty()) -- back on, toggle intact
+  end)
+end)
+
+-- A channel whose content depends on WHICH FARM is asking (whose books, whose tasks, which side of an
+-- invoice): the registry marks it dirty when the player switches farm.
+local function farmScopedChannel(name, available)
+  local ch = channel(name, available ~= false, { body = name })
+  ch.farmScoped = true
+  return ch
+end
+
+-- The engine's message center, reduced to what the registry uses: it records each subscription so a
+-- case can deliver the message the way MessageCenter does -- callback(target, ...).
+local function stubMessageCenter()
+  local subscriptions = {}
+  _G.MessageType = { PLAYER_FARM_CHANGED = "playerFarmChanged" }
+  _G.g_messageCenter = {
+    subscribe = function(_, message, callback, target)
+      subscriptions[#subscriptions + 1] = { message = message, callback = callback, target = target }
+    end,
+  }
+  return subscriptions
+end
+
+local function switchFarm(subscriptions)
+  for _, entry in ipairs(subscriptions) do
+    if entry.message == "playerFarmChanged" then
+      entry.callback(entry.target)
+    end
+  end
+end
+
+describe("ExportChannels farm changes", function()
+  before_each(function()
+    VDT.ExportChannels.reset()
+  end)
+
+  after_each(function()
+    _G.MessageType = nil
+    _G.g_messageCenter = nil
+  end)
+
+  it("marks every farm-scoped channel dirty on a farm switch, and leaves the others alone", function()
+    -- Switching farm publishes no change event of its own -- it changes who is asking, not what is
+    -- stored -- so nothing else queues these writes: the event-driven ones would show the previous
+    -- farm's data indefinitely.
+    VDT.ExportChannels.register(farmScopedChannel("invoices"))
+    VDT.ExportChannels.register(channel("map", true, { body = "M" })) -- names farms by id: not scoped
+    VDT.ExportChannels.register(farmScopedChannel("finance"))
+    local subscriptions = stubMessageCenter()
+
+    VDT.ExportChannels.tick(debugger, 16)
+    switchFarm(subscriptions)
+
+    local dirty = VDT.ExportChannels.selectDirty()
+    assert.are.equal(2, #dirty)
+    assert.are.equal("invoices", dirty[1].name)
+    assert.are.equal("finance", dirty[2].name)
+  end)
+
+  it("subscribes exactly once, however often it ticks", function()
+    -- One subscription for the whole mod is the point of the flag (issue #78): a second one would
+    -- double-fire markDirty, and a per-channel one is what this replaced.
+    VDT.ExportChannels.register(farmScopedChannel("invoices"))
+    local subscriptions = stubMessageCenter()
+
+    for _ = 1, 5 do
+      VDT.ExportChannels.tick(debugger, 16)
+    end
+
+    assert.are.equal(1, #subscriptions)
+    assert.are.equal("playerFarmChanged", subscriptions[1].message)
+    assert.are.equal(VDT.ExportChannels, subscriptions[1].target) -- the registry's own subscription
+  end)
+
+  it("waits for the game's MessageTypes, then subscribes as soon as they exist", function()
+    VDT.ExportChannels.register(farmScopedChannel("invoices"))
+
+    -- Before the game has loaded there is no message center at all, and the id arrives with it.
+    VDT.ExportChannels.tick(debugger, 16)
+    _G.MessageType = {} -- the table exists, this id does not yet
+    VDT.ExportChannels.tick(debugger, 16)
+
+    local subscriptions = stubMessageCenter()
+    VDT.ExportChannels.tick(debugger, 16)
+    assert.are.equal(1, #subscriptions)
+  end)
+
+  it("does not mark a farm-scoped channel that would not be written", function()
+    -- A dirty flag on a channel selectDirty always drops is never cleared again, and a single dangling
+    -- flag costs writeDirty its next(dirty) fast path for the rest of the session. Nothing is lost:
+    -- a channel whose mod isn't up yet queues its own first write when it comes up.
+    local installed = false
+    local later = farmScopedChannel("taskList")
+    later.isAvailable = function()
+      return installed
+    end
+    VDT.ExportChannels.register(later)
+    local subscriptions = stubMessageCenter()
+
+    VDT.ExportChannels.tick(debugger, 16)
+    switchFarm(subscriptions)
+
+    installed = true
+    assert.are.equal(0, #VDT.ExportChannels.selectDirty()) -- the switch left nothing behind
   end)
 end)

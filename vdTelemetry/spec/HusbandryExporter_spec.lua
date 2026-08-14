@@ -4,7 +4,10 @@
 -- own-farm + id helpers (loaded first; it self-registers a channel, so ExportChannels ahead of it)
 -- and reads FS globals (husbandrySystem, animalSystem). We stub just enough to drive collect().
 
-if VDT == nil or VDT.ExportChannels == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 if VDT.ProductionExporter == nil then

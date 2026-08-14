@@ -270,10 +270,12 @@ afforded. What that session did not cover, and what was left:
   through — creation, payment, deletion, proposal validation, the join sync, the penalty sync. Two
   things do *not* go through it and had to be added separately: `loadFromXML` at mission start (so
   `tick()` marks dirty once when it installs the hook), and **switching farm in game**, which changes
-  who is asking rather than what is stored — every farm-scoped field in the document moves with it, so
-  the channel subscribes to `MessageType.PLAYER_FARM_CHANGED` as well. A channel with a write interval
-  would have self-corrected within seconds; this one is purely event-driven, so it would have kept
-  showing the previous farm's invoices indefinitely.
+  who is asking rather than what is stored — every farm-scoped field in the document moves with it. A
+  channel with a write interval would have self-corrected within seconds; this one is purely
+  event-driven, so it would have kept showing the previous farm's invoices indefinitely. This channel
+  was where that was first solved, with a `PLAYER_FARM_CHANGED` subscription of its own; **#78
+  generalized it** — the registry now owns the mod's single subscription and marks every channel
+  registered `farmScoped = true` dirty, this one included (`src/export/ExportChannels.lua`).
 - **A farm needs a NAME to be billable.** `InvoicesMainDashboard:loadFarms`'s `isValidFarm` requires a
   non-empty name on top of "not the spectator" — and a map or another mod can create a farm the player
   never sees (one server had a nameless *farm 14*). Mirrored in `VDT.Invoices.isBillableFarm`, used by

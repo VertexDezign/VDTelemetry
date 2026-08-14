@@ -6,7 +6,7 @@
 -- handler declares requiresVehicle = false.
 --
 -- The storage is addressed by the same exported `id` the read side emits (resolved with
--- ProductionExporter.placeableId), own-farm ownership enforced via ProductionExporter.ownFarmId.
+-- ProductionExporter.placeableId), own-farm ownership enforced via VDT.Farm.ownFarmId.
 -- The group is addressed by its objectInfoIndex, but that shifts as groups deplete, so the app also
 -- sends the selected title and we re-resolve against the CURRENT objectInfos (title first, index as a
 -- fallback for clients where titles aren't available). The amount is clamped to the live limits:
@@ -48,7 +48,7 @@ local function resolveStorage(storageId, debugger, label)
     debugger:warn("%s: placeable system not available", label)
     return nil
   end
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil then
     debugger:warn("%s: no local farm resolved, refusing to unload %s", label, tostring(storageId))
     return nil

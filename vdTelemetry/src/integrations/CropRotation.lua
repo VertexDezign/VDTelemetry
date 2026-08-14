@@ -63,16 +63,6 @@ function VDT.CropRotation.planner()
 end
 local planner = VDT.CropRotation.planner
 
----The local player's farm, or nil when it can't be resolved (farm 0 is "no farm", not a farm id).
----Shared with the write side, which must not create or mutate plans on farm 0.
----@return number|nil
-function VDT.CropRotation.localFarmId()
-  if g_localPlayer ~= nil and type(g_localPlayer.farmId) == "number" and g_localPlayer.farmId > 0 then
-    return g_localPlayer.farmId
-  end
-  return nil
-end
-
 function VDT.CropRotation.isAvailable()
   return planner() ~= nil
 end
@@ -190,7 +180,7 @@ function VDT.CropRotation.collect()
 
   -- Scope to the local player's farm, matching the in-game planner
   -- (InGameMenuCropRotationPlanner:updateFarmCropRotations); fall back to all if it can't be resolved.
-  local farmId = VDT.CropRotation.localFarmId()
+  local farmId = VDT.Farm.ownFarmId()
 
   local rotations = {}
   for _, cropRotation in pairs(pl.cropRotations or {}) do
@@ -380,4 +370,7 @@ VDT.ExportChannels.register({
   isAvailable = VDT.CropRotation.isAvailable,
   collect = VDT.CropRotation.collect,
   tick = VDT.CropRotation.tick,
+  -- The rotations are filtered to the local farm, and the poll above cannot see a farm switch: the
+  -- planner's own state is unchanged by it, so the signature is identical and nothing is re-collected.
+  farmScoped = true,
 })

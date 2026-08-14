@@ -5,7 +5,10 @@
 -- ExportChannels first) and self-registers into CommandRegistry. We stub an object-storage placeable,
 -- the local player, the unload event class and a client/server connection, and capture the sent event.
 
-if VDT == nil or VDT.CommandRegistry == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.CommandRegistry == nil then
   dofile("src/command/CommandRegistry.lua")
 end
 if VDT.ExportChannels == nil then

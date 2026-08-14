@@ -475,7 +475,7 @@ function VDT.MissionExporter.collect()
   if not VDT.MissionExporter.isAvailable() then
     return nil
   end
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil then
     -- spectator / no owned farm: nothing to accept and nothing running, but keep the channel present
     return { version = tostring(VDT.MissionExporter.VERSION) }
@@ -529,4 +529,7 @@ VDT.ExportChannels.register({
   collect = VDT.MissionExporter.collect,
   intervalMs = VDT.MissionExporter.INTERVAL_MS,
   tick = VDT.MissionExporter.tick,
+  -- Which contracts are visible, which are `own`, and the active-contract limit are all read against
+  -- the local farm (ownFarmId); none of the three mission messages fires on a farm switch.
+  farmScoped = true,
 })

@@ -24,11 +24,11 @@
 VDT = VDT or {}
 VDT.CropRotationControl = {}
 
--- The planner handle and the local farm come from the read side (src/integrations/CropRotation.lua):
--- one definition of the mod-environment isolation rule and of "which farm are we", so read and write
--- can't drift apart.
+-- The planner handle comes from the read side (src/integrations/CropRotation.lua) so one definition of
+-- the mod-environment isolation rule serves both; "which farm are we" is the mod-wide one every
+-- channel and command scopes to (src/utils/Farm.lua), so read and write can't drift apart here either.
 local planner = VDT.CropRotation.planner
-local localFarmId = VDT.CropRotation.localFarmId
+local ownFarmId = VDT.Farm.ownFarmId
 
 -- Resolve the planner + the target plan for a command, logging the reason on a miss. Returns
 -- (planner, plan) or nil so callers can `if pl == nil then return end`.
@@ -51,7 +51,7 @@ local function resolve(rotationIndex, debugger, label)
     debugger:warn("%s: no rotation with index %s", label, tostring(rotationIndex))
     return nil
   end
-  local farmId = localFarmId()
+  local farmId = ownFarmId()
   if farmId == nil then
     debugger:warn("%s: no local farm resolved, refusing to mutate rotation %s", label, tostring(rotationIndex))
     return nil
@@ -186,9 +186,9 @@ VDT.CommandRegistry.register("createRotation", {
       return
     end
     -- addCropRotation takes the owning farm; use the local player's, matching the in-game planner
-    -- (InGameMenuCropRotationPlanner:addEntryCallback). localFarmId() rejects farm 0 ("no farm"),
+    -- (InGameMenuCropRotationPlanner:addEntryCallback). ownFarmId() rejects farm 0 ("no farm"),
     -- which would otherwise create a plan nobody owns.
-    local farmId = localFarmId()
+    local farmId = ownFarmId()
     if farmId == nil then
       debugger:warn("createRotation: no local farm to own the rotation")
       return

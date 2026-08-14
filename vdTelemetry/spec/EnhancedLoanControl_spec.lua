@@ -8,7 +8,10 @@
 -- it in its dialog's text input, which a terminal never goes through. Everything the dialog would have
 -- prevented has to be prevented here instead.
 
-if VDT == nil or VDT.CommandRegistry == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.CommandRegistry == nil then
   dofile("src/command/CommandRegistry.lua")
 end
 if VDT.ExportChannels == nil then

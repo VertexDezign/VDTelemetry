@@ -6,7 +6,10 @@
 -- ExportChannels loads ahead of that — mirroring VDTelemetry.lua's sourceFiles order. We stub a
 -- ProductionPoint that records the setter calls it receives, plus the FS globals the control reads.
 
-if VDT == nil or VDT.CommandRegistry == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.CommandRegistry == nil then
   dofile("src/command/CommandRegistry.lua")
 end
 if VDT.ExportChannels == nil then

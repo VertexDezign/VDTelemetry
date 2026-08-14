@@ -9,7 +9,10 @@
 -- which is copied from HUD:showMoneyChange and is the difference between mirroring what the player saw
 -- and inventing entries they never got.
 
-if VDT == nil or VDT.ExportChannels == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 if VDT.ProductionExporter == nil then

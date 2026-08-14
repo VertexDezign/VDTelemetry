@@ -9,7 +9,10 @@
 -- registry another spec populated). CropRotation.lua is loaded too so the enrichment path can resolve
 -- VDT.CropRotation.collectField.
 
-if VDT == nil or VDT.ExportChannels == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 dofile("src/integrations/CropRotation.lua")

@@ -9,7 +9,10 @@
 -- FS25_CropRotation.g_cropRotationPlanner; we stub a planner that records the wrapper calls it
 -- receives, plus g_localPlayer for the farm-ownership checks.
 
-if VDT == nil or VDT.CommandRegistry == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.CommandRegistry == nil then
   dofile("src/command/CommandRegistry.lua")
 end
 if VDT.ExportChannels == nil then

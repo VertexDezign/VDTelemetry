@@ -6,7 +6,10 @@
 -- register() at load time. Standalone storages are the sibling StorageExporter's job (see
 -- StorageExporter_spec.lua).
 
-if VDT == nil or VDT.ExportChannels == nil then
+if VDT == nil or VDT.Farm == nil then
+  dofile("src/utils/Farm.lua")
+end
+if VDT.ExportChannels == nil then
   dofile("src/export/ExportChannels.lua")
 end
 if VDT.ProductionExporter == nil then

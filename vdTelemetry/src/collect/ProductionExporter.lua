@@ -3,8 +3,9 @@
 -- levels drift as material is delivered/consumed, so this is interval-driven like mapVehicles.json,
 -- not tied to the main tick. Standalone storages (owned silos + object storages) are a SIBLING
 -- channel, src/collect/StorageExporter.lua (storage.json) — the two were split so each app/channel
--- can evolve on its own. StorageExporter reuses this module's own-farm / id / storage-row helpers
--- (ownFarmId, placeableId, storageRows), same as HusbandryExporter does.
+-- can evolve on its own. StorageExporter reuses this module's id / storage-row helpers (placeableId,
+-- storageRows), same as HusbandryExporter does; the farm scope itself is VDT.Farm.ownFarmId, shared by
+-- every channel there is (src/utils/Farm.lua).
 --
 -- Reads only base-game state (g_currentMission.productionChainManager), so it lives in collect/, not
 -- integrations/. Every engine read is pcall-guarded (fail-soft house rule): a point that throws is
@@ -81,16 +82,6 @@ end
 
 local function num(v)
   return type(v) == "number" and v or 0
-end
-
--- The local player's farm, or nil while spectating / before a player exists (see EnvironmentExporter).
--- Public so the write side (src/command/ProductionControl.lua) enforces ownership against the exact
--- same "which farm are we" rule the read side scopes to — one definition, so they can't drift.
-function VDT.ProductionExporter.ownFarmId()
-  if g_localPlayer ~= nil and type(g_localPlayer.farmId) == "number" and g_localPlayer.farmId > 0 then
-    return g_localPlayer.farmId
-  end
-  return nil
 end
 
 -- Stable id for app selection: the placeable's uniqueId (persisted across sessions), else its scene
@@ -242,7 +233,7 @@ function VDT.ProductionExporter.collect()
   if not VDT.ProductionExporter.isAvailable() then
     return nil
   end
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil then
     -- spectator / no owned farm: keep the channel present but empty (no points, no storages)
     return { version = tostring(VDT.ProductionExporter.VERSION) }
@@ -286,4 +277,6 @@ VDT.ExportChannels.register({
   isAvailable = VDT.ProductionExporter.isAvailable,
   collect = VDT.ProductionExporter.collect,
   intervalMs = VDT.ProductionExporter.INTERVAL_MS,
+  -- Only this farm's production points are exported (ownFarmId).
+  farmScoped = true,
 })

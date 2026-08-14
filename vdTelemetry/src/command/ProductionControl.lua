@@ -8,10 +8,10 @@
 --
 -- A production point is addressed by the same exported `id` the read side emits — resolved back to
 -- the live point with ProductionExporter.placeableId so the two can't drift. That resolver is also
--- where ownership is enforced: only the local farm's points may be mutated (ProductionExporter
--- .ownFarmId), matching the game's own menu, which shows only owned productions. In multiplayer a
--- command carrying a foreign id would otherwise flip another farm's production; we refuse rather than
--- guess when the farm is unresolved.
+-- where ownership is enforced: only the local farm's points may be mutated (VDT.Farm.ownFarmId, the
+-- same scope the read side uses), matching the game's own menu, which shows only owned productions.
+-- In multiplayer a command carrying a foreign id would otherwise flip another farm's production; we
+-- refuse rather than guess when the farm is unresolved.
 --
 -- Output mode: only *buffered* outputs (in the point's outputFillTypeIds) have a mode — a direct-sell
 -- output isn't stored, so the engine's setter rejects it; we screen for it and log instead.
@@ -54,7 +54,7 @@ local function resolvePoint(pointId, debugger, label)
     debugger:warn("%s: production chain manager not available", label)
     return nil
   end
-  local farmId = VDT.ProductionExporter.ownFarmId()
+  local farmId = VDT.Farm.ownFarmId()
   if farmId == nil then
     debugger:warn("%s: no local farm resolved, refusing to mutate production %s", label, tostring(pointId))
     return nil
