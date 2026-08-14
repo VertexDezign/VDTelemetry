@@ -51,7 +51,7 @@
 -- Optional third-party integrations extend MotorModel with extra @field lines in their own files
 -- (LuaLS merges class fields across files). See integrations/EnhancedVehicle.lua.
 ---@class MotorModel
----@field state string
+---@field state string OFF | IGNITION | STARTING | ON — the engine's own four; only ON is running
 ---@field temperatur TemperaturModel
 ---@field rpm RpmModel
 ---@field load LoadModel

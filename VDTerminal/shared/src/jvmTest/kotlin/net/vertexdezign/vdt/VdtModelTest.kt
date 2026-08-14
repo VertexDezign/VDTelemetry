@@ -417,6 +417,41 @@ class VdtModelTest {
   }
 
   @Test
+  fun decodesAllFourMotorStates() {
+    // Mod version 14. The engine has four and the mod exported three, so IGNITION never appeared and
+    // STARTING meant the key turned rather than the starter cranking. Inline because the committed
+    // captures are all of a machine either off or running — the two states in the middle last a
+    // second and no capture has ever caught one.
+    fun state(name: String) =
+      VdtParser
+        .parseJson("""{"version":"14","vehicle":{"motor":{"state":"$name"}}}""")
+        .vehicle
+        ?.motor
+        ?.state
+
+    assertEquals(MotorState.OFF, state("OFF"))
+    assertEquals(MotorState.IGNITION, state("IGNITION"))
+    assertEquals(MotorState.STARTING, state("STARTING"))
+    assertEquals(MotorState.ON, state("ON"))
+
+    // Only ON is a running engine. A key turned and a starter cranking are both machines that are not
+    // going yet, and the `!= OFF` test they used to pass is exactly the bug this version fixed.
+    assertEquals(listOf(false, false, false, true), MotorState.entries.map { it.isRunning })
+
+    assertJsonRoundTrips(VdtParser.parseJson("""{"version":"14","vehicle":{"motor":{"state":"IGNITION"}}}"""))
+
+    // A capture from before the field is still an engine we can't claim is running.
+    assertEquals(
+      MotorState.OFF,
+      VdtParser
+        .parseJson("""{"vehicle":{"motor":{}}}""")
+        .vehicle
+        ?.motor
+        ?.state,
+    )
+  }
+
+  @Test
   fun decodesTheSteeringModeAndTheDrivingPosition() {
     // Mod version 10. Both halves are optional and independent — this is the machine that has both,
     // which is the one the whole block was added for (a Xerion turns its cab *and* crab-steers).

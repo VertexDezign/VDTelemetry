@@ -198,7 +198,12 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     `motor.load` rather than a replacement for it: ADS's is the plain engine load plus what the
 --     driveline is doing under the draft, is what its own dashboard prints, and is what it charges
 --     engine wear against. See issue #79.
-VDTelemetry.VERSION = 13
+-- 14: `motor.state` says what the engine's own enum says. It has four values and the mapper only
+--     ever had three: 2 (IGNITION, the key turned and the starter untouched) was exported as
+--     STARTING, and 3 (STARTING, the starter cranking) was folded in with 4 into ON — so a cranking
+--     engine read as running and our STARTING never once meant cranking. IGNITION is new, STARTING
+--     changes meaning, and ON is now only the state the game itself calls started. See issue #86.
+VDTelemetry.VERSION = 14
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

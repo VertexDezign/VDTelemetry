@@ -463,6 +463,11 @@ Each one is cheap to do while playing and settles something above.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a
   forage/carrot harvester's pass-through output carry `showOnHud="true"`? This gates the filter switch
   above.
+- Do the two middle motor states ever show up in a capture (#86)? `STARTING` is the starter cranking,
+  which lasts a machine's start duration and so is a question about whether the write interval is fine
+  enough to catch it at all. `IGNITION` is the key turned and nothing else: reachable with the game's
+  own "ignition" input action bound, and the resting state of a hardware ignition lock, so a player
+  who binds neither will never see it. Both are exported and neither has been watched live.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod
   subscribes to `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is
   about the *base-game* loan, so an ELS save cannot answer it.
@@ -542,13 +547,6 @@ voltage. The reasoning is in `src/integrations/AdvancedDamageSystem.lua` and
   real second-screen feature, and the natural home for `currentState` / `getServiceFinishTime()` and
   the visible breakdown list, none of which the vehicle model carries. It needs its own issue, and its
   own care in multiplayer: that table is keyed by `uniqueId`, which is nil on an MP client.
-- **`ValueMapper.mapMotorState` predates the engine's four-value enum.** `MotorState` is
-  `OFF=1, IGNITION=2, STARTING=3, ON=4`; the mapper reports 2 as `STARTING` and folds 3 and 4 into
-  `ON`, so our "STARTING" is really "key turned, not cranking" and a cranking engine reads as running.
-  Found while wiring the ADS lamps, which are gated on exactly those states (the integration uses the
-  raw values and is unaffected). Fixing it means adding `IGNITION` to the Kotlin `MotorState`, and
-  auditing the `state != OFF` checks that currently mean "running" — `EngineTransmission`'s key button
-  is one.
 - **A fixture is wanted.** No committed capture has an `ads` block; `AdsModelTest` decodes the shape
   with inline JSON and says so at the top. See the section below for the rule those follow.
 

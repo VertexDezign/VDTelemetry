@@ -3,7 +3,11 @@
 -- Absolute (not toggle) for the same reason as LightControl -- the file channel is lossy/async.
 --
 -- startMotor/stopMotor are no-ops when already in the target state (they guard on getMotorState), so
--- a repeated command is harmless.
+-- a repeated command is harmless. The guards are the engine's four states, not two: startMotor acts
+-- from OFF *or* IGNITION, stopMotor from ON *or* STARTING. Which leaves one hole, and it is the base
+-- game's own — a machine sat at IGNITION (key turned, engine silent) cannot be switched off, here or
+-- by the game's own "turn off" action, because both go through stopMotor. Nothing in the terminal
+-- sends it: the key button targets ON from every state that isn't ON.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 

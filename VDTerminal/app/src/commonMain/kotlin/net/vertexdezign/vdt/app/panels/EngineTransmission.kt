@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.KeyOff
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -71,17 +72,28 @@ fun EngineTransmission(
     modifier = modifier,
     headerActions = {
       // Engine start/stop lives here (not in the control row below): it's a panel-level toggle for the
-      // whole engine. Tap sends the absolute target (start when currently off), green when running.
+      // whole engine. Tap sends the absolute target, green when running.
+      //
+      // Running is [MotorState.isRunning] and nothing looser: a key turned (IGNITION) or a starter
+      // cranking (STARTING) is an engine that is not going yet, and lighting the key for either would
+      // claim it was. Those two keep the key *glyph* — the machine is awake and about to be, which is
+      // a different thing from off — and the crossed-out key is the fully-off state, so the three
+      // readings differ in shape as well as in colour.
+      //
+      // The tap targets ON from anywhere else, which makes an impatient second tap during the crank a
+      // repeat of the start rather than a cancellation of it. The channel is lossy and the state we
+      // hold is a sample old; "stop the engine you just started" is not a thing a stale reading should
+      // ever be able to say.
       if (motor != null) {
-        val running = motor.state != MotorState.OFF
+        val running = motor.state.isRunning
         Icon(
-          Icons.Filled.Key,
+          if (motor.state == MotorState.OFF) Icons.Filled.KeyOff else Icons.Filled.Key,
           contentDescription = "engine start/stop",
           tint = if (running) VdtColors.Green else VdtColors.DarkGray,
           modifier =
           Modifier
             .clip(RoundedCornerShape(4.dp))
-            .clickable { onCommand(ClientMessage.SetMotorState(on = motor.state == MotorState.OFF)) }
+            .clickable { onCommand(ClientMessage.SetMotorState(on = !running)) }
             .padding(2.dp),
         )
       }
