@@ -60,10 +60,17 @@ object Config {
       // Linux: the Steam / Proton prefix for FS25, wherever Steam itself was installed from.
       val prefixTail =
         arrayOf("steamapps", "compatdata", STEAM_APP_ID, "pfx", "drive_c", "users", "steamuser", *PROFILE_TAIL)
+      // The three Flatpak entries are one install seen three ways: inside its sandbox Steam writes
+      // to `~/.local/share/Steam` or `~/.steam/steam`, and which of those survives as a real
+      // directory outside it (rather than as a symlink into `data/`) depends on the Flatpak
+      // version that created it. Cheaper to look at all three than to guess.
+      val flatpak = arrayOf(".var", "app", "com.valvesoftware.Steam")
       listOf(
         Path(home, ".steam", "steam", *prefixTail),
         Path(home, ".local", "share", "Steam", *prefixTail),
-        Path(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam", *prefixTail),
+        Path(home, *flatpak, "data", "Steam", *prefixTail),
+        Path(home, *flatpak, ".local", "share", "Steam", *prefixTail),
+        Path(home, *flatpak, ".steam", "steam", *prefixTail),
       )
     }
   }
