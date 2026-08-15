@@ -130,7 +130,11 @@ Im Spiel unter *Einstellungen → Allgemeine Einstellungen → VDTelemetry*:
 - **Export aktiviert** — der Hauptschalter. Beim Ausschalten werden die exportierten Dateien
   gelöscht, damit das Terminal erkennt, dass der Export gestoppt wurde, statt alte Daten zu zeigen.
 - **Schreibintervall** — wie oft die Fahrzeugdaten geschrieben werden. 100 ms läuft am flüssigsten;
-  erhöhe den Wert, wenn seltener geschrieben werden soll.
+  erhöhe den Wert, wenn seltener geschrieben werden soll. Bei 100 ms sind das rund 140 MB pro Stunde
+  — wenig im Vergleich zu dem, wofür eine moderne SSD ausgelegt ist. Wenn du trotzdem lieber gar
+  nicht auf die Platte schreiben möchtest, stehen in der Readme der Mod
+  [Anleitungen, den Ordner in den Arbeitsspeicher zu legen](https://github.com/VertexDezign/VDTelemetry/blob/main/vdTelemetry/Readme.md#keeping-telemetry-writes-off-the-ssd-optional)
+  — für Linux und Windows.
 - **Leistungsprofil** — wie oft *alles andere* (Karte, Produktionen, Tiere, …) aktualisiert wird.
   **Niedrig** schaltet zusätzlich die Bodenkarten-Overlays komplett ab, die mit Abstand am meisten
   Leistung kosten. Fang mit **Hoch** an und geh runter, wenn das Spiel ruckelt.

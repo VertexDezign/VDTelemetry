@@ -126,7 +126,10 @@ In game, under *Settings → General Settings → VDTelemetry*:
 - **Export enabled** — the master switch. Turning it off deletes the exported files, so the terminal
   can tell that it stopped rather than showing stale data.
 - **Write interval** — how often the vehicle data is written. 100 ms is the smoothest; raise it if
-  you want fewer writes.
+  you want fewer writes. At 100 ms this is roughly 140 MB an hour — small next to what a modern SSD
+  is rated for, but if you'd rather it never touched the drive at all, the mod's readme has
+  [recipes for backing the folder with RAM](https://github.com/VertexDezign/VDTelemetry/blob/main/vdTelemetry/Readme.md#keeping-telemetry-writes-off-the-ssd-optional)
+  on Linux and Windows.
 - **Performance profile** — how often everything *else* (map, productions, animals, …) is refreshed.
   **Low** also switches the ground-layer map overlays off completely, which is by far the most
   expensive part. Start at **High**, drop it if the game stutters.
