@@ -22,23 +22,39 @@ dependencies {
   testImplementation(libs.ktor.server.test.host)
 }
 
-// Pinned so the artifact matches the documented "JDK 21+", whatever JDK built it. `-Xjdk-release`
-// is the half that bites: without it a JDK 25 build happily links a JDK 25 API into class files
-// stamped 21, and the failure lands on the user's machine rather than in CI.
+// Pinned so the artifact matches the documented "JDK 25+", whatever JDK built it. `-Xjdk-release`
+// is the half that bites: without it a JDK 26 build happily links a JDK 26 API into class files
+// stamped 25, and the failure lands on the user's machine rather than in CI.
 kotlin {
   compilerOptions {
-    jvmTarget = JvmTarget.JVM_21
-    freeCompilerArgs.add("-Xjdk-release=21")
+    jvmTarget = JvmTarget.JVM_25
+    freeCompilerArgs.add("-Xjdk-release=25")
   }
 }
 
 java {
-  sourceCompatibility = JavaVersion.VERSION_21
-  targetCompatibility = JavaVersion.VERSION_21
+  sourceCompatibility = JavaVersion.VERSION_25
+  targetCompatibility = JavaVersion.VERSION_25
 }
+
+/**
+ * Netty's business, on every runtime that runs this server.
+ *
+ * From JDK 24 on, loading the native epoll transport is a restricted operation, and Netty's own
+ * memory allocation wants the same grant: with it, 4.2 links `malloc`/`free` through MemorySegment,
+ * which is its fastest path; without it, it falls back to shared arenas, whose deallocation costs
+ * thread-local handshakes. Ungranted, both also print a warning apiece into the console window the
+ * player is reading, which is the only place this program says anything.
+ *
+ * ALL-UNNAMED rather than `io.netty.common`: the app runs off the classpath, not the module path.
+ */
+private val nativeAccess = "--enable-native-access=ALL-UNNAMED"
 
 application {
   mainClass.set("net.vertexdezign.vdt.server.ServerKt")
+  // Reaches the portable archive's start scripts and `:server:run`; the app image is granted the
+  // same thing through jpackage's --java-options below.
+  applicationDefaultJvmArgs = listOf(nativeAccess)
 }
 
 // Bundle the production wasm app into the server's resources under `static/`, so a single
@@ -120,6 +136,7 @@ private val jpackageImage =
           ),
         )
         addAll(listOf("--main-class", "net.vertexdezign.vdt.server.ServerKt"))
+        addAll(listOf("--java-options", nativeAccess))
         addAll(listOf("--dest", jpackageDir.get().asFile.absolutePath))
         // A console window is the only place the startup log can be read, and it carries the two
         // things a first run needs: the LAN address to open on the tablet, and the warning when the

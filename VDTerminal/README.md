@@ -59,7 +59,7 @@ legend), with three differences worth knowing:
 
 ## Requirements
 
-- JDK 21+ (developed and verified on Temurin 26). The Gradle wrapper (9.6.1) is included; no
+- JDK 25+ (developed and verified on Temurin 26). The Gradle wrapper (9.6.1) is included; no
   separate Gradle install is needed.
 - A WasmGC-capable browser (recent Chrome/Edge/Firefox).
 
@@ -124,9 +124,11 @@ FS25, and that is Windows or Proton.
 
 Two things the release path pins that a dev build otherwise wouldn't:
 
-- **JVM target 21 and `-Xjdk-release=21`**, in `shared` and `server` alike. CI builds on JDK 25, and
-  without the pair the "JDK 21+" above was false of every artifact it produced: the target alone
-  stamps the class file 21 while still letting a JDK 25 API link into it.
+- **JVM target 25 and `-Xjdk-release=25`**, in `shared` and `server` alike. Both halves are needed
+  for "JDK 25+" to be true of what a developer on 26 produces: the target alone stamps the class
+  file 25 while still letting a JDK 26 API link into it, and that failure would land on a user's
+  machine rather than in CI. jpackage bundles the JDK it runs from, so the release workflow's `25`
+  is what the two app images ship and what the portable zip asks of a JDK you bring.
 - **The version**, via `-PvdtVersion=…`, which the workflow feeds from the git tag after checking it
   against the checked-in numbers. A tag like `v0.1.0-alpha.1` names the archives; jpackage's own
   metadata gets the numeric head, since that is all it accepts.

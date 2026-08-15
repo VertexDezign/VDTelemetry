@@ -16,7 +16,7 @@ the contract between the two: changing the data shape means changing the Lua col
 Kotlin model together, and refreshing the fixtures.
 
 Requirements: the mod needs [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs);
-the terminal needs JDK 21+ and a WasmGC-capable browser. Each README has the full story — how the mod
+the terminal needs JDK 25+ and a WasmGC-capable browser. Each README has the full story — how the mod
 is configured and what each channel carries, and how to run the terminal in development or as a single
 production process.
 

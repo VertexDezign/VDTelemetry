@@ -491,11 +491,10 @@ bundled-JRE app image per OS with jpackage, and publishes a prerelease. What it 
   `.dds`. Until then the launcher wears the stock Java icon.
 - **macOS is not built**, deliberately: the server reads files as the game writes them, so it has to live on the
   machine running FS25. Only worth revisiting if someone actually wants to point `VDT_FILE` at a network share.
-- **The release JDK is pinned to 21**, matching the floor the project documents, and a bump has a string attached: from
-  JDK 24 on, Netty's native library load prints a four-line "restricted method" warning into the console window the
-  user is reading, so raising the runtime means passing `--java-options --enable-native-access=ALL-UNNAMED` to jpackage
-  in the same step. (JDK 21 accepts that option too, so the order doesn't matter — it just has nothing to silence
-  there.)
+- **Nothing has run the packaged archive on a JDK newer than the one it ships.** The floor is 25 and the release bundles
+  25, so the combination a player gets is the one CI smoke-tests; a developer's own `installDist` on 26 is not. The
+  smoke test's "no `WARNING:` on startup" check is what would catch the next JDK tightening its native-access defaults,
+  and it only runs on the release path.
 - **The version lives in two files** — `VDTerminal/build.gradle.kts` and `modDesc.xml` — and the workflow checks the
   tag against both rather than generating them. A generator would be better; the check was cheaper and fails loudly,
   which for one release a month is the right trade. (It was three until `fstools.toml`'s `version` came out: that one
