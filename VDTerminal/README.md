@@ -83,15 +83,17 @@ Then open <http://localhost:8080>. Editing `vdTelemetry.json` updates the dashbo
 |----------------|-----------------------------------------------------|----------------------------------|
 | `VDT_PORT`     | `3001`                                              | server port                      |
 | `VDT_GAME_DIR` | OS-specific FS25 profile dir (Windows / Linux+Proton) | game directory                 |
-| `VDT_FILE`     | `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json` | telemetry file to watch; its folder is where every other channel file is read from. Keep it inside a `telemetry/` folder of the mod dir — see below |
+| `VDT_FILE`     | `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json` | telemetry file to watch; its folder is where every other channel file is read from, and where the command file is derived from — see below |
 | `VDT_COMMAND_FILE` | `<the same mod folder>/commands/commands.xml`    | command file the server writes; derived from `VDT_FILE` unless set |
 | `VDT_DEBOUNCE_MS` | `40`                                             | debounce window for file writes  |
 
-`VDT_COMMAND_FILE` is derived from `VDT_FILE`'s **grandparent** — `<mod>/telemetry/vdTelemetry.json`
-becomes `<mod>/commands/commands.xml`, the layout the mod actually writes. So an override that isn't
-one folder deep in the mod dir sends the commands somewhere the mod never reads, and the dashboard
-goes quiet in one direction only: the panels keep updating, but nothing you press reaches the game.
-Point `VDT_FILE` anywhere else and set `VDT_COMMAND_FILE` explicitly with it.
+`VDT_COMMAND_FILE` is derived from `VDT_FILE` by stepping out of its `telemetry/` folder:
+`<mod>/telemetry/vdTelemetry.json` becomes `<mod>/commands/commands.xml`, which is the layout the mod
+writes and polls. Point `VDT_FILE` at a path with no `telemetry/` folder in it and the commands land
+beside the telemetry file instead — `/tmp/vdTelemetry.json` gives `/tmp/commands/commands.xml` — and
+the server warns at startup, because the mod polls only its own folder. So off that layout, set
+`VDT_COMMAND_FILE` explicitly. Getting it wrong breaks one direction only, which is what makes it
+worth a warning: the panels keep updating, but nothing you press reaches the game.
 
 ## Production (single artifact)
 

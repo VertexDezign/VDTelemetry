@@ -82,6 +82,6 @@ Run from `VDTerminal/`.
 
 Run a single test class: `./gradlew :shared:jvmTest --tests "net.vertexdezign.vdt.VdtModelTest"`.
 
-Config is via env vars: `VDT_PORT` (3001), `VDT_GAME_DIR`, `VDT_FILE` (the telemetry file, default `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`; its folder is where the other channel files are read from), `VDT_COMMAND_FILE` (derived from `VDT_FILE`'s grandparent, so `VDT_FILE` has to stay inside a `telemetry/` folder of the mod dir), `VDT_DEBOUNCE_MS` (file-watch debounce, default 40). Requires JDK 21+.
+Config is via env vars: `VDT_PORT` (3001), `VDT_GAME_DIR`, `VDT_FILE` (the telemetry file, default `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`; its folder is where the other channel files are read from), `VDT_COMMAND_FILE` (derived from `VDT_FILE` by stepping out of its `telemetry/` folder; off that layout it lands beside `VDT_FILE` with a warning, since the mod polls only its own folder), `VDT_DEBOUNCE_MS` (file-watch debounce, default 40). Requires JDK 21+.
 
 The DDS golden fixtures in `server/src/test/resources/dds/` are reference outputs originally generated from the Go `bcn` library — treat them as golden data, don't hand-edit.
