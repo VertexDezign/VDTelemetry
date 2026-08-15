@@ -1,0 +1,257 @@
+name: Release
+
+# Tag-driven: `git tag v0.1.0-alpha.1 && git push --tags` publishes a draft-free prerelease with the
+# mod zip and a ready-to-run terminal per OS. `workflow_dispatch` builds the same artifacts without
+# publishing anything, so the packaging can be exercised before a tag is spent on it.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# A release must never be cancelled halfway through by a second push.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # The tag is the single source of truth for what is being released. Everything else in the
+      # repo has to agree with it, and the release stops here if it doesn't -- a mod whose modDesc
+      # version disagrees with its download is not something to find out about after publishing.
+      - name: Resolve and verify version
+        id: v
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="0.0.0-dev.${{ github.run_number }}"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Dry run: $version (nothing will be published)"
+          else
+            version="${GITHUB_REF_NAME#v}"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # Prerelease suffixes (-alpha.1) are ours alone: FS25's modDesc version is four numbers
+          # and can express nothing else, so only the numeric head is compared.
+          numeric="${version%%-*}"
+
+          # A dry run has no tag to check anything against. (Written as an `if` rather than
+          # `[ … ] && exit 0`, which under `set -e` fails the step on the *tag* path.)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            exit 0
+          fi
+
+          gradle_version=$(grep -oP '\?: "\K[0-9][^"]*' VDTerminal/build.gradle.kts)
+          moddesc_version=$(grep -oP '<version>\K[^<]+' vdTelemetry/modDesc.xml)
+          fstools_version=$(grep -oP '^version = "\K[^"]+' vdTelemetry/fstools.toml)
+
+          fail=0
+          if [ "$gradle_version" != "$numeric" ]; then
+            echo "::error::VDTerminal/build.gradle.kts says $gradle_version, tag says $numeric"; fail=1
+          fi
+          if [ "$(echo "$moddesc_version" | cut -d. -f1-3)" != "$numeric" ]; then
+            echo "::error::modDesc.xml says $moddesc_version, tag says $numeric"; fail=1
+          fi
+          if [ "$moddesc_version" != "$fstools_version" ]; then
+            echo "::error::modDesc.xml ($moddesc_version) and fstools.toml ($fstools_version) disagree"; fail=1
+          fi
+          exit $fail
+
+  verify:
+    name: Verify
+    uses: ./.github/workflows/ci.yml
+
+  mod:
+    name: Mod zip
+    needs: [version, verify]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Every path the mod source()s must actually be in the tree. A typo here is a mod that loads
+      # halfway and then errors in someone's savegame, which no unit test covers.
+      - name: Verify sourced files exist
+        working-directory: vdTelemetry
+        run: |
+          set -euo pipefail
+          fail=0
+          while read -r f; do
+            [ -f "$f" ] || { echo "::error::sourceFiles entry not found: $f"; fail=1; }
+          done < <(sed -n '/^local sourceFiles = {/,/^}/p' VDTelemetry.lua | grep -oP '"\K[^"]+\.lua(?=")')
+          exit $fail
+
+      # An explicit include list rather than an exclude list: a new dev-only file at the root should
+      # need a decision to be shipped, not a decision to be left out. The runtime set is the two
+      # root .lua files modDesc names, everything they source under src/, and the game's own assets.
+      - name: Build FS25_vdTelemetry.zip
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cd vdTelemetry
+          zip -r -q "$GITHUB_WORKSPACE/dist/FS25_vdTelemetry.zip" \
+            modDesc.xml icon_vdTelemetry.dds LICENSE \
+            VDTelemetry.lua GrisuDebug.lua \
+            l10n src
+          unzip -l "$GITHUB_WORKSPACE/dist/FS25_vdTelemetry.zip"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mod
+          path: dist/
+          if-no-files-found: error
+
+  terminal:
+    name: Terminal (${{ matrix.label }})
+    needs: [version, verify]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows
+          - os: ubuntu-latest
+            label: linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: VDTerminal
+        # bash on both runners, not just Linux: the Windows default is PowerShell, where `./gradlew`
+        # tries to run the POSIX script as a program instead of handing it to a shell.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      # 21 rather than CI's 25: jpackage bundles the runtime it is run from, and shipping the
+      # version the project documents as its floor keeps "JDK 21+" true of the portable zip and of
+      # the bundled one at once.
+      #
+      # Raising this is not free. From JDK 24 on, Netty's native library load prints four lines of
+      # "restricted method" warning into the console window the user is looking at, and the fix
+      # (`--java-options --enable-native-access=ALL-UNNAMED`) is an option JDK 21 does not know and
+      # refuses to start with. Bump the two together or not at all.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # jpackage cannot cross-compile, which is the whole reason this job is a matrix.
+      - name: Build app image
+        run: ./gradlew :server:packageRelease -PvdtVersion=${{ needs.version.outputs.version }} --stacktrace
+
+      # The bring-your-own-JDK archive, for anything the two app images don't cover. Built once.
+      - name: Build portable archive
+        if: matrix.label == 'linux'
+        run: |
+          set -euo pipefail
+          ./gradlew :server:distZip -PvdtVersion=${{ needs.version.outputs.version }}
+          mv "server/build/distributions/server-${{ needs.version.outputs.version }}.zip" \
+             "server/build/release/VDTerminal-${{ needs.version.outputs.version }}-portable.zip"
+
+      # The archive, not the build output: the two differ, and the difference has already been a
+      # release-blocking bug once — Gradle's archive tasks normalise permissions, so the app image
+      # ran fine while the download it was packed into arrived with an unrunnable launcher.
+      - name: Smoke test the packaged archive
+        run: |
+          set -euo pipefail
+          mkdir -p smoke && cd smoke
+          # Expand-Archive rather than unzip or tar: Git for Windows ships neither `unzip` nor a tar
+          # that reads zip, and PowerShell is the one extractor certain to be on the runner. The
+          # relative path keeps it working without converting between msys and Windows path forms.
+          if [ "${{ matrix.label }}" = "windows" ]; then
+            powershell -NoProfile -Command \
+              "Expand-Archive -Path '../server/build/release/VDTerminal-*.zip' -DestinationPath '.' -Force"
+            launcher="VDTerminal/VDTerminal.exe"
+          else
+            tar xzf ../server/build/release/*.tar.gz
+            launcher="VDTerminal/bin/VDTerminal"
+          fi
+          [ -x "$launcher" ] || { echo "::error::$launcher is not executable in the archive"; exit 1; }
+
+          VDT_PORT=3999 VDT_GAME_DIR=/nonexistent "$launcher" > run.log 2>&1 &
+          pid=$!
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:3999/health >/dev/null 2>&1 && break || sleep 1
+          done
+          curl -sf http://localhost:3999/health
+          # The dashboard and its wasm bundle, i.e. that the app really is embedded in the jar.
+          curl -sf -o /dev/null http://localhost:3999/
+          curl -sf -o /dev/null http://localhost:3999/app.js
+          echo "--- startup log ---"
+          cat run.log
+          kill "$pid" 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: terminal-${{ matrix.label }}
+          path: VDTerminal/server/build/release/
+          if-no-files-found: error
+
+  publish:
+    name: Publish prerelease
+    needs: [version, mod, terminal]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -lh dist/
+
+      - name: Write release notes
+        run: |
+          cat > notes.md <<'EOF'
+          **This is an alpha.** It is usable, it is not finished, and it is unsigned — Windows
+          SmartScreen and some antivirus tools will say so.
+
+          ### Setup
+
+          - 📖 [Setup guide (English)](https://github.com/VertexDezign/VDTelemetry/blob/main/docs/setup.en.md)
+          - 📖 [Anleitung (Deutsch)](https://github.com/VertexDezign/VDTelemetry/blob/main/docs/setup.de.md)
+
+          You need **two** mods in your `mods` folder: `FS25_vdTelemetry.zip` from below, and
+          [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs/releases) 1.1+,
+          without which VDTelemetry switches itself off.
+
+          ### Which download
+
+          | File | For |
+          |---|---|
+          | `FS25_vdTelemetry.zip` | the mod — into your FS25 `mods` folder |
+          | `VDTerminal-…-windows-x64.zip` | the dashboard on Windows — unzip, run `VDTerminal.exe` |
+          | `VDTerminal-…-linux-x64.tar.gz` | the dashboard on Linux (Proton players) |
+          | `VDTerminal-…-portable.zip` | anything else — needs a JDK 21+ of your own |
+
+          The three terminal downloads are the same program; the first two bring their own Java.
+
+          The dashboard has no password and is meant for your own network. Don't forward port 3001.
+          EOF
+
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "VDTelemetry ${{ needs.version.outputs.version }}" \
+            --notes-file notes.md \
+            --prerelease

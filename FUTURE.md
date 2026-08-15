@@ -474,3 +474,32 @@ machine that has them.
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
 
+
+## Releasing (#80)
+
+The first alpha's packaging is built: a tag drives `.github/workflows/release.yml`, which zips the mod, builds a
+bundled-JRE app image per OS with jpackage, and publishes a prerelease. What it does not do yet:
+
+- **Nothing is signed.** Windows SmartScreen warns on every download, and the setup guides spend a bullet each
+  explaining that away. An OV/EV code-signing certificate is the only real fix and costs money; until then the warning
+  is the honest answer, not a bug to hide.
+- **The bundled runtime is jpackage's default**, i.e. every JDK module — ~70 MB compressed per OS. A `jlink`
+  `--add-modules` set trimmed to what Netty and Ktor actually touch (`jdk.unsupported` and `java.management` among
+  them) would roughly halve it. Worth doing once the module set can be verified by running the result, not guessed.
+- **No icon on the app image.** jpackage takes `--icon`, which wants a `.ico` on Windows; the repo has only the mod's
+  `.dds`. Until then the launcher wears the stock Java icon.
+- **macOS is not built**, deliberately: the server reads files as the game writes them, so it has to live on the
+  machine running FS25. Only worth revisiting if someone actually wants to point `VDT_FILE` at a network share.
+- **The release JDK is pinned to 21 for a second reason** beyond matching the documented floor: from JDK 24 on, Netty's
+  native library load prints a four-line "restricted method" warning into the console window the user is reading, and
+  the option that silences it (`--enable-native-access=ALL-UNNAMED`) is one JDK 21 refuses to start with. The two move
+  together.
+- **The version lives in three files** — `VDTerminal/build.gradle.kts`, `modDesc.xml`, `fstools.toml` — and the
+  workflow checks the tag against all three rather than generating them. A generator would be better; the check was
+  cheaper and fails loudly, which for one release a month is the right trade.
+- **`fstools` is no longer what builds the released zip.** The workflow zips an explicit include list instead, which
+  also fixes something the `fstools` zip did by accident: `fsTypes/` (IDE type stubs, never sourced) was being shipped
+  to players. `fstools.toml` stays because the tool is still the local convenience path.
+- **In-game there is still no warning when FS25_additionalInputs is missing** — the mod logs it and silently disables
+  the export, so the symptom is an empty dashboard. `VDTelemetry:loadMap` carries the `TODO display warning in ui`.
+  Both setup guides currently route around it by telling the player to read `log.txt`, which is not a fix.

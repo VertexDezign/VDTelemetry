@@ -78,7 +78,13 @@ Run from `VDTerminal/`.
 ./gradlew :app:wasmJsBrowserTest                    # app-side unit tests (headless Chrome)
 ./gradlew check                                     # everything CI runs, spotlessCheck included
 ./gradlew :server:installDist                       # production build: embeds prod wasm bundle, one process serves all on :3001
+./gradlew :server:packageRelease                    # release build: jpackage app image + bundled JRE, for the OS you're on
 ```
+
+`packageRelease` is what `.github/workflows/release.yml` runs on a Windows and a Linux runner when a `v*` tag is
+pushed; it also builds the mod zip and publishes both as a GitHub prerelease. jpackage cannot cross-compile, which is
+why the workflow is a matrix. User-facing setup instructions live in `docs/setup.en.md` and `docs/setup.de.md` — they
+ship inside the release archive, so keep the two languages in step.
 
 Run a single test class: `./gradlew :shared:jvmTest --tests "net.vertexdezign.vdt.VdtModelTest"`.
 

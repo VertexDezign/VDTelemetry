@@ -8,10 +8,22 @@
     </title>
     <description>
         <en>
-            <![CDATA[TODO]]>
+            <![CDATA[Exports live game state - vehicle, map, productions, animals, contracts, finances - to JSON files that external dashboards can read, and takes commands back so a dashboard can operate the machine and the farm.
+
+Pair it with VDTerminal, which turns that into a live dashboard in any browser: on this PC, or on a tablet or phone in the cab.
+
+Requires FS25_additionalInputs.
+
+Download and setup guide: https://github.com/VertexDezign/VDTelemetry]]>
         </en>
         <de>
-            <![CDATA[TODO]]>
+            <![CDATA[Exportiert den laufenden Spielzustand - Fahrzeug, Karte, Produktionen, Tiere, Verträge, Finanzen - in JSON-Dateien, die externe Dashboards lesen können, und nimmt Befehle entgegen, damit ein Dashboard Maschine und Hof auch bedienen kann.
+
+Zusammen mit VDTerminal wird daraus ein Live-Dashboard in jedem Browser: auf diesem PC oder auf einem Tablet oder Handy in der Kabine.
+
+Benötigt FS25_additionalInputs.
+
+Download und Anleitung: https://github.com/VertexDezign/VDTelemetry]]>
         </de>
     </description>
     <iconFilename>icon_vdTelemetry.png</iconFilename>

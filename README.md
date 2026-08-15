@@ -1,5 +1,8 @@
 # VDTelemetry
 
+**Just want to run it?** → [Setup guide (English)](docs/setup.en.md) ·
+[Anleitung (Deutsch)](docs/setup.de.md) · [Downloads](https://github.com/VertexDezign/VDTelemetry/releases)
+
 A telemetry pipeline for **Farming Simulator 25**, in two parts:
 
 - **[`vdTelemetry/`](vdTelemetry/Readme.md)** — the in-game mod (Lua) that exports live game

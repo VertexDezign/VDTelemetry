@@ -13,9 +13,13 @@ unload, the loan, and the supported mods' own data).
 
 Link to Discord Post: [GameGlass Discord](https://discord.com/channels/522506741213167617/1308554695958204588)
 
+**Installing it as a player?** See [docs/setup.en.md](../docs/setup.en.md) —
+[auf Deutsch](../docs/setup.de.md). This file is the mod's reference documentation.
+
 ## Requirements
 
-* [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs)
+* [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs) — major version 1, minor 1 or newer.
+  Without it the mod logs an error and disables the export (there is no in-game warning yet).
 
 ## Output
 

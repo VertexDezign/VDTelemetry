@@ -14,7 +14,10 @@ val composeRulesRuleSet = "io.nlopez.compose.rules:ktlint:${libs.versions.compos
 
 allprojects {
   group = "net.vertexdezign"
-  version = "0.1.0"
+  // The release workflow passes the git tag through as -PvdtVersion=0.1.0-alpha.1, so the published
+  // archives carry the tag's name. A plain build gets the checked-in number, which is also what the
+  // workflow verifies the tag against.
+  version = (findProperty("vdtVersion") as String?)?.takeIf { it.isNotBlank() } ?: "0.1.0"
 
   apply(plugin = "com.diffplug.spotless")
 
