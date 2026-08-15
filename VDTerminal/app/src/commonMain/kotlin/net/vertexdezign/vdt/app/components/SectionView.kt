@@ -495,7 +495,8 @@ private fun SpotReadout(nozzles: PfNozzles, live: Boolean) {
  *
  * Deliberately **not** gated on the tool processing ground, which is what the first version did and
  * what made the line flicker. `getIsWorkAreaProcessing` is only true within 200 ms of the processing
- * function reporting a changed area (`WorkArea.lua:191-198`), and a spot sprayer over clean crop
+ * function reporting a changed area (`WorkArea:onUpdateTick` only stamps `lastProcessingTime` when the
+ * processing function returns a non-zero area), and a spot sprayer over clean crop
  * changes nothing — so it toggles with the weeds, several times a second. Whether the boom is down
  * and moving is what actually decides if the number means anything, and that is [WorkStatus.active].
  */

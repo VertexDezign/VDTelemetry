@@ -11,17 +11,17 @@
 -- state of its own worth reading, so it needs no collector: its fertilizer half shows up through the
 -- spraying aspect, on the same object.
 --
--- MULTIPLAYER: Cultivator registers no onReadStream/onWriteStream and no events (Cultivator.lua:
--- 42-51) -- none of this is synchronized. `isSubsoiler` / `isPowerHarrow` are read from the vehicle
+-- MULTIPLAYER: Cultivator.registerEventListeners registers no onReadStream/onWriteStream and no
+-- events -- none of this is synchronized. `isSubsoiler` / `isPowerHarrow` are read from the vehicle
 -- XML at load so they are identical everywhere and safe; `limitToField` is engine state that a client
 -- only ever sees at its load default. It is kept for the same reason the plough's is (right in single
 -- player, and the game's own HUD has the same hole) but it is the field to distrust here.
 --
--- NOT collected: `spec.isWorking` (`:115`, literally `0.5 < getLastSpeed()`) and `spec.isEnabled`
--- (`:69`, which the engine switches off itself mid-tick). The first is a speed threshold dressed up
--- as a state -- `speed` already says that, better -- and the second changes under the reader without
--- meaning anything a display can act on. workAreas[].active/processing is the honest answer to "is
--- this thing working", from the engine's own predicate.
+-- NOT collected: `spec.isWorking` (set in processCultivatorArea, literally `0.5 < getLastSpeed()`)
+-- and `spec.isEnabled` (which updateCultivatorEnabledState switches off itself mid-tick). The first
+-- is a speed threshold dressed up as a state -- `speed` already says that, better -- and the second
+-- changes under the reader without meaning anything a display can act on. workAreas[].active/processing
+-- is the honest answer to "is this thing working", from the engine's own predicate.
 
 VDT = VDT or {}
 VDT.Tillage = {}

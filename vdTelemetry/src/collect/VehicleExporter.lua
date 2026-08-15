@@ -9,7 +9,7 @@ VDT.VehicleExporter = {}
 
 -- Recursively collect an object's attached implements into ImplementModel[]. `position` comes from
 -- FS25_additionalInputs (a hard requirement, so no presence guard beyond the nil default). Returns
--- nil when there are no attached implements, so the JSON key is absent (Model.kt defaults to []) —
+-- nil when there are no attached implements, so the JSON key is absent (the Kotlin model defaults it to []) —
 -- never an empty Lua table, which would encode as `{}` instead of `[]`.
 ---@param rootObject table
 ---@return ImplementModel[]|nil
@@ -38,7 +38,7 @@ local function collectImplements(rootObject)
     if object ~= nil then
       implModel.name = object:getFullName()
       implModel.type = object.typeName
-      -- brand is emitted (behaviour-preserving) though Model.kt drops it via ignoreUnknownKeys
+      -- brand is emitted (behaviour-preserving) though the Kotlin model drops it via ignoreUnknownKeys
       local brand = ValueMapper.resolveBrand(object)
       if brand ~= nil then
         implModel.brand = { name = brand.name, title = brand.title }

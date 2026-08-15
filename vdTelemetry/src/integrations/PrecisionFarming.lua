@@ -223,18 +223,18 @@ end
 -- ---------------------------------------------------------------------------
 
 -- PF's ExtendedSprayer spec, under the key it builds for itself:
--- `"spec_" .. g_currentModName .. ".extendedSprayer"` (ExtendedSprayer.lua:3). That is a plain string
+-- `"spec_" .. g_currentModName .. ".extendedSprayer"`. That is a plain string
 -- key on the vehicle table, so unlike PF's globals it is readable from here without the mod-env dance
 -- above -- the same reason `subSectionData` is reachable at all.
 VDT.PrecisionFarming.SPRAYER_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".extendedSprayer"
 
 -- PF's per-nozzle effects, on the same kind of key. Only the sprayers PF ships node data for have
 -- this spec populated -- and those are exactly the machines where it takes the base game's width
--- controls away (ExtendedSprayerEffects.lua:101-105 removes VariableWorkWidth's onRegisterActionEvents
--- and onDraw), so where the shutoff bar freezes, this is what replaces it.
+-- controls away (ExtendedSprayerEffects:onPreInitComponentPlacement removes VariableWorkWidth's
+-- onRegisterActionEvents and onDraw), so where the shutoff bar freezes, this is what replaces it.
 VDT.PrecisionFarming.EFFECTS_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".extendedSprayerEffects"
 
--- Spot spraying, a purchasable configuration (WeedSpotSpray.lua:28). It matters to a reader of the
+-- Spot spraying, a purchasable configuration (WeedSpotSpray:onPreLoad). It matters to a reader of the
 -- nozzle bar: with it on, a boom running at 40% is covering the whole width and skipping the clean
 -- ground -- without it, 40% just means most of the boom is folded away.
 VDT.PrecisionFarming.SPOT_SPRAY_SPEC = "spec_" .. VDT.PrecisionFarming.MOD_NAME .. ".weedSpotSpray"
@@ -320,14 +320,15 @@ end
 ---The boom's nozzles, left to right, or nil when PF drives no per-nozzle effects on this machine.
 ---
 ---Unlike the sub-sections above this is **not** server-only: the states are recomputed in
----`ExtendedSprayerEffects:onUpdate` with no `isServer` gate (`:187-203`), because they drive what the
+---`ExtendedSprayerEffects:onUpdate` with no `isServer` gate, because they drive what the
 ---player sees coming out of the boom. So this is the one per-position signal that survives
 ---multiplayer -- and the only one that says anything at all with herbicide in the tank, where PF
 ---computes no rates and every sub-section reads invalid.
 ---
 ---Each state already folds in everything that can stop a nozzle: its section being off
----(`:361`), reversing or crawling (`WeedSpotSpray.lua:118-120`), spot spraying finding no weed under
----it (`:123-131`), and liquid fertilizer skipping ground that already has some (`:142-160`).
+---(`ExtendedSprayerEffects:updateExtendedSprayerNozzleEffectState`), reversing or crawling, spot
+---spraying finding no weed under it, and liquid fertilizer skipping ground that already has some (the
+---last three all in `WeedSpotSpray`'s override of that same function).
 ---@param object table a vehicle or implement
 ---@return PfNozzlesModel|nil
 local function collectNozzles(object)
@@ -343,8 +344,9 @@ local function collectNozzles(object)
         x = tonumber(effect.xOffset) or 0,
         active = effect.isActive == true,
         -- How hard this nozzle is running, 0..1. Flat 1 without pulse-width modulation; with it, each
-        -- nozzle's own ground speed over the machine's limit (`ExtendedSprayerEffects.lua:361-377`),
-        -- which PF turns into the pause between pulses (`:402-404`). That is why a PWM boom looks like
+        -- nozzle's own ground speed over the machine's limit
+        -- (`updateExtendedSprayerNozzleEffectState`), which PF turns into the pause between pulses
+        -- (`updateExtendedSprayerNozzleEffects`). That is why a PWM boom looks like
         -- nozzles are cutting out mid-turn: they are pulsing slower, not shutting off.
         amount = tonumber(effect.amountScale) or 1,
       }
@@ -356,8 +358,9 @@ local function collectNozzles(object)
 
   -- Sorted rather than taken in the spec's order, which comes out of a `pairs()` walk of PF's node
   -- XML. `xOffset` is the nozzle's lateral offset, measured once at load
-  -- (`ExtendedSprayerEffects.lua:249`), and positive means the LEFT side -- that is how PF itself
-  -- reads it, looking a positive offset up in `sectionsLeft` (`:264-271`). So descending x is left to
+  -- (`addExtendedSprayerNozzleEffect`), and positive means the LEFT side -- that is how PF itself
+  -- reads it, looking a positive offset up in `sectionsLeft` (`initExtendedSprayerNozzleEffect`). So
+  -- descending x is left to
   -- right across the boom, matching the order the shutoff sections come in.
   table.sort(nozzles, function(a, b)
     return a.x > b.x
@@ -379,7 +382,7 @@ local function collectNozzles(object)
     count = #nozzles,
     activeCount = activeCount,
     -- PF derives this from the pulse-width-modulation configuration -- `individualNozzleControl` is
-    -- assigned `pwmEnabled` (`ExtendedSprayerEffects.lua:40-45`) -- so "individual" and "pulsing" are
+    -- assigned `pwmEnabled` (`ExtendedSprayerEffects:onLoad`) -- so "individual" and "pulsing" are
     -- the same machines. Without it PF switches a whole section at a time.
     individual = spec.individualNozzleControl == true,
     active = active,
@@ -701,8 +704,9 @@ end
 ---Application rates for one object, or nil when it is not a PF sprayer/spreader.
 ---
 ---**The parts have different reach.** `nitrogen`/`ph` are the boom averages PF streams to every
----client (ExtendedSprayer.lua:180-206, plus its own value event), so they are there for everyone. The
----per-slice `workAreas` are refreshed inside `if self.isServer` (:212-255), so on a multiplayer client
+---client (ExtendedSprayer:onReadUpdateStream / onWriteUpdateStream, plus its own value event), so they
+---are there for everyone. The per-slice `workAreas` are refreshed inside `if self.isServer` in
+---ExtendedSprayer:onUpdate, so on a multiplayer client
 ---they are simply absent -- which is why they are optional rather than the primary shape, and why the
 ---app has to draw a readout from the averages and treat the strip as detail on top. `nozzles` is the
 ---exception that survives multiplayer; see collectNozzles.
@@ -742,7 +746,7 @@ function VDT.PrecisionFarming.collectSprayer(object)
 
   -- Each reading is emitted ONLY in the mode that maintains it, which is the same branch PF's own HUD
   -- picks. It has to be: `nitrogenLevel` is read under `if spec.isFertilizing` and `phLevel` under
-  -- `if spec.isLiming` (ExtendedSprayer.lua:714-719), and the aggregates they feed are never reset --
+  -- `if spec.isLiming` (updateWorkAreaSubSectionData), and the aggregates they feed are never reset --
   -- so a sprayer that fertilized this morning and is spraying herbicide now still holds this morning's
   -- nitrogen, possibly from another field. Emitting that would put a stale number next to a live
   -- nozzle bar, which is the one place it would be believed.

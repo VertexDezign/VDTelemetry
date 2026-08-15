@@ -2,7 +2,7 @@
 -- Namespaced under VDT.* (see TurnOn.lua).
 --
 -- damage/wear come from the wearable spec, dirt from the washable spec; an object may have either or
--- both. Missing components are simply absent (Model.kt defaults them to 0). Percentages are integers.
+-- both. Missing components are simply absent (the Kotlin model defaults them to 0). Percentages are integers.
 
 VDT = VDT or {}
 VDT.Wearable = {}

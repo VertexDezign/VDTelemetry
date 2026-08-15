@@ -3,11 +3,12 @@
 --
 -- All three drive the game's OWN events -- MissionStartEvent / MissionCancelEvent /
 -- MissionDismissEvent -- exactly as the in-game contracts screen does
--- (InGameMenuContractsFrame.lua:377-391, :596-607, :579-585): build the event and hand it to
+-- (InGameMenuContractsFrame:startContract, :onButtonCancel/:onCancelDialog and :onButtonDismiss):
+-- build the event and hand it to
 -- `g_client:getServerConnection():sendEvent(...)`. So this mod needs no network event of its own, the
 -- server re-checks the player's rights when the event lands, and singleplayer takes the same path
 -- (the host's local connection). Calling MissionManager:startMission directly would be wrong twice
--- over: it asserts server-side (MissionManager.lua:317), and it would skip the permission check.
+-- over: MissionManager:startMission asserts server-side, and it would skip the permission check.
 --
 -- None of the three touches a vehicle, so all declare requiresVehicle = false (see CommandRegistry /
 -- VDTelemetry:onCommand).
@@ -235,7 +236,7 @@ VDT.CommandRegistry.register("dismissMission", {
       return
     end
     -- Collecting is for a contract that is over -- however it ended. DISMISSED counts too, matching
-    -- the in-game screen, which offers the button for both (InGameMenuContractsFrame.lua:193).
+    -- the in-game screen, which offers the button for both (InGameMenuContractsFrame:updateList).
     -- Checked before ownership for the same reason cancel does: an unfinished contract may have no
     -- farm to compare against.
     local status = VDT.MissionExporter.statusToken(mission.status)

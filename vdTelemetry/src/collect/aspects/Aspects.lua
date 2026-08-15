@@ -1,9 +1,9 @@
 -- Applies the shared aspect collectors (those valid for any vehicle OR implement) onto an object
 -- model. Each collector is pure and returns nil when its spec is absent; a nil assignment leaves the
--- key out of the Lua table, so absent aspects become absent JSON keys (Model.kt supplies defaults).
+-- key out of the Lua table, so absent aspects become absent JSON keys (the Kotlin model supplies defaults).
 -- Namespaced under VDT.* (see TurnOn.lua).
 --
--- Field order follows Model.kt (isTurnedOn, foldable, lowered, fillUnits, pipe, cover, wearable,
+-- Field order follows the Kotlin model's Implement (isTurnedOn, foldable, lowered, fillUnits, pipe, cover, wearable,
 -- schema, selection, discharge, tipping, harvest, workMode, workWidth, workAreas, baleCounter,
 -- sowing, spraying, plow, tillage); JSON is key-addressed so order is cosmetic.
 --

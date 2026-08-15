@@ -324,7 +324,8 @@ describe("PrecisionFarming.collectSprayer", function()
   end)
 
   -- The trap: PF only refreshes nitrogen while fertilizing and pH while liming
-  -- (ExtendedSprayer.lua:714-719), and never resets either. A sprayer that fertilized this morning and
+  -- (ExtendedSprayer:updateWorkAreaSubSectionData), and never resets either. A sprayer that fertilized
+  -- this morning and
   -- is on herbicide now still holds this morning's nitrogen, so emitting it would put a stale number
   -- next to a live nozzle bar -- the one place it would be believed.
   it("emits each reading only in the mode that maintains it", function()

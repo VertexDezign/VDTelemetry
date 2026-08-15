@@ -3,12 +3,33 @@
 A telemetry pipeline for **Farming Simulator 25**, in two parts:
 
 - **[`vdTelemetry/`](vdTelemetry/Readme.md)** — the in-game mod (Lua) that exports live game
-  state to `vdTelemetry.json`.
-- **[`VDTerminal/`](VDTerminal/README.md)** — a Kotlin Multiplatform app that watches that file
-  and renders a live web dashboard.
+  state to `vdTelemetry.json` and a set of sibling channel files, and takes commands back through a
+  command channel.
+- **[`VDTerminal/`](VDTerminal/README.md)** — a Kotlin Multiplatform app that watches those files
+  and renders a live web dashboard, on this machine or on a tablet or phone on the LAN.
 
-The shared Kotlin model (`VDTerminal/shared/.../Model.kt`) plus the `examples/json/` fixtures are
-the contract between the two.
+The shared Kotlin model (`VDTerminal/shared/.../model/`) plus the `examples/json/` fixtures are
+the contract between the two: changing the data shape means changing the Lua collectors and the
+Kotlin model together, and refreshing the fixtures.
+
+Requirements: the mod needs [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs);
+the terminal needs JDK 21+ and a WasmGC-capable browser. Each README has the full story — how the mod
+is configured and what each channel carries, and how to run the terminal in development or as a single
+production process.
+
+![The dashboard](screenshots/overview.png)
+
+| | |
+|---|---|
+| ![In the tractor](screenshots/within_tractor.png) | ![Ground layers](screenshots/map_layers.png) |
+| ![Map filter and search](screenshots/map_filter_search.png) | ![Creating a task](screenshots/task_creation.png) |
+
+## Planned and deferred work
+
+**[`FUTURE.md`](FUTURE.md)** collects everything planned, deferred or still open across the whole
+repo — the follow-ups finished work left behind, the in-game checks nobody has run, and the accepted
+limitations that are not bugs. Read it before proposing something that looks new; it may already be
+there, with the reason it was left.
 
 ## Commit messages
 

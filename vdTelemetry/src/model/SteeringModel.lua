@@ -1,5 +1,5 @@
 -- Model definitions for the steering subtree. Annotation-only (see EnvironmentModel.lua).
--- Maps to Model.kt Steering / SteeringMode.
+-- Maps to the Kotlin model's Steering / SteeringMode (model/Vehicle.kt).
 
 --- The steering mode a crab-steering machine is in.
 ---

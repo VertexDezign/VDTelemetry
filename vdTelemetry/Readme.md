@@ -2,7 +2,9 @@
 
 VDTelemetry exports the current game state into json files so external telemetry consumers can read it, and provides
 some additional action events for accessing more stuff with direct key bindings. Consumers can also write
-back through a command channel (drive the vehicle's lights/engine/cruise, edit the supported mods' data).
+back through a command channel — the vehicle in the player's hands (lights, engine, cruise, implements, the steering
+assist, Precision Farming's application rate) and the farm around it (contracts, production lines, object-storage
+unload, the loan, and the supported mods' own data).
 
 > This mod was originally built as *GameGlassInterface* to provide integration with
 > [GameGlass](https://gameglass.gg/), which remains the primary intended consumer.
@@ -25,13 +27,14 @@ inside its own `modSettings/<modName>/` folder, and disabling export removes the
 Windows: `%USERPROFILE%\Documents\My Games\FarmingSimulator2025\modSettings\FS25_vdTelemetry\telemetry\vdTelemetry.json`
 
 The shape of the written json is defined by the shared Kotlin model
-(`VDTerminal/shared/.../Model.kt`); see `examples/json/` for sample outputs.
+(`VDTerminal/shared/.../model/`); see `examples/json/` for sample outputs.
 
-### Event-driven channels
+### The other export channels
 
 `vdTelemetry.json` is only the first of several **export channels** written into `telemetry/`, each on
-its own cadence. The vehicle telemetry is rewritten every interval; the event-driven channels change
-rarely, so they are written only when their data actually changes — they never ride the 100 ms tick.
+its own cadence. The vehicle telemetry is rewritten every interval; the rest are either interval-driven
+at a cadence that suits how fast their data really moves, or event-driven — written only when their
+data actually changes — and none of them rides the 100 ms tick.
 
 | File | Source | Written |
 |---|---|---|
@@ -39,19 +42,27 @@ rarely, so they are written only when their data actually changes — they never
 | `map.json` | map overlay: POIs + fields + farms (core, `src/collect/MapExporter.lua`) | on farmland/placeable/farm change |
 | `mapVehicles.json` | vehicle markers (core, `src/collect/MapVehiclesExporter.lua`) | own interval (1 s) |
 | `mapLayers/` | ground layers: `index.json` (catalogue) + one raster file per plane — crops/growth/soil (core, `src/collect/MapLayersExporter.lua`) | own sweep cadence, per plane |
+| `gpsCourse.json` | the steering assist's guidance lines for the field being driven (core, `src/collect/GpsCourseExporter.lua`) | when the course itself changes (polled) |
+| `production.json` | own farm's production points + factories (core, `src/collect/ProductionExporter.lua`) | own interval (2 s) |
+| `storage.json` | own farm's standalone silos + object storages (core, `src/collect/StorageExporter.lua`) | own interval (2 s) |
+| `husbandry.json` | own farm's animal pens (core, `src/collect/HusbandryExporter.lua`) | own interval (5 s) |
+| `missions.json` | the farm's contracts (core, `src/collect/MissionExporter.lua`) | on contract change + 10 s |
+| `finance.json` | the farm's books: balance, loan, the monthly table, the money log (core, `src/collect/FinanceExporter.lua`) | on period/loan change + 5 s |
+| `fieldInfo.json` | per-field agronomy, for the field-info popup (core, `src/collect/FieldInfoExporter.lua`) | own interval (30 s) |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
 | `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
 | `invoices.json` | [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) | on invoice or player-farm change |
 
-Each channel file carries its **own `version`**, evolving independently of the telemetry one.
+Each channel file carries its **own `version`**, evolving independently of the telemetry one. The
+farm-scoped ones (everything that says "own farm", plus contracts and invoices) are rewritten when the
+player switches farm as well, since that changes who is asking rather than what is stored.
 
 For the per-mod channels, **the file's absence means "that mod isn't installed"** — that is exactly how
 VDTerminal decides whether to show the panel at all. So the mod deletes, once at startup, the file of
 every channel that this session will never write: uninstall one of the mods and its json goes away with
 it, instead of leaving the terminal showing last session's data. (With export disabled nothing is
-written at all, so all of them go.) `map.json` and `mapVehicles.json` read base-game data and are
-always written; their absence just means "no data yet", and VDTerminal drops the affected map
-overlays until they reappear.
+written at all, so all of them go.) The core channels read base-game data and are always written; their
+absence just means "no data yet", and VDTerminal drops the affected view until they reappear.
 
 `map.json` carries the near-static map data: selling/loading stations, shops, productions and other
 placeable POIs (typed via the game's own hotspot enum), every field's number, ownership, area and
@@ -145,17 +156,19 @@ Add that line to `/etc/fstab`, then `sudo mount -a` (no error = valid fstab). Ve
 
 ## Configuration
 
-Export can be toggled and the write interval chosen directly in-game: **General Settings**.
-Both apply immediately and are saved back to the configuration file — disabling export also removes
-every channel file (`vdTelemetry.json` and any per-mod one) so consumers can tell it stopped, and
-re-enabling repopulates them at once rather than waiting for the next change.
+Export can be toggled, the write interval chosen and the performance profile picked directly in-game:
+**General Settings**. All three apply immediately and are saved back to the configuration file —
+disabling export also removes every channel file (`vdTelemetry.json` and any per-mod one) so consumers
+can tell it stopped, and re-enabling repopulates them at once rather than waiting for the next change.
+Per-channel tuning has no in-game UI; it lives in the XML below.
 
 The mod keeps its files under `modSettings/FS25_vdTelemetry/` (next to your `mods` folder): the
 configuration file `vdTelemetrySettings.xml` at its root, the telemetry json under `telemetry/`, and
 the command channel under `commands/`.
 
 `commands/commands.xml` is the back-channel: VDTerminal writes commands into it (toggle lights, start
-the engine, set cruise speed, …) and the mod polls it. It is XML rather than json because the mod can
+the engine, set cruise speed, accept a contract, pay an invoice, …) and the mod polls it — one command
+type per file in `src/command/`. It is XML rather than json because the mod can
 only *write* files via `io` — its sole file reader is the engine's `XMLFile.load`. The mod deletes any
 leftover `commands.xml` on load, so stale commands never fire at session start.
 
@@ -193,10 +206,12 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
         <channel id="map" enabled="true"/>
         <channel id="mapVehicles" enabled="true" intervalMs="1000"/>
         <channel id="mapLayers" enabled="true"/>
+        <channel id="gpsCourse" enabled="true"/>
         <channel id="production" enabled="true" intervalMs="2000"/>
         <channel id="storage" enabled="true" intervalMs="2000"/>
         <channel id="husbandry" enabled="true" intervalMs="5000"/>
         <channel id="missions" enabled="true" intervalMs="10000"/>
+        <channel id="finance" enabled="true" intervalMs="5000"/>
         <channel id="taskList" enabled="true"/>
         <channel id="cropRotation" enabled="true"/>
         <channel id="invoices" enabled="true"/>
@@ -213,6 +228,16 @@ isn't installed. Because they are read through their *internals*, each is pinned
 developed against (see the header comment of the file named below) and fails soft: a field a future mod
 version renames costs you that panel, never a Lua error.
 
+* **Precision Farming** — the game's own internal mod (`FS25_precisionFarming`), detected the same way
+  the game detects it (`src/integrations/PrecisionFarming.lua`). It changes three things at once:
+    * **Application rates on the tool** — nitrogen and pH against their targets, what is actually
+      leaving the machine per hectare in PF's own units, the manual step and the per-nozzle spray
+      states, all on `vehicle.precisionFarming`. **Read and write:** VDTerminal can switch auto/manual
+      and change the manual step (`src/command/PrecisionFarmingControl.lua`)
+    * **Its five menu-visible value maps become ground-layer planes** — soil type, pH, nitrogen, yield
+      and seed rate, labelled and coloured as PF does
+    * **The base-game data it supersedes is dropped** where the game drops it: no fertilized /
+      needs-lime soil layers, and no yield-bonus / fertilized / needs-lime rows in the field-info popup
 * [EnhancedVehicle](https://github.com/ZhooL/FS25_EnhancedVehicle) — extra fields on the vehicle
   telemetry (`src/integrations/EnhancedVehicle.lua`)
     * Differential

@@ -78,9 +78,10 @@ also how real ISOBUS works — by function, not by machine name.
 ## The four new aspects
 
 All four are `src/collect/aspects/` collectors in the existing shape: pure, return `nil` when the
-spec is absent, wired into `Aspects.apply`, mirrored into `src/model/AspectModel.lua` and `Model.kt`.
-Engine references are `file:line` into the extracted source bundled with `fs25-modding-skill`
-(`references/lua-source/vehicles/specializations/`).
+spec is absent, wired into `Aspects.apply`, mirrored into `src/model/AspectModel.lua` and the shared Kotlin model (`model/Vehicle.kt`).
+Engine references name the function or member in the extracted source bundled with
+`fs25-modding-skill` (`references/lua-source/vehicles/specializations/`) — never a line number: that
+source is not public, and its lines move with every game patch.
 
 ### `sowing` — `spec_sowingMachine`
 
@@ -90,21 +91,23 @@ The headline number for the whole feature: **which crop is in the hopper**.
 | --- | --- | --- |
 | `fruitType` | `spec.seeds[spec.currentSeed]` → `g_fruitTypeManager` | the selected crop; the title is what the panel prints |
 | `seedIndex` / `seedCount` | `spec.currentSeed`, `#spec.seeds` | "3 of 7" — says a choice exists |
-| `fillType` | `getSowingMachineSeedFillTypeIndex()` (`:342`) | joins to the fill unit |
-| `changeAllowed` | `getIsSeedChangeAllowed()` (`:336`) — `spec.allowsSeedChanging` (`:157`) | greyed vs. live in a round-2 control |
-| `directPlanting` | `spec.useDirectPlanting` (`:105`) | direct-sow vs. needs a seedbed |
-| `usageScale` | `spec.seedUsageScale` (`:175`) | consumption multiplier |
-| `working` | `spec.isWorking` / `spec.isProcessing` (`:107,108`) | |
+| `fillType` | `getSowingMachineSeedFillTypeIndex()` | joins to the fill unit |
+| `changeAllowed` | `getIsSeedChangeAllowed()` — `spec.allowsSeedChanging` | greyed vs. live in a round-2 control |
+| `directPlanting` | `spec.useDirectPlanting` | direct-sow vs. needs a seedbed |
+| `usageScale` | `spec.seedUsageScale` | consumption multiplier |
+| `working` | `spec.isWorking` / `spec.isProcessing` | |
 
 Also worth carrying: `spec.warnings` and the `showFruitCanNotBePlantedWarning` /
-`showWrongFruitForMissionWarning` / `showWaterPlantingRequiredWarning` family (`:93-216`) — these are
-the engine's own "you are about to waste a hopper of seed" flags and are precisely the thing a
-terminal should surface. Treat them as a **round-1 stretch**, not core.
+`showWrongFruitForMissionWarning` / `showWaterPlantingRequiredWarning` family (all declared in
+`onLoad`, raised from `onStartWorkAreaProcessing`, `processSowingMachineArea` and
+`updateMissionSowingWarning`, and printed by `onUpdateTick`) — these are the engine's own "you are
+about to waste a hopper of seed" flags and are precisely the thing a terminal should surface. Treat
+them as a **round-1 stretch**, not core.
 
-**MP:** `currentSeed` is stream-synced (`onReadStream`/`onWriteStream`, `:243-250`), so the crop is
+**MP:** `currentSeed` is stream-synced (`onReadStream`/`onWriteStream`), so the crop is
 readable on a client. Good.
 
-**Round-2 control:** `setSeedIndex` / `changeSeedIndex` (`:299,314`) already send
+**Round-2 control:** `setSeedIndex` / `changeSeedIndex` already send
 `SetSeedIndexEvent`, so a command handler would not need its own MP event.
 
 ### `spraying` — `spec_sprayer`
@@ -115,12 +118,12 @@ Covers sprayers, fertilizer spreaders, slurry tankers and manure spreaders — t
 
 | Field | Source | Note |
 | --- | --- | --- |
-| `kind` | `spec.isSlurryTanker` / `isManureSpreader` / `isFertilizerSprayer` (`:204-206`) | the machine's own classification, mutually exclusive |
-| `sprayType` | `getActiveSprayType()` (`:599`) | **see the two-tables trap below** |
-| `doubledAmount` | `spec.doubledAmountIsActive` (`:187`) | the one rate control the base game offers |
+| `kind` | `spec.isSlurryTanker` / `isManureSpreader` / `isFertilizerSprayer` (set in `onLoad`) | the machine's own classification, mutually exclusive |
+| `sprayType` | `getActiveSprayType()` | **see the two-tables trap below** |
+| `doubledAmount` | `spec.doubledAmountIsActive` | the one rate control the base game offers |
 | `doubledAmountAvailable` | `getSprayerDoubledAmountActive(nil)`'s **second** return | `false` on a slurry tanker — don't show a toggle that can't apply |
-| `active` | `getAreEffectsVisible()` (`:435`) — `g_time < lastSprayTime + 100` | actually spraying, not merely on |
-| `usagePerMin` | `spec.workAreaParameters.usagePerMin` (`:916`) | **verify on a client, see below** |
+| `active` | `getAreEffectsVisible()` — `g_time < lastSprayTime + 100` | actually spraying, not merely on |
+| `usagePerMin` | `spec.workAreaParameters.usagePerMin` (written by `onStartWorkAreaProcessing`) | **verify on a client, see below** |
 | `allowsSpraying` | `spec.allowsSpraying` | |
 
 Three traps, all worth writing into the collector's header comment:
@@ -128,37 +131,37 @@ Three traps, all worth writing into the collector's header comment:
 - **Two different "spray type" tables.** `spec.sprayTypes` (and what `getActiveSprayType()` returns)
   are the **vehicle XML's** entries — `fillTypes`, `fillUnitIndex`, `usageScale`. That is *not*
   `g_sprayTypeManager`'s spray type, which is where `name`, `isFertilizer`, `isLime`, `isHerbicide`
-  and `litersPerSecond` live (`SprayTypeManager.lua:61-68`). `workAreaParameters.sprayType` holds the
+  and `litersPerSecond` live (`SprayTypeManager:addSprayType`). `workAreaParameters.sprayType` holds the
   **manager index**. The panel wants the manager's record; reach it via
   `g_sprayTypeManager:getSprayTypeByFillTypeIndex(fillType)`.
 - **`getActiveSprayType()` returns nil** when nothing in the tank matches a declared type — an empty
   or wrongly-filled machine. Absent, not a default.
-- **`usagePerMin` may be server-only.** It is written in `onStartWorkAreaProcessing` (`:916`), and
+- **`usagePerMin` may be server-only.** It is written in `Sprayer:onStartWorkAreaProcessing`, and
   work-area processing is driven from the server side of the update tick. This is the same class of
   problem the PrecisionFarming integration already documents about `ExtendedSprayer` ("which half of
   it survives multiplayer"). **Check it on a real client before shipping it**; if it reads 0 there,
   emit it only when non-zero rather than publishing a permanent lie, and let PF's rates carry the
   number when PF is installed.
 
-A **derived l/ha** is deliberately *not* in round 1. `getSprayerUsage` (`:472`) is
+A **derived l/ha** is deliberately *not* in round 1. `getSprayerUsage` is
 `scale * litersPerSecond * self.speedLimit * workWidth * dt * 0.001` — it scales by the machine's
 *speed limit*, not its actual speed, so turning it into a per-hectare rate requires reasoning about
 what the engine is actually holding constant. PF already publishes a true rate. Settle this in round
-2 with the formula checked against `processSprayerArea` (`:290`), or not at all.
+2 with the formula checked against `processSprayerArea`, or not at all.
 
 ### `plow` — `spec_plow`
 
 | Field | Source | Note |
 | --- | --- | --- |
-| `rotated` | `spec.rotationMax` (`:147`) | boolean: which way the bodies are turned. **The** plow readout |
-| `rotationAllowed` | `getIsPlowRotationAllowed()` (`:339`) | false mid-fold |
-| `canToggleRotation` | `getCanTogglePlowRotation()` (`:349`) | adds lowered + powered |
-| `limitToField` | `getPlowLimitToField()` (`:363`) | |
-| `forceLimitToField` | `getPlowForceLimitToField()` (`:366`) | when true the setting is not the player's to change |
+| `rotated` | `spec.rotationMax` | boolean: which way the bodies are turned. **The** plow readout |
+| `rotationAllowed` | `getIsPlowRotationAllowed()` | false mid-fold |
+| `canToggleRotation` | `getCanTogglePlowRotation()` | adds lowered + powered |
+| `limitToField` | `getPlowLimitToField()` | |
+| `forceLimitToField` | `getPlowForceLimitToField()` | when true the setting is not the player's to change |
 
-**MP:** `rotationMax` is stream-synced (`:205-224`). Good.
+**MP:** `rotationMax` is stream-synced (`Plow:onReadStream` / `onWriteStream`). Good.
 
-**Round-2 control:** `setRotationMax` / `setRotationCenter` (`:283,301`) take `noEventSend` and own
+**Round-2 control:** `setRotationMax` / `setRotationCenter` take `noEventSend` and own
 their event.
 
 ### `tillage` — `spec_cultivator`
@@ -168,13 +171,13 @@ implement with no section at all.
 
 | Field | Source | Note |
 | --- | --- | --- |
-| `kind` | `spec.isSubsoiler` / `spec.isPowerHarrow` (`:65,66`) | else plain cultivator |
-| `deepMode` | `spec.useDeepMode` (`:67`) | |
-| `limitToField` | `spec.limitToField` (`:74`) | |
-| `enabled` | `spec.isEnabled` (`:69`) | the engine switches this off itself (`:173-189`) |
-| `working` | `spec.isWorking` (`:115`) — `0.5 < getLastSpeed()` | |
+| `kind` | `spec.isSubsoiler` / `spec.isPowerHarrow` | else plain cultivator |
+| `deepMode` | `spec.useDeepMode` | |
+| `limitToField` | `spec.limitToField` | |
+| `enabled` | `spec.isEnabled` | the engine switches this off itself (`updateCultivatorEnabledState`) |
+| `working` | `spec.isWorking` (set in `processCultivatorArea`) — `0.5 < getLastSpeed()` | |
 
-**MP:** `Cultivator` registers **no** `onReadStream`/`onWriteStream` (`:42-51`) — none of this is
+**MP:** `Cultivator.registerEventListeners` registers **no** `onReadStream`/`onWriteStream` — none of this is
 synced, so on a client it is whatever `onLoad` left behind. Verify every field on a client; drop the
 ones that don't survive rather than shipping stale values. This is the weakest of the four and it is
 fine for it to end up as two fields.
@@ -187,11 +190,11 @@ collector needed.
 
 ## Mod → app sync
 
-Standard for this repo, and the reason the checklist matters: **the Lua model, `Model.kt` and the
+Standard for this repo, and the reason the checklist matters: **the Lua model, the Kotlin model and the
 fixtures move together.**
 
 1. Four collectors in `src/collect/aspects/`, namespaced `VDT.*`, wired into `Aspects.apply` in
-   `Model.kt` field order.
+   the Kotlin model's field order.
 2. `src/model/AspectModel.lua` gains the four `---@class` shapes; `ImplementModel.lua` and
    `VehicleModel.lua` gain the four optional fields (a self-propelled sprayer needs them on the
    vehicle too — the same reason `RigSlotPanel.slotState()` reads `workWidth` off the vehicle).
@@ -269,23 +272,23 @@ done and the app side has not been started. Six things came out differently from
 the plan text is left as written so the difference is visible:
 
 1. **`usagePerMin` → `nominalUsagePerMin`, and it is not what the plan assumed.** Reading
-   `getSprayerUsage` properly (`Sprayer.lua:472-496`) shows it scales by the machine's **speed limit**
+   `Sprayer:getSprayerUsage` properly shows it scales by the machine's **speed limit**
    rather than its actual speed — that is how the game holds consumption per hectare constant — so
    dividing back out by `dt` yields a figure that does not move as you slow down. It is a *rating*
    ("litres a minute at full speed"), not live draw. Renamed so no panel can read it as current
-   consumption, and documented in both the collector and `Model.kt`. The derived l/ha stays out.
+   consumption, and documented in both the collector and the Kotlin model. The derived l/ha stays out.
 2. **The multiplayer worry about it was wrong, and in our favour.** `WorkArea:onUpdateTick` raises
-   `onStartWorkAreaProcessing` with **no `isServer` gate** (`WorkArea.lua:131-133`), so
+   `onStartWorkAreaProcessing` with **no `isServer` gate**, so
    `workAreaParameters` is populated on a client for the vehicle being driven — which is the only
    vehicle this mod reports. No field had to be dropped for this.
 3. **A new multiplayer hole, in the plough instead.** `limitToField` is broadcast on change
-   (`PlowLimitToFieldEvent`) but is **not in the join stream** (`Plow.lua:205-224` carries only
-   `rotationMax` + the animation time), so a client that joins mid-session reads the load default
+   (`PlowLimitToFieldEvent`) but is **not in the join stream** (`Plow:onReadStream` / `onWriteStream`
+   carry only `rotationMax` + the animation time), so a client that joins mid-session reads the load default
    until somebody toggles it. Kept — the game's own HUD has the same hole — but called out in the
    collector and the model.
 4. **The plough reports a `side`, not the engine's bool.** `spec.rotationMax` means "at the max end of
    the turn animation", and *which end is left* is the per-machine `spec.rotateLeftToMax`. The
-   engine's own left/right reasoning is `getAIInvertMarkersOnTurn` (`:507-515`):
+   engine's own left/right reasoning is `getAIInvertMarkersOnTurn`:
    `rotationMax == rotateLeftToMax` is left. A consumer must never see the raw bool.
 5. **Two planned tillage fields were dropped.** `spec.isWorking` is literally `0.5 < getLastSpeed()`
    — a speed threshold dressed up as a state, which `speed` already answers better — and
@@ -305,7 +308,7 @@ the plan text is left as written so the difference is visible:
    too coarse to say so: `isFertilizerSprayer` is a catch-all defined as *not slurry and not manure*,
    which swallows solid fertilizer, lime and herbicide alike. Precision Farming splits it further —
    and **derives the split from base-game calls only**
-   (`ExtendedSprayer.lua:125-126`: accepts `FERTILIZER`/`LIME` → solid, `LIQUIDFERTILIZER` → liquid) —
+   (`ExtendedSprayer:onLoad`: accepts `FERTILIZER`/`LIME` → solid, `LIQUIDFERTILIZER` → liquid) —
    so the same split is made here and holds whether or not PF is installed. PF's precedence and its
    lumping of lime with solid fertilizer are both followed, so our labels agree with the HUD it draws.
    This matters beyond naming: **the unit a rate is quoted in follows `kind`** — PF prints kg/ha,
@@ -348,7 +351,7 @@ non-bug:
    that was the wrong call.
 3. **`doubledAmountAvailable` is false on all eleven, and that is correct.** Precision Farming
    hard-overrides `getSprayerDoubledAmountActive` to `return false, false`
-   (`ExtendedSprayer.lua:1299-1301`) because its variable-rate control replaces doubling outright —
+   because its variable-rate control replaces doubling outright —
    confirmed by the user. It did expose that the plan and the collector had the **base-game** rule
    backwards: doubling is offered when `not isFertilizerSprayer`, i.e. on slurry tankers and manure
    spreaders, *not* on fertilizer sprayers. Comments corrected; the base-game behaviour remains
@@ -363,7 +366,7 @@ Four fixture-driven tests now cover both. Two further things the retake taught:
 
 4. **`lastIsExternallyFilled` is not what its name says**, so the flag built on it was dead. Both
    applicators reported it false while visibly drawing from the barrel in front, because
-   `getIsSprayerExternallyFilled` (`Sprayer.lua:319-343`) returns false unless **`getIsAIActive()`** —
+   `Sprayer:getIsSprayerExternallyFilled` returns false unless **`getIsAIActive()`** —
    it means "a hired worker is being topped up by the game", a different mechanic entirely. The flag
    is now called `externalSource` and is derived from *our own* fallback having been taken (own tank
    empty, material resolved from `sprayFillType`), which is exactly the question a panel is asking:

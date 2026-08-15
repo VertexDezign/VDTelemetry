@@ -16,28 +16,29 @@
 --
 -- 1. There are two unrelated tables called "spray type". `spec.sprayTypes`, and what
 --    `getActiveSprayType()` returns, are the *vehicle XML's* entries -- fillUnitIndex, fillTypes,
---    usageScale, effects, sounds (Sprayer.lua:563-597). They carry no name and no category. The
+--    usageScale, effects, sounds (Sprayer:loadSprayTypeFromXML). They carry no name and no category. The
 --    named record -- `name`, `isFertilizer`, `isLime`, `isHerbicide`, `litersPerSecond` -- belongs to
---    g_sprayTypeManager (SprayTypeManager.lua:61-68) and is reached from the fill type. This
+--    g_sprayTypeManager (SprayTypeManager:addSprayType) and is reached from the fill type. This
 --    collector reads the manager's; the vehicle's is only good for finding the fill unit.
--- 2. The tank is addressed by `getSprayerFillUnitIndex()` (`:555`), NOT by `spec.fillUnitIndex`: the
+-- 2. The tank is addressed by `getSprayerFillUnitIndex()`, NOT by `spec.fillUnitIndex`: the
 --    active spray type may override it, which is exactly what happens on a machine with more than one
 --    tank. Reading the spec field directly reports the wrong tank on those.
--- 3. `getSprayerDoubledAmountActive()` returns **two** values, `active, isAllowed` (`:630-646`), and
+-- 3. `getSprayerDoubledAmountActive()` returns **two** values, `active, isAllowed`, and
 --    the second is what says whether the machine has the control at all. The base game allows it only
 --    when `not isFertilizerSprayer` -- i.e. on SLURRY TANKERS AND MANURE SPREADERS, and not on
 --    fertilizer sprayers, which is the opposite way round from how it reads. Taking the first value
 --    alone would offer a toggle half the machines do not have. (Same shape of trap as
 --    getGearGroupToDisplay; check the arity before trusting a getter.)
 --    Precision Farming **hard-overrides this to `return false, false`**
---    (ExtendedSprayer.lua:1299-1301) because its variable-rate control replaces doubling outright, so
+--    (ExtendedSprayer:getSprayerDoubledAmountActive) because its variable-rate control replaces
+--    doubling outright, so
 --    with PF installed the field is false on everything. That is the honest answer -- the control
 --    really is gone -- but it means every PF capture says false and the base-game behaviour above is
 --    only observable without PF.
 --
 -- MULTIPLAYER: better than it looks. `workAreaParameters` is written from
--- Sprayer:onStartWorkAreaProcessing (`:843-925`), which WorkArea:onUpdateTick raises with **no
--- isServer gate** (WorkArea.lua:131-133), so it runs on a client for the vehicle being driven --
+-- Sprayer:onStartWorkAreaProcessing, which WorkArea:onUpdateTick raises with **no isServer gate**,
+-- so it runs on a client for the vehicle being driven --
 -- which is the only vehicle this mod reports. `doubledAmountIsActive` rides its own broadcast event.
 --
 -- NOT collected, deliberately: `workAreaParameters.sprayVehicle`. A boom can draw from a *different*
@@ -83,10 +84,10 @@ end
 ---questions a panel needs both of (the unit a rate is quoted in follows this one: kg/ha for solid,
 ---l/ha for liquid, m3/ha for slurry, t/ha for manure).
 ---
----The base game only splits out slurry and manure (Sprayer.lua:204-206) and lumps *everything* else
+---The base game only splits out slurry and manure (both derived in Sprayer:onLoad) and lumps *everything* else
 ---into `isFertilizerSprayer`, which swallows solid fertilizer spreaders, lime spreaders and herbicide
 ---sprayers alike. Precision Farming splits that catch-all further, and does it from base-game calls
----only (ExtendedSprayer.lua:125-126) -- so the same split is made here, and it works whether or not
+---only (ExtendedSprayer:onLoad) -- so the same split is made here, and it works whether or not
 ---PF is installed. The precedence below is PF's, so our labels agree with the HUD it draws.
 ---
 ---Note the engine's own flags are not mutually exclusive: a tank accepting both LIQUIDMANURE and
@@ -166,7 +167,8 @@ function VDT.Spraying.collect(object)
   -- ...except a great many applicators have no tank of their own: a dribble bar, an injector or a
   -- disc harrow carries nothing and draws from the barrel it is hitched to. Two of the first eleven
   -- captures were this shape, so it is the common case rather than an exotic one. The engine has
-  -- already worked out which vehicle's tank feeds this one (Sprayer.lua:855-875) and leaves the
+  -- already worked out which vehicle's tank feeds this one (onStartWorkAreaProcessing walks the
+  -- fill-type sources) and leaves the
   -- answer in `sprayFillType`, so use it when the machine's own tank is empty -- otherwise a dribble
   -- bar reports nothing at all while visibly applying slurry.
   --
@@ -178,7 +180,7 @@ function VDT.Spraying.collect(object)
     -- to apply, so the level worth watching belongs to whatever is feeding it.
     --
     -- Deliberately NOT `workAreaParameters.lastIsExternallyFilled`, which sounds like exactly this and
-    -- is not: getIsSprayerExternallyFilled (`:319-343`) returns false unless getIsAIActive(), so it
+    -- is not: getIsSprayerExternallyFilled returns false unless getIsAIActive(), so it
     -- means "a hired worker is being topped up by the game", a different mechanic entirely. It reads
     -- false on a player-driven dribble bar drawing from its own barrel, which is this whole case.
     if fillTypeIndex ~= FILL_TYPE_UNKNOWN then
@@ -209,7 +211,7 @@ function VDT.Spraying.collect(object)
   end
 
   -- NOMINAL, not live. getSprayerUsage scales by the machine's *speed limit* rather than its actual
-  -- speed (Sprayer.lua:472-496) -- that is how the game keeps consumption per hectare constant -- so
+  -- speed -- that is how the game keeps consumption per hectare constant -- so
   -- dividing it back out by dt yields a figure that does not change as you slow down. It is "what
   -- this machine burns per minute at full speed", which is a real and useful readout, but it is not
   -- the current draw and must not be drawn as one. Precision Farming publishes true rates when it is

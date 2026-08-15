@@ -5,26 +5,27 @@
 -- sixteen ways and reaches into lazily-resolved state (HarvestMission resolves its selling station
 -- from inside it), so one bad type must not take the whole channel down.
 --
--- Which contracts: MissionManager:getMissionsByFarmId (MissionManager.lua:370) -- everything with no
+-- Which contracts: MissionManager:getMissionsByFarmId -- everything with no
 -- farm (still on offer) plus this farm's -- then the second filter the game's own contracts screen
--- applies (InGameMenuContractsFrame.lua:195): keep it if it was never started, or if it is ours. That
+-- applies (InGameMenuContractsFrame:updateList): keep it if it was never started, or if it is ours. That
 -- drops contracts another farm is running in multiplayer, exactly as the in-game list does.
 --
--- Per-type detail is NOT modelled type by type. AbstractMission:getDetails (AbstractMission.lua:556)
+-- Per-type detail is NOT modelled type by type. AbstractMission:getDetails
 -- already returns what the in-game screen prints -- {title, value} pairs, localized by the game and
--- overridden per mission type -- and getFinishedDetails (:563) the reward breakdown for a finished
+-- overridden per mission type -- and getFinishedDetails the reward breakdown for a finished
 -- one. Exporting those rows verbatim covers all 16 base-game types, and carries modded types for
 -- free. See issue #17.
 --
 -- TWO CADENCES. Event-driven off MISSION_GENERATED / MISSION_DELETED / MISSION_STATUS_CHANGED
--- (AbstractMission.lua:291,72,365), which is generation, acceptance, completion and deletion -- plus
--- a slow interval, because two values move with no message behind them: minutesLeft (:485, derived
--- from the environment clock) and completion (:213, pushed over the mission's update stream every
+-- (published by MissionManager:registerMission and AbstractMission:readStream, :delete and
+-- :setStatus), which is generation, acceptance, completion and deletion -- plus a slow interval,
+-- because two values move with no message behind them: minutesLeft (getMinutesLeft, derived from the
+-- environment clock) and completion (readUpdateStream, pushed over the mission's update stream every
 -- ~2.5 s while running). Event-driven alone would show a frozen countdown.
 --
 -- `id` IS THE NETWORK OBJECT ID, NOT getUniqueId(). uniqueId is assigned in MissionManager:addMission
 -- and saved to the savegame, but it is NOT in AbstractMission:writeStream -- and a client takes the
--- readStream path (:206) which inserts into `missions` directly rather than going through addMission.
+-- readStream path, which inserts into `missions` directly rather than going through addMission.
 -- So getUniqueId() is nil on every multiplayer client, and a command keyed on it would work in
 -- singleplayer and silently fail in MP. NetworkUtil.getObjectId is what the mission events themselves
 -- serialize (MissionStartEvent writes the mission as a node object), so it is the handle that exists
@@ -162,7 +163,7 @@ end
 
 -- The bale form a contract asks for, when it asks for one. Two different fields say it: a baling
 -- contract carries `needRoundbaler` outright, a wrapping one carries a bale type index the bale
--- manager resolves (BaleMission.lua:34, BaleWrapMission.lua:32). Both are stream-synced.
+-- manager resolves (BaleMission:init, BaleWrapMission:setField). Both are stream-synced.
 ---@param mission table
 ---@return string|nil token ROUND | SQUARE
 ---@return string|nil title the localized form ("Round bale")
@@ -193,7 +194,7 @@ end
 
 -- Where the load has to be delivered, for the contracts that sell something (harvest, tree
 -- transport). Taken from the station placeable's OWN map hotspot -- the very position the game puts
--- its selling-station marker at (HarvestMission.lua:217-222) -- so the app never has to match a
+-- its selling-station marker at (HarvestMission:setSellingStation) -- so the app never has to match a
 -- station by name.
 ---@param mission table
 ---@param sizeX number|nil
@@ -271,7 +272,7 @@ local function get(object, getter)
 end
 
 ---Where the contract is, in the normalized frame the map channel and the player marker use.
----AbstractMission:getWorldPosition (:658) returns 0,0 on the base class; every base-game type
+---AbstractMission:getWorldPosition returns 0,0 on the base class; every base-game type
 ---overrides it (field missions via the field indicator, the point ones via their spot), so a literal
 ---0,0 means "this type doesn't say" -- and normalizing it would drop a marker dead centre of the map.
 ---@param mission table
@@ -369,7 +370,7 @@ function VDT.MissionExporter.collectMission(mission, ownFarmId, sizeX, sizeZ)
   -- Field missions only: the farmland id joins this contract to the polygon the map channel already
   -- exports (MapExporter's fields[].id is the same farmland id), so the app tints rather than
   -- redrawing geometry. getFarmlandId is absent on the point-located types -- MissionManager guards
-  -- the same way (:381).
+  -- the same way in getIsMissionRunningOnFarmland.
   local farmlandId = get(mission, mission.getFarmlandId)
   if type(farmlandId) == "number" then
     model.fieldId = farmlandId
@@ -434,7 +435,7 @@ local function visibleMissions(manager, ownFarmId)
 end
 
 ---How many contracts this farm is running, and the engine's cap -- the same count
----MissionManager:hasFarmReachedMissionLimit walks (:416). The app greys "accept" at the cap rather
+---MissionManager:hasFarmReachedMissionLimit walks. The app greys "accept" at the cap rather
 ---than firing a command the server answers with LIMIT_REACHED.
 ---@param manager table
 ---@param ownFarmId number
@@ -453,7 +454,7 @@ local function collectLimit(manager, ownFarmId)
 end
 
 ---Whether this player may accept/cancel/collect: the game's own manageContracts right, which is
----what greys the in-game buttons (InGameMenuContractsFrame.lua:140). The server re-checks it when
+---what greys the in-game buttons (InGameMenuContractsFrame:setButtonsForState). The server re-checks it when
 ---the event lands, so this drives the UI, it is not the boundary.
 ---@return boolean
 function VDT.MissionExporter.canManage()

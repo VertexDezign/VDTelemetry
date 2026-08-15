@@ -421,7 +421,7 @@ local function buildColorGroups(system, colorBlind)
 end
 
 ---Growth-state bucket for one fruit cell, per MapOverlayGenerator:buildGrowthStateMapOverlay's
----per-state color assignment (gui/base/MapOverlayGenerator.lua:92-160): later writes overwrite earlier
+---per-state color assignment: later writes overwrite earlier
 ---ones for the same density-state number, and by construction the growing/topping/harvest ranges are
 ---mutually exclusive, so a single first-match-wins pass here is faithful as long as witheredState /
 ---harvestTransitions don't numerically collide with those ranges -- true for real fruit data, not

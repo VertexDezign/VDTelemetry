@@ -1,5 +1,5 @@
 -- Model definitions for the driver-assist subtrees (gps / ai / cruise control). Annotation-only
--- (see EnvironmentModel.lua). Maps to Model.kt Gps / Ai / CruiseControl.
+-- (see EnvironmentModel.lua). Maps to the Kotlin model's Gps / Ai / CruiseControl (model/Vehicle.kt).
 
 ---@class GpsModel
 ---@field enabled boolean
