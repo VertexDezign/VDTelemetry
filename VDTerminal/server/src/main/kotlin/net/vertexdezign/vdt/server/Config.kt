@@ -56,13 +56,21 @@ object Config {
     }
   }
 
+  /**
+   * The telemetry file to watch. Absolute and normalized, because the watchers are built from its
+   * *folder* — `telemetryPath().parent`, plus that parent's `mapLayers/` — and a relative
+   * `VDT_FILE=vdTelemetry.json` (or a relative `VDT_GAME_DIR`) has no parent at all to take. Both
+   * env vars are a user's free text, so neither can be assumed absolute.
+   */
   fun telemetryPath(): Path {
-    System.getenv("VDT_FILE")?.takeIf { it.isNotBlank() }?.let { return Path(it) }
-    return gameDir()
-      .resolve("modSettings")
-      .resolve(MOD_DIR)
-      .resolve(TELEMETRY_DIR)
-      .resolve("vdTelemetry.json")
+    val configured =
+      System.getenv("VDT_FILE")?.takeIf { it.isNotBlank() }?.let { Path(it) }
+        ?: gameDir()
+          .resolve("modSettings")
+          .resolve(MOD_DIR)
+          .resolve(TELEMETRY_DIR)
+          .resolve("vdTelemetry.json")
+    return configured.toAbsolutePath().normalize()
   }
 
   /**

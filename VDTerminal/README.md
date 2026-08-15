@@ -268,7 +268,10 @@ rule existed.
 - Inside a sentence → `InlineTextContent` hosting the `Icon`, so the line stays a single `Text` and
   still ellipsizes as one thing in a narrow tile (a `Row` of three pieces would not). `SectionView`'s
   rate readout is the worked example.
-- Latin-1 and General Punctuation are fine: `— · × − …` are used throughout and render.
+- Latin-1 and General Punctuation are fine: `— · × ± ° …` are used throughout and render. Above
+  U+2000, assume anything that isn't punctuation is missing until you have seen it in a browser — the
+  minus sign `−` (U+2212, in Mathematical Operators) is the one that reads as safe and isn't. Issue
+  #77 pulled it and `≈` out of the money panels for their ASCII spellings.
 
 If a new glyph is genuinely needed as text, look at it in a browser before shipping it.
 
