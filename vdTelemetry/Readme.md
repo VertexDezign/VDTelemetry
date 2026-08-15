@@ -373,9 +373,10 @@ the zip. Two files decide that:
 - **`.fsignore`** — what does *not* ship, gitignore-style. `fs pack` already drops `*.md`, `.idea` and similar by
   default; the entries here are the ones it cannot guess (`spec/`, `fsTypes/`, `stylua.toml`). Anything new and
   repo-only belongs here, or it goes out to players.
-- **`fstools.toml`** — `version`, `author` and `title` are rewritten **into the packed zip's `modDesc.xml`**, leaving
-  the file on disk alone. So `fstools.toml` is what the released mod's version actually comes from, and the release
-  workflow checks it against the git tag.
+- **`fstools.toml`** — `author` and `title` are rewritten **into the packed zip's `modDesc.xml`**, leaving the file on
+  disk alone. `version` is deliberately *not* set there: it would only override what `modDesc.xml` must carry anyway
+  (`fs validate` demands it, and the mod runs unpacked in development), so the modDesc value is the mod's version
+  outright and ships as written. Set `version` in `fstools.toml` locally if you want a dev build marked as one.
 
 ## Formatting
 

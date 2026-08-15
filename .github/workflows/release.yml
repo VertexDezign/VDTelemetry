@@ -58,8 +58,9 @@ jobs:
             exit 0
           fi
 
+          # modDesc.xml is the mod's version outright: fstools.toml sets no `version`, so `fs pack`
+          # ships this value untouched. Two files to agree with the tag, not three.
           moddesc_version=$(grep -oP '<version>\K[^<]+' vdTelemetry/modDesc.xml)
-          fstools_version=$(grep -oP '^version = "\K[^"]+' vdTelemetry/fstools.toml)
 
           fail=0
           if [ "$gradle_version" != "$numeric" ]; then
@@ -67,9 +68,6 @@ jobs:
           fi
           if [ "$(echo "$moddesc_version" | cut -d. -f1-3)" != "$numeric" ]; then
             echo "::error::modDesc.xml says $moddesc_version, tag says $numeric"; fail=1
-          fi
-          if [ "$moddesc_version" != "$fstools_version" ]; then
-            echo "::error::modDesc.xml ($moddesc_version) and fstools.toml ($fstools_version) disagree"; fail=1
           fi
           exit $fail
 
@@ -111,9 +109,9 @@ jobs:
         working-directory: vdTelemetry
         run: uvx --from "$FSTOOLS" fs validate
 
-      # `fs pack` also rewrites version/author/title into the packed modDesc.xml from fstools.toml,
-      # which is why the version job checks that file against the tag: it, not the modDesc on disk,
-      # is what the released zip ends up carrying.
+      # `fs pack` also rewrites author/title into the packed modDesc.xml from fstools.toml. The
+      # version is deliberately not among them, so the modDesc checked against the tag above is the
+      # one the released zip carries.
       - name: Build FS25_vdTelemetry.zip
         working-directory: vdTelemetry
         run: |

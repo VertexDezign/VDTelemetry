@@ -494,9 +494,10 @@ bundled-JRE app image per OS with jpackage, and publishes a prerelease. What it 
   native library load prints a four-line "restricted method" warning into the console window the user is reading, and
   the option that silences it (`--enable-native-access=ALL-UNNAMED`) is one JDK 21 refuses to start with. The two move
   together.
-- **The version lives in three files** — `VDTerminal/build.gradle.kts`, `modDesc.xml`, `fstools.toml` — and the
-  workflow checks the tag against all three rather than generating them. A generator would be better; the check was
-  cheaper and fails loudly, which for one release a month is the right trade.
+- **The version lives in two files** — `VDTerminal/build.gradle.kts` and `modDesc.xml` — and the workflow checks the
+  tag against both rather than generating them. A generator would be better; the check was cheaper and fails loudly,
+  which for one release a month is the right trade. (It was three until `fstools.toml`'s `version` came out: that one
+  was an override of modDesc's, so dropping it removed a copy rather than a source.)
 - **The release pins [FSTools](https://github.com/VertexDezign/FSTools) to `v0.1.0`.** CI packs the mod with the same
   `fs pack` used locally, so `.fsignore` is the one definition of what ships; tracking `main` instead would mean a
   change over there silently changing what is released from here. Bumping the pin is a deliberate step, and worth a
