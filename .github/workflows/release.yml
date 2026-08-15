@@ -13,8 +13,12 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Read by default, and write only in `publish`, which is the one job that creates anything. The
+# build jobs run third-party actions and pull packages off the network; a called workflow
+# (`ci.yml`) inherits whatever is granted here, so a workflow-level write reaches further than
+# anything below actually needs.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   version:
@@ -24,7 +28,10 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       publish: ${{ steps.v.outputs.publish }}
     steps:
+      # Build-only checkouts push nothing back, so the token stays out of .git.
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # The tag is the single source of truth for what is being released. Everything else in the
       # repo has to agree with it, and the release stops here if it doesn't -- a mod whose modDesc
@@ -89,6 +96,8 @@ jobs:
       FSTOOLS: git+https://github.com/VertexDezign/FSTools@v0.1.0
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
@@ -176,6 +185,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # 21 rather than CI's 25: jpackage bundles the runtime it is run from, and shipping the
       # version the project documents as its floor keeps "JDK 21+" true of the portable zip and of
@@ -195,17 +206,25 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       # jpackage cannot cross-compile, which is the whole reason this job is a matrix.
+      #
+      # The version reaches the shell through `env:` rather than being expanded into the script:
+      # it is derived from the pushed tag name, and a tag name is free text that would otherwise
+      # be pasted straight into a command line.
       - name: Build app image
-        run: ./gradlew :server:packageRelease -PvdtVersion=${{ needs.version.outputs.version }} --stacktrace
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: ./gradlew :server:packageRelease -PvdtVersion="$VERSION" --stacktrace
 
       # The bring-your-own-JDK archive, for anything the two app images don't cover. Built once.
       - name: Build portable archive
         if: matrix.label == 'linux'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
           set -euo pipefail
-          ./gradlew :server:distZip -PvdtVersion=${{ needs.version.outputs.version }}
-          mv "server/build/distributions/server-${{ needs.version.outputs.version }}.zip" \
-             "server/build/release/VDTerminal-${{ needs.version.outputs.version }}-portable.zip"
+          ./gradlew :server:distZip -PvdtVersion="$VERSION"
+          mv "server/build/distributions/server-${VERSION}.zip" \
+             "server/build/release/VDTerminal-${VERSION}-portable.zip"
 
       # The archive, not the build output: the two differ, and the difference has already been a
       # release-blocking bug once — Gradle's archive tasks normalise permissions, so the app image
@@ -271,8 +290,14 @@ jobs:
     needs: [version, mod, terminal]
     if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-latest
+    # The only job that writes anything back, and the only one granted it.
+    permissions:
+      contents: write
     steps:
+      # Only so `gh` can read the repo off the remote; it authenticates with GH_TOKEN below.
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/download-artifact@v7
         with:
@@ -314,8 +339,9 @@ jobs:
       - name: Create prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
           gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "VDTelemetry ${{ needs.version.outputs.version }}" \
+            --title "VDTelemetry $VERSION" \
             --notes-file notes.md \
             --prerelease
