@@ -83,15 +83,21 @@ Then open <http://localhost:8080>. Editing `vdTelemetry.json` updates the dashbo
 |----------------|-----------------------------------------------------|----------------------------------|
 | `VDT_PORT`     | `3001`                                              | server port                      |
 | `VDT_GAME_DIR` | OS-specific FS25 profile dir (Windows / Linux+Proton) | game directory                 |
-| `VDT_FILE`     | `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json` | telemetry file to watch; its folder is where every other channel file is read from |
+| `VDT_FILE`     | `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json` | telemetry file to watch; its folder is where every other channel file is read from. Keep it inside a `telemetry/` folder of the mod dir — see below |
 | `VDT_COMMAND_FILE` | `<the same mod folder>/commands/commands.xml`    | command file the server writes; derived from `VDT_FILE` unless set |
 | `VDT_DEBOUNCE_MS` | `40`                                             | debounce window for file writes  |
+
+`VDT_COMMAND_FILE` is derived from `VDT_FILE`'s **grandparent** — `<mod>/telemetry/vdTelemetry.json`
+becomes `<mod>/commands/commands.xml`, the layout the mod actually writes. So an override that isn't
+one folder deep in the mod dir sends the commands somewhere the mod never reads, and the dashboard
+goes quiet in one direction only: the panels keep updating, but nothing you press reaches the game.
+Point `VDT_FILE` anywhere else and set `VDT_COMMAND_FILE` explicitly with it.
 
 ## Production (single artifact)
 
 ```bash
 ./gradlew :server:installDist
-VDT_FILE=/path/to/vdTelemetry.json server/build/install/server/bin/server
+VDT_FILE=/path/to/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json server/build/install/server/bin/server
 ```
 
 `:server:installDist` builds the production wasm bundle and embeds it in the server's resources,

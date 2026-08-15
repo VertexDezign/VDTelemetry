@@ -27,9 +27,10 @@ production process.
 ## Planned and deferred work
 
 **[`FUTURE.md`](FUTURE.md)** collects everything planned, deferred or still open across the whole
-repo — the follow-ups finished work left behind, the in-game checks nobody has run, and the accepted
-limitations that are not bugs. Read it before proposing something that looks new; it may already be
-there, with the reason it was left.
+repo — the follow-ups finished work left behind and the in-game checks nobody has run. Read it before
+proposing something that looks new; it may already be there, with the reason it was left. (A limitation
+that is accepted rather than open is a decision, not future work, and lives with the feature it belongs
+to.)
 
 ## Commit messages
 

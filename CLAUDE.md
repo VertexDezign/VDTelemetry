@@ -14,9 +14,10 @@ The contract between the two is the shared Kotlin model (**`VDTerminal/shared/..
 ## Planned and deferred work
 
 **`FUTURE.md`** collects everything planned, deferred or still open across the whole repo — the
-follow-ups the finished plans left behind, the in-game checks nobody has run, and the accepted
-limitations that are not bugs. Read it before proposing work that looks new; it may already be there,
-with the reason it was left.
+follow-ups the finished plans left behind and the in-game checks nobody has run. Read it before
+proposing work that looks new; it may already be there, with the reason it was left. An *accepted*
+limitation is a decision rather than future work, so it lives as a comment on the feature it belongs
+to, not in `FUTURE.md`.
 
 Feature plans live at the repo root as `<topic>-plan.md` while their feature is in progress, and are
 **deleted once the feature is built** — the reasoning moves into the code, which is where it gets
@@ -81,6 +82,6 @@ Run from `VDTerminal/`.
 
 Run a single test class: `./gradlew :shared:jvmTest --tests "net.vertexdezign.vdt.VdtModelTest"`.
 
-Config is via env vars: `VDT_PORT` (3001), `VDT_GAME_DIR`, `VDT_FILE` (the telemetry file, default `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`; its folder is where the other channel files are read from), `VDT_COMMAND_FILE` (derived from `VDT_FILE`), `VDT_DEBOUNCE_MS` (file-watch debounce, default 40). Requires JDK 21+.
+Config is via env vars: `VDT_PORT` (3001), `VDT_GAME_DIR`, `VDT_FILE` (the telemetry file, default `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`; its folder is where the other channel files are read from), `VDT_COMMAND_FILE` (derived from `VDT_FILE`'s grandparent, so `VDT_FILE` has to stay inside a `telemetry/` folder of the mod dir), `VDT_DEBOUNCE_MS` (file-watch debounce, default 40). Requires JDK 21+.
 
 The DDS golden fixtures in `server/src/test/resources/dds/` are reference outputs originally generated from the Go `bcn` library — treat them as golden data, don't hand-edit.

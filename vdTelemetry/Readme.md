@@ -57,12 +57,15 @@ Each channel file carries its **own `version`**, evolving independently of the t
 farm-scoped ones (everything that says "own farm", plus contracts and invoices) are rewritten when the
 player switches farm as well, since that changes who is asking rather than what is stored.
 
-For the per-mod channels, **the file's absence means "that mod isn't installed"** — that is exactly how
+For the per-mod channels, **the file's absence means "that mod isn't installed"** — that is how
 VDTerminal decides whether to show the panel at all. So the mod deletes, once at startup, the file of
 every channel that this session will never write: uninstall one of the mods and its json goes away with
-it, instead of leaving the terminal showing last session's data. (With export disabled nothing is
-written at all, so all of them go.) The core channels read base-game data and are always written; their
-absence just means "no data yet", and VDTerminal drops the affected view until they reappear.
+it, instead of leaving the terminal showing last session's data. The core channels read base-game data,
+so their absence normally means "no data yet" and VDTerminal drops the affected view until they
+reappear. Three things delete a core channel's file outright, and they are what to check when one never
+appears at all: **export switched off** (nothing is written, so every channel goes), the channel's own
+**`enabled="false"`**, and a **performance profile below the channel's minimum** — `low` switches
+`mapLayers` off that way.
 
 `map.json` carries the near-static map data: selling/loading stations, shops, productions and other
 placeable POIs (typed via the game's own hotspot enum), every field's number, ownership, area and
@@ -193,7 +196,7 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
     <!-- Performance profile for the secondary channels below: low | medium | high | veryHigh | custom.
          A preset scales every interval-driven channel's cadence (low = 4x slower … veryHigh = 2x faster than the
          defaults shown below); "custom" instead uses the per-channel intervalMs values. Switch presets in-game
-         (General Settings); VDTerminal writes "custom" when you fine-tune a single channel.
+         (General Settings), or set "custom" here to hand the cadence to the intervalMs values below.
          A preset can also switch a channel off outright when it is too expensive for that tier: "low" disables
          the mapLayers channel (its file is deleted, like any disabled channel). Your own per-channel `enabled`
          toggles are kept as you set them, so raising the profile again brings the channel back. -->
@@ -201,7 +204,8 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
     <!-- Per-channel config for the secondary export channels (the live vehicle telemetry above is always on).
          `enabled` turns a channel off entirely if you don't use that base-game feature — no file is written and any
          existing one is deleted. `intervalMs` (interval-driven channels only) is the channel's cadence under the
-         "custom" profile, clamped to a 100 ms floor. Applied at load; edit here (or from VDTerminal) and restart. -->
+         "custom" profile, clamped to a 100 ms floor. Read at load and XML-only — VDTerminal has no way to change it,
+         and the mod rewrites this file on any in-game settings change — so edit here with the game closed. -->
     <channels>
         <channel id="map" enabled="true"/>
         <channel id="mapVehicles" enabled="true" intervalMs="1000"/>
@@ -243,10 +247,11 @@ version renames costs you that panel, never a Lua error.
     * Differential
     * AWD
     * Parking Brake
-* [FS25_AdvancedDamageSystem](https://github.com/id577/FS25_AdvancedDamageSystem) — replaces the
-  vanilla damage model, and drives the cluster's warning lamps
-  (`src/integrations/AdvancedDamageSystem.lua`, `vehicle.ads`). **Read only:** every workshop
-  procedure stays in game, as with vanilla repair.
+* [FS25_AdvancedDamageSystem](https://github.com/id577/FS25_AdvancedDamageSystem) **0.9.2.7-beta** —
+  replaces the vanilla damage model, and drives the cluster's warning lamps
+  (`src/integrations/AdvancedDamageSystem.lua`, `vehicle.ads`). Still a beta, so its internals move
+  faster than the others': the version above is the one this was written against. **Read only:** every
+  workshop procedure stays in game, as with vanilla repair.
     * The six dashboard lamps ADS drives, each with its severity — and only the lamps a machine of
       that production year actually has
     * The engine temperature, which **replaces** `motor.temperatur.value`. ADS's thermal model is the
