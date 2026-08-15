@@ -76,6 +76,15 @@ Dashboard: http://localhost:3001
 Auf dem Tablet lohnt sich **Zum Startbildschirm hinzufügen**: das gibt ein eigenes Symbol und ein
 Vollbild ohne Browserleisten.
 
+**Damit der Bildschirm anbleibt.** Das Dashboard hält das Tablet von sich aus wach — das
+Kaffeetassen-Symbol in der Kopfzeile zeigt **AWAKE**, wenn es das geschafft hat; ein Tipp darauf
+schaltet es wieder aus. Im Anzeigemodus (siehe unten) passiert das automatisch, und ein Tipp
+irgendwohin genügt, falls der Browser vorher gefragt werden wollte. Das gilt nur, solange das
+Dashboard der Tab ist, den du ansiehst — wenn der Bildschirm trotzdem dunkel wird, oder das Tablet
+nebenbei noch etwas anderes tut, stell das Gerät selbst um: *Einstellungen → Anzeige & Helligkeit →
+Automatische Sperre → Nie* unter iOS, *Einstellungen → Display → Bildschirm-Timeout* unter Android.
+Am Ladekabel hängt so ein Tablet in der Kabine ohnehin meistens.
+
 ## 4. Prüfen, ob Daten ankommen
 
 Lade einen Spielstand und setz dich in ein Fahrzeug. Das Dashboard sollte sich innerhalb von ein bis

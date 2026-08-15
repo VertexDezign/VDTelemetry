@@ -368,6 +368,11 @@ Each one is cheap to do while playing and settles something above.
   This is the highest-value single check of the work aspects.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a forage/carrot
   harvester's pass-through output carry `showOnHud="true"`? This gates the filter switch above.
+- Does the wake-lock fallback actually hold a real tablet awake? Everything either side of it is tested — the video
+  element is built and its clips are served (`WakeLockFallbackTest`, `DashboardRouteTest`) — but whether a browser keeps
+  the backlight on for a 1×1 muted clip is the device's own policy, and no CI has a screen to dim. Open
+  `http://<lan-ip>:3001` on the tablet, watch for **AWAKE** in the header, and leave it for longer than the screen
+  timeout. Worth repeating per device: iOS and Android differ here, and iOS in low-power mode differs from itself.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.

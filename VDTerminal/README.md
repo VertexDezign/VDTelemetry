@@ -158,6 +158,18 @@ connection states, the screen wake lock (requested automatically — there's no 
 press), and the widgets' own controls, which still work. Alert banners and the chime stay on the
 tablet, so one alert doesn't announce itself twice in one cab.
 
+**Keeping the screen on takes two routes**, because the device that needs it most can't take the
+first one. The Screen Wake Lock API is secure-context only: the gaming PC gets it at
+`http://localhost:3001`, which counts as trustworthy, but the tablet arrives at
+`http://<lan-ip>:3001`, where `navigator.wakeLock` is not refused — it is undefined. A LAN address
+can't be given a certificate anyone trusts without installing a CA on every device, so `WakeLock.kt`
+falls back to the older trick: a muted one-frame clip (`resources/media/keep-awake.*`, from
+NoSleep.js — see `NOTICE`) looping at 1×1 px out of sight, which browsers keep the screen lit for
+with no secure-context clause. Both routes install the same `window.__vdtWake*` pair, so the toggle,
+the visibility re-acquire and the first-gesture retry don't know which is running, and `AWAKE` in the
+header means the screen is actually being held, not that a request was sent. The fallback needs the
+tab in the foreground, exactly as the real API does.
+
 **To leave display mode on the device itself**, press and hold anywhere for two seconds: a small bar
 appears with the wake-lock state and EXIT DISPLAY, and hides itself again if you ignore it.
 

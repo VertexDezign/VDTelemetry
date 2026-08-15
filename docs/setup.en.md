@@ -73,6 +73,14 @@ Dashboard: http://localhost:3001
 On the tablet, use your browser's **Add to Home Screen** to get an icon and a full screen without
 browser chrome.
 
+**Keeping the screen on.** The dashboard asks the tablet to stay awake by itself — the coffee-cup
+icon in the header says **AWAKE** when it has it, and tapping it turns it off again. On a display
+(see below) it is asked for automatically, and one tap anywhere is enough if the browser wanted to be
+asked first. It only holds while the dashboard is the tab you're looking at, so if the screen still
+dims — or the tablet is doing something else as well — set the device itself to stay on: *Settings →
+Display & Brightness → Auto-Lock → Never* on iOS, *Settings → Display → Screen timeout* on Android.
+A cab tablet is usually on a charger anyway.
+
 ## 4. Check that data arrives
 
 Load a savegame and get into a vehicle. The dashboard should fill within a second or two.
