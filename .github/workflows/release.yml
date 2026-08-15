@@ -40,7 +40,13 @@ jobs:
         id: v
         run: |
           set -euo pipefail
-          gradle_version=$(grep -oP '\?: "\K[0-9][^"]*' VDTerminal/build.gradle.kts)
+          # -m1 and the emptiness check together: a second match or a refactor that moves the
+          # version out of reach would otherwise sail past as a two-line or empty string, and on
+          # the dispatch path an empty one becomes the nonsense version "-dev.N".
+          gradle_version=$(grep -oPm1 '\?: "\K[0-9][^"]*' VDTerminal/build.gradle.kts || true)
+          if [ -z "$gradle_version" ]; then
+            echo "::error::no version found in VDTerminal/build.gradle.kts"; exit 1
+          fi
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # The checked-in number with a dev suffix, not something like 0.0.0: jpackage takes only
@@ -67,7 +73,10 @@ jobs:
 
           # modDesc.xml is the mod's version outright: fstools.toml sets no `version`, so `fs pack`
           # ships this value untouched. Two files to agree with the tag, not three.
-          moddesc_version=$(grep -oP '<version>\K[^<]+' vdTelemetry/modDesc.xml)
+          moddesc_version=$(grep -oPm1 '<version>\K[^<]+' vdTelemetry/modDesc.xml || true)
+          if [ -z "$moddesc_version" ]; then
+            echo "::error::no <version> found in vdTelemetry/modDesc.xml"; exit 1
+          fi
 
           fail=0
           if [ "$gradle_version" != "$numeric" ]; then
@@ -193,9 +202,8 @@ jobs:
       # the bundled one at once.
       #
       # Raising this is not free. From JDK 24 on, Netty's native library load prints four lines of
-      # "restricted method" warning into the console window the user is looking at, and the fix
-      # (`--java-options --enable-native-access=ALL-UNNAMED`) is an option JDK 21 does not know and
-      # refuses to start with. Bump the two together or not at all.
+      # "restricted method" warning into the console window the user is looking at, so a bump has
+      # to bring `--java-options --enable-native-access=ALL-UNNAMED` with it.
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
@@ -254,6 +262,9 @@ jobs:
 
           VDT_PORT=3999 VDT_GAME_DIR=/nonexistent "$launcher" > run.log 2>&1 &
           pid=$!
+          # On a trap, not at the end: under `set -e` a server that never comes up exits the step
+          # at the first curl, and the startup log is the only thing that could say why.
+          trap 'echo "--- startup log ---"; cat run.log || true; kill "$pid" 2>/dev/null || true' EXIT
           for _ in $(seq 1 30); do
             curl -sf http://localhost:3999/health >/dev/null 2>&1 && break || sleep 1
           done
@@ -261,9 +272,6 @@ jobs:
           # The dashboard and its wasm bundle, i.e. that the app really is embedded in the jar.
           curl -sf -o /dev/null http://localhost:3999/
           curl -sf -o /dev/null http://localhost:3999/app.js
-          echo "--- startup log ---"
-          cat run.log
-          kill "$pid" 2>/dev/null || true
 
       # The portable zip carries the same fonts inside the jar, so it owes the same attribution —
       # and it is the one archive the smoke test above never unpacks.
