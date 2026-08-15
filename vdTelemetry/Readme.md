@@ -311,6 +311,27 @@ luarocks install busted   # once
 busted                    # discovers and runs spec/*_spec.lua
 ```
 
+## Packing
+
+The mod is packed with [FSTools](https://github.com/VertexDezign/FSTools), from this directory:
+
+```bash
+fs pack             # -> FS25_vdTelemetry.zip here
+fs pack -o build    # somewhere else
+fs pack -d          # and deploy it into the FS25 mods folder
+fs validate         # sanity-check modDesc.xml on its own
+```
+
+The release workflow runs the same `fs pack`, pinned to a commit, so there is only ever one answer to what belongs in
+the zip. Two files decide that:
+
+- **`.fsignore`** — what does *not* ship, gitignore-style. `fs pack` already drops `*.md`, `.idea` and similar by
+  default; the entries here are the ones it cannot guess (`spec/`, `fsTypes/`, `stylua.toml`). Anything new and
+  repo-only belongs here, or it goes out to players.
+- **`fstools.toml`** — `version`, `author` and `title` are rewritten **into the packed zip's `modDesc.xml`**, leaving
+  the file on disk alone. So `fstools.toml` is what the released mod's version actually comes from, and the release
+  workflow checks it against the git tag.
+
 ## Formatting
 
 Lua is formatted with [StyLua](https://github.com/JohnnyMorganz/StyLua) (config in `stylua.toml`).

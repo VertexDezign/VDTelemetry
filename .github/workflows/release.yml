@@ -77,8 +77,19 @@ jobs:
     name: Mod zip
     needs: [version, verify]
     runs-on: ubuntu-latest
+    env:
+      # The same `fs pack` used locally, so the released zip and the one on the developer's machine
+      # come out of one definition of "what is the mod" — `.fsignore` — instead of CI keeping a
+      # second list that silently drifts when an asset folder is added.
+      #
+      # Pinned to a commit because FSTools has no tags: on a moving branch, a change over there
+      # would quietly change what ships from here.
+      FSTOOLS: git+https://github.com/VertexDezign/FSTools@52fe5fbe75a103ad8840c47056399efad28bc11d
     steps:
       - uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
 
       # Every path the mod source()s must actually be in the tree. A typo here is a mod that loads
       # halfway and then errors in someone's savegame, which no unit test covers.
@@ -92,19 +103,50 @@ jobs:
           done < <(sed -n '/^local sourceFiles = {/,/^}/p' VDTelemetry.lua | grep -oP '"\K[^"]+\.lua(?=")')
           exit $fail
 
-      # An explicit include list rather than an exclude list: a new dev-only file at the root should
-      # need a decision to be shipped, not a decision to be left out. The runtime set is the two
-      # root .lua files modDesc names, everything they source under src/, and the game's own assets.
+      - name: Validate modDesc.xml
+        working-directory: vdTelemetry
+        run: uvx --from "$FSTOOLS" fs validate
+
+      # `fs pack` also rewrites version/author/title into the packed modDesc.xml from fstools.toml,
+      # which is why the version job checks that file against the tag: it, not the modDesc on disk,
+      # is what the released zip ends up carrying.
       - name: Build FS25_vdTelemetry.zip
+        working-directory: vdTelemetry
         run: |
           set -euo pipefail
-          mkdir -p dist
-          cd vdTelemetry
-          zip -r -q "$GITHUB_WORKSPACE/dist/FS25_vdTelemetry.zip" \
-            modDesc.xml icon_vdTelemetry.dds LICENSE \
-            VDTelemetry.lua GrisuDebug.lua \
-            l10n src
-          unzip -l "$GITHUB_WORKSPACE/dist/FS25_vdTelemetry.zip"
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          uvx --from "$FSTOOLS" fs pack -o "$GITHUB_WORKSPACE/dist"
+
+      # Independent of whatever packed it: the zip is opened and asked whether it is a working mod.
+      # `.fsignore` is an exclude list, so the failure mode it cannot catch is a *new* repo-only
+      # file quietly shipping to players — which is exactly how fsTypes/ and stylua.toml got in.
+      - name: Verify the packed zip
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import re, sys, zipfile, pathlib
+          names = set(zipfile.ZipFile("dist/FS25_vdTelemetry.zip").namelist())
+          bad = []
+
+          if "modDesc.xml" not in names:
+              bad.append("modDesc.xml is not at the zip root")
+
+          leaked = sorted(n for n in names
+                          if n.startswith(("spec/", "fsTypes/"))
+                          or n.endswith((".md", ".toml", ".fsignore")))
+          bad += [f"repo-only file shipped: {n}" for n in leaked]
+
+          block = re.search(r"^local sourceFiles = \{(.*?)^\}",
+                            pathlib.Path("vdTelemetry/VDTelemetry.lua").read_text(),
+                            re.S | re.M).group(1)
+          sourced = re.findall(r'"([^"]+\.lua)"', block)
+          bad += [f"sourced file missing from zip: {s}" for s in sourced if s not in names]
+
+          for b in bad:
+              print(f"::error::{b}")
+          print(f"{len(names)} files, {len(sourced)} sourced modules, {len(bad)} problem(s)")
+          sys.exit(1 if bad else 0)
+          EOF
 
       - uses: actions/upload-artifact@v7
         with:

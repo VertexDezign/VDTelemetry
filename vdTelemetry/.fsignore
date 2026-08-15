@@ -1,1 +1,14 @@
+# Repo-only content, kept out of the packed mod. `fs pack` already drops *.md, .idea and friends;
+# these are the ones it cannot guess.
+#
+# A pattern without a `/` matches that name at any depth.
+
+# busted specs
 spec
+
+# EmmyLua/LuaLS type stubs for the FS25 engine API. IDE-only: nothing source()s them, and
+# VDTelemetry.lua's sourceFiles table never names them.
+fsTypes
+
+# StyLua's config. Formatting is a repo concern; the game has no use for it.
+stylua.toml
