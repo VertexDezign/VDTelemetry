@@ -33,8 +33,13 @@ jobs:
         id: v
         run: |
           set -euo pipefail
+          gradle_version=$(grep -oP '\?: "\K[0-9][^"]*' VDTerminal/build.gradle.kts)
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            version="0.0.0-dev.${{ github.run_number }}"
+            # The checked-in number with a dev suffix, not something like 0.0.0: jpackage takes only
+            # the numeric head, so a dry run on a made-up version would be exercising a shape no real
+            # release ever has — and the point of the dry run is to be the release, minus publishing.
+            version="${gradle_version}-dev.${{ github.run_number }}"
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "Dry run: $version (nothing will be published)"
           else
@@ -53,7 +58,6 @@ jobs:
             exit 0
           fi
 
-          gradle_version=$(grep -oP '\?: "\K[0-9][^"]*' VDTerminal/build.gradle.kts)
           moddesc_version=$(grep -oP '<version>\K[^<]+' vdTelemetry/modDesc.xml)
           fstools_version=$(grep -oP '^version = "\K[^"]+' vdTelemetry/fstools.toml)
 
