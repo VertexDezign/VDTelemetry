@@ -8,7 +8,7 @@
 --   add the controls to the *general* settings layout (the reference mod targets the Game-Settings
 --   tab's gameSettingsLayout; the general tab is a separate layout field on the same frame).
 --   Changes apply live via the VDTelemetry setters (which also persist to vdTelemetrySettings.xml).
--- Copyright (C) Grisu118, All Rights Reserved.
+-- Copyright (c) 2024-2026 VertexDezign / Benjamin Leber. MIT licensed - see LICENSE.
 
 VDT = VDT or {}
 

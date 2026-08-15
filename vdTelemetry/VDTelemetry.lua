@@ -4,7 +4,7 @@
 -- @history     v1.0.0.0 - 2024-11-18 - Initial implementation
 -- @Descripion: Exports game state into a json for telemetry consumers (e.g. GameGlass)
 -- @web: https://grisu118.ch or https://vertexdezign.net
--- Copyright (C) Grisu118, All Rights Reserved.
+-- Copyright (c) 2024-2026 VertexDezign / Benjamin Leber. MIT licensed - see LICENSE.
 
 local modDirectory = g_currentModDirectory
 local modName = g_currentModName

@@ -147,7 +147,10 @@ private fun CopySpec.releaseContents() {
   }
   from(rootProject.file("licenses")) { into("licenses") }
   from(rootProject.file("../docs")) { include("setup.*.md") }
-  from(rootProject.file("../vdTelemetry/LICENSE"))
+  // The repo's own terms, and the attribution the bundled DSEG fonts' OFL requires travel with
+  // them — this archive is the only place a player ever sees either.
+  from(rootProject.file("../LICENSE"))
+  from(rootProject.file("../NOTICE"))
 }
 
 private val jpackageZip =
