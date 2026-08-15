@@ -227,6 +227,12 @@ jobs:
           fi
           [ -x "$launcher" ] || { echo "::error::$launcher is not executable in the archive"; exit 1; }
 
+          # The licences and the setup guides are only ever seen here, so a build that silently
+          # dropped them is a broken release rather than a cosmetic one.
+          for f in LICENSE NOTICE licenses/DSEG-OFL-1.1.txt setup.en.md setup.de.md; do
+            [ -f "$f" ] || { echo "::error::$f is missing from the archive"; exit 1; }
+          done
+
           VDT_PORT=3999 VDT_GAME_DIR=/nonexistent "$launcher" > run.log 2>&1 &
           pid=$!
           for _ in $(seq 1 30); do
@@ -239,6 +245,20 @@ jobs:
           echo "--- startup log ---"
           cat run.log
           kill "$pid" 2>/dev/null || true
+
+      # The portable zip carries the same fonts inside the jar, so it owes the same attribution —
+      # and it is the one archive the smoke test above never unpacks.
+      - name: Verify the portable archive ships its notices
+        if: matrix.label == 'linux'
+        run: |
+          set -euo pipefail
+          zip=$(echo server/build/release/*-portable.zip)
+          # Listed once into a variable: `unzip -Z1 | grep -q` would leave unzip writing into a
+          # pipe grep has already closed, and pipefail reads that SIGPIPE as a failed check.
+          names=$(unzip -Z1 "$zip")
+          for f in LICENSE NOTICE licenses/DSEG-OFL-1.1.txt setup.en.md setup.de.md; do
+            grep -qE "(^|/)$f\$" <<<"$names" || { echo "::error::$f is missing from $zip"; exit 1; }
+          done
 
       - uses: actions/upload-artifact@v7
         with:

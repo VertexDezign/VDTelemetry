@@ -140,17 +140,35 @@ private val jpackageImage =
 private val executablesInImage =
   listOf("**/bin/*", "**/lib/runtime/lib/jexec", "**/lib/runtime/lib/jspawnhelper")
 
-/** The app image, plus what ships beside it: the licences and the setup instructions. */
+/**
+ * What ships beside the program in every download: the licences and the setup instructions.
+ *
+ * The repo's own terms, and the attribution the bundled DSEG fonts' OFL requires travel with them —
+ * an archive is the only place a player ever sees either. The fonts are inside the jar, so this
+ * applies to the portable distribution exactly as much as to the two bundled-JRE ones.
+ */
+private fun CopySpec.releaseNotices() {
+  from(rootProject.file("licenses")) { into("licenses") }
+  from(rootProject.file("../docs")) { include("setup.*.md") }
+  from(rootProject.file("../LICENSE"))
+  from(rootProject.file("../NOTICE"))
+}
+
+/** The app image, plus what ships beside it. */
 private fun CopySpec.releaseContents() {
   from(jpackageDir) {
     filesMatching(executablesInImage) { permissions { unix("755") } }
   }
-  from(rootProject.file("licenses")) { into("licenses") }
-  from(rootProject.file("../docs")) { include("setup.*.md") }
-  // The repo's own terms, and the attribution the bundled DSEG fonts' OFL requires travel with
-  // them — this archive is the only place a player ever sees either.
-  from(rootProject.file("../LICENSE"))
-  from(rootProject.file("../NOTICE"))
+  releaseNotices()
+}
+
+// The portable distribution (`distZip`/`installDist`) gets the same paperwork. Only the tree's root
+// is touched, and jpackage takes its `--input` from `install/server/lib`, so nothing here reaches
+// the app image twice.
+distributions {
+  named("main") {
+    contents { releaseNotices() }
+  }
 }
 
 private val jpackageZip =

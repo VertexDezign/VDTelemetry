@@ -31,7 +31,7 @@ production process.
 
 MIT — see [`LICENSE`](LICENSE), and [`NOTICE`](NOTICE) for the trademarks this project does not own
 and the third-party terms that apply alongside it. Both halves are covered; the mod zip carries the
-same licence, and the terminal's release archive ships both files.
+same licence, and every terminal download — bundled or portable — ships both files.
 
 The one component that is not ours to relicense is the **DSEG** font bundled with the terminal, under
 the SIL Open Font License — [`VDTerminal/licenses/DSEG-OFL-1.1.txt`](VDTerminal/licenses/DSEG-OFL-1.1.txt)
