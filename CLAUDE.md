@@ -58,7 +58,7 @@ When editing the JSON output, keep `VDTelemetry.VERSION` (in `VDTelemetry.lua`),
 
 ## VDTerminal (Kotlin Multiplatform)
 
-Gradle (Kotlin DSL, version catalog in `gradle/libs.versions.toml`, wrapper 9.6.1). Three modules — see `VDTerminal/README.md` for the full dev/prod story:
+Gradle (Kotlin DSL, version catalog in `gradle/libs.versions.toml`, wrapper). Three modules — see `VDTerminal/README.md` for the full dev/prod story:
 
 - **`shared`** (`jvm` + `wasmJs`) — the single source of truth for the data layer: `model/` (the typed VDT model, `@Serializable`, one file per subject — `VdtData.kt` is the telemetry root, `Vehicle.kt` the bulk of it), `Protocol.kt` (`ServerMessage` WebSocket wire types, kotlinx.serialization), `VdtParser.kt` (one lenient `parseX` per channel). Both server and app depend on it.
 - **`server`** (Kotlin/JVM, Ktor + Netty) — watches the mod's `telemetry/` folder (every channel file, not just the telemetry one), parses via `shared`, broadcasts model updates over a WebSocket, writes the app's commands back out as `commands/commands.xml` (`CommandWriter.kt`), decodes the map DDS image to PNG (`Dds.kt` / `ImagePipeline.kt` / `AssetResolver.kt`), accumulates the coverage ground layer it derives itself, and serves the built wasm app.

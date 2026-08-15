@@ -59,7 +59,7 @@ legend), with three differences worth knowing:
 
 ## Requirements
 
-- JDK 25+ (developed and verified on Temurin 26). The Gradle wrapper (9.6.1) is included; no
+- JDK 25+ (developed and verified on Temurin 26). The Gradle wrapper is included; no
   separate Gradle install is needed.
 - A WasmGC-capable browser (recent Chrome/Edge/Firefox).
 
