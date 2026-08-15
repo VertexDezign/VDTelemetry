@@ -1,5 +1,6 @@
 -- Model definitions for the motor subtree. Annotation-only (see EnvironmentModel.lua).
--- Shape maps 1:1 to Model.kt (Motor / Temperatur / Rpm / Load / Gear / MaxSpeed / MotorFillUnits).
+-- Shape maps 1:1 to the Kotlin model (Motor / Temperatur / Rpm / Load / Gear / MaxSpeed /
+-- MotorFillUnits, all in model/Vehicle.kt).
 --
 -- Note the JSON number types the collector must honour: temperatur/rpm values are Int, load.value
 -- is Double (2-decimal presentation), fillLevelPercentage is Int, usage is Float.

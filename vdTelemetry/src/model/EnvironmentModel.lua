@@ -3,7 +3,7 @@
 -- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
 -- Collectors (src/collect/) build plain Lua tables shaped like these classes; the serializer
 -- (src/utils/Json.lua) turns them straight into JSON. The shape maps 1:1 to the Kotlin model
--- in VDTerminal/shared (Model.kt) and the fixtures in examples/json/*.
+-- in VDTerminal/shared (model/Environment.kt) and the fixtures in examples/json/*.
 
 ---@class TemperatureModel
 ---@field min number

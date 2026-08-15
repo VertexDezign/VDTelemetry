@@ -183,8 +183,9 @@ fun main() {
     }
   }
 
-  val commandWriter = CommandWriter(Config.commandPath())
-  log.info("Command file: {}", Config.commandPath())
+  val commandPath = Config.commandPath()
+  val commandWriter = CommandWriter(commandPath)
+  log.info("Command file: {}", commandPath)
 
   // Which ground-layer planes the connected dashboards are showing; the mod sweeps only those.
   val mapLayerSubscriptions =

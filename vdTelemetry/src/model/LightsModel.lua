@@ -1,5 +1,5 @@
 -- Model definitions for the lights subtree. Annotation-only (see EnvironmentModel.lua).
--- Maps to Model.kt Lights / Indicator / Light / WorkLight.
+-- Maps to the Kotlin model's Lights / Indicator / Light / WorkLight (model/Vehicle.kt).
 
 ---@class IndicatorModel
 ---@field left boolean

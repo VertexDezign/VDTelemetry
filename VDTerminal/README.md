@@ -1,16 +1,36 @@
 # VDTerminal
 
-Real-time dashboard for the VDTelemetry Farming Simulator 25 mod, rebuilt as a Kotlin
-Multiplatform project (replacing the old React/Vite + Go stack in `../VDTerminal_old`).
+Real-time dashboard for the VDTelemetry Farming Simulator 25 mod, built as a Kotlin Multiplatform
+project (it replaced an earlier React/Vite + Go stack, which is no longer in this repo).
 
 - **`shared`** (KMP: `jvm` + `wasmJs`) — the typed VDT data model, the `ServerMessage` wire
   protocol (kotlinx.serialization), and the JSON `VdtParser`.
-- **`server`** (Kotlin/JVM, Ktor) — watches `vdTelemetry.json`, parses it, broadcasts over a
-  WebSocket, serves the map image (DDS → PNG) and the ground-layer raster PNGs
-  (`/api/map-layer/{id}`, one file per plane out of the mod's `mapLayers/` folder — which planes
-  exist is discovered, not hardcoded), and serves the built web app. It also **derives** one ground
-  layer of its own — see below.
+- **`server`** (Kotlin/JVM, Ktor) — watches the mod's `telemetry/` folder (`vdTelemetry.json` and
+  every other channel file), parses each with `shared`, broadcasts over a WebSocket, writes the app's
+  commands back out as `commands/commands.xml`, serves the map image (DDS → PNG) and the ground-layer
+  raster PNGs (`/api/map-layer/{id}`, one file per plane out of the mod's `mapLayers/` folder — which
+  planes exist is discovered, not hardcoded), and serves the built web app. It also **derives** one
+  ground layer of its own — see below.
 - **`app`** (Compose Multiplatform, `wasmJs`) — the dashboard UI.
+
+## What it shows
+
+The shell is a launcher of **apps** and a set of **pages**. An app owns one full-screen view and
+contributes tiles (**widgets**) that any page can place; a page is a grid you arrange yourself. An app
+whose mod isn't installed is not listed at all, rather than showing an empty screen.
+
+| App | What it covers |
+|---|---|
+| **Vehicle** | the machine you're driving: engine and transmission, lighting, and a rig laid out the way it sits — front, machine, rear — with each slot's fill units, sections and rates |
+| **Map** | the PDA map: the DDS map image, POIs, fields, vehicle markers, the steering course, and the ground-layer overlays below |
+| **Production** / **Storage** / **Animals** | the farm's production points and factories, its silos and object storages, and its animal pens |
+| **Contracts** | the farm's missions — on offer, running, waiting to be collected — with accept / cancel / collect |
+| **Finance** | the balance, the month-by-month table and the money log, borrow and repay; Enhanced Loan System's annuity loans stand in for the base loan where it is installed, and FS25_Invoices adds an Invoices tab |
+| **Tasks** / **Crop Rotation** | FS25_TaskList and FS25_CropRotation, both read *and* write |
+| **Diagnostics** | what the mod is actually writing: each channel's observed cadence and staleness, measured server-side |
+
+Alerts (low fuel, tasks due, …) are raised by the apps but evaluated shell-wide, so one fires whatever
+is on screen.
 
 ## Ground layers, and the one the server owns
 
@@ -63,14 +83,23 @@ Then open <http://localhost:8080>. Editing `vdTelemetry.json` updates the dashbo
 |----------------|-----------------------------------------------------|----------------------------------|
 | `VDT_PORT`     | `3001`                                              | server port                      |
 | `VDT_GAME_DIR` | OS-specific FS25 profile dir (Windows / Linux+Proton) | game directory                 |
-| `VDT_FILE`     | `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json` | telemetry file to watch          |
+| `VDT_FILE`     | `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json` | telemetry file to watch; its folder is where every other channel file is read from, and where the command file is derived from — see below |
+| `VDT_COMMAND_FILE` | `<the same mod folder>/commands/commands.xml`    | command file the server writes; derived from `VDT_FILE` unless set |
 | `VDT_DEBOUNCE_MS` | `40`                                             | debounce window for file writes  |
+
+`VDT_COMMAND_FILE` is derived from `VDT_FILE` by stepping out of its `telemetry/` folder:
+`<mod>/telemetry/vdTelemetry.json` becomes `<mod>/commands/commands.xml`, which is the layout the mod
+writes and polls. Point `VDT_FILE` at a path with no `telemetry/` folder in it and the commands land
+beside the telemetry file instead — `/tmp/vdTelemetry.json` gives `/tmp/commands/commands.xml` — and
+the server warns at startup, because the mod polls only its own folder. So off that layout, set
+`VDT_COMMAND_FILE` explicitly. Getting it wrong breaks one direction only, which is what makes it
+worth a warning: the panels keep updating, but nothing you press reaches the game.
 
 ## Production (single artifact)
 
 ```bash
 ./gradlew :server:installDist
-VDT_FILE=/path/to/vdTelemetry.json server/build/install/server/bin/server
+VDT_FILE=/path/to/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json server/build/install/server/bin/server
 ```
 
 `:server:installDist` builds the production wasm bundle and embeds it in the server's resources,
@@ -93,7 +122,7 @@ http://<host>:3001/?display=off       # back to the normal shell
 
 The parameter is applied once and then remembered per browser, so the bare address keeps working on
 that device — a reload, a crash, or a home-screen shortcut all come back to the same screen. The
-seeded pages are `vehicle` and `farm`; a page you made yourself shows its own `?display=…` address in
+seeded pages are `vehicle`, `farm` and `pillar`; a page you made yourself shows its own `?display=…` address in
 the page edit toolbar. Nothing is shared between devices: pages, favourites and widget state are
 per-browser `localStorage`, so the phone's layout is its own.
 
@@ -200,15 +229,67 @@ a tile in one orientation leaves the other alone. A page saved before portrait e
 derived from its landscape arrangement (12 → 6 columns is an exact halving), so no stored layout was
 thrown away and the storage key did not have to change.
 
+## Design rules
+
+Two constraints that apply to **every** new panel, widget and mark. Both have cost a round of rework
+already, and neither is discoverable from the code you happen to be editing — so they live here.
+
+### Hue never carries a state on its own
+
+A state told apart only by colour is a state some people cannot read, and this app's instruments are
+read at a glance, off-axis, while driving. Amber-vs-green is the commonest confusion axis and the one
+that bit us: the pillar cluster's amber "armed" against its green "engaged".
+
+So for any two-state mark, the states must differ in **brightness**, in **shape**, or by a word. Hue
+may reinforce that; it may never be the only cue. The two worked answers, both driven in-game:
+
+- **On the black cluster — one colour, two alphas.** `ClusterReadout.ARMED_ALPHA` (0.45) against full
+  brightness, which `guidanceMark` and the cruise line share. `GHOST_ALPHA` (0.09) is the *unlit*
+  level, far too faint to stand for a live state.
+- **On the light panels — fill the chip.** A live lamp is a solid colour chip with its mark knocked
+  out in white: dark-on-light against light-on-dark, which is what `GuidanceLamp` and
+  `StatusIconButton` do. Spend the chip's padding in every state, so nothing shifts when it lights.
+
+Where a ladder has more than two rungs, add a second channel — the ADS telltales flash at critical as
+well as reddening, so the severity survives without hue.
+
+The trap to check for: `VdtColors.DarkGray` (5.0:1) and `AccentText` (5.3:1) are the *same* contrast,
+so a lamp using those two for idle/active differs in nothing but hue. Put the state in the
+`contentDescription` too — a map overlay with its labels hidden has no other reading.
+
+### A mark that carries meaning is an `Icon`, not a character
+
+The wasm build has **no font fallback**. A browser falls back through the system's fonts; Compose/wasm
+draws into a canvas with the fonts it bundles — here the two DSEG faces plus the default — and that
+default covers neither Geometric Shapes nor Dingbats. `▲ ▼ ✕ →` all shipped as tofu boxes before this
+rule existed.
+
+- Standing alone → a Material `Icon`, which is a vector and depends on no font at all.
+- Inside a sentence → `InlineTextContent` hosting the `Icon`, so the line stays a single `Text` and
+  still ellipsizes as one thing in a narrow tile (a `Row` of three pieces would not). `SectionView`'s
+  rate readout is the worked example.
+- Latin-1 and General Punctuation are fine: `— · × ± ° …` are used throughout and render. Above
+  U+2000, assume anything that isn't punctuation is missing until you have seen it in a browser — the
+  minus sign `−` (U+2212, in Mathematical Operators) is the one that reads as safe and isn't. Issue
+  #77 pulled it and `≈` out of the money panels for their ASCII spellings.
+
+If a new glyph is genuinely needed as text, look at it in a browser before shipping it.
+
 ## Tests
 
 ```bash
-./gradlew :shared:jvmTest   # JSON decode/round-trip + model assertions over examples/json/*
-./gradlew :server:test      # DDS decoder golden tests + ground-layer PNG rendering
+./gradlew :shared:jvmTest          # JSON decode/round-trip + model assertions over examples/json/*
+./gradlew :server:test             # DDS decoder golden tests + ground-layer PNG rendering
+./gradlew :app:wasmJsBrowserTest   # app-side unit tests, in headless Chrome
+./gradlew check                    # all of the above plus spotlessCheck — what CI runs
 ```
 
-The DDS golden fixtures in `server/src/test/resources/dds/` are generated from the reference Go
-`bcn` library via `../VDTerminal_old/apps/server-go/ddsgen`.
+The wasm tests need a Chrome/Chromium binary; the build points karma at `/usr/bin/chromium` on a dev
+machine that has one, and `CHROME_BIN` always wins.
+
+The DDS golden fixtures in `server/src/test/resources/dds/` were generated from the reference Go
+`bcn` library by the retired Go server's `ddsgen` tool. Treat them as golden data — don't hand-edit
+them.
 
 ## Formatting
 
@@ -225,8 +306,11 @@ the standard `function-naming` rule). Rules are tuned in the root `.editorconfig
 
 ## Known gaps / simplifications
 
-- The Lighting panel lays out the toggles functionally; the original tractor-schematic background
-  image is not yet bundled (cosmetic).
-- Map pan/zoom/auto-center and settings persistence are implemented but only verified by code +
-  static rendering (gesture input wasn't driven in CI).
-- `Footer` reproduces the original's 16-point-heading-into-8-slot direction quirk for parity.
+- `directionFromHeading` (`panels/Navigation.kt`) rounds a heading into 16 sectors and then labels it
+  from an 8-point compass, which is the game's own quirk — kept for parity, so a heading reads the
+  same here as in the cab.
+- The app localizes nothing of its own: strings the mod hands over are already localized by the game,
+  everything the app writes itself is English.
+- A half-upgraded install fails the parse rather than degrading: `ignoreUnknownKeys` carries a newer
+  mod against an older terminal, but not the reverse. Mod and terminal ship from the same repo, so
+  this only bites a mixed install.

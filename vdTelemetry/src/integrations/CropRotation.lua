@@ -12,8 +12,9 @@
 -- place before sending the event. Subscribing would miss all of that (a new plan only appeared after
 -- a save+reload). So we diff a cheap per-tick signature of the planner instead (see tick()); the file
 -- is still only written when that signature moves. This also sidesteps the CROP_ROTATIONS_CHANGED id
--- landmine (see FUTURE.md, "Accepted limitations": the mod sets that id by counting entries rather
--- than reserving one, so another mod can be handed the same id) since we never rely on that id.
+-- landmine — the mod sets that id by *counting* existing MessageType entries instead of calling
+-- nextMessageTypeId(), so depending on mod load order another mod can be handed the same id — since
+-- we never rely on that id. Nothing load-bearing should ever be built on it.
 --
 -- **Written against FS25_CropRotation 1.0.1.0** — everything below reads that mod's *internals*
 -- (planner fields, the YieldCalculator), which it is free to rename in any release. So fail soft,
@@ -100,6 +101,12 @@ end
 -- CropRotation.* in the mod's own env for free, and it's pure client-side maths (settings + crop
 -- tables loaded on every client) — no density maps or server state. pcall so a mod version change
 -- can't throw in the collector; nil then omits the field and the app shows no percentage.
+--
+-- Accepted limitation, verified in-game and left alone: the history window wraps modulo the rotation
+-- length, so in a 2-SLOT rotation "two back" lands on the slot itself. The per-option previews below
+-- then read that self-reference from the slot's *stored* crop rather than the hovered candidate, and
+-- a preview can be slightly off. The game's own planner wraps the same way, and rotations that short
+-- carry almost no history worth reading.
 local function yieldPercent(calc, numHistory, rotations, rotationIndex, state, catchCropState)
   if calc == nil then
     return nil

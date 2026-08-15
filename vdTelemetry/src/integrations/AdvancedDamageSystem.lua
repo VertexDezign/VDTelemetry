@@ -39,7 +39,7 @@
 -- functions ADS registers on the vehicle type are on the vehicle itself, so those are called
 -- directly.
 --
--- **Written against FS25_AdvancedDamageSystem as of 2026-08** — everything here reads that mod's
+-- **Written against FS25_AdvancedDamageSystem 0.9.2.7-beta** — everything here reads that mod's
 -- internals, which it is free to rename in any release. So fail soft, never throw: a missing field
 -- means "no ADS data", because a throw in a collector takes the whole telemetry write down with it.
 --

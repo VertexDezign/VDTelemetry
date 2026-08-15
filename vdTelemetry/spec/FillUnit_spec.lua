@@ -134,7 +134,7 @@ describe("FillUnit.collect", function()
     assert.are.equal(2, stepped.precision)
     assert.are.equal("STEP", stepped.display)
 
-    -- BAR is the default and is left to Model.kt.
+    -- BAR is the default and is left to the Kotlin model.
     local bar = collectOne(unit({ fillLevel = 1, uiDisplayTypeId = 1 }))
     assert.is_nil(bar.display)
   end)

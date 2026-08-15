@@ -25,7 +25,7 @@ local FILL_TYPE_UNKNOWN = 1
 -- FillLevelsDisplay.TYPE_BAR / TYPE_STEP. The engine resolves the XML's #uiDisplayType to this id at
 -- load, so map the id rather than re-reading the string. STEP means the game draws one segment per
 -- unit of capacity and fills the remainder of the current segment fractionally — how consumables are
--- shown. BAR is the default and is left out of the JSON entirely (Model.kt supplies it).
+-- shown. BAR is the default and is left out of the JSON entirely (the Kotlin model supplies it).
 local DISPLAY_TYPES = { [1] = "BAR", [2] = "STEP" }
 
 -- Round without the engine's MathUtil, so this file stays loadable offline for the specs. Fill levels

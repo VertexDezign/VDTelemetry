@@ -4,11 +4,11 @@
 -- This is the generic answer to "what is working right now", for the machines that have no sections
 -- at all (a tedder, a plough, a mower). Two engine predicates carry it, and both are the game's own:
 --
---   * getIsWorkAreaActive   (WorkArea.lua:309) -- ground contact, driving direction and lowered state,
---                             plus the VariableWorkWidth override (:378-386) that switches an area off
---                             with its section. So `active` already accounts for the shutoff bar.
---   * getIsWorkAreaProcessing (WorkArea.lua:337) -- true within 200 ms of the area last having
---                             processed ground. "Active" is a capability, this is the evidence.
+--   * getIsWorkAreaActive     -- ground contact, driving direction and lowered state, plus the
+--                                VariableWorkWidth override of it that switches an area off with its
+--                                section. So `active` already accounts for the shutoff bar.
+--   * getIsWorkAreaProcessing -- true within 200 ms of the area last having processed ground.
+--                                "Active" is a capability, this is the evidence.
 --
 -- `shape` is the area's footprint in the shared normalized [0,1] map frame (MapExporter's, the same
 -- one map.json / mapVehicles.json / the course use), so the app can draw the swath under the vehicle
@@ -23,7 +23,8 @@ VDT = VDT or {}
 VDT.WorkAreas = {}
 
 -- Helper volumes, not work: the engine skips the whole processing setup for them
--- (WorkArea.lua:246), so they have no functionName and never touch ground.
+-- (loadWorkAreaFromXML skips everything behind the AUXILIARY check), so they have no functionName and
+-- never touch ground.
 VDT.WorkAreas.SKIPPED_TYPE = "AUXILIARY"
 
 ---Wire token for a work-area type index ("SPRAYER", "CULTIVATOR", "COMBINE", ...). The manager holds

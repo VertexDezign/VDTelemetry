@@ -31,7 +31,8 @@ function VDT.Work.collectMode(object)
 end
 
 ---Which side of the boom a section sits on. `isCenter` wins: a center section is in neither of the
----engine's two side lists (VariableWorkWidth.lua:111-117), so it is never switched off and the game's
+---engine's two side lists (VariableWorkWidth:onPostLoad fills sectionsLeft/sectionsRight and sets
+---hasCenter instead), so it is never switched off and the game's
 ---own HUD brackets it with separators instead.
 ---@param section table an entry of spec_variableWorkWidth.sections
 ---@return string LEFT | CENTER | RIGHT
