@@ -124,8 +124,9 @@ FS25, and that is Windows or Proton.
 
 Two things the release path pins that a dev build otherwise wouldn't:
 
-- **JVM target 21**, in `shared` and `server`, with `-Xjdk-release=21` on the latter. CI builds on
-  JDK 25, and without this the "JDK 21+" above was false of every artifact it produced.
+- **JVM target 21 and `-Xjdk-release=21`**, in `shared` and `server` alike. CI builds on JDK 25, and
+  without the pair the "JDK 21+" above was false of every artifact it produced: the target alone
+  stamps the class file 21 while still letting a JDK 25 API link into it.
 - **The version**, via `-PvdtVersion=…`, which the workflow feeds from the git tag after checking it
   against the checked-in numbers. A tag like `v0.1.0-alpha.1` names the archives; jpackage's own
   metadata gets the numeric head, since that is all it accepts.
