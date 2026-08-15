@@ -172,7 +172,8 @@ tab in the foreground, exactly as the real API does.
 
 **The clip must not stay muted, and that is the whole subtlety.** iOS yields the idle timer to media
 playback that holds an audio session; a *muted* video plays perfectly and the screen dims on
-schedule, which is exactly how the first cut of this failed on an iPad. The clips therefore carry a
+schedule, which is exactly how the first cut of this failed on an iPad — and unmuting is what fixed
+it there, confirmed on the device rather than reasoned about. The clips therefore carry a
 silent audio track, and NoSleep.js never mutes. But an unprompted `play()` is only allowed while
 muted, and a display arms itself with nobody having touched anything — so the fallback starts muted
 and the first gesture upgrades it (`__vdtWakeMuted` is why the retry fires even when the lock reports
