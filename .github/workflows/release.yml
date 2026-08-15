@@ -82,9 +82,9 @@ jobs:
       # come out of one definition of "what is the mod" — `.fsignore` — instead of CI keeping a
       # second list that silently drifts when an asset folder is added.
       #
-      # Pinned to a commit because FSTools has no tags: on a moving branch, a change over there
-      # would quietly change what ships from here.
-      FSTOOLS: git+https://github.com/VertexDezign/FSTools@52fe5fbe75a103ad8840c47056399efad28bc11d
+      # Pinned to a release, not a branch: on `main`, a change over there would quietly change what
+      # ships from here. Bump it deliberately, and re-run the dry run when you do.
+      FSTOOLS: git+https://github.com/VertexDezign/FSTools@v0.1.0
     steps:
       - uses: actions/checkout@v7
 

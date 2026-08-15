@@ -497,10 +497,11 @@ bundled-JRE app image per OS with jpackage, and publishes a prerelease. What it 
 - **The version lives in three files** — `VDTerminal/build.gradle.kts`, `modDesc.xml`, `fstools.toml` — and the
   workflow checks the tag against all three rather than generating them. A generator would be better; the check was
   cheaper and fails loudly, which for one release a month is the right trade.
-- **The release pins [FSTools](https://github.com/VertexDezign/FSTools) to a commit**, because that repo has no tags.
-  CI packs the mod with the same `fs pack` used locally, so `.fsignore` is the one definition of what ships; a moving
-  branch would mean a change over there silently changing what is released from here. Revisit if FSTools starts
-  tagging. The release also runs `fs validate`, which the mod otherwise gets no CI coverage from.
+- **The release pins [FSTools](https://github.com/VertexDezign/FSTools) to `v0.1.0`.** CI packs the mod with the same
+  `fs pack` used locally, so `.fsignore` is the one definition of what ships; tracking `main` instead would mean a
+  change over there silently changing what is released from here. Bumping the pin is a deliberate step, and worth a
+  `workflow_dispatch` dry run when it happens. The release also runs `fs validate`, which the mod otherwise gets no CI
+  coverage from.
 - **In-game there is still no warning when FS25_additionalInputs is missing** — the mod logs it and silently disables
   the export, so the symptom is an empty dashboard. `VDTelemetry:loadMap` carries the `TODO display warning in ui`.
   Both setup guides currently route around it by telling the player to read `log.txt`, which is not a fix.
