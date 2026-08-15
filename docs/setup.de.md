@@ -17,7 +17,7 @@ in der Kabine. Es besteht aus zwei Teilen, und du brauchst beide:
 |---|---|
 | **Das Spiel** | Landwirtschafts-Simulator 25, unter Windows oder unter Linux mit Proton |
 | **Eine zweite Mod** | [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs/releases), Version **1.1 oder neuer** (jede 1.x). Ohne sie kann VDTelemetry nicht laufen und schaltet sich selbst ab |
-| **Einen Browser** | Ein aktueller Chrome, Edge oder Firefox — auf dem Spiele-PC, und auf dem Tablet oder Handy, falls du eines nutzen möchtest |
+| **Einen Browser** | Ein aktueller Browser wie Chrome, Edge oder Firefox — auf dem Spiele-PC, und auf dem Tablet oder Handy, falls du eines nutzen möchtest |
 
 Alles läuft auf deinem eigenen Rechner. Es wird nichts hochgeladen.
 
@@ -30,9 +30,10 @@ Lade beide Zip-Dateien herunter:
 
 Kopiere **beide Zip-Dateien, ungeöffnet**, in deinen FS25-`mods`-Ordner:
 
-- **Windows:** `Dokumente\My Games\FarmingSimulator2025\mods`
+- **Windows:** `Documents\My Games\FarmingSimulator2025\mods` — der Ordner heißt auf der Platte
+  `Documents`, auch wenn der Explorer ihn als **Dokumente** anzeigt.
   Wenn dein Dokumente-Ordner mit OneDrive synchronisiert wird, liegt er stattdessen unter
-  `OneDrive\Dokumente\...` — das ist normal, VDTerminal schaut an beiden Stellen nach.
+  `OneDrive\Documents\...` — das ist normal, VDTerminal schaut an beiden Stellen nach.
 - **Linux (Steam/Proton):** tief im Proton-Prefix. So findest du ihn:
   ```bash
   find ~ -type d -path '*FarmingSimulator2025/mods' 2>/dev/null
@@ -48,7 +49,7 @@ deinem System verändert.
 
 - **Windows** — starte `VDTerminal\VDTerminal.exe`.
   Windows warnt, dass das Programm nicht signiert ist („Der Computer wurde durch Windows
-  geschützt"). Wähle **Weitere Informationen → Trotzdem ausführen**. Es öffnet sich ein schwarzes
+  geschützt“). Wähle **Weitere Informationen → Trotzdem ausführen**. Es öffnet sich ein schwarzes
   Konsolenfenster und bleibt offen: dieses Fenster *ist* das Programm — lass es laufen und schließe
   es erst, wenn du mit dem Spielen fertig bist.
   Beim ersten Start fragt die Windows-Firewall nach Netzwerkzugriff. **Erlaube ihn für private
