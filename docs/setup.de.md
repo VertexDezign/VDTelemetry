@@ -76,14 +76,23 @@ Dashboard: http://localhost:3001
 Auf dem Tablet lohnt sich **Zum Startbildschirm hinzufügen**: das gibt ein eigenes Symbol und ein
 Vollbild ohne Browserleisten.
 
-**Damit der Bildschirm anbleibt.** Das Dashboard hält das Tablet von sich aus wach — das
-Kaffeetassen-Symbol in der Kopfzeile zeigt **AWAKE**, wenn es das geschafft hat; ein Tipp darauf
-schaltet es wieder aus. Im Anzeigemodus (siehe unten) passiert das automatisch, und ein Tipp
-irgendwohin genügt, falls der Browser vorher gefragt werden wollte. Das gilt nur, solange das
-Dashboard der Tab ist, den du ansiehst — wenn der Bildschirm trotzdem dunkel wird, oder das Tablet
-nebenbei noch etwas anderes tut, stell das Gerät selbst um: *Einstellungen → Anzeige & Helligkeit →
-Automatische Sperre → Nie* unter iOS, *Einstellungen → Display → Bildschirm-Timeout* unter Android.
-Am Ladekabel hängt so ein Tablet in der Kabine ohnehin meistens.
+**Damit der Bildschirm anbleibt.** Tipp einmal auf das Kaffeetassen-Symbol in der Kopfzeile: Es zeigt
+**AWAKE**, solange der Bildschirm wachgehalten wird; ein weiterer Tipp lässt ihn wieder schlafen.
+Dieser eine Tipp ist wichtig — auf iPad und iPhone kann das Dashboard den Bildschirm erst wachhalten,
+nachdem du es einmal berührt hast; ein Tablet, das du nur anschaust, wird also dunkel. Im
+Anzeigemodus (siehe unten) gibt es keine Kopfzeile, dort genügt eine Berührung irgendwo.
+
+Zwei Dinge, die du wissen solltest:
+
+- Auf iPhone und iPad läuft dafür ein **stummer** Videoclip, den iOS als Wiedergabe zählt — das kann
+  Musik oder einen Podcast unterbrechen, der gerade lief. Wenn dich das stört, lass die Kaffeetasse
+  aus und nimm stattdessen die Einstellung unten.
+- Es gilt nur, solange du das Dashboard auch ansiehst. Wechselst du die App oder den Tab, gilt wieder
+  der normale Bildschirm-Timeout des Geräts.
+
+Die Einstellung, die immer funktioniert und sich für ein Tablet in der Kabine lohnt: *Einstellungen →
+Anzeige & Helligkeit → Automatische Sperre → Nie* unter iOS, *Einstellungen → Display →
+Bildschirm-Timeout* unter Android. Am Ladekabel hängt es dort oben ohnehin meistens.
 
 ## 4. Prüfen, ob Daten ankommen
 

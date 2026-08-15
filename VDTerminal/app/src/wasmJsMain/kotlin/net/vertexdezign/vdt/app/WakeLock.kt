@@ -58,12 +58,14 @@ private fun jsInstall(webm: String, mp4: String) {
                     };
                 } else {
                     var v = document.createElement('video');
-                    // playsinline or iOS takes the video fullscreen over the dashboard; muted or the
-                    // autoplay policy refuses a play() that nobody asked for, which is exactly how a
-                    // display arms itself.
+                    // playsinline or iOS takes the video fullscreen over the dashboard. Muted only
+                    // to start with: the autoplay policy refuses a play() nobody asked for unless it
+                    // is silent, and a display arms itself with nobody having asked. The first
+                    // gesture trades that away — see below for why it has to.
                     v.setAttribute('playsinline', '');
                     v.setAttribute('muted', '');
                     v.muted = true;
+                    window.__vdtWakeMuted = true;
                     v.setAttribute('title', 'VDTerminal keep-awake');
                     v.style.cssText =
                         'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;';
@@ -91,8 +93,19 @@ private fun jsInstall(webm: String, mp4: String) {
                     if (document.body) { document.body.appendChild(v); }
                     window.__vdtWakeVideo = v;
 
-                    window.__vdtWakeRequest = function() {
+                    // `withSound` says a user gesture has licensed audio, and unmuting is the whole
+                    // point of it: iOS yields the idle timer to media playback holding an audio
+                    // session, and a muted clip is not that — it plays perfectly and the screen dims
+                    // anyway. The clips are silent, so nothing is heard either way; what is spent is
+                    // the audio session, which is why this waits for the user to ask.
+                    window.__vdtWakeRequest = function(withSound) {
                         try {
+                            if (withSound && v.muted) {
+                                try { v.pause(); } catch (e) {}
+                                v.muted = false;
+                                v.removeAttribute('muted');
+                                window.__vdtWakeMuted = false;
+                            }
                             var p = v.play();
                             if (p && p.then) {
                                 p.then(function(){ window.__vdtWakeActive = true; })
@@ -110,9 +123,11 @@ private fun jsInstall(webm: String, mp4: String) {
                     };
                 }
 
+                // Not `withSound`: coming back to a visible tab is not a gesture. A clip already
+                // unmuted stays unmuted, so this only ever resumes what was running.
                 document.addEventListener('visibilitychange', function(){
                     if (document.visibilityState === 'visible' && window.__vdtWantWake) {
-                        window.__vdtWakeRequest();
+                        window.__vdtWakeRequest(false);
                     }
                 });
             }
@@ -121,8 +136,12 @@ private fun jsInstall(webm: String, mp4: String) {
   )
 }
 
-private fun jsRequest() {
-  js("try { if (window.__vdtWakeRequest) window.__vdtWakeRequest(); } catch (e) {}")
+/**
+ * [withSound] passes on whether a user gesture is behind this request, which the fallback needs and
+ * the real API doesn't care about.
+ */
+private fun jsRequest(withSound: Boolean) {
+  js("try { if (window.__vdtWakeRequest) window.__vdtWakeRequest(withSound); } catch (e) {}")
 }
 
 private fun jsRelease() {
@@ -139,10 +158,15 @@ private fun jsSetWant(want: Boolean) {
 }
 
 /**
- * Re-requests the lock on the first user gesture, if it is wanted and still not held. Covers browsers
- * that refuse the request on a page nobody has touched yet — a display asks at startup, so without
- * this the refusal would stand for the whole session. It carries the fallback too: a video that the
- * autoplay policy declined plays from the first touch onwards.
+ * Re-requests the lock on the first user gesture, if it is wanted and either not held or held in a
+ * form that doesn't count. Covers browsers that refuse the request on a page nobody has touched yet —
+ * a display asks at startup, so without this the refusal would stand for the whole session — and it
+ * is the only route by which the fallback's clip can be unmuted, which on iOS is the difference
+ * between a video that plays and a screen that stays lit.
+ *
+ * Hence `|| __vdtWakeMuted`: a muted clip playing away happily reports itself as active, and on iOS
+ * that is exactly the state in which the screen still goes out. Undefined on the real API's path, so
+ * it costs that path nothing.
  */
 private fun jsRetryOnGesture() {
   js(
@@ -151,8 +175,9 @@ private fun jsRetryOnGesture() {
             if (!window.__vdtWakeRetry) {
                 window.__vdtWakeRetry = true;
                 var retry = function() {
-                    if (window.__vdtWantWake && !window.__vdtWakeActive && window.__vdtWakeRequest) {
-                        window.__vdtWakeRequest();
+                    var wanted = window.__vdtWantWake && window.__vdtWakeRequest;
+                    if (wanted && (!window.__vdtWakeActive || window.__vdtWakeMuted)) {
+                        window.__vdtWakeRequest(true);
                     }
                 };
                 var gestures = ['pointerdown', 'touchend', 'click', 'keydown'];
@@ -199,12 +224,18 @@ object WakeLock {
     }
   }
 
-  /** Flips the wake lock and returns the new desired state (true = keep screen awake). */
+  /**
+   * Flips the wake lock and returns the new desired state (true = keep screen awake).
+   *
+   * The press *is* the gesture, so this is the one path that can hand the fallback its audio session
+   * outright: on a tablet, one tap of the header's coffee cup and the screen stays lit, with no
+   * second tap needed to make it stick.
+   */
   fun toggle(): Boolean {
     enabled = !enabled
     install()
     jsSetWant(enabled)
-    if (enabled) jsRequest() else jsRelease()
+    if (enabled) jsRequest(withSound = true) else jsRelease()
     return enabled
   }
 
@@ -213,13 +244,17 @@ object WakeLock {
    * startup and has no header button to press. Idempotent, and arms the gesture retry in case the
    * browser declines the unprompted request (see [jsRetryOnGesture]); a later [toggle] still turns it
    * back off.
+   *
+   * Silent by necessity: with nobody having touched the page there is no gesture to spend, so the
+   * fallback starts muted and the first touch upgrades it. On iOS that first touch is not optional —
+   * a display left strictly untouched keeps the muted clip, and iOS keeps dimming.
    */
   fun enable() {
     if (!enabled) {
       enabled = true
       install()
       jsSetWant(true)
-      jsRequest()
+      jsRequest(withSound = false)
     }
     jsRetryOnGesture()
   }

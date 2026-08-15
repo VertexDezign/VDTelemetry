@@ -73,13 +73,22 @@ Dashboard: http://localhost:3001
 On the tablet, use your browser's **Add to Home Screen** to get an icon and a full screen without
 browser chrome.
 
-**Keeping the screen on.** The dashboard asks the tablet to stay awake by itself — the coffee-cup
-icon in the header says **AWAKE** when it has it, and tapping it turns it off again. On a display
-(see below) it is asked for automatically, and one tap anywhere is enough if the browser wanted to be
-asked first. It only holds while the dashboard is the tab you're looking at, so if the screen still
-dims — or the tablet is doing something else as well — set the device itself to stay on: *Settings →
+**Keeping the screen on.** Tap the coffee-cup icon in the header once: it says **AWAKE** while the
+screen is being held, and tapping again lets it sleep. The tap matters — on an iPad or iPhone the
+dashboard cannot hold the screen until you've touched it once, so a tablet you only ever look at will
+dim. On a display (see below) there's no header, so one touch anywhere does the same job.
+
+Two things worth knowing:
+
+- On iPhone and iPad this works by playing a **silent** clip, which iOS counts as playback — so it
+  can pause music or a podcast you had running. If that bothers you, leave the coffee cup off and use
+  the setting below instead.
+- It only holds while the dashboard is the app you're looking at. Switch apps or tabs and the screen
+  goes back to its normal timeout.
+
+The setting that always works, and is worth doing on a tablet that lives in the cab: *Settings →
 Display & Brightness → Auto-Lock → Never* on iOS, *Settings → Display → Screen timeout* on Android.
-A cab tablet is usually on a charger anyway.
+It's on a charger up there anyway.
 
 ## 4. Check that data arrives
 
