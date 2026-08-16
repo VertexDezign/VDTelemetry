@@ -1,0 +1,81 @@
+# Dependabot version updates.
+#
+# Dependabot reads this file from the *default branch*, so nothing happens until
+# it is merged to main — the PR that adds it opens no update PRs of its own.
+#
+# Two ecosystems, because they are the only two things this repo resolves over a
+# network: VDTerminal's Gradle dependencies and the workflows' actions. The mod
+# is plain Lua with no dependency manifest (its one runtime dependency,
+# FS25_additionalInputs, is declared in modDesc.xml for the game to resolve), so
+# there is nothing there for Dependabot to read.
+version: 2
+
+updates:
+  # --- VDTerminal (Kotlin Multiplatform / Gradle) ---------------------------
+  # The directory is the Gradle root, not the repo root: the version catalog
+  # (gradle/libs.versions.toml) and the module build files hang off it, and
+  # Dependabot follows settings.gradle.kts to the included modules from there.
+  - package-ecosystem: gradle
+    directory: /VDTerminal
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+    # The convention (README -> "Commit messages") is
+    # `<issue> <modifier> <[area]> <subject>`; Dependabot supplies the subject
+    # and there is no issue, so the prefix carries the rest. The gitmoji is
+    # written as the glyph rather than the `v` shorthand because the commit-msg
+    # hook that expands shorthands runs locally, and these commits are made
+    # server-side where no hook ever sees them.
+    #
+    # The trailing space is load-bearing: Dependabot appends `:` to a prefix
+    # ending in `[A-Za-z0-9)\]]` before joining, so `"⬆️ [term]"` would commit
+    # as `⬆️ [term]: Bump ...`. Ending on a space suppresses that and leaves
+    # `⬆️ [term] Bump ...`, which is the convention's shape.
+    commit-message:
+      prefix: "⬆️ [term] "
+    groups:
+      # Kotlin, the Compose plugin and the Compose Multiplatform runtime are
+      # version-locked to one another, so a PR moving one without the others is
+      # a PR that does not compile. The `kotlin*` wildcard deliberately also
+      # catches `org.jetbrains.kotlinx:*` (serialization, coroutines), whose
+      # runtimes pair with the compiler plugin of the same generation.
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "org.jetbrains.compose*"
+      # Ktor is one release train across server and client, and both are used.
+      ktor:
+        patterns:
+          - "io.ktor:*"
+      # Everything else that is not a major: one PR a week, gated by the same
+      # `./gradlew check` a human PR gets. Majors are left ungrouped on purpose
+      # — those are the ones worth reading one at a time.
+      routine:
+        update-types:
+          - minor
+          - patch
+
+  # --- GitHub Actions -------------------------------------------------------
+  # `/` is not a guess: for this ecosystem the directory is always the repo
+  # root, and Dependabot finds every workflow under .github/workflows itself.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "⬆️ [ci] "
+    groups:
+      # One PR for all of them, majors included. The workflows pin actions to a
+      # major tag (`actions/checkout@v7`), so *every* update Dependabot can
+      # offer here is a major bump — splitting majors out, as the Gradle block
+      # does, would leave the group permanently empty.
+      actions:
+        patterns:
+          - "*"
