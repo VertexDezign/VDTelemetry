@@ -167,8 +167,10 @@ falls back to the older trick: a one-frame clip (`resources/media/keep-awake.*`,
 see `NOTICE`) looping at 1×1 px out of sight, which browsers keep the screen lit for with no
 secure-context clause. Both routes install the same `window.__vdtWake*` pair, so the toggle, the
 visibility re-acquire and the first-gesture retry don't know which is running, and `AWAKE` in the
-header means the screen is actually being held, not that a request was sent. The fallback needs the
-tab in the foreground, exactly as the real API does.
+header means the mechanism is running, not that a request was sent. What that is worth differs by
+route: on the real API it is the spec's guarantee, while on the fallback it says the clip is playing
+and leaves the idle timer to the platform — which held on an iPad, and is unverified on Android
+(`FUTURE.md`). The fallback needs the tab in the foreground, exactly as the real API does.
 
 **The clip must not stay muted, and that is the whole subtlety.** iOS yields the idle timer to media
 playback that holds an audio session; a *muted* video plays perfectly and the screen dims on

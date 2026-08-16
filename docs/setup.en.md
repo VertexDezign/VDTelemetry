@@ -74,15 +74,17 @@ On the tablet, use your browser's **Add to Home Screen** to get an icon and a fu
 browser chrome.
 
 **Keeping the screen on.** Tap the coffee-cup icon in the header once: it says **AWAKE** while the
-screen is being held, and tapping again lets it sleep. The tap matters — on an iPad or iPhone the
-dashboard cannot hold the screen until you've touched it once, so a tablet you only ever look at will
-dim. On a display (see below) there's no header, so one touch anywhere does the same job.
+dashboard is keeping the screen on, and tapping again lets it sleep. The tap matters — on an iPad or
+iPhone the dashboard cannot hold the screen until you've touched it once, so a tablet you only ever
+look at will dim. On a display (see below) there's no header, so one touch anywhere does the same job.
 
-Two things worth knowing:
+Three things worth knowing:
 
-- On iPhone and iPad this works by playing a **silent** clip, which iOS counts as playback — so it
-  can pause music or a podcast you had running. If that bothers you, leave the coffee cup off and use
-  the setting below instead.
+- On a phone or tablet this works by playing a **silent** clip, which the device counts as playback —
+  so it can pause music or a podcast you had running. If that bothers you, leave the coffee cup off
+  and use the setting below instead.
+- That route is confirmed on an iPad; on **Android** it hasn't been checked on a device yet. If the
+  header says **AWAKE** and the screen dims anyway, use the setting below.
 - It only holds while the dashboard is the app you're looking at. Switch apps or tabs and the screen
   goes back to its normal timeout.
 

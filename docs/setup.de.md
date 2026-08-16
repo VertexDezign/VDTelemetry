@@ -77,16 +77,18 @@ Auf dem Tablet lohnt sich **Zum Startbildschirm hinzufügen**: das gibt ein eige
 Vollbild ohne Browserleisten.
 
 **Damit der Bildschirm anbleibt.** Tipp einmal auf das Kaffeetassen-Symbol in der Kopfzeile: Es zeigt
-**AWAKE**, solange der Bildschirm wachgehalten wird; ein weiterer Tipp lässt ihn wieder schlafen.
+**AWAKE**, solange das Dashboard den Bildschirm wachhält; ein weiterer Tipp lässt ihn wieder schlafen.
 Dieser eine Tipp ist wichtig — auf iPad und iPhone kann das Dashboard den Bildschirm erst wachhalten,
 nachdem du es einmal berührt hast; ein Tablet, das du nur anschaust, wird also dunkel. Im
 Anzeigemodus (siehe unten) gibt es keine Kopfzeile, dort genügt eine Berührung irgendwo.
 
-Zwei Dinge, die du wissen solltest:
+Drei Dinge, die du wissen solltest:
 
-- Auf iPhone und iPad läuft dafür ein **stummer** Videoclip, den iOS als Wiedergabe zählt — das kann
-  Musik oder einen Podcast unterbrechen, der gerade lief. Wenn dich das stört, lass die Kaffeetasse
-  aus und nimm stattdessen die Einstellung unten.
+- Auf Handy und Tablet läuft dafür ein **stummer** Videoclip, den das Gerät als Wiedergabe zählt —
+  das kann Musik oder einen Podcast unterbrechen, der gerade lief. Wenn dich das stört, lass die
+  Kaffeetasse aus und nimm stattdessen die Einstellung unten.
+- Auf dem iPad ist dieser Weg bestätigt, unter **Android** ist er noch auf keinem Gerät geprüft.
+  Zeigt die Kopfzeile **AWAKE** und der Bildschirm wird trotzdem dunkel, nimm die Einstellung unten.
 - Es gilt nur, solange du das Dashboard auch ansiehst. Wechselst du die App oder den Tab, gilt wieder
   der normale Bildschirm-Timeout des Geräts.
 
