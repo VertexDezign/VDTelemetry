@@ -180,6 +180,44 @@ class LampCheckTest {
   }
 }
 
+/**
+ * When the cluster goes dark, which is how it says the machine is switched off (issue #93).
+ *
+ * The rule is deliberately narrower than "not running": a key rested at the ignition lock lights a
+ * real dashboard, and a starter cranking lights it too — that window is where the telltale band
+ * checks its bulbs, which it plainly cannot do on a panel that is still off. So the display wakes
+ * the moment the key is turned and reads zeros until the engine catches.
+ */
+class ClusterDarkTest {
+  private fun at(state: MotorState) = Vehicle(motor = Motor(state = state))
+
+  @Test
+  fun aSwitchedOffMachineHasASwitchedOffDisplay() {
+    assertTrue(clusterDark(at(MotorState.OFF)))
+  }
+
+  @Test
+  fun theKeyLightsThePanelBeforeTheEngineCatches() {
+    assertFalse(clusterDark(at(MotorState.IGNITION)), "an ignition lock's whole point is a lit dash")
+    assertFalse(clusterDark(at(MotorState.STARTING)))
+    // The two states the band's bulb check runs in — it needs the panel lit for both of them.
+    assertTrue(lampCheck(at(MotorState.IGNITION)))
+    assertTrue(lampCheck(at(MotorState.STARTING)))
+  }
+
+  @Test
+  fun aRunningEngineIsTheLitCase() {
+    assertFalse(clusterDark(at(MotorState.ON)))
+  }
+
+  @Test
+  fun aMachineWithNoMotorIsNotSwitchedOff() {
+    // Nothing to switch. Blanking its tiles would claim a dead dashboard on something that never had
+    // one, so it keeps whatever it can say.
+    assertFalse(clusterDark(Vehicle()))
+  }
+}
+
 /** The two derived lamps, and the thresholds we picked for them. */
 class MaintenanceLampTest {
   private fun tempAt(value: Int) = Vehicle(motor = Motor(temperatur = Temperatur(value = value, min = 20, max = 120)))

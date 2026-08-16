@@ -230,6 +230,15 @@ tractor puts between the windscreen and the right-hand window:
   It comes from `motor.direction` (mod version 6), *not* from the engine's `getReverserDirection()` —
   that is written only by the reversible-driving-position specialization (the seat swivelled round),
   so on an ordinary tractor it reads forward for ever.
+
+  **A switched-off machine has a switched-off display.** The readout and the level strip fall to
+  their ghost layer — unlit cells where the numbers were, empty frames where the levels were, and
+  nothing flashing — so whether the machine is running is answered the way the panel this copies
+  answers it, by being on or off. Only `MotorState.OFF` is dark: a key rested at the ignition lock
+  lights a real dashboard, and that is where the bulb check runs, so the panel wakes as the key turns
+  and reads zeros until the engine catches. The **telltale band stays lit**, because a parked machine
+  can genuinely have its beacon on or its hazards going (`Lights:onStopMotor` re-applies the light
+  mask rather than clearing it) and the band is the only place that shows it.
 - **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, a CVT's own
   transmission temperature where Advanced Damage System reports one, then the engine's fuel, DEF and
   air. The two temperatures are told apart by their glyphs — a thermometer over water, and one over a

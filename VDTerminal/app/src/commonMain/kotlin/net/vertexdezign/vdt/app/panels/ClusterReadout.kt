@@ -99,6 +99,11 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   val redline =
     motor?.rpm?.let { it.max > it.min && (rpm - it.min) / (it.max - it.min).toFloat() >= REDLINE_FRACTION } == true
 
+  // Switched off: the tile draws its ghost layer and nothing else. Every line below is still built,
+  // so the panel that comes back when the key is turned is the same panel with its power on — see
+  // [clusterDark], and [Line]'s `unlit`.
+  val dark = clusterDark(vehicle)
+
   val cruise = vehicle.cruiseControl?.targetSpeed
   val gear = gearText(vehicle)
   val symbol = driveSymbol(vehicle)
@@ -109,7 +114,11 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // the brake off and we will". Neutral is excluded: an `N` at a standstill is simply true, and there
   // is nothing provisional about it to flash. Only built while it is actually needed, so the pillar
   // phone isn't animating a frame at a time all the while it is parked.
-  val holding = symbol?.icon != null && vehicle.speed?.direction == DriveDirection.STOPPED
+  //
+  // Never on a dead machine, which is a standstill that will not end until someone turns a key. That
+  // was the one thing on this tile that flashed *for ever* on a parked tractor, a promise about a
+  // machine that cannot move.
+  val holding = !dark && symbol?.icon != null && vehicle.speed?.direction == DriveDirection.STOPPED
 
   // How the machine is set up to be driven, which rides beside the gear — the two are one thought,
   // and this is the middle of the cluster where a driver looks for what the machine is *in*.
@@ -118,7 +127,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // machine with steering modes is quite likely to report no gear at all (a telehandler does), and
   // these must not disappear along with a field they have nothing to do with.
   val steering = steeringMarks(vehicle)
-  val blink = if (holding || steering.any { it.blinks }) clusterBlinkPhase() else null
+  val blink = if (!dark && (holding || steering.any { it.blinks })) clusterBlinkPhase() else null
 
   // Steering assist rides on the cruise line, where it belongs: both are the machine holding
   // something for the driver — a speed, a line — and both are switched on the same way, armed first
@@ -174,6 +183,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           valueColour = if (redline) ClusterColors.Warn else ClusterColors.Digits,
           size = digit,
           label = "RPM",
+          unlit = dark,
         )
         // The reverser rides on the speed rather than on the gear below it, because a gear line is
         // not a given — a combine or a telehandler reports none — and the direction the machine is
@@ -190,6 +200,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           noteColour = symbol?.colour ?: ClusterColors.Digits,
           noteBlinks = holding,
           blink = blink,
+          unlit = dark,
         )
         // Cruise, amber because it is a value the driver set rather than one the machine reports.
         // Dimmed when armed but not engaged, so "53 is what it will hold" and "53 is what it is
@@ -205,6 +216,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             labelColour = if (engaged) ClusterColors.Set else ClusterColors.Label,
             marks = cruiseMarks,
             blink = blink,
+            unlit = dark,
           )
         }
         // What the transmission is in. Amber like the cruise, and for the same reason — both are the
@@ -224,10 +236,14 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             face = SegmentFace.Alphanumeric,
             marks = gearMarks,
             blink = blink,
+            unlit = dark,
           )
         }
+        // The hour meter, and the one thing on the tile that is a *value* set in the caption face
+        // rather than in segments — so a dark panel drops its text instead of ghosting it. The empty
+        // caption stays in the layout, because the line it occupies is the line it will occupy again.
         vehicle.operatingTime?.let {
-          ClusterLabel("${it.value}${it.unit}", Modifier.fillMaxWidth(), align = TextAlign.End)
+          ClusterLabel(if (dark) "" else "${it.value}${it.unit}", Modifier.fillMaxWidth(), align = TextAlign.End)
         }
       }
     }
@@ -324,6 +340,12 @@ internal data class LineMark(
  * [blink] drives whatever has asked to flash — a mark that set `blinks`, and the note when
  * [noteBlinks] — and leaves the value alone: it is the direction that is provisional at a standstill,
  * not the speed it sits beside.
+ *
+ * [unlit] is the whole line with no power behind it, for a machine that is switched off (see
+ * [clusterDark]). Every field keeps its place and loses its contents: the cells and the note keep
+ * their shapes with nothing lit in them, the labels and the marks fall to the ghost level, and
+ * nothing flashes. It is drawn here rather than by the caller blanking things itself so that a line
+ * cannot go half dark — and so the layout is bit for bit the one that comes back when the key turns.
  */
 @Composable
 private fun Line(
@@ -339,6 +361,7 @@ private fun Line(
   noteBlinks: Boolean = false,
   marks: List<LineMark> = emptyList(),
   blink: (() -> Float)? = null,
+  unlit: Boolean = false,
 ) {
   Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
     // The marks' slot, out on the left and held open on every line whether or not anything is in it.
@@ -355,7 +378,11 @@ private fun Line(
         // In the draw layer, so a flashing mark costs a repaint per frame and not a recomposition of
         // the line it is on. On the whole mark rather than on the glyph inside it, so a captioned one
         // fades as a piece — the word is part of the lamp, not a label beside it.
-        val fade = Modifier.graphicsLayer { alpha = mark.alpha * if (mark.blinks) blinkAlpha(blink) else 1f }
+        // Named rather than read off `mark` inside the layer block: `alpha` in there is the layer's
+        // own property, so an unqualified read would be the layer's and not this mark's.
+        val markAlpha = if (unlit) GHOST_ALPHA else mark.alpha
+        val flashing = mark.blinks && !unlit
+        val fade = Modifier.graphicsLayer { alpha = markAlpha * if (flashing) blinkAlpha(blink) else 1f }
         Column(Modifier.width(cell.dp).then(fade), horizontalAlignment = Alignment.CenterHorizontally) {
           // The glyph keeps the whole cell whether or not it is captioned. The caption hangs *below*
           // the cell instead of dividing it — a line is a good half taller than its marks' slot (the
@@ -383,19 +410,24 @@ private fun Line(
       }
     }
     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-      ClusterDigits(value, cells, size.sp, valueColour, face = face)
+      // Blank rather than absent: [ClusterDigits] then draws the cells with nothing lit in them,
+      // which is the field switched off rather than the field taken away.
+      ClusterDigits(if (unlit) "" else value, cells, size.sp, valueColour, face = face)
     }
     Column(
       Modifier.padding(start = LABEL_GAP).width(LABEL_COLUMN - LABEL_GAP),
       horizontalAlignment = Alignment.Start,
     ) {
-      ClusterLabel(label, color = labelColour)
+      ClusterLabel(label, color = if (unlit) labelColour.ghosted() else labelColour)
       note?.let {
-        Box(Modifier.graphicsLayer { alpha = if (noteBlinks) blinkAlpha(blink) else 1f }) {
+        Box(Modifier.graphicsLayer { alpha = if (noteBlinks && !unlit) blinkAlpha(blink) else 1f }) {
           // The fourteen-segment face: seven cannot draw a capital R or N, and a lowercase one beside
           // a full-height F reads as a smaller letter rather than a different one. See [SegmentFace].
+          //
+          // The cell count is the letter's either way, so an unlit note is a blank cell of exactly
+          // the size the letter will come back at.
           ClusterDigits(
-            it,
+            if (unlit) "" else it,
             cells = it.length,
             size = (size * NOTE_SCALE).sp,
             colour = noteColour,
