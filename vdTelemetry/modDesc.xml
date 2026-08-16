@@ -1,7 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="96">
     <author>VertexDezign</author>
-    <version>0.1.0.0</version>
+    <!-- A placeholder, and deliberately one that cannot be mistaken for a release. `fs validate`
+         requires the element and the mod runs unpacked in development, so it has to say something;
+         what ships is whatever `fs pack` is given as its mod version, which the release workflow
+         derives from the git tag. Nothing here needs bumping to cut a release. -->
+    <version>0.0.0.0</version>
     <title>
         <en>VDTelemetry</en>
         <de>VDTelemetry</de>

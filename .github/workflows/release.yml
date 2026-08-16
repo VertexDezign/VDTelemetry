@@ -26,66 +26,64 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      mod_version: ${{ steps.v.outputs.mod_version }}
       publish: ${{ steps.v.outputs.publish }}
     steps:
       # Build-only checkouts push nothing back, so the token stays out of .git.
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # Tags, which a shallow clone has none of: the dry run names itself after the last release.
+          fetch-depth: 0
 
-      # The tag is the single source of truth for what is being released. Everything else in the
-      # repo has to agree with it, and the release stops here if it doesn't -- a mod whose modDesc
-      # version disagrees with its download is not something to find out about after publishing.
-      - name: Resolve and verify version
+      # The tag is the only place a version is authored. Nothing in the tree carries one to keep in
+      # step with it -- both files that used to are dummies now, and both real numbers are derived
+      # here and handed to the builds. What is checked is the artifact rather than the source: see
+      # the packed-zip check in `mod`, which is where a version can still go missing.
+      - name: Resolve version
         id: v
         run: |
           set -euo pipefail
-          # -m1 and the emptiness check together: a second match or a refactor that moves the
-          # version out of reach would otherwise sail past as a two-line or empty string, and on
-          # the dispatch path an empty one becomes the nonsense version "-dev.N".
-          gradle_version=$(grep -oPm1 '\?: "\K[0-9][^"]*' VDTerminal/build.gradle.kts || true)
-          if [ -z "$gradle_version" ]; then
-            echo "::error::no version found in VDTerminal/build.gradle.kts"; exit 1
-          fi
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # The checked-in number with a dev suffix, not something like 0.0.0: jpackage takes only
-            # the numeric head, so a dry run on a made-up version would be exercising a shape no real
-            # release ever has — and the point of the dry run is to be the release, minus publishing.
-            version="${gradle_version}-dev.${{ github.run_number }}"
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            echo "Dry run: $version (nothing will be published)"
+            # Named after the last release rather than a made-up number, so a dry run exercises the
+            # shape a real one has. Before the first tag exists there is nothing to name it after,
+            # and 0.0.0 is as good as anything.
+            base=$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)
+            version="${base#v}-dev.${{ github.run_number }}"
+            publish=false
           else
             version="${GITHUB_REF_NAME#v}"
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-          # Prerelease suffixes (-alpha.1) are ours alone: FS25's modDesc version is four numbers
-          # and can express nothing else, so only the numeric head is compared.
-          numeric="${version%%-*}"
-
-          # A dry run has no tag to check anything against. (Written as an `if` rather than
-          # `[ … ] && exit 0`, which under `set -e` fails the step on the *tag* path.)
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            exit 0
+            publish=true
           fi
 
-          # modDesc.xml is the mod's version outright: fstools.toml sets no `version`, so `fs pack`
-          # ships this value untouched. Two files to agree with the tag, not three.
-          moddesc_version=$(grep -oPm1 '<version>\K[^<]+' vdTelemetry/modDesc.xml || true)
-          if [ -z "$moddesc_version" ]; then
-            echo "::error::no <version> found in vdTelemetry/modDesc.xml"; exit 1
+          # Insisting on the tag's shape is the whole check now, so it is worth being strict: a
+          # prerelease has to be *numbered*, because that number is the only thing separating two
+          # alphas once they reach the game (see mod_version). jpackage takes the numeric head and
+          # accepts three components at most, which is the other half of why this is the shape.
+          #
+          # The counter is [1-9][0-9]*, not [0-9]+, on both counts a number can be written twice:
+          # `-beta.0` would derive the same 0.1.0.0 as the final release v0.1.0, leaving the game
+          # with no update to offer between them, and `-alpha.01` the same 0.1.0.1 as `-alpha.1`
+          # from a tag that does not look like it. Semver bars leading zeros here for that reason.
+          if [[ ! "$version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*\.([1-9][0-9]*))?$ ]]; then
+            echo "::error::version '$version' is not MAJOR.MINOR.PATCH[-<name>.<n>], n from 1 and unpadded"
+            exit 1
           fi
+          numeric="${BASH_REMATCH[1]}"
 
-          fail=0
-          if [ "$gradle_version" != "$numeric" ]; then
-            echo "::error::VDTerminal/build.gradle.kts says $gradle_version, tag says $numeric"; fail=1
-          fi
-          if [ "$moddesc_version" != "$version" ]; then
-            echo "::error::modDesc.xml says $moddesc_version, tag says $version"; exit 1
-          fi
-          exit $fail
+          # FS25's modDesc version is four numbers and can express nothing else, so the prerelease
+          # counter becomes the fourth: 0.1.0-alpha.2 ships as 0.1.0.2, a final release as 0.1.0.0.
+          # Flattening every prerelease to .0 instead would leave the game unable to tell one alpha
+          # from the next, and so unable to offer players the update.
+          mod_version="$numeric.${BASH_REMATCH[4]:-0}"
+
+          {
+            echo "version=$version"
+            echo "mod_version=$mod_version"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+          echo "terminal $version, mod $mod_version, publish=$publish"
 
   verify:
     name: Verify
@@ -102,7 +100,10 @@ jobs:
       #
       # Pinned to a release, not a branch: on `main`, a change over there would quietly change what
       # ships from here. Bump it deliberately, and re-run the dry run when you do.
-      FSTOOLS: git+https://github.com/VertexDezign/FSTools@v0.1.0
+      #
+      # v0.2.0 is the floor: `--mod-version` arrived there, and without it the mod would ship with
+      # the placeholder that modDesc.xml now carries on disk.
+      FSTOOLS: git+https://github.com/VertexDezign/FSTools@v0.2.0
     steps:
       - uses: actions/checkout@v7
         with:
@@ -127,29 +128,45 @@ jobs:
         working-directory: vdTelemetry
         run: uvx --from "$FSTOOLS" fs validate
 
-      # `fs pack` also rewrites author/title into the packed modDesc.xml from fstools.toml. The
-      # version is deliberately not among them, so the modDesc checked against the tag above is the
-      # one the released zip carries.
+      # `fs pack` rewrites author/title into the packed modDesc.xml from fstools.toml, and the
+      # version from `--mod-version` -- all three inside the zip, leaving the file on disk alone.
+      # That is what lets modDesc.xml hold a placeholder and still ship the tag's number.
       - name: Build FS25_vdTelemetry.zip
         working-directory: vdTelemetry
+        env:
+          MOD_VERSION: ${{ needs.version.outputs.mod_version }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          uvx --from "$FSTOOLS" fs pack -o "$GITHUB_WORKSPACE/dist"
+          uvx --from "$FSTOOLS" fs pack --mod-version "$MOD_VERSION" -o "$GITHUB_WORKSPACE/dist"
 
       # Independent of whatever packed it: the zip is opened and asked whether it is a working mod.
       # `.fsignore` is an exclude list, so the failure mode it cannot catch is a *new* repo-only
       # file quietly shipping to players — which is exactly how fsTypes/ and stylua.toml got in.
       - name: Verify the packed zip
+        env:
+          MOD_VERSION: ${{ needs.version.outputs.mod_version }}
         run: |
           set -euo pipefail
           python3 - <<'EOF'
-          import re, sys, zipfile, pathlib
-          names = set(zipfile.ZipFile("dist/FS25_vdTelemetry.zip").namelist())
+          import os, re, sys, zipfile, pathlib
+          zf = zipfile.ZipFile("dist/FS25_vdTelemetry.zip")
+          names = set(zf.namelist())
           bad = []
 
           if "modDesc.xml" not in names:
               bad.append("modDesc.xml is not at the zip root")
+          else:
+              # The version the tag asked for, read back out of the artifact. Nothing in the tree
+              # carries it any more, so `--mod-version` silently not applying is the one way this
+              # release still ships a wrong number -- and it would ship as the placeholder, which
+              # the game reads as "no update available" forever.
+              want = os.environ["MOD_VERSION"]
+              m = re.search(r"<version>([^<]*)</version>",
+                            zf.read("modDesc.xml").decode("utf-8-sig"))
+              got = m.group(1) if m else None
+              if got != want:
+                  bad.append(f"packed modDesc.xml says version {got!r}, expected {want!r}")
 
           # .png among them: the icon ships as .dds, so every png in the mod folder is a source the
           # icon was drawn from -- a quarter-megabyte apiece that no player has any use for.

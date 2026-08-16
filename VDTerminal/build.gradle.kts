@@ -15,9 +15,11 @@ val composeRulesRuleSet = "io.nlopez.compose.rules:ktlint:${libs.versions.compos
 allprojects {
   group = "net.vertexdezign"
   // The release workflow passes the git tag through as -PvdtVersion=0.1.0-alpha.1, so the published
-  // archives carry the tag's name. A plain build gets the checked-in number, which is also what the
-  // workflow verifies the tag against.
-  version = (findProperty("vdtVersion") as String?)?.takeIf { it.isNotBlank() } ?: "0.1.0"
+  // archives carry the tag's name. The fallback is a placeholder for local builds and nothing else:
+  // the tag is the only place a version is authored, and a real-looking number here would only be a
+  // second one to forget to bump. It keeps the release's shape -- MAJOR.MINOR.PATCH plus a
+  // prerelease -- because jpackage takes the numeric head and accepts three components at most.
+  version = (findProperty("vdtVersion") as String?)?.takeIf { it.isNotBlank() } ?: "0.0.0-dev"
 
   apply(plugin = "com.diffplug.spotless")
 
