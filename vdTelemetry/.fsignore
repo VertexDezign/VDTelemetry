@@ -12,3 +12,7 @@ fsTypes
 
 # StyLua's config. Formatting is a repo concern; the game has no use for it.
 stylua.toml
+
+# The mod icon's sources. modDesc.xml names icon_vdTelemetry.png, but the engine loads the .dds
+# beside it
+icon_vdTelemetry.png

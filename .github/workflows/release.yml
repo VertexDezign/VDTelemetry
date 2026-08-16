@@ -151,9 +151,11 @@ jobs:
           if "modDesc.xml" not in names:
               bad.append("modDesc.xml is not at the zip root")
 
+          # .png among them: the icon ships as .dds, so every png in the mod folder is a source the
+          # icon was drawn from -- a quarter-megabyte apiece that no player has any use for.
           leaked = sorted(n for n in names
                           if n.startswith(("spec/", "fsTypes/"))
-                          or n.endswith((".md", ".toml", ".fsignore")))
+                          or n.endswith((".md", ".toml", ".fsignore", ".png")))
           bad += [f"repo-only file shipped: {n}" for n in leaked]
 
           block = re.search(r"^local sourceFiles = \{(.*?)^\}",
