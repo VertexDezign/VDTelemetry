@@ -59,9 +59,36 @@ application {
 
 // Bundle the production wasm app into the server's resources under `static/`, so a single
 // server artifact serves both the dashboard and the API/WebSocket.
+//
+// `-PvdtWebBundle=<dir>` takes a bundle built by some earlier build instead, which keeps the whole
+// Kotlin/Wasm toolchain — node, yarn, webpack — out of the task graph. That is how the release
+// workflow packages the Windows download: the npm install loses a race on a Windows runner often
+// enough to have cost releases, and the bundle is identical whatever builds it, carrying no per-OS
+// and no per-version content. Relative paths resolve against `VDTerminal/`.
+private val prebuiltWebBundle =
+  (findProperty("vdtWebBundle") as String?)
+    ?.takeIf { it.isNotBlank() }
+    ?.let { rootProject.file(it) }
+    ?.also {
+      // Gradle copies nothing at all from a missing or empty directory, so a bundle that never
+      // arrived would otherwise be a server that starts, answers /health, and serves a blank page —
+      // discovered by whoever downloads the release rather than here.
+      require(it.resolve("app.js").isFile) {
+        "-PvdtWebBundle=$it holds no built dashboard (no app.js in it)"
+      }
+    }
+
+private val builtWebBundle =
+  rootProject.layout.projectDirectory
+    .dir("app/build/dist/wasmJs/productionExecutable")
+    .asFile
+
 tasks.named<ProcessResources>("processResources") {
-  dependsOn(":app:wasmJsBrowserDistribution")
-  from(rootProject.layout.projectDirectory.dir("app/build/dist/wasmJs/productionExecutable")) {
+  // Only when this build is the one producing it; with a prebuilt bundle there is nothing to build.
+  if (prebuiltWebBundle == null) {
+    dependsOn(":app:wasmJsBrowserDistribution")
+  }
+  from(prebuiltWebBundle ?: builtWebBundle) {
     into("static")
   }
 }
