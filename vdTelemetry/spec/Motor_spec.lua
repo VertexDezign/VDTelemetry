@@ -111,3 +111,38 @@ describe("Motor.collect state", function()
     assert.are.equal("STARTING", stateOf(3))
   end)
 end)
+
+describe("Motor.collect rpm and load", function()
+  local function motorAt(motorState)
+    return VDT.Motor.collect(fakeVehicle(fakeMotor("D", "N", false), motorState))
+  end
+
+  it("reports what the engine is doing while the crankshaft turns", function()
+    -- The fake reports 1450 rpm at 42% load whatever the state, which is the point: these two are
+    -- the states where that reading is the engine's and gets passed through untouched.
+    assert.are.equal(1450, motorAt(4).rpm.value)
+    assert.are.equal(42, motorAt(4).load.value)
+    -- The starter turning it over is a real speed too, and the one that shows a start happening.
+    assert.are.equal(1450, motorAt(3).rpm.value)
+    assert.are.equal(42, motorAt(3).load.value)
+  end)
+
+  it("zeroes both readings on an engine that has stopped", function()
+    -- Issue #94: the engine stops updating these but keeps their last values, and its own one-shot
+    -- zeroing at the state change does not survive a multiplayer client applying an rpm update that
+    -- was already in flight behind the stop event -- which left a smoothed remnant of idle sitting
+    -- under 100 rpm on a machine that had been switched off. A stopped engine turns at zero.
+    for _, motorState in ipairs({ 1, 2 }) do
+      local model = motorAt(motorState)
+      assert.are.equal(0, model.rpm.value)
+      assert.are.equal(0, model.load.value)
+    end
+  end)
+
+  it("keeps the rev counter's own scale whatever the engine is doing", function()
+    -- Only the reading is zeroed. `max` is the tachometer's face, and a gauge whose scale collapsed
+    -- when the key came out would redraw itself every time the machine was parked.
+    assert.are.equal(2200, motorAt(1).rpm.max)
+    assert.are.equal(2200, motorAt(4).rpm.max)
+  end)
+end)

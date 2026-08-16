@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.dseg14_classic_bold
 import net.vertexdezign.vdt.app.resources.dseg7_classic_bold
+import net.vertexdezign.vdt.model.MotorState
+import net.vertexdezign.vdt.model.Vehicle
 import org.jetbrains.compose.resources.Font
 
 /**
@@ -118,6 +120,39 @@ private const val BLANK = '!'
  */
 internal const val GHOST_ALPHA = 0.09f
 
+/** This colour as an unlit thing — the ghost level every dark mark on the cluster is drawn at. */
+internal fun Color.ghosted(): Color = copy(alpha = GHOST_ALPHA)
+
+/**
+ * Whether the cluster is **dark**: the machine is switched off, so its display is too.
+ *
+ * This is how the cluster answers "is it running", and it answers it the way the panel it copies
+ * does — by being off (issue #93). A tile whose engine has stopped draws its ghost layer and nothing
+ * else: unlit segments where the numbers were, an empty frame where the level was, and nothing
+ * moving anywhere. It cannot be misread, it needs no colour, and there is no state to learn: a lit
+ * panel is a running machine and a dark one is not.
+ *
+ * The alternative tried first was printing the state as a word in the rpm field, which works and is
+ * not what the instrument is. A display that is on and says `OFF` is a different object from one
+ * that is off.
+ *
+ * **[MotorState.OFF] alone.** The key rested at the ignition lock ([MotorState.IGNITION]) lights a
+ * real dashboard — that is the whole point of the position — and it is where the telltale band runs
+ * its bulb check (see [lampCheck]); cranking is lit for the same reason. So the panel wakes the
+ * instant the key is turned and reads zeros until the engine catches, which is what the machine
+ * does.
+ *
+ * The **telltale band is deliberately not dark**, on a machine that is: `Lights:onStopMotor` in the
+ * engine re-applies the light mask rather than clearing it, so a parked machine can genuinely have
+ * its beacon lit or its hazards going, and the band is the only place that shows it. A lamp there is
+ * reporting something the machine is doing right now, whereas every number on the dark tiles is
+ * reporting something the *engine* is doing, and the engine is doing nothing.
+ *
+ * A vehicle with no motor at all is not switched off — it has nothing to switch — so its tiles stay
+ * lit and keep whatever they can say.
+ */
+fun clusterDark(vehicle: Vehicle): Boolean = vehicle.motor?.state == MotorState.OFF
+
 /**
  * A value on a segment display of [cells] cells.
  *
@@ -129,6 +164,10 @@ internal const val GHOST_ALPHA = 0.09f
  *
  * A value too long for [cells] simply runs over; padding never truncates, because a clipped number is
  * a wrong number.
+ *
+ * An **empty** [value] is therefore the field switched off: every cell keeps its shape at the ghost
+ * level with nothing lit in it, which is what a segment display looks like with no power behind it.
+ * See [clusterDark].
  */
 @Composable
 internal fun ClusterDigits(

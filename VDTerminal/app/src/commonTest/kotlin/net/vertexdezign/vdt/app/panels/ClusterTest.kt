@@ -1,6 +1,8 @@
 package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.model.Ads
+import net.vertexdezign.vdt.model.AdsLoad
 import net.vertexdezign.vdt.model.DiffLock
 import net.vertexdezign.vdt.model.DriveDirection
 import net.vertexdezign.vdt.model.FillUnit
@@ -11,6 +13,7 @@ import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Indicator
 import net.vertexdezign.vdt.model.Light
 import net.vertexdezign.vdt.model.Lights
+import net.vertexdezign.vdt.model.Load
 import net.vertexdezign.vdt.model.Motor
 import net.vertexdezign.vdt.model.MotorFillUnits
 import net.vertexdezign.vdt.model.MotorState
@@ -180,6 +183,44 @@ class LampCheckTest {
   }
 }
 
+/**
+ * When the cluster goes dark, which is how it says the machine is switched off (issue #93).
+ *
+ * The rule is deliberately narrower than "not running": a key rested at the ignition lock lights a
+ * real dashboard, and a starter cranking lights it too — that window is where the telltale band
+ * checks its bulbs, which it plainly cannot do on a panel that is still off. So the display wakes
+ * the moment the key is turned and reads zeros until the engine catches.
+ */
+class ClusterDarkTest {
+  private fun at(state: MotorState) = Vehicle(motor = Motor(state = state))
+
+  @Test
+  fun aSwitchedOffMachineHasASwitchedOffDisplay() {
+    assertTrue(clusterDark(at(MotorState.OFF)))
+  }
+
+  @Test
+  fun theKeyLightsThePanelBeforeTheEngineCatches() {
+    assertFalse(clusterDark(at(MotorState.IGNITION)), "an ignition lock's whole point is a lit dash")
+    assertFalse(clusterDark(at(MotorState.STARTING)))
+    // The two states the band's bulb check runs in — it needs the panel lit for both of them.
+    assertTrue(lampCheck(at(MotorState.IGNITION)))
+    assertTrue(lampCheck(at(MotorState.STARTING)))
+  }
+
+  @Test
+  fun aRunningEngineIsTheLitCase() {
+    assertFalse(clusterDark(at(MotorState.ON)))
+  }
+
+  @Test
+  fun aMachineWithNoMotorIsNotSwitchedOff() {
+    // Nothing to switch. Blanking its tiles would claim a dead dashboard on something that never had
+    // one, so it keeps whatever it can say.
+    assertFalse(clusterDark(Vehicle()))
+  }
+}
+
 /** The two derived lamps, and the thresholds we picked for them. */
 class MaintenanceLampTest {
   private fun tempAt(value: Int) = Vehicle(motor = Motor(temperatur = Temperatur(value = value, min = 20, max = 120)))
@@ -235,6 +276,73 @@ class MaintenanceLampTest {
 
 /** What the big readout puts on each line. */
 class ClusterReadoutTest {
+  @Test
+  fun theLoadBarPrefersTheFigureTheCabIsShowing() {
+    // Advanced Damage System's wherever there is one, which is what the Engine and Transmission
+    // panel already draws — the two must not be able to disagree about what the engine is pulling.
+    val both =
+      Vehicle(
+        motor = Motor(load = Load(value = 40.0, max = 100)),
+        ads = Ads(load = AdsLoad(value = 70.0, overloadAt = 85.0)),
+      )
+    assertEquals(0.7f, engineLoad(both)?.fraction)
+    // …and the plain engine load on a game without the mod.
+    assertEquals(0.4f, engineLoad(Vehicle(motor = Motor(load = Load(value = 40.0, max = 100))))?.fraction)
+  }
+
+  @Test
+  fun aMachineThatReportsNoLoadDrawsNoBar() {
+    // An empty bar is a claim about an engine; no bar is the absence of one, which is the truth here.
+    assertNull(engineLoad(Vehicle()))
+    assertNull(engineLoad(Vehicle(motor = Motor())))
+  }
+
+  @Test
+  fun theOverloadPointIsMarkedOnlyWhenItFallsInsideTheBar() {
+    // ADS ships 85%, and a player can move it. At the very top there is nothing to mark: a notch in
+    // the bar's own end cap says nothing. Losing the notch is not losing the state — see
+    // [beingOverThePointSurvivesHavingNowhereToDrawIt].
+    val shipped = Vehicle(ads = Ads(load = AdsLoad(value = 50.0, overloadAt = 85.0)))
+    assertEquals(0.85f, engineLoad(shipped)?.threshold)
+    assertNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 50.0, overloadAt = 100.0))))?.threshold)
+    assertNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 50.0))))?.threshold, "no threshold reported")
+    // The base game charges nothing for a hard-working engine, so there is no point to mark at all.
+    assertNull(engineLoad(Vehicle(motor = Motor(load = Load(value = 99.0, max = 100))))?.threshold)
+  }
+
+  @Test
+  fun anOverloadedEngineFillsTheBarAndKeepsItsRealFigure() {
+    // ADS reads past 100 under draft and is not clipped where it is printed; a bar has an end, so it
+    // pins — but the value it pinned from survives for anything that wants the real number.
+    val flatOut = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 130.0, overloadAt = 85.0)))))
+    assertEquals(1f, flatOut.fraction)
+    assertEquals(1.3f, flatOut.value)
+    assertTrue(flatOut.overloaded)
+    assertEquals("Engine load 130%, overloaded", flatOut.description)
+  }
+
+  @Test
+  fun beingOverThePointSurvivesHavingNowhereToDrawIt() {
+    // A player who moves ADS's point to 100% loses the notch — there is no room for one at the top —
+    // and must not lose the overload along with it. The state comes off the machine's own flag, so
+    // the bar can still colour itself and the screen reader still hears the word.
+    val topped = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 130.0, overloadAt = 100.0)))))
+    assertNull(topped.threshold, "nothing to mark at the very top")
+    assertTrue(topped.overloaded)
+    assertEquals(1f, topped.fraction)
+    assertEquals("Engine load 130%, overloaded", topped.description)
+
+    // …and the same machine working hard but inside its point is not overloaded.
+    val working = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 99.0, overloadAt = 100.0)))))
+    assertFalse(working.overloaded)
+    assertEquals("Engine load 99%", working.description)
+
+    // No ADS, no overload: the base game never charges for a hard-working engine.
+    val plain = assertNotNull(engineLoad(Vehicle(motor = Motor(load = Load(value = 100.0, max = 100)))))
+    assertFalse(plain.overloaded)
+    assertEquals("Engine load 100%", plain.description)
+  }
+
   @Test
   fun theGearCarriesItsGroupWhenThereIsOne() {
     assertEquals("E2", gearText(Vehicle(motor = Motor(gear = Gear(value = "2", group = "E")))))

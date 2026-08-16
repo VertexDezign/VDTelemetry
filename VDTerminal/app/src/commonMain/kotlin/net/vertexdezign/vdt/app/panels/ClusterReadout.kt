@@ -3,6 +3,7 @@ package net.vertexdezign.vdt.app.panels
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,9 +19,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -96,8 +101,19 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   val rpm by animateFloatAsState((motor?.rpm?.value ?: 0).toFloat(), spec, label = "cluster-rpm")
   val speed by animateFloatAsState(vehicle.speed?.value ?: 0f, spec, label = "cluster-speed")
 
+  // How hard the engine is working, as a gauge beside the speed it is working at — see [engineLoad].
+  // Tweened like the two numbers, and for the same reason: a bar that stepped once a sample would
+  // twitch where the load is genuinely continuous.
+  val load = engineLoad(vehicle)
+  val loadFill by animateFloatAsState(load?.fraction ?: 0f, spec, label = "cluster-load")
+
   val redline =
     motor?.rpm?.let { it.max > it.min && (rpm - it.min) / (it.max - it.min).toFloat() >= REDLINE_FRACTION } == true
+
+  // Switched off: the tile draws its ghost layer and nothing else. Every line below is still built,
+  // so the panel that comes back when the key is turned is the same panel with its power on — see
+  // [clusterDark], and [Line]'s `unlit`.
+  val dark = clusterDark(vehicle)
 
   val cruise = vehicle.cruiseControl?.targetSpeed
   val gear = gearText(vehicle)
@@ -109,7 +125,11 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // the brake off and we will". Neutral is excluded: an `N` at a standstill is simply true, and there
   // is nothing provisional about it to flash. Only built while it is actually needed, so the pillar
   // phone isn't animating a frame at a time all the while it is parked.
-  val holding = symbol?.icon != null && vehicle.speed?.direction == DriveDirection.STOPPED
+  //
+  // Never on a dead machine, which is a standstill that will not end until someone turns a key. That
+  // was the one thing on this tile that flashed *for ever* on a parked tractor, a promise about a
+  // machine that cannot move.
+  val holding = !dark && symbol?.icon != null && vehicle.speed?.direction == DriveDirection.STOPPED
 
   // How the machine is set up to be driven, which rides beside the gear — the two are one thought,
   // and this is the middle of the cluster where a driver looks for what the machine is *in*.
@@ -118,7 +138,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // machine with steering modes is quite likely to report no gear at all (a telehandler does), and
   // these must not disappear along with a field they have nothing to do with.
   val steering = steeringMarks(vehicle)
-  val blink = if (holding || steering.any { it.blinks }) clusterBlinkPhase() else null
+  val blink = if (!dark && (holding || steering.any { it.blinks })) clusterBlinkPhase() else null
 
   // Steering assist rides on the cruise line, where it belongs: both are the machine holding
   // something for the driver — a speed, a line — and both are switched on the same way, armed first
@@ -174,6 +194,8 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           valueColour = if (redline) ClusterColors.Warn else ClusterColors.Digits,
           size = digit,
           label = "RPM",
+          gauge = load?.let { LineGauge(loadFill, it.threshold, it.overloaded, it.description) },
+          unlit = dark,
         )
         // The reverser rides on the speed rather than on the gear below it, because a gear line is
         // not a given — a combine or a telehandler reports none — and the direction the machine is
@@ -190,6 +212,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           noteColour = symbol?.colour ?: ClusterColors.Digits,
           noteBlinks = holding,
           blink = blink,
+          unlit = dark,
         )
         // Cruise, amber because it is a value the driver set rather than one the machine reports.
         // Dimmed when armed but not engaged, so "53 is what it will hold" and "53 is what it is
@@ -205,6 +228,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             labelColour = if (engaged) ClusterColors.Set else ClusterColors.Label,
             marks = cruiseMarks,
             blink = blink,
+            unlit = dark,
           )
         }
         // What the transmission is in. Amber like the cruise, and for the same reason — both are the
@@ -224,10 +248,14 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             face = SegmentFace.Alphanumeric,
             marks = gearMarks,
             blink = blink,
+            unlit = dark,
           )
         }
+        // The hour meter, and the one thing on the tile that is a *value* set in the caption face
+        // rather than in segments — so a dark panel drops its text instead of ghosting it. The empty
+        // caption stays in the layout, because the line it occupies is the line it will occupy again.
         vehicle.operatingTime?.let {
-          ClusterLabel("${it.value}${it.unit}", Modifier.fillMaxWidth(), align = TextAlign.End)
+          ClusterLabel(if (dark) "" else "${it.value}${it.unit}", Modifier.fillMaxWidth(), align = TextAlign.End)
         }
       }
     }
@@ -314,9 +342,94 @@ internal data class LineMark(
 )
 
 /**
+ * A slim vertical gauge standing over a line's label, filling from the bottom.
+ *
+ * The one thing on this tile that is a *proportion* rather than a figure, and it is drawn as one:
+ * engine load is read as "how much of what it has is it using", which a bar answers at a glance and a
+ * two-digit percentage does not. It shares the label column with the word under it, so it costs the
+ * readout no line of its own — the column is 9sp of caption against digits many times that, and all
+ * the room above it was empty.
+ *
+ * [threshold] is where the machine starts being charged for the load, as a share of the bar (see
+ * [engineLoad]). Past it the fill goes amber — but the point is marked in the bar as a notch as well,
+ * so *crossing a line* is what says you are over it: on a gauge this small, a colour nobody can
+ * separate from the one below it would be the whole signal, and there is a standing rule here against
+ * that. Absent on a machine that reports no such point, where a full bar is simply a working engine.
+ *
+ * [overloaded] is the state itself, as the machine reports it, and is deliberately **not** read off
+ * [threshold]: that is a drawing position, and it is dropped when it would land on the bar's own end
+ * cap. A player who moves the point to 100% still has an overload worth being told about, and with no
+ * notch to cross the bar says it by going amber over its whole length instead. That still leaves two
+ * channels rather than one — the amber is darker than the neutral it replaces, and it only ever
+ * happens on a bar already standing at full.
+ */
+internal data class LineGauge(
+  val fraction: Float,
+  val threshold: Float? = null,
+  val overloaded: Boolean = false,
+  /** For a screen reader; the bar is otherwise unlabelled — the line's own caption sits under it. */
+  val description: String,
+)
+
+/** Of the line's digit size: the bar's height, and its width. */
+private const val GAUGE_HEIGHT = 0.65f
+private const val GAUGE_WIDTH = 0.14f
+
+/** …held between these, so it is neither a hairline on a pillar screen nor a slab on a phone. */
+private const val GAUGE_MIN_WIDTH = 4f
+private const val GAUGE_MAX_WIDTH = 10f
+
+/** Between the bar and the caption under it. */
+private val GAUGE_GAP = 3.dp
+
+/** The break cut across the bar at [LineGauge.threshold]. */
+private val GAUGE_NOTCH = 1.5.dp
+
+/**
+ * The bar itself: the whole of it at the ghost level, and the load standing in it from the bottom.
+ *
+ * The ghost is the same idea as the unlit segments behind a number — the part of the gauge the load
+ * has not reached is still visibly part of the gauge — which is also what makes [unlit] cost nothing
+ * here: a dark panel simply draws no fill.
+ */
+@Composable
+private fun Gauge(gauge: LineGauge, size: Float, unlit: Boolean) {
+  val width = (size * GAUGE_WIDTH).coerceIn(GAUGE_MIN_WIDTH, GAUGE_MAX_WIDTH)
+  Canvas(
+    Modifier
+      .padding(bottom = GAUGE_GAP)
+      .size(width.dp, (size * GAUGE_HEIGHT).dp)
+      .semantics { contentDescription = gauge.description },
+  ) {
+    drawRect(ClusterColors.Fill.ghosted())
+    if (unlit) return@Canvas
+
+    // Measured down from the top, since the bar fills upwards.
+    val top = this.size.height * (1f - gauge.fraction.coerceIn(0f, 1f))
+    val limit = gauge.threshold?.let { this.size.height * (1f - it.coerceIn(0f, 1f)) }
+    if (limit != null && top < limit) {
+      drawRect(ClusterColors.Fill, Offset(0f, limit), Size(this.size.width, this.size.height - limit))
+      drawRect(ClusterColors.Set, Offset(0f, top), Size(this.size.width, limit - top))
+    } else {
+      // One colour for the lot — the neutral fill, or amber when the engine is over a point this bar
+      // has nowhere to draw. See [LineGauge.overloaded]; a notch that *is* drawn takes the branch
+      // above, so the two never both apply.
+      val paint = if (gauge.overloaded) ClusterColors.Set else ClusterColors.Fill
+      drawRect(paint, Offset(0f, top), Size(this.size.width, this.size.height - top))
+    }
+    // Cut last, so the notch reads against the fill and the ghost alike — the same way the level
+    // strip cuts its bands, with the surface showing through.
+    limit?.let {
+      val notch = GAUGE_NOTCH.toPx()
+      drawRect(ClusterColors.Surface, Offset(0f, it - notch / 2), Size(this.size.width, notch))
+    }
+  }
+}
+
+/**
  * One line of the readout: the value in its cells, right-aligned, its [marks] out on the left, and
  * its unit with an optional second line of detail stacked in a column beside it — the direction
- * letter as [note].
+ * letter as [note], and an optional [gauge] standing over the lot.
  *
  * [face] is the line's own, since not every line is a number: see the gear. The [note] is always
  * alphanumeric, being a letter by definition.
@@ -324,6 +437,12 @@ internal data class LineMark(
  * [blink] drives whatever has asked to flash — a mark that set `blinks`, and the note when
  * [noteBlinks] — and leaves the value alone: it is the direction that is provisional at a standstill,
  * not the speed it sits beside.
+ *
+ * [unlit] is the whole line with no power behind it, for a machine that is switched off (see
+ * [clusterDark]). Every field keeps its place and loses its contents: the cells and the note keep
+ * their shapes with nothing lit in them, the labels and the marks fall to the ghost level, and
+ * nothing flashes. It is drawn here rather than by the caller blanking things itself so that a line
+ * cannot go half dark — and so the layout is bit for bit the one that comes back when the key turns.
  */
 @Composable
 private fun Line(
@@ -339,6 +458,8 @@ private fun Line(
   noteBlinks: Boolean = false,
   marks: List<LineMark> = emptyList(),
   blink: (() -> Float)? = null,
+  gauge: LineGauge? = null,
+  unlit: Boolean = false,
 ) {
   Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
     // The marks' slot, out on the left and held open on every line whether or not anything is in it.
@@ -355,7 +476,11 @@ private fun Line(
         // In the draw layer, so a flashing mark costs a repaint per frame and not a recomposition of
         // the line it is on. On the whole mark rather than on the glyph inside it, so a captioned one
         // fades as a piece — the word is part of the lamp, not a label beside it.
-        val fade = Modifier.graphicsLayer { alpha = mark.alpha * if (mark.blinks) blinkAlpha(blink) else 1f }
+        // Named rather than read off `mark` inside the layer block: `alpha` in there is the layer's
+        // own property, so an unqualified read would be the layer's and not this mark's.
+        val markAlpha = if (unlit) GHOST_ALPHA else mark.alpha
+        val flashing = mark.blinks && !unlit
+        val fade = Modifier.graphicsLayer { alpha = markAlpha * if (flashing) blinkAlpha(blink) else 1f }
         Column(Modifier.width(cell.dp).then(fade), horizontalAlignment = Alignment.CenterHorizontally) {
           // The glyph keeps the whole cell whether or not it is captioned. The caption hangs *below*
           // the cell instead of dividing it — a line is a good half taller than its marks' slot (the
@@ -383,19 +508,27 @@ private fun Line(
       }
     }
     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-      ClusterDigits(value, cells, size.sp, valueColour, face = face)
+      // Blank rather than absent: [ClusterDigits] then draws the cells with nothing lit in them,
+      // which is the field switched off rather than the field taken away.
+      ClusterDigits(if (unlit) "" else value, cells, size.sp, valueColour, face = face)
     }
     Column(
       Modifier.padding(start = LABEL_GAP).width(LABEL_COLUMN - LABEL_GAP),
       horizontalAlignment = Alignment.Start,
     ) {
-      ClusterLabel(label, color = labelColour)
+      // Above the caption, which is where the room is: the column is bottom-aligned against digits
+      // several times its own height, so the bar stands in space that was empty.
+      gauge?.let { Gauge(it, size, unlit) }
+      ClusterLabel(label, color = if (unlit) labelColour.ghosted() else labelColour)
       note?.let {
-        Box(Modifier.graphicsLayer { alpha = if (noteBlinks) blinkAlpha(blink) else 1f }) {
+        Box(Modifier.graphicsLayer { alpha = if (noteBlinks && !unlit) blinkAlpha(blink) else 1f }) {
           // The fourteen-segment face: seven cannot draw a capital R or N, and a lowercase one beside
           // a full-height F reads as a smaller letter rather than a different one. See [SegmentFace].
+          //
+          // The cell count is the letter's either way, so an unlit note is a blank cell of exactly
+          // the size the letter will come back at.
           ClusterDigits(
-            it,
+            if (unlit) "" else it,
             cells = it.length,
             size = (size * NOTE_SCALE).sp,
             colour = noteColour,
@@ -568,6 +701,69 @@ private fun legacyDriveSymbol(vehicle: Vehicle): DriveSymbol? = when (vehicle.sp
   DriveDirection.BACKWARD -> DriveSymbol.Reverse
   else -> null
 }
+
+/**
+ * Engine load as a share of full load, and where this machine starts being charged for it — or
+ * **null on a machine that reports no load at all**, which draws no bar rather than an empty one.
+ *
+ * The source is the Engine and Transmission panel's, so the two cannot disagree: **Advanced Damage
+ * System's figure wherever there is one**, because that is what the mod shows in the cab and the one
+ * it charges engine wear against, and the plain engine load otherwise. The two are the same number
+ * everywhere except on a field with an implement down, where ADS adds the draft term.
+ *
+ * ADS's can read past 100 and is deliberately not clipped where it is *printed* — how far over you
+ * are is what you would change your driving for. A bar has an end, though, so here it pins at full
+ * and the figure itself stays on the panel that can show it.
+ *
+ * [threshold] is only offered when it falls inside the bar. ADS ships 85%, and a player can move it;
+ * a threshold sitting at the very top would be a notch in the bar's own end cap, saying nothing.
+ * Being *over* the point is carried separately, by [EngineLoad.overloaded] — a notch is a place to
+ * draw and can be missing, whereas the state is true either way.
+ */
+internal fun engineLoad(vehicle: Vehicle): EngineLoad? {
+  vehicle.ads?.load?.let { load ->
+    return EngineLoad(
+      value = (load.value / FULL_LOAD).toFloat(),
+      threshold = (load.overloadAt / FULL_LOAD).toFloat().takeIf { it > 0f && it < 1f },
+      // ADS's own flag rather than our two numbers compared again: it is what the Engine and
+      // Transmission panel colours its figure by, and one of the two reading an engine as overloaded
+      // while the other didn't is exactly the disagreement this whole function exists to avoid.
+      overloaded = load.overloaded,
+      description = loadDescription(load.value, load.overloaded),
+    )
+  }
+  val load = vehicle.motor?.load ?: return null
+  // Read against the gauge's own ends where it declares them, as the level strip reads its own bars;
+  // the mod sends 0..100, but the bar should follow the scale rather than assume it.
+  val span = (load.max - load.min).toFloat()
+  val value = if (span > 0f) (load.value.toFloat() - load.min) / span else (load.value / FULL_LOAD).toFloat()
+  // No threshold and no overload without ADS: the base game charges nothing for a hard-working
+  // engine, and a zone we invented would be a warning about something that is not wrong.
+  return EngineLoad(value, threshold = null, overloaded = false, description = loadDescription(load.value, false))
+}
+
+/**
+ * What [engineLoad] found. [value] is the share as reported and can read past 1 under Advanced
+ * Damage System; [fraction] is that pinned to the bar, which has an end.
+ *
+ * [overloaded] is the machine's own answer to "is this costing me", so it survives a [threshold] the
+ * bar had nowhere to draw — and it is the one part of this a screen reader can be given, which is why
+ * it is in [description] as a word rather than left to the colour.
+ */
+internal data class EngineLoad(
+  val value: Float,
+  val threshold: Float?,
+  val overloaded: Boolean,
+  val description: String,
+) {
+  val fraction: Float get() = value.coerceIn(0f, 1f)
+}
+
+private fun loadDescription(percent: Double, overloaded: Boolean): String =
+  "Engine load ${percent.roundToInt()}%" + if (overloaded) ", overloaded" else ""
+
+/** Both load figures are percentages, so the bar's full length is 100 of them. */
+private const val FULL_LOAD = 100.0
 
 /**
  * What the transmission is in: the gear, or `N` in neutral, prefixed by its group where the vehicle

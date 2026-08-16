@@ -230,6 +230,15 @@ tractor puts between the windscreen and the right-hand window:
   It comes from `motor.direction` (mod version 6), *not* from the engine's `getReverserDirection()` —
   that is written only by the reversible-driving-position specialization (the seat swivelled round),
   so on an ordinary tractor it reads forward for ever.
+
+  **A switched-off machine has a switched-off display.** The readout and the level strip fall to
+  their ghost layer — unlit cells where the numbers were, empty frames where the levels were, and
+  nothing flashing — so whether the machine is running is answered the way the panel this copies
+  answers it, by being on or off. Only `MotorState.OFF` is dark: a key rested at the ignition lock
+  lights a real dashboard, and that is where the bulb check runs, so the panel wakes as the key turns
+  and reads zeros until the engine catches. The **telltale band stays lit**, because a parked machine
+  can genuinely have its beacon on or its hazards going (`Lights:onStopMotor` re-applies the light
+  mask rather than clearing it) and the band is the only place that shows it.
 - **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, a CVT's own
   transmission temperature where Advanced Damage System reports one, then the engine's fuel, DEF and
   air. The two temperatures are told apart by their glyphs — a thermometer over water, and one over a
@@ -238,11 +247,22 @@ tractor puts between the windscreen and the right-hand window:
   trouble *starts* is visible before you are in it. Engine gauges only; what's in the hopper changes
   shape as you hitch things up and belongs to the rig-slot tiles, which name it and give figures.
 
-Engine **load** arrived with the same work but is not part of the cluster: it goes on the Engine and
-Transmission panel, having been exported since long before this and drawn nowhere. Advanced Damage
+Engine **load** is on both. On the Engine and Transmission panel it is a figure; on the cluster's
+readout it is a slim vertical bar standing over the `RPM` caption, filling from the bottom — load is
+read as "how much of what it has is it using", which a bar answers at a glance and a two-digit
+percentage does not, and the label column had all that height going spare. Both take Advanced Damage
 System's figure where there is one, since that is what the mod shows in the cab and what it charges
-engine wear against; it goes amber past the mod's own overload threshold, and is deliberately not
-clipped at 100%, because how far over you are is the part you would change your driving for.
+engine wear against; it is deliberately not clipped at 100% **where it is printed**, because how far
+over you are is the part you would change your driving for. A bar has an end, so it pins at full and
+the real number stays on the panel that can show it.
+
+Past the overload threshold the bar's fill goes amber — but that point is also **notched into the
+bar**, so what says you are over it is the fill crossing a line rather than a colour. ADS ships 85%
+and a player can move it; the notch travels with the setting, and is absent when it would land on the
+bar's own end cap — where the fill then goes amber over its whole length instead, since the overload
+is ADS's own flag and does not go away with the place to draw it. Without ADS there is no notch at
+all: the base game charges nothing for a hard-working engine, and a zone we invented would be a
+warning about something that is not wrong.
 
 They're ordinary widgets, placeable anywhere, and they render dark rather than in the usual panel
 chrome. A seeded **Pillar** page stacks three of them — lamps, readout, levels, top to bottom, which

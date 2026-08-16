@@ -54,9 +54,25 @@ function VDT.Motor.collect(vehicle)
   local motor = mSpec:getMotor()
   local gearGroup, hasGearGroups = motor:getGearGroupToDisplay()
 
+  local state = ValueMapper.mapMotorState(mSpec:getMotorState())
+
+  -- Whether the crankshaft is actually going round: the engine running, or the starter turning it
+  -- over. Exactly the test the engine itself makes before it lets the motor keep a speed
+  -- (Motorized:setMotorState zeroes `lastMotorRpm` for every other state), applied here at read time
+  -- instead of at the moment the state changed.
+  --
+  -- Both readings below go stale rather than fall away when the motor stops, because the engine only
+  -- updates them while it is running (`Motorized:onUpdate` skips VehicleMotor:update entirely) — and
+  -- the one-shot zeroing at the state change does not survive a multiplayer client applying an rpm
+  -- update that was already in flight behind the stop event. That leaves an idle's worth of exponential
+  -- smoothing behind: the client's own update is `last * 0.95 + incoming * 0.05`, which is where the
+  -- stubborn sub-100 rpm on a stopped engine came from (issue #94). A stopped engine turns at zero and
+  -- pulls nothing, so say so rather than repeating whatever the engine last happened to hold.
+  local isTurning = state == "ON" or state == "STARTING"
+
   ---@type MotorModel
   local model = {
-    state = ValueMapper.mapMotorState(mSpec:getMotorState()),
+    state = state,
     temperatur = {
       value = math.floor(mSpec.motorTemperature.value),
       min = math.floor(mSpec.motorTemperature.valueMin),
@@ -64,12 +80,12 @@ function VDT.Motor.collect(vehicle)
       unit = "°C",
     },
     rpm = {
-      value = math.floor(motor:getLastMotorRpm()),
+      value = isTurning and math.floor(motor:getLastMotorRpm()) or 0,
       min = 0,
       max = math.floor(motor:getMaxRpm()),
     },
     load = {
-      value = tonumber(ValueMapper.mapMotorLoad(motor:getSmoothLoadPercentage())),
+      value = isTurning and tonumber(ValueMapper.mapMotorLoad(motor:getSmoothLoadPercentage())) or 0,
       min = 0,
       max = 100,
       unit = "%",

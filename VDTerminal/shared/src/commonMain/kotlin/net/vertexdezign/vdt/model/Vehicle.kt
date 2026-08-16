@@ -190,6 +190,15 @@ data class Temperatur(
   val unit: String = "",
 )
 
+/**
+ * Engine speed, and the face of the gauge it is read on.
+ *
+ * [value] is **0 whenever the crankshaft is not turning** (mod version 15) — neither
+ * [MotorState.ON] nor [MotorState.STARTING]. The game stops updating its own figure when the motor
+ * stops rather than clearing it, and on a multiplayer client a smoothed remnant of idle used to
+ * survive the shutdown and sit under 100 rpm on a machine that was plainly off. [min] / [max] are
+ * the scale's ends and keep describing it whatever the engine is doing.
+ */
 @Serializable
 data class Rpm(
   val value: Int = 0,
@@ -197,6 +206,7 @@ data class Rpm(
   val max: Int = 0,
 )
 
+/** Engine load in percent. [value] is 0 on a stopped engine, on the same rule as [Rpm.value]. */
 @Serializable
 data class Load(
   val value: Double = 0.0,

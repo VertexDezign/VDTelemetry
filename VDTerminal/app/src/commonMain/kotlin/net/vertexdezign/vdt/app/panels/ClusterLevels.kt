@@ -81,6 +81,10 @@ internal data class Level(
 @Composable
 fun ClusterLevels(vehicle: Vehicle, modifier: Modifier = Modifier) {
   val levels = levelsOf(vehicle)
+  // Switched off: empty frames and ghosted icons, the same tile with its power off. Which bars the
+  // machine has is still worked out, because a strip that changed shape as the key turned would be a
+  // different gauge cluster rather than the same one lighting up. See [clusterDark].
+  val dark = clusterDark(vehicle)
   ClusterSurface(modifier) {
     if (levels.isEmpty()) {
       Text("-", color = ClusterColors.Dim, fontFamily = clusterDigitFont(), modifier = Modifier.align(Alignment.Center))
@@ -96,7 +100,7 @@ fun ClusterLevels(vehicle: Vehicle, modifier: Modifier = Modifier) {
       ) {
         // An equal share of the width each, up to that cap: a bar's job is to be compared with its
         // neighbour, not to be big.
-        for (level in levels) LevelBar(level, Modifier.weight(1f).widthIn(max = cap).fillMaxHeight())
+        for (level in levels) LevelBar(level, dark, Modifier.weight(1f).widthIn(max = cap).fillMaxHeight())
       }
     }
   }
@@ -171,10 +175,17 @@ private val SEGMENT_GAP = 1.5.dp
  *
  * Segmented rather than solid because a solid column has no scale on it: ten bands make a half-full
  * tank readable as five without a number beside it, and put the reserve at exactly one band.
+ *
+ * [unlit] is the bar with no power behind it: the frame at the ghost level, nothing standing in it,
+ * and the icon ghosted with it. An empty frame is the honest picture — the tank is as full as it
+ * ever was, and a machine that is switched off is not telling you about it.
  */
 @Composable
-private fun LevelBar(level: Level, modifier: Modifier = Modifier) {
+private fun LevelBar(level: Level, unlit: Boolean, modifier: Modifier = Modifier) {
+  // No warning colour on a dark panel: a red frame on a tile that is reporting nothing would be a
+  // fault nobody can act on until they have started the machine and read it again.
   val state = when {
+    unlit -> null
     level.severity >= 1f - CRITICAL_FRACTION -> ClusterColors.Warn
     level.severity > 1f - LOW_FRACTION -> ClusterColors.Set
     else -> null
@@ -186,10 +197,12 @@ private fun LevelBar(level: Level, modifier: Modifier = Modifier) {
 
       // The frame first, and the level inside it, so the two never overlap and the level's own width
       // stays the same whatever the frame is doing.
-      drawFrame(level.danger, frame)
-      val inner = Offset(frame, 0f)
-      val innerSize = Size(size.width - 2 * frame, size.height - frame)
-      drawLevel(level.fraction, state ?: ClusterColors.Fill, inner, innerSize, gap)
+      drawFrame(level.danger, frame, unlit)
+      if (!unlit) {
+        val inner = Offset(frame, 0f)
+        val innerSize = Size(size.width - 2 * frame, size.height - frame)
+        drawLevel(level.fraction, state ?: ClusterColors.Fill, inner, innerSize, gap)
+      }
     }
     // Icon only, as on the reference: a pump, a droplet and a thermometer need no caption, and the
     // bars are in a fixed order anyway. The label lives on for the screen reader — and it is the icon
@@ -197,7 +210,7 @@ private fun LevelBar(level: Level, modifier: Modifier = Modifier) {
     Icon(
       level.icon,
       contentDescription = level.label,
-      tint = state ?: ClusterColors.Fill,
+      tint = (state ?: ClusterColors.Fill).let { if (unlit) it.ghosted() else it },
       modifier = Modifier.padding(top = ICON_GAP).size(ICON_SIZE),
     )
   }
@@ -207,19 +220,24 @@ private fun LevelBar(level: Level, modifier: Modifier = Modifier) {
  * The frame: left, bottom and right, open at the top exactly as the reference draws it, green over
  * the working range and red across the tenth where the gauge is in trouble — the bottom for a tank,
  * the top for a temperature.
+ *
+ * [unlit] draws the same frame at the ghost level, which is the printed scale on an unpowered
+ * display: still visibly a gauge, telling you nothing.
  */
-private fun DrawScope.drawFrame(danger: Danger, frame: Float) {
+private fun DrawScope.drawFrame(danger: Danger, frame: Float, unlit: Boolean = false) {
   val height = size.height - frame
   val bad = height * CRITICAL_FRACTION
   val badTop = if (danger == Danger.Low) height - bad else 0f
+  val good = if (unlit) ClusterColors.Go.ghosted() else ClusterColors.Go
+  val trouble = if (unlit) ClusterColors.Warn.ghosted() else ClusterColors.Warn
 
   for (x in listOf(0f, size.width - frame)) {
-    drawRect(ClusterColors.Go, Offset(x, 0f), Size(frame, height))
-    drawRect(ClusterColors.Warn, Offset(x, badTop), Size(frame, bad))
+    drawRect(good, Offset(x, 0f), Size(frame, height))
+    drawRect(trouble, Offset(x, badTop), Size(frame, bad))
   }
   // The bottom edge closes the frame, and belongs to whichever end the trouble is at.
   drawRect(
-    if (danger == Danger.Low) ClusterColors.Warn else ClusterColors.Go,
+    if (danger == Danger.Low) trouble else good,
     Offset(0f, height),
     Size(size.width, frame),
   )
