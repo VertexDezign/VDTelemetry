@@ -76,7 +76,7 @@ jobs:
       # StyLua is the mod's formatter (config in vdTelemetry/stylua.toml); this only checks
       # formatting — run `stylua vdTelemetry` locally to apply.
       - name: Check Lua formatting (StyLua)
-        uses: JohnnyMorganz/stylua-action@v4
+        uses: JohnnyMorganz/stylua-action@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           version: v2.5.2
