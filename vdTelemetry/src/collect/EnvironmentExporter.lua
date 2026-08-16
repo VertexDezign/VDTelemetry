@@ -21,12 +21,15 @@ function VDT.EnvironmentExporter.collect(pda)
   local weather = environment.weather
   local minTemperatureInC, maxTemperatureInC = weather:getCurrentMinMaxTemperatures()
   local currentTemperatureInC = weather.forecast:getCurrentWeather()
+  -- getTemperature converts to the player's chosen unit, so the unit label has to come from g_i18n
+  -- too: hardcoding "°C" here reported Fahrenheit values under a Celsius label for anyone who had
+  -- switched. Same pairing as the weather channel (src/collect/WeatherExporter.lua).
   model.weather = {
     temperature = {
       min = MathUtil.round(g_i18n:getTemperature(minTemperatureInC), 0),
       max = MathUtil.round(g_i18n:getTemperature(maxTemperatureInC), 0),
       current = MathUtil.round(g_i18n:getTemperature(currentTemperatureInC.temperature), 0),
-      unit = "°C",
+      unit = g_i18n:getTemperatureUnit(false),
     },
   }
 
