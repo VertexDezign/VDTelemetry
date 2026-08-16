@@ -174,9 +174,51 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  # The dashboard's wasm bundle, built once on Linux for every download.
+  #
+  # It is the same bytes whoever builds it — no per-OS content, and nothing the release version
+  # reaches — so the only reason it was ever built per runner was that it sat in the same Gradle
+  # invocation as jpackage. Splitting it off is what keeps the Kotlin/Wasm npm install away from
+  # the Windows runner, where it repeatedly failed to leave a usable node_modules behind and took
+  # the release with it. `--no-parallel` for the same install's sake: two concurrent yarn processes
+  # share one cache, which is the race that made it flaky here in the first place.
+  web:
+    name: Dashboard bundle
+    needs: [version, verify]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: VDTerminal
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build the dashboard bundle
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: ./gradlew :app:wasmJsBrowserDistribution -PvdtVersion="$VERSION" --no-parallel --stacktrace
+
+      # if-no-files-found: error, so an empty bundle fails here rather than becoming a blank page
+      # in three downloads.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web-bundle
+          path: VDTerminal/app/build/dist/wasmJs/productionExecutable
+          if-no-files-found: error
+
   terminal:
     name: Terminal (${{ matrix.label }})
-    needs: [version, verify]
+    needs: [version, verify, web]
     strategy:
       fail-fast: false
       matrix:
@@ -210,35 +252,36 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # jpackage cannot cross-compile, which is the whole reason this job is a matrix.
+      # Into build/, which is git-ignored, so a local run of the same commands leaves nothing behind.
+      - name: Fetch the dashboard bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-bundle
+          path: VDTerminal/build/web-bundle
+
+      # jpackage cannot cross-compile, which is the whole reason this job is a matrix. Only jpackage
+      # is: `-PvdtWebBundle` hands the server the bundle the `web` job already built, so what runs
+      # here is Kotlin/JVM and jpackage and nothing else — no node, no yarn, no webpack. The build
+      # script fails outright if the bundle didn't arrive, rather than packaging a blank dashboard.
       #
       # The version reaches the shell through `env:` rather than being expanded into the script:
       # it is derived from the pushed tag name, and a tag name is free text that would otherwise
       # be pasted straight into a command line.
-      #
-      # `--no-parallel` overrides the checked-in org.gradle.parallel=true. With it on, Gradle 9 runs
-      # `kotlinWasmNpmInstall` and `kotlinWasmToolingSetup` at the same time, and the two yarn
-      # processes share one global cache -- the build log says as much ("Waiting for the other yarn
-      # instance to finish"). A package that loses that race is linked into node_modules
-      # half-extracted while yarn still exits 0, and the failure surfaces minutes later as webpack
-      # being unable to resolve it. It cost a Windows release exactly that way, on @js-joda/core --
-      # the only bare specifier in the whole bundle, so nothing else is even in a position to fail.
-      # A couple of minutes on a seven-minute job is a cheap price for a release that doesn't race.
       - name: Build app image
         env:
           VERSION: ${{ needs.version.outputs.version }}
-        run: ./gradlew :server:packageRelease -PvdtVersion="$VERSION" --no-parallel --stacktrace
+        run: |
+          ./gradlew :server:packageRelease \
+            -PvdtVersion="$VERSION" -PvdtWebBundle=build/web-bundle --stacktrace
 
       # The bring-your-own-JDK archive, for anything the two app images don't cover. Built once.
-      # `--no-parallel` for the same reason as above: this one packs the same wasm bundle, so it
-      # reaches the same npm install and can lose the same race.
       - name: Build portable archive
         if: matrix.label == 'linux'
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           set -euo pipefail
-          ./gradlew :server:distZip -PvdtVersion="$VERSION" --no-parallel
+          ./gradlew :server:distZip -PvdtVersion="$VERSION" -PvdtWebBundle=build/web-bundle
           mv "server/build/distributions/server-${VERSION}.zip" \
              "server/build/release/VDTerminal-${VERSION}-portable.zip"
 
@@ -323,8 +366,17 @@ jobs:
         with:
           persist-credentials: false
 
+      # Named, not "everything this run produced": `dist/*` becomes the release's asset list, and
+      # the run also carries the intermediate `web-bundle` the terminal jobs were built from, which
+      # has no business being a download.
       - uses: actions/download-artifact@v8
         with:
+          name: mod
+          path: dist
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: terminal-*
           path: dist
           merge-multiple: true
 
