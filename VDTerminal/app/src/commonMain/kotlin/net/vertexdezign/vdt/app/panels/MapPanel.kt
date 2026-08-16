@@ -308,8 +308,9 @@ fun MapPanel(
   var highlight by remember { mutableStateOf<Offset?>(null) }
   var dragOffset by remember { mutableStateOf(Offset.Zero) }
   var sidePx by remember { mutableFloatStateOf(0f) }
-  // How much room the section strip is taking along the bottom edge, so the ground-layer legend in the
-  // same corner clears it. Measured rather than assumed: the strip's height follows the text scale.
+  // How much room the section strip is taking along the bottom edge, so the two things anchored to
+  // that edge — the ground-layer legend and the field-info popup — clear it. It spans the full width,
+  // so both corners owe it the same. Measured rather than assumed: its height follows the text scale.
   var sectionStripHeight by remember { mutableStateOf(0.dp) }
   val player = pda?.player
 
@@ -792,12 +793,15 @@ fun MapPanel(
             info = fieldInfo?.fields?.firstOrNull { it.id == id },
             farms = mapData.farms,
             playerFarmId = player?.farmId,
+            bottomInset = sectionStripHeight,
             onClose = { selectedFieldId = null },
           )
         }
       }
 
       // Ground-layer legend, only while a layer is actually selected and its own raster is showing.
+      // Bottom-end, opposite the field popup above — the two shared that corner and drew over each
+      // other (issue #95).
       if (activeLayerInfo != null && shownLayerBitmap != null) {
         GroundLayerLegend(activeLayerInfo.legend, side, bottomInset = sectionStripHeight)
       }
@@ -1458,15 +1462,25 @@ private fun BoxScope.MapDataOverlay(
  * gradient's 8 steps all share the "Growing" label, so this collapses them to a single swatch).
  * Capped at ~40% of the map's side so a long soil/crop legend doesn't dominate the panel.
  *
- * [bottomInset] is the room the section strip has claimed along the same edge — the legend stacks on
- * top of it rather than under it, since the strip is the thing being read while driving.
+ * Bottom-**end**, and the field-info popup keeps bottom-start. The two used to share that corner and
+ * simply drew over each other (issue #95): tapping a field on a map with a ground layer up buried
+ * the legend under 230dp of agronomy. They can't be stacked either — the popup runs to 320dp and the
+ * legend to 40% of the map, which is more than a widget-sized tile has to give — so they get a
+ * corner each. This is the one that moved, being much the smaller of the two, and a legend in the
+ * bottom-right corner is where a map normally keeps one anyway. A long filter popover can still
+ * reach down the same side and cover it — that one is drawn over everything map-related by design,
+ * and it is open only while it is being used.
+ *
+ * [bottomInset] is the room the section strip has claimed along the same edge — it spans the whole
+ * width, so both corners clear it, and both stack on top of it rather than under it since the strip
+ * is the thing being read while driving.
  */
 @Composable
 private fun BoxScope.GroundLayerLegend(legend: List<MapLayerLegendEntry>, side: Float, bottomInset: Dp = 0.dp) {
   val density = LocalDensity.current
   Column(
     Modifier
-      .align(Alignment.BottomStart)
+      .align(Alignment.BottomEnd)
       .padding(bottom = bottomInset)
       .padding(6.dp)
       .clip(RoundedCornerShape(4.dp))
@@ -1965,6 +1979,11 @@ private fun FilterRow(
  * is live — [info] is null when it isn't, and the popup then shows the geometry rows alone. Anchored
  * bottom-start over the map; its own tap handler swallows clicks so they don't fall through to the
  * map gestures (and so a tap inside it doesn't close it).
+ *
+ * It keeps that corner and the ground-layer legend has moved out of it — see [GroundLayerLegend] for
+ * why the two are not stacked. [bottomInset] is the room the section strip has taken along the same
+ * edge, which this has to clear for the same reason the legend does: the strip is what a driver is
+ * reading, and a popup they opened to look something up must not sit on top of it.
  */
 @Composable
 private fun BoxScope.FieldInfoPopup(
@@ -1972,11 +1991,13 @@ private fun BoxScope.FieldInfoPopup(
   info: FieldInfoEntry?,
   farms: List<MapFarm>,
   playerFarmId: Int?,
+  bottomInset: Dp = 0.dp,
   onClose: () -> Unit,
 ) {
   Column(
     Modifier
       .align(Alignment.BottomStart)
+      .padding(bottom = bottomInset)
       .padding(6.dp)
       .width(230.dp)
       .clip(RoundedCornerShape(4.dp))
