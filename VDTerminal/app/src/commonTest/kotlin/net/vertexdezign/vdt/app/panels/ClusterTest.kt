@@ -1,6 +1,8 @@
 package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.model.Ads
+import net.vertexdezign.vdt.model.AdsLoad
 import net.vertexdezign.vdt.model.DiffLock
 import net.vertexdezign.vdt.model.DriveDirection
 import net.vertexdezign.vdt.model.FillUnit
@@ -11,6 +13,7 @@ import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Indicator
 import net.vertexdezign.vdt.model.Light
 import net.vertexdezign.vdt.model.Lights
+import net.vertexdezign.vdt.model.Load
 import net.vertexdezign.vdt.model.Motor
 import net.vertexdezign.vdt.model.MotorFillUnits
 import net.vertexdezign.vdt.model.MotorState
@@ -273,6 +276,49 @@ class MaintenanceLampTest {
 
 /** What the big readout puts on each line. */
 class ClusterReadoutTest {
+  @Test
+  fun theLoadBarPrefersTheFigureTheCabIsShowing() {
+    // Advanced Damage System's wherever there is one, which is what the Engine and Transmission
+    // panel already draws — the two must not be able to disagree about what the engine is pulling.
+    val both =
+      Vehicle(
+        motor = Motor(load = Load(value = 40.0, max = 100)),
+        ads = Ads(load = AdsLoad(value = 70.0, overloadAt = 85.0)),
+      )
+    assertEquals(0.7f, engineLoad(both)?.fraction)
+    // …and the plain engine load on a game without the mod.
+    assertEquals(0.4f, engineLoad(Vehicle(motor = Motor(load = Load(value = 40.0, max = 100))))?.fraction)
+  }
+
+  @Test
+  fun aMachineThatReportsNoLoadDrawsNoBar() {
+    // An empty bar is a claim about an engine; no bar is the absence of one, which is the truth here.
+    assertNull(engineLoad(Vehicle()))
+    assertNull(engineLoad(Vehicle(motor = Motor())))
+  }
+
+  @Test
+  fun theOverloadPointIsMarkedOnlyWhenItFallsInsideTheBar() {
+    // ADS ships 85%, and a player can move it. At the very top there is nothing to mark: a notch in
+    // the bar's own end cap says nothing, and the fill reaching the end already says it.
+    val shipped = Vehicle(ads = Ads(load = AdsLoad(value = 50.0, overloadAt = 85.0)))
+    assertEquals(0.85f, engineLoad(shipped)?.threshold)
+    assertNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 50.0, overloadAt = 100.0))))?.threshold)
+    assertNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 50.0))))?.threshold, "no threshold reported")
+    // The base game charges nothing for a hard-working engine, so there is no point to mark at all.
+    assertNull(engineLoad(Vehicle(motor = Motor(load = Load(value = 99.0, max = 100))))?.threshold)
+  }
+
+  @Test
+  fun anOverloadedEngineFillsTheBarAndKeepsItsRealFigure() {
+    // ADS reads past 100 under draft and is not clipped where it is printed; a bar has an end, so it
+    // pins — but the value it pinned from survives for anything that wants the real number.
+    val flatOut = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 130.0, overloadAt = 85.0)))))
+    assertEquals(1f, flatOut.fraction)
+    assertEquals(1.3f, flatOut.value)
+    assertEquals("Engine load 130%", flatOut.description)
+  }
+
   @Test
   fun theGearCarriesItsGroupWhenThereIsOne() {
     assertEquals("E2", gearText(Vehicle(motor = Motor(gear = Gear(value = "2", group = "E")))))

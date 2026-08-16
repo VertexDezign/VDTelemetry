@@ -3,6 +3,7 @@ package net.vertexdezign.vdt.app.panels
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,9 +19,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,6 +100,12 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   val spec = tween<Float>(durationMillis = sampleIntervalMs, easing = LinearEasing)
   val rpm by animateFloatAsState((motor?.rpm?.value ?: 0).toFloat(), spec, label = "cluster-rpm")
   val speed by animateFloatAsState(vehicle.speed?.value ?: 0f, spec, label = "cluster-speed")
+
+  // How hard the engine is working, as a gauge beside the speed it is working at — see [engineLoad].
+  // Tweened like the two numbers, and for the same reason: a bar that stepped once a sample would
+  // twitch where the load is genuinely continuous.
+  val load = engineLoad(vehicle)
+  val loadFill by animateFloatAsState(load?.fraction ?: 0f, spec, label = "cluster-load")
 
   val redline =
     motor?.rpm?.let { it.max > it.min && (rpm - it.min) / (it.max - it.min).toFloat() >= REDLINE_FRACTION } == true
@@ -183,6 +194,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           valueColour = if (redline) ClusterColors.Warn else ClusterColors.Digits,
           size = digit,
           label = "RPM",
+          gauge = load?.let { LineGauge(loadFill, it.threshold, it.description) },
           unlit = dark,
         )
         // The reverser rides on the speed rather than on the gear below it, because a gear line is
@@ -330,9 +342,82 @@ internal data class LineMark(
 )
 
 /**
+ * A slim vertical gauge standing over a line's label, filling from the bottom.
+ *
+ * The one thing on this tile that is a *proportion* rather than a figure, and it is drawn as one:
+ * engine load is read as "how much of what it has is it using", which a bar answers at a glance and a
+ * two-digit percentage does not. It shares the label column with the word under it, so it costs the
+ * readout no line of its own — the column is 9sp of caption against digits many times that, and all
+ * the room above it was empty.
+ *
+ * [threshold] is where the machine starts being charged for the load, as a share of the bar (see
+ * [engineLoad]). Past it the fill goes amber — but the point is marked in the bar as a notch as well,
+ * so *crossing a line* is what says you are over it: on a gauge this small, a colour nobody can
+ * separate from the one below it would be the whole signal, and there is a standing rule here against
+ * that. Absent on a machine that reports no such point, where a full bar is simply a working engine.
+ */
+internal data class LineGauge(
+  val fraction: Float,
+  val threshold: Float? = null,
+  /** For a screen reader; the bar is otherwise unlabelled — the line's own caption sits under it. */
+  val description: String,
+)
+
+/** Of the line's digit size: the bar's height, and its width. */
+private const val GAUGE_HEIGHT = 0.65f
+private const val GAUGE_WIDTH = 0.14f
+
+/** …held between these, so it is neither a hairline on a pillar screen nor a slab on a phone. */
+private const val GAUGE_MIN_WIDTH = 4f
+private const val GAUGE_MAX_WIDTH = 10f
+
+/** Between the bar and the caption under it. */
+private val GAUGE_GAP = 3.dp
+
+/** The break cut across the bar at [LineGauge.threshold]. */
+private val GAUGE_NOTCH = 1.5.dp
+
+/**
+ * The bar itself: the whole of it at the ghost level, and the load standing in it from the bottom.
+ *
+ * The ghost is the same idea as the unlit segments behind a number — the part of the gauge the load
+ * has not reached is still visibly part of the gauge — which is also what makes [unlit] cost nothing
+ * here: a dark panel simply draws no fill.
+ */
+@Composable
+private fun Gauge(gauge: LineGauge, size: Float, unlit: Boolean) {
+  val width = (size * GAUGE_WIDTH).coerceIn(GAUGE_MIN_WIDTH, GAUGE_MAX_WIDTH)
+  Canvas(
+    Modifier
+      .padding(bottom = GAUGE_GAP)
+      .size(width.dp, (size * GAUGE_HEIGHT).dp)
+      .semantics { contentDescription = gauge.description },
+  ) {
+    drawRect(ClusterColors.Fill.ghosted())
+    if (unlit) return@Canvas
+
+    // Measured down from the top, since the bar fills upwards.
+    val top = this.size.height * (1f - gauge.fraction.coerceIn(0f, 1f))
+    val limit = gauge.threshold?.let { this.size.height * (1f - it.coerceIn(0f, 1f)) }
+    if (limit != null && top < limit) {
+      drawRect(ClusterColors.Fill, Offset(0f, limit), Size(this.size.width, this.size.height - limit))
+      drawRect(ClusterColors.Set, Offset(0f, top), Size(this.size.width, limit - top))
+    } else {
+      drawRect(ClusterColors.Fill, Offset(0f, top), Size(this.size.width, this.size.height - top))
+    }
+    // Cut last, so the notch reads against the fill and the ghost alike — the same way the level
+    // strip cuts its bands, with the surface showing through.
+    limit?.let {
+      val notch = GAUGE_NOTCH.toPx()
+      drawRect(ClusterColors.Surface, Offset(0f, it - notch / 2), Size(this.size.width, notch))
+    }
+  }
+}
+
+/**
  * One line of the readout: the value in its cells, right-aligned, its [marks] out on the left, and
  * its unit with an optional second line of detail stacked in a column beside it — the direction
- * letter as [note].
+ * letter as [note], and an optional [gauge] standing over the lot.
  *
  * [face] is the line's own, since not every line is a number: see the gear. The [note] is always
  * alphanumeric, being a letter by definition.
@@ -361,6 +446,7 @@ private fun Line(
   noteBlinks: Boolean = false,
   marks: List<LineMark> = emptyList(),
   blink: (() -> Float)? = null,
+  gauge: LineGauge? = null,
   unlit: Boolean = false,
 ) {
   Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
@@ -418,6 +504,9 @@ private fun Line(
       Modifier.padding(start = LABEL_GAP).width(LABEL_COLUMN - LABEL_GAP),
       horizontalAlignment = Alignment.Start,
     ) {
+      // Above the caption, which is where the room is: the column is bottom-aligned against digits
+      // several times its own height, so the bar stands in space that was empty.
+      gauge?.let { Gauge(it, size, unlit) }
       ClusterLabel(label, color = if (unlit) labelColour.ghosted() else labelColour)
       note?.let {
         Box(Modifier.graphicsLayer { alpha = if (noteBlinks && !unlit) blinkAlpha(blink) else 1f }) {
@@ -600,6 +689,53 @@ private fun legacyDriveSymbol(vehicle: Vehicle): DriveSymbol? = when (vehicle.sp
   DriveDirection.BACKWARD -> DriveSymbol.Reverse
   else -> null
 }
+
+/**
+ * Engine load as a share of full load, and where this machine starts being charged for it — or
+ * **null on a machine that reports no load at all**, which draws no bar rather than an empty one.
+ *
+ * The source is the Engine and Transmission panel's, so the two cannot disagree: **Advanced Damage
+ * System's figure wherever there is one**, because that is what the mod shows in the cab and the one
+ * it charges engine wear against, and the plain engine load otherwise. The two are the same number
+ * everywhere except on a field with an implement down, where ADS adds the draft term.
+ *
+ * ADS's can read past 100 and is deliberately not clipped where it is *printed* — how far over you
+ * are is what you would change your driving for. A bar has an end, though, so here it pins at full
+ * and the figure itself stays on the panel that can show it.
+ *
+ * [threshold] is only offered when it falls inside the bar. ADS ships 85%, and a player can move it;
+ * a threshold sitting at the very top would be a notch in the bar's own end cap, saying nothing.
+ */
+internal fun engineLoad(vehicle: Vehicle): EngineLoad? {
+  vehicle.ads?.load?.let { load ->
+    return EngineLoad(
+      value = (load.value / FULL_LOAD).toFloat(),
+      threshold = (load.overloadAt / FULL_LOAD).toFloat().takeIf { it > 0f && it < 1f },
+      description = loadDescription(load.value),
+    )
+  }
+  val load = vehicle.motor?.load ?: return null
+  // Read against the gauge's own ends where it declares them, as the level strip reads its own bars;
+  // the mod sends 0..100, but the bar should follow the scale rather than assume it.
+  val span = (load.max - load.min).toFloat()
+  val value = if (span > 0f) (load.value.toFloat() - load.min) / span else (load.value / FULL_LOAD).toFloat()
+  // No threshold without ADS: the base game charges nothing for a hard-working engine, and a zone we
+  // invented would be a warning about something that is not wrong.
+  return EngineLoad(value, threshold = null, description = loadDescription(load.value))
+}
+
+/**
+ * What [engineLoad] found. [value] is the share as reported and can read past 1 under Advanced
+ * Damage System; [fraction] is that pinned to the bar, which has an end.
+ */
+internal data class EngineLoad(val value: Float, val threshold: Float?, val description: String) {
+  val fraction: Float get() = value.coerceIn(0f, 1f)
+}
+
+private fun loadDescription(percent: Double): String = "Engine load ${percent.roundToInt()}%"
+
+/** Both load figures are percentages, so the bar's full length is 100 of them. */
+private const val FULL_LOAD = 100.0
 
 /**
  * What the transmission is in: the gear, or `N` in neutral, prefixed by its group where the vehicle
