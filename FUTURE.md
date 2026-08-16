@@ -500,11 +500,10 @@ bundled-JRE app image per OS with jpackage, and publishes a prerelease. What it 
   25, so the combination a player gets is the one CI smoke-tests; a developer's own `installDist` on 26 is not. The
   smoke test's "no `WARNING:` on startup" check is what would catch the next JDK tightening its native-access defaults,
   and it only runs on the release path.
-- **The version lives in two files** — `VDTerminal/build.gradle.kts` and `modDesc.xml` — and the workflow checks the
-  tag against both rather than generating them. A generator would be better; the check was cheaper and fails loudly,
-  which for one release a month is the right trade. (It was three until `fstools.toml`'s `version` came out: that one
-  was an override of modDesc's, so dropping it removed a copy rather than a source.)
-- **The release pins [FSTools](https://github.com/VertexDezign/FSTools) to `v0.1.0`.** CI packs the mod with the same
+- **A prerelease numbered `.0` collides with its own final release.** `v0.1.0-beta.0` and `v0.1.0` both derive the
+  modDesc version `0.1.0.0`, so the game would see no update between them. Prereleases are numbered from 1 by
+  convention and nothing enforces it; the fix, if it ever bites, is to reject a `.0` counter in the `version` job.
+- **The release pins [FSTools](https://github.com/VertexDezign/FSTools) to `v0.2.0`.** CI packs the mod with the same
   `fs pack` used locally, so `.fsignore` is the one definition of what ships; tracking `main` instead would mean a
   change over there silently changing what is released from here. Bumping the pin is a deliberate step, and worth a
   `workflow_dispatch` dry run when it happens. The release also runs `fs validate`, which the mod otherwise gets no CI

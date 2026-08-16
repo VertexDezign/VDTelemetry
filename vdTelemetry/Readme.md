@@ -374,9 +374,11 @@ in the zip. Two files decide that:
   default; the entries here are the ones it cannot guess (`spec/`, `fsTypes/`, `stylua.toml`). Anything new and
   repo-only belongs here, or it goes out to players.
 - **`fstools.toml`** — `author` and `title` are rewritten **into the packed zip's `modDesc.xml`**, leaving the file on
-  disk alone. `version` is deliberately *not* set there: it would only override what `modDesc.xml` must carry anyway
-  (`fs validate` demands it, and the mod runs unpacked in development), so the modDesc value is the mod's version
-  outright and ships as written. Set `version` in `fstools.toml` locally if you want a dev build marked as one.
+  disk alone. `version` is deliberately *not* set there, because the release does not read it: the workflow derives the
+  mod's four-number version from the git tag and passes it to `fs pack --mod-version`, which rewrites it the same way.
+  `modDesc.xml` on disk carries `0.0.0.0`, a placeholder that exists only because `fs validate` demands the element and
+  the mod runs unpacked in development — cutting a release never edits it. Set `version` in `fstools.toml` locally if
+  you want a hand-packed dev build marked as one.
 
 ## Formatting
 
