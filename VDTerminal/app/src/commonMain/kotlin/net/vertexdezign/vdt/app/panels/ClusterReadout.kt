@@ -194,7 +194,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           valueColour = if (redline) ClusterColors.Warn else ClusterColors.Digits,
           size = digit,
           label = "RPM",
-          gauge = load?.let { LineGauge(loadFill, it.threshold, it.description) },
+          gauge = load?.let { LineGauge(loadFill, it.threshold, it.overloaded, it.description) },
           unlit = dark,
         )
         // The reverser rides on the speed rather than on the gear below it, because a gear line is
@@ -355,10 +355,18 @@ internal data class LineMark(
  * so *crossing a line* is what says you are over it: on a gauge this small, a colour nobody can
  * separate from the one below it would be the whole signal, and there is a standing rule here against
  * that. Absent on a machine that reports no such point, where a full bar is simply a working engine.
+ *
+ * [overloaded] is the state itself, as the machine reports it, and is deliberately **not** read off
+ * [threshold]: that is a drawing position, and it is dropped when it would land on the bar's own end
+ * cap. A player who moves the point to 100% still has an overload worth being told about, and with no
+ * notch to cross the bar says it by going amber over its whole length instead. That still leaves two
+ * channels rather than one — the amber is darker than the neutral it replaces, and it only ever
+ * happens on a bar already standing at full.
  */
 internal data class LineGauge(
   val fraction: Float,
   val threshold: Float? = null,
+  val overloaded: Boolean = false,
   /** For a screen reader; the bar is otherwise unlabelled — the line's own caption sits under it. */
   val description: String,
 )
@@ -403,7 +411,11 @@ private fun Gauge(gauge: LineGauge, size: Float, unlit: Boolean) {
       drawRect(ClusterColors.Fill, Offset(0f, limit), Size(this.size.width, this.size.height - limit))
       drawRect(ClusterColors.Set, Offset(0f, top), Size(this.size.width, limit - top))
     } else {
-      drawRect(ClusterColors.Fill, Offset(0f, top), Size(this.size.width, this.size.height - top))
+      // One colour for the lot — the neutral fill, or amber when the engine is over a point this bar
+      // has nowhere to draw. See [LineGauge.overloaded]; a notch that *is* drawn takes the branch
+      // above, so the two never both apply.
+      val paint = if (gauge.overloaded) ClusterColors.Set else ClusterColors.Fill
+      drawRect(paint, Offset(0f, top), Size(this.size.width, this.size.height - top))
     }
     // Cut last, so the notch reads against the fill and the ghost alike — the same way the level
     // strip cuts its bands, with the surface showing through.
@@ -705,13 +717,19 @@ private fun legacyDriveSymbol(vehicle: Vehicle): DriveSymbol? = when (vehicle.sp
  *
  * [threshold] is only offered when it falls inside the bar. ADS ships 85%, and a player can move it;
  * a threshold sitting at the very top would be a notch in the bar's own end cap, saying nothing.
+ * Being *over* the point is carried separately, by [EngineLoad.overloaded] — a notch is a place to
+ * draw and can be missing, whereas the state is true either way.
  */
 internal fun engineLoad(vehicle: Vehicle): EngineLoad? {
   vehicle.ads?.load?.let { load ->
     return EngineLoad(
       value = (load.value / FULL_LOAD).toFloat(),
       threshold = (load.overloadAt / FULL_LOAD).toFloat().takeIf { it > 0f && it < 1f },
-      description = loadDescription(load.value),
+      // ADS's own flag rather than our two numbers compared again: it is what the Engine and
+      // Transmission panel colours its figure by, and one of the two reading an engine as overloaded
+      // while the other didn't is exactly the disagreement this whole function exists to avoid.
+      overloaded = load.overloaded,
+      description = loadDescription(load.value, load.overloaded),
     )
   }
   val load = vehicle.motor?.load ?: return null
@@ -719,20 +737,30 @@ internal fun engineLoad(vehicle: Vehicle): EngineLoad? {
   // the mod sends 0..100, but the bar should follow the scale rather than assume it.
   val span = (load.max - load.min).toFloat()
   val value = if (span > 0f) (load.value.toFloat() - load.min) / span else (load.value / FULL_LOAD).toFloat()
-  // No threshold without ADS: the base game charges nothing for a hard-working engine, and a zone we
-  // invented would be a warning about something that is not wrong.
-  return EngineLoad(value, threshold = null, description = loadDescription(load.value))
+  // No threshold and no overload without ADS: the base game charges nothing for a hard-working
+  // engine, and a zone we invented would be a warning about something that is not wrong.
+  return EngineLoad(value, threshold = null, overloaded = false, description = loadDescription(load.value, false))
 }
 
 /**
  * What [engineLoad] found. [value] is the share as reported and can read past 1 under Advanced
  * Damage System; [fraction] is that pinned to the bar, which has an end.
+ *
+ * [overloaded] is the machine's own answer to "is this costing me", so it survives a [threshold] the
+ * bar had nowhere to draw — and it is the one part of this a screen reader can be given, which is why
+ * it is in [description] as a word rather than left to the colour.
  */
-internal data class EngineLoad(val value: Float, val threshold: Float?, val description: String) {
+internal data class EngineLoad(
+  val value: Float,
+  val threshold: Float?,
+  val overloaded: Boolean,
+  val description: String,
+) {
   val fraction: Float get() = value.coerceIn(0f, 1f)
 }
 
-private fun loadDescription(percent: Double): String = "Engine load ${percent.roundToInt()}%"
+private fun loadDescription(percent: Double, overloaded: Boolean): String =
+  "Engine load ${percent.roundToInt()}%" + if (overloaded) ", overloaded" else ""
 
 /** Both load figures are percentages, so the bar's full length is 100 of them. */
 private const val FULL_LOAD = 100.0

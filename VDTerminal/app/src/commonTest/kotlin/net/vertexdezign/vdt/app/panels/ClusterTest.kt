@@ -300,7 +300,8 @@ class ClusterReadoutTest {
   @Test
   fun theOverloadPointIsMarkedOnlyWhenItFallsInsideTheBar() {
     // ADS ships 85%, and a player can move it. At the very top there is nothing to mark: a notch in
-    // the bar's own end cap says nothing, and the fill reaching the end already says it.
+    // the bar's own end cap says nothing. Losing the notch is not losing the state — see
+    // [beingOverThePointSurvivesHavingNowhereToDrawIt].
     val shipped = Vehicle(ads = Ads(load = AdsLoad(value = 50.0, overloadAt = 85.0)))
     assertEquals(0.85f, engineLoad(shipped)?.threshold)
     assertNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 50.0, overloadAt = 100.0))))?.threshold)
@@ -316,7 +317,30 @@ class ClusterReadoutTest {
     val flatOut = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 130.0, overloadAt = 85.0)))))
     assertEquals(1f, flatOut.fraction)
     assertEquals(1.3f, flatOut.value)
-    assertEquals("Engine load 130%", flatOut.description)
+    assertTrue(flatOut.overloaded)
+    assertEquals("Engine load 130%, overloaded", flatOut.description)
+  }
+
+  @Test
+  fun beingOverThePointSurvivesHavingNowhereToDrawIt() {
+    // A player who moves ADS's point to 100% loses the notch — there is no room for one at the top —
+    // and must not lose the overload along with it. The state comes off the machine's own flag, so
+    // the bar can still colour itself and the screen reader still hears the word.
+    val topped = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 130.0, overloadAt = 100.0)))))
+    assertNull(topped.threshold, "nothing to mark at the very top")
+    assertTrue(topped.overloaded)
+    assertEquals(1f, topped.fraction)
+    assertEquals("Engine load 130%, overloaded", topped.description)
+
+    // …and the same machine working hard but inside its point is not overloaded.
+    val working = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 99.0, overloadAt = 100.0)))))
+    assertFalse(working.overloaded)
+    assertEquals("Engine load 99%", working.description)
+
+    // No ADS, no overload: the base game never charges for a hard-working engine.
+    val plain = assertNotNull(engineLoad(Vehicle(motor = Motor(load = Load(value = 100.0, max = 100)))))
+    assertFalse(plain.overloaded)
+    assertEquals("Engine load 100%", plain.description)
   }
 
   @Test

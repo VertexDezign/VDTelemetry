@@ -259,8 +259,10 @@ the real number stays on the panel that can show it.
 Past the overload threshold the bar's fill goes amber — but that point is also **notched into the
 bar**, so what says you are over it is the fill crossing a line rather than a colour. ADS ships 85%
 and a player can move it; the notch travels with the setting, and is absent when it would land on the
-bar's own end cap. Without ADS there is no notch at all: the base game charges nothing for a
-hard-working engine, and a zone we invented would be a warning about something that is not wrong.
+bar's own end cap — where the fill then goes amber over its whole length instead, since the overload
+is ADS's own flag and does not go away with the place to draw it. Without ADS there is no notch at
+all: the base game charges nothing for a hard-working engine, and a zone we invented would be a
+warning about something that is not wrong.
 
 They're ordinary widgets, placeable anywhere, and they render dark rather than in the usual panel
 chrome. A seeded **Pillar** page stacks three of them — lamps, readout, levels, top to bottom, which
