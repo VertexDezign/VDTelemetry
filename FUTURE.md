@@ -347,9 +347,40 @@ supports it: a channel whose `markDirty()` is driven by a position bucket rather
 
 ---
 
+## Weather and crop calendar (#96)
+
+Both channels and the Calendar app are built. What they leave behind:
+
+- **Crop icons are not reachable, so the rows are name-only.** The game's own calendar puts the fill type's icon beside
+  each crop, from `fillType.hudOverlayFilename` — which points inside `dataS2/`, the game's packed archive.
+  `AssetResolver` opens gameDir-relative paths and mod zips, and neither reaches into that. The one cheap substitute is
+  a colour swatch from the `crops` ground-layer legend, and it only covers fruits actually growing on the map, so a
+  crop you have never planted would have no swatch — exactly the crops you open a calendar to look up. Left out rather
+  than done badly.
+- **Weather alerts.** "Rain in N hours" and "frost tonight" are natural `AlertRule`s off this channel and the first ones
+  that would change what a player *does* — cut hay, get a crop off. Deliberately not in this round: the alert engine
+  reads `AlertInputs`, which today combines only telemetry and taskList, so this is a wiring change as well as a rule.
+- **Daily wind is exported by the game and dropped by us.** `getDailyForecast` returns `windSpeed`/`windDirection`
+  alongside the temperatures; the outlook strip renders neither, so the collector does not carry them. Two fields to add
+  if the outlook ever grows a wind row.
+- **`WidgetDashboard`'s own `Chip` was left duplicated.** `FilterChip` moved to `components/` when the calendar became
+  its second caller, but the page editor's chip is a visually different control (bordered, on white, no ripple) and
+  folding it in would have restyled that screen as a side effect of this work.
+
 ## In-game checks nobody has run
 
 Each one is cheap to do while playing and settles something above.
+
+- **Is the forecast populated on a multiplayer client?** `WeatherForecast` reads `owner.forecastItems`, and whether
+  those are replicated to clients or only exist server-side is unverified. Same question for `missionInfo.growthMode`,
+  which the crop calendar's period predicates need. Both reads are `pcall`-guarded, so the failure mode is a channel
+  that never appears rather than a Lua error — but which of the two happens is unknown. Join a dedicated server and look
+  for `weather.json` / `cropCalendar.json`.
+- **A southern-hemisphere map**, to confirm the calendar's column labels really shift: `g_i18n:formatPeriod` keys off
+  `environment.daylight.latitude < 0` and should label period 1 September rather than March. This is the whole reason
+  the labels cross the wire instead of being a lookup table in the app.
+- **Season length changed mid-session**, to confirm `PERIOD_LENGTH_CHANGED` fires and the today marker moves within its
+  period. It is the one subscription in the crop calendar channel that is not exercised by simply letting a day pass.
 
 - Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? It is visible in the exported JSON as
   `display`, so this is just a matter of looking. Decides whether the stepped bar is worth building.
@@ -475,6 +506,11 @@ machine that has them.
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
+- **A weather capture that is not mid-afternoon rain.** `examples/json/weather/vanilla.json` covers the shapes that
+  matter — the strip wrapping past midnight, captions losing their day number at `daysPerPeriod = 1`, SUN / CLOUDY /
+  PARTIALLY_CLOUDY / RAIN / SNOW — but four `WeatherType`s have still never been seen on the wire: `HAIL`, `THUNDER`,
+  `TWISTER`, and whatever a `daysPerPeriod > 1` day caption looks like ("Aug 2" rather than "August"). The glyphs for
+  the first three exist and are unexercised by any fixture.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
