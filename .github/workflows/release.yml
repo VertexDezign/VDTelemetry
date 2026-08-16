@@ -61,8 +61,13 @@ jobs:
           # prerelease has to be *numbered*, because that number is the only thing separating two
           # alphas once they reach the game (see mod_version). jpackage takes the numeric head and
           # accepts three components at most, which is the other half of why this is the shape.
-          if [[ ! "$version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*\.([0-9]+))?$ ]]; then
-            echo "::error::version '$version' is not MAJOR.MINOR.PATCH[-<name>.<number>]"
+          #
+          # The counter is [1-9][0-9]*, not [0-9]+, on both counts a number can be written twice:
+          # `-beta.0` would derive the same 0.1.0.0 as the final release v0.1.0, leaving the game
+          # with no update to offer between them, and `-alpha.01` the same 0.1.0.1 as `-alpha.1`
+          # from a tag that does not look like it. Semver bars leading zeros here for that reason.
+          if [[ ! "$version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*\.([1-9][0-9]*))?$ ]]; then
+            echo "::error::version '$version' is not MAJOR.MINOR.PATCH[-<name>.<n>], n from 1 and unpadded"
             exit 1
           fi
           numeric="${BASH_REMATCH[1]}"
