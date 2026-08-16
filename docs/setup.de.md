@@ -76,6 +76,26 @@ Dashboard: http://localhost:3001
 Auf dem Tablet lohnt sich **Zum Startbildschirm hinzufügen**: das gibt ein eigenes Symbol und ein
 Vollbild ohne Browserleisten.
 
+**Damit der Bildschirm anbleibt.** Tipp einmal auf das Kaffeetassen-Symbol in der Kopfzeile: Es zeigt
+**AWAKE**, solange das Dashboard den Bildschirm wachhält; ein weiterer Tipp lässt ihn wieder schlafen.
+Dieser eine Tipp ist wichtig — auf iPad und iPhone kann das Dashboard den Bildschirm erst wachhalten,
+nachdem du es einmal berührt hast; ein Tablet, das du nur anschaust, wird also dunkel. Im
+Anzeigemodus (siehe unten) gibt es keine Kopfzeile, dort genügt eine Berührung irgendwo.
+
+Drei Dinge, die du wissen solltest:
+
+- Auf Handy und Tablet läuft dafür ein **stummer** Videoclip, den das Gerät als Wiedergabe zählt —
+  das kann Musik oder einen Podcast unterbrechen, der gerade lief. Wenn dich das stört, lass die
+  Kaffeetasse aus und nimm stattdessen die Einstellung unten.
+- Auf dem iPad ist dieser Weg bestätigt, unter **Android** ist er noch auf keinem Gerät geprüft.
+  Zeigt die Kopfzeile **AWAKE** und der Bildschirm wird trotzdem dunkel, nimm die Einstellung unten.
+- Es gilt nur, solange du das Dashboard auch ansiehst. Wechselst du die App oder den Tab, gilt wieder
+  der normale Bildschirm-Timeout des Geräts.
+
+Die Einstellung, die immer funktioniert und sich für ein Tablet in der Kabine lohnt: *Einstellungen →
+Anzeige & Helligkeit → Automatische Sperre → Nie* unter iOS, *Einstellungen → Display →
+Bildschirm-Timeout* unter Android. Am Ladekabel hängt es dort oben ohnehin meistens.
+
 ## 4. Prüfen, ob Daten ankommen
 
 Lade einen Spielstand und setz dich in ein Fahrzeug. Das Dashboard sollte sich innerhalb von ein bis

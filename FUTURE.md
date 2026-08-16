@@ -368,6 +368,11 @@ Each one is cheap to do while playing and settles something above.
   This is the highest-value single check of the work aspects.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a forage/carrot
   harvester's pass-through output carry `showOnHud="true"`? This gates the filter switch above.
+- Does the wake-lock fallback hold an **Android** tablet awake? iPadOS is answered — an unmuted clip holds the screen,
+  a muted one doesn't (see `VDTerminal/README.md` → display mode) — and Android is the other half of the same question,
+  where the autoplay policy and the idle timer are a different pair of rules. Open `http://<lan-ip>:3001`, tap the
+  coffee cup, confirm **AWAKE**, leave it past the screen timeout. If Android turns out not to need the audio session,
+  the unmute could be made conditional and the driver's music left alone there.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.

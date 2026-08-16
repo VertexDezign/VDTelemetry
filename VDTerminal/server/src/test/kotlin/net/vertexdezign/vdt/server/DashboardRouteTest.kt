@@ -54,6 +54,31 @@ class DashboardRouteTest {
       }
     }
 
+  /**
+   * The wake-lock fallback plays these, and can only play what it can fetch. They exist for the
+   * device that has no Screen Wake Lock API — a tablet on a plain-http LAN address — so a 404 or a
+   * media type a browser won't play is a cluster that dims halfway down the field, on the one screen
+   * nobody is going to touch to wake up.
+   */
+  @Test
+  fun servesTheKeepAwakeClipsAsVideo() =
+    withDashboard { client ->
+      val clips =
+        mapOf(
+          "keep-awake.webm" to ContentType("video", "webm"),
+          "keep-awake.mp4" to ContentType("video", "mp4"),
+        )
+      for ((clip, type) in clips) {
+        val response = client.get("/media/$clip")
+        assertEquals(HttpStatusCode.OK, response.status, clip)
+        assertEquals(
+          type,
+          ContentType.parse(response.headers[HttpHeaders.ContentType]!!).withoutParameters(),
+          clip,
+        )
+      }
+    }
+
   /** Overriding one extension must not have replaced Ktor's table for the rest of the bundle. */
   @Test
   fun stillTypesTheAppNormally() =
