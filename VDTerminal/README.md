@@ -59,7 +59,7 @@ legend), with three differences worth knowing:
 
 ## Requirements
 
-- JDK 21+ (developed and verified on Temurin 26). The Gradle wrapper (9.6.1) is included; no
+- JDK 25+ (developed and verified on Temurin 26). The Gradle wrapper is included; no
   separate Gradle install is needed.
 - A WasmGC-capable browser (recent Chrome/Edge/Firefox).
 
@@ -106,6 +106,32 @@ VDT_FILE=/path/to/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json server
 so the one server process serves both the dashboard (`/`) and the API/WebSocket. Open
 <http://localhost:3001> on any device on the LAN. (`distZip`/`distTar` produce the same as a
 portable archive.)
+
+## Release packaging
+
+All three of those need a JDK on the machine, which a Farming Simulator player has no reason to
+have. `packageRelease` wraps the same `installDist` tree with a JRE via **jpackage**, so the
+published download is "unzip and run":
+
+```bash
+./gradlew :server:packageRelease     # -> server/build/release/VDTerminal-<version>-<os>-x64.(zip|tar.gz)
+```
+
+jpackage cannot cross-compile: the image is for whatever OS built it, which is why
+`.github/workflows/release.yml` runs that task on a Windows *and* a Linux runner. macOS is not
+built — the server reads the files the game is writing, so it has to sit on the machine running
+FS25, and that is Windows or Proton.
+
+Two things the release path pins that a dev build otherwise wouldn't:
+
+- **JVM target 25 and `-Xjdk-release=25`**, in `shared` and `server` alike. Both halves are needed
+  for "JDK 25+" to be true of what a developer on 26 produces: the target alone stamps the class
+  file 25 while still letting a JDK 26 API link into it, and that failure would land on a user's
+  machine rather than in CI. jpackage bundles the JDK it runs from, so the release workflow's `25`
+  is what the two app images ship and what the portable zip asks of a JDK you bring.
+- **The version**, via `-PvdtVersion=…`, which the workflow feeds from the git tag after checking it
+  against the checked-in numbers. A tag like `v0.1.0-alpha.1` names the archives; jpackage's own
+  metadata gets the numeric head, since that is all it accepts.
 
 ## Display mode (a second device as a fixed screen)
 

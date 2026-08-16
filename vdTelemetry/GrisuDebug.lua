@@ -7,7 +7,7 @@
 -- @history     v1.3    - 2024-11-24 - Add support for string.format
 -- @Descripion: Providing debug utils
 -- @web: http://grisu118.ch or http://vertexdezign.net
--- Copyright (C) Grisu118, All Rights Reserved.
+-- Copyright (c) 2024-2026 VertexDezign / Benjamin Leber. MIT licensed - see LICENSE.
 
 ---@class GrisuDebug
 GrisuDebug = {}

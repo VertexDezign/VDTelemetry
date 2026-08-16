@@ -1,5 +1,8 @@
 [mod]
 zip_name = "FS25_vdTelemetry"
-version = "0.1.0.0"
+# No `version` on purpose: it is an *override* of modDesc.xml's, and modDesc has to carry one anyway
+# (`fs validate` requires it, and the mod is run unpacked in development). Setting it here as well
+# only made a second copy to keep in step. Set it locally to mark a dev build; absent means "ship
+# what modDesc says".
 author = "VertexDezign"
 title = "VDTelemetry"

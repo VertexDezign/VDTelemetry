@@ -1,5 +1,8 @@
 # VDTelemetry
 
+**Just want to run it?** → [Setup guide (English)](docs/setup.en.md) ·
+[Anleitung (Deutsch)](docs/setup.de.md) · [Downloads](https://github.com/VertexDezign/VDTelemetry/releases)
+
 A telemetry pipeline for **Farming Simulator 25**, in two parts:
 
 - **[`vdTelemetry/`](vdTelemetry/Readme.md)** — the in-game mod (Lua) that exports live game
@@ -13,7 +16,7 @@ the contract between the two: changing the data shape means changing the Lua col
 Kotlin model together, and refreshing the fixtures.
 
 Requirements: the mod needs [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs);
-the terminal needs JDK 21+ and a WasmGC-capable browser. Each README has the full story — how the mod
+the terminal needs JDK 25+ and a WasmGC-capable browser. Each README has the full story — how the mod
 is configured and what each channel carries, and how to run the terminal in development or as a single
 production process.
 
@@ -23,6 +26,16 @@ production process.
 |---|---|
 | ![In the tractor](screenshots/within_tractor.png) | ![Ground layers](screenshots/map_layers.png) |
 | ![Map filter and search](screenshots/map_filter_search.png) | ![Creating a task](screenshots/task_creation.png) |
+
+## Licence
+
+MIT — see [`LICENSE`](LICENSE), and [`NOTICE`](NOTICE) for the trademarks this project does not own
+and the third-party terms that apply alongside it. Both halves are covered; the mod zip carries the
+same licence, and every terminal download — bundled or portable — ships both files.
+
+The one component that is not ours to relicense is the **DSEG** font bundled with the terminal, under
+the SIL Open Font License — [`VDTerminal/licenses/DSEG-OFL-1.1.txt`](VDTerminal/licenses/DSEG-OFL-1.1.txt)
+travels with every build that contains it.
 
 ## Planned and deferred work
 

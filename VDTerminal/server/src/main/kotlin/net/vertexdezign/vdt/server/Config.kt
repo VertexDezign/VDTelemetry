@@ -3,6 +3,7 @@ package net.vertexdezign.vdt.server
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import kotlin.io.path.Path
+import kotlin.io.path.isDirectory
 
 /**
  * Runtime configuration. Ports `paths.go`: env overrides, OS-specific default game dir.
@@ -22,38 +23,71 @@ object Config {
   /** The folder the mod polls for `commands.xml`, a sibling of [TELEMETRY_DIR]. */
   private const val COMMANDS_DIR = "commands"
 
+  /** Steam's app id for FS25, which names the Proton prefix. */
+  private const val STEAM_APP_ID = "2300320"
+
+  /** The profile folder's tail, identical on Windows and inside a Proton prefix. */
+  private val PROFILE_TAIL = arrayOf("Documents", "My Games", "FarmingSimulator2025")
+
   val port: Int
     get() = System.getenv("VDT_PORT")?.toIntOrNull() ?: 3001
 
-  fun gameDir(): Path {
-    System.getenv("VDT_GAME_DIR")?.takeIf { it.isNotBlank() }?.let { return Path(it) }
-
+  /**
+   * Where the game profile might be, best guess first.
+   *
+   * There is more than one candidate per OS because the profile folder moves for reasons the user
+   * never chose: Windows redirects `Documents` into OneDrive on a great many machines, and a Steam
+   * library or a Flatpak install puts the Proton prefix somewhere other than `~/.steam`. Guessing
+   * one path and stopping meant an empty dashboard with nothing on screen to explain it, so we look
+   * at each candidate and take the first that is actually there.
+   *
+   * None of this replaces `VDT_GAME_DIR`: a second Steam library on another drive is unguessable,
+   * and that is what the override is for.
+   */
+  private fun gameDirCandidates(): List<Path> {
     val home = System.getProperty("user.home")
     val os = System.getProperty("os.name").lowercase()
-    return when {
-      os.contains("win") -> {
-        Path(home, "Documents", "My Games", "FarmingSimulator2025")
+    return if (os.contains("win")) {
+      buildList {
+        add(Path(home, *PROFILE_TAIL))
+        add(Path(home, "OneDrive", *PROFILE_TAIL))
+        // OneDrive names its own root in the environment, which covers a business tenant that
+        // parks it outside the user profile entirely.
+        System.getenv("OneDrive")?.takeIf { it.isNotBlank() }?.let { add(Path(it, *PROFILE_TAIL)) }
+        System.getenv("OneDriveCommercial")?.takeIf { it.isNotBlank() }?.let { add(Path(it, *PROFILE_TAIL)) }
       }
-
-      else -> {
-        // Linux: Steam / Proton prefix for FS25 (Steam app id 2300320).
-        Path(
-          home,
-          ".steam",
-          "steam",
-          "steamapps",
-          "compatdata",
-          "2300320",
-          "pfx",
-          "drive_c",
-          "users",
-          "steamuser",
-          "Documents",
-          "My Games",
-          "FarmingSimulator2025",
-        )
-      }
+    } else {
+      // Linux: the Steam / Proton prefix for FS25, wherever Steam itself was installed from.
+      val prefixTail =
+        arrayOf("steamapps", "compatdata", STEAM_APP_ID, "pfx", "drive_c", "users", "steamuser", *PROFILE_TAIL)
+      // The three Flatpak entries are one install seen three ways: inside its sandbox Steam writes
+      // to `~/.local/share/Steam` or `~/.steam/steam`, and which of those survives as a real
+      // directory outside it (rather than as a symlink into `data/`) depends on the Flatpak
+      // version that created it. Cheaper to look at all three than to guess.
+      val flatpak = arrayOf(".var", "app", "com.valvesoftware.Steam")
+      listOf(
+        Path(home, ".steam", "steam", *prefixTail),
+        Path(home, ".local", "share", "Steam", *prefixTail),
+        Path(home, *flatpak, "data", "Steam", *prefixTail),
+        Path(home, *flatpak, ".local", "share", "Steam", *prefixTail),
+        Path(home, *flatpak, ".steam", "steam", *prefixTail),
+      )
     }
+  }
+
+  /**
+   * Resolved once: [gameDir] is called per map-image request, and the answer cannot change while
+   * the server runs — the game writes its profile folder on first launch, long before anyone starts
+   * a terminal against it.
+   */
+  private val probedGameDir: Path by lazy {
+    val candidates = gameDirCandidates()
+    candidates.firstOrNull { it.isDirectory() } ?: candidates.first()
+  }
+
+  fun gameDir(): Path {
+    System.getenv("VDT_GAME_DIR")?.takeIf { it.isNotBlank() }?.let { return Path(it) }
+    return probedGameDir
   }
 
   /**

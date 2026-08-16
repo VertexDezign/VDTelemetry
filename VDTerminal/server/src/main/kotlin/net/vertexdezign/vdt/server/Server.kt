@@ -39,6 +39,10 @@ import net.vertexdezign.vdt.model.MapLayerInfo
 import net.vertexdezign.vdt.model.MapLayersCatalog
 import net.vertexdezign.vdt.model.MapLayersInfo
 import org.slf4j.LoggerFactory
+import java.net.Inet4Address
+import java.net.NetworkInterface
+import java.util.Collections
+import kotlin.io.path.isDirectory
 
 /**
  * What the app is offered in its ground-layer picker: the mod's planes for this map, plus the
@@ -79,14 +83,41 @@ private const val CHANNEL_STATS_INTERVAL_MS = 1000L
  */
 private const val COVERAGE_PUBLISH_INTERVAL_MS = 2000L
 
+/**
+ * The addresses this server can be opened on from another device.
+ *
+ * Site-local IPv4 only — the whole point is the tablet in the cab, and `localhost` is already
+ * printed beside these. Best-effort: an interface enumeration that throws costs us the hint, not
+ * the startup.
+ */
+private fun lanUrls(port: Int): List<String> =
+  runCatching {
+    Collections
+      .list(NetworkInterface.getNetworkInterfaces())
+      .filter { it.isUp && !it.isLoopback }
+      .flatMap { Collections.list(it.inetAddresses) }
+      .filterIsInstance<Inet4Address>()
+      .filter { it.isSiteLocalAddress }
+      .map { "http://${it.hostAddress}:$port" }
+  }.getOrDefault(emptyList())
+
 fun main() {
   val log = LoggerFactory.getLogger("VDTerminal")
   val json = Json { encodeDefaults = true }
 
   val telemetryPath = Config.telemetryPath()
-  log.info("Game directory: {}", Config.gameDir())
+  val gameDir = Config.gameDir()
+  log.info("Game directory: {}", gameDir)
   log.info("Telemetry file: {}", telemetryPath)
   log.info("Debounce: {} ms", Config.debounceMs())
+
+  // Say so at startup rather than serving an empty dashboard. Everything downstream of this — the
+  // watcher, the map image, the command channel — reads from a folder that isn't there, and the
+  // symptom (a terminal that connects fine and shows nothing) points at the wrong half of the setup.
+  if (!gameDir.isDirectory()) {
+    log.warn("Game directory not found: {}", gameDir)
+    log.warn("Set VDT_GAME_DIR to the folder holding your FS25 profile (the one with modSettings/ in it).")
+  }
 
   val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   // One watcher over the telemetry directory feeds a StateFlow per file. taskList.json and
@@ -214,6 +245,8 @@ fun main() {
       .AtomicLong()
 
   log.info("Server starting on port {}", Config.port)
+  log.info("Dashboard: http://localhost:{}", Config.port)
+  lanUrls(Config.port).forEach { log.info("  from another device: {}", it) }
   embeddedServer(Netty, port = Config.port) {
     install(WebSockets)
     install(ContentNegotiation) { json(json) }

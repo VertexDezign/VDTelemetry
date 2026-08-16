@@ -44,7 +44,7 @@ Two standing constraints on every panel, widget and mark — full version, with 
 
 ## The mod (`vdTelemetry/`)
 
-Plain Lua, no build system — the deliverable is `FS25_vdTelemetry.zip` (a zip of the folder's runtime files: the `.lua` files, `modDesc.xml`, `icon_vdTelemetry.dds`, `LICENSE`; `*.zip` is git-ignored).
+Plain Lua, no build system — the deliverable is `FS25_vdTelemetry.zip` (a zip of the folder's runtime files: the `.lua` files, `modDesc.xml`, `icon_vdTelemetry.dds`, `LICENSE`; `*.zip` is git-ignored). Packed with [FSTools](https://github.com/VertexDezign/FSTools) (`fs pack`), locally and in the release workflow alike: **`.fsignore` is the single definition of what does not ship**, and `fstools.toml` rewrites author/title into the packed `modDesc.xml` — but deliberately not the version, which `modDesc.xml` owns and ships as written.
 
 - `VDTelemetry.lua` — the mod entry point and main loop. It `source()`s the files listed in its `sourceFiles` table (order matters: dependencies first), then on a timer builds a model and writes `modSettings/<modName>/telemetry/vdTelemetry.json`; reads config from `vdTelemetrySettings.xml` at the root of that same `modSettings/<modName>/` folder (settings use the engine's XML API — unrelated to the telemetry output). Everything lives under `modSettings/<modName>/` because the engine only permits `deleteFile()` there (disabling export deletes the json). Export enabled, write interval and the performance profile are also editable in-game (General Settings) via `src/gui/SettingsFrame.lua`; per-channel enable/interval is XML-only.
 - The exporter is a **collect → model → serialize** pipeline. `src/collect/` holds the collectors (`EnvironmentExporter`, `VehicleExporter`, `vehicle/` for motor/lights/steering/support, `aspects/` for collectors valid on any vehicle *or* implement, and one `*Exporter.lua` per non-vehicle channel — map, ground layers, GPS course, productions, storage, husbandry, contracts, finance, field info); `src/export/ExportChannels.lua` is the registry every channel self-registers into (cadence, enable toggle, performance profile, farm scope); `src/command/` is the write side, one control per command type; `src/integrations/` holds optional third-party mod hooks (e.g. Enhanced Vehicle) run via a stage registry — for mods that may or may not be installed; **FS25_additionalInputs is a hard requirement, so its data is treated as core in `collect/`, not an integration**. `src/model/` holds annotation-only `---@class` shape defs; `src/utils/Json.lua` is the pure-Lua encoder. **All runtime modules live under a single `VDT.*` namespace table** to avoid clobbering FS25's bare-global specialization classes (`Lights`, `FillUnit`, …).
@@ -58,7 +58,7 @@ When editing the JSON output, keep `VDTelemetry.VERSION` (in `VDTelemetry.lua`),
 
 ## VDTerminal (Kotlin Multiplatform)
 
-Gradle (Kotlin DSL, version catalog in `gradle/libs.versions.toml`, wrapper 9.6.1). Three modules — see `VDTerminal/README.md` for the full dev/prod story:
+Gradle (Kotlin DSL, version catalog in `gradle/libs.versions.toml`, wrapper). Three modules — see `VDTerminal/README.md` for the full dev/prod story:
 
 - **`shared`** (`jvm` + `wasmJs`) — the single source of truth for the data layer: `model/` (the typed VDT model, `@Serializable`, one file per subject — `VdtData.kt` is the telemetry root, `Vehicle.kt` the bulk of it), `Protocol.kt` (`ServerMessage` WebSocket wire types, kotlinx.serialization), `VdtParser.kt` (one lenient `parseX` per channel). Both server and app depend on it.
 - **`server`** (Kotlin/JVM, Ktor + Netty) — watches the mod's `telemetry/` folder (every channel file, not just the telemetry one), parses via `shared`, broadcasts model updates over a WebSocket, writes the app's commands back out as `commands/commands.xml` (`CommandWriter.kt`), decodes the map DDS image to PNG (`Dds.kt` / `ImagePipeline.kt` / `AssetResolver.kt`), accumulates the coverage ground layer it derives itself, and serves the built wasm app.
@@ -78,10 +78,16 @@ Run from `VDTerminal/`.
 ./gradlew :app:wasmJsBrowserTest                    # app-side unit tests (headless Chrome)
 ./gradlew check                                     # everything CI runs, spotlessCheck included
 ./gradlew :server:installDist                       # production build: embeds prod wasm bundle, one process serves all on :3001
+./gradlew :server:packageRelease                    # release build: jpackage app image + bundled JRE, for the OS you're on
 ```
+
+`packageRelease` is what `.github/workflows/release.yml` runs on a Windows and a Linux runner when a `v*` tag is
+pushed; it also builds the mod zip and publishes both as a GitHub prerelease. jpackage cannot cross-compile, which is
+why the workflow is a matrix. User-facing setup instructions live in `docs/setup.en.md` and `docs/setup.de.md` — they
+ship inside the release archive, so keep the two languages in step.
 
 Run a single test class: `./gradlew :shared:jvmTest --tests "net.vertexdezign.vdt.VdtModelTest"`.
 
-Config is via env vars: `VDT_PORT` (3001), `VDT_GAME_DIR`, `VDT_FILE` (the telemetry file, default `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`; its folder is where the other channel files are read from), `VDT_COMMAND_FILE` (derived from `VDT_FILE` by stepping out of its `telemetry/` folder; off that layout it lands beside `VDT_FILE` with a warning, since the mod polls only its own folder), `VDT_DEBOUNCE_MS` (file-watch debounce, default 40). Requires JDK 21+.
+Config is via env vars: `VDT_PORT` (3001), `VDT_GAME_DIR`, `VDT_FILE` (the telemetry file, default `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json`; its folder is where the other channel files are read from), `VDT_COMMAND_FILE` (derived from `VDT_FILE` by stepping out of its `telemetry/` folder; off that layout it lands beside `VDT_FILE` with a warning, since the mod polls only its own folder), `VDT_DEBOUNCE_MS` (file-watch debounce, default 40). Requires JDK 25+.
 
 The DDS golden fixtures in `server/src/test/resources/dds/` are reference outputs originally generated from the Go `bcn` library — treat them as golden data, don't hand-edit.

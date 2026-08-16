@@ -13,9 +13,13 @@ unload, the loan, and the supported mods' own data).
 
 Link to Discord Post: [GameGlass Discord](https://discord.com/channels/522506741213167617/1308554695958204588)
 
+**Installing it as a player?** See [docs/setup.en.md](../docs/setup.en.md) —
+[auf Deutsch](../docs/setup.de.md). This file is the mod's reference documentation.
+
 ## Requirements
 
-* [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs)
+* [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs) — major version 1, minor 1 or newer.
+  Without it the mod logs an error and disables the export (there is no in-game warning yet).
 
 ## Output
 
@@ -129,12 +133,22 @@ It is by far the mod's most expensive channel, so it is the one channel tied to 
 files are deleted so VDTerminal drops the overlays. It runs from `medium` upwards, and under `custom` your own
 `enabled` toggle decides.
 
-### Linux: keep telemetry writes off the SSD (optional)
+### Keeping telemetry writes off the SSD (optional)
 
-The json is rewritten every interval (100 ms by default), so on Linux you can back the `telemetry/`
-subfolder with RAM (tmpfs) to avoid the constant SSD writes. Only the `telemetry/` folder needs this;
-the settings XML lives one level up and stays on disk, and the mod recreates the (empty) folder on
-every map load, so nothing needs to persist there.
+**How much is actually being written.** The tick json is 3–5 KB (see `examples/json/`), so the default
+100 ms interval is ~140 MB an hour — roughly 0.2 TB a year at four hours a day, which is a fraction of
+a percent of a modern SSD's rated endurance. The `mapLayers/` rasters are far larger (~1.5 MB for a
+512² grid) but are event-driven rather than per-tick. So this section is a tidiness measure, not a
+drive-saving one, and **the cheaper lever is the one already in the game**: raise the write interval,
+or drop the performance profile to `low`, which switches the `mapLayers` channel off entirely and
+removes the only big writer.
+
+What makes redirecting the folder safe either way: the mod only ever `createFolder`s `telemetry/` (and
+its subdirs) and `deleteFile`s individual files — it never removes the folder itself. Nothing there
+needs to persist across a reboot, and only `telemetry/` wants redirecting; the settings XML lives one
+level up and stays on disk.
+
+#### Linux (tmpfs)
 
 Mount tmpfs onto the folder via `/etc/fstab`. **The path contains a space (`My Games`), which must be
 escaped as `\040`** — fstab uses whitespace as its field separator, and quotes/backslash-space do not
@@ -156,6 +170,41 @@ Add that line to `/etc/fstab`, then `sudo mount -a` (no error = valid fstab). Ve
 `findmnt --target "<real path with a normal space>"` — it should show `tmpfs` as the source.
 16M leaves plenty of room: the telemetry json is a few KB, and the largest channel by far — the
 `mapLayers/` rasters, together roughly 1.5 MB for a 512² grid — are rewritten in place, not accumulated.
+
+#### Windows (RAM disk + junction)
+
+Windows has no tmpfs, and no built-in RAM disk at all, so this takes two pieces: third-party RAM-disk
+software (ImDisk Toolkit, OSFMount and SoftPerfect RAM Disk are the usual free ones), and a **directory
+junction** redirecting the mod's fixed path onto it. The mod writes to
+`modSettings\FS25_vdTelemetry\telemetry\` and cannot be told otherwise — `VDT_FILE` only moves where
+*VDTerminal reads*, so it is no substitute.
+
+With a RAM disk at `R:` and FS25 closed, in a normal (non-admin) prompt:
+
+```bat
+set TEL=%USERPROFILE%\Documents\My Games\FarmingSimulator2025\modSettings\FS25_vdTelemetry\telemetry
+mkdir R:\vdtelemetry
+rmdir /s /q "%TEL%"
+mklink /J "%TEL%" R:\vdtelemetry
+```
+
+`mklink /J` makes a junction rather than a symlink deliberately: junctions to a local directory need no
+administrator rights and no Developer Mode, where `mklink /D` needs one or the other. The existing
+folder has to go first — `mklink` refuses to write over a directory that is already there. Adjust the
+path if your Documents folder is redirected into OneDrive.
+
+Two things to get right, or it fails quietly:
+
+- **The RAM disk and `R:\vdtelemetry` must both exist before the game starts.** A junction whose target
+  is missing is broken, not empty, and the mod's `createFolder` will not repair it. Most RAM-disk tools
+  can restore a folder structure at boot; use that rather than trusting yourself to do it by hand.
+- **Size it like the tmpfs above** — 32 MB is generous.
+
+**Untested.** Nobody has run this: the structure is sound (the mod never deletes the folder, so the
+junction survives every map load), but whether VDTerminal's file watcher — Java's `WatchService`, i.e.
+`ReadDirectoryChangesW` — reports changes through a junction has not been confirmed on real hardware.
+It should, since the handle resolves to the target directory, but treat it as a thing to verify rather
+than a thing that works. If it doesn't, the symptom is a dashboard that connects and never updates.
 
 ## Configuration
 
@@ -306,6 +355,28 @@ Run them locally from this directory:
 luarocks install busted   # once
 busted                    # discovers and runs spec/*_spec.lua
 ```
+
+## Packing
+
+The mod is packed with [FSTools](https://github.com/VertexDezign/FSTools), from this directory:
+
+```bash
+fs pack             # -> FS25_vdTelemetry.zip here
+fs pack -o build    # somewhere else
+fs pack -d          # and deploy it into the FS25 mods folder
+fs validate         # sanity-check modDesc.xml on its own
+```
+
+The release workflow runs the same `fs pack`, pinned to a release tag, so there is only ever one answer to what belongs
+in the zip. Two files decide that:
+
+- **`.fsignore`** — what does *not* ship, gitignore-style. `fs pack` already drops `*.md`, `.idea` and similar by
+  default; the entries here are the ones it cannot guess (`spec/`, `fsTypes/`, `stylua.toml`). Anything new and
+  repo-only belongs here, or it goes out to players.
+- **`fstools.toml`** — `author` and `title` are rewritten **into the packed zip's `modDesc.xml`**, leaving the file on
+  disk alone. `version` is deliberately *not* set there: it would only override what `modDesc.xml` must carry anyway
+  (`fs validate` demands it, and the mod runs unpacked in development), so the modDesc value is the mod's version
+  outright and ships as written. Set `version` in `fstools.toml` locally if you want a dev build marked as one.
 
 ## Formatting
 

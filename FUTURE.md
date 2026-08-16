@@ -474,3 +474,36 @@ machine that has them.
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
 
+
+## Releasing (#80)
+
+The first alpha's packaging is built: a tag drives `.github/workflows/release.yml`, which zips the mod, builds a
+bundled-JRE app image per OS with jpackage, and publishes a prerelease. What it does not do yet:
+
+- **Nothing is signed.** Windows SmartScreen warns on every download, and the setup guides spend a bullet each
+  explaining that away. A code-signing certificate costs money and buys less than it used to: since EV lost its
+  automatic bypass, SmartScreen goes by reputation earned per publisher over many downloads, so signing would only
+  start that clock rather than end the warning. Until then the warning is the honest answer, not a bug to hide.
+- **The bundled runtime is jpackage's default**, i.e. every JDK module — ~70 MB compressed per OS. A `jlink`
+  `--add-modules` set trimmed to what Netty and Ktor actually touch (`jdk.unsupported` and `java.management` among
+  them) would roughly halve it. Worth doing once the module set can be verified by running the result, not guessed.
+- **No icon on the app image.** jpackage takes `--icon`, which wants a `.ico` on Windows; the repo has only the mod's
+  `.dds`. Until then the launcher wears the stock Java icon.
+- **macOS is not built**, deliberately: the server reads files as the game writes them, so it has to live on the
+  machine running FS25. Only worth revisiting if someone actually wants to point `VDT_FILE` at a network share.
+- **Nothing has run the packaged archive on a JDK newer than the one it ships.** The floor is 25 and the release bundles
+  25, so the combination a player gets is the one CI smoke-tests; a developer's own `installDist` on 26 is not. The
+  smoke test's "no `WARNING:` on startup" check is what would catch the next JDK tightening its native-access defaults,
+  and it only runs on the release path.
+- **The version lives in two files** — `VDTerminal/build.gradle.kts` and `modDesc.xml` — and the workflow checks the
+  tag against both rather than generating them. A generator would be better; the check was cheaper and fails loudly,
+  which for one release a month is the right trade. (It was three until `fstools.toml`'s `version` came out: that one
+  was an override of modDesc's, so dropping it removed a copy rather than a source.)
+- **The release pins [FSTools](https://github.com/VertexDezign/FSTools) to `v0.1.0`.** CI packs the mod with the same
+  `fs pack` used locally, so `.fsignore` is the one definition of what ships; tracking `main` instead would mean a
+  change over there silently changing what is released from here. Bumping the pin is a deliberate step, and worth a
+  `workflow_dispatch` dry run when it happens. The release also runs `fs validate`, which the mod otherwise gets no CI
+  coverage from.
+- **In-game there is still no warning when FS25_additionalInputs is missing** — the mod logs it and silently disables
+  the export, so the symptom is an empty dashboard. `VDTelemetry:loadMap` carries the `TODO display warning in ui`.
+  Both setup guides currently route around it by telling the player to read `log.txt`, which is not a fix.

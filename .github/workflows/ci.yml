@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # So a release can gate on exactly the checks a PR gets, rather than a second copy of them.
+  workflow_call:
 
 # Cancel superseded runs on the same ref (e.g. rapid pushes to a PR).
 concurrency:

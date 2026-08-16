@@ -1,0 +1,360 @@
+name: Release
+
+# Tag-driven: `git tag v0.1.0-alpha.1 && git push --tags` publishes a draft-free prerelease with the
+# mod zip and a ready-to-run terminal per OS. `workflow_dispatch` builds the same artifacts without
+# publishing anything, so the packaging can be exercised before a tag is spent on it.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# A release must never be cancelled halfway through by a second push.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# Read by default, and write only in `publish`, which is the one job that creates anything. The
+# build jobs run third-party actions and pull packages off the network; a called workflow
+# (`ci.yml`) inherits whatever is granted here, so a workflow-level write reaches further than
+# anything below actually needs.
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      # Build-only checkouts push nothing back, so the token stays out of .git.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The tag is the single source of truth for what is being released. Everything else in the
+      # repo has to agree with it, and the release stops here if it doesn't -- a mod whose modDesc
+      # version disagrees with its download is not something to find out about after publishing.
+      - name: Resolve and verify version
+        id: v
+        run: |
+          set -euo pipefail
+          # -m1 and the emptiness check together: a second match or a refactor that moves the
+          # version out of reach would otherwise sail past as a two-line or empty string, and on
+          # the dispatch path an empty one becomes the nonsense version "-dev.N".
+          gradle_version=$(grep -oPm1 '\?: "\K[0-9][^"]*' VDTerminal/build.gradle.kts || true)
+          if [ -z "$gradle_version" ]; then
+            echo "::error::no version found in VDTerminal/build.gradle.kts"; exit 1
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # The checked-in number with a dev suffix, not something like 0.0.0: jpackage takes only
+            # the numeric head, so a dry run on a made-up version would be exercising a shape no real
+            # release ever has — and the point of the dry run is to be the release, minus publishing.
+            version="${gradle_version}-dev.${{ github.run_number }}"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Dry run: $version (nothing will be published)"
+          else
+            version="${GITHUB_REF_NAME#v}"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # Prerelease suffixes (-alpha.1) are ours alone: FS25's modDesc version is four numbers
+          # and can express nothing else, so only the numeric head is compared.
+          numeric="${version%%-*}"
+
+          # A dry run has no tag to check anything against. (Written as an `if` rather than
+          # `[ … ] && exit 0`, which under `set -e` fails the step on the *tag* path.)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            exit 0
+          fi
+
+          # modDesc.xml is the mod's version outright: fstools.toml sets no `version`, so `fs pack`
+          # ships this value untouched. Two files to agree with the tag, not three.
+          moddesc_version=$(grep -oPm1 '<version>\K[^<]+' vdTelemetry/modDesc.xml || true)
+          if [ -z "$moddesc_version" ]; then
+            echo "::error::no <version> found in vdTelemetry/modDesc.xml"; exit 1
+          fi
+
+          fail=0
+          if [ "$gradle_version" != "$numeric" ]; then
+            echo "::error::VDTerminal/build.gradle.kts says $gradle_version, tag says $numeric"; fail=1
+          fi
+          if [ "$(echo "$moddesc_version" | cut -d. -f1-3)" != "$numeric" ]; then
+            echo "::error::modDesc.xml says $moddesc_version, tag says $numeric"; fail=1
+          fi
+          exit $fail
+
+  verify:
+    name: Verify
+    uses: ./.github/workflows/ci.yml
+
+  mod:
+    name: Mod zip
+    needs: [version, verify]
+    runs-on: ubuntu-latest
+    env:
+      # The same `fs pack` used locally, so the released zip and the one on the developer's machine
+      # come out of one definition of "what is the mod" — `.fsignore` — instead of CI keeping a
+      # second list that silently drifts when an asset folder is added.
+      #
+      # Pinned to a release, not a branch: on `main`, a change over there would quietly change what
+      # ships from here. Bump it deliberately, and re-run the dry run when you do.
+      FSTOOLS: git+https://github.com/VertexDezign/FSTools@v0.1.0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      # Every path the mod source()s must actually be in the tree. A typo here is a mod that loads
+      # halfway and then errors in someone's savegame, which no unit test covers.
+      - name: Verify sourced files exist
+        working-directory: vdTelemetry
+        run: |
+          set -euo pipefail
+          fail=0
+          while read -r f; do
+            [ -f "$f" ] || { echo "::error::sourceFiles entry not found: $f"; fail=1; }
+          done < <(sed -n '/^local sourceFiles = {/,/^}/p' VDTelemetry.lua | grep -oP '"\K[^"]+\.lua(?=")')
+          exit $fail
+
+      - name: Validate modDesc.xml
+        working-directory: vdTelemetry
+        run: uvx --from "$FSTOOLS" fs validate
+
+      # `fs pack` also rewrites author/title into the packed modDesc.xml from fstools.toml. The
+      # version is deliberately not among them, so the modDesc checked against the tag above is the
+      # one the released zip carries.
+      - name: Build FS25_vdTelemetry.zip
+        working-directory: vdTelemetry
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          uvx --from "$FSTOOLS" fs pack -o "$GITHUB_WORKSPACE/dist"
+
+      # Independent of whatever packed it: the zip is opened and asked whether it is a working mod.
+      # `.fsignore` is an exclude list, so the failure mode it cannot catch is a *new* repo-only
+      # file quietly shipping to players — which is exactly how fsTypes/ and stylua.toml got in.
+      - name: Verify the packed zip
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import re, sys, zipfile, pathlib
+          names = set(zipfile.ZipFile("dist/FS25_vdTelemetry.zip").namelist())
+          bad = []
+
+          if "modDesc.xml" not in names:
+              bad.append("modDesc.xml is not at the zip root")
+
+          leaked = sorted(n for n in names
+                          if n.startswith(("spec/", "fsTypes/"))
+                          or n.endswith((".md", ".toml", ".fsignore")))
+          bad += [f"repo-only file shipped: {n}" for n in leaked]
+
+          block = re.search(r"^local sourceFiles = \{(.*?)^\}",
+                            pathlib.Path("vdTelemetry/VDTelemetry.lua").read_text(),
+                            re.S | re.M).group(1)
+          sourced = re.findall(r'"([^"]+\.lua)"', block)
+          bad += [f"sourced file missing from zip: {s}" for s in sourced if s not in names]
+
+          for b in bad:
+              print(f"::error::{b}")
+          print(f"{len(names)} files, {len(sourced)} sourced modules, {len(bad)} problem(s)")
+          sys.exit(1 if bad else 0)
+          EOF
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mod
+          path: dist/
+          if-no-files-found: error
+
+  terminal:
+    name: Terminal (${{ matrix.label }})
+    needs: [version, verify]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows
+          - os: ubuntu-latest
+            label: linux
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: VDTerminal
+        # bash on both runners, not just Linux: the Windows default is PowerShell, where `./gradlew`
+        # tries to run the POSIX script as a program instead of handing it to a shell.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The same 25 CI builds on, and the floor the project documents: jpackage bundles the runtime
+      # it is run from, so this number is both what the two app images ship and what the portable
+      # zip demands of the JDK a user brings. `--enable-native-access` travels with it, from
+      # `server/build.gradle.kts` — see the comment there for what Netty does without it.
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # jpackage cannot cross-compile, which is the whole reason this job is a matrix.
+      #
+      # The version reaches the shell through `env:` rather than being expanded into the script:
+      # it is derived from the pushed tag name, and a tag name is free text that would otherwise
+      # be pasted straight into a command line.
+      - name: Build app image
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: ./gradlew :server:packageRelease -PvdtVersion="$VERSION" --stacktrace
+
+      # The bring-your-own-JDK archive, for anything the two app images don't cover. Built once.
+      - name: Build portable archive
+        if: matrix.label == 'linux'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ./gradlew :server:distZip -PvdtVersion="$VERSION"
+          mv "server/build/distributions/server-${VERSION}.zip" \
+             "server/build/release/VDTerminal-${VERSION}-portable.zip"
+
+      # The archive, not the build output: the two differ, and the difference has already been a
+      # release-blocking bug once — Gradle's archive tasks normalise permissions, so the app image
+      # ran fine while the download it was packed into arrived with an unrunnable launcher.
+      - name: Smoke test the packaged archive
+        run: |
+          set -euo pipefail
+          mkdir -p smoke && cd smoke
+          # Expand-Archive rather than unzip or tar: Git for Windows ships neither `unzip` nor a tar
+          # that reads zip, and PowerShell is the one extractor certain to be on the runner. The
+          # relative path keeps it working without converting between msys and Windows path forms.
+          if [ "${{ matrix.label }}" = "windows" ]; then
+            powershell -NoProfile -Command \
+              "Expand-Archive -Path '../server/build/release/VDTerminal-*.zip' -DestinationPath '.' -Force"
+            launcher="VDTerminal/VDTerminal.exe"
+          else
+            tar xzf ../server/build/release/*.tar.gz
+            launcher="VDTerminal/bin/VDTerminal"
+          fi
+          [ -x "$launcher" ] || { echo "::error::$launcher is not executable in the archive"; exit 1; }
+
+          # The licences and the setup guides are only ever seen here, so a build that silently
+          # dropped them is a broken release rather than a cosmetic one.
+          for f in LICENSE NOTICE licenses/DSEG-OFL-1.1.txt setup.en.md setup.de.md; do
+            [ -f "$f" ] || { echo "::error::$f is missing from the archive"; exit 1; }
+          done
+
+          VDT_PORT=3999 VDT_GAME_DIR=/nonexistent "$launcher" > run.log 2>&1 &
+          pid=$!
+          # On a trap, not at the end: under `set -e` a server that never comes up exits the step
+          # at the first curl, and the startup log is the only thing that could say why.
+          trap 'echo "--- startup log ---"; cat run.log || true; kill "$pid" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:3999/health >/dev/null 2>&1 && break || sleep 1
+          done
+          curl -sf http://localhost:3999/health
+          # The dashboard and its wasm bundle, i.e. that the app really is embedded in the jar.
+          curl -sf -o /dev/null http://localhost:3999/
+          curl -sf -o /dev/null http://localhost:3999/app.js
+
+          # The console window is the whole UI this program has before the browser opens, so a JVM
+          # warning in it is a defect. `WARNING:` at the start of a line is the JVM's own format --
+          # restricted native access and terminally deprecated methods both arrive that way, and
+          # both are what --enable-native-access is passed to prevent.
+          if grep -q '^WARNING' run.log; then
+            echo "::error::the packaged runtime prints a JVM warning on startup"; exit 1
+          fi
+
+      # The portable zip carries the same fonts inside the jar, so it owes the same attribution —
+      # and it is the one archive the smoke test above never unpacks.
+      - name: Verify the portable archive ships its notices
+        if: matrix.label == 'linux'
+        run: |
+          set -euo pipefail
+          zip=$(echo server/build/release/*-portable.zip)
+          # Listed once into a variable: `unzip -Z1 | grep -q` would leave unzip writing into a
+          # pipe grep has already closed, and pipefail reads that SIGPIPE as a failed check.
+          names=$(unzip -Z1 "$zip")
+          for f in LICENSE NOTICE licenses/DSEG-OFL-1.1.txt setup.en.md setup.de.md; do
+            grep -qE "(^|/)$f\$" <<<"$names" || { echo "::error::$f is missing from $zip"; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: terminal-${{ matrix.label }}
+          path: VDTerminal/server/build/release/
+          if-no-files-found: error
+
+  publish:
+    name: Publish prerelease
+    needs: [version, mod, terminal]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    # The only job that writes anything back, and the only one granted it.
+    permissions:
+      contents: write
+    steps:
+      # Only so `gh` can read the repo off the remote; it authenticates with GH_TOKEN below.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -lh dist/
+
+      - name: Write release notes
+        run: |
+          cat > notes.md <<'EOF'
+          **This is an alpha.** It is usable, it is not finished, and it is unsigned — Windows
+          SmartScreen and some antivirus tools will say so.
+
+          ### Setup
+
+          - 📖 [Setup guide (English)](https://github.com/VertexDezign/VDTelemetry/blob/main/docs/setup.en.md)
+          - 📖 [Anleitung (Deutsch)](https://github.com/VertexDezign/VDTelemetry/blob/main/docs/setup.de.md)
+
+          You need **two** mods in your `mods` folder: `FS25_vdTelemetry.zip` from below, and
+          [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs/releases) 1.1+,
+          without which VDTelemetry switches itself off.
+
+          ### Which download
+
+          | File | For |
+          |---|---|
+          | `FS25_vdTelemetry.zip` | the mod — into your FS25 `mods` folder |
+          | `VDTerminal-…-windows-x64.zip` | the dashboard on Windows — unzip, run `VDTerminal.exe` |
+          | `VDTerminal-…-linux-x64.tar.gz` | the dashboard on Linux (Proton players) |
+          | `VDTerminal-…-portable.zip` | anything else — needs a JDK 25+ of your own |
+
+          The three terminal downloads are the same program; the first two bring their own Java.
+
+          The dashboard has no password and is meant for your own network. Don't forward port 3001.
+          EOF
+
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "VDTelemetry $VERSION" \
+            --notes-file notes.md \
+            --prerelease
