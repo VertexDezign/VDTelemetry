@@ -11,6 +11,9 @@
 ---@field max number
 ---@field unit string
 
+-- `value` is 0 whenever the crankshaft is not turning (mod version 15) -- only `min`/`max` still
+-- describe the gauge's face there. Same for LoadModel below; see Motor.collect for why the engine's
+-- own reading cannot be trusted once the motor has stopped.
 ---@class RpmModel
 ---@field value number
 ---@field min number

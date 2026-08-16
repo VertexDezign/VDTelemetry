@@ -203,7 +203,12 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     STARTING, and 3 (STARTING, the starter cranking) was folded in with 4 into ON — so a cranking
 --     engine read as running and our STARTING never once meant cranking. IGNITION is new, STARTING
 --     changes meaning, and ON is now only the state the game itself calls started. See issue #86.
-VDTelemetry.VERSION = 14
+-- 15: `motor.rpm.value` and `motor.load.value` are 0 on an engine that is neither running nor being
+--     cranked. Both used to be whatever the engine last held: it stops updating them when the motor
+--     stops, and its own one-shot zeroing at the state change does not survive a multiplayer client
+--     applying an rpm update that was already in flight behind the stop event — which left a smoothed
+--     remnant of idle sitting under 100 rpm on a machine that had been switched off. See issue #94.
+VDTelemetry.VERSION = 15
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
