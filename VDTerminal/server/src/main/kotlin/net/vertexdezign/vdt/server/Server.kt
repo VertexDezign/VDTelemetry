@@ -159,6 +159,14 @@ fun main() {
   // the absence rule carries an extra meaning: the file only ever exists when FS25_Invoices is
   // installed, so null is what tells the app the whole feature is unavailable.
   val invoicesState = watcher.register("invoices.json", nullOnAbsent = true) { VdtParser.parseInvoices(it) }
+  // cropCalendar.json is event-driven and nearly static -- rewritten once per in-game day for the
+  // today marker. Same absence rule: on a different map the crop list is a different set entirely, so
+  // the app must clear rather than keep the last one.
+  val cropCalendarState =
+    watcher.register("cropCalendar.json", nullOnAbsent = true) { VdtParser.parseCropCalendar(it) }
+  // weather.json is event-driven on the in-game hour; same absence rule -- a stale forecast is worse
+  // than none, since it is read to decide whether to cut hay.
+  val weatherState = watcher.register("weather.json", nullOnAbsent = true) { VdtParser.parseWeather(it) }
   watcher.launchIn(appScope)
 
   // The ground-layer rasters live in their own folder, one file per plane plus index.json naming the
@@ -363,6 +371,20 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val cropCalendarJob =
+          launch {
+            cropCalendarState.collect { data ->
+              val message: ServerMessage = ServerMessage.CropCalendar(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
+        val weatherJob =
+          launch {
+            weatherState.collect { data ->
+              val message: ServerMessage = ServerMessage.Weather(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         val channelStatsJob =
           launch {
             channelStatsState.collect { data ->
@@ -425,6 +447,8 @@ fun main() {
           missionsJob.cancel()
           financeJob.cancel()
           invoicesJob.cancel()
+          cropCalendarJob.cancel()
+          weatherJob.cancel()
           channelStatsJob.cancel()
           mapLayersJob.cancel()
         }

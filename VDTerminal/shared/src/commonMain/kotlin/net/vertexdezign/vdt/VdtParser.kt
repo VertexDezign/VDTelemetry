@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
@@ -16,6 +17,7 @@ import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
+import net.vertexdezign.vdt.model.WeatherForecastData
 
 /**
  * Parses the mod's `vdTelemetry.json` into the typed [VdtData] model.
@@ -72,6 +74,12 @@ object VdtParser {
 
   /** Parse the optional `invoices.json` channel (FS25_Invoices) into [InvoicesData]. */
   fun parseInvoices(text: String): InvoicesData = json.decodeFromString(InvoicesData.serializer(), text)
+
+  /** Parse the `cropCalendar.json` channel (sow/harvest periods per crop) into [CropCalendarData]. */
+  fun parseCropCalendar(text: String): CropCalendarData = json.decodeFromString(CropCalendarData.serializer(), text)
+
+  /** Parse the `weather.json` channel (the forecast) into [WeatherForecastData]. */
+  fun parseWeather(text: String): WeatherForecastData = json.decodeFromString(WeatherForecastData.serializer(), text)
 
   /** Parse one `mapLayers/<id>.json` raster plane into [MapLayerData]. */
   fun parseMapLayer(text: String): MapLayerData = json.decodeFromString(MapLayerData.serializer(), text)
