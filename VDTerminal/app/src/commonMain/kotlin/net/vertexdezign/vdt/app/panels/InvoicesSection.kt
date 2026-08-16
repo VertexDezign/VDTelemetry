@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.ConfirmDialog
+import net.vertexdezign.vdt.app.components.FilterChip
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Invoice
@@ -214,21 +215,6 @@ private fun InvoicesHeadline(data: InvoicesData) {
       )
     }
   }
-}
-
-@Composable
-private fun FilterChip(label: String, active: Boolean, onClick: () -> Unit) {
-  Text(
-    label.uppercase(),
-    color = if (active) VdtColors.White else VdtColors.DarkGray,
-    fontSize = 10.sp,
-    fontWeight = FontWeight.Bold,
-    modifier = Modifier
-      .clip(RoundedCornerShape(4.dp))
-      .background(if (active) VdtColors.Green else VdtColors.TrackGray)
-      .clickable(role = Role.Button, onClick = onClick)
-      .padding(horizontal = 10.dp, vertical = 5.dp),
-  )
 }
 
 /** The status word the mod's own list prints, and the ink for it. */

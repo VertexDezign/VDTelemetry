@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -107,6 +106,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.components.SectionStrip
 import net.vertexdezign.vdt.app.components.boomOf
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -1704,26 +1704,11 @@ private fun BoxScope.MapFilterPanel(
       .verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
-    BasicTextField(
+    SearchField(
       value = query,
+      placeholder = "Search field / POI…",
       onValueChange = onQuery,
-      singleLine = true,
-      textStyle = TextStyle(fontSize = 13.sp, color = VdtColors.TextDark),
-      modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(4.dp))
-        .background(VdtColors.White)
-        .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
-        .padding(horizontal = 8.dp, vertical = 6.dp),
-      decorationBox = { inner ->
-        Box {
-          if (query.isEmpty()) {
-            Text("Search field / POI…", fontSize = 13.sp, color = VdtColors.DarkGray)
-          }
-          inner()
-        }
-      },
+      modifier = Modifier.fillMaxWidth(),
     )
 
     if (query.isNotBlank()) {
