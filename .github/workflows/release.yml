@@ -5,7 +5,7 @@ name: Release
 # publishing anything, so the packaging can be exercised before a tag is spent on it.
 on:
   push:
-    tags: ['v*']
+    tags: [ 'v*' ]
   workflow_dispatch:
 
 # A release must never be cancelled halfway through by a second push.
@@ -82,8 +82,8 @@ jobs:
           if [ "$gradle_version" != "$numeric" ]; then
             echo "::error::VDTerminal/build.gradle.kts says $gradle_version, tag says $numeric"; fail=1
           fi
-          if [ "$(echo "$moddesc_version" | cut -d. -f1-3)" != "$numeric" ]; then
-            echo "::error::modDesc.xml says $moddesc_version, tag says $numeric"; fail=1
+          if [ "$moddesc_version" != "$version" ]; then
+            echo "::error::modDesc.xml says $moddesc_version, tag says $version"; exit 1
           fi
           exit $fail
 
@@ -93,7 +93,7 @@ jobs:
 
   mod:
     name: Mod zip
-    needs: [version, verify]
+    needs: [ version, verify ]
     runs-on: ubuntu-latest
     env:
       # The same `fs pack` used locally, so the released zip and the one on the developer's machine
@@ -186,7 +186,7 @@ jobs:
   # share one cache, which is the race that made it flaky here in the first place.
   web:
     name: Dashboard bundle
-    needs: [version, verify]
+    needs: [ version, verify ]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -220,7 +220,7 @@ jobs:
 
   terminal:
     name: Terminal (${{ matrix.label }})
-    needs: [version, verify, web]
+    needs: [ version, verify, web ]
     strategy:
       fail-fast: false
       matrix:
@@ -356,7 +356,7 @@ jobs:
 
   publish:
     name: Publish prerelease
-    needs: [version, mod, terminal]
+    needs: [ version, mod, terminal ]
     if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-latest
     # The only job that writes anything back, and the only one granted it.
