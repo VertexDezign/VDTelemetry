@@ -53,6 +53,8 @@ data actually changes — and none of them rides the 100 ms tick.
 | `missions.json` | the farm's contracts (core, `src/collect/MissionExporter.lua`) | on contract change + 10 s |
 | `finance.json` | the farm's books: balance, loan, the monthly table, the money log (core, `src/collect/FinanceExporter.lua`) | on period/loan change + 5 s |
 | `fieldInfo.json` | per-field agronomy, for the field-info popup (core, `src/collect/FieldInfoExporter.lua`) | own interval (30 s) |
+| `cropCalendar.json` | which periods each crop may be sown and harvested in (core, `src/collect/CropCalendarExporter.lua`) | on day / season-length change, + a 2 s growth-mode watch |
+| `weather.json` | the forecast: now, twelve two-hourly steps, six days (core, `src/collect/WeatherExporter.lua`) | on hour / day change |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
 | `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
 | `invoices.json` | [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) | on invoice or player-farm change |
@@ -269,6 +271,8 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
         <channel id="cropRotation" enabled="true"/>
         <channel id="invoices" enabled="true"/>
         <channel id="fieldInfo" enabled="true" intervalMs="30000"/>
+        <channel id="cropCalendar" enabled="true"/>
+        <channel id="weather" enabled="true"/>
     </channels>
 </VDTS>
 

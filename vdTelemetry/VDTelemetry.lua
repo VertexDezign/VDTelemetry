@@ -80,6 +80,11 @@ local sourceFiles = {
   -- Finance channel: the farm's books -- balance, loan, the month-by-month finances table and the
   -- money notifications as a log (interval + event-driven).
   "src/collect/FinanceExporter.lua",
+  -- Calendar channels: the sowing/harvest periods per crop (event-driven, per in-game day) and the
+  -- weather forecast (event-driven, per in-game hour). Both are world state rather than farm state,
+  -- and both read only base-game managers.
+  "src/collect/CropCalendarExporter.lua",
+  "src/collect/WeatherExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/AdvancedDamageSystem.lua",
