@@ -15,6 +15,7 @@ object AppRegistry {
       StorageApp,
       AnimalsApp,
       MissionsApp,
+      CalendarApp,
       FinanceApp,
       TasksApp,
       CropRotationApp,
