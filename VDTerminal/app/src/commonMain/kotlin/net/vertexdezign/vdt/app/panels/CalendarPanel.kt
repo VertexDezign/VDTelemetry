@@ -537,7 +537,7 @@ private fun NowBlock(data: WeatherForecastData) {
         WeatherIcons.of(now.kind),
         contentDescription = WeatherIcons.labelOf(now.kind),
         tint = VdtColors.TextDark,
-        modifier = Modifier.size(40.dp),
+        modifier = Modifier.size(NOW_ICON_SIZE),
       )
     }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -577,7 +577,7 @@ private fun HourBlock(hour: ForecastHour) {
       WeatherIcons.of(hour.kind),
       contentDescription = WeatherIcons.labelOf(hour.kind),
       tint = VdtColors.TextDark,
-      modifier = Modifier.size(20.dp).padding(vertical = 2.dp),
+      modifier = Modifier.size(FORECAST_ICON_SIZE).padding(vertical = 2.dp),
     )
     Text(
       "${hour.temperature}°",
@@ -605,7 +605,7 @@ private fun DayBlock(day: ForecastDay, unit: String) {
       WeatherIcons.of(day.kind),
       contentDescription = WeatherIcons.labelOf(day.kind),
       tint = VdtColors.TextDark,
-      modifier = Modifier.size(20.dp).padding(vertical = 2.dp),
+      modifier = Modifier.size(FORECAST_ICON_SIZE).padding(vertical = 2.dp),
     )
     Text(
       "${day.high}$unit",
@@ -766,6 +766,15 @@ private val LANE_INSET = 1.dp
 
 private val WEATHER_HEIGHT = 118.dp
 private val FORECAST_COLUMN_WIDTH = 40.dp
+
+/**
+ * The forecast glyphs are the only thing in the strip that carries its meaning as a shape rather than
+ * as a word, so they get the headroom: a column spends 40dp on width and the section had some 40dp of
+ * vertical slack, and both blocks stay well inside it at these sizes. Below roughly 24dp the flakes
+ * and the stones stop being tellable apart — see the note on `SNOW_FLAKES` in `WeatherIcons.kt`.
+ */
+private val FORECAST_ICON_SIZE = 26.dp
+private val NOW_ICON_SIZE = 48.dp
 
 /** The widget's "now" block: fixed, so the hours below get whatever height the tile has left. */
 private val WIDGET_NOW_HEIGHT = 76.dp

@@ -38,15 +38,24 @@ object WeatherIcons {
     fill(SMALL_SUN + CLOUD_LOW)
   }
 
-  val Cloudy = weather("Cloudy") { fill(CLOUD) }
+  /**
+   * The bare cloud, pushed back down by [CLOUD_LIFT]. [CLOUD] is drawn high so the precipitation
+   * glyphs have room to hang; with nothing hanging from it the same shape would just sit top-heavy
+   * in its box, so this one glyph — and only this one — puts it back in the middle.
+   */
+  val Cloudy = weather("Cloudy") {
+    addGroup(translationY = CLOUD_LIFT)
+    fill(CLOUD)
+    clearGroup()
+  }
 
-  /** Cloud plus three slanted drops — slanted is what separates it from [Snow] and [Hail]. */
+  /** Cloud plus three long slanted streaks — the slant and the length are what carry it. */
   val Rain = weather("Rain") { fill(CLOUD + RAIN_DROPS) }
 
-  /** Cloud plus three diamonds: angular and symmetric where rain slants. */
+  /** Cloud plus three six-armed flakes, **scattered**: the middle one falls low. See [SNOW_FLAKES]. */
   val Snow = weather("Snow") { fill(CLOUD + SNOW_FLAKES) }
 
-  /** Cloud plus three round pellets: round where snow is angular. */
+  /** Cloud plus three round stones in a **level row** — the straight line is what reads, not the roundness. */
   val Hail = weather("Hail") { fill(CLOUD + HAIL_STONES) }
 
   val Thunder = weather("Thunder") { fill(CLOUD + BOLT) }
@@ -129,14 +138,19 @@ private const val SUN_RAYS =
     "M8.11 17.30 L6.70 15.89 L4.58 18.01 L5.99 19.42 Z"
 
 /**
- * The cloud: three discs and a bar joining their bottoms. Spans x 4.5..20.5, y 7.5..17, so the drops,
- * flakes, pellets and bolt all hang from y 17 downward without touching it.
+ * The cloud: three discs and a bar joining their bottoms. Spans x 4.5..20.5, y 6..15.5, leaving
+ * y 16..23 for whatever hangs off it — two thirds more room than a centred cloud leaves, which is
+ * what lets the streaks be long enough to read as slanted and the flakes far enough apart to be
+ * counted. [Cloudy], the one glyph with nothing hanging from it, puts the cloud back in the middle.
  */
 private const val CLOUD =
-  "M8 10 A3.5 3.5 0 1 0 8 17 A3.5 3.5 0 1 0 8 10 Z" +
-    "M13 7.5 A4.5 4.5 0 1 0 13 16.5 A4.5 4.5 0 1 0 13 7.5 Z" +
-    "M17.5 11 A3 3 0 1 0 17.5 17 A3 3 0 1 0 17.5 11 Z" +
-    "M8 13.5 V17 H17.5 V13.5 Z"
+  "M8 8.5 A3.5 3.5 0 1 0 8 15.5 A3.5 3.5 0 1 0 8 8.5 Z" +
+    "M13 6 A4.5 4.5 0 1 0 13 15 A4.5 4.5 0 1 0 13 6 Z" +
+    "M17.5 9.5 A3 3 0 1 0 17.5 15.5 A3 3 0 1 0 17.5 9.5 Z" +
+    "M8 12 V15.5 H17.5 V12 Z"
+
+/** How far [CLOUD] sits above centre; [Cloudy] translates by it to undo the lift. */
+private const val CLOUD_LIFT = 1.5f
 
 /** The same cloud dropped 3.5 down and shrunk, to leave the corner free for [SMALL_SUN]. */
 private const val CLOUD_LOW =
@@ -153,25 +167,42 @@ private const val SMALL_SUN =
     "M2.35 1.55 L3.48 2.68 L2.35 3.81 L1.22 2.68 Z" +
     "M11.65 1.55 L12.78 2.68 L11.65 3.81 L10.52 2.68 Z"
 
-/** Three slanted drops. The slant is the mark: it is what tells rain from snow and hail. */
+/** Three long slanted streaks. The slant is the mark: nothing else in the set leans. */
 private const val RAIN_DROPS =
-  "M8.6 18.3 L10 18.9 L8.4 22.4 L7 21.8 Z" +
-    "M12.6 18.3 L14 18.9 L12.4 22.4 L11 21.8 Z" +
-    "M16.6 18.3 L18 18.9 L16.4 22.4 L15 21.8 Z"
+  "M6.7 23 L8.4 23 L10.4 16.6 L8.7 16.6 Z" +
+    "M10.7 23 L12.4 23 L14.4 16.6 L12.7 16.6 Z" +
+    "M14.7 23 L16.4 23 L18.4 16.6 L16.7 16.6 Z"
 
-/** Three diamonds — symmetric and pointed where the drops slant. */
+/**
+ * Three six-armed flakes, each three bars crossed at 60°, with the middle one **fallen 1.6 below its
+ * neighbours**.
+ *
+ * The stagger is the load-bearing part. Arms this thin are sub-pixel down in the forecast strip, so
+ * at that size a star and a round stone both resolve to the same grey blob and shape decides nothing
+ * — the earlier diamonds were indistinguishable from [HAIL_STONES] for exactly that reason. What does
+ * survive the downscale is where the marks sit: snow scatters, [HAIL_STONES] holds a level row. The
+ * arms then do the telling at 48dp in the "now" block, where there is resolution to see them.
+ *
+ * The three bars overlap at each centre, so they are wound the same way — see the winding note above.
+ */
 private const val SNOW_FLAKES =
-  "M8.4 18.6 L9.9 20.4 L8.4 22.2 L6.9 20.4 Z" +
-    "M12.4 18.6 L13.9 20.4 L12.4 22.2 L10.9 20.4 Z" +
-    "M16.4 18.6 L17.9 20.4 L16.4 22.2 L14.9 20.4 Z"
+  "M8.48 20.95 L8.48 17.05 L7.52 17.05 L7.52 20.95 Z" +
+    "M6.55 20.39 L9.93 18.44 L9.45 17.61 L6.07 19.56 Z" +
+    "M6.07 18.44 L9.45 20.39 L9.93 19.56 L6.55 17.61 Z" +
+    "M12.88 22.55 L12.88 18.65 L11.92 18.65 L11.92 22.55 Z" +
+    "M10.95 21.99 L14.33 20.04 L13.85 19.21 L10.47 21.16 Z" +
+    "M10.47 20.04 L13.85 21.99 L14.33 21.16 L10.95 19.21 Z" +
+    "M17.28 20.95 L17.28 17.05 L16.32 17.05 L16.32 20.95 Z" +
+    "M15.35 20.39 L18.73 18.44 L18.25 17.61 L14.87 19.56 Z" +
+    "M14.87 18.44 L18.25 20.39 L18.73 19.56 L15.35 17.61 Z"
 
-/** Three pellets — round where the flakes are pointed. */
+/** Three round stones on one level line — the row is the mark, against [SNOW_FLAKES]' scatter. */
 private const val HAIL_STONES =
-  "M8.4 19.1 A1.3 1.3 0 1 0 8.4 21.7 A1.3 1.3 0 1 0 8.4 19.1 Z" +
-    "M12.4 19.1 A1.3 1.3 0 1 0 12.4 21.7 A1.3 1.3 0 1 0 12.4 19.1 Z" +
-    "M16.4 19.1 A1.3 1.3 0 1 0 16.4 21.7 A1.3 1.3 0 1 0 16.4 19.1 Z"
+  "M8 18.05 A1.75 1.75 0 1 0 8 21.55 A1.75 1.75 0 1 0 8 18.05 Z" +
+    "M12.4 18.05 A1.75 1.75 0 1 0 12.4 21.55 A1.75 1.75 0 1 0 12.4 18.05 Z" +
+    "M16.8 18.05 A1.75 1.75 0 1 0 16.8 21.55 A1.75 1.75 0 1 0 16.8 18.05 Z"
 
-private const val BOLT = "M14.6 17.4 L8.8 22.6 L12.2 22.6 L11 24 L16.4 19.2 L13 19.2 Z"
+private const val BOLT = "M14.6 16 L8.8 21.2 L12.2 21.2 L11 22.6 L16.4 17.8 L13 17.8 Z"
 
 /** Funnel plus two slots; even-odd turns the slots into holes rather than more cone. */
 private const val FUNNEL =
