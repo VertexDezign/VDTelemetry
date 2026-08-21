@@ -349,7 +349,9 @@ supports it: a channel whose `markDirty()` is driven by a position bucket rather
 
 ## Weather and crop calendar (#96)
 
-Both channels and the Calendar app are built. What they leave behind:
+Both channels and the Calendar app are built, and validated on a multiplayer client on 2026-08-21: both
+`weather.json` and `cropCalendar.json` appear and populate there, so `owner.forecastItems` and
+`missionInfo.growthMode` are replicated to clients rather than being server-only. What they leave behind:
 
 - **Crop icons are not reachable, so the rows are name-only.** The game's own calendar puts the fill type's icon beside
   each crop, from `fillType.hudOverlayFilename` — which points inside `dataS2/`, the game's packed archive.
@@ -371,11 +373,6 @@ Both channels and the Calendar app are built. What they leave behind:
 
 Each one is cheap to do while playing and settles something above.
 
-- **Is the forecast populated on a multiplayer client?** `WeatherForecast` reads `owner.forecastItems`, and whether
-  those are replicated to clients or only exist server-side is unverified. Same question for `missionInfo.growthMode`,
-  which the crop calendar's period predicates need. Both reads are `pcall`-guarded, so the failure mode is a channel
-  that never appears rather than a Lua error — but which of the two happens is unknown. Join a dedicated server and look
-  for `weather.json` / `cropCalendar.json`.
 - **A southern-hemisphere map**, to confirm the calendar's column labels really shift: `g_i18n:formatPeriod` keys off
   `environment.daylight.latitude < 0` and should label period 1 September rather than March. This is the whole reason
   the labels cross the wire instead of being a lookup table in the app.
