@@ -103,6 +103,13 @@ object WeatherIcons {
 // takes SVG arcs, and a real arc stays round at every size these are drawn at (14dp in the strip,
 // 40dp in the "now" block). Overlapping subpaths are unioned by the default NonZero fill, which is
 // what lets the cloud be three discs and a bar rather than one hand-fitted outline.
+//
+// **NonZero only unions subpaths that wind the same way.** Two overlapping subpaths of opposite
+// winding cancel to zero and punch a hole instead — which is what the cloud's joining bar used to do
+// to the three discs it was meant to merge with. Sweep-flag 0 runs counter-clockwise on screen, so
+// every subpath that overlaps another one here is written counter-clockwise too (down the left edge
+// first, then across). Subpaths that touch nothing else — rays, drops, flakes — wind either way
+// safely; give a new one the counter-clockwise form anyway if it might ever overlap.
 
 /** Disc of radius 5 at the viewport centre. */
 private const val SUN_DISC = "M12 7 A5 5 0 1 0 12 17 A5 5 0 1 0 12 7 Z"
@@ -129,14 +136,14 @@ private const val CLOUD =
   "M8 10 A3.5 3.5 0 1 0 8 17 A3.5 3.5 0 1 0 8 10 Z" +
     "M13 7.5 A4.5 4.5 0 1 0 13 16.5 A4.5 4.5 0 1 0 13 7.5 Z" +
     "M17.5 11 A3 3 0 1 0 17.5 17 A3 3 0 1 0 17.5 11 Z" +
-    "M8 13.5 H17.5 V17 H8 Z"
+    "M8 13.5 V17 H17.5 V13.5 Z"
 
 /** The same cloud dropped 3.5 down and shrunk, to leave the corner free for [SMALL_SUN]. */
 private const val CLOUD_LOW =
   "M9.5 13.5 A3 3 0 1 0 9.5 19.5 A3 3 0 1 0 9.5 13.5 Z" +
     "M14 11.5 A4 4 0 1 0 14 19.5 A4 4 0 1 0 14 11.5 Z" +
     "M18 14.5 A2.5 2.5 0 1 0 18 19.5 A2.5 2.5 0 1 0 18 14.5 Z" +
-    "M9.5 16.5 H18 V19.5 H9.5 Z"
+    "M9.5 16.5 V19.5 H18 V16.5 Z"
 
 /** Sun for the partly-cloudy glyph: disc at (7, 6.5) with only the rays that clear the cloud. */
 private const val SMALL_SUN =
