@@ -246,6 +246,20 @@ class FleetPanelTest {
   }
 
   @Test
+  fun anImplementIsToldByTheRigItIsOn() {
+    // The engine chain-walks the AI flag, so a mower behind a helper already says so; isControlled
+    // lives on the seat, which an implement has not got, so that half has to be read off the rig or
+    // a plough works all afternoon claiming to be merely attached. Both cases are in the capture.
+    val driven = machine(id = 1, name = "Puma").copy(isEntered = true, isControlled = true)
+    val plough = machine(id = 2, name = "Bomech", fuel = null).copy(attachedTo = 1)
+
+    assertEquals("In use", statusLabel(plough, driven))
+    assertEquals(listOf("IN USE"), rowBadges(plough, driven))
+    assertEquals("Attached", statusLabel(plough, machine(id = 1)), "on a rig nobody is driving")
+    assertEquals("Attached", statusLabel(plough), "and the same when the rig is out of view")
+  }
+
+  @Test
   fun parkedIsPutAwayRatherThanMerelyStandingStill() {
     // The tab-rotation flag is what a parking mod turns off, so it is the player's own act; a machine
     // nobody has parked and nobody is driving is idle, and the two must not share a word.

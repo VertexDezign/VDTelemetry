@@ -45,7 +45,7 @@ import net.vertexdezign.vdt.model.PropertyState
 internal fun FleetVehicleDetail(
   vehicle: FleetVehicle,
   today: GameDate?,
-  attachedToName: String?,
+  rig: FleetVehicle?,
   onShowOnMap: (FleetVehicle) -> Unit,
 ) {
   Column(
@@ -62,7 +62,7 @@ internal fun FleetVehicleDetail(
           maxLines = 2,
           overflow = TextOverflow.Ellipsis,
         )
-        Text(headline(vehicle, attachedToName), color = VdtColors.DarkGray, fontSize = 11.sp)
+        Text(headline(vehicle, rig?.name), color = VdtColors.DarkGray, fontSize = 11.sp)
       }
       if (vehicle.posX != null && vehicle.posZ != null) {
         FinanceButton("Show on map", VdtColors.Green, { onShowOnMap(vehicle) })
@@ -70,7 +70,7 @@ internal fun FleetVehicleDetail(
     }
 
     ConditionCard(vehicle)
-    FactsCard(vehicle)
+    FactsCard(vehicle, rig)
 
     val fillUnits = buildList {
       vehicle.motorFillUnits?.let { addAll(listOfNotNull(it.fuel, it.def, it.air)) }
@@ -150,28 +150,35 @@ private fun ConditionCard(vehicle: FleetVehicle) {
 }
 
 @Composable
-private fun FactsCard(vehicle: FleetVehicle) {
+private fun FactsCard(vehicle: FleetVehicle, rig: FleetVehicle?) {
   DetailCard("Machine") {
     FactRow("Age", formatAge(vehicle.age))
     FactRow("Operating hours", "${formatHours(vehicle.hours)} h")
     vehicle.sellPrice?.let { FactRow("Sell value", formatMoney(it.toLong())) }
     vehicle.leasePerDay?.let { FactRow("Leasing, per day", formatMoney(it.toLong())) }
-    FactRow("Status", statusLabel(vehicle))
+    FactRow("Status", statusLabel(vehicle, rig))
   }
 }
 
 /**
- * Who has the machine right now, in words, first answer wins.
+ * Who has the machine right now, in words, first answer wins. [rig] is the root vehicle an implement
+ * hangs off, when it has one.
  *
  * **Parked means put away**, not merely standing still: it is the machine's tab-rotation flag, which
  * is what the parking mods turn off, so it is something the player did on purpose. A machine nobody
  * is driving and nobody has parked is *idle* — the difference matters to anyone running such a mod,
  * and calling that state "parked" quietly took their word for it.
+ *
+ * **An implement is told by its rig**, and only half of that comes for free: the engine chain-walks
+ * `getIsAIActive()` up the attacher joints, so a plough behind a helper already says so — but
+ * `isControlled` lives on the seat, which an implement does not have, so one behind a tractor a
+ * *person* is driving would otherwise sit there claiming to be merely attached while it works.
  */
-internal fun statusLabel(vehicle: FleetVehicle): String = when {
+internal fun statusLabel(vehicle: FleetVehicle, rig: FleetVehicle? = null): String = when {
   vehicle.isEntered -> "You are in it"
   vehicle.isAI -> "Helper driving"
   vehicle.isControlled -> "In use"
+  rig != null && (rig.isControlled || rig.isEntered) -> "In use"
   vehicle.isParked -> "Parked"
   vehicle.attachedTo != null -> "Attached"
   else -> "Idle"

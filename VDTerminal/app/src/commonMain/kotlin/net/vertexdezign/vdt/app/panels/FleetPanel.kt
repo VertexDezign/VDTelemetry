@@ -232,7 +232,7 @@ private fun FleetMasterDetail(data: FleetData, onShowOnMap: (FleetVehicle) -> Un
   val selected = shown.firstOrNull { it.id == currentId }
   // Resolved off the whole fleet rather than the filtered list: the rig a plough hangs off may well
   // be filtered out of view while the plough is not.
-  val namesById = remember(data) { data.vehicles.associate { it.id to it.name } }
+  val byId = remember(data) { data.vehicles.associateBy { it.id } }
 
   Column(Modifier.fillMaxSize()) {
     FleetControls(
@@ -258,6 +258,7 @@ private fun FleetMasterDetail(data: FleetData, onShowOnMap: (FleetVehicle) -> Un
             items(shown, key = { it.id }) { vehicle ->
               FleetRow(
                 vehicle = vehicle,
+                rig = vehicle.attachedTo?.let { byId[it] },
                 selected = vehicle.id == currentId,
                 onClick = { selectedId = vehicle.id },
               )
@@ -271,7 +272,7 @@ private fun FleetMasterDetail(data: FleetData, onShowOnMap: (FleetVehicle) -> Un
           FleetVehicleDetail(
             vehicle = selected,
             today = data.date,
-            attachedToName = selected.attachedTo?.let { namesById[it] },
+            rig = selected.attachedTo?.let { byId[it] },
             onShowOnMap = onShowOnMap,
           )
         } else {
@@ -363,7 +364,7 @@ private fun SortControl(sort: FleetSort, ascending: Boolean, onSort: (FleetSort)
 }
 
 @Composable
-private fun FleetRow(vehicle: FleetVehicle, selected: Boolean, onClick: () -> Unit) {
+private fun FleetRow(vehicle: FleetVehicle, rig: FleetVehicle?, selected: Boolean, onClick: () -> Unit) {
   val fg = if (selected) VdtColors.White else VdtColors.TextDark
   val muted = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray
   Column(
@@ -400,7 +401,7 @@ private fun FleetRow(vehicle: FleetVehicle, selected: Boolean, onClick: () -> Un
       maxLines = 1,
       overflow = TextOverflow.Ellipsis,
     )
-    val badges = rowBadges(vehicle)
+    val badges = rowBadges(vehicle, rig)
     if (badges.isNotEmpty()) {
       Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         badges.forEach { badge -> RowBadge(badge, selected) }
@@ -420,7 +421,7 @@ internal fun rowSubtitle(vehicle: FleetVehicle): String = buildList {
  * The words a row wears. Words rather than colours, and at most three: what a badge says has to
  * survive being read by someone who cannot tell the amber one from the green one.
  */
-internal fun rowBadges(vehicle: FleetVehicle): List<String> = buildList {
+internal fun rowBadges(vehicle: FleetVehicle, rig: FleetVehicle? = null): List<String> = buildList {
   val ads = vehicle.ads
   when {
     ads == null -> Unit
@@ -431,10 +432,11 @@ internal fun rowBadges(vehicle: FleetVehicle): List<String> = buildList {
     else -> Unit
   }
   if (vehicle.propertyState == PropertyState.LEASED) add("LEASED")
-  // Who has it, or that it has been put away: one rung of statusLabel's ladder, short enough for a row.
+  // Who has it, or that it has been put away: one rung of statusLabel's ladder, short enough for a row
+  // — including the rig's answer for an implement, or a plough would work all day saying nothing.
   when {
     vehicle.isAI -> add("AI")
-    vehicle.isControlled -> add("IN USE")
+    vehicle.isControlled || rig?.isControlled == true || rig?.isEntered == true -> add("IN USE")
     vehicle.isParked -> add("PARKED")
   }
 }
