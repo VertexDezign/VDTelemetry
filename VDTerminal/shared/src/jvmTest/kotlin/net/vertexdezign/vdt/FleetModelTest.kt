@@ -2,6 +2,7 @@ package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.model.AdsState
+import net.vertexdezign.vdt.model.FillDisplayType
 import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.GameDate
 import net.vertexdezign.vdt.model.PropertyState
@@ -49,7 +50,7 @@ class FleetModelTest {
     val data = VdtParser.parseFleet(example("fleet.json"))
     assertEquals("1", data.version)
     assertEquals(GameDate(year = 1, month = 6, day = 1), data.date)
-    assertEquals(29, data.vehicles.size)
+    assertEquals(31, data.vehicles.size)
     assertRoundTrips(data)
 
     val byId = data.vehicles.associateBy { it.id }
@@ -87,10 +88,29 @@ class FleetModelTest {
     assertNull(loader.ads)
 
     // The one leased machine: a leasing rate and no sell value.
-    val leased = assertNotNull(byId[734])
+    val leased = assertNotNull(byId[653])
     assertEquals(PropertyState.LEASED, leased.propertyState)
     assertEquals(14818, leased.leasePerDay)
     assertNull(leased.sellPrice)
+
+    // The two machines a contract lent the farm — the one place this channel lists something the
+    // game's own overview does not. Neither is owned, so neither carries a price of either kind.
+    val mbTrac = assertNotNull(byId[654])
+    val baler = assertNotNull(byId[655])
+    assertEquals(PropertyState.MISSION, mbTrac.propertyState)
+    assertEquals(PropertyState.MISSION, baler.propertyState)
+    for (borrowed in listOf(mbTrac, baler)) {
+      assertNull(borrowed.sellPrice, "contract equipment is not the farm's to sell")
+      assertNull(borrowed.leasePerDay, "and it is not leased either")
+    }
+    // The baler brings the first STEP fill unit any capture has had: net measured in whole rolls.
+    val net = assertNotNull(baler.fillUnits).fillUnit.single { it.type == "BALE_NET" }
+    assertEquals(FillDisplayType.STEP, net.display)
+    assertEquals(2f, net.value)
+    assertEquals(2, net.capacity)
+    // It has been worked, unlike everything the farm bought: 41.9 hours and real wear on the clock.
+    assertEquals(41.9f, baler.hours)
+    assertEquals(17, assertNotNull(baler.wearable).wear)
 
     // A fresh save, so every ADS record is the one its purchase wrote: nothing overdue, nothing
     // broken, and no inspection thorough enough to make its condition figure exact.
@@ -103,6 +123,54 @@ class FleetModelTest {
     assertEquals(GameDate(year = 1, month = 6, day = 1), ads.lastInspection)
     assertNull(ads.lastMaintenance, "never serviced")
     assertNull(ads.maintenanceCost)
+  }
+
+  @Test
+  fun parsesTheMultiplayerCapture() {
+    val data = VdtParser.parseFleet(example("mp.json"))
+    val today = assertNotNull(data.date)
+    assertEquals(GameDate(year = 2, month = 6, day = 1), today)
+    assertEquals(63, data.vehicles.size)
+    assertRoundTrips(data)
+
+    val byId = data.vehicles.associateBy { it.id }
+
+    // THE ONE THAT MATTERS. Advanced Damage System's per-vehicle spec syncs to a client — state,
+    // condition and the whole maintenance log — which is why the collector reads it rather than the
+    // mod's own ADS_Main.vehicles table, keyed by a uniqueId that is nil on a client. Thirteen of
+    // these machines carry the block, six with a service history behind them.
+    assertEquals(13, data.vehicles.count { it.ads != null })
+    val vredo = assertNotNull(assertNotNull(byId[434]).ads)
+    assertEquals(95, assertNotNull(vredo.inspected).condition)
+    assertEquals(5290, vredo.maintenanceCost)
+    assertEquals(GameDate(year = 2, month = 6, day = 1), vredo.lastMaintenance)
+    assertEquals(0, today.monthsSince(assertNotNull(vredo.lastMaintenance)), "serviced this month")
+
+    val jd6m = assertNotNull(assertNotNull(byId[442]).ads)
+    assertEquals(91, assertNotNull(jd6m.inspected).condition)
+    assertEquals(9, today.monthsSince(assertNotNull(jd6m.lastInspection)), "inspected nine months ago")
+
+    // A played-in fleet: vanilla damage is real on the implements ADS does not manage, and pinned to
+    // zero on the machines it does — the two-source rule the app reads condition by.
+    assertEquals(63, assertNotNull(assertNotNull(byId[410]).wearable).damage, "a well-used trailer")
+    val valtra = assertNotNull(byId[464])
+    assertEquals(0, assertNotNull(valtra.wearable).damage, "ADS pins it")
+    assertEquals(100, assertNotNull(valtra.wearable).wear, "but the paint is still real, and gone")
+    assertEquals(79, assertNotNull(assertNotNull(valtra.ads).inspected).condition)
+
+    // Seven machines put away with the parking mod, a forage harvester among them.
+    assertEquals(7, data.vehicles.count { it.isParked })
+    assertTrue(assertNotNull(byId[436]).isParked)
+
+    // Consumables the way the game measures them: rolls of wrap as whole slots, additive to a
+    // hundredth of a litre.
+    val wrap = assertNotNull(assertNotNull(byId[452]).fillUnits).fillUnit.single()
+    assertEquals(FillDisplayType.STEP, wrap.display)
+    assertEquals(6, wrap.capacity)
+    val additive = assertNotNull(assertNotNull(byId[447]).fillUnits).fillUnit.single { it.type == "SILAGE_ADDITIVE" }
+    assertEquals(2, additive.precision)
+
+    assertTrue(data.vehicles.none { it.propertyState == PropertyState.MISSION }, "no contract running")
   }
 
   @Test

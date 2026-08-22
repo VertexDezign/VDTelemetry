@@ -1,0 +1,2141 @@
+{
+  "date": {
+    "day": 1,
+    "year": 2,
+    "month": 6
+  },
+  "version": "1",
+  "vehicles": [
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.51042,
+      "age": 12,
+      "posX": 0.39241,
+      "name": "MAGSI Teleskopladergabel Hydraulisch",
+      "category": "Teleskoplader Werkzeuge",
+      "sellPrice": 2244,
+      "hours": 0.6,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 5,
+        "unit": "%"
+      },
+      "id": 400
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.48521,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 2390,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 2390,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.40655,
+      "name": "Bressel und Lade Schaufel L16",
+      "category": "Frontlader Werkzeuge",
+      "sellPrice": 1649,
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 2,
+        "unit": "%"
+      },
+      "id": 401
+    },
+    {
+      "type": "tool",
+      "posZ": 0.45339,
+      "propertyState": "OWNED",
+      "posX": 0.3926,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 5000,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 5000,
+            "unit": ""
+          }
+        ]
+      },
+      "attachedTo": 422,
+      "name": "Taylor Viper 3350",
+      "category": "Radlader Werkzeuge",
+      "sellPrice": 5683,
+      "hours": 4.6,
+      "wearable": {
+        "wear": 13,
+        "damage": 5,
+        "dirt": 51,
+        "unit": "%"
+      },
+      "id": 402
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.51082,
+      "age": 12,
+      "posX": 0.39595,
+      "name": "GÖWEIL Folienballenzange RBG",
+      "category": "Frontlader Werkzeuge",
+      "sellPrice": 1158,
+      "hours": 0.5,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 6,
+        "unit": "%"
+      },
+      "id": 403
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.49527,
+      "age": 11,
+      "posX": 0.39764,
+      "name": "Quicke Bigbag Hebewerkzeug",
+      "category": "Frontlader Werkzeuge",
+      "sellPrice": 606,
+      "hours": 0.2,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 3,
+        "unit": "%"
+      },
+      "id": 404
+    },
+    {
+      "type": "tool",
+      "posZ": 0.50182,
+      "propertyState": "OWNED",
+      "posX": 0.38785,
+      "age": 12,
+      "attachedTo": 442,
+      "name": "John Deere 623R",
+      "category": "Frontlader",
+      "sellPrice": 4110,
+      "hours": 15,
+      "wearable": {
+        "wear": 57,
+        "damage": 21,
+        "dirt": 25,
+        "unit": "%"
+      },
+      "id": 408
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.51175,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 18500,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.3627,
+      "name": "Rudolph TDK 301 RP",
+      "category": "Anhänger",
+      "sellPrice": 26132,
+      "hours": 6.5,
+      "wearable": {
+        "wear": 19,
+        "damage": 11,
+        "dirt": 25,
+        "unit": "%"
+      },
+      "id": 409
+    },
+    {
+      "type": "trailer",
+      "posZ": 0.51182,
+      "propertyState": "OWNED",
+      "posX": 0.36576,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 23000,
+            "unit": ""
+          }
+        ]
+      },
+      "attachedTo": 409,
+      "name": "Rudolph DK 280 W",
+      "category": "Anhänger",
+      "sellPrice": 22957,
+      "hours": 5.9,
+      "wearable": {
+        "wear": 16,
+        "damage": 63,
+        "dirt": 16,
+        "unit": "%"
+      },
+      "id": 410
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.51981,
+      "age": 11,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "FERTILIZER",
+            "title": "Mineraldünger",
+            "fillLevelPercentage": 17,
+            "value": 4014.954,
+            "capacity": 23000,
+            "unit": "l"
+          }
+        ]
+      },
+      "posX": 0.39433,
+      "name": "Rudolph DK 280 W",
+      "category": "Anhänger",
+      "sellPrice": 29327,
+      "hours": 0.3,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 6,
+        "unit": "%"
+      },
+      "id": 411
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.52646,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 5200,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.41315,
+      "name": "AMAZONE UX 5201 Super",
+      "category": "Feldspritzen",
+      "sellPrice": 89706,
+      "hours": 2.9,
+      "wearable": {
+        "wear": 43,
+        "damage": 3,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 412
+    },
+    {
+      "type": "cutter",
+      "posZ": 0.52104,
+      "propertyState": "OWNED",
+      "posX": 0.41437,
+      "age": 12,
+      "attachedTo": 436,
+      "name": "Marangon Foldbar 6.16",
+      "category": "Vorsätze",
+      "sellPrice": 48973,
+      "hours": 2,
+      "wearable": {
+        "wear": 10,
+        "damage": 2,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 413
+    },
+    {
+      "type": "cutter",
+      "propertyState": "OWNED",
+      "posZ": 0.51921,
+      "age": 12,
+      "posX": 0.41453,
+      "name": "John Deere 390 Plus | John Deere",
+      "category": "Vorsätze",
+      "sellPrice": 80348,
+      "hours": 2.3,
+      "wearable": {
+        "wear": 32,
+        "damage": 5,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 414
+    },
+    {
+      "type": "cutter",
+      "propertyState": "OWNED",
+      "posZ": 0.5157,
+      "age": 12,
+      "posX": 0.39936,
+      "name": "Cressoni Compact 10",
+      "category": "Maispflücker",
+      "sellPrice": 55741,
+      "hours": 1.8,
+      "wearable": {
+        "wear": 6,
+        "damage": 2,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 415
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.52427,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "LIME",
+            "title": "Kalk",
+            "fillLevelPercentage": 33,
+            "value": 2955.23,
+            "capacity": 9000,
+            "unit": "l"
+          }
+        ]
+      },
+      "posX": 0.39978,
+      "name": "AgriSpread AS2100 SCS",
+      "category": "Düngerstreuer",
+      "sellPrice": 36740,
+      "hours": 5.6,
+      "wearable": {
+        "wear": 56,
+        "damage": 6,
+        "dirt": 27,
+        "unit": "%"
+      },
+      "id": 416
+    },
+    {
+      "type": "tool",
+      "id": 417,
+      "sellPrice": 3225,
+      "posZ": 0.5269,
+      "posX": 0.3866,
+      "isTabbable": false,
+      "name": "Kärcher HDS 9/18-4 M",
+      "category": "Diverses",
+      "propertyState": "OWNED",
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.5108,
+      "age": 12,
+      "posX": 0.39676,
+      "name": "Quicke Ballenspieß",
+      "category": "Frontlader Werkzeuge",
+      "sellPrice": 878,
+      "hours": 3.7,
+      "wearable": {
+        "wear": 11,
+        "damage": 3,
+        "dirt": 57,
+        "unit": "%"
+      },
+      "id": 418
+    },
+    {
+      "type": "other",
+      "posZ": 0.49643,
+      "propertyState": "OWNED",
+      "posX": 0.3879,
+      "age": 12,
+      "attachedTo": 456,
+      "name": "PÖTTINGER NovaAlpin 301",
+      "category": "Mähtechnik",
+      "sellPrice": 8371,
+      "hours": 6.9,
+      "wearable": {
+        "wear": 76,
+        "damage": 8,
+        "dirt": 35,
+        "unit": "%"
+      },
+      "id": 419
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.51109,
+      "age": 10,
+      "posX": 0.39053,
+      "name": "John Deere PickUp 900",
+      "category": "Gewichte",
+      "sellPrice": 1014,
+      "hours": 5.5,
+      "wearable": {
+        "wear": 25,
+        "damage": 6,
+        "dirt": 10,
+        "unit": "%"
+      },
+      "id": 420
+    },
+    {
+      "type": "other",
+      "posZ": 0.49935,
+      "propertyState": "OWNED",
+      "posX": 0.38786,
+      "age": 12,
+      "attachedTo": 456,
+      "name": "PÖTTINGER NOVADISC 900",
+      "category": "Mähtechnik",
+      "sellPrice": 18910,
+      "hours": 6.6,
+      "wearable": {
+        "wear": 79,
+        "damage": 8,
+        "dirt": 35,
+        "unit": "%"
+      },
+      "id": 421
+    },
+    {
+      "type": "wheelloader",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 10,
+          "hours": 5
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "id": 422,
+      "posZ": 0.45167,
+      "sellPrice": 40000,
+      "posX": 0.39266,
+      "motorFillUnits": {
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 95,
+          "value": 193,
+          "usage": 0,
+          "capacity": 205,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "Amkodor 352C",
+      "category": "Radlader",
+      "propertyState": "OWNED",
+      "hours": 5,
+      "wearable": {
+        "wear": 17,
+        "damage": 0,
+        "dirt": 49,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.46644,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 100000,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.38758,
+      "name": "ELHO LK 215",
+      "category": "Schiebeschilder",
+      "sellPrice": 3980,
+      "hours": 0.9,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 14,
+        "unit": "%"
+      },
+      "id": 423
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.51833,
+      "age": 12,
+      "posX": 0.3941,
+      "name": "Anderson Group MERGEPRO 915",
+      "category": "Schwader",
+      "sellPrice": 56027,
+      "hours": 2.7,
+      "wearable": {
+        "wear": 33,
+        "damage": 3,
+        "dirt": 44,
+        "unit": "%"
+      },
+      "id": 424
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.51519,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 35000,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.40952,
+      "name": "Agrar HL 54",
+      "category": "Ladewägen",
+      "sellPrice": 53278,
+      "hours": 0.2,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 3,
+        "unit": "%"
+      },
+      "id": 425
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 10,
+          "hours": 1.5
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "posZ": 0.54077,
+      "id": 426,
+      "posX": 0.34844,
+      "sellPrice": 163600,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 22000,
+            "unit": ""
+          }
+        ]
+      },
+      "motorFillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 26,
+          "capacity": 26,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 98,
+          "value": 195,
+          "usage": 0,
+          "capacity": 200,
+          "unit": "l"
+        }
+      },
+      "isTabbable": false,
+      "name": "SILOKING SelfLine 4.0 Premium",
+      "category": "Futtermischwägen",
+      "propertyState": "OWNED",
+      "hours": 1.5,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 11,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.51002,
+      "age": 12,
+      "posX": 0.34831,
+      "name": "Cosnet Neptune 8.20",
+      "category": "Tiertransport",
+      "sellPrice": 16297,
+      "hours": 0.5,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 5,
+        "unit": "%"
+      },
+      "id": 427
+    },
+    {
+      "type": "tool",
+      "posZ": 0.49329,
+      "propertyState": "OWNED",
+      "posX": 0.39112,
+      "age": 12,
+      "attachedTo": 464,
+      "name": "Bressel und Lade G20",
+      "category": "Gewichte",
+      "sellPrice": 1295,
+      "hours": 27.6,
+      "wearable": {
+        "wear": 100,
+        "damage": 51,
+        "dirt": 51,
+        "unit": "%"
+      },
+      "id": 428
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.49946,
+      "age": 12,
+      "posX": 0.39021,
+      "name": "Bressel und Lade G26",
+      "category": "Gewichte",
+      "sellPrice": 2683,
+      "hours": 2.9,
+      "wearable": {
+        "wear": 11,
+        "damage": 3,
+        "dirt": 3,
+        "unit": "%"
+      },
+      "id": 429
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.52428,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 30,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 24,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 24,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 26,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 22,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 18,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 317,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 2,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 4,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 50,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 40,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 32,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 16,
+            "unit": ""
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 90,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.35759,
+      "name": "Farmtech DPW 1800 Autoload",
+      "category": "Transport",
+      "sellPrice": 16058,
+      "hours": 1.4,
+      "wearable": {
+        "wear": 5,
+        "damage": 2,
+        "dirt": 25,
+        "unit": "%"
+      },
+      "id": 430
+    },
+    {
+      "type": "car",
+      "id": 431,
+      "posZ": 0.5328,
+      "sellPrice": 45811,
+      "posX": 0.39845,
+      "motorFillUnits": {
+        "fuel": {
+          "type": "electriccharge",
+          "title": "Elektrische Ladung",
+          "fillLevelPercentage": 98,
+          "value": 80,
+          "usage": 0,
+          "capacity": 82,
+          "unit": "kWh"
+        }
+      },
+      "isTabbable": false,
+      "name": "Skoda Enyaq Coupé RS iV",
+      "category": "Autos & Motorräder",
+      "propertyState": "OWNED",
+      "hours": 0.4,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 5,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "toolTrailed",
+      "posZ": 0.49794,
+      "propertyState": "OWNED",
+      "posX": 0.39105,
+      "age": 12,
+      "attachedTo": 464,
+      "name": "Köckerling Rebell Classic 600T",
+      "category": "Scheibeneggen",
+      "sellPrice": 22197,
+      "hours": 15.8,
+      "wearable": {
+        "wear": 100,
+        "damage": 25,
+        "dirt": 62,
+        "unit": "%"
+      },
+      "id": 432
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.4501,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 0,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.3954,
+      "name": "Vredo Profi XL 18",
+      "category": "Ausbringtechnik",
+      "sellPrice": 81139,
+      "hours": 3.7,
+      "wearable": {
+        "wear": 37,
+        "damage": 3,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 433
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "lastMaintenance": {
+          "day": 1,
+          "year": 2,
+          "month": 6
+        },
+        "maintenanceCost": 5290,
+        "inspected": {
+          "service": 100,
+          "condition": 95,
+          "complete": false
+        },
+        "service": {
+          "interval": 10,
+          "hours": 0
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 2,
+          "month": 6
+        }
+      },
+      "posZ": 0.45287,
+      "id": 434,
+      "posX": 0.3954,
+      "sellPrice": 362280,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "DIGESTATE",
+            "title": "Gärreste",
+            "fillLevelPercentage": 55,
+            "value": 12136.172,
+            "capacity": 22000,
+            "unit": "l"
+          }
+        ]
+      },
+      "motorFillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 63,
+          "capacity": 63,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 25,
+          "value": 219,
+          "usage": 0,
+          "capacity": 865,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "Vredo VT5536",
+      "category": "Güllefässer",
+      "propertyState": "OWNED",
+      "hours": 8.6,
+      "wearable": {
+        "wear": 30,
+        "damage": 0,
+        "dirt": 2,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.45211,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "SILAGEMAIZE",
+            "title": "Silage Mais",
+            "fillLevelPercentage": 83,
+            "value": 466.714,
+            "capacity": 560,
+            "unit": "l"
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 1350,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.39826,
+      "name": "Monosem WingFold ValoTerra Ultimate",
+      "category": "Einzelkornsätechnik",
+      "sellPrice": 47238,
+      "hours": 1.4,
+      "wearable": {
+        "wear": 19,
+        "damage": 2,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 435
+    },
+    {
+      "type": "harvester",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 12.5,
+          "hours": 4.6
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "posZ": 0.52084,
+      "id": 436,
+      "posX": 0.41232,
+      "sellPrice": 439488,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "precision": 2,
+            "capacity": 20,
+            "unit": ""
+          }
+        ]
+      },
+      "motorFillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 90,
+          "capacity": 90,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 78,
+          "value": 1162,
+          "usage": 0,
+          "capacity": 1500,
+          "unit": "l"
+        }
+      },
+      "isTabbable": false,
+      "name": "John Deere 9900",
+      "category": "Feldhäcksler",
+      "propertyState": "OWNED",
+      "hours": 4.6,
+      "wearable": {
+        "wear": 57,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "toolTrailed",
+      "posZ": 0.51916,
+      "propertyState": "OWNED",
+      "posX": 0.41474,
+      "age": 12,
+      "attachedTo": 414,
+      "name": "KEMPER Komfort-Zusatzfahrwerk",
+      "category": "Schneidwerkswagen",
+      "sellPrice": 6373,
+      "hours": 0.2,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 437
+    },
+    {
+      "type": "cutter",
+      "posZ": 0.08439,
+      "propertyState": "OWNED",
+      "posX": 0.84915,
+      "age": 12,
+      "attachedTo": 445,
+      "name": "Cressoni CRX 7.20",
+      "category": "Getreideschneidwerke",
+      "sellPrice": 32515,
+      "hours": 14.5,
+      "wearable": {
+        "wear": 67,
+        "damage": 21,
+        "dirt": 70,
+        "unit": "%"
+      },
+      "id": 438
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.46738,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "WATER",
+            "title": "Wasser",
+            "fillLevelPercentage": 100,
+            "value": 1000,
+            "capacity": 1000,
+            "unit": "l"
+          }
+        ]
+      },
+      "posX": 0.38619,
+      "name": "Düvelsdorf DSW",
+      "category": "Siloverdichtung",
+      "sellPrice": 17010,
+      "hours": 0.8,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 8,
+        "unit": "%"
+      },
+      "id": 439
+    },
+    {
+      "type": "car",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 10,
+          "hours": 0.6
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "id": 440,
+      "posZ": 0.54078,
+      "sellPrice": 39200,
+      "posX": 0.38211,
+      "motorFillUnits": {
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 94,
+          "value": 74,
+          "usage": 0,
+          "capacity": 80,
+          "unit": "l"
+        }
+      },
+      "isTabbable": false,
+      "name": "Ford 6.7-liter Power Stroke (420)",
+      "category": "Autos & Motorräder",
+      "propertyState": "OWNED",
+      "hours": 0.6,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 3,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "lastMaintenance": {
+          "day": 1,
+          "year": 1,
+          "month": 9
+        },
+        "maintenanceCost": 1840,
+        "inspected": {
+          "service": 100,
+          "condition": 91,
+          "complete": false
+        },
+        "service": {
+          "interval": 12.5,
+          "hours": 8.2
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 9
+        }
+      },
+      "id": 442,
+      "posZ": 0.50261,
+      "sellPrice": 113480,
+      "posX": 0.38781,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 65,
+          "title": "Luft",
+          "value": 2580,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 58,
+          "value": 101,
+          "usage": 0,
+          "capacity": 175,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 19,
+          "capacity": 19,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "John Deere 6M 125",
+      "category": "Kompakttraktoren",
+      "propertyState": "OWNED",
+      "hours": 19.8,
+      "wearable": {
+        "wear": 46,
+        "damage": 0,
+        "dirt": 25,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.45136,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "CANOLA",
+            "title": "Raps",
+            "fillLevelPercentage": 81,
+            "value": 1426.853,
+            "capacity": 1760,
+            "unit": "l"
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 1240,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.40217,
+      "name": "SKY Agriculture Easydrill P250",
+      "category": "Sätechnik",
+      "sellPrice": 67608,
+      "hours": 6.7,
+      "wearable": {
+        "wear": 84,
+        "damage": 8,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 443
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.47127,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 0,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.40732,
+      "name": "SKY Agriculture Methys HDS",
+      "category": "Scheibeneggen",
+      "sellPrice": 92319,
+      "hours": 2.3,
+      "wearable": {
+        "wear": 29,
+        "damage": 3,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 444
+    },
+    {
+      "type": "harvester",
+      "ads": {
+        "state": "READY",
+        "lastMaintenance": {
+          "day": 2,
+          "year": 1,
+          "month": 12
+        },
+        "maintenanceCost": 8960,
+        "inspected": {
+          "service": 100,
+          "condition": 90,
+          "complete": false
+        },
+        "service": {
+          "interval": 12.5,
+          "hours": 4.3
+        },
+        "lastInspection": {
+          "day": 2,
+          "year": 1,
+          "month": 12
+        }
+      },
+      "posZ": 0.08468,
+      "id": 445,
+      "posX": 0.84674,
+      "sellPrice": 276800,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 11000,
+            "unit": ""
+          }
+        ]
+      },
+      "motorFillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 33,
+          "capacity": 33,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 68,
+          "value": 543,
+          "usage": 0,
+          "capacity": 800,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "John Deere T670",
+      "category": "Mähdrescher",
+      "propertyState": "OWNED",
+      "hours": 18.8,
+      "wearable": {
+        "wear": 100,
+        "damage": 0,
+        "dirt": 83,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.52487,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 7500,
+            "unit": ""
+          },
+          {
+            "display": "STEP",
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 79,
+            "value": 2.37,
+            "capacity": 3,
+            "unit": ""
+          },
+          {
+            "type": "SILAGE_ADDITIVE",
+            "title": "Siliermittel",
+            "fillLevelPercentage": 69,
+            "value": 13.707,
+            "precision": 2,
+            "capacity": 20,
+            "unit": "l"
+          }
+        ]
+      },
+      "posX": 0.39146,
+      "name": "John Deere V452R",
+      "category": "Rundballenpressen",
+      "sellPrice": 38889,
+      "hours": 5.3,
+      "wearable": {
+        "wear": 65,
+        "damage": 6,
+        "dirt": 67,
+        "unit": "%"
+      },
+      "id": 447
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.52951,
+      "age": 12,
+      "posX": 0.37481,
+      "name": "BÖCKMANN TL-AL 25-13/135",
+      "category": "Diverses",
+      "sellPrice": 2023,
+      "hours": 0.5,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 5,
+        "unit": "%"
+      },
+      "id": 448
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.45142,
+      "age": 12,
+      "posX": 0.39982,
+      "name": "Imants Systemträger",
+      "category": "Tiefenlockerer",
+      "sellPrice": 36726,
+      "hours": 4,
+      "wearable": {
+        "wear": 56,
+        "damage": 5,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 450
+    },
+    {
+      "type": "tool",
+      "posZ": 0.45045,
+      "propertyState": "OWNED",
+      "posX": 0.3994,
+      "age": 12,
+      "attachedTo": 450,
+      "name": "Imants 38FSX600H",
+      "category": "Spatenmaschinen",
+      "sellPrice": 53061,
+      "hours": 4,
+      "wearable": {
+        "wear": 100,
+        "damage": 5,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 451
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.52492,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "display": "STEP",
+            "type": "BALE_WRAP",
+            "title": "Wickelfolie",
+            "fillLevelPercentage": 78,
+            "value": 4.709,
+            "capacity": 6,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.39318,
+      "name": "Tanco S200 VariWrap",
+      "category": "Wickler",
+      "sellPrice": 21126,
+      "hours": 2.4,
+      "wearable": {
+        "wear": 8,
+        "damage": 2,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 452
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.5199,
+      "age": 12,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 7500,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.36891,
+      "name": "LSFM Innovations UTT-7500",
+      "category": "Transportfässer",
+      "sellPrice": 6150,
+      "hours": 1,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 8,
+        "unit": "%"
+      },
+      "id": 453
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.54246,
+      "age": 6,
+      "posX": 0.38452,
+      "name": "Landstal PROFI 750",
+      "category": "Striegel",
+      "sellPrice": 13473,
+      "hours": 0.2,
+      "wearable": {
+        "wear": 3,
+        "damage": 0,
+        "dirt": 16,
+        "unit": "%"
+      },
+      "id": 454
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.46175,
+      "age": 11,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 5500,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.42016,
+      "name": "Lizard FD-55",
+      "category": "Diverses",
+      "sellPrice": 9634,
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 2,
+        "unit": "%"
+      },
+      "id": 455
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "lastMaintenance": {
+          "day": 2,
+          "year": 2,
+          "month": 3
+        },
+        "maintenanceCost": 7340,
+        "inspected": {
+          "service": 100,
+          "condition": 83,
+          "complete": false
+        },
+        "service": {
+          "interval": 12.5,
+          "hours": 5.6
+        },
+        "lastInspection": {
+          "day": 2,
+          "year": 2,
+          "month": 3
+        }
+      },
+      "id": 456,
+      "posZ": 0.49808,
+      "sellPrice": 210791,
+      "posX": 0.38788,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 93,
+          "title": "Luft",
+          "value": 3738,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 91,
+          "value": 384,
+          "usage": 0,
+          "capacity": 421,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 20,
+          "capacity": 20,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "John Deere 6R 215",
+      "category": "Mittelgroße Traktoren",
+      "propertyState": "OWNED",
+      "hours": 28.7,
+      "wearable": {
+        "wear": 100,
+        "damage": 0,
+        "dirt": 60,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.46796,
+      "age": 10,
+      "posX": 0.42097,
+      "name": "Müthing MU-M/F 600 Vario",
+      "category": "Mulcher",
+      "sellPrice": 31338,
+      "hours": 0.9,
+      "wearable": {
+        "wear": 16,
+        "damage": 2,
+        "dirt": 81,
+        "unit": "%"
+      },
+      "id": 457
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.52562,
+      "age": 4,
+      "posX": 0.39502,
+      "name": "Kverneland 85112",
+      "category": "Wender",
+      "sellPrice": 19659,
+      "hours": 2.2,
+      "wearable": {
+        "wear": 5,
+        "damage": 0,
+        "dirt": 51,
+        "unit": "%"
+      },
+      "id": 458
+    },
+    {
+      "type": "trailer",
+      "posZ": 0.10519,
+      "propertyState": "OWNED",
+      "posX": 0.85581,
+      "age": 4,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 28500,
+            "unit": ""
+          }
+        ]
+      },
+      "attachedTo": 460,
+      "name": "Palaz Trailers RR2C 18L",
+      "category": "Anhänger",
+      "sellPrice": 24772,
+      "hours": 3.8,
+      "wearable": {
+        "wear": 17,
+        "damage": 5,
+        "dirt": 5,
+        "unit": "%"
+      },
+      "id": 459
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "lastMaintenance": {
+          "day": 2,
+          "year": 2,
+          "month": 5
+        },
+        "maintenanceCost": 3640,
+        "inspected": {
+          "service": 100,
+          "condition": 79,
+          "complete": false
+        },
+        "service": {
+          "interval": 12.5,
+          "hours": 4.6
+        },
+        "lastInspection": {
+          "day": 2,
+          "year": 2,
+          "month": 5
+        }
+      },
+      "id": 460,
+      "posZ": 0.1055,
+      "sellPrice": 65649,
+      "posX": 0.85286,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 98,
+          "title": "Luft",
+          "value": 1955,
+          "capacity": 2000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 47,
+          "value": 160,
+          "usage": 0,
+          "capacity": 344,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "John Deere 7810 + Chiptuning AQ",
+      "category": "Mittelgroße Traktoren",
+      "propertyState": "OWNED",
+      "hours": 35.6,
+      "wearable": {
+        "wear": 100,
+        "damage": 0,
+        "dirt": 5,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "truck",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 10,
+          "hours": 2.4
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 2,
+          "month": 2
+        }
+      },
+      "id": 461,
+      "posZ": 0.5328,
+      "sellPrice": 46400,
+      "posX": 0.40278,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 97,
+          "title": "Luft",
+          "value": 3876,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 77,
+          "value": 84,
+          "usage": 0,
+          "capacity": 110,
+          "unit": "l"
+        }
+      },
+      "isTabbable": false,
+      "name": "IVECO_Magirus_Deutz Deutz F6L 614",
+      "category": "LKW",
+      "propertyState": "OWNED",
+      "hours": 2.4,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 8,
+        "unit": "%"
+      },
+      "age": 4
+    },
+    {
+      "type": "truck",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 10,
+          "hours": 1.3
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 2,
+          "month": 2
+        }
+      },
+      "id": 462,
+      "posZ": 0.53305,
+      "sellPrice": 57600,
+      "posX": 0.40506,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 100,
+          "title": "Luft",
+          "value": 4000,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 90,
+          "value": 98,
+          "usage": 0,
+          "capacity": 110,
+          "unit": "l"
+        }
+      },
+      "isTabbable": false,
+      "name": "IVECO_Magirus_Deutz Deutz F6L 614",
+      "category": "LKW",
+      "propertyState": "OWNED",
+      "hours": 1.3,
+      "wearable": {
+        "wear": 2,
+        "damage": 0,
+        "dirt": 3,
+        "unit": "%"
+      },
+      "age": 4
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.51294,
+      "age": 4,
+      "posX": 0.41478,
+      "name": "ALPEGO CAYMAN CF 520",
+      "category": "Grubber",
+      "sellPrice": 26504,
+      "hours": 1.9,
+      "wearable": {
+        "wear": 5,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 463
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "lastMaintenance": {
+          "day": 2,
+          "year": 2,
+          "month": 4
+        },
+        "maintenanceCost": 7650,
+        "inspected": {
+          "service": 100,
+          "condition": 79,
+          "complete": false
+        },
+        "service": {
+          "interval": 11,
+          "hours": 4.5
+        },
+        "lastInspection": {
+          "day": 2,
+          "year": 2,
+          "month": 4
+        }
+      },
+      "id": 464,
+      "posZ": 0.49454,
+      "sellPrice": 171436,
+      "posX": 0.39112,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 68,
+          "title": "Luft",
+          "value": 2039,
+          "capacity": 3000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 20,
+          "value": 74,
+          "usage": 0,
+          "capacity": 380,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 70,
+          "capacity": 70,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "Valtra T255 Versu - 60km/h",
+      "category": "Mittelgroße Traktoren",
+      "propertyState": "OWNED",
+      "hours": 32.5,
+      "wearable": {
+        "wear": 100,
+        "damage": 0,
+        "dirt": 44,
+        "unit": "%"
+      },
+      "age": 12
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.52197,
+      "age": 4,
+      "posX": 0.37392,
+      "name": "Landstal WPS 1230 PRO",
+      "category": "Walzen",
+      "sellPrice": 21339,
+      "hours": 1.7,
+      "wearable": {
+        "wear": 25,
+        "damage": 2,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 465
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.51034,
+      "age": 3,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 15000,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.35001,
+      "name": "Zunhammer ULT 18",
+      "category": "Gülletransport",
+      "sellPrice": 29762,
+      "hours": 2.8,
+      "wearable": {
+        "wear": 6,
+        "damage": 3,
+        "dirt": 38,
+        "unit": "%"
+      },
+      "id": 469
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.51385,
+      "age": 3,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 21000,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.36282,
+      "name": "Zunhammer ULT 24",
+      "category": "Gülletransport",
+      "sellPrice": 41291,
+      "hours": 2.8,
+      "wearable": {
+        "wear": 6,
+        "damage": 2,
+        "dirt": 30,
+        "unit": "%"
+      },
+      "id": 470
+    },
+    {
+      "type": "car",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 10,
+          "hours": 0.1
+        },
+        "lastInspection": {
+          "day": 4,
+          "year": 2,
+          "month": 5
+        }
+      },
+      "id": 471,
+      "posZ": 0.53235,
+      "sellPrice": 33360,
+      "posX": 0.37377,
+      "motorFillUnits": {
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 90,
+          "usage": 0,
+          "capacity": 90,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "Volkswagen T3",
+      "category": "Autos & Motorräder",
+      "propertyState": "OWNED",
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "age": 1
+    }
+  ]
+}
