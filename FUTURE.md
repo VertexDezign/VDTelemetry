@@ -104,17 +104,22 @@ so calling the engine directly is the normal path, not an exception.
 ## ISOBUS (#58)
 
 `isobus-plan.md` is still the spec; this is the index. Round 1's four aspects — `sowing`, `spraying`,
-`plow`, `tillage` — are built, tested and captured against real machines. **The app side is not started**: there is no
-`IsoBusApp`, no `IsoBusPanel`, no widget.
+`plow`, `tillage` — are built, tested and captured against real machines. `IsoBusApp` / `IsoBusPanel` /
+`IsoBusWidget` now exist, built for the **mixer wagon** (#113) — so the app side has a shell and the
+dispatch rule has its first real user, but **none of round 1's four aspects has a section yet**.
 
-- **Round 1, app side.** The app, the panel (sections rendered by aspect presence, in the plan's order)
-  and a widget with a slot `ConfigOption` — `FRONT` / `REAR` / `VEHICLE`, mirroring
-  `RigSlotWidget.SLOT_KEY` — so a combination rig can carry a seeder tile and a sprayer tile at once. The one piece of
-  refactoring it should do first: extract the section-shutoff bar and the work-area readout out of `RigSlotPanel`
-  instead of reimplementing them.
+- **Round 1's four sections.** Sowing, spraying, plough and tillage, rendered by aspect presence in the
+  plan's order, added to `IsoBusPanel`'s stack next to the mixer's — the dispatch list is
+  `IsoBusMachine.hasSection`, and each of the four has to be added to it and to the flattening the
+  panel does out of `Vehicle` / `Implement`. The one piece of refactoring to do first: extract the
+  section-shutoff bar and the work-area readout out of `RigSlotPanel` instead of reimplementing them.
+- **The machine art for those four** is 17 generated SVGs on the unmerged `58-isobus-aspects` branch,
+  along with `tools/isobus-art/` and `tools/isobus-mockup/`. **Whether Compose Resources decodes SVG at
+  runtime in the wasm build was never verified** — only accessor generation was. The mixer's art is a
+  PNG and sidesteps it, so the question is still open and blocks that branch, not this one.
 - **Round 2 classes**, in rough value order: baler + wrapper (bale in progress, bale type, auto-drop —
-  `Baler.lua` carries all of it), trailer / forage wagon, mixer wagon (the game ships a
-  `MixerWagonHUDExtension` whose mixing-ratio bar is worth copying), then harvesters, as the issue suggests.
+  `Baler.lua` carries all of it), trailer / forage wagon, then harvesters, as the issue suggests. The
+  mixer wagon is done (#113).
 - **Round 2 controls.** Seed index (`setSeedIndex` / `changeSeedIndex` already send `SetSeedIndexEvent`), plough
   rotation (`setRotationMax` / `setRotationCenter`, both take `noEventSend` and own their event), the sprayer's
   doubled-amount toggle. None of them needs an MP event of our own.
@@ -128,6 +133,41 @@ so calling the engine directly is the normal path, not an exception.
   matters.
 - **Open:** whether the tillage aspect's `limitToField` is worth keeping. `Cultivator` registers no read/write stream,
   so on a client the field is whatever `onLoad` left behind. A call to make once it has been seen on a client.
+
+### Mixer wagon (#113), what round 1 left
+
+Built and formatter-clean; **nothing has been seen in game yet**, and the layout was reviewed only through
+ImageMagick mockups, because the sandbox has no browser.
+
+- **In-game checks, in the order they matter.**
+  * `mixer.remaining` on a **multiplayer client**. The whole chain is unusual: the mixer's fill unit is
+    taken out of the normal fill-unit sync (`synchronizeFillLevel = false`), the ingredient levels ride
+    `MixerWagon`'s own update stream, and the client re-applies them through `addFillUnitFillLevel`,
+    which is also what sets `activeTimer`. It should work; it has never been watched.
+  * `mass` on a client, for the same reason — `Vehicle:updateMass` runs ungated, but only for a vehicle
+    the client is actually updating.
+  * The **recipe lookup**. `findRecipe` matches the ingredient names `MixerWagon:onLoad` kept, in order,
+    against `animalFoodSystem.recipes`. If it misses, `recipe` and the authored ingredient titles are
+    both absent and the panel falls back to the materials' own names — visible, but a fallback nobody
+    has watched land.
+  * Whether the **per-ingredient `mass`** is present at all. It is emitted only for an ingredient that
+    pools a single material, and nobody has looked at what the base game's FORAGE recipe actually
+    declares — if every ingredient pools two, the column never appears.
+- **A capture.** See "Captures wanted as fixtures" below: a loaded wagon mid-mix and one showing a valid
+  mix, so the three `MixState` answers are all evidenced rather than asserted inline.
+- **Controls, deliberately not built.** Tip side (`setPreferedTipSide`) and start/stop tipping have **no
+  `vdAI*` counterpart in FS25_additionalInputs**, so wiring them would mean calling the engine directly
+  for the first time on a driving-time control. Round 1 stayed read-only rather than settle that here.
+- **The over-max case has no number.** An ingredient above its window is fixed by adding *something
+  else*, so its row is flagged but says nothing actionable. The figure is well-defined
+  (`value / max - loaded` litres of anything else) — deliberately left out until the bars have been used
+  in anger, because it would repeat a different number on every over row.
+- **Deliberately not collected**, both with reasons in `collect/aspects/Mixer.lua`: `spec.baleTriggers`
+  (built under `if self.isServer`, so nil on a client) and the bale-not-accepted warning (an event, not
+  state — a poll cannot see it). A mixer wagon eating a bale that is not in its recipe is exactly what a
+  terminal should say, so this is worth revisiting if the event can be hooked cheaply.
+- **One machine, all mixers.** `isobus_mixer_wagon.png` is a twin-auger vertical mixer standing in for
+  the class, the same bargain the rest of the ISOBUS art set makes.
 
 ---
 
@@ -489,6 +529,12 @@ machine that has them.
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
+- **A mixer wagon, twice.** One **mid-mix** (the tub reading `FORAGE_MIXING`, at least one ingredient
+  outside its window) and one with a **valid mix** (the tub reading the recipe's own fill type), so all
+  three loaded `MixState` answers are evidenced rather than asserted from inline JSON. Ideally one of
+  them from a **multiplayer client**, which is where the ingredient levels and the mix countdown take
+  their unusual route (see ISOBUS → "Mixer wagon (#113)"). `VdtModelTest` covers the shapes with inline
+  JSON meanwhile.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
