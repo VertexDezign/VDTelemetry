@@ -139,11 +139,11 @@ private fun ConditionCard(vehicle: FleetVehicle) {
         )
       }
     }
-    // Wear and dirt stay vanilla under ADS and mean what they always did.
+    // Wear and dirt are shown whatever manages the machine. Advanced Damage System replaces the
+    // *damage* figure and nothing else, so these two stay live under it — the multiplayer capture has
+    // a 6R 215 reading 83% condition on ADS's own inspection with its paint worn clean through.
     vehicle.wearable?.let { wearable ->
-      if (vehicle.ads == null) {
-        ProgressBar(wearable.wear / 100f, leftLabel = "WEAR", rightLabel = "${wearable.wear}%")
-      }
+      ProgressBar(wearable.wear / 100f, leftLabel = "WEAR", rightLabel = "${wearable.wear}%")
       ProgressBar(wearable.dirt / 100f, leftLabel = "DIRT", rightLabel = "${wearable.dirt}%")
     }
   }

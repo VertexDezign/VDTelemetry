@@ -462,16 +462,21 @@ has it and where it is), the `contributeFleetVehicle` integration stage carrying
 record, and the Fleet app — search, five views, six sorts, a detail pane, and a row that hands its position to the map.
 The reasoning is in `src/collect/FleetExporter.lua` and `panels/FleetPanel.kt`. What it did not do:
 
-- **The channel has run in game once** — `examples/json/fleet/fleet.json`, a 29-machine singleplayer capture, which
-  settles the one worry the code carried: owned machines are listed, so `Vehicle:getShowInVehiclesOverview` really is
-  `OWNED or LEASED` and the extracted source's `propertyState == LEASED` is a decompile artefact. What that capture
-  does *not* answer, and nobody has: whether the row set matches ESC → Statistics **exactly** (same machines, same
-  hours and values), the ADS half against its own `P` menu with something actually overdue or in a workshop, and any of
-  it from a multiplayer client — where the whole design turns on the per-vehicle spec being synced.
-- **Four of that capture's machines report themselves out of the tab rotation** (a fire engine, its two reels, an old
-  lorry). Confirmed by the player who captured it as their parking mod's doing, so the fixture is a *true* positive —
-  but the limitation stands in general, because nothing can tell that apart from a machine whose own XML ships
-  `isTabbable="false"`. See `FleetVehicle.isParked`.
+- **The channel has run in game, in both modes** — `examples/json/fleet/fleet.json` (31 machines, singleplayer) and
+  `mp.json` (63, a multiplayer client). Between them they settle the two things the design rested on: owned machines
+  are listed, so `Vehicle:getShowInVehiclesOverview` really is `OWNED or LEASED` and the extracted source's
+  `propertyState == LEASED` is a decompile artefact; and **the ADS block arrives on a client**, thirteen machines of it
+  with six carrying a full service history, which is the claim that made reading each vehicle's own spec right and
+  `ADS_Main.vehicles` (keyed by the nil-on-a-client `uniqueId`) wrong.
+- **Still unchecked in game:** whether the row set matches ESC → Statistics **exactly** (same machines, same hours and
+  values), the ADS half against its own `P` menu, and farm scoping on a server where another farm owns machines. No
+  capture yet holds a machine *being driven by another player* — both were taken with nobody else in a seat, so the
+  "In use" rung and the implement-inherits-its-rig rule are still only proven for the local player's own tractor.
+- **Eleven machines across the two captures report themselves out of the tab rotation** — four in the singleplayer one
+  (a fire engine, its two reels, an old lorry), seven in the multiplayer one (a forage harvester and a feed mixer among
+  them). Confirmed by the player who captured them as their parking mod's doing, so both fixtures are *true*
+  positives — but the limitation stands in general, because nothing can tell that apart from a machine whose own XML
+  ships `isTabbable="false"`. See `FleetVehicle.isParked`.
 - **No widget and no alert.** The app contributes neither, so a page reaches it through `ShortcutWidget` like the other
   list apps. A "3 machines need attention" tile is the obvious one; an alert for a breakdown on a machine you are *not*
   in is the tempting one and the one to think about first — it fires while you are doing something else, which is what
@@ -508,11 +513,13 @@ machine that has them.
   `transmissionTemperatur` is present) that is a little overdue for service and carrying a breakdown or two, so the
   lamps, the interval and the load are all non-trivial in the one file.
   `AdsModelTest` covers the shape with inline JSON meanwhile.
-- **A second fleet capture.** `examples/json/fleet/fleet.json` is a fresh save with Advanced Damage System installed:
-  29 machines, a leased one, implements on a rig with a helper and on the rig the player was sitting in, an electric
-  loader ADS excludes, and four machines out of the tab rotation. Because it is fresh, **every ADS record is the one
-  its purchase wrote** — nothing overdue, nothing in a workshop, no fault found, no maintenance spend, and no complete
-  inspection. A played-in save is what would cover those, and `FleetModelTest` carries them as inline JSON meanwhile.
+- **A fleet capture with a machine actually in trouble.** Two are committed —
+  `examples/json/fleet/fleet.json` (fresh singleplayer: a helper's rig, the player's own rig, contract equipment, a
+  leased tractor, an electric loader ADS excludes, four machines parked) and `mp.json` (a played-in multiplayer client:
+  ADS histories, real wear, consumables in slots). Between them the shapes are covered except the ones that need a
+  machine in **trouble**: nothing in either is overdue, in a workshop, carrying a discovered fault, or has ever had a
+  *complete* inspection — so `FleetAds.workshop`, the breakdown list and an exact condition figure are still inline
+  JSON in `FleetModelTest`.
 - **More invoices captures.** `examples/json/invoices/invoices.json` came out of the 2026-08-11 two-farm session and
   drives `InvoicesModelTest.parsesTheTwoFarmCapture`: three invoices from farm 1's side, one of them a proposal showing
   the direction inversion, a discounted line, and the full 56-entry German work-type catalogue. What it does not
