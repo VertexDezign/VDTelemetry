@@ -60,6 +60,8 @@ local function makeVehicle(over)
     spec_enterable = over.enterable,
     spec_wearable = over.wearable and {} or nil,
     spec_motorized = over.motorized,
+    spec_pallet = over.pallet and {} or nil,
+    spec_rideable = over.rideable and {} or nil,
   }
   vehicle.rootVehicle = over.rootVehicle or vehicle
   function vehicle:getShowInVehiclesOverview()
@@ -160,6 +162,25 @@ describe("FleetExporter", function()
 
     it("drops what the game hides from its own overview -- a pallet, a horse", function()
       installWorld({ makeVehicle({ listed = false }) })
+      assert.is_nil(VDT.FleetExporter.collect().vehicles)
+    end)
+
+    it("keeps contract equipment, which the game's own overview leaves out", function()
+      -- A borrowed baler is stamped MISSION, so getShowInVehiclesOverview() says no. It is the one
+      -- machine the channel lists that the in-game menu does not: you are driving it today.
+      installWorld({ makeVehicle({ id = 3, listed = false, propertyState = 4, name = "Göweil LT-Master" }) })
+      local row = VDT.FleetExporter.collect().vehicles[1]
+      assert.equals(3, row.id)
+      assert.equals("MISSION", row.propertyState)
+    end)
+
+    it("does not let a mission pallet or a horse in through that door", function()
+      -- Pallet and Rideable answer getShowInVehiclesOverview() false by overwriting the function, so
+      -- the contract branch has to exclude them by their specs or it routes around the exclusion.
+      installWorld({
+        makeVehicle({ id = 1, listed = false, propertyState = 4, pallet = true }),
+        makeVehicle({ id = 2, listed = false, propertyState = 4, rideable = true }),
+      })
       assert.is_nil(VDT.FleetExporter.collect().vehicles)
     end)
 

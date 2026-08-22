@@ -3,11 +3,15 @@
 -- is overdue" -- the question the game answers in ESC -> Statistics -> vehicle overview, i.e. by
 -- pausing the game.
 --
--- WHICH MACHINES: exactly the game's own gate, off InGameMenuStatisticsFrame:updateVehicles --
+-- WHICH MACHINES: the game's own gate, off InGameMenuStatisticsFrame:updateVehicles --
 -- accessHandler:canPlayerAccess, the vehicle's own getShowInVehiclesOverview(), and the local farm's
 -- ownership. That function is the engine's answer and specializations override it (Pallet and
 -- Rideable both return false outright), so it is called rather than reimplemented: mirroring the
 -- game's list means asking the game's own question, including whatever a patch does to it.
+--
+-- ...plus ONE deliberate exception: equipment a contract lent the farm. The game stamps it MISSION
+-- and its overview drops it for not being the farm's to keep, but it is a machine you are driving
+-- today, which is the question this channel exists to answer. See isContractEquipment.
 --
 -- ONE ROW PER MACHINE, not per rig -- an implement is listed on its own row, as the game lists it,
 -- with `attachedTo` naming the rig it is currently part of. That is the opposite of the mapVehicles
@@ -40,6 +44,8 @@ VDT.FleetExporter.INTERVAL_MS = 5000
 -- Engine enum (vehicles/VehiclePropertyState.lua), named locally because it is a base-game global
 -- the specs do not stand up.
 local PROPERTY_STATES = { [1] = "NONE", [2] = "OWNED", [3] = "LEASED", [4] = "MISSION", [5] = "SHOP_CONFIG" }
+-- The one of those the gate below has to name (see isContractEquipment).
+local PROPERTY_MISSION = 4
 
 -- Store category title per config file. The category of a machine never changes, and the lookup is
 -- two manager calls deep, so it is resolved once per model rather than once per row per write.
@@ -92,7 +98,35 @@ function VDT.FleetExporter.category(vehicle)
   return title
 end
 
----Whether a machine belongs on the farm's overview: the game's own three-part gate.
+---Whether the game itself would put this machine on its vehicle overview.
+---
+---`getShowInVehiclesOverview()` is `showInVehicleOverview and (OWNED or LEASED)`, and specializations
+---override it -- Pallet and Rideable both answer false outright -- so it is asked rather than
+---reimplemented.
+---@param vehicle table
+---@return boolean
+local function inGameOverview(vehicle)
+  return call(vehicle, "getShowInVehiclesOverview") == true
+end
+
+---Whether this is equipment a contract lent the farm: the game stamps it MISSION, which is exactly
+---why its own overview leaves it out -- it is not the farm's to keep, and it goes back when the
+---contract ends.
+---
+---We list it anyway, and this is the ONE place the channel departs from the game's list. A second
+---screen answers "what am I working with today", and today that includes the borrowed baler; the row
+---says CONTRACT and carries neither a sell value nor a leasing rate, so nothing pretends it is owned.
+---
+---Pallets and horses are excluded by hand here, because the thing that normally excludes them is the
+---function this branch is routing around: both override it to false rather than setting a flag we
+---could still read. Their spec tables are the honest test.
+---@param vehicle table
+---@return boolean
+local function isContractEquipment(vehicle)
+  return vehicle.propertyState == PROPERTY_MISSION and vehicle.spec_pallet == nil and vehicle.spec_rideable == nil
+end
+
+---Whether a machine belongs on the farm's overview: the game's own gate, plus contract equipment.
 ---@param vehicle table
 ---@param farmId number the local farm
 ---@return boolean
@@ -100,7 +134,7 @@ function VDT.FleetExporter.isListed(vehicle, farmId)
   if type(vehicle) ~= "table" then
     return false
   end
-  if call(vehicle, "getShowInVehiclesOverview") ~= true then
+  if not inGameOverview(vehicle) and not isContractEquipment(vehicle) then
     return false
   end
   if call(vehicle, "getOwnerFarmId") ~= farmId then
