@@ -18,8 +18,8 @@ import kotlin.test.assertTrue
  *
  * `vanilla.json` is a German-locale base-game capture taken mid-afternoon on a rainy August day, with
  * one day per period. It happens to pin down three things worth having in a fixture: the hourly strip
- * wrapping past midnight, the day captions losing their day number at `daysPerPeriod = 1`, and the
- * current wind angle being snapped to 45° while the forecast angles are not.
+ * wrapping past midnight, the day captions losing their day number at `daysPerPeriod = 1`, and
+ * forecast wind angles that are *not* snapped to the engine's 45° step the way the current one is.
  */
 class WeatherModelTest {
   private val json = Json { encodeDefaults = true }
@@ -78,9 +78,10 @@ class WeatherModelTest {
     assertEquals(WeatherKind.CLOUDY, data.hourly.last().kind)
 
     // Forecast angles come from the weather XML rather than from a y-rotation, so unlike the current
-    // reading they are arbitrary degrees.
-    assertEquals(listOf(322, 332, 332, 332, 24), data.hourly.take(5).map { it.windDirection })
-    assertTrue(data.hourly.none { it.windDirection % 45 == 0 })
+    // reading they are not confined to the engine's 45° step — some land on it (315 below) and most
+    // do not. An app that assumes eight compass points would lose the difference.
+    assertEquals(listOf(309, 303, 303, 303, 315), data.hourly.take(5).map { it.windDirection })
+    assertTrue(data.hourly.any { it.windDirection % 45 != 0 })
   }
 
   @Test
@@ -99,6 +100,14 @@ class WeatherModelTest {
     // Winter arrives on schedule — a fixture that actually exercises a second weather glyph.
     assertEquals(WeatherKind.SNOW, data.daily.last().kind)
     assertEquals(WeatherKind.PARTIALLY_CLOUDY, data.daily[1].kind)
+
+    // The outlook carries the same three wind fields as the current reading and the hourly steps,
+    // even though nothing in the app draws them — they are exported because the engine answers them.
+    assertEquals(7.8f, first.windSpeed)
+    assertEquals(4, first.windBeaufort)
+    assertEquals(315, first.windDirection)
+    // Beaufort tracks the speed rather than being a constant the mod forgot to fill in.
+    assertEquals(listOf(4, 4, 4, 5, 5, 4), data.daily.map { it.windBeaufort })
   }
 
   @Test

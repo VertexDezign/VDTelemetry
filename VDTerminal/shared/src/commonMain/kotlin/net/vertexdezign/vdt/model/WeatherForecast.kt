@@ -87,6 +87,14 @@ data class ForecastDay(
   val type: String = "",
   val high: Int = 0,
   val low: Int = 0,
+  /**
+   * The outlook carries wind because the engine answers it, not because the strip draws it — nothing
+   * in the app reads these three today. Captures taken before the mod started exporting them decode
+   * as zeroes rather than failing, which is what the defaults are for.
+   */
+  val windSpeed: Float = 0f,
+  val windBeaufort: Int = 0,
+  val windDirection: Int = 0,
 ) {
   val kind: WeatherKind get() = WeatherKind.of(type)
 }
