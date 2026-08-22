@@ -462,15 +462,13 @@ has it and where it is), the `contributeFleetVehicle` integration stage carrying
 record, and the Fleet app — search, five views, six sorts, a detail pane, and a row that hands its position to the map.
 The reasoning is in `src/collect/FleetExporter.lua` and `panels/FleetPanel.kt`. What it did not do:
 
-- **The channel has run in game, in both modes** — `examples/json/fleet/fleet.json` (31 machines, singleplayer) and
-  `mp.json` (63, a multiplayer client). Between them they settle the two things the design rested on: owned machines
-  are listed, so `Vehicle:getShowInVehiclesOverview` really is `OWNED or LEASED` and the extracted source's
-  `propertyState == LEASED` is a decompile artefact; and **the ADS block arrives on a client**, thirteen machines of it
-  with six carrying a full service history, which is the claim that made reading each vehicle's own spec right and
-  `ADS_Main.vehicles` (keyed by the nil-on-a-client `uniqueId`) wrong.
-- **Still unchecked in game:** whether the row set matches ESC → Statistics **exactly** (same machines, same hours and
-  values), and the ADS half against its own `P` menu. Both are a five-minute comparison whenever someone is in front of
-  the game.
+- **Validated in game on 2026-08-22**, singleplayer and from a multiplayer client, with rows compared against the
+  game's own vehicle overview and the ADS half against that mod's `P` menu — both matched. The two captures that came
+  out of it are committed (`examples/json/fleet/fleet.json`, 31 machines; `mp.json`, 63 from a client) and settle the
+  two claims the design rested on: owned machines are listed, so `Vehicle:getShowInVehiclesOverview` really is
+  `OWNED or LEASED` and the extracted source's `propertyState == LEASED` is a decompile artefact; and **the ADS block
+  arrives on a client**, thirteen machines of it with six carrying a full service history, which is what made reading
+  each vehicle's own spec right and `ADS_Main.vehicles` (keyed by the nil-on-a-client `uniqueId`) wrong.
 - **Waiting on an occasion rather than on effort:** no capture holds a machine *being driven by another player*, so the
   "In use" rung and the implement-inherits-its-rig rule are proven only for the local player's own tractor — the
   multiplayer session this was captured from is played solo, so that needs a second player to turn up rather than
