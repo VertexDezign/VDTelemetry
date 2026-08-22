@@ -573,8 +573,12 @@ end
 ---ADS's own STATUS values are i18n keys ("ads_spec_state_ready"), which is not a token to put on the
 ---wire. Resolved against ADS's table so a status it renames is followed rather than mistranslated,
 ---with the key's own shape as the fallback for when that table is out of reach.
+---
+---A string neither of those resolves is reported as UNKNOWN rather than dropped: whatever a future
+---ADS calls it, the one thing known about it is that it is not the state that maps to READY, and the
+---terminal must not print "ready to work" over a state nobody has read (see AdsState).
 ---@param currentState any
----@return string|nil
+---@return string|nil the state token, or nil when the machine has no ADS state at all
 local function stateToken(currentState)
   if type(currentState) ~= "string" then
     return nil
@@ -590,7 +594,7 @@ local function stateToken(currentState)
     end
   end
   local suffix = string.match(currentState, "^ads_spec_state_(%a+)$")
-  return suffix ~= nil and string.upper(suffix) or nil
+  return suffix ~= nil and string.upper(suffix) or "UNKNOWN"
 end
 
 ---One of ADS's OWN localized texts -- a breakdown's part, severity and description are all its keys,
@@ -793,7 +797,7 @@ function VDT.AdvancedDamageSystem.contributeFleetVehicle(vehicle, row)
 
   local state = stateToken(spec.currentState)
   if state == nil then
-    return -- no state means no ADS record worth reporting; the row keeps its vanilla condition
+    return -- no state at all means no ADS record worth reporting; the row keeps its vanilla condition
   end
 
   ---@type FleetAdsModel

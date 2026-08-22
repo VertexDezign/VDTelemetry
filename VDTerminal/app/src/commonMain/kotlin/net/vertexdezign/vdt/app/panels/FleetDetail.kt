@@ -235,11 +235,20 @@ internal fun formatFinish(hour: Float, inDays: Int): String {
 /** ADS's states, as the sentence a driver would say rather than the enum name. */
 internal fun adsStateLabel(state: AdsState): String = when (state) {
   AdsState.READY -> "Ready to work"
+
   AdsState.INSPECTION -> "In the workshop — inspection"
+
   AdsState.MAINTENANCE -> "In the workshop — maintenance"
+
   AdsState.REPAIR -> "In the workshop — repair"
+
   AdsState.OVERHAUL -> "In the workshop — overhaul"
+
   AdsState.BROKEN -> "Broken down"
+
+  // Not a state ADS has: a token this build could not name. Said plainly, because the alternative is
+  // to print one of the five above over a machine nobody has read the state of.
+  AdsState.UNKNOWN -> "State not recognised"
 }
 
 @Composable

@@ -42,7 +42,7 @@
 -- src/integrations/AdvancedDamageSystem.lua): what the last inspection told the player, never ADS's
 -- exact condition or service level.
 ---@class FleetAdsModel
----@field state string READY | INSPECTION | MAINTENANCE | REPAIR | OVERHAUL | BROKEN
+---@field state string READY | INSPECTION | MAINTENANCE | REPAIR | OVERHAUL | BROKEN | UNKNOWN
 ---@field inspected AdsInspectedModel?
 ---@field service AdsServiceModel?
 ---@field lastInspection FleetDateModel?

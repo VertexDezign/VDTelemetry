@@ -333,6 +333,31 @@ class FleetModelTest {
   }
 
   @Test
+  fun aStateThisBuildCannotNameIsNotReadToBeReady() {
+    // What a later ADS with a state we have never heard of would put on the wire. The lenient parser
+    // coerces the token onto the field's default, so the default has to be the honest answer: a
+    // machine standing in a workshop this build cannot name must not read as ready to work.
+    val ads =
+      assertNotNull(
+        VdtParser
+          .parseFleet(
+            """
+            { "version": "1", "vehicles": [
+              { "id": 1, "name": "Massey Ferguson 8S", "type": "tractor", "age": 1, "hours": 12.0,
+                "propertyState": "OWNED", "ads": { "state": "CALIBRATION" } }
+            ] }
+            """.trimIndent(),
+          ).vehicles
+          .single()
+          .ads,
+      )
+
+    assertEquals(AdsState.UNKNOWN, ads.state)
+    assertFalse(ads.isInWorkshop, "unread is not the same as in the shop")
+    assertTrue(ads.needsAttention, "whatever it is, it is not the state that reads as ready")
+  }
+
+  @Test
   fun aMachineTakenOutOfTheTabRotationReadsAsParked() {
     // What the parking mods do: Enterable:setIsTabbable(false). The flag is saved and synced, so it
     // survives a reload and reaches a multiplayer client.

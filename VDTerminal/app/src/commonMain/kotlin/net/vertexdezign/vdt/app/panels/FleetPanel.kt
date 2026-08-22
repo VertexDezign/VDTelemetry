@@ -425,10 +425,19 @@ internal fun rowBadges(vehicle: FleetVehicle, rig: FleetVehicle? = null): List<S
   val ads = vehicle.ads
   when {
     ads == null -> Unit
+
     ads.state == AdsState.BROKEN -> add("BROKEN")
+
     ads.isInWorkshop -> add("WORKSHOP")
+
+    // A state token this build cannot name. It earns a badge because it also earns a place in the
+    // attention view, and a row listed there with nothing to show for it is the worse of the two.
+    ads.state == AdsState.UNKNOWN -> add("UNKNOWN STATE")
+
     ads.isServiceOverdue -> add("SERVICE DUE")
+
     ads.breakdowns.isNotEmpty() -> add("FAULT")
+
     else -> Unit
   }
   when (vehicle.propertyState) {

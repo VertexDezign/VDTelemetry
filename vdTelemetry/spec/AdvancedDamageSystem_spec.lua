@@ -576,6 +576,13 @@ describe("AdvancedDamageSystem integration", function()
       assert.equals("OVERHAUL", fleetRow(makeFleetVehicle({ currentState = "ads_spec_state_overhaul" })).ads.state)
     end)
 
+    it("reports a state neither of those resolves as UNKNOWN rather than as ready", function()
+      -- A state a later ADS adds. The record is still worth having -- the breakdowns and the service
+      -- hours are read the same way -- so the row keeps it; only the state itself is unnameable.
+      local row = fleetRow(makeFleetVehicle({ currentState = "ads_spec_state_of_the_art_calibration" }))
+      assert.equals("UNKNOWN", row.ads.state)
+    end)
+
     it("contributes nothing to an implement or an excluded machine", function()
       assert.is_nil(fleetRow({}).ads)
       assert.is_nil(fleetRow(makeFleetVehicle({ excluded = true })).ads)

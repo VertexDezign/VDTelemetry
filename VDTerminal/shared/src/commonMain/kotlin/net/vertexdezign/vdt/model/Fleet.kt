@@ -153,7 +153,12 @@ enum class PropertyState {
  */
 @Serializable
 data class FleetAds(
-  val state: AdsState = AdsState.READY,
+  /**
+   * Defaulted to [AdsState.UNKNOWN] rather than to [AdsState.READY], and that is the point of the
+   * value existing: the parser coerces a token it doesn't know onto this default, and a state a later
+   * ADS invents must not read as "ready to work" on a machine that is standing in a workshop.
+   */
+  val state: AdsState = AdsState.UNKNOWN,
   /** What the last inspection found. Null until the machine has had one. */
   val inspected: AdsInspected? = null,
   /** Hours since the last maintenance against the interval this machine wants. */
@@ -167,20 +172,43 @@ data class FleetAds(
   /** What this machine has cost in maintenance so far. */
   val maintenanceCost: Int? = null,
 ) {
-  /** In a workshop right now: the one state where the machine cannot be worked. */
-  val isInWorkshop: Boolean get() = state != AdsState.READY && state != AdsState.BROKEN
+  /**
+   * In a workshop right now: the one state where the machine cannot be worked. Named states rather
+   * than "everything that isn't READY or BROKEN", so [AdsState.UNKNOWN] is not asserted to be in a
+   * workshop it was never read as being in.
+   */
+  val isInWorkshop: Boolean
+    get() =
+      state == AdsState.INSPECTION ||
+        state == AdsState.MAINTENANCE ||
+        state == AdsState.REPAIR ||
+        state == AdsState.OVERHAUL
 
   /** Past the interval its manufacturer recommends — the same test that lights ADS's service lamp. */
   val isServiceOverdue: Boolean get() = (service?.fraction ?: 0f) > 1f
 
-  /** Worth a look before this machine goes out: broken down, in the shop, or overdue for service. */
+  /**
+   * Worth a look before this machine goes out: broken down, in the shop, overdue for service — or in
+   * a state this build cannot name, which is not READY whatever else it is.
+   */
   val needsAttention: Boolean
-    get() = state == AdsState.BROKEN || isInWorkshop || isServiceOverdue || breakdowns.isNotEmpty()
+    get() =
+      state == AdsState.BROKEN ||
+        state == AdsState.UNKNOWN ||
+        isInWorkshop ||
+        isServiceOverdue ||
+        breakdowns.isNotEmpty()
 }
 
-/** Where ADS has the machine: ready to work, in the shop for one of four jobs, or broken down. */
+/**
+ * Where ADS has the machine: ready to work, in the shop for one of four jobs, or broken down.
+ *
+ * [UNKNOWN] is the sixth answer and never comes from ADS: it is what a state token this build does
+ * not know decodes to — a state a later ADS added, or one the mod could not resolve. It is reported
+ * as unknown rather than guessed at, because the only guess available would be the reassuring one.
+ */
 @Serializable
-enum class AdsState { READY, INSPECTION, MAINTENANCE, REPAIR, OVERHAUL, BROKEN }
+enum class AdsState { READY, INSPECTION, MAINTENANCE, REPAIR, OVERHAUL, BROKEN, UNKNOWN }
 
 /**
  * One fault the player knows about, rendered the way ADS's own workshop dialog renders it: the part
