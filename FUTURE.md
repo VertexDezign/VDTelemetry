@@ -469,9 +469,12 @@ The reasoning is in `src/collect/FleetExporter.lua` and `panels/FleetPanel.kt`. 
   with six carrying a full service history, which is the claim that made reading each vehicle's own spec right and
   `ADS_Main.vehicles` (keyed by the nil-on-a-client `uniqueId`) wrong.
 - **Still unchecked in game:** whether the row set matches ESC → Statistics **exactly** (same machines, same hours and
-  values), the ADS half against its own `P` menu, and farm scoping on a server where another farm owns machines. No
-  capture yet holds a machine *being driven by another player* — both were taken with nobody else in a seat, so the
-  "In use" rung and the implement-inherits-its-rig rule are still only proven for the local player's own tractor.
+  values), and the ADS half against its own `P` menu. Both are a five-minute comparison whenever someone is in front of
+  the game.
+- **Waiting on an occasion rather than on effort:** no capture holds a machine *being driven by another player*, so the
+  "In use" rung and the implement-inherits-its-rig rule are proven only for the local player's own tractor — the
+  multiplayer session this was captured from is played solo, so that needs a second player to turn up rather than
+  someone to sit down and do it. Same for farm scoping against a farm that is not ours.
 - **Eleven machines across the two captures report themselves out of the tab rotation** — four in the singleplayer one
   (a fire engine, its two reels, an old lorry), seven in the multiplayer one (a forage harvester and a feed mixer among
   them). Confirmed by the player who captured them as their parking mod's doing, so both fixtures are *true*
@@ -513,7 +516,9 @@ machine that has them.
   `transmissionTemperatur` is present) that is a little overdue for service and carrying a breakdown or two, so the
   lamps, the interval and the load are all non-trivial in the one file.
   `AdsModelTest` covers the shape with inline JSON meanwhile.
-- **A fleet capture with a machine actually in trouble.** Two are committed —
+- **A fleet capture with a machine actually in trouble** — wanted, but nothing to chase: the playthrough these came
+  from has not produced a breakdown or an overdue service yet, so it waits on the game rather than on anyone.
+  Two are committed —
   `examples/json/fleet/fleet.json` (fresh singleplayer: a helper's rig, the player's own rig, contract equipment, a
   leased tractor, an electric loader ADS excludes, four machines parked) and `mp.json` (a played-in multiplayer client:
   ADS histories, real wear, consumables in slots). Between them the shapes are covered except the ones that need a
