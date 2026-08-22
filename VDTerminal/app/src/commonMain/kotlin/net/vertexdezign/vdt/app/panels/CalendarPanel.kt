@@ -486,7 +486,7 @@ private fun WeatherSection(data: WeatherForecastData?, modifier: Modifier = Modi
     ) {
       NowBlock(data)
       VerticalRule()
-      data.hourly.forEach { HourBlock(it) }
+      data.hourly.forEach { HourBlock(it, data.temperatureUnit) }
       if (data.daily.isNotEmpty()) {
         VerticalRule()
         data.daily.forEach { DayBlock(it, data.temperatureUnit) }
@@ -517,7 +517,7 @@ fun WeatherSummary(data: WeatherForecastData?, modifier: Modifier = Modifier) {
           Modifier.fillMaxWidth().weight(1f).horizontalScroll(rememberScrollState()),
           horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-          data.hourly.forEach { HourBlock(it) }
+          data.hourly.forEach { HourBlock(it, data.temperatureUnit) }
         }
       }
     }
@@ -566,7 +566,7 @@ private fun NowBlock(data: WeatherForecastData) {
 }
 
 @Composable
-private fun HourBlock(hour: ForecastHour) {
+private fun HourBlock(hour: ForecastHour, unit: String) {
   Column(
     Modifier.width(FORECAST_COLUMN_WIDTH).fillMaxHeight(),
     horizontalAlignment = Alignment.CenterHorizontally,
@@ -580,7 +580,7 @@ private fun HourBlock(hour: ForecastHour) {
       modifier = Modifier.size(FORECAST_ICON_SIZE).padding(vertical = 2.dp),
     )
     Text(
-      "${hour.temperature}°",
+      "${hour.temperature}$unit",
       fontSize = 12.sp,
       fontWeight = FontWeight.Bold,
       color = VdtColors.TextDark,

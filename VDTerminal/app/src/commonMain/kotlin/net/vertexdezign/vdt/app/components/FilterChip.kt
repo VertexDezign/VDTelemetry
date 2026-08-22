@@ -1,8 +1,8 @@
 package net.vertexdezign.vdt.app.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,7 +44,9 @@ fun FilterChip(
     modifier
       .clip(RoundedCornerShape(4.dp))
       .background(if (active) VdtColors.Green else VdtColors.TrackGray)
-      .clickable(role = Role.Button, onClick = onClick)
+      // selectable, not clickable: the chip's whole job is a state a reader has to be able to ask
+      // about, and Role.Button announces the press without ever announcing the answer.
+      .selectable(selected = active, role = Role.Checkbox, onClick = onClick)
       .padding(horizontal = 10.dp, vertical = 5.dp),
   )
 }

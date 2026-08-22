@@ -63,8 +63,8 @@ end
 --- disagrees with the physical scale at most speeds. Matching the menu matters more than being right
 --- about meteorology -- a forecast that reads "3" beside a game that says "4" is just wrong to a player.
 --- (`^` rather than the engine's math.pow: identical in Lua 5.1, and it survives a newer interpreter.)
----@param speedInMs number The wind speed in m/s
----@return number the Beaufort number
+---@param speedInMs number|nil The wind speed in m/s
+---@return number|nil the Beaufort number, nil for a nil speed (callers default it)
 function ValueMapper.windSpeedToBeaufort(speedInMs)
   if speedInMs == nil then
     return nil

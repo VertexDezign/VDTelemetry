@@ -16,10 +16,12 @@ import kotlin.test.assertTrue
  * [WeatherKind] parse and a lossless round-trip — the weather channel's half of the mod↔Kotlin
  * contract.
  *
- * `vanilla.json` is a German-locale base-game capture taken mid-afternoon on a rainy August day, with
- * one day per period. It happens to pin down three things worth having in a fixture: the hourly strip
- * wrapping past midnight, the day captions losing their day number at `daysPerPeriod = 1`, and
- * forecast wind angles that are *not* snapped to the engine's 45° step the way the current one is.
+ * Two German-locale base-game captures, differing in the one setting that changes what a day caption
+ * says. `vanilla.json` was taken mid-afternoon on a rainy August day at **one day per period**: it
+ * pins the hourly strip wrapping past midnight, the captions losing their day number entirely at that
+ * setting, and forecast wind angles that are *not* snapped to the engine's 45° step the way the
+ * current one is. `vanilla_multipleDays.json` is the same map at **four days per period**, which is
+ * where the captions keep their number and the outlook rolls from one period into the next.
  */
 class WeatherModelTest {
   private val json = Json { encodeDefaults = true }
@@ -108,6 +110,33 @@ class WeatherModelTest {
     assertEquals(315, first.windDirection)
     // Beaufort tracks the speed rather than being a constant the mod forgot to fill in.
     assertEquals(listOf(4, 4, 4, 5, 5, 4), data.daily.map { it.windBeaufort })
+  }
+
+  @Test
+  fun manyDaysPerPeriodKeepTheDayNumberInTheCaption() {
+    val data = VdtParser.parseWeather(example("vanilla_multipleDays.json"))
+
+    // The counterpart to the `daysPerPeriod = 1` capture: here `formatDayInPeriod` keeps the number,
+    // so the caption is "September 1" rather than the bare "September". Neither form is derivable on
+    // this side, which is why the label crosses the wire at all.
+    val today = assertNotNull(data.today)
+    assertEquals("September 1", today.label)
+    assertEquals(7, today.period)
+    assertEquals(1, today.dayInPeriod)
+
+    // Six days from tomorrow, and at four days per period that runs off the end of period 7 and into
+    // period 8 — the roll the single-day capture can never show, since there every day is a new one.
+    assertEquals(listOf("Sept 2", "Sept 3", "Sept 4", "Okt 1", "Okt 2", "Okt 3"), data.daily.map { it.label })
+    assertEquals(listOf(7, 7, 7, 8, 8, 8), data.daily.map { it.period })
+    assertEquals(listOf(2, 3, 4, 1, 2, 3), data.daily.map { it.dayInPeriod })
+
+    // Ordered, not sorted, on this capture too: it starts at 08:00 and wraps past midnight.
+    assertEquals(listOf(8, 10, 12, 14, 16, 18, 20, 22, 0, 2, 4, 6), data.hourly.map { it.hour })
+
+    // Bft 8 on the first day — the widest wind range either capture reaches.
+    assertEquals(18.9f, data.daily.first().windSpeed)
+    assertEquals(8, data.daily.first().windBeaufort)
+    assertRoundTrips(data)
   }
 
   @Test
