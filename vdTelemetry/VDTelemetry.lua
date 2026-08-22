@@ -74,6 +74,10 @@ local sourceFiles = {
   "src/collect/StorageExporter.lua",
   -- Husbandry channel: own-farm animal pens (reuses ProductionExporter's id helper)
   "src/collect/HusbandryExporter.lua",
+  -- Fleet channel: own-farm machines and their condition (own interval). Reuses MapVehicles' type
+  -- token, MapExporter's normalization, the wearable/fill-unit aspects and Motor's fill units, so it
+  -- is sourced after all of them.
+  "src/collect/FleetExporter.lua",
   -- Missions channel: the farm's contracts (event-driven + a slow interval). Reuses MapExporter's
   -- normalization for the marker position, so it is sourced after it.
   "src/collect/MissionExporter.lua",

@@ -1,0 +1,83 @@
+-- Model definitions for the fleet export channel (fleet.json, src/collect/FleetExporter.lua).
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Fleet.kt) and the fixtures in
+-- examples/json/fleet/*.
+--
+-- One entry per MACHINE, not per rig: the game's own vehicle overview lists an implement on its own
+-- row, and so do we (`attachedTo` says which rig it is currently part of). posX/posZ are normalized
+-- [0,1] map coordinates in the same frame as MapModel / MapVehicleModel, so the app can hand a row
+-- straight to the map.
+
+-- A game date, as the game counts them: `month` is the period (1..12), not a calendar month. The
+-- document carries today's, and ADS's log dates are read against it ("serviced 3 months ago").
+---@class FleetDateModel
+---@field year number
+---@field month number
+---@field day number
+
+-- One visible breakdown, as ADS's own workshop dialog prints it: the affected part, the severity of
+-- the stage it has reached, and what it is doing. Only breakdowns the player has already DISCOVERED
+-- are here (ADS's own `isVisible` flag) -- listing the rest would hand over its inspection mechanic.
+---@class FleetBreakdownModel
+---@field id string ADS's registry id ("ENGINE_OIL_LEAK", ...)
+---@field part string? localized part name ("Engine", ...) -- ADS's `part`, falling back to `system`
+---@field severity string? localized severity of the current stage
+---@field description string? localized description of the current stage
+---@field stage number which stage the breakdown has progressed to (1 = first)
+
+-- What the workshop is doing to this machine right now; absent while it is READY. All times are
+-- in-game hours: `remaining` is how much work is left, `finishHour` the hour of the day it comes
+-- back, `finishInDays` how many day rollovers away that is (0 = today).
+---@class FleetWorkshopModel
+---@field remaining number?
+---@field finishHour number?
+---@field finishInDays number?
+---@field price number? what the pending service will cost
+
+-- The Advanced Damage System block of one fleet row, mirroring that mod's own fleet menu. Present
+-- only for machines ADS manages (motorized, not excluded).
+--
+-- `inspected` / `service` are the SAME shapes the driven vehicle's `ads` block uses (see
+-- src/integrations/AdvancedDamageSystem.lua): what the last inspection told the player, never ADS's
+-- exact condition or service level.
+---@class FleetAdsModel
+---@field state string READY | INSPECTION | MAINTENANCE | REPAIR | OVERHAUL | BROKEN
+---@field inspected AdsInspectedModel?
+---@field service AdsServiceModel?
+---@field lastInspection FleetDateModel?
+---@field lastMaintenance FleetDateModel?
+---@field breakdowns FleetBreakdownModel[]?
+---@field workshop FleetWorkshopModel?
+---@field maintenanceCost number? what has been spent on this machine so far
+
+-- One machine of the farm's fleet.
+--
+-- CONDITION: `wearable.damage` is the vanilla figure and is pinned to 0 on any machine ADS manages,
+-- so a reader takes condition from `ads.inspected` where the ads block is present and from
+-- `wearable` otherwise (see Fleet.kt, which says the same thing to the app).
+---@class FleetVehicleModel
+---@field id number network object id (NOT uniqueId -- nil on a multiplayer client)
+---@field name string
+---@field type string VehicleHotspot.TYPE key, camelCased -- same tokens as MapVehicleModel.type
+---@field category string? localized store category ("Tractors", "Ploughs", ...)
+---@field age number age in months, as the game counts it
+---@field hours number operating hours
+---@field propertyState string OWNED | LEASED | MISSION
+---@field sellPrice number? what the game would pay for it; owned machines only
+---@field leasePerDay number? running + per-day leasing cost; leased machines only
+---@field wearable WearableModel?
+---@field fillUnits FillUnitsModel?
+---@field motorFillUnits MotorFillUnitsModel? fuel/def/air; also marks the machine as motorized
+---@field attachedTo number? id of the rig's root vehicle, when this machine is attached to one
+---@field isAI boolean? an AI helper is driving it
+---@field isControlled boolean? a human is driving it (any player in MP)
+---@field isEntered boolean? the LOCAL player is inside
+---@field posX number?
+---@field posZ number?
+---@field ads FleetAdsModel?
+
+---@class FleetModel
+---@field version string
+---@field date FleetDateModel?
+---@field vehicles FleetVehicleModel[]?
