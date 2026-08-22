@@ -20,6 +20,7 @@ import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
+import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.InvoicesData
@@ -116,6 +117,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // Owned animal pens, on the mod's own interval; same null-when-absent contract as production.
   private val _husbandry = MutableStateFlow<HusbandriesData?>(null)
   val husbandry: StateFlow<HusbandriesData?> = _husbandry.asStateFlow()
+
+  // The farm's machines and their condition, on the mod's own interval; same null-when-absent
+  // contract as production -- a fleet that has stopped being reported must not keep listing machines.
+  private val _fleet = MutableStateFlow<FleetData?>(null)
+  val fleet: StateFlow<FleetData?> = _fleet.asStateFlow()
 
   // The farm's contracts, event-driven plus the mod's slow countdown interval; same
   // null-when-absent contract as production.
@@ -238,6 +244,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.Husbandry -> {
                       _husbandry.value = msg.data
+                    }
+
+                    is ServerMessage.Fleet -> {
+                      _fleet.value = msg.data
                     }
 
                     is ServerMessage.Missions -> {
