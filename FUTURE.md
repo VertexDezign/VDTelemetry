@@ -449,13 +449,44 @@ engine load it wears the engine on, the service interval and system voltage. The
   and then hides it from its own HUD, so drawing it would tell the player something the mod chose to withhold.
   `transmission` is worse: declared in `ADS_Breakdowns.DASHBOARD` and referenced by not one breakdown in the mod. If a
   future ADS starts drawing either, they are two lamps and two glyphs away.
-- **The fleet is not exported.** `ADS_Main.vehicles` is every machine ADS manages, which is what its own `P` menu
-  lists — a "which of my machines is due, broken, or in the workshop" channel would be a real second-screen feature, and
-  the natural home for `currentState` / `getServiceFinishTime()` and the visible breakdown list, none of which the
-  vehicle model carries. It needs its own issue, and its own care in multiplayer: that table is keyed by `uniqueId`,
-  which is nil on an MP client.
+- **The fleet is now exported** — issue #84, the `fleet` channel and its `contributeFleetVehicle` stage. It does not
+  read `ADS_Main.vehicles` (keyed by `uniqueId`, which is nil on an MP client) but the per-vehicle spec of every machine
+  the farm owns, which is fully synced. See the section below for what that left open.
 - **A fixture is wanted.** No committed capture has an `ads` block; `AdsModelTest` decodes the shape with inline JSON
   and says so at the top. See the section below for the rule those follow.
+
+## Fleet (#84)
+
+Built: the `fleet` channel (the game's own vehicle-overview gate, one row per machine, condition/hours/value plus who
+has it and where it is), the `contributeFleetVehicle` integration stage carrying Advanced Damage System's maintenance
+record, and the Fleet app — search, five views, six sorts, a detail pane, and a row that hands its position to the map.
+The reasoning is in `src/collect/FleetExporter.lua` and `panels/FleetPanel.kt`. What it did not do:
+
+- **Nothing has been checked in game.** The gate is the game's own three-part test, but it is called rather than
+  reimplemented, and the extracted `Vehicle:getShowInVehiclesOverview` reads oddly (`propertyState == LEASED`, with a
+  redundant `~= OWNED` in front of it) — almost certainly a decompile artefact of the `OWNED or LEASED` that ADS's own
+  fallback spells out, but if it is not, the list mirrors an in-game menu that shows the same thing. Worth checking
+  first: that the row set matches ESC → Statistics exactly. Then the ADS half against its own `P` menu, and both from a
+  multiplayer client, where the whole design turns on the per-vehicle spec being synced.
+- **No widget and no alert.** The app contributes neither, so a page reaches it through `ShortcutWidget` like the other
+  list apps. A "3 machines need attention" tile is the obvious one; an alert for a breakdown on a machine you are *not*
+  in is the tempting one and the one to think about first — it fires while you are doing something else, which is what
+  makes it useful and what makes it a nuisance.
+- **No per-breakdown repair price.** ADS's workshop dialog prints one (`getBreakdownRepairPrice`), but it is computed
+  against the workshop the machine is standing in, so away from one it is a number whose meaning changes with where you
+  are. The service under way carries its price (`workshop.price`), which does not have that problem.
+- **The daily upkeep is not exported.** `getDailyUpkeep()` is a real running cost and the game prints it in the shop,
+  but neither in-game list shows it in its vehicle overview, so it stayed out of a channel whose brief was to mirror
+  them.
+- **Sell and reset are not offered.** Both are in the game's own overview and both are irreversible, so round 1 is
+  read-only by decision (the app's only action is showing a machine on the map). If they are ever wanted, they are
+  ordinary command-channel controls — `ResetVehicleEvent` and `g_shopController:sell`, each permission-gated the way
+  `MissionControl` gates its own.
+- **The map hand-off is one-way and unlabelled.** `MapFocus` centres the map and rings the position, but the map has no
+  idea *which* machine it is showing, so a second machine parked beside the first is indistinguishable. Naming the ring
+  would mean the map knowing about the fleet channel, which is a bigger change than the jump was worth.
+
+---
 
 ## Captures wanted as fixtures
 
@@ -473,6 +504,10 @@ machine that has them.
   `transmissionTemperatur` is present) that is a little overdue for service and carrying a breakdown or two, so the
   lamps, the interval and the load are all non-trivial in the one file.
   `AdsModelTest` covers the shape with inline JSON meanwhile.
+- **A fleet capture**, for `fleet.json` — a played-in save with a mixed fleet (a leased machine, an implement or two,
+  something with an AI helper in it), and a second one with Advanced Damage System installed where a machine is in the
+  workshop and another is overdue. `FleetModelTest` covers the shapes with inline JSON meanwhile, and says so at the
+  top. `examples/json/fleet/` stays empty until a real capture exists.
 - **More invoices captures.** `examples/json/invoices/invoices.json` came out of the 2026-08-11 two-farm session and
   drives `InvoicesModelTest.parsesTheTwoFarmCapture`: three invoices from farm 1's side, one of them a proposal showing
   the direction inversion, a discounted line, and the full 56-entry German work-type catalogue. What it does not

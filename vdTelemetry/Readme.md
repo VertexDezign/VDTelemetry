@@ -50,6 +50,7 @@ data actually changes — and none of them rides the 100 ms tick.
 | `production.json` | own farm's production points + factories (core, `src/collect/ProductionExporter.lua`) | own interval (2 s) |
 | `storage.json` | own farm's standalone silos + object storages (core, `src/collect/StorageExporter.lua`) | own interval (2 s) |
 | `husbandry.json` | own farm's animal pens (core, `src/collect/HusbandryExporter.lua`) | own interval (5 s) |
+| `fleet.json` | own farm's machines: condition, hours, value, and Advanced Damage System's maintenance record (core, `src/collect/FleetExporter.lua`) | own interval (5 s) |
 | `missions.json` | the farm's contracts (core, `src/collect/MissionExporter.lua`) | on contract change + 10 s |
 | `finance.json` | the farm's books: balance, loan, the monthly table, the money log (core, `src/collect/FinanceExporter.lua`) | on period/loan change + 5 s |
 | `fieldInfo.json` | per-field agronomy, for the field-info popup (core, `src/collect/FieldInfoExporter.lua`) | own interval (30 s) |
@@ -265,6 +266,7 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
         <channel id="production" enabled="true" intervalMs="2000"/>
         <channel id="storage" enabled="true" intervalMs="2000"/>
         <channel id="husbandry" enabled="true" intervalMs="5000"/>
+        <channel id="fleet" enabled="true" intervalMs="5000"/>
         <channel id="missions" enabled="true" intervalMs="10000"/>
         <channel id="finance" enabled="true" intervalMs="5000"/>
         <channel id="taskList" enabled="true"/>
