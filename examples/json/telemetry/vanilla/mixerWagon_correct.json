@@ -1,0 +1,339 @@
+{
+  "vehicle": {
+    "brand": {
+      "name": "ZETOR",
+      "title": "Zetor"
+    },
+    "implement": [
+      {
+        "isTurnedOn": false,
+        "type": "mixerWagon",
+        "tipping": {
+          "state": "CLOSED",
+          "count": 2,
+          "sides": [
+            "Links",
+            "Rechts"
+          ],
+          "preferredSide": 2
+        },
+        "brand": {
+          "name": "FARESIN",
+          "title": "FARESIN"
+        },
+        "jointDescIndex": 3,
+        "fillUnits": {
+          "fillUnit": [
+            {
+              "type": "FORAGE",
+              "title": "Totalmischration",
+              "fillLevelPercentage": 52,
+              "value": 12400,
+              "capacity": 24000,
+              "unit": "l"
+            }
+          ]
+        },
+        "selection": {
+          "selected": true
+        },
+        "mass": {
+          "value": 12.12,
+          "empty": 8.2
+        },
+        "name": "FARESIN PF 2.24 Plus",
+        "position": "BACK",
+        "schema": {
+          "name": "IMPLEMENT",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "discharge": {
+          "fillUnitIndex": 1,
+          "hasObject": false,
+          "allowed": true,
+          "state": "OFF",
+          "nodeIndex": 2,
+          "hitTerrain": true
+        },
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 1,
+          "unit": "%"
+        },
+        "mixer": {
+          "mixingTime": 5000,
+          "capacity": 24000,
+          "powered": true,
+          "fillType": "FORAGE",
+          "recipe": "FORAGE",
+          "remaining": 0,
+          "title": "Totalmischration",
+          "value": 12400,
+          "ingredients": [
+            {
+              "name": "dryGrass",
+              "maxPercentage": 75,
+              "value": 6000,
+              "minPercentage": 20,
+              "fillTypes": [
+                "DRYGRASS_WINDROW",
+                "HAY_PELLETS"
+              ],
+              "title": "Heu"
+            },
+            {
+              "mass": 2.25,
+              "name": "silage",
+              "maxPercentage": 75,
+              "value": 5000,
+              "minPercentage": 20,
+              "fillTypes": [
+                "SILAGE"
+              ],
+              "title": "Silage"
+            },
+            {
+              "name": "straw",
+              "maxPercentage": 30,
+              "value": 1400,
+              "minPercentage": 0,
+              "fillTypes": [
+                "STRAW",
+                "STRAW_PELLETS"
+              ],
+              "title": "Stroh"
+            },
+            {
+              "mass": 0,
+              "name": "mineralFeed",
+              "maxPercentage": 7,
+              "value": 0,
+              "minPercentage": 0,
+              "fillTypes": [
+                "MINERAL_FEED"
+              ],
+              "title": "Mineralfutter"
+            }
+          ],
+          "running": false
+        }
+      }
+    ],
+    "mass": {
+      "value": 17.024,
+      "empty": 3.59
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 42
+    },
+    "operatingTime": {
+      "value": "0.08",
+      "unit": "h"
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "lowered": false,
+    "motor": {
+      "state": "ON",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 42,
+        "forward": 42
+      },
+      "fillUnits": {
+        "air": {
+          "fillLevelPercentage": 85,
+          "title": "Luft",
+          "value": 2558,
+          "capacity": 3000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 270,
+          "usage": 3.45,
+          "capacity": 270,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 28,
+          "capacity": 28,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "1L",
+        "isNeutral": false,
+        "group": "H"
+      },
+      "rpm": {
+        "value": 850,
+        "max": 2200,
+        "min": 0
+      },
+      "load": {
+        "value": 8.76,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 89,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "type": "tractor",
+    "ai": {
+      "active": false
+    },
+    "name": "Zetor FORTERRA HSX 120",
+    "ads": {
+      "electrical": {
+        "unit": "V",
+        "systemVoltage": 14.1
+      },
+      "inspected": {
+        "service": 100,
+        "condition": 100,
+        "complete": false
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "warning": "OFF",
+        "battery": "OFF",
+        "service": "OFF",
+        "engine": "OFF",
+        "brakes": "OFF"
+      },
+      "load": {
+        "value": 10,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 4.2,
+        "hours": 0.1
+      }
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 180,
+      "linesVisible": false,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 1,
+      "unit": "%"
+    },
+    "schema": {
+      "name": "VEHICLE",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    },
+    "selection": {
+      "selected": false
+    }
+  },
+  "version": "16",
+  "environment": {
+    "date": "01.08.2024",
+    "weather": {
+      "temperature": {
+        "min": 15,
+        "current": 23,
+        "max": 24,
+        "unit": "°C"
+      }
+    },
+    "time": "18:04",
+    "pda": {
+      "height": 2048,
+      "player": {
+        "heading": 180,
+        "posX": 0.4745378959924,
+        "farmId": 1,
+        "posZ": 0.45405293256044,
+        "headingUnit": "°"
+      },
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",
+      "width": 2048
+    }
+  }
+}

@@ -959,8 +959,13 @@ enum class MixState {
 
 /**
  * What a machine weighs right now, in **tonnes**, and what it weighs empty — so the payload is the
- * difference. Per-machine: a tractor and its implements each report their own, and a train weight is
- * their sum.
+ * difference.
+ *
+ * **These do not add up into a train weight.** The engine folds a *hard-attached* implement's whole
+ * mass into its attacher's root component (`AttacherJoints:getAdditionalComponentMass`), so a tractor
+ * already carries what is hitched to it and summing the two counts that twice. It also means [payload]
+ * is only a load on the machine actually holding one: on a tractor towing a full mixer wagon it is
+ * mostly the wagon.
  *
  * [empty] is null until the engine has run its first mass update on the machine.
  */

@@ -538,11 +538,12 @@ private fun RowScope.MixStateChip(mixer: Mixer) {
 /**
  * What is in the tub, in a word.
  *
- * The engine's own title carries it in two of the three loaded states — the material while one thing
- * is in ("Silage"), the recipe's own name once the mix is finished ("Futter"). It cannot carry the
- * third: the German title of FORAGE_MIXING is **also** "Futter", so an in-game capture showed the
- * header reading the same word whether the mix was right or not. Our own word for it instead, and
- * deliberately not "mixing" — the status strip already uses that for the drum turning.
+ * The engine's own title is right for two of the three loaded states — the material while one thing
+ * is in ("Heu"), the recipe's own name once the mix is finished ("Totalmischration"). It is *usable*
+ * for the third and not much good: FORAGE_MIXING's title is "Futter", which says the load is feed
+ * without saying the ratio is wrong, and the word a driver needs there is the fault. So off-ratio
+ * gets a word of our own — deliberately not "mixing", which the status strip already uses for the
+ * drum turning.
  */
 private fun mixStateLabel(mixer: Mixer): String = when (mixer.state) {
   MixState.EMPTY -> "Empty"

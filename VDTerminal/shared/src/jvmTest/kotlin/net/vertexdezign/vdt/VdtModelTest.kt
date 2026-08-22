@@ -18,6 +18,7 @@ import net.vertexdezign.vdt.model.SteeringLayout
 import net.vertexdezign.vdt.model.TillageKind
 import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.VdtData
+import net.vertexdezign.vdt.model.Vehicle
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -1179,90 +1180,81 @@ class VdtModelTest {
   // Mixer wagon (issue #113)
   // -------------------------------------------------------------------------
 
-  /** A mixer wagon carrying [ingredients], as the mod emits it. */
-  private fun mixerJson(
-    fillType: String,
-    ingredients: String,
-    value: String = "9300",
-    running: String = "false",
-  ) = VdtParser
-    .parseJson(
-      """{"version":"16","vehicle":{"implement":[{"position":"BACK","type":"mixerWagon",""" +
-        """"isTurnedOn":false,"mixer":{"running":$running,"powered":true,"remaining":0,""" +
-        """"mixingTime":5000,"value":$value,"capacity":12000,"fillType":"$fillType",""" +
-        """"title":"Mischration","recipe":"FORAGE","ingredients":[$ingredients]}}]}}""",
-    ).vehicle
-    ?.implement
-    ?.single()
-    ?.mixer
-
-  private val threeIngredients =
-    """{"name":"SILAGE","title":"Grundfutter","fillTypes":["SILAGE"],"minPercentage":40,""" +
-      """"maxPercentage":75,"value":6000.0,"mass":2.4},""" +
-      """{"name":"HAY","title":"Raufutter","fillTypes":["HAY","STRAW"],"minPercentage":20,""" +
-      """"maxPercentage":40,"value":2400.0},""" +
-      """{"name":"MINERALS","title":"Kraftfutter","fillTypes":["MINERAL_FEED"],""" +
-      """"minPercentage":5,"maxPercentage":15,"value":900.0,"mass":0.45}"""
-
   /**
-   * The one committed mixer capture: a Kuhn SPW Intense (self-propelled) with 18000 l of an
-   * out-of-ratio mix, taken 2026-08-22 without Precision Farming. It is the evidence behind every
-   * assertion in this block that is not about a state the machine was not in.
+   * The four committed mixer captures, all vanilla and all mod version 16.
+   *
+   * Between them they cover the three loaded [MixState] answers, both places the aspect can sit (a
+   * self-propelled machine *is* the vehicle; a towed one is an implement), a mix cycle both running
+   * and expired, and two different tip-side counts. What none of them can be is empty, which is why
+   * that one state is still inline below.
    */
-  private fun capturedWagon() = assertNotNull(capture("telemetry/vanilla/selfDrivingMixerWagon.json").vehicle)
+  private fun mixerCapture(name: String): Vehicle =
+    assertNotNull(capture("telemetry/vanilla/mixerWagon_$name.json").vehicle)
 
-  private fun capturedMixer() = assertNotNull(capturedWagon().mixer)
+  /** The machine carrying the mixer — the vehicle itself, or its single implement. */
+  private fun mixerMachine(name: String): Implement? = mixerCapture(name).implement.singleOrNull()
 
   @Test
-  fun decodesTheCapturedMixerWagon() {
-    val wagon = capturedWagon()
-    // Self-propelled: the aspect sits on the VEHICLE, and there is no implement to have found it on.
-    // Which is why `mixer` had to go on both Vehicle and Implement rather than only the latter.
-    assertEquals("drivableMixerWagon", wagon.type)
-    assertTrue(wagon.implement.isEmpty())
+  fun theAspectSitsOnTheVehicleOrOnTheImplement() {
+    // Both shapes, captured. This is why `mixer` had to go on Vehicle *and* Implement rather than
+    // only the latter, and it is the only thing that exercises either path end to end.
+    val selfPropelled = mixerCapture("selfDriving_single")
+    assertEquals("drivableMixerWagon", selfPropelled.type)
+    assertTrue(selfPropelled.implement.isEmpty())
+    assertNotNull(selfPropelled.mixer)
 
-    val mixer = capturedMixer()
-    assertEquals(18000.0, mixer.value)
-    assertEquals(25000, mixer.capacity)
-    assertEquals(5000, mixer.mixingTime)
-    assertEquals("FORAGE_MIXING", mixer.fillType)
-    assertEquals(MixState.OUT_OF_RATIO, mixer.state)
-    assertEquals(4, mixer.ingredients.size)
+    val towed = mixerCapture("correct")
+    assertEquals("tractor", towed.type)
+    assertEquals(null, towed.mixer, "the tractor pulling it has no mixer of its own")
+    val wagon = assertNotNull(towed.implement.single())
+    assertEquals("mixerWagon", wagon.type)
+    assertEquals("BACK", wagon.position)
+    assertNotNull(wagon.mixer)
   }
 
   @Test
-  fun theRecipeLookupLandsOnARealMachine() {
+  fun theRecipeLookupLandsOnEveryCapturedMachine() {
     // MixerWagon:onLoad drops the recipe's own fill type and the ingredients' authored titles, so
-    // the collector finds the recipe back by matching the ingredient names it kept. This is that
-    // search having worked on a real map: without it there is no `recipe`, and the four bars would
-    // be labelled with their materials instead ("Grasschnitt", "Silage", "Stroh", …).
-    val mixer = capturedMixer()
-    assertEquals("FORAGE", mixer.recipe)
-    assertEquals(
-      listOf("Heu", "Silage", "Stroh", "Mineralfutter"),
-      mixer.ingredients.map { it.title },
-    )
+    // the collector finds the recipe back by matching the ingredient names it kept. Without it there
+    // is no `recipe` — and therefore no way to say a mix is finished — and the bars fall back to
+    // their materials' names. Two machines, two maps' worth of loading, same four titles.
+    for (name in listOf("correct", "selfDriving_single", "selfDriving_outOfRatio")) {
+      val mixer = assertNotNull(mixerMachine(name)?.mixer ?: mixerCapture(name).mixer)
+      assertEquals("FORAGE", mixer.recipe, name)
+      assertEquals(listOf("Heu", "Silage", "Stroh", "Mineralfutter"), mixer.ingredients.map { it.title }, name)
+    }
   }
 
   @Test
-  fun theEnginesTitleCannotTellOffRatioFromFinished() {
-    // Why the panel needs a word of its own for OUT_OF_RATIO: the German title of FORAGE_MIXING is
-    // *the same string* as FORAGE's, so a header showing the engine's title reads "Futter" whether
-    // the mix is right or not. Found in game, and this is the capture that shows it.
-    val mixer = capturedMixer()
-    assertEquals("FORAGE_MIXING", mixer.fillType)
-    assertEquals("Futter", mixer.title)
-    assertEquals("Futter", assertNotNull(capturedWagon().fillUnits?.fillUnit?.single()).title)
+  fun theThreeLoadedMixStatesAreEachCaptured() {
+    // Read off the tub's fill type, never recomputed from the bars — and here is each answer on a
+    // real machine.
+    val ready = assertNotNull(assertNotNull(mixerMachine("correct")).mixer)
+    assertEquals("FORAGE", ready.fillType)
+    assertEquals("Totalmischration", ready.title)
+    assertEquals(MixState.READY, ready.state)
+
+    val offRatio = assertNotNull(mixerCapture("selfDriving_outOfRatio").mixer)
+    assertEquals("FORAGE_MIXING", offRatio.fillType)
+    assertEquals("Futter", offRatio.title)
+    assertEquals(MixState.OUT_OF_RATIO, offRatio.state)
+
+    // One material in: the tub reports that material, and it is not a mix at all. Note the recipe is
+    // still resolved — `state` is SINGLE because the fill type is not the recipe's, not for want of one.
+    val single = assertNotNull(mixerCapture("selfDriving_single").mixer)
+    assertEquals("DRYGRASS_WINDROW", single.fillType)
+    assertEquals("FORAGE", single.recipe)
+    assertEquals(MixState.SINGLE, single.state)
   }
 
   @Test
   fun aMixerBarIsAShareOfTheLoadNotOfTheCapacity() {
-    // The single easiest thing to get wrong, and the capture contains a real instance of it rather
-    // than a constructed one. The game's own HUD sums the ingredient levels and divides by that sum.
-    // The straw is 39% of the 18000 l load — over its 30% ceiling, which is exactly why the engine
-    // called the whole mix FORAGE_MIXING — but only 28% of the 25000 l tub, which is inside. A bar
-    // drawn against `capacity` would have shown four ticks on a mix the game had already rejected.
-    val mixer = capturedMixer()
+    // The single easiest thing to get wrong, and the out-of-ratio capture contains a real instance of
+    // it rather than a constructed one. The game's own HUD sums the ingredient levels and divides by
+    // that sum. The straw is 39% of the 18000 l load — over its 30% ceiling, which is exactly why the
+    // engine called the whole mix FORAGE_MIXING — but only 28% of the 25000 l tub, which is inside. A
+    // bar drawn against `capacity` would have shown four ticks on a mix the game had already rejected.
+    val mixer = assertNotNull(mixerCapture("selfDriving_outOfRatio").mixer)
     assertEquals(18000.0, mixer.loaded)
 
     val straw = mixer.ingredients.single { it.name == "straw" }
@@ -1276,11 +1268,23 @@ class VdtModelTest {
   }
 
   @Test
+  fun theBarsCanAllBeWrongWhileTheMixIsFine() {
+    // The other half of that rule, from the single-material capture: 6000 l of hay and nothing else
+    // is 100% hay against a 20–75% window, and silage is at 0% against a 20% floor — two ingredients
+    // "outside" their windows on a machine that is simply mid-load. The engine says so itself by
+    // reporting the material rather than FORAGE_MIXING, which is why the panel only passes a verdict
+    // when the engine has.
+    val mixer = assertNotNull(mixerCapture("selfDriving_single").mixer)
+    assertEquals(MixState.SINGLE, mixer.state)
+    assertEquals(2, mixer.ingredients.count { !it.holds(mixer.shareOf(it)) })
+  }
+
+  @Test
   fun anIngredientPoolingSeveralMaterialsIsUnweighed() {
     // Half of the base game's forage recipe turns out to be pooled, which is what made this worth
     // guarding: one litre count for two materials of different density, and no record of which went
     // in. Absent rather than a weight computed from whichever we reached first.
-    val byName = capturedMixer().ingredients.associateBy { it.name }
+    val byName = assertNotNull(mixerCapture("selfDriving_outOfRatio").mixer).ingredients.associateBy { it.name }
 
     val hay = assertNotNull(byName["dryGrass"])
     assertEquals(listOf("DRYGRASS_WINDROW", "HAY_PELLETS"), hay.fillTypes)
@@ -1296,8 +1300,8 @@ class VdtModelTest {
   fun anIngredientTheRecipeMakesOptionalIsNeverShort() {
     // Straw and mineral feed really are declared with a 0% minimum, so an empty mineral-feed bar is
     // not a fault and must not be flagged as one — which `holds` gets right only because the window
-    // is inclusive of its ends.
-    val byName = capturedMixer().ingredients.associateBy { it.name }
+    // is inclusive of its ends. The "correct" capture is a finished mix carrying none of it at all.
+    val byName = assertNotNull(assertNotNull(mixerMachine("correct")).mixer).ingredients.associateBy { it.name }
     val mineral = assertNotNull(byName["mineralFeed"])
     assertEquals(0, mineral.minPercentage)
     assertEquals(7, mineral.maxPercentage)
@@ -1306,69 +1310,61 @@ class VdtModelTest {
   }
 
   @Test
-  fun theCapturedWagonNamesFourTipSides() {
-    // The first real evidence for `sides`: four of them, localized by the engine at load, and
-    // 1-indexed by `preferredSide`. `side` is absent because nothing was tipping.
-    val tipping = assertNotNull(capturedWagon().tipping)
-    assertEquals(TipState.CLOSED, tipping.state)
-    assertEquals(4, tipping.count)
-    assertEquals(listOf("Links", "Rechts", "Links hinten", "Rechts hinten"), tipping.sides)
-    assertEquals(1, tipping.preferredSide)
-    assertEquals("Links", tipping.sides[assertNotNull(tipping.preferredSide) - 1])
-    assertEquals(null, tipping.side)
-  }
+  fun theMixCycleIsCapturedBothRunningAndExpired() {
+    // `remaining` counts MixerWagon's activeTimer down from `mixingTime` after every fill change, and
+    // the engine never clamps it — so the only two things a panel may show are a positive countdown
+    // and nothing. All three states are here: a full cycle just restarted, one part way down, and a
+    // parked wagon with none left.
+    val justFilled = assertNotNull(mixerCapture("selfDriving_incorrectRatio").mixer)
+    assertEquals(5000, justFilled.mixingTime)
+    assertEquals(5000, justFilled.remaining, "a fill change resets the timer to the machine's full time")
 
-  @Test
-  fun theCapturedWagonWeighsItsLoad() {
-    val mass = assertNotNull(capturedWagon().mass)
-    assertEquals(21.198, mass.value)
-    assertEquals(14.965, mass.empty)
-    // 18000 l of mixed forage: 6.2 t, about 0.35 kg/l.
-    assertEquals(6.233, assertNotNull(mass.payload), 0.0001)
+    val partWay = assertNotNull(mixerCapture("selfDriving_single").mixer)
+    assertEquals(1514, partWay.remaining)
+
+    val parked = assertNotNull(assertNotNull(mixerMachine("correct")).mixer)
+    assertEquals(0, parked.remaining)
   }
 
   @Test
   fun theDrumTurnsBecauseTheMachineIsOnNotBecauseItIsMixing() {
-    // The capture is the case that cost the panel its "Pickup" chip: turn-on and the drum are the
-    // same observable here, with no mix cycle left to distinguish them.
-    val mixer = capturedMixer()
-    assertEquals(true, capturedWagon().isTurnedOn)
-    assertTrue(mixer.running)
-    assertTrue(mixer.powered)
-    assertEquals(0, mixer.remaining)
+    // The pair that cost the panel its "Pickup" chip. On the self-propelled captures turn-on and the
+    // drum are the same observable; on the parked towed one both are off while it is still powered,
+    // which is the only reason `powered` is worth a field of its own.
+    val on = mixerCapture("selfDriving_single")
+    assertEquals(true, on.isTurnedOn)
+    assertTrue(assertNotNull(on.mixer).running)
+
+    val off = assertNotNull(mixerMachine("correct"))
+    assertEquals(false, off.isTurnedOn)
+    val mixer = assertNotNull(off.mixer)
+    assertTrue(!mixer.running)
+    assertTrue(mixer.powered, "hitched to a running tractor, just not switched on")
   }
 
   @Test
-  fun mixerHoldsIsInclusiveOfItsWindowEnds() {
-    val hay = assertNotNull(mixerJson("FORAGE", threeIngredients)).ingredients[1]
-    assertTrue(hay.holds(0.20))
-    assertTrue(hay.holds(0.40))
-    assertTrue(!hay.holds(0.1999))
-    assertTrue(!hay.holds(0.4001))
-  }
+  fun theCapturedWagonsNameTheirTipSides() {
+    // Two machines, two different counts, all localized by the engine at load and 1-indexed by
+    // `preferredSide`. `side` is absent on both because neither was tipping.
+    val fourWay = assertNotNull(mixerCapture("selfDriving_single").tipping)
+    assertEquals(TipState.CLOSED, fourWay.state)
+    assertEquals(4, fourWay.count)
+    assertEquals(listOf("Links", "Rechts", "Links hinten", "Rechts hinten"), fourWay.sides)
+    assertEquals(1, fourWay.preferredSide)
+    assertEquals(null, fourWay.side)
 
-  @Test
-  fun mixerStateIsTheEnginesVerdictNotOurArithmetic() {
-    // Identical bars, three different answers — which is exactly why the state is read off the tub's
-    // fill type rather than recomputed from the ratios. Inline because one wagon cannot be in three
-    // states at once; the captured one covers OUT_OF_RATIO above.
-    assertEquals(MixState.READY, assertNotNull(mixerJson("FORAGE", threeIngredients)).state)
-    assertEquals(
-      MixState.OUT_OF_RATIO,
-      assertNotNull(mixerJson("FORAGE_MIXING", threeIngredients)).state,
-    )
-    // One material in: the tub reports that material, and it is not a mix at all.
-    assertEquals(MixState.SINGLE, assertNotNull(mixerJson("SILAGE", threeIngredients)).state)
-    assertEquals(
-      MixState.EMPTY,
-      assertNotNull(mixerJson("FORAGE", threeIngredients, value = "0")).state,
-    )
+    val twoWay = assertNotNull(assertNotNull(mixerMachine("correct")).tipping)
+    assertEquals(2, twoWay.count)
+    assertEquals(listOf("Links", "Rechts"), twoWay.sides)
+    assertEquals(2, twoWay.preferredSide)
+    assertEquals("Rechts", twoWay.sides[assertNotNull(twoWay.preferredSide) - 1])
   }
 
   @Test
   fun aMixerWithoutARecipeIsStillAMixer() {
     // No `#recipe` in the machine's XML: an empty ingredient list and a trailer with a drum. Nothing
-    // may assume bars exist, and without a recipe we cannot claim the load is finished feed.
+    // may assume bars exist, and without a recipe we cannot claim the load is finished feed. Inline,
+    // because every machine captured so far declares one.
     val mixer =
       assertNotNull(
         VdtParser
@@ -1386,39 +1382,31 @@ class VdtModelTest {
   }
 
   @Test
-  fun runningIsNotTheSameQuestionAsIsTurnedOn() {
-    // On a mixer wagon turn-on is the PICKUP; the drum turns for the mix cycle and while
-    // discharging too. A panel that read isTurnedOn as "is it running" would call a mixing machine
-    // idle.
-    val implement =
+  fun anEmptyTubIsEmptyWhateverTheBarsSay() {
+    // The one state no capture can be in, since a wagon worth capturing has something in it.
+    val mixer =
       assertNotNull(
         VdtParser
           .parseJson(
-            """{"version":"16","vehicle":{"implement":[{"position":"BACK","isTurnedOn":false,""" +
-              """"mixer":{"running":true,"powered":true,"remaining":3200,"mixingTime":5000,""" +
-              """"value":9300.0,"capacity":12000}}]}}""",
+            """{"version":"16","vehicle":{"mixer":{"running":false,"powered":true,""" +
+              """"remaining":0,"mixingTime":5000,"value":0.0,"capacity":12000,"recipe":"FORAGE",""" +
+              """"ingredients":[{"name":"silage","minPercentage":20,"maxPercentage":75,"value":0.0}]}}}""",
           ).vehicle
-          ?.implement
-          ?.single(),
+          ?.mixer,
       )
-    assertEquals(false, implement.isTurnedOn)
-    assertTrue(assertNotNull(implement.mixer).running)
-    assertEquals(3200, assertNotNull(implement.mixer).remaining)
+    assertEquals(MixState.EMPTY, mixer.state)
+    assertEquals(0.0, mixer.shareOf(mixer.ingredients.single()))
   }
 
   @Test
-  fun aMachineWithNoMixerDecodesToNull() {
-    // Same dispatch rule as the other ISOBUS aspects: absent means absent, not a default-constructed
-    // mixer that would draw an empty tub on every tractor.
-    assertEquals(null, model("tractor_with_cultivator.json").vehicle?.mixer)
-    assertEquals(
-      null,
-      model("tractor_with_cultivator.json")
-        .vehicle
-        ?.implement
-        ?.single()
-        ?.mixer,
-    )
+  fun mixerHoldsIsInclusiveOfItsWindowEnds() {
+    val hay = assertNotNull(mixerCapture("selfDriving_single").mixer).ingredients.first()
+    assertEquals(20, hay.minPercentage)
+    assertEquals(75, hay.maxPercentage)
+    assertTrue(hay.holds(0.20))
+    assertTrue(hay.holds(0.75))
+    assertTrue(!hay.holds(0.1999))
+    assertTrue(!hay.holds(0.7501))
   }
 
   // -------------------------------------------------------------------------
@@ -1427,15 +1415,28 @@ class VdtModelTest {
 
   @Test
   fun massCarriesTheLoadAsTheDifference() {
-    val mass =
-      assertNotNull(
-        VdtParser
-          .parseJson("""{"version":"16","vehicle":{"mass":{"value":12.75,"empty":7.2}}}""")
-          .vehicle
-          ?.mass,
-      )
-    assertEquals(12.75, mass.value)
-    assertEquals(5.55, assertNotNull(mass.payload), 0.0001)
+    // The towed capture: 12400 l of finished mix on an 8.2 t wagon comes to 3.92 t, about 0.32 kg/l.
+    val mass = assertNotNull(assertNotNull(mixerMachine("correct")).mass)
+    assertEquals(12.12, mass.value)
+    assertEquals(8.2, mass.empty)
+    assertEquals(3.92, assertNotNull(mass.payload), 0.0001)
+  }
+
+  @Test
+  fun massesDoNotSumIntoATrainWeight() {
+    // The trap in the same capture, and the reason [Mass] says per-machine rather than per-train:
+    // AttacherJoints:getAdditionalComponentMass folds a HARD-ATTACHED implement's whole mass into its
+    // attacher's root component, so the tractor is already carrying the wagon. Adding the two would
+    // count 12 t twice, and the tractor's own "payload" is the wagon rather than anything it holds.
+    val towed = mixerCapture("correct")
+    val tractor = assertNotNull(towed.mass)
+    val wagon = assertNotNull(assertNotNull(towed.implement.single()).mass)
+    assertEquals(17.024, tractor.value)
+    assertEquals(3.59, tractor.empty)
+    assertTrue(
+      assertNotNull(tractor.payload) > wagon.value,
+      "a 3.6 t tractor does not carry 13 t of anything: that is the wagon, counted on both",
+    )
   }
 
   @Test
@@ -1453,6 +1454,8 @@ class VdtModelTest {
   fun tipSidesAreNamedAndOneIndexed() {
     // The names are 1-indexed by `side`/`preferredSide` because the engine's indices are, so a
     // consumer reads `sides[side - 1]`. Off by one here mislabels which way the wagon is unloading.
+    // Inline for the mid-tip case: every captured wagon was closed, so `side` is absent on all of
+    // them and only `preferredSide` has ever been seen resolved.
     val tipping =
       assertNotNull(
         VdtParser

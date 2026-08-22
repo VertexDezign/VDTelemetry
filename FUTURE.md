@@ -136,27 +136,26 @@ dispatch rule has its first real user, but **none of round 1's four aspects has 
 
 ### Mixer wagon (#113), what round 1 left
 
-Built, and **seen in singleplayer once** — `examples/json/telemetry/vanilla/selfDrivingMixerWagon.json`
-(a Kuhn SPW Intense, 18000 l of an out-of-ratio mix) drives nine `VdtModelTest` cases and closed three of
-the questions this list opened with: the recipe lookup lands, the authored ingredient titles arrive, and
-the per-ingredient weight really does appear on half the base game's forage recipe (silage and mineral
-feed accept one material each; hay and straw pool two, and are correctly unweighed). The layout was still
-only ever reviewed through ImageMagick mockups, because the sandbox has no browser.
+Built, and **well covered in singleplayer**: four vanilla captures under
+`examples/json/telemetry/vanilla/mixerWagon_*.json` drive fifteen `VdtModelTest` cases between them, and
+they closed every question this list opened with except the multiplayer one. The recipe lookup lands on
+both machines; the authored ingredient titles arrive; the per-ingredient weight appears on half the base
+game's forage recipe (silage and mineral feed accept one material each, hay and straw pool two and are
+correctly unweighed); the mix cycle has been seen full, part way down and expired; and the aspect has been
+seen on a `Vehicle` (self-propelled) *and* on an `Implement` (towed). The layout was still only ever
+reviewed through ImageMagick mockups, because the sandbox has no browser.
 
-- **In-game checks still open.**
-  * `mixer.remaining` **at all**. The capture caught the machine switched on with the mix cycle already
-    expired, so the countdown — and the "Mixing 3.2s" chip that reads it — has never been observed
-    non-zero.
-  * `mixer.remaining` and `mass` on a **multiplayer client**. The chain is unusual: the mixer's fill unit
-    is taken out of the normal fill-unit sync (`synchronizeFillLevel = false`), the ingredient levels
-    ride `MixerWagon`'s own update stream, and the client re-applies them through `addFillUnitFillLevel`,
-    which is also what sets `activeTimer`. `Vehicle:updateMass` runs ungated but only for a vehicle the
-    client is actually updating.
-  * A **towed** mixer wagon. The only capture is self-propelled, so the aspect has only ever been seen on
-    a `Vehicle` and never on an `Implement` — which is also the only way the widget's position option
-    and the `Auto` search get exercised.
-- **A capture of a valid mix.** See "Captures wanted as fixtures" below: `MixState.READY` and `SINGLE` are
-  still asserted from inline JSON.
+- **Multiplayer, the one thing left.** `mixer.remaining` and `mass` on a **client**. The chain is unusual:
+  the mixer's fill unit is taken out of the normal fill-unit sync (`synchronizeFillLevel = false`), the
+  ingredient levels ride `MixerWagon`'s own update stream, and the client re-applies them through
+  `addFillUnitFillLevel`, which is also what sets `activeTimer`. `Vehicle:updateMass` runs ungated but
+  only for a vehicle the client is actually updating.
+- **A wagon mid-tip.** Every captured wagon is `CLOSED`, so `tipping.side` (as against `preferredSide`)
+  has never been seen resolved, and neither has the discharge refusal chip — `discharge.reason` is absent
+  in all four, which is correct but means the wording has never been read on screen.
+- **`mixerWagon_selfDriving_incorrectRatio.json` is misnamed.** Its ratio is valid and the engine says so
+  (`fillType: FORAGE`, every ingredient inside its window); what it actually captures is a **full mix
+  cycle in progress**, `remaining == mixingTime`, which is worth having under a name that says so.
 - **Controls, deliberately not built.** Tip side (`setPreferedTipSide`) and start/stop tipping have **no
   `vdAI*` counterpart in FS25_additionalInputs**, so wiring them would mean calling the engine directly
   for the first time on a driving-time control. Round 1 stayed read-only rather than settle that here.
@@ -531,13 +530,13 @@ machine that has them.
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
-- **A mixer wagon with a mix that is actually right.** `selfDrivingMixerWagon.json` is committed and
-  covers `FORAGE_MIXING` — its straw is 39% of the load against a 30% ceiling, which is a real instance
-  of the share-of-the-load-not-the-capacity trap and now the test for it. What it cannot show is the tub
-  reading the recipe's own fill type (`READY`) or a single material (`SINGLE`), both still inline JSON.
-  Also wanted: a **towed** one (the capture is self-propelled, so the aspect has only been seen on a
-  `Vehicle`), and one from a **multiplayer client**, which is where the ingredient levels and the mix
-  countdown take their unusual route (see ISOBUS → "Mixer wagon (#113)").
+- **A mixer wagon on a multiplayer client**, and one **mid-tip**. Four are committed and cover the rest:
+  `mixerWagon_correct` (towed, a finished mix, two tip sides), `mixerWagon_selfDriving_outOfRatio` (the
+  straw at 39% of the load against a 30% ceiling — a real instance of the share-of-the-load trap and now
+  the test for it), `mixerWagon_selfDriving_single` (one material in, the cycle part way down) and
+  `mixerWagon_selfDriving_incorrectRatio` (a full cycle just restarted; see the note on its name under
+  ISOBUS). What none of them can show is the tub **empty**, which stays inline, or a wagon actually
+  tipping — so `tipping.side` and `discharge.reason` are still unobserved.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
