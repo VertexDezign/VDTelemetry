@@ -81,6 +81,14 @@ data class FleetVehicle(
   val isControlled: Boolean = false,
   /** The local player is inside it. */
   val isEntered: Boolean = false,
+  /**
+   * Whether the machine is in the game's tab rotation — `Enterable:getIsTabbable()`. **Null when it
+   * has no seat at all**, which is a different answer from being out of the rotation, and the reason
+   * this is nullable rather than defaulted.
+   *
+   * See [isParked] for what a `false` is taken to mean.
+   */
+  val isTabbable: Boolean? = null,
   /** Normalized `[0,1]` map position, the same frame as the map channels — what "show on map" uses. */
   val posX: Float? = null,
   val posZ: Float? = null,
@@ -89,8 +97,20 @@ data class FleetVehicle(
   /** Whether it has an engine, which is also what separates a machine from an implement in the list. */
   val isMotorized: Boolean get() = motorFillUnits != null
 
-  /** Nobody has it: no helper, no driver. */
-  val isParked: Boolean get() = !isAI && !isControlled
+  /**
+   * **Put away**: a machine with a seat that has been taken out of the tab rotation. That flag is how
+   * the parking mods mark a machine as parked (`setIsTabbable(false)`), and it is the player's own
+   * deliberate act, so it is worth saying on the list — unlike [isIdle], which is merely the absence
+   * of a driver right now.
+   *
+   * The one thing it cannot tell apart: a machine whose *own* XML ships `isTabbable="false"` reads as
+   * parked too. Those are machines the game already treats as not part of the fleet (it leaves them
+   * out of its own vehicle statistics for the same reason), so the word is not far wrong on them.
+   */
+  val isParked: Boolean get() = isTabbable == false
+
+  /** Nobody has it right now: no helper, no driver. Says nothing about whether it is [isParked]. */
+  val isIdle: Boolean get() = !isAI && !isControlled
 }
 
 /** How the farm holds a machine. */

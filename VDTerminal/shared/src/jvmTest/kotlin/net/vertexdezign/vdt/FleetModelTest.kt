@@ -67,7 +67,8 @@ class FleetModelTest {
     assertEquals(53, assertNotNull(machine.motorFillUnits?.fuel).fillLevelPercentage)
     assertTrue(machine.isMotorized)
     assertTrue(machine.isAI)
-    assertFalse(machine.isParked, "a helper is driving it")
+    assertFalse(machine.isIdle, "a helper is driving it")
+    assertFalse(machine.isParked, "nobody has put it away")
     assertNull(machine.ads, "no ADS block without the mod")
   }
 
@@ -93,7 +94,9 @@ class FleetModelTest {
     val (plough, combine) = data.vehicles
     assertFalse(plough.isMotorized, "an implement has no motor fill units")
     assertEquals(42, plough.attachedTo)
-    assertTrue(plough.isParked, "nobody is driving a plough")
+    assertTrue(plough.isIdle, "nobody is driving a plough")
+    assertNull(plough.isTabbable, "and it has no seat to be tabbed into")
+    assertFalse(plough.isParked)
 
     assertEquals(PropertyState.LEASED, combine.propertyState)
     assertEquals(6000, combine.leasePerDay)
@@ -176,6 +179,28 @@ class FleetModelTest {
     assertNull(ads.workshop)
     assertTrue(ads.breakdowns.isEmpty())
     assertFalse(ads.needsAttention)
+  }
+
+  @Test
+  fun aMachineTakenOutOfTheTabRotationReadsAsParked() {
+    // What the parking mods do: Enterable:setIsTabbable(false). The flag is saved and synced, so it
+    // survives a reload and reaches a multiplayer client.
+    val data =
+      VdtParser.parseFleet(
+        """
+        { "version": "1", "vehicles": [
+          { "id": 1, "name": "Parked", "type": "tractor", "age": 4, "hours": 90.0,
+            "propertyState": "OWNED", "isTabbable": false },
+          { "id": 2, "name": "Ready", "type": "tractor", "age": 4, "hours": 90.0,
+            "propertyState": "OWNED", "isTabbable": true }
+        ] }
+        """.trimIndent(),
+      )
+
+    val (parked, ready) = data.vehicles
+    assertTrue(parked.isParked)
+    assertTrue(parked.isIdle, "put away and undriven are separate questions")
+    assertFalse(ready.isParked)
   }
 
   @Test
