@@ -103,6 +103,14 @@ VDT.AdvancedDamageSystem = {}
 ---@class VehicleModel
 ---@field ads AdsModel?
 
+-- The fleet-channel counterpart of AdsModel: the maintenance side of a machine NOBODY is sitting in,
+-- which is what ADS's own fleet menu lists and what the fleet channel asks for (see
+-- src/collect/FleetExporter.lua). Shapes live in src/model/FleetModel.lua; `inspected` and `service`
+-- are the very same blocks the driven vehicle carries, on purpose -- a machine must not read
+-- differently depending on which screen is asking.
+---@class FleetVehicleModel
+---@field ads FleetAdsModel?
+
 -- ADS's mod name, which is also its env global's key.
 VDT.AdvancedDamageSystem.MOD_NAME = "FS25_AdvancedDamageSystem"
 
@@ -560,6 +568,249 @@ function VDT.AdvancedDamageSystem.contributeObject(object, model)
   if next(ads) ~= nil then
     model.ads = ads
   end
+end
+
+---ADS's own STATUS values are i18n keys ("ads_spec_state_ready"), which is not a token to put on the
+---wire. Resolved against ADS's table so a status it renames is followed rather than mistranslated,
+---with the key's own shape as the fallback for when that table is out of reach.
+---@param currentState any
+---@return string|nil
+local function stateToken(currentState)
+  if type(currentState) ~= "string" then
+    return nil
+  end
+  local e = env()
+  local class = e ~= nil and e.AdvancedDamageSystem or nil
+  local statuses = type(class) == "table" and class.STATUS or nil
+  if type(statuses) == "table" then
+    for name, value in pairs(statuses) do
+      if value == currentState and type(name) == "string" then
+        return name
+      end
+    end
+  end
+  local suffix = string.match(currentState, "^ads_spec_state_(%a+)$")
+  return suffix ~= nil and string.upper(suffix) or nil
+end
+
+---One of ADS's OWN localized texts -- a breakdown's part, severity and description are all its keys,
+---and the fleet rows carry the text rather than the key because the terminal has no language files.
+---
+---The mod-environment isolation again, in its i18n form: `I18N:addModI18N` gives every mod its own
+---`texts` table, so an `ads_*` key is not in ours and asking for it plainly answers with the literal
+---string "Missing '<key>' in l10n_xx.xml". The customEnv argument is the way in, and `hasText` is what
+---keeps that literal off the screen -- the same lookup the Invoices integration does (see
+---VDT.Invoices.modText).
+---
+---g_i18n is checked before it is indexed rather than merely pcall'd: `pcall(g_i18n.getText, ...)`
+---evaluates the field access first, so a nil g_i18n would throw outside the pcall's protection.
+---@param key any
+---@return string|nil
+local function text(key)
+  if type(key) ~= "string" or key == "" or g_i18n == nil then
+    return nil
+  end
+  if type(g_i18n.hasText) ~= "function" or type(g_i18n.getText) ~= "function" then
+    return nil
+  end
+  local okHas, has = pcall(g_i18n.hasText, g_i18n, key, VDT.AdvancedDamageSystem.MOD_NAME)
+  if not okHas or has ~= true then
+    return nil
+  end
+  local ok, value = pcall(g_i18n.getText, g_i18n, key, VDT.AdvancedDamageSystem.MOD_NAME)
+  if not ok or type(value) ~= "string" or value == "" then
+    return nil
+  end
+  return value
+end
+
+---One of ADS's log dates ({day, month, year}, where month is the game period) as our own shape.
+---@param value any
+---@return FleetDateModel|nil
+local function dateOf(value)
+  local year = tonumber(type(value) == "table" and value.year or nil)
+  local month = tonumber(type(value) == "table" and value.month or nil)
+  if year == nil or month == nil then
+    return nil
+  end
+  return { year = math.floor(year), month = math.floor(month), day = math.floor(tonumber(value.day) or 1) }
+end
+
+---One visible breakdown, rendered the way ADS's workshop dialog renders it: the part it is on (its
+---`part`, falling back to the system), and the severity/description of the stage it has reached --
+---except for a breakdown ADS has SUSPENDED, where what was done to it (a quick fix, a bad part)
+---replaces both, because that is what the player is looking at.
+---@param id string
+---@param data table ADS's activeBreakdowns entry
+---@param registry table|nil ADS_Breakdowns.BreakdownRegistry
+---@param sources table|nil AdvancedDamageSystem.BREAKDOWN_SOURCES
+---@return FleetBreakdownModel
+local function breakdownRow(id, data, registry, sources)
+  local stage = math.max(math.floor(tonumber(data.stage) or 1), 1)
+  ---@type FleetBreakdownModel
+  local row = { id = tostring(id), stage = stage }
+
+  local entry = type(registry) == "table" and registry[id] or nil
+  if type(entry) == "table" then
+    row.part = text(entry.part) or text(entry.system)
+    local stageData = type(entry.stages) == "table" and entry.stages[stage] or nil
+    if type(stageData) == "table" then
+      row.severity = text(stageData.severity)
+      row.description = text(stageData.description)
+    end
+  end
+
+  if data.isActive == false and type(sources) == "table" then
+    if data.source == sources.QUICK_FIX then
+      row.severity = text("ads_breakdowns_quick_fix_stage") or row.severity
+      row.description = text("ads_breakdowns_temporarily_repaired_description") or row.description
+    elseif data.source == sources.POOR_PARTS then
+      row.severity = text("ads_breakdowns_defected_parts_stage") or row.severity
+      row.description = text("ads_breakdowns_defected_parts_detected_description") or row.description
+    end
+  end
+
+  return row
+end
+
+---The breakdowns the player KNOWS about -- ADS's `isVisible` flag, the same filter its workshop
+---dialog applies. An undiscovered breakdown is precisely what the inspection mechanic is for, so it
+---is not on the wire in any form, not even as a count.
+---@param spec table
+---@return FleetBreakdownModel[]|nil
+local function collectBreakdowns(spec)
+  local active = spec.activeBreakdowns
+  if type(active) ~= "table" then
+    return nil
+  end
+  local e = env()
+  local breakdowns = e ~= nil and e.ADS_Breakdowns or nil
+  local registry = type(breakdowns) == "table" and breakdowns.BreakdownRegistry or nil
+  local class = e ~= nil and e.AdvancedDamageSystem or nil
+  local sources = type(class) == "table" and class.BREAKDOWN_SOURCES or nil
+
+  local rows = {}
+  for id, data in pairs(active) do
+    if type(id) == "string" and type(data) == "table" and data.isVisible == true then
+      rows[#rows + 1] = breakdownRow(id, data, registry, sources)
+    end
+  end
+  if #rows == 0 then
+    return nil
+  end
+  -- Sorted because `pairs` is not ordered: an unsorted list would reshuffle itself between writes and
+  -- push a "changed" document at every tick that changed nothing.
+  table.sort(rows, function(a, b)
+    return a.id < b.id
+  end)
+  return rows
+end
+
+---What the workshop is doing to this machine, while it is doing anything. Times are in-game hours,
+---straight out of ADS's own getters: how much work is left, and the hour (plus day rollovers) it
+---comes back. The price is the pending service's, falling back to asking ADS what the service it is
+---performing costs -- exactly what its fleet menu's service section does.
+---@param vehicle table
+---@param spec table
+---@return FleetWorkshopModel|nil
+local function collectWorkshop(vehicle, spec)
+  ---@type FleetWorkshopModel
+  local workshop = {}
+
+  local remaining = tonumber((call(vehicle, "getServiceDuration")))
+  if remaining ~= nil and remaining > 0 then
+    workshop.remaining = round1(remaining)
+  end
+
+  local finishHour, finishInDays = call(vehicle, "getServiceFinishTime")
+  if tonumber(finishHour) ~= nil then
+    workshop.finishHour = round1(tonumber(finishHour))
+    workshop.finishInDays = math.floor(tonumber(finishInDays) or 0)
+  end
+
+  local price = tonumber(spec.pendingServicePrice)
+  if price == nil or price <= 0 then
+    price = tonumber(
+      (
+        call(
+          vehicle,
+          "getServicePrice",
+          spec.currentState,
+          spec.serviceOptionOne,
+          spec.serviceOptionTwo,
+          spec.serviceOptionThree == true
+        )
+      )
+    )
+  end
+  if price ~= nil and price > 0 then
+    workshop.price = math.floor(price)
+  end
+
+  if next(workshop) == nil then
+    return nil
+  end
+  return workshop
+end
+
+---What this machine has cost in maintenance so far -- the sum of its log, which is the "cost" column
+---of ADS's fleet menu.
+---@param spec table
+---@return number|nil
+local function maintenanceCost(spec)
+  local log = spec.maintenanceLog
+  if type(log) ~= "table" then
+    return nil
+  end
+  local total = 0
+  for _, entry in ipairs(log) do
+    total = total + (tonumber(type(entry) == "table" and entry.price or nil) or 0)
+  end
+  if total <= 0 then
+    return nil
+  end
+  return math.floor(total)
+end
+
+---Fleet stage: runs per machine of the fleet channel (see registry.lua and collect/FleetExporter).
+---
+---A different block from [contributeObject]'s, deliberately: that one is the dashboard of the machine
+---you are IN -- lamps, load, temperatures, all of which are live readings that mean nothing for a
+---machine parked in a shed. This one is the maintenance record ADS's own fleet menu lists, which is
+---the question a fleet list exists to answer.
+---
+---It reads the per-vehicle spec rather than ADS's `ADS_Main.vehicles` table, which is keyed by
+---`uniqueId` and therefore empty of anything useful on a multiplayer client. The spec itself is fully
+---synced (state, breakdowns and the maintenance log all cross in onReadStream/onReadUpdateStream), so
+---a client sees the same fleet the server does.
+---@param vehicle table
+---@param row table the machine's already core-collected fleet row
+function VDT.AdvancedDamageSystem.contributeFleetVehicle(vehicle, row)
+  local spec = VDT.AdvancedDamageSystem.spec(vehicle)
+  if spec == nil then
+    return
+  end
+
+  local state = stateToken(spec.currentState)
+  if state == nil then
+    return -- no state means no ADS record worth reporting; the row keeps its vanilla condition
+  end
+
+  ---@type FleetAdsModel
+  local ads = {
+    state = state,
+    inspected = collectInspected(vehicle),
+    service = collectService(vehicle),
+    lastInspection = dateOf(call(vehicle, "getLastInspectionDate")),
+    lastMaintenance = dateOf(call(vehicle, "getLastMaintenanceDate")),
+    breakdowns = collectBreakdowns(spec),
+    maintenanceCost = maintenanceCost(spec),
+  }
+  if state ~= "READY" then
+    ads.workshop = collectWorkshop(vehicle, spec)
+  end
+
+  row.ads = ads
 end
 
 -- Test seam: drop the per-vehicle lamp latches and the resolved year table between spec cases.

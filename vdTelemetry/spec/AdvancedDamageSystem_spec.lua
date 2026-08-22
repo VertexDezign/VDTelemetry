@@ -17,6 +17,10 @@ end
 if VDT == nil or VDT.AdvancedDamageSystem == nil then
   dofile("src/integrations/AdvancedDamageSystem.lua")
 end
+-- The fleet cases encode a row to check that nothing ADS hides is anywhere in it.
+if Json == nil then
+  dofile("src/utils/Json.lua")
+end
 
 -- ADS's four indicator colours are compared by table identity, so the stub must hand out the *same*
 -- tables the integration will see -- which is exactly how ADS keys its own COLOR_PRIORITY.
@@ -25,6 +29,25 @@ local COLORS = {
   COOL = { 0.0097, 0.4287, 0.6445, 1 },
   WARNING = { 1, 0.4287, 0.0006, 1 },
   CRITICAL = { 0.8069, 0.0097, 0.0097, 1 },
+}
+
+-- ADS's breakdown registry, cut down to the two entries the fleet cases use. `part` is what its
+-- workshop dialog prints as the breakdown's name, falling back to `system`; each stage carries its own
+-- severity and description, both i18n keys.
+local BREAKDOWNS = {
+  ENGINE_OIL_LEAK = {
+    part = "ads_part_engine",
+    system = "ads_spec_system_engine",
+    stages = {
+      { severity = "ads_severity_minor", description = "ads_desc_seeping" },
+      { severity = "ads_severity_major", description = "ads_desc_dripping" },
+    },
+  },
+  -- No `part`: the name falls back to the system, as ADS's own dialog does.
+  BRAKE_WEAR = {
+    system = "ads_spec_system_chassis",
+    stages = { { severity = "ads_severity_minor", description = "ads_desc_soft_pedal" } },
+  },
 }
 
 ---One entry of ADS_Hud's indicator table: the id it drives the lamp by, and the production year a
@@ -36,7 +59,19 @@ end
 local function stubMod(over)
   over = over or {}
   _G.FS25_AdvancedDamageSystem = {
-    ADS_Breakdowns = over.noColours and {} or { COLORS = COLORS },
+    ADS_Breakdowns = over.noColours and {} or { COLORS = COLORS, BreakdownRegistry = BREAKDOWNS },
+    -- ADS's specialization class, which is where its STATUS values and breakdown sources live.
+    AdvancedDamageSystem = {
+      STATUS = {
+        READY = "ads_spec_state_ready",
+        INSPECTION = "ads_spec_state_inspection",
+        MAINTENANCE = "ads_spec_state_maintenance",
+        REPAIR = "ads_spec_state_repair",
+        OVERHAUL = "ads_spec_state_overhaul",
+        BROKEN = "ads_spec_state_broken",
+      },
+      BREAKDOWN_SOURCES = { RANDOM = 1, POOR_PARTS = 2, QUICK_FIX = 3 },
+    },
     ADS_Config = {
       CORE = {
         ENGINE_FACTOR_DATA = { COLD_MOTOR_TEMP_THRESHOLD = 50 },
@@ -469,6 +504,212 @@ describe("AdvancedDamageSystem integration", function()
       local electrical = contribute(makeVehicle({ systemVoltageV = 13.84 })).ads.electrical
       assert.equals(13.8, electrical.systemVoltage)
       assert.equals("V", electrical.unit)
+    end)
+  end)
+
+  describe("fleet stage", function()
+    -- The localization the mod does for the app: the fleet rows carry text, not i18n keys, because
+    -- the terminal has no access to the game's language files.
+    -- ADS's texts live in ITS i18n namespace, not ours, so the stub answers only for keys asked for
+    -- with its mod name -- which is what pins the integration to the customEnv lookup.
+    before_each(function()
+      local function isAdsKey(key, customEnv)
+        return customEnv == "FS25_AdvancedDamageSystem" and string.sub(key, 1, 4) == "ads_"
+      end
+      _G.g_i18n = {
+        hasText = function(_, key, customEnv)
+          return isAdsKey(key, customEnv)
+        end,
+        getText = function(_, key, customEnv)
+          if not isAdsKey(key, customEnv) then
+            return "Missing '" .. key .. "' in l10n_en.xml"
+          end
+          return "text:" .. key
+        end,
+      }
+    end)
+
+    after_each(function()
+      _G.g_i18n = nil
+    end)
+
+    ---A machine as the fleet channel meets it: parked, with a maintenance history behind it.
+    local function makeFleetVehicle(over)
+      over = over or {}
+      local vehicle, spec = makeVehicle(over)
+      spec.currentState = over.currentState or "ads_spec_state_ready"
+      spec.activeBreakdowns = over.breakdowns
+      spec.maintenanceLog = over.log
+      spec.pendingServicePrice = over.pendingServicePrice
+      spec.serviceOptionOne = over.serviceOptionOne
+      function vehicle:getLastInspectionDate()
+        return over.inspectionDate
+      end
+      function vehicle:getLastMaintenanceDate()
+        return over.maintenanceDate
+      end
+      function vehicle:getServiceDuration()
+        return over.serviceDuration
+      end
+      function vehicle:getServiceFinishTime()
+        return over.finishHour, over.finishInDays
+      end
+      function vehicle:getServicePrice()
+        return over.servicePrice
+      end
+      return vehicle, spec
+    end
+
+    local function fleetRow(vehicle)
+      local row = {}
+      VDT.AdvancedDamageSystem.contributeFleetVehicle(vehicle, row)
+      return row
+    end
+
+    it("reports ADS's state as a token rather than its i18n key", function()
+      local row = fleetRow(makeFleetVehicle({ currentState = "ads_spec_state_repair" }))
+      assert.equals("REPAIR", row.ads.state)
+    end)
+
+    it("falls back to the key's own shape when ADS's status table is out of reach", function()
+      _G.FS25_AdvancedDamageSystem.AdvancedDamageSystem = nil
+      assert.equals("OVERHAUL", fleetRow(makeFleetVehicle({ currentState = "ads_spec_state_overhaul" })).ads.state)
+    end)
+
+    it("contributes nothing to an implement or an excluded machine", function()
+      assert.is_nil(fleetRow({}).ads)
+      assert.is_nil(fleetRow(makeFleetVehicle({ excluded = true })).ads)
+    end)
+
+    it("carries the inspection record and the service interval, the same blocks the cluster has", function()
+      local row = fleetRow(makeFleetVehicle({
+        inspectedCondition = 0.62,
+        inspectedComplete = true,
+        inspectedService = 0.4,
+        serviceHours = 41.25,
+        serviceInterval = 60,
+      }))
+      assert.equals(62, row.ads.inspected.condition)
+      assert.is_true(row.ads.inspected.complete)
+      assert.equals(40, row.ads.inspected.service)
+      assert.equals(41.3, row.ads.service.hours)
+      assert.equals(60, row.ads.service.interval)
+    end)
+
+    it("carries the two log dates as the game counts them", function()
+      local row = fleetRow(makeFleetVehicle({
+        inspectionDate = { year = 2, month = 5, day = 11 },
+        maintenanceDate = { year = 1, month = 12 },
+      }))
+      assert.same({ year = 2, month = 5, day = 11 }, row.ads.lastInspection)
+      -- A date without a day is still a date: the app reads these in months.
+      assert.same({ year = 1, month = 12, day = 1 }, row.ads.lastMaintenance)
+    end)
+
+    it("says nothing about a machine that has never been in", function()
+      local row = fleetRow(makeFleetVehicle({}))
+      assert.is_nil(row.ads.lastInspection)
+      assert.is_nil(row.ads.lastMaintenance)
+      assert.is_nil(row.ads.breakdowns)
+      assert.is_nil(row.ads.maintenanceCost)
+      assert.is_nil(row.ads.workshop)
+    end)
+
+    it("lists only the breakdowns the player has found", function()
+      local row = fleetRow(makeFleetVehicle({
+        breakdowns = {
+          ENGINE_OIL_LEAK = { stage = 2, isVisible = true, isActive = true },
+          BRAKE_WEAR = { stage = 1, isVisible = false, isActive = true },
+        },
+      }))
+      assert.equals(1, #row.ads.breakdowns)
+      local breakdown = row.ads.breakdowns[1]
+      assert.equals("ENGINE_OIL_LEAK", breakdown.id)
+      assert.equals(2, breakdown.stage)
+      assert.equals("text:ads_part_engine", breakdown.part)
+      assert.equals("text:ads_severity_major", breakdown.severity)
+      assert.equals("text:ads_desc_dripping", breakdown.description)
+    end)
+
+    it("never hints at a hidden breakdown, not even as a count", function()
+      local row = fleetRow(makeFleetVehicle({
+        breakdowns = { ENGINE_OIL_LEAK = { stage = 1, isVisible = false, isActive = true } },
+      }))
+      assert.is_nil(row.ads.breakdowns)
+    end)
+
+    it("names the system when a breakdown carries no part of its own", function()
+      local row = fleetRow(makeFleetVehicle({
+        breakdowns = { BRAKE_WEAR = { stage = 1, isVisible = true, isActive = true } },
+      }))
+      assert.equals("text:ads_spec_system_chassis", row.ads.breakdowns[1].part)
+    end)
+
+    it("says what was done to a suspended breakdown rather than what stage it is at", function()
+      local row = fleetRow(makeFleetVehicle({
+        breakdowns = { ENGINE_OIL_LEAK = { stage = 2, isVisible = true, isActive = false, source = 3 } },
+      }))
+      assert.equals("text:ads_breakdowns_quick_fix_stage", row.ads.breakdowns[1].severity)
+      assert.equals("text:ads_breakdowns_temporarily_repaired_description", row.ads.breakdowns[1].description)
+    end)
+
+    it("orders the breakdowns, because pairs() does not", function()
+      -- An unsorted list would reshuffle between writes and push a changed document every tick.
+      local row = fleetRow(makeFleetVehicle({
+        breakdowns = {
+          ENGINE_OIL_LEAK = { stage = 1, isVisible = true, isActive = true },
+          BRAKE_WEAR = { stage = 1, isVisible = true, isActive = true },
+        },
+      }))
+      assert.equals("BRAKE_WEAR", row.ads.breakdowns[1].id)
+      assert.equals("ENGINE_OIL_LEAK", row.ads.breakdowns[2].id)
+    end)
+
+    it("reports the workshop only while the machine is in one", function()
+      local ready = fleetRow(makeFleetVehicle({ serviceDuration = 4, finishHour = 16.5 }))
+      assert.is_nil(ready.ads.workshop)
+
+      local row = fleetRow(makeFleetVehicle({
+        currentState = "ads_spec_state_maintenance",
+        serviceDuration = 4.26,
+        finishHour = 16.53,
+        finishInDays = 1,
+        pendingServicePrice = 1450.7,
+      }))
+      assert.equals(4.3, row.ads.workshop.remaining)
+      assert.equals(16.5, row.ads.workshop.finishHour)
+      assert.equals(1, row.ads.workshop.finishInDays)
+      assert.equals(1450, row.ads.workshop.price)
+    end)
+
+    it("asks ADS what the service costs when no price is pending yet", function()
+      local row = fleetRow(makeFleetVehicle({
+        currentState = "ads_spec_state_inspection",
+        servicePrice = 320,
+      }))
+      assert.equals(320, row.ads.workshop.price)
+    end)
+
+    it("totals what the machine has cost in maintenance", function()
+      local row = fleetRow(makeFleetVehicle({
+        log = { { price = 1200.4 }, { price = 800 }, { notAPrice = true } },
+      }))
+      assert.equals(2000, row.ads.maintenanceCost)
+    end)
+
+    it("leaks none of what ADS hides behind its workshop diagnostic", function()
+      local vehicle, spec = makeFleetVehicle({ inspectedCondition = 0.5 })
+      spec.conditionLevel = 0.31
+      spec.serviceLevel = 0.22
+      spec.systems = { engine = { condition = 0.4, stress = 0.9 } }
+      spec.radiatorClogging = 0.8
+      spec.lubricationLevel = 0.2
+      local encoded = Json.encode(fleetRow(vehicle))
+      assert.is_nil(string.find(encoded, "conditionLevel", 1, true))
+      assert.is_nil(string.find(encoded, "serviceLevel", 1, true))
+      assert.is_nil(string.find(encoded, "stress", 1, true))
+      assert.is_nil(string.find(encoded, "clogging", 1, true))
+      assert.is_nil(string.find(encoded, "lubrication", 1, true))
     end)
   end)
 
