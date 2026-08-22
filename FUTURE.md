@@ -153,9 +153,6 @@ reviewed through ImageMagick mockups, because the sandbox has no browser.
 - **A wagon mid-tip.** Every captured wagon is `CLOSED`, so `tipping.side` (as against `preferredSide`)
   has never been seen resolved, and neither has the discharge refusal chip — `discharge.reason` is absent
   in all four, which is correct but means the wording has never been read on screen.
-- **`mixerWagon_selfDriving_incorrectRatio.json` is misnamed.** Its ratio is valid and the engine says so
-  (`fillType: FORAGE`, every ingredient inside its window); what it actually captures is a **full mix
-  cycle in progress**, `remaining == mixingTime`, which is worth having under a name that says so.
 - **Controls, deliberately not built.** Tip side (`setPreferedTipSide`) and start/stop tipping have **no
   `vdAI*` counterpart in FS25_additionalInputs**, so wiring them would mean calling the engine directly
   for the first time on a driving-time control. Round 1 stayed read-only rather than settle that here.
@@ -534,9 +531,9 @@ machine that has them.
   `mixerWagon_correct` (towed, a finished mix, two tip sides), `mixerWagon_selfDriving_outOfRatio` (the
   straw at 39% of the load against a 30% ceiling — a real instance of the share-of-the-load trap and now
   the test for it), `mixerWagon_selfDriving_single` (one material in, the cycle part way down) and
-  `mixerWagon_selfDriving_incorrectRatio` (a full cycle just restarted; see the note on its name under
-  ISOBUS). What none of them can show is the tub **empty**, which stays inline, or a wagon actually
-  tipping — so `tipping.side` and `discharge.reason` are still unobserved.
+  `mixerWagon_selfDriving_mixing` (a full cycle just restarted — the ratio is valid there, the mixing
+  time simply has not run out). What none of them can show is the tub **empty**, which stays inline, or a
+  wagon actually tipping — so `tipping.side` and `discharge.reason` are still unobserved.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.

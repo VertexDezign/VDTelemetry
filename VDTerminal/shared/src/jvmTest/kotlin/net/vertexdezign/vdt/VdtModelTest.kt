@@ -1181,12 +1181,14 @@ class VdtModelTest {
   // -------------------------------------------------------------------------
 
   /**
-   * The four committed mixer captures, all vanilla and all mod version 16.
+   * The four committed mixer captures, all vanilla and all mod version 16 — `correct` (towed, a
+   * finished mix), `selfDriving_outOfRatio`, `selfDriving_single` and `selfDriving_mixing` (a valid
+   * ratio with the mix cycle still counting down).
    *
    * Between them they cover the three loaded [MixState] answers, both places the aspect can sit (a
-   * self-propelled machine *is* the vehicle; a towed one is an implement), a mix cycle both running
-   * and expired, and two different tip-side counts. What none of them can be is empty, which is why
-   * that one state is still inline below.
+   * self-propelled machine *is* the vehicle; a towed one is an implement), a mix cycle full, part way
+   * down and expired, and two different tip-side counts. What none of them can be is empty, or
+   * mid-tip, which is why those stay inline below.
    */
   private fun mixerCapture(name: String): Vehicle =
     assertNotNull(capture("telemetry/vanilla/mixerWagon_$name.json").vehicle)
@@ -1315,7 +1317,10 @@ class VdtModelTest {
     // the engine never clamps it — so the only two things a panel may show are a positive countdown
     // and nothing. All three states are here: a full cycle just restarted, one part way down, and a
     // parked wagon with none left.
-    val justFilled = assertNotNull(mixerCapture("selfDriving_incorrectRatio").mixer)
+    // …and this one is the reason the timer is worth showing at all: its ratio is already valid and
+    // the engine already calls the load FORAGE, but the mixing time has not run out.
+    val justFilled = assertNotNull(mixerCapture("selfDriving_mixing").mixer)
+    assertEquals(MixState.READY, justFilled.state)
     assertEquals(5000, justFilled.mixingTime)
     assertEquals(5000, justFilled.remaining, "a fill change resets the timer to the machine's full time")
 
