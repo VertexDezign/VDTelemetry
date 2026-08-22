@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -27,6 +28,7 @@ import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
 import net.vertexdezign.vdt.app.panels.FinanceSummary
 import net.vertexdezign.vdt.app.panels.InvoicesSummary
+import net.vertexdezign.vdt.app.panels.IsoBusPanel
 import net.vertexdezign.vdt.app.panels.Lighting
 import net.vertexdezign.vdt.app.panels.MapPanel
 import net.vertexdezign.vdt.app.panels.MissionsSummary
@@ -208,6 +210,57 @@ object RigSlotWidget : Widget {
       // Scoped to this tile: whether the load reads merged per fill type is per placed slot.
       RigSlotPanel(slot, vehicle, rememberWidgetSettings(store.settings), modifier, onCommand = store.onCommand)
     }
+  }
+}
+
+/**
+ * The ISOBUS terminal for one machine on the rig — what *that* machine is, rather than the same six
+ * fields any hitched thing has. Needs a vehicle.
+ *
+ * Its position option carries an extra choice the rig widget does not: [AUTO_SLOT], which follows
+ * whatever on the rig has an ISOBUS section, the way a terminal follows whatever announced itself on
+ * the bus. It is the first choice and therefore the default, because on most rigs there is exactly one
+ * such machine and asking which position it sits at is a question with one answer. Naming a position
+ * instead is what lets a combination rig carry two of these tiles at once.
+ */
+object IsoBusWidget : Widget {
+  override val id = "isobus"
+  override val title = "ISOBUS"
+  override val icon: ImageVector = Icons.Filled.Memory
+
+  // Wide rather than tall: the machine art is 2:1 and the ratio bars want width to be readable. The
+  // floor is three rows — at two, the status strip and a three-ingredient recipe already fill the
+  // body and the panel has nothing left to give up but the bars themselves.
+  override val defaultColSpan = 5
+  override val defaultRowSpan = 4
+  override val minColSpan = 3
+  override val minRowSpan = 3
+
+  /** The config key naming the position this tile follows. */
+  const val SLOT_KEY = "slot"
+
+  /** The stored value for "follow whatever is on the bus". Not a [RigSlot], deliberately. */
+  const val AUTO_SLOT = "AUTO"
+
+  private val slotOption =
+    ConfigOption(
+      key = SLOT_KEY,
+      label = "Machine",
+      choices =
+      listOf(ConfigOption.Choice(AUTO_SLOT, "Auto")) +
+        RigSlot.entries.map { ConfigOption.Choice(it.name, it.label) },
+    )
+
+  @Composable
+  override fun configOptions(): List<ConfigOption> = listOf(slotOption)
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val telemetry by LocalVdtStore.current.telemetry.collectAsState()
+    // Anything that is not one of the three positions means auto — including a value this widget has
+    // stopped offering, which is the fallback the option's docs leave to the widget.
+    val slot = RigSlot.entries.firstOrNull { it.name == slotOption.resolve(config) }
+    IsoBusPanel(telemetry?.vehicle, slot, modifier)
   }
 }
 

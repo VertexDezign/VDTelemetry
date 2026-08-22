@@ -10,6 +10,7 @@ object AppRegistry {
   val apps: List<VdtApp> =
     listOf(
       VehicleApp,
+      IsoBusApp,
       MapApp,
       FleetApp,
       ProductionApp,

@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -53,13 +54,26 @@ fun Panel(
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      // Weighted and ellipsizing: a title long enough to need the whole header (a machine's full
+      // name, say) must give way to the actions on the right rather than draw straight over them.
+      Row(
+        Modifier.weight(1f, fill = false),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
         if (icon !=
           null
         ) {
           Icon(icon, contentDescription = null, tint = VdtColors.DarkGray, modifier = Modifier.size(16.dp))
         }
-        Text(title.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+        Text(
+          title.uppercase(),
+          fontSize = 11.sp,
+          fontWeight = FontWeight.Bold,
+          color = VdtColors.DarkGray,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
       }
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         headerActions()
