@@ -5,6 +5,7 @@ import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
+import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.InvoicesData
@@ -80,6 +81,9 @@ object VdtParser {
 
   /** Parse the `weather.json` channel (the forecast) into [WeatherForecastData]. */
   fun parseWeather(text: String): WeatherForecastData = json.decodeFromString(WeatherForecastData.serializer(), text)
+
+  /** Parse the `fleet.json` channel (the farm's machines and their condition) into [FleetData]. */
+  fun parseFleet(text: String): FleetData = json.decodeFromString(FleetData.serializer(), text)
 
   /** Parse one `mapLayers/<id>.json` raster plane into [MapLayerData]. */
   fun parseMapLayer(text: String): MapLayerData = json.decodeFromString(MapLayerData.serializer(), text)

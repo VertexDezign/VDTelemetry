@@ -167,6 +167,10 @@ fun main() {
   // weather.json is event-driven on the in-game hour; same absence rule -- a stale forecast is worse
   // than none, since it is read to decide whether to cut hay.
   val weatherState = watcher.register("weather.json", nullOnAbsent = true) { VdtParser.parseWeather(it) }
+  // fleet.json is interval-driven (the farm's machines, their condition and ADS's maintenance
+  // record); same absence rule -- a machine that has quietly stopped being reported is the one thing
+  // a list of machines must not do.
+  val fleetState = watcher.register("fleet.json", nullOnAbsent = true) { VdtParser.parseFleet(it) }
   watcher.launchIn(appScope)
 
   // The ground-layer rasters live in their own folder, one file per plane plus index.json naming the
@@ -350,6 +354,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val fleetJob =
+          launch {
+            fleetState.collect { data ->
+              val message: ServerMessage = ServerMessage.Fleet(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         val missionsJob =
           launch {
             missionsState.collect { data ->
@@ -444,6 +455,7 @@ fun main() {
           productionJob.cancel()
           storageJob.cancel()
           husbandryJob.cancel()
+          fleetJob.cancel()
           missionsJob.cancel()
           financeJob.cancel()
           invoicesJob.cancel()

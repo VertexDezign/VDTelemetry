@@ -6,6 +6,7 @@ import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
+import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.InvoicesData
@@ -219,6 +220,21 @@ sealed interface ServerMessage {
   @SerialName("weather")
   data class Weather(
     val data: WeatherForecastData? = null,
+  ) : ServerMessage
+
+  /**
+   * The fleet channel (`fleet.json`): every machine the farm owns, its condition, and Advanced Damage
+   * System's maintenance record where that mod is installed. Interval-driven on the mod's own slow
+   * cadence — condition and hours drift over in-game hours — so it is its own message.
+   *
+   * [data] is **null when `fleet.json` is absent** (export disabled / no data yet), which the app
+   * must show as such: an empty fleet is a farm that owns nothing, and a machine that has quietly
+   * stopped being reported is the one thing a list of machines must not do.
+   */
+  @Serializable
+  @SerialName("fleet")
+  data class Fleet(
+    val data: FleetData? = null,
   ) : ServerMessage
 
   /**
