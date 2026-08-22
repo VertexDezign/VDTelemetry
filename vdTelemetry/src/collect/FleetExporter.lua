@@ -44,7 +44,10 @@ VDT.FleetExporter.INTERVAL_MS = 5000
 -- Engine enum (vehicles/VehiclePropertyState.lua), named locally because it is a base-game global
 -- the specs do not stand up.
 local PROPERTY_STATES = { [1] = "NONE", [2] = "OWNED", [3] = "LEASED", [4] = "MISSION", [5] = "SHOP_CONFIG" }
--- The one of those the gate below has to name (see isContractEquipment).
+-- The three of those the code below has to name: the gate (see isContractEquipment) and the two money
+-- columns, each of which the game prints for one property state only.
+local PROPERTY_OWNED = 2
+local PROPERTY_LEASED = 3
 local PROPERTY_MISSION = 4
 
 -- Store category title per config file. The category of a machine never changes, and the lookup is
@@ -199,12 +202,12 @@ function VDT.FleetExporter.collectVehicle(vehicle, sizeX, sizeZ)
   -- The two money columns the game prints, each only where the game prints it: a leased machine has
   -- no sell value, an owned one no leasing rate. The leasing formula is the game's own
   -- (InGameMenuStatisticsFrame:updateVehicles), running cost plus the per-day charge.
-  if vehicle.propertyState == 2 then
+  if vehicle.propertyState == PROPERTY_OWNED then
     local sellPrice = num(call(vehicle, "getSellPrice"))
     if sellPrice ~= nil then
       row.sellPrice = math.floor(sellPrice)
     end
-  elseif vehicle.propertyState == 3 then
+  elseif vehicle.propertyState == PROPERTY_LEASED then
     local price = num(vehicle.price) or num(call(vehicle, "getPrice"))
     local running = num(EconomyManager ~= nil and EconomyManager.DEFAULT_RUNNING_LEASING_FACTOR or nil)
     local perDay = num(EconomyManager ~= nil and EconomyManager.PER_DAY_LEASING_FACTOR or nil)
@@ -262,7 +265,11 @@ function VDT.FleetExporter.collectVehicle(vehicle, sizeX, sizeZ)
 
   -- Optional third-party mods decorate the row -- today that is Advanced Damage System's maintenance
   -- block, which is the whole point of the channel for anyone running it.
-  VDT.Integrations.run("contributeFleetVehicle", vehicle, row)
+  --
+  -- Guarded, unlike the other stages (VehicleExporter runs its hooks bare): this one runs once per
+  -- machine the farm owns, so a hook that throws on one of them would otherwise cost the whole fleet
+  -- list its tick rather than that one machine its decoration.
+  pcall(VDT.Integrations.run, "contributeFleetVehicle", vehicle, row)
 
   return row
 end
