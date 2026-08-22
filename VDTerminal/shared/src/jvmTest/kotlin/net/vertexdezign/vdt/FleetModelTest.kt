@@ -1,8 +1,11 @@
 package net.vertexdezign.vdt
 
+import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.model.AdsState
+import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.GameDate
 import net.vertexdezign.vdt.model.PropertyState
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -15,13 +18,92 @@ import kotlin.test.assertTrue
  * (`src/collect/FleetExporter.lua`, plus the ADS block from
  * `src/integrations/AdvancedDamageSystem.lua`).
  *
- * There is no committed fixture yet — a capture wants a played-in save, and one with ADS installed
- * for the maintenance half — so these decode the shapes the collector emits. What is worth pinning
- * down is where **absent means something**: a machine with no condition reported is not a machine in
- * perfect condition, a leased one has no sell value rather than a zero one, and a machine ADS has
- * never inspected has no condition figure at all.
+ * [parsesTheCapture] runs the committed `examples/json/fleet` capture through the real server path.
+ * The rest use inline JSON, for the states that capture does not contain — a machine in a workshop,
+ * one carrying a fault, one ADS has never looked at — and say so where they do.
+ *
+ * What is worth pinning down either way is where **absent means something**: a machine with no
+ * condition reported is not a machine in perfect condition, a leased one has no sell value rather
+ * than a zero one, and an implement is not a machine that has been taken out of the tab rotation.
  */
 class FleetModelTest {
+  private val json = Json { encodeDefaults = true }
+
+  private fun example(name: String): String {
+    var dir: File? = File(".").absoluteFile
+    while (dir != null) {
+      val candidate = File(dir, "examples/json/fleet/$name")
+      if (candidate.exists()) return candidate.readText()
+      dir = dir.parentFile
+    }
+    error("Could not locate examples/json/fleet/$name from ${File(".").absolutePath}")
+  }
+
+  private fun assertRoundTrips(data: FleetData) {
+    val encoded = json.encodeToString(FleetData.serializer(), data)
+    assertEquals(data, json.decodeFromString(FleetData.serializer(), encoded), "JSON round-trip should be lossless")
+  }
+
+  @Test
+  fun parsesTheCapture() {
+    val data = VdtParser.parseFleet(example("fleet.json"))
+    assertEquals("1", data.version)
+    assertEquals(GameDate(year = 1, month = 6, day = 1), data.date)
+    assertEquals(29, data.vehicles.size)
+    assertRoundTrips(data)
+
+    val byId = data.vehicles.associateBy { it.id }
+
+    // The tractor a helper is driving, and the two mowers on it: the engine chain-walks its AI flag
+    // up the attacher joints, so an implement of a working rig says so on its own row.
+    val deutz = assertNotNull(byId[626])
+    assertTrue(deutz.isAI)
+    assertTrue(deutz.isMotorized)
+    assertEquals(100, assertNotNull(assertNotNull(deutz.motorFillUnits).fuel).fillLevelPercentage)
+    assertTrue(assertNotNull(byId[627]).isAI, "a mower behind a helper is being driven by it")
+    assertEquals(626, assertNotNull(byId[628]).attachedTo)
+
+    // The tractor the capturing player was sitting in. isControlled is on the seat, so the slurry
+    // tanker and the trailing shoe behind it carry neither flag — the app reads them off the rig.
+    val puma = assertNotNull(byId[630])
+    assertTrue(puma.isEntered)
+    assertTrue(puma.isControlled)
+    assertFalse(assertNotNull(byId[648]).isControlled, "an implement has no seat to be controlled from")
+    assertEquals(630, assertNotNull(byId[648]).attachedTo)
+
+    // Machines out of the tab rotation. Whether that is a parking mod or their own XML, it is the
+    // same flag, and it is the only thing on this file that separates them from the rest.
+    assertTrue(assertNotNull(byId[635]).isParked, "the fire engine")
+    assertTrue(assertNotNull(byId[640]).isParked, "the old IVECO")
+    assertFalse(assertNotNull(byId[650]).isParked, "the Actros is in the rotation")
+    assertNull(assertNotNull(byId[645]).isTabbable, "a spreader has no seat at all")
+
+    // An electric machine gets no ADS block: that mod excludes them outright.
+    val loader = assertNotNull(byId[652])
+    val charge = assertNotNull(assertNotNull(loader.motorFillUnits).fuel)
+    assertEquals("electriccharge", charge.type)
+    assertEquals("kWh", charge.unit)
+    assertNull(loader.ads)
+
+    // The one leased machine: a leasing rate and no sell value.
+    val leased = assertNotNull(byId[734])
+    assertEquals(PropertyState.LEASED, leased.propertyState)
+    assertEquals(14818, leased.leasePerDay)
+    assertNull(leased.sellPrice)
+
+    // A fresh save, so every ADS record is the one its purchase wrote: nothing overdue, nothing
+    // broken, and no inspection thorough enough to make its condition figure exact.
+    val ads = assertNotNull(deutz.ads)
+    assertEquals(AdsState.READY, ads.state)
+    assertFalse(ads.isServiceOverdue)
+    assertFalse(ads.needsAttention)
+    assertEquals(100, assertNotNull(ads.inspected).condition)
+    assertFalse(assertNotNull(ads.inspected).complete)
+    assertEquals(GameDate(year = 1, month = 6, day = 1), ads.lastInspection)
+    assertNull(ads.lastMaintenance, "never serviced")
+    assertNull(ads.maintenanceCost)
+  }
+
   @Test
   fun decodesAPlainMachine() {
     val data =
