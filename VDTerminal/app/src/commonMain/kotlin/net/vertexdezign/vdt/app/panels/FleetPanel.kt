@@ -431,7 +431,14 @@ internal fun rowBadges(vehicle: FleetVehicle, rig: FleetVehicle? = null): List<S
     ads.breakdowns.isNotEmpty() -> add("FAULT")
     else -> Unit
   }
-  if (vehicle.propertyState == PropertyState.LEASED) add("LEASED")
+  when (vehicle.propertyState) {
+    PropertyState.LEASED -> add("LEASED")
+
+    // The one machine on the list the game's own overview leaves out, so it says what it is.
+    PropertyState.MISSION -> add("CONTRACT")
+
+    else -> Unit
+  }
   // Who has it, or that it has been put away: one rung of statusLabel's ladder, short enough for a row
   // — including the rig's answer for an implement, or a plough would work all day saying nothing.
   when {

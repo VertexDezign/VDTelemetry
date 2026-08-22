@@ -204,6 +204,7 @@ class FleetPanelTest {
     assertEquals(listOf("FAULT"), rowBadges(machine(ads = ads(breakdowns = listOf(FleetBreakdown(id = "OIL"))))))
     assertEquals(emptyList(), rowBadges(machine()))
     assertEquals(listOf("LEASED"), rowBadges(machine(propertyState = PropertyState.LEASED)))
+    assertEquals(listOf("CONTRACT"), rowBadges(machine(propertyState = PropertyState.MISSION)))
     assertEquals(listOf("PARKED"), rowBadges(machine().copy(isTabbable = false)))
     assertEquals(listOf("AI"), rowBadges(machine().copy(isTabbable = false, isAI = true)))
   }

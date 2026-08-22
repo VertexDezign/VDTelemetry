@@ -13,6 +13,11 @@ import kotlinx.serialization.Serializable
  * implement is listed on its own, as the game lists it, with [FleetVehicle.attachedTo] naming the rig
  * it is currently part of.
  *
+ * It departs from that overview in exactly one place: **equipment a contract lent the farm is
+ * listed** ([PropertyState.MISSION]), where the game drops it for not being the farm's to keep. It is
+ * a machine you are driving today, which is the question this list answers — and it carries neither a
+ * sell value nor a leasing rate, so nothing about it reads as owned.
+ *
  * Its own [version], independent of [VdtData.version]. Omitted keys fall back to these defaults.
  */
 @Serializable
@@ -119,7 +124,10 @@ enum class PropertyState {
   OWNED,
   LEASED,
 
-  /** Equipment lent with a contract — the farm's to use, not to keep. */
+  /**
+   * Equipment lent with a contract — the farm's to use, not to keep, and gone when the contract ends.
+   * The game's own overview omits these; this channel keeps them (see [FleetData]).
+   */
   MISSION,
 
   /** Neither, which for a machine on this list means the game gave no answer. */
