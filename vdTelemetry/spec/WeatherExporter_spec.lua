@@ -117,6 +117,8 @@ describe("WeatherExporter.collect", function()
         highTemperature = 30 + offset,
         lowTemperature = 10 + offset,
         forecastType = 4,
+        windSpeed = 5.55,
+        windDirection = -10,
       }
     end
     installWorld({
@@ -149,6 +151,11 @@ describe("WeatherExporter.collect", function()
     assert.are.equal("RAIN", model.daily[1].type)
     assert.are.equal(31, model.daily[1].high)
     assert.are.equal(11, model.daily[1].low)
+    -- the outlook carries wind too, on the same three fields as the other two lists
+    assert.are.equal(5.6, model.daily[1].windSpeed)
+    assert.are.equal(3, model.daily[1].windBeaufort)
+    -- and through the same negative-angle wrap
+    assert.are.equal(350, model.daily[1].windDirection)
   end)
 
   it("converts every temperature to the player's unit", function()

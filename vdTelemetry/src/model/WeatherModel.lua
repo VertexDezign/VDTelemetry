@@ -44,6 +44,9 @@
 ---@field type string WeatherType name; the day's dominant type, as the game aggregates it
 ---@field high number day's high, in `temperatureUnit`
 ---@field low number day's low, in `temperatureUnit`
+---@field windSpeed number m/s
+---@field windBeaufort number
+---@field windDirection number degrees; same convention as WeatherNowModel.windDirection
 
 ---@class WeatherForecastModel
 ---@field version string channel version, independent of VDTelemetry.VERSION

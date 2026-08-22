@@ -362,9 +362,6 @@ Both channels and the Calendar app are built, and validated on a multiplayer cli
 - **Weather alerts.** "Rain in N hours" and "frost tonight" are natural `AlertRule`s off this channel and the first ones
   that would change what a player *does* — cut hay, get a crop off. Deliberately not in this round: the alert engine
   reads `AlertInputs`, which today combines only telemetry and taskList, so this is a wiring change as well as a rule.
-- **Daily wind is exported by the game and dropped by us.** `getDailyForecast` returns `windSpeed`/`windDirection`
-  alongside the temperatures; the outlook strip renders neither, so the collector does not carry them. Two fields to add
-  if the outlook ever grows a wind row.
 - **`WidgetDashboard`'s own `Chip` was left duplicated.** `FilterChip` moved to `components/` when the calendar became
   its second caller, but the page editor's chip is a visually different control (bordered, on white, no ripple) and
   folding it in would have restyled that screen as a side effect of this work.

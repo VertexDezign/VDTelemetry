@@ -19,6 +19,11 @@
 -- on Fahrenheit gets Fahrenheit here and the app never converts. Wind ships twice: windSpeed in m/s
 -- (the honest measurement) and windBeaufort (what the menu prints, via ValueMapper).
 --
+-- All three lists carry wind, including the outlook -- the daily entries have it because the game
+-- hands it over, not because anything renders it. A channel is the mod's data contract rather than
+-- the app's backing store: dropping a field the engine already answered would make the file lie
+-- about what the game knows, and cost a mod rebuild to undo.
+--
 -- windDirection is the game's RAW angle in degrees, deliberately not put through
 -- ValueMapper.headingFromYRotation. The current wind's angle is derived from a y-rotation, but each
 -- forecast entry's comes from `variation.wind.windAngle` in the weather XML -- two different sources
@@ -96,9 +101,10 @@ local function windDirection(degrees)
   return math.floor(num(degrees) + 0.5) % 360
 end
 
--- The wind fields, shared by the current reading and each hourly step. Every read goes through num()
--- first: this runs inside collect(), not inside the pcall that fetched the forecast, so a non-numeric
--- field here would take the whole channel's write down rather than costing one entry.
+-- The wind fields, shared by the current reading, each hourly step and each day of the outlook. Every
+-- read goes through num() first: this runs inside collect(), not inside the pcall that fetched the
+-- forecast, so a non-numeric field here would take the whole channel's write down rather than costing
+-- one entry.
 local function windOf(info, target)
   local mps = num(info.windSpeed)
   -- Json.lua prints floats with %.14g, so an unrounded m/s reads as 1.3999999999999. One decimal is
@@ -212,14 +218,14 @@ function VDT.WeatherExporter.collectDaily(forecast, environment)
       local okPeriod, period = pcall(environment.getPeriodFromDay, environment, info.day)
       local okDay, dayInPeriod = pcall(environment.getDayInPeriodFromDay, environment, info.day)
       if okPeriod and okDay and type(period) == "number" and type(dayInPeriod) == "number" then
-        days[#days + 1] = {
+        days[#days + 1] = windOf(info, {
           label = VDT.WeatherExporter.dayLabel(dayInPeriod, period, true),
           period = period,
           dayInPeriod = dayInPeriod,
           type = VDT.WeatherExporter.mapWeatherType(info.forecastType),
           high = temperature(info.highTemperature),
           low = temperature(info.lowTemperature),
-        }
+        })
       end
     end
   end
