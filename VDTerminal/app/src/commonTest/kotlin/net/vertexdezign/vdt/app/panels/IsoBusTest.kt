@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.model.DischargeReason
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Mixer
 import net.vertexdezign.vdt.model.MixerIngredient
@@ -7,6 +8,7 @@ import net.vertexdezign.vdt.model.Vehicle
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 private fun ingredient(name: String, min: Int, max: Int, value: Double) =
   MixerIngredient(name = name, title = name, minPercentage = min, maxPercentage = max, value = value)
@@ -140,6 +142,19 @@ class IsoBusTest {
     val only = ingredient("Silage", min = 100, max = 100, value = 100.0)
     val other = ingredient("Hay", min = 0, max = 0, value = 900.0)
     assertNull(shortfall(mixer(only, other), only))
+  }
+
+  // -------------------------------------------------------------------------
+  // The engine's refusals
+  // -------------------------------------------------------------------------
+
+  @Test
+  fun everyDischargeRefusalHasWordsOfItsOwn() {
+    // A `when` over the enum, so a reason added to the model breaks the build rather than falling
+    // through to a default that would show the driver a blank chip at the trough.
+    val phrases = DischargeReason.entries.map { refusalOf(it) }
+    assertEquals(DischargeReason.entries.size, phrases.toSet().size, "each reason gets its own words")
+    assertTrue(phrases.none { it.isBlank() })
   }
 
   // -------------------------------------------------------------------------

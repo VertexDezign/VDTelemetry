@@ -53,6 +53,8 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_mixer_wagon
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.Discharge
+import net.vertexdezign.vdt.model.DischargeReason
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Mass
@@ -125,6 +127,7 @@ internal data class IsoBusMachine(
   val name: String,
   val foldable: FoldableState?,
   val tipping: Tipping?,
+  val discharge: Discharge?,
   val mass: Mass?,
   val mixer: Mixer?,
 ) {
@@ -135,9 +138,9 @@ internal data class IsoBusMachine(
   val hasSection: Boolean get() = mixer != null
 }
 
-private fun Vehicle.isoBus() = IsoBusMachine(name, foldable, tipping, mass, mixer)
+private fun Vehicle.isoBus() = IsoBusMachine(name, foldable, tipping, discharge, mass, mixer)
 
-private fun Implement.isoBus() = IsoBusMachine(name, foldable, tipping, mass, mixer)
+private fun Implement.isoBus() = IsoBusMachine(name, foldable, tipping, discharge, mass, mixer)
 
 /** Every machine on the rig, the vehicle first, then its implements depth-first in hitch order. */
 internal fun rigMachines(vehicle: Vehicle): List<IsoBusMachine> {
@@ -451,6 +454,11 @@ private fun MachineStatus(machine: IsoBusMachine, mixer: Mixer, showState: Boole
 
     machine.tipping?.let { TipChip(it) }
 
+    // The engine's own "why is nothing coming out". A terminal earns its place at the trough here:
+    // the tip side is open, the drum is turning, and the reason it is not unloading is a fact only
+    // the game has. Absent whenever nothing is wrong, which is most of the time.
+    machine.discharge?.reason?.let { Chip(Icons.Filled.PriorityHigh, refusalOf(it), VdtColors.Amber) }
+
     when (machine.foldable) {
       FoldableState.FOLDED -> Chip(Icons.Filled.UnfoldLess, "Folded", VdtColors.DarkGray)
       FoldableState.EXTENDED -> Chip(Icons.Filled.UnfoldMore, "Unfolded", VdtColors.AccentText)
@@ -483,6 +491,19 @@ private fun TipChip(tipping: Tipping) {
     label,
     if (open) VdtColors.AccentText else VdtColors.DarkGray,
   )
+}
+
+/**
+ * The engine's discharge refusals, in the words that fit a machine unloading into a feeding trough —
+ * which is what every one of these means on a mixer wagon.
+ */
+internal fun refusalOf(reason: DischargeReason): String = when (reason) {
+  DischargeReason.NOT_ALLOWED_HERE -> "Can't unload here"
+  DischargeReason.NO_FREE_CAPACITY -> "Trough full"
+  DischargeReason.FILLTYPE_NOT_SUPPORTED -> "Won't take this feed"
+  DischargeReason.TOOLTYPE_NOT_SUPPORTED -> "Wrong tool for it"
+  DischargeReason.NO_ACCESS -> "Not your trough"
+  DischargeReason.NO_ACCESS_LAND -> "Not your land"
 }
 
 @Composable
