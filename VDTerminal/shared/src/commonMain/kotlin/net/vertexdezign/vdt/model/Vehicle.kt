@@ -19,6 +19,7 @@ data class Vehicle(
   val foldable: FoldableState? = null,
   val lowered: Boolean? = null,
   val fillUnits: FillUnits? = null,
+  val mass: Mass? = null,
   val pipe: Pipe? = null,
   val cover: Cover? = null,
   val wearable: Wearable? = null,
@@ -35,6 +36,7 @@ data class Vehicle(
   val spraying: Spraying? = null,
   val plow: Plow? = null,
   val tillage: Tillage? = null,
+  val mixer: Mixer? = null,
   val precisionFarming: PrecisionFarming? = null,
   /** Advanced Damage System, when that mod is installed and manages this machine. See [Ads]. */
   val ads: Ads? = null,
@@ -571,6 +573,11 @@ data class Tipping(
   val side: Int? = null,
   val preferredSide: Int? = null,
   val count: Int? = null,
+  /**
+   * The sides' localized names, **1-indexed by [side] / [preferredSide]** — so read them as
+   * `sides[side - 1]`. Empty on a machine whose sides the game never named.
+   */
+  val sides: List<String> = emptyList(),
 )
 
 @Serializable
@@ -843,6 +850,129 @@ data class Tillage(
 @Serializable
 enum class TillageKind { CULTIVATOR, POWER_HARROW, SUBSOILER }
 
+/**
+ * A mixer wagon: the feed recipe it is mixing to, what is in the tub, and whether the drum turns.
+ *
+ * [fillType] is the *engine's own verdict on the mix* — [recipe]'s fill type once every ingredient
+ * sits inside its window, `FORAGE_MIXING` while one does not, and the single ingredient's own type
+ * while only one thing is loaded. Read it; never re-derive it from the bars. [state] folds it into
+ * the three-way a panel actually renders.
+ *
+ * [running] is the drum turning, which is **not** the same question as [Implement.isTurnedOn]: on a
+ * mixer wagon turn-on is the *pickup*. [remaining] counts the mix cycle down to 0.
+ *
+ * [ingredients] and their windows come from the map's `animalFood.xml`, so nothing may assume a
+ * count, a set of materials, or that `FORAGE` is what comes out. A machine whose XML names no recipe
+ * has none at all and is a trailer with a drum.
+ */
+@Serializable
+data class Mixer(
+  /** Powered, and either mid-mix, picking up, or discharging. */
+  val running: Boolean = false,
+  val powered: Boolean = false,
+  /** Milliseconds left of the mix cycle; 0 once mixed. */
+  val remaining: Int = 0,
+  /** Milliseconds this machine takes to mix after a fill change. */
+  val mixingTime: Int = 0,
+  /** Litres in the tub. */
+  val value: Double = 0.0,
+  val capacity: Int = 0,
+  val fillType: String? = null,
+  val title: String? = null,
+  /** Fill type the finished mix becomes; null when the recipe could not be resolved. */
+  val recipe: String? = null,
+  val ingredients: List<MixerIngredient> = emptyList(),
+) {
+  /**
+   * The denominator every bar divides by: the sum of the ingredient levels, which is what the game's
+   * own HUD sums. Deliberately **not** [value] — a bar shows a share of the load, not of [capacity].
+   */
+  val loaded: Double get() = ingredients.sumOf { it.value }
+
+  /** [ingredient]'s share of [loaded], 0..1. 0 when nothing is loaded. */
+  fun shareOf(ingredient: MixerIngredient): Double = if (loaded > 0.0) ingredient.value / loaded else 0.0
+
+  /** What the tub holds, as the three-way a panel renders. See [MixState]. */
+  val state: MixState get() =
+    when {
+      value <= 0.0 -> MixState.EMPTY
+
+      fillType == FORAGE_MIXING -> MixState.OUT_OF_RATIO
+
+      recipe != null && fillType == recipe -> MixState.READY
+
+      // Only one ingredient in: the tub reports that material, not a mix. Also where an unresolved
+      // recipe lands, which is the honest answer — without one we cannot claim the mix is finished.
+      else -> MixState.SINGLE
+    }
+
+  companion object {
+    /** The engine constant for "loaded, but at least one ingredient is outside its window". */
+    const val FORAGE_MIXING = "FORAGE_MIXING"
+  }
+}
+
+/**
+ * One bar of the mixing-ratio readout.
+ *
+ * [value] is **litres**, and the share the bar draws is `value / Mixer.loaded` — a share of what is
+ * loaded, never of the tub's capacity. [mass] is present only when the ingredient pools a single
+ * material: several materials share one litre count with no record of which went in, so no honest
+ * weight exists for those.
+ */
+@Serializable
+data class MixerIngredient(
+  /** The recipe's own token for this ingredient. */
+  val name: String = "",
+  val title: String? = null,
+  /** The materials this ingredient accepts, by ascending fill type index. */
+  val fillTypes: List<String> = emptyList(),
+  val minPercentage: Int = 0,
+  val maxPercentage: Int = 100,
+  val value: Double = 0.0,
+  /** Tonnes; null when the ingredient pools more than one material. */
+  val mass: Double? = null,
+) {
+  /** Whether [share] (0..1) sits inside this ingredient's window. */
+  fun holds(share: Double): Boolean {
+    val percent = share * 100.0
+    return percent >= minPercentage && percent <= maxPercentage
+  }
+}
+
+/**
+ * What the tub holds. The distinction the bars alone cannot make: [OUT_OF_RATIO] and [READY] can
+ * carry identical-looking bars when a window is only just missed, and [SINGLE] has no ratio at all.
+ */
+enum class MixState {
+  EMPTY,
+
+  /** One ingredient loaded — a material, not a mix. */
+  SINGLE,
+
+  /** Loaded, but at least one ingredient sits outside its window. */
+  OUT_OF_RATIO,
+
+  /** Every ingredient inside its window: this is feed. */
+  READY,
+}
+
+/**
+ * What a machine weighs right now, in **tonnes**, and what it weighs empty — so the payload is the
+ * difference. Per-machine: a tractor and its implements each report their own, and a train weight is
+ * their sum.
+ *
+ * [empty] is null until the engine has run its first mass update on the machine.
+ */
+@Serializable
+data class Mass(
+  val value: Double = 0.0,
+  val empty: Double? = null,
+) {
+  /** Tonnes of load, when [empty] is known. */
+  val payload: Double? get() = empty?.let { (value - it).coerceAtLeast(0.0) }
+}
+
 // ---------------------------------------------------------------------------
 // Implements (recursive) + combined
 // ---------------------------------------------------------------------------
@@ -856,6 +986,7 @@ data class Implement(
   val foldable: FoldableState? = null,
   val lowered: Boolean? = null,
   val fillUnits: FillUnits? = null,
+  val mass: Mass? = null,
   val pipe: Pipe? = null,
   val cover: Cover? = null,
   val wearable: Wearable? = null,
@@ -872,6 +1003,7 @@ data class Implement(
   val spraying: Spraying? = null,
   val plow: Plow? = null,
   val tillage: Tillage? = null,
+  val mixer: Mixer? = null,
   val precisionFarming: PrecisionFarming? = null,
   /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
   val jointDescIndex: Int? = null,

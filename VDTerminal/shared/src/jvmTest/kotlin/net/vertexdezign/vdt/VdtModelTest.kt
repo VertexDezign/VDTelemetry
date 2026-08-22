@@ -7,6 +7,7 @@ import net.vertexdezign.vdt.model.DriveDirection
 import net.vertexdezign.vdt.model.FillDisplayType
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
+import net.vertexdezign.vdt.model.MixState
 import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.PfMode
 import net.vertexdezign.vdt.model.PipeState
@@ -1172,6 +1173,220 @@ class VdtModelTest {
     assertEquals("FERTILIZER", tank.fillType)
     // …and the two join to different tanks, which is what `fillType` is carried for.
     assertTrue(hopper.fillType != tank.fillType)
+  }
+
+  // -------------------------------------------------------------------------
+  // Mixer wagon (issue #113)
+  // -------------------------------------------------------------------------
+
+  /** A mixer wagon carrying [ingredients], as the mod emits it. */
+  private fun mixerJson(
+    fillType: String,
+    ingredients: String,
+    value: String = "9300",
+    running: String = "false",
+  ) = VdtParser
+    .parseJson(
+      """{"version":"16","vehicle":{"implement":[{"position":"BACK","type":"mixerWagon",""" +
+        """"isTurnedOn":false,"mixer":{"running":$running,"powered":true,"remaining":0,""" +
+        """"mixingTime":5000,"value":$value,"capacity":12000,"fillType":"$fillType",""" +
+        """"title":"Mischration","recipe":"FORAGE","ingredients":[$ingredients]}}]}}""",
+    ).vehicle
+    ?.implement
+    ?.single()
+    ?.mixer
+
+  private val threeIngredients =
+    """{"name":"SILAGE","title":"Grundfutter","fillTypes":["SILAGE"],"minPercentage":40,""" +
+      """"maxPercentage":75,"value":6000.0,"mass":2.4},""" +
+      """{"name":"HAY","title":"Raufutter","fillTypes":["HAY","STRAW"],"minPercentage":20,""" +
+      """"maxPercentage":40,"value":2400.0},""" +
+      """{"name":"MINERALS","title":"Kraftfutter","fillTypes":["MINERAL_FEED"],""" +
+      """"minPercentage":5,"maxPercentage":15,"value":900.0,"mass":0.45}"""
+
+  /** The same recipe on a half-full wagon: 3000 / 1200 / 450 l, the same ratios as [threeIngredients]. */
+  private val halfLoad =
+    """{"name":"SILAGE","title":"Grundfutter","fillTypes":["SILAGE"],"minPercentage":40,""" +
+      """"maxPercentage":75,"value":3000.0,"mass":1.2},""" +
+      """{"name":"HAY","title":"Raufutter","fillTypes":["HAY","STRAW"],"minPercentage":20,""" +
+      """"maxPercentage":40,"value":1200.0},""" +
+      """{"name":"MINERALS","title":"Kraftfutter","fillTypes":["MINERAL_FEED"],""" +
+      """"minPercentage":5,"maxPercentage":15,"value":450.0,"mass":0.225}"""
+
+  @Test
+  fun decodesAMixerWagon() {
+    val mixer = assertNotNull(mixerJson("FORAGE", threeIngredients))
+    assertEquals(9300.0, mixer.value)
+    assertEquals(12000, mixer.capacity)
+    assertEquals(5000, mixer.mixingTime)
+    assertEquals("FORAGE", mixer.recipe)
+    assertEquals(3, mixer.ingredients.size)
+
+    val silage = mixer.ingredients.first()
+    assertEquals("Grundfutter", silage.title)
+    assertEquals(listOf("SILAGE"), silage.fillTypes)
+    assertEquals(40, silage.minPercentage)
+    assertEquals(2.4, silage.mass)
+    // An ingredient pooling two materials carries no weight — there is no honest one.
+    assertEquals(null, mixer.ingredients[1].mass)
+    assertEquals(listOf("HAY", "STRAW"), mixer.ingredients[1].fillTypes)
+  }
+
+  @Test
+  fun aMixerBarIsAShareOfTheLoadNotOfTheCapacity() {
+    // The single easiest thing to get wrong, shown on a half-full wagon where the two readings
+    // disagree about the answer rather than merely about the number: the game's own HUD sums the
+    // ingredient levels and divides by that sum. The same silage is 64.5% of the load and inside its
+    // 40–75% window, but only 25% of the tub — so a bar drawn against `capacity` would report a
+    // perfectly good mix as short of silage on every wagon that is not brim full.
+    val mixer = assertNotNull(mixerJson("FORAGE", halfLoad, value = "4650"))
+    assertEquals(4650.0, mixer.loaded)
+
+    val silage = mixer.ingredients.first()
+    val share = mixer.shareOf(silage)
+    assertEquals(0.645, share, 0.001)
+    assertTrue(silage.holds(share), "3000 of 4650 l is 64.5%, inside silage's 40–75% window")
+    assertTrue(!silage.holds(3000.0 / mixer.capacity), "against capacity it would read 25%")
+  }
+
+  @Test
+  fun mixerHoldsIsInclusiveOfItsWindowEnds() {
+    val hay = assertNotNull(mixerJson("FORAGE", threeIngredients)).ingredients[1]
+    assertTrue(hay.holds(0.20))
+    assertTrue(hay.holds(0.40))
+    assertTrue(!hay.holds(0.1999))
+    assertTrue(!hay.holds(0.4001))
+  }
+
+  @Test
+  fun mixerStateIsTheEnginesVerdictNotOurArithmetic() {
+    // Identical bars, three different answers — which is exactly why the state is read off the tub's
+    // fill type rather than recomputed from the ratios.
+    assertEquals(MixState.READY, assertNotNull(mixerJson("FORAGE", threeIngredients)).state)
+    assertEquals(
+      MixState.OUT_OF_RATIO,
+      assertNotNull(mixerJson("FORAGE_MIXING", threeIngredients)).state,
+    )
+    // One material in: the tub reports that material, and it is not a mix at all.
+    assertEquals(MixState.SINGLE, assertNotNull(mixerJson("SILAGE", threeIngredients)).state)
+    assertEquals(
+      MixState.EMPTY,
+      assertNotNull(mixerJson("FORAGE", threeIngredients, value = "0")).state,
+    )
+  }
+
+  @Test
+  fun aMixerWithoutARecipeIsStillAMixer() {
+    // No `#recipe` in the machine's XML: an empty ingredient list and a trailer with a drum. Nothing
+    // may assume bars exist, and without a recipe we cannot claim the load is finished feed.
+    val mixer =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"16","vehicle":{"mixer":{"running":true,"powered":true,""" +
+              """"remaining":0,"mixingTime":5000,"value":5000.0,"capacity":8000,""" +
+              """"fillType":"SILAGE"}}}""",
+          ).vehicle
+          ?.mixer,
+      )
+    assertTrue(mixer.ingredients.isEmpty())
+    assertEquals(null, mixer.recipe)
+    assertEquals(0.0, mixer.loaded)
+    assertEquals(MixState.SINGLE, mixer.state)
+  }
+
+  @Test
+  fun runningIsNotTheSameQuestionAsIsTurnedOn() {
+    // On a mixer wagon turn-on is the PICKUP; the drum turns for the mix cycle and while
+    // discharging too. A panel that read isTurnedOn as "is it running" would call a mixing machine
+    // idle.
+    val implement =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"16","vehicle":{"implement":[{"position":"BACK","isTurnedOn":false,""" +
+              """"mixer":{"running":true,"powered":true,"remaining":3200,"mixingTime":5000,""" +
+              """"value":9300.0,"capacity":12000}}]}}""",
+          ).vehicle
+          ?.implement
+          ?.single(),
+      )
+    assertEquals(false, implement.isTurnedOn)
+    assertTrue(assertNotNull(implement.mixer).running)
+    assertEquals(3200, assertNotNull(implement.mixer).remaining)
+  }
+
+  @Test
+  fun aMachineWithNoMixerDecodesToNull() {
+    // Same dispatch rule as the other ISOBUS aspects: absent means absent, not a default-constructed
+    // mixer that would draw an empty tub on every tractor.
+    assertEquals(null, model("tractor_with_cultivator.json").vehicle?.mixer)
+    assertEquals(
+      null,
+      model("tractor_with_cultivator.json")
+        .vehicle
+        ?.implement
+        ?.single()
+        ?.mixer,
+    )
+  }
+
+  // -------------------------------------------------------------------------
+  // Mass, and the tip sides' names
+  // -------------------------------------------------------------------------
+
+  @Test
+  fun massCarriesTheLoadAsTheDifference() {
+    val mass =
+      assertNotNull(
+        VdtParser
+          .parseJson("""{"version":"16","vehicle":{"mass":{"value":12.75,"empty":7.2}}}""")
+          .vehicle
+          ?.mass,
+      )
+    assertEquals(12.75, mass.value)
+    assertEquals(5.55, assertNotNull(mass.payload), 0.0001)
+  }
+
+  @Test
+  fun massHasNoPayloadUntilTheEmptyOneIsKnown() {
+    // The mod omits `empty` before the engine has run its first mass update on a machine; a payload
+    // of "everything it weighs" would be worse than none.
+    val mass =
+      assertNotNull(
+        VdtParser.parseJson("""{"version":"16","vehicle":{"mass":{"value":7.2}}}""").vehicle?.mass,
+      )
+    assertEquals(null, mass.payload)
+  }
+
+  @Test
+  fun tipSidesAreNamedAndOneIndexed() {
+    // The names are 1-indexed by `side`/`preferredSide` because the engine's indices are, so a
+    // consumer reads `sides[side - 1]`. Off by one here mislabels which way the wagon is unloading.
+    val tipping =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"16","vehicle":{"tipping":{"state":"OPEN","side":2,""" +
+              """"preferredSide":3,"count":3,"sides":["Links","Rechts","Hinten"]}}}""",
+          ).vehicle
+          ?.tipping,
+      )
+    assertEquals(TipState.OPEN, tipping.state)
+    assertEquals("Rechts", tipping.sides[assertNotNull(tipping.side) - 1])
+    assertEquals("Hinten", tipping.sides[assertNotNull(tipping.preferredSide) - 1])
+  }
+
+  @Test
+  fun tipSidesAreEmptyRatherThanMissingOnAnUnnamedTrailer() {
+    val tipping =
+      assertNotNull(
+        VdtParser
+          .parseJson("""{"version":"16","vehicle":{"tipping":{"state":"CLOSED","count":1}}}""")
+          .vehicle
+          ?.tipping,
+      )
+    assertTrue(tipping.sides.isEmpty())
   }
 
   @Test

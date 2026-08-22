@@ -32,6 +32,7 @@
 ---@field foldable string?
 ---@field lowered boolean?
 ---@field fillUnits FillUnitsModel?
+---@field mass MassModel?
 ---@field pipe PipeModel?
 ---@field cover CoverModel?
 ---@field wearable WearableModel?
@@ -48,4 +49,5 @@
 ---@field spraying SprayingModel?
 ---@field plow PlowModel?
 ---@field tillage TillageModel?
+---@field mixer MixerModel?
 ---@field implement ImplementModel[]?

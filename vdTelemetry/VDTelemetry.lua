@@ -32,6 +32,7 @@ local sourceFiles = {
   "src/collect/aspects/Foldable.lua",
   "src/collect/aspects/Lowered.lua",
   "src/collect/aspects/FillUnit.lua",
+  "src/collect/aspects/Mass.lua",
   "src/collect/aspects/Pipe.lua",
   "src/collect/aspects/Cover.lua",
   "src/collect/aspects/Wearable.lua",
@@ -49,6 +50,7 @@ local sourceFiles = {
   "src/collect/aspects/Spraying.lua",
   "src/collect/aspects/Plow.lua",
   "src/collect/aspects/Tillage.lua",
+  "src/collect/aspects/Mixer.lua",
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
@@ -217,7 +219,7 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     stops, and its own one-shot zeroing at the state change does not survive a multiplayer client
 --     applying an rpm update that was already in flight behind the stop event — which left a smoothed
 --     remnant of idle sitting under 100 rpm on a machine that had been switched off. See issue #94.
-VDTelemetry.VERSION = 15
+VDTelemetry.VERSION = 16
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
