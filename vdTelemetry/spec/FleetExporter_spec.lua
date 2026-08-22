@@ -418,5 +418,12 @@ describe("FleetExporter", function()
       installWorld({ makeVehicle({}) })
       assert.is_nil(VDT.FleetExporter.collect().vehicles[1].motorFillUnits)
     end)
+
+    it("says nothing about a motor that consumes nothing either", function()
+      -- An electric machine, or any motor whose consumer table the game left empty: no fuel row, not
+      -- a fuel row reading zero. The fleet list's fuel column is absent for it (see fuelPercent).
+      installWorld({ makeVehicle({ motorized = { consumersByFillType = {} } }) })
+      assert.is_nil(VDT.FleetExporter.collect().vehicles[1].motorFillUnits)
+    end)
   end)
 end)
