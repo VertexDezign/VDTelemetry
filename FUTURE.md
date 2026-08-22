@@ -452,8 +452,9 @@ engine load it wears the engine on, the service interval and system voltage. The
 - **The fleet is now exported** — issue #84, the `fleet` channel and its `contributeFleetVehicle` stage. It does not
   read `ADS_Main.vehicles` (keyed by `uniqueId`, which is nil on an MP client) but the per-vehicle spec of every machine
   the farm owns, which is fully synced. See the section below for what that left open.
-- **A fixture is wanted.** No committed capture has an `ads` block; `AdsModelTest` decodes the shape with inline JSON
-  and says so at the top. See the section below for the rule those follow.
+- **A fixture is wanted.** No committed capture has the driven vehicle's `ads` block — the fleet captures carry the
+  *fleet* one (`examples/json/fleet/`), which is the maintenance record rather than the dashboard — so `AdsModelTest`
+  decodes the shape with inline JSON and says so at the top. See the section below for the rule those follow.
 
 ---
 
