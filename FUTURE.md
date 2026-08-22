@@ -469,8 +469,9 @@ The reasoning is in `src/collect/FleetExporter.lua` and `panels/FleetPanel.kt`. 
   hours and values), the ADS half against its own `P` menu with something actually overdue or in a workshop, and any of
   it from a multiplayer client — where the whole design turns on the per-vehicle spec being synced.
 - **Four of that capture's machines report themselves out of the tab rotation** (a fire engine, its two reels, an old
-  lorry), and there is no way to tell a machine a parking mod put away from one whose own XML ships
-  `isTabbable="false"` — the flag is the same. See `FleetVehicle.isParked`.
+  lorry). Confirmed by the player who captured it as their parking mod's doing, so the fixture is a *true* positive —
+  but the limitation stands in general, because nothing can tell that apart from a machine whose own XML ships
+  `isTabbable="false"`. See `FleetVehicle.isParked`.
 - **No widget and no alert.** The app contributes neither, so a page reaches it through `ShortcutWidget` like the other
   list apps. A "3 machines need attention" tile is the obvious one; an alert for a breakdown on a machine you are *not*
   in is the tempting one and the one to think about first — it fires while you are doing something else, which is what

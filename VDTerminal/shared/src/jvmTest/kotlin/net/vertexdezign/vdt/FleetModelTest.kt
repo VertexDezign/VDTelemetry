@@ -71,8 +71,9 @@ class FleetModelTest {
     assertFalse(assertNotNull(byId[648]).isControlled, "an implement has no seat to be controlled from")
     assertEquals(630, assertNotNull(byId[648]).attachedTo)
 
-    // Machines out of the tab rotation. Whether that is a parking mod or their own XML, it is the
-    // same flag, and it is the only thing on this file that separates them from the rest.
+    // Machines out of the tab rotation — the capturing player's parking mod, confirmed by them. The
+    // flag would read the same on a machine whose own XML ships isTabbable="false", which is the one
+    // thing it cannot tell apart (see FleetVehicle.isParked).
     assertTrue(assertNotNull(byId[635]).isParked, "the fire engine")
     assertTrue(assertNotNull(byId[640]).isParked, "the old IVECO")
     assertFalse(assertNotNull(byId[650]).isParked, "the Actros is in the rotation")
