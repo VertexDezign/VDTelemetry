@@ -73,6 +73,8 @@
 ---@field isAI boolean? an AI helper is driving it
 ---@field isControlled boolean? a human is driving it (any player in MP)
 ---@field isEntered boolean? the LOCAL player is inside
+---@field isTabbable boolean? in the tab rotation; absent for a machine with no seat. False is how a
+---       park mod marks a machine as put away (Enterable:setIsTabbable)
 ---@field posX number?
 ---@field posZ number?
 ---@field ads FleetAdsModel?

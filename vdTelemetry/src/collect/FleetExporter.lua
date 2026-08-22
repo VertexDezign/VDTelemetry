@@ -203,6 +203,17 @@ function VDT.FleetExporter.collectVehicle(vehicle, sizeX, sizeZ)
   if enterable ~= nil then
     row.isControlled = enterable.isControlled == true or nil
     row.isEntered = enterable.isEntered == true or nil
+    -- Whether the machine is in the tab rotation. It is exported because that flag is how the park
+    -- mods mark a machine as put away -- `Enterable:setIsTabbable(false)` -- and the player who parked
+    -- it wants to see that on the list. Written for every enterable rather than only when false, so
+    -- "not in the rotation" and "has no seat at all" stay distinguishable on the wire.
+    --
+    -- Asked through the getter rather than read off the spec: a mod may overwrite the function instead
+    -- of setting the field, and the engine's own tab walk asks the same way (VehicleSystem).
+    local tabbable = call(vehicle, "getIsTabbable")
+    if type(tabbable) == "boolean" then
+      row.isTabbable = tabbable
+    end
   end
 
   -- Where it is, in the map channels' normalized frame -- what "show on map" hands over. An

@@ -83,6 +83,11 @@ local function makeVehicle(over)
   function vehicle:getIsAIActive()
     return over.isAI == true
   end
+  if over.enterable ~= nil then
+    function vehicle:getIsTabbable()
+      return over.tabbable ~= false
+    end
+  end
   if over.throwsOnName then
     function vehicle:getFullName()
       error("third-party getter blew up")
@@ -249,6 +254,29 @@ describe("FleetExporter", function()
       assert.is_true(row.isControlled)
       -- Absent rather than false: the Kotlin model defaults it, and the file stays small.
       assert.is_nil(row.isEntered)
+    end)
+
+    it("reports the tab rotation, which is how a machine is marked as parked", function()
+      installWorld({
+        makeVehicle({ id = 1, enterable = {}, tabbable = false }),
+        makeVehicle({ id = 2, enterable = {} }),
+        makeVehicle({ id = 3 }),
+      })
+      local parked, ready, implement = table.unpack(VDT.FleetExporter.collect().vehicles)
+      assert.is_false(parked.isTabbable)
+      -- Written even when true: "not in the rotation" and "has no seat at all" are different answers,
+      -- and the second one is the absent key.
+      assert.is_true(ready.isTabbable)
+      assert.is_nil(implement.isTabbable)
+    end)
+
+    it("asks the engine's getter, which a parking mod may overwrite outright", function()
+      local vehicle = makeVehicle({ enterable = { isTabbable = true } })
+      function vehicle:getIsTabbable()
+        return false
+      end
+      installWorld({ vehicle })
+      assert.is_false(VDT.FleetExporter.collect().vehicles[1].isTabbable)
     end)
 
     it("normalizes the position into the map channels' frame", function()
