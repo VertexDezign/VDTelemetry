@@ -219,7 +219,7 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     stops, and its own one-shot zeroing at the state change does not survive a multiplayer client
 --     applying an rpm update that was already in flight behind the stop event — which left a smoothed
 --     remnant of idle sitting under 100 rpm on a machine that had been switched off. See issue #94.
-VDTelemetry.VERSION = 16
+VDTelemetry.VERSION = 17
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

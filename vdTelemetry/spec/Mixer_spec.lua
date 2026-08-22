@@ -310,6 +310,38 @@ describe("Mixer.collect", function()
     end)
   end)
 
+  describe("the tub's own weight", function()
+    it("weighs the load with the density of what the tub reports", function()
+      -- The same arithmetic FillUnit:getAdditionalComponentMass does for this unit: level x density
+      -- of the *mix*. Deliberately not the sum of the ingredients' masses, which is short by whatever
+      -- the pooled ones weigh.
+      local model = VDT.Mixer.collect(mixer({ mixerWagonFillTypes = entries({ 6000, 2400, 900 }) }, {
+        getFillUnitFillType = function()
+          return FILL_TYPE.FORAGE
+        end,
+      }))
+      -- 9300 l at 0.4/1000 t/l
+      assert.are.equal(3.72, model.mass)
+    end)
+
+    it("reads zero on an empty tub rather than going absent", function()
+      -- The number a panel prints has to reach zero. A machine's mass minus its empty mass does not:
+      -- that difference carries the fuel and everything else the engine adds, and an empty wagon read
+      -- 617 kg of "load" in a real game.
+      local model = VDT.Mixer.collect(mixer())
+      assert.are.equal(0, model.mass)
+    end)
+
+    it("is absent when the material has no density to read", function()
+      local model = VDT.Mixer.collect(mixer({ mixerWagonFillTypes = entries({ 6000, 0, 0 }) }, {
+        getFillUnitFillType = function()
+          return 99 -- a fill type the manager does not know
+        end,
+      }))
+      assert.is_nil(model.mass)
+    end)
+  end)
+
   it("still reports a mixer whose XML names no recipe", function()
     -- No recipe means an empty mixerWagonFillTypes and a machine that takes any one material -- a
     -- trailer with a drum. The tub, the drum and the mixing time are all still true of it.

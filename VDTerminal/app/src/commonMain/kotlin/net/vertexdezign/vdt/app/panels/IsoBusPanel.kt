@@ -330,13 +330,17 @@ private fun MachineArt(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier)
         if (type.full) {
           Text("of ${formatInt(mixer.capacity)}", style = type.sub, maxLines = 1)
         }
-        val payload = mass?.payload
-        if (mass != null) {
+        // The load's own weight, never the machine's mass minus its empty one — see [Mixer.mass].
+        val load = mixer.mass
+        if (load != null) {
           Spacer(Modifier.height(type.gap))
-          Text(formatTonnes(payload ?: mass.value), style = type.headline, maxLines = 1)
-          if (type.full && payload != null) {
+          Text(formatTonnes(load), style = type.headline, maxLines = 1)
+          if (type.full && mass != null) {
             Text("${formatTonnes(mass.value)} total", style = type.sub, maxLines = 1)
           }
+        } else if (mass != null) {
+          Spacer(Modifier.height(type.gap))
+          Text(formatTonnes(mass.value), style = type.headline, maxLines = 1)
         }
       }
     }
@@ -396,9 +400,9 @@ private fun tubStyle(size: TextUnit, color: Color, weight: FontWeight) = TextSty
 private fun TubReadout(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier) {
   Row(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
     Figure("Load", "${formatInt(mixer.value.roundToInt())} l", "of ${formatInt(mixer.capacity)}")
-    val payload = mass?.payload
-    if (payload != null) {
-      Figure("Weight", formatTonnes(payload), "${formatTonnes(mass.value)} total")
+    val load = mixer.mass
+    if (load != null) {
+      Figure("Weight", formatTonnes(load), mass?.let { "${formatTonnes(it.value)} total" })
     } else if (mass != null) {
       Figure("Weight", formatTonnes(mass.value), null)
     }

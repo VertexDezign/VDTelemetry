@@ -1419,40 +1419,78 @@ class VdtModelTest {
   // -------------------------------------------------------------------------
 
   @Test
-  fun massCarriesTheLoadAsTheDifference() {
-    // The towed capture: 12400 l of finished mix on an 8.2 t wagon comes to 3.92 t, about 0.32 kg/l.
+  fun massIsTheMachineNotItsLoad() {
+    // The towed capture: an 8.2 t wagon reading 12.12 t with 12400 l in it. The difference looks like
+    // a payload and is not one — see [Mass] and the two tests below.
     val mass = assertNotNull(assertNotNull(mixerMachine("correct")).mass)
     assertEquals(12.12, mass.value)
     assertEquals(8.2, mass.empty)
-    assertEquals(3.92, assertNotNull(mass.payload), 0.0001)
   }
 
   @Test
   fun massesDoNotSumIntoATrainWeight() {
-    // The trap in the same capture, and the reason [Mass] says per-machine rather than per-train:
     // AttacherJoints:getAdditionalComponentMass folds a HARD-ATTACHED implement's whole mass into its
     // attacher's root component, so the tractor is already carrying the wagon. Adding the two would
-    // count 12 t twice, and the tractor's own "payload" is the wagon rather than anything it holds.
+    // count 12 t twice — and the tractor's own difference-from-empty is the wagon rather than
+    // anything it holds.
     val towed = mixerCapture("correct")
     val tractor = assertNotNull(towed.mass)
     val wagon = assertNotNull(assertNotNull(towed.implement.single()).mass)
     assertEquals(17.024, tractor.value)
     assertEquals(3.59, tractor.empty)
     assertTrue(
-      assertNotNull(tractor.payload) > wagon.value,
+      tractor.value - assertNotNull(tractor.empty) > wagon.value,
       "a 3.6 t tractor does not carry 13 t of anything: that is the wagon, counted on both",
     )
   }
 
   @Test
-  fun massHasNoPayloadUntilTheEmptyOneIsKnown() {
-    // The mod omits `empty` before the engine has run its first mass update on a machine; a payload
-    // of "everything it weighs" would be worse than none.
+  fun theMassDifferenceIsNotALoadOnASelfPropelledMachine() {
+    // The reason [Mixer.mass] exists. All three self-propelled captures are the same machine with the
+    // same 14.965 t empty mass and a full 270 l diesel tank, so the mix's density and the constant on
+    // top of it can be solved for directly: 0.300 kg/l, and 835 kg of *machine* that is not the load.
+    // Only 224 kg of that is the diesel; the rest is whatever else the engine adds. An empty wagon
+    // reads that constant as its "payload", which is what a real game showed as 617 kg of nothing.
+    val mixing = assertNotNull(mixerCapture("selfDriving_mixing").mixer)
+    val outOfRatio = assertNotNull(mixerCapture("selfDriving_outOfRatio").mixer)
+    val a = assertNotNull(mixerCapture("selfDriving_mixing").mass)
+    val b = assertNotNull(mixerCapture("selfDriving_outOfRatio").mass)
+    assertEquals(a.empty, b.empty, "same machine")
+
+    val perLitre = (b.value - a.value) / (outOfRatio.value - mixing.value)
+    assertEquals(0.0003, perLitre, 0.000001)
+
+    val constant = (a.value - assertNotNull(a.empty)) - mixing.value * perLitre
+    assertTrue(constant > 0.8, "an empty tub would still read ${'$'}constant t of 'load'")
+  }
+
+  @Test
+  fun theTubIsWeighedOnItsOwn() {
+    // What the panel prints, and it reaches zero. Inline because the committed captures are version
+    // 16 and predate the field; a re-capture would pin it against a real machine.
+    fun tub(json: String) = assertNotNull(VdtParser.parseJson(json).vehicle?.mixer)
+
+    val loaded = tub("""{"version":"17","vehicle":{"mixer":{"value":18000.0,"capacity":25000,"mass":5.4}}}""")
+    assertEquals(5.4, loaded.mass)
+
+    // An empty tub weighs nothing — 0 rather than absent, so the panel has a number to print.
+    val empty = tub("""{"version":"17","vehicle":{"mixer":{"value":0.0,"capacity":25000,"mass":0.0}}}""")
+    assertEquals(0.0, empty.mass)
+
+    // Absent when the mod could not resolve a density; the panel falls back to the gross mass.
+    assertEquals(null, tub("""{"version":"17","vehicle":{"mixer":{"value":100.0,"capacity":25000}}}""").mass)
+  }
+
+  @Test
+  fun theEmptyMassIsAbsentUntilTheEngineHasRunItsFirstMassUpdate() {
+    // getDefaultMass reads `component.defaultMass or 0` until Vehicle:updateMass has filled it in, so
+    // the mod omits it rather than reporting a zero that would make the machine look weightless empty.
     val mass =
       assertNotNull(
-        VdtParser.parseJson("""{"version":"16","vehicle":{"mass":{"value":7.2}}}""").vehicle?.mass,
+        VdtParser.parseJson("""{"version":"17","vehicle":{"mass":{"value":7.2}}}""").vehicle?.mass,
       )
-    assertEquals(null, mass.payload)
+    assertEquals(7.2, mass.value)
+    assertEquals(null, mass.empty)
   }
 
   @Test

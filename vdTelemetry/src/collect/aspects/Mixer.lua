@@ -212,11 +212,31 @@ function VDT.Mixer.collect(object)
   -- type once every ingredient is inside its window, FORAGE_MIXING while one is not, the single
   -- ingredient's own type while only one is loaded.
   local loadedIndex = object:getFillUnitFillType(fillUnitIndex)
-  if loadedIndex ~= FILL_TYPE_UNKNOWN then
+  if loadedIndex == FILL_TYPE_UNKNOWN then
+    -- An empty tub weighs nothing, and saying so is the point: this is the number the panel prints,
+    -- and it has to reach zero.
+    model.mass = 0
+  else
     local loaded = fillTypeAt(loadedIndex)
     if loaded ~= nil then
       model.fillType = loaded.name
       model.title = loaded.title
+    end
+    -- What the load itself weighs, and the ONLY honest way to get it.
+    --
+    -- The obvious route -- the mass aspect's `value` minus its `empty` -- is not a payload and never
+    -- was. Vehicle:updateMass adds *everything* getAdditionalComponentMass returns: every fill unit
+    -- the machine has including the diesel and DEF tanks, a hard-attached implement's whole mass, the
+    -- tension belts. On the captured Kuhn SPW that difference carries a constant ~835 kg with an empty
+    -- tub, and an empty wagon read 617 kg of "load" in a real game.
+    --
+    -- So the tub is weighed on its own, with the same arithmetic the engine uses for this very unit
+    -- (FillUnit:getAdditionalComponentMass): level x the density of whatever the tub reports. Note
+    -- that is the density of the MIX, not of its parts -- it does not equal the ingredients' masses
+    -- summed, and it is right where that sum would be incomplete (a pooled ingredient has no weight).
+    local perLiter = massPerLiter(loadedIndex)
+    if perLiter ~= nil then
+      model.mass = tonumber(ValueMapper.mapFloat(model.value * perLiter, 3))
     end
   end
 

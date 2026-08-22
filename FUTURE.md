@@ -153,6 +153,14 @@ reviewed through ImageMagick mockups, because the sandbox has no browser.
 - **A wagon mid-tip.** Every captured wagon is `CLOSED`, so `tipping.side` (as against `preferredSide`)
   has never been seen resolved, and neither has the discharge refusal chip — `discharge.reason` is absent
   in all four, which is correct but means the wording has never been read on screen.
+- **A capture at version 17**, for `mixer.mass`. The four committed ones are v16 and predate the field,
+  so the tub's own weight — and its zero on an empty wagon, which is the bug it was added for — is only
+  asserted from inline JSON.
+- **A per-fill-unit `mass` is the eventual home** for what `mixer.mass` does. Every load has this
+  problem, not just a mixer's: `Mass.value - Mass.empty` counts the diesel, the DEF and anything
+  hard-attached, so no machine's load can be read off it. `aspects/FillUnit.lua` already resolves each
+  unit's fill type and could weigh it there — the mixer's own field exists because the tub cannot be
+  found again in the exported unit list (it carries no indices).
 - **Controls, deliberately not built.** Tip side (`setPreferedTipSide`) and start/stop tipping have **no
   `vdAI*` counterpart in FS25_additionalInputs**, so wiring them would mean calling the engine directly
   for the first time on a driving-time control. Round 1 stayed read-only rather than settle that here.

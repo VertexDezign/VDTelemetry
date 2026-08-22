@@ -207,6 +207,7 @@
 ---@field mixingTime number ms this machine takes to mix after a fill change
 ---@field value number litres in the tub
 ---@field capacity number
+---@field mass number? tonnes of feed in the tub; 0 when empty, absent when the material has no density
 ---@field fillType string?
 ---@field title string?
 ---@field recipe string? fill type the finished mix becomes; absent when the recipe was not resolved

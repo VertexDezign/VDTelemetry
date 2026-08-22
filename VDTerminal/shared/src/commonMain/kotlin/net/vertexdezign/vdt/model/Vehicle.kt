@@ -877,6 +877,21 @@ data class Mixer(
   /** Litres in the tub. */
   val value: Double = 0.0,
   val capacity: Int = 0,
+  /**
+   * Tonnes of feed in the tub — 0 when empty, null when the material has no density the mod could
+   * resolve.
+   *
+   * **This, not `Mass.value - Mass.empty`, is the load.** That difference is everything the engine
+   * adds to a machine's components: every fill unit *including the diesel and DEF tanks*, a
+   * hard-attached implement's whole mass, the tension belts. On a self-propelled mixer it carries a
+   * constant several hundred kilograms with an empty tub. This is the tub alone, weighed with the
+   * engine's own arithmetic for that unit.
+   *
+   * It is also **not** the ingredients' masses summed: this is the density of the *mix*, and it is
+   * right in exactly the case that sum is incomplete — an ingredient pooling several materials has no
+   * weight of its own.
+   */
+  val mass: Double? = null,
   val fillType: String? = null,
   val title: String? = null,
   /** Fill type the finished mix becomes; null when the recipe could not be resolved. */
@@ -958,14 +973,19 @@ enum class MixState {
 }
 
 /**
- * What a machine weighs right now, in **tonnes**, and what it weighs empty — so the payload is the
- * difference.
+ * What a machine weighs right now, in **tonnes**, and what the same machine weighs as an empty model.
  *
- * **These do not add up into a train weight.** The engine folds a *hard-attached* implement's whole
- * mass into its attacher's root component (`AttacherJoints:getAdditionalComponentMass`), so a tractor
- * already carries what is hitched to it and summing the two counts that twice. It also means [payload]
- * is only a load on the machine actually holding one: on a tractor towing a full mixer wagon it is
- * mostly the wagon.
+ * Two things the difference between them is **not**.
+ *
+ * It is not a payload. `Vehicle:updateMass` adds everything `getAdditionalComponentMass` returns —
+ * every fill unit the machine has, the diesel and DEF tanks included, plus a hard-attached implement's
+ * whole mass and the tension belts. A self-propelled mixer with an empty tub still reads several
+ * hundred kilograms over its empty mass. Whatever is *loaded* has to be weighed by whoever knows what
+ * the load is; see [Mixer.mass].
+ *
+ * And they do not add up into a train weight, for the same reason from the other end: a tractor
+ * already carries what is hard-attached to it (`AttacherJoints:getAdditionalComponentMass`), so
+ * summing a rig's machines counts the implements twice.
  *
  * [empty] is null until the engine has run its first mass update on the machine.
  */
@@ -973,10 +993,7 @@ enum class MixState {
 data class Mass(
   val value: Double = 0.0,
   val empty: Double? = null,
-) {
-  /** Tonnes of load, when [empty] is known. */
-  val payload: Double? get() = empty?.let { (value - it).coerceAtLeast(0.0) }
-}
+)
 
 // ---------------------------------------------------------------------------
 // Implements (recursive) + combined
