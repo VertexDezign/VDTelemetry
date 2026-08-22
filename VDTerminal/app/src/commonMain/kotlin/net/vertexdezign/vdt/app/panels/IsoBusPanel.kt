@@ -40,10 +40,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.Panel
@@ -80,14 +83,30 @@ private const val TUB_BOTTOM = 0.54f
 /**
  * Smaller than this the art says nothing a picture is worth saying, so the panel drops it and gives
  * the room to the bars. The picture is orientation; the bars are the reason to look.
+ *
+ * Set by the *text*, not by the machine: the tub's block is about a quarter of the art's width, so
+ * below this the figures written on the body stop being legible — and they read fine in the plain
+ * row that replaces them.
  */
-private val MIN_ART_HEIGHT = 64.dp
+private val MIN_ART_HEIGHT = 96.dp
 
 /** Wide and low enough that the art belongs beside the bars rather than above them. */
 private val SIDE_BY_SIDE_FROM = 520.dp
 
-/** Narrower art than this carries only the two headline figures on the tub; see [MachineArt]. */
-private val TERSE_TUB_BELOW = 260.dp
+/** Line box of the tub's figures, as a multiple of their type size. */
+private const val TUB_LINE = 1.15f
+
+/** The tub's sub-lines, relative to the headline they sit under. */
+private const val SUB_SCALE = 0.62f
+
+/** The gap between the two figures on the tub, as a multiple of the headline's size. */
+private const val TUB_GAP = 0.35f
+
+/** Roughly how many headline glyph-widths the tub's block has to hold: "225,000 l" and some slack. */
+private const val HEADLINE_EMS = 5.2f
+
+/** Below this the four-line block would be too small to read, so it drops to the two figures alone. */
+private const val TUB_FULL_FROM = 12f
 
 /** Past this the panel header can no longer hold the machine's name *and* the state; see [IsoBusPanel]. */
 private val BARE_HEADER_BELOW = 260.dp
@@ -104,7 +123,6 @@ private val STATUS_STRIP_HEIGHT = 23.dp
  */
 internal data class IsoBusMachine(
   val name: String,
-  val isTurnedOn: Boolean?,
   val foldable: FoldableState?,
   val tipping: Tipping?,
   val mass: Mass?,
@@ -117,9 +135,9 @@ internal data class IsoBusMachine(
   val hasSection: Boolean get() = mixer != null
 }
 
-private fun Vehicle.isoBus() = IsoBusMachine(name, isTurnedOn, foldable, tipping, mass, mixer)
+private fun Vehicle.isoBus() = IsoBusMachine(name, foldable, tipping, mass, mixer)
 
-private fun Implement.isoBus() = IsoBusMachine(name, isTurnedOn, foldable, tipping, mass, mixer)
+private fun Implement.isoBus() = IsoBusMachine(name, foldable, tipping, mass, mixer)
 
 /** Every machine on the rig, the vehicle first, then its implements depth-first in hitch order. */
 internal fun rigMachines(vehicle: Vehicle): List<IsoBusMachine> {
@@ -292,71 +310,83 @@ private fun MachineArt(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier)
         modifier = Modifier.fillMaxSize(),
         contentScale = ContentScale.Fit,
       )
-      // Sizes ride the art's width so the block stays inside the tub at every tile size; the clamps
-      // keep it readable on a small tile and stop it ballooning on a full page.
-      val big = (boxW.value * 0.042f).coerceIn(10f, 34f).sp
-      val small = (boxW.value * 0.026f).coerceIn(7f, 18f).sp
-      // Once the clamps are holding the type up, four lines no longer fit the tub. The capacity and
-      // the gross weight are the two that give way: what is in there and what it weighs are the
-      // numbers this block exists for, and the bars carry the ratio either way.
-      val terse = boxW < TERSE_TUB_BELOW
+
+      val tubW = boxW * (TUB_RIGHT - TUB_LEFT)
+      val tubH = boxH * (TUB_BOTTOM - TUB_TOP)
+      val type = tubType(tubW, tubH)
       Column(
         Modifier
           .offset(x = boxW * TUB_LEFT, y = boxH * TUB_TOP)
-          .width(boxW * (TUB_RIGHT - TUB_LEFT))
-          .height(boxH * (TUB_BOTTOM - TUB_TOP)),
+          .width(tubW)
+          .height(tubH),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
         // White on the body's #DA1218 reads at 5.2:1; black would be 4.1:1.
-        Text(
-          "${formatInt(mixer.value.roundToInt())} l",
-          color = VdtColors.White,
-          fontSize = big,
-          fontWeight = FontWeight.Bold,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
-        )
-        if (!terse) {
-          Text(
-            "of ${formatInt(mixer.capacity)}",
-            color = VdtColors.White.copy(alpha = 0.85f),
-            fontSize = small,
-            maxLines = 1,
-          )
+        Text("${formatInt(mixer.value.roundToInt())} l", style = type.headline, maxLines = 1)
+        if (type.full) {
+          Text("of ${formatInt(mixer.capacity)}", style = type.sub, maxLines = 1)
         }
         val payload = mass?.payload
-        if (payload != null) {
-          Spacer(Modifier.height(boxH * 0.04f))
-          Text(
-            formatTonnes(payload),
-            color = VdtColors.White,
-            fontSize = big,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-          )
-          if (!terse) {
-            Text(
-              "${formatTonnes(mass.value)} total",
-              color = VdtColors.White.copy(alpha = 0.85f),
-              fontSize = small,
-              maxLines = 1,
-            )
+        if (mass != null) {
+          Spacer(Modifier.height(type.gap))
+          Text(formatTonnes(payload ?: mass.value), style = type.headline, maxLines = 1)
+          if (type.full && payload != null) {
+            Text("${formatTonnes(mass.value)} total", style = type.sub, maxLines = 1)
           }
-        } else if (mass != null) {
-          Spacer(Modifier.height(boxH * 0.04f))
-          Text(
-            formatTonnes(mass.value),
-            color = VdtColors.White,
-            fontSize = big,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-          )
         }
       }
     }
   }
 }
+
+/** The type the tub's readout is set in, and whether the two sub-lines fit alongside the figures. */
+private data class TubType(val headline: TextStyle, val sub: TextStyle, val gap: Dp, val full: Boolean)
+
+/**
+ * Sizes the block on the tub to the space it actually has, in both axes.
+ *
+ * Two things this has to do that the obvious version does not. It sets an explicit [lineHeight]:
+ * Material 3's default text style carries an **absolute** 24sp line height, so a `Text` given only a
+ * `fontSize` keeps 24dp-tall line boxes however small the type is — four of them overran the tub and
+ * the last two were clipped to slivers. And it picks the **line count from what fits** rather than
+ * from a width threshold: the capacity and the gross weight are what give way, because what is in
+ * there and what it weighs are the numbers this block exists for.
+ */
+@Composable
+private fun tubType(width: Dp, height: Dp): TubType {
+  // A headline glyph is about 0.6em wide and the longest is around nine ("225,000 l"), so the block's
+  // width supports a headline of roughly a fifth of it.
+  val byWidth = width.value / HEADLINE_EMS
+  // Four lines: two headlines, two sub-lines at SUB_SCALE, and the gap between the figures.
+  val four = minOf(height.value / (TUB_LINE * 2 * (1 + SUB_SCALE) + TUB_GAP), byWidth)
+  val two = minOf(height.value / (TUB_LINE * 2 + TUB_GAP), byWidth)
+  val full = four >= TUB_FULL_FROM
+  val size = (if (full) four else two).coerceIn(9f, 34f).sp
+  return TubType(
+    headline = tubStyle(size, VdtColors.White, FontWeight.Bold),
+    sub = tubStyle(size * SUB_SCALE, VdtColors.White.copy(alpha = 0.85f), FontWeight.Normal),
+    gap = (size.value * TUB_GAP).dp,
+    full = full,
+  )
+}
+
+/**
+ * A line box exactly as tall as its type, centred and trimmed — the same treatment `ProgressBar`'s
+ * labels get, and for the same reason: the inherited line height is fixed in absolute sp and has
+ * nothing to do with the size actually being drawn.
+ */
+private fun tubStyle(size: TextUnit, color: Color, weight: FontWeight) = TextStyle(
+  color = color,
+  fontSize = size,
+  fontWeight = weight,
+  lineHeight = size * TUB_LINE,
+  lineHeightStyle =
+  LineHeightStyle(
+    alignment = LineHeightStyle.Alignment.Center,
+    trim = LineHeightStyle.Trim.Both,
+  ),
+)
 
 /** The same two numbers as a plain row, for a tile too short to carry the picture. */
 @Composable
@@ -384,9 +414,16 @@ private fun Figure(label: String, value: String, sub: String?) {
 /**
  * The drum, the discharge and the fold, as a row of chips.
  *
- * "Running" is deliberately its own chip and not the machine's turn-on state: on a mixer wagon
- * turn-on is the **pickup**, while the drum also turns while discharging and for the mix cycle after
- * the last thing went in. Reading one as the other calls a mixing machine idle.
+ * "Running" is the **drum**, and it is deliberately not the machine's turn-on state: the drum also
+ * turns while discharging and for the mix cycle after the last thing went in, so reading turn-on as
+ * "is it running" calls a mixing machine idle.
+ *
+ * There is no second chip for turn-on. On a mixer wagon turn-on engages the loading mechanism — which
+ * on a machine that has none is nothing at all — and it feeds the same condition as the drum, so
+ * whenever it is on the drum is turning too. Shown next to "Running" it was one fact stated twice.
+ * What would earn a chip back is the **bale pickup** specifically (armed, and the game's own "that
+ * bale is not in the recipe"), and that needs `spec.baleTriggers`, which the engine builds server-side
+ * only. See FUTURE.md.
  */
 @Composable
 private fun MachineStatus(machine: IsoBusMachine, mixer: Mixer, showState: Boolean) {
@@ -411,8 +448,6 @@ private fun MachineStatus(machine: IsoBusMachine, mixer: Mixer, showState: Boole
 
       else -> Chip(Icons.Filled.Pause, "Idle", VdtColors.DarkGray)
     }
-
-    if (machine.isTurnedOn == true) Chip(Icons.Filled.HourglassBottom, "Pickup", VdtColors.AccentText)
 
     machine.tipping?.let { TipChip(it) }
 
@@ -479,9 +514,18 @@ private fun RowScope.MixStateChip(mixer: Mixer) {
   Text(mixStateLabel(mixer).uppercase(), color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
 }
 
-/** The engine's own word for what is in the tub. */
+/**
+ * What is in the tub, in a word.
+ *
+ * The engine's own title carries it in two of the three loaded states — the material while one thing
+ * is in ("Silage"), the recipe's own name once the mix is finished ("Futter"). It cannot carry the
+ * third: the German title of FORAGE_MIXING is **also** "Futter", so an in-game capture showed the
+ * header reading the same word whether the mix was right or not. Our own word for it instead, and
+ * deliberately not "mixing" — the status strip already uses that for the drum turning.
+ */
 private fun mixStateLabel(mixer: Mixer): String = when (mixer.state) {
   MixState.EMPTY -> "Empty"
+  MixState.OUT_OF_RATIO -> "Off ratio"
   else -> mixer.title ?: mixer.fillType ?: "Loaded"
 }
 
