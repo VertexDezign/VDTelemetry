@@ -1204,49 +1204,138 @@ class VdtModelTest {
       """{"name":"MINERALS","title":"Kraftfutter","fillTypes":["MINERAL_FEED"],""" +
       """"minPercentage":5,"maxPercentage":15,"value":900.0,"mass":0.45}"""
 
-  /** The same recipe on a half-full wagon: 3000 / 1200 / 450 l, the same ratios as [threeIngredients]. */
-  private val halfLoad =
-    """{"name":"SILAGE","title":"Grundfutter","fillTypes":["SILAGE"],"minPercentage":40,""" +
-      """"maxPercentage":75,"value":3000.0,"mass":1.2},""" +
-      """{"name":"HAY","title":"Raufutter","fillTypes":["HAY","STRAW"],"minPercentage":20,""" +
-      """"maxPercentage":40,"value":1200.0},""" +
-      """{"name":"MINERALS","title":"Kraftfutter","fillTypes":["MINERAL_FEED"],""" +
-      """"minPercentage":5,"maxPercentage":15,"value":450.0,"mass":0.225}"""
+  /**
+   * The one committed mixer capture: a Kuhn SPW Intense (self-propelled) with 18000 l of an
+   * out-of-ratio mix, taken 2026-08-22 without Precision Farming. It is the evidence behind every
+   * assertion in this block that is not about a state the machine was not in.
+   */
+  private fun capturedWagon() = assertNotNull(capture("telemetry/vanilla/selfDrivingMixerWagon.json").vehicle)
+
+  private fun capturedMixer() = assertNotNull(capturedWagon().mixer)
 
   @Test
-  fun decodesAMixerWagon() {
-    val mixer = assertNotNull(mixerJson("FORAGE", threeIngredients))
-    assertEquals(9300.0, mixer.value)
-    assertEquals(12000, mixer.capacity)
-    assertEquals(5000, mixer.mixingTime)
-    assertEquals("FORAGE", mixer.recipe)
-    assertEquals(3, mixer.ingredients.size)
+  fun decodesTheCapturedMixerWagon() {
+    val wagon = capturedWagon()
+    // Self-propelled: the aspect sits on the VEHICLE, and there is no implement to have found it on.
+    // Which is why `mixer` had to go on both Vehicle and Implement rather than only the latter.
+    assertEquals("drivableMixerWagon", wagon.type)
+    assertTrue(wagon.implement.isEmpty())
 
-    val silage = mixer.ingredients.first()
-    assertEquals("Grundfutter", silage.title)
-    assertEquals(listOf("SILAGE"), silage.fillTypes)
-    assertEquals(40, silage.minPercentage)
-    assertEquals(2.4, silage.mass)
-    // An ingredient pooling two materials carries no weight — there is no honest one.
-    assertEquals(null, mixer.ingredients[1].mass)
-    assertEquals(listOf("HAY", "STRAW"), mixer.ingredients[1].fillTypes)
+    val mixer = capturedMixer()
+    assertEquals(18000.0, mixer.value)
+    assertEquals(25000, mixer.capacity)
+    assertEquals(5000, mixer.mixingTime)
+    assertEquals("FORAGE_MIXING", mixer.fillType)
+    assertEquals(MixState.OUT_OF_RATIO, mixer.state)
+    assertEquals(4, mixer.ingredients.size)
+  }
+
+  @Test
+  fun theRecipeLookupLandsOnARealMachine() {
+    // MixerWagon:onLoad drops the recipe's own fill type and the ingredients' authored titles, so
+    // the collector finds the recipe back by matching the ingredient names it kept. This is that
+    // search having worked on a real map: without it there is no `recipe`, and the four bars would
+    // be labelled with their materials instead ("Grasschnitt", "Silage", "Stroh", …).
+    val mixer = capturedMixer()
+    assertEquals("FORAGE", mixer.recipe)
+    assertEquals(
+      listOf("Heu", "Silage", "Stroh", "Mineralfutter"),
+      mixer.ingredients.map { it.title },
+    )
+  }
+
+  @Test
+  fun theEnginesTitleCannotTellOffRatioFromFinished() {
+    // Why the panel needs a word of its own for OUT_OF_RATIO: the German title of FORAGE_MIXING is
+    // *the same string* as FORAGE's, so a header showing the engine's title reads "Futter" whether
+    // the mix is right or not. Found in game, and this is the capture that shows it.
+    val mixer = capturedMixer()
+    assertEquals("FORAGE_MIXING", mixer.fillType)
+    assertEquals("Futter", mixer.title)
+    assertEquals("Futter", assertNotNull(capturedWagon().fillUnits?.fillUnit?.single()).title)
   }
 
   @Test
   fun aMixerBarIsAShareOfTheLoadNotOfTheCapacity() {
-    // The single easiest thing to get wrong, shown on a half-full wagon where the two readings
-    // disagree about the answer rather than merely about the number: the game's own HUD sums the
-    // ingredient levels and divides by that sum. The same silage is 64.5% of the load and inside its
-    // 40–75% window, but only 25% of the tub — so a bar drawn against `capacity` would report a
-    // perfectly good mix as short of silage on every wagon that is not brim full.
-    val mixer = assertNotNull(mixerJson("FORAGE", halfLoad, value = "4650"))
-    assertEquals(4650.0, mixer.loaded)
+    // The single easiest thing to get wrong, and the capture contains a real instance of it rather
+    // than a constructed one. The game's own HUD sums the ingredient levels and divides by that sum.
+    // The straw is 39% of the 18000 l load — over its 30% ceiling, which is exactly why the engine
+    // called the whole mix FORAGE_MIXING — but only 28% of the 25000 l tub, which is inside. A bar
+    // drawn against `capacity` would have shown four ticks on a mix the game had already rejected.
+    val mixer = capturedMixer()
+    assertEquals(18000.0, mixer.loaded)
 
-    val silage = mixer.ingredients.first()
-    val share = mixer.shareOf(silage)
-    assertEquals(0.645, share, 0.001)
-    assertTrue(silage.holds(share), "3000 of 4650 l is 64.5%, inside silage's 40–75% window")
-    assertTrue(!silage.holds(3000.0 / mixer.capacity), "against capacity it would read 25%")
+    val straw = mixer.ingredients.single { it.name == "straw" }
+    val share = mixer.shareOf(straw)
+    assertEquals(0.389, share, 0.001)
+    assertTrue(!straw.holds(share), "7000 of 18000 l is 39%, over straw's 30% ceiling")
+    assertTrue(straw.holds(7000.0 / mixer.capacity), "against capacity it would read 28% and pass")
+
+    // …and it is the *only* one outside its window, so the engine's verdict has exactly one cause.
+    assertEquals(listOf(straw), mixer.ingredients.filterNot { it.holds(mixer.shareOf(it)) })
+  }
+
+  @Test
+  fun anIngredientPoolingSeveralMaterialsIsUnweighed() {
+    // Half of the base game's forage recipe turns out to be pooled, which is what made this worth
+    // guarding: one litre count for two materials of different density, and no record of which went
+    // in. Absent rather than a weight computed from whichever we reached first.
+    val byName = capturedMixer().ingredients.associateBy { it.name }
+
+    val hay = assertNotNull(byName["dryGrass"])
+    assertEquals(listOf("DRYGRASS_WINDROW", "HAY_PELLETS"), hay.fillTypes)
+    assertEquals(6000.0, hay.value)
+    assertEquals(null, hay.mass, "6000 l of it, and still no honest weight")
+
+    val silage = assertNotNull(byName["silage"])
+    assertEquals(listOf("SILAGE"), silage.fillTypes)
+    assertEquals(2.25, silage.mass)
+  }
+
+  @Test
+  fun anIngredientTheRecipeMakesOptionalIsNeverShort() {
+    // Straw and mineral feed really are declared with a 0% minimum, so an empty mineral-feed bar is
+    // not a fault and must not be flagged as one — which `holds` gets right only because the window
+    // is inclusive of its ends.
+    val byName = capturedMixer().ingredients.associateBy { it.name }
+    val mineral = assertNotNull(byName["mineralFeed"])
+    assertEquals(0, mineral.minPercentage)
+    assertEquals(7, mineral.maxPercentage)
+    assertEquals(0.0, mineral.value)
+    assertTrue(mineral.holds(0.0))
+  }
+
+  @Test
+  fun theCapturedWagonNamesFourTipSides() {
+    // The first real evidence for `sides`: four of them, localized by the engine at load, and
+    // 1-indexed by `preferredSide`. `side` is absent because nothing was tipping.
+    val tipping = assertNotNull(capturedWagon().tipping)
+    assertEquals(TipState.CLOSED, tipping.state)
+    assertEquals(4, tipping.count)
+    assertEquals(listOf("Links", "Rechts", "Links hinten", "Rechts hinten"), tipping.sides)
+    assertEquals(1, tipping.preferredSide)
+    assertEquals("Links", tipping.sides[assertNotNull(tipping.preferredSide) - 1])
+    assertEquals(null, tipping.side)
+  }
+
+  @Test
+  fun theCapturedWagonWeighsItsLoad() {
+    val mass = assertNotNull(capturedWagon().mass)
+    assertEquals(21.198, mass.value)
+    assertEquals(14.965, mass.empty)
+    // 18000 l of mixed forage: 6.2 t, about 0.35 kg/l.
+    assertEquals(6.233, assertNotNull(mass.payload), 0.0001)
+  }
+
+  @Test
+  fun theDrumTurnsBecauseTheMachineIsOnNotBecauseItIsMixing() {
+    // The capture is the case that cost the panel its "Pickup" chip: turn-on and the drum are the
+    // same observable here, with no mix cycle left to distinguish them.
+    val mixer = capturedMixer()
+    assertEquals(true, capturedWagon().isTurnedOn)
+    assertTrue(mixer.running)
+    assertTrue(mixer.powered)
+    assertEquals(0, mixer.remaining)
   }
 
   @Test
@@ -1261,7 +1350,8 @@ class VdtModelTest {
   @Test
   fun mixerStateIsTheEnginesVerdictNotOurArithmetic() {
     // Identical bars, three different answers — which is exactly why the state is read off the tub's
-    // fill type rather than recomputed from the ratios.
+    // fill type rather than recomputed from the ratios. Inline because one wagon cannot be in three
+    // states at once; the captured one covers OUT_OF_RATIO above.
     assertEquals(MixState.READY, assertNotNull(mixerJson("FORAGE", threeIngredients)).state)
     assertEquals(
       MixState.OUT_OF_RATIO,

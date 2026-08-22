@@ -136,25 +136,27 @@ dispatch rule has its first real user, but **none of round 1's four aspects has 
 
 ### Mixer wagon (#113), what round 1 left
 
-Built and formatter-clean; **nothing has been seen in game yet**, and the layout was reviewed only through
-ImageMagick mockups, because the sandbox has no browser.
+Built, and **seen in singleplayer once** — `examples/json/telemetry/vanilla/selfDrivingMixerWagon.json`
+(a Kuhn SPW Intense, 18000 l of an out-of-ratio mix) drives nine `VdtModelTest` cases and closed three of
+the questions this list opened with: the recipe lookup lands, the authored ingredient titles arrive, and
+the per-ingredient weight really does appear on half the base game's forage recipe (silage and mineral
+feed accept one material each; hay and straw pool two, and are correctly unweighed). The layout was still
+only ever reviewed through ImageMagick mockups, because the sandbox has no browser.
 
-- **In-game checks, in the order they matter.**
-  * `mixer.remaining` on a **multiplayer client**. The whole chain is unusual: the mixer's fill unit is
-    taken out of the normal fill-unit sync (`synchronizeFillLevel = false`), the ingredient levels ride
-    `MixerWagon`'s own update stream, and the client re-applies them through `addFillUnitFillLevel`,
-    which is also what sets `activeTimer`. It should work; it has never been watched.
-  * `mass` on a client, for the same reason — `Vehicle:updateMass` runs ungated, but only for a vehicle
-    the client is actually updating.
-  * The **recipe lookup**. `findRecipe` matches the ingredient names `MixerWagon:onLoad` kept, in order,
-    against `animalFoodSystem.recipes`. If it misses, `recipe` and the authored ingredient titles are
-    both absent and the panel falls back to the materials' own names — visible, but a fallback nobody
-    has watched land.
-  * Whether the **per-ingredient `mass`** is present at all. It is emitted only for an ingredient that
-    pools a single material, and nobody has looked at what the base game's FORAGE recipe actually
-    declares — if every ingredient pools two, the column never appears.
-- **A capture.** See "Captures wanted as fixtures" below: a loaded wagon mid-mix and one showing a valid
-  mix, so the three `MixState` answers are all evidenced rather than asserted inline.
+- **In-game checks still open.**
+  * `mixer.remaining` **at all**. The capture caught the machine switched on with the mix cycle already
+    expired, so the countdown — and the "Mixing 3.2s" chip that reads it — has never been observed
+    non-zero.
+  * `mixer.remaining` and `mass` on a **multiplayer client**. The chain is unusual: the mixer's fill unit
+    is taken out of the normal fill-unit sync (`synchronizeFillLevel = false`), the ingredient levels
+    ride `MixerWagon`'s own update stream, and the client re-applies them through `addFillUnitFillLevel`,
+    which is also what sets `activeTimer`. `Vehicle:updateMass` runs ungated but only for a vehicle the
+    client is actually updating.
+  * A **towed** mixer wagon. The only capture is self-propelled, so the aspect has only ever been seen on
+    a `Vehicle` and never on an `Implement` — which is also the only way the widget's position option
+    and the `Auto` search get exercised.
+- **A capture of a valid mix.** See "Captures wanted as fixtures" below: `MixState.READY` and `SINGLE` are
+  still asserted from inline JSON.
 - **Controls, deliberately not built.** Tip side (`setPreferedTipSide`) and start/stop tipping have **no
   `vdAI*` counterpart in FS25_additionalInputs**, so wiring them would mean calling the engine directly
   for the first time on a driving-time control. Round 1 stayed read-only rather than settle that here.
@@ -529,12 +531,13 @@ machine that has them.
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
-- **A mixer wagon, twice.** One **mid-mix** (the tub reading `FORAGE_MIXING`, at least one ingredient
-  outside its window) and one with a **valid mix** (the tub reading the recipe's own fill type), so all
-  three loaded `MixState` answers are evidenced rather than asserted from inline JSON. Ideally one of
-  them from a **multiplayer client**, which is where the ingredient levels and the mix countdown take
-  their unusual route (see ISOBUS → "Mixer wagon (#113)"). `VdtModelTest` covers the shapes with inline
-  JSON meanwhile.
+- **A mixer wagon with a mix that is actually right.** `selfDrivingMixerWagon.json` is committed and
+  covers `FORAGE_MIXING` — its straw is 39% of the load against a 30% ceiling, which is a real instance
+  of the share-of-the-load-not-the-capacity trap and now the test for it. What it cannot show is the tub
+  reading the recipe's own fill type (`READY`) or a single material (`SINGLE`), both still inline JSON.
+  Also wanted: a **towed** one (the capture is self-propelled, so the aspect has only been seen on a
+  `Vehicle`), and one from a **multiplayer client**, which is where the ingredient levels and the mix
+  countdown take their unusual route (see ISOBUS → "Mixer wagon (#113)").
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
