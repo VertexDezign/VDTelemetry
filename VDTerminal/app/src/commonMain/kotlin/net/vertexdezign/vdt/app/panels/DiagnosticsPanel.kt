@@ -169,6 +169,11 @@ private val FRIENDLY_NAMES =
     "husbandry.json" to "Animals",
     "missions.json" to "Missions",
     "fieldInfo.json" to "Field info",
+    "cropCalendar.json" to "Crop calendar",
+    "weather.json" to "Weather",
+    // Missing until now, so these two listed as their raw filenames.
+    "finance.json" to "Finance",
+    "invoices.json" to "Invoices",
     "taskList.json" to "Task list",
     "cropRotation.json" to "Crop rotation",
   )

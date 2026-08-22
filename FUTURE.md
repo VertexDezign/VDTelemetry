@@ -351,6 +351,10 @@ supports it: a channel whose `markDirty()` is driven by a position bucket rather
 
 Each one is cheap to do while playing and settles something above.
 
+- **A southern-hemisphere map**, to confirm the calendar's column labels really shift: `g_i18n:formatPeriod` keys off
+  `environment.daylight.latitude < 0` and should label period 1 September rather than March. This is the whole reason
+  the labels cross the wire instead of being a lookup table in the app.
+
 - Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? It is visible in the exported JSON as
   `display`, so this is just a matter of looking. Decides whether the stepped bar is worth building.
 - Does a multi-state pipe report sensibly — an auger wagon should give `pipe.numStates > 2`? Read the JSON; nothing

@@ -25,6 +25,7 @@ whose mod isn't installed is not listed at all, rather than showing an empty scr
 | **Map** | the PDA map: the DDS map image, POIs, fields, vehicle markers, the steering course, and the ground-layer overlays below |
 | **Production** / **Storage** / **Animals** | the farm's production points and factories, its silos and object storages, and its animal pens |
 | **Contracts** | the farm's missions — on offer, running, waiting to be collected — with accept / cancel / collect |
+| **Calendar** | the game's crop calendar — the sowing and harvest periods of every crop, with a today line — searchable by name and filterable to what can be sown or harvested *now*, over the weather forecast (now, twelve two-hourly steps, six days) |
 | **Finance** | the balance, the month-by-month table and the money log, borrow and repay; Enhanced Loan System's annuity loans stand in for the base loan where it is installed, and FS25_Invoices adds an Invoices tab |
 | **Tasks** / **Crop Rotation** | FS25_TaskList and FS25_CropRotation, both read *and* write |
 | **Diagnostics** | what the mod is actually writing: each channel's observed cadence and staleness, measured server-side |

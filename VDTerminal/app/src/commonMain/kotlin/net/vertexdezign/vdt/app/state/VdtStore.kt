@@ -9,6 +9,7 @@ import net.vertexdezign.vdt.app.WakeLockStatus
 import net.vertexdezign.vdt.app.alerts.AlertEngine
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.PageStore
+import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
@@ -23,6 +24,7 @@ import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
+import net.vertexdezign.vdt.model.WeatherForecastData
 
 /**
  * Ambient container for everything a screen or widget might need: the live telemetry channels (as
@@ -58,6 +60,13 @@ class VdtStore(
    * installed mod with nothing to show, which sends an empty list.
    */
   val invoices: StateFlow<InvoicesData?>,
+  /**
+   * Which of the twelve periods each crop may be sown and harvested in — the game's own
+   * Anbaukalender. Null when the channel is absent.
+   */
+  val cropCalendar: StateFlow<CropCalendarData?>,
+  /** The forecast: now, twelve two-hourly steps, six days out; null when the channel is absent. */
+  val weather: StateFlow<WeatherForecastData?>,
   /** Server-measured observed cadence of each channel file (diagnostics app); null until first frame. */
   val channelStats: StateFlow<ChannelStatsData?>,
   val wakeLock: StateFlow<WakeLockStatus>,

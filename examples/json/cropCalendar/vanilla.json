@@ -1,0 +1,453 @@
+{
+  "periods": [
+    {
+      "season": "SPRING",
+      "period": 1,
+      "label": "März"
+    },
+    {
+      "season": "SPRING",
+      "period": 2,
+      "label": "Apr"
+    },
+    {
+      "season": "SPRING",
+      "period": 3,
+      "label": "Mai"
+    },
+    {
+      "season": "SUMMER",
+      "period": 4,
+      "label": "Jun"
+    },
+    {
+      "season": "SUMMER",
+      "period": 5,
+      "label": "Jul"
+    },
+    {
+      "season": "SUMMER",
+      "period": 6,
+      "label": "Aug"
+    },
+    {
+      "season": "AUTUMN",
+      "period": 7,
+      "label": "Sept"
+    },
+    {
+      "season": "AUTUMN",
+      "period": 8,
+      "label": "Okt"
+    },
+    {
+      "season": "AUTUMN",
+      "period": 9,
+      "label": "Nov"
+    },
+    {
+      "season": "WINTER",
+      "period": 10,
+      "label": "Dez"
+    },
+    {
+      "season": "WINTER",
+      "period": 11,
+      "label": "Jan"
+    },
+    {
+      "season": "WINTER",
+      "period": 12,
+      "label": "Feb"
+    }
+  ],
+  "version": "1",
+  "today": {
+    "dayInPeriod": 1,
+    "daysPerPeriod": 1,
+    "period": 6,
+    "year": 1
+  },
+  "growthMode": "SEASONAL",
+  "crops": [
+    {
+      "name": "Baumwolle",
+      "id": "COTTON",
+      "plant": [
+        1,
+        12
+      ],
+      "harvest": [
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Buschbohnen",
+      "id": "GREENBEAN",
+      "plant": [
+        2,
+        3,
+        4
+      ],
+      "harvest": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Erbsen",
+      "id": "PEA",
+      "plant": [
+        1,
+        2
+      ],
+      "harvest": [
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "name": "Gerste",
+      "id": "BARLEY",
+      "plant": [
+        7,
+        8
+      ],
+      "harvest": [
+        4,
+        5
+      ]
+    },
+    {
+      "name": "Gras",
+      "id": "GRASS",
+      "plant": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "harvest": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Hafer",
+      "id": "OAT",
+      "plant": [
+        1,
+        2
+      ],
+      "harvest": [
+        5,
+        6
+      ]
+    },
+    {
+      "name": "Hirse",
+      "id": "SORGHUM",
+      "plant": [
+        2,
+        3
+      ],
+      "harvest": [
+        6,
+        7
+      ]
+    },
+    {
+      "name": "Karotten",
+      "id": "CARROT",
+      "plant": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "harvest": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Kartoffeln",
+      "id": "POTATO",
+      "plant": [
+        1,
+        2
+      ],
+      "harvest": [
+        6,
+        7
+      ]
+    },
+    {
+      "name": "Langkornreis",
+      "id": "RICELONGGRAIN",
+      "plant": [
+        2
+      ],
+      "harvest": [
+        7
+      ]
+    },
+    {
+      "name": "Mais",
+      "id": "MAIZE",
+      "plant": [
+        2,
+        3
+      ],
+      "harvest": [
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Oliven",
+      "id": "OLIVE",
+      "plant": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "harvest": [
+        8
+      ]
+    },
+    {
+      "name": "Pappel",
+      "id": "POPLAR",
+      "plant": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "harvest": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "name": "Pastinaken",
+      "id": "PARSNIP",
+      "plant": [
+        2,
+        3,
+        4
+      ],
+      "harvest": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Raps",
+      "id": "CANOLA",
+      "plant": [
+        6,
+        7
+      ],
+      "harvest": [
+        5,
+        6
+      ]
+    },
+    {
+      "name": "Reis",
+      "id": "RICE",
+      "plant": [
+        2,
+        3
+      ],
+      "harvest": [
+        6,
+        7
+      ]
+    },
+    {
+      "name": "Rote Beete",
+      "id": "BEETROOT",
+      "plant": [
+        2,
+        3,
+        4
+      ],
+      "harvest": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Sojabohnen",
+      "id": "SOYBEAN",
+      "plant": [
+        2,
+        3
+      ],
+      "harvest": [
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Sonnenblumen",
+      "id": "SUNFLOWER",
+      "plant": [
+        1,
+        2
+      ],
+      "harvest": [
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Spinat",
+      "id": "SPINACH",
+      "plant": [
+        1,
+        2,
+        3
+      ],
+      "harvest": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Trauben",
+      "id": "GRAPE",
+      "plant": [
+        1,
+        2,
+        3
+      ],
+      "harvest": [
+        7,
+        8
+      ]
+    },
+    {
+      "name": "Weizen",
+      "id": "WHEAT",
+      "plant": [
+        7,
+        8
+      ],
+      "harvest": [
+        5,
+        6
+      ]
+    },
+    {
+      "name": "Zuckerrohr",
+      "id": "SUGARCANE",
+      "plant": [
+        1,
+        2
+      ],
+      "harvest": [
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Zuckerrüben",
+      "id": "SUGARBEET",
+      "plant": [
+        1,
+        2
+      ],
+      "harvest": [
+        8,
+        9
+      ]
+    },
+    {
+      "name": "Zwiebeln",
+      "id": "ONION",
+      "plant": [
+        1,
+        2
+      ],
+      "harvest": [
+        6,
+        7
+      ]
+    },
+    {
+      "name": "Ölrettich",
+      "id": "OILSEEDRADISH",
+      "plant": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "catchCrop": true,
+      "harvest": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    }
+  ]
+}

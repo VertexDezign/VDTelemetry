@@ -1,0 +1,182 @@
+{
+  "current": {
+    "temperature": 24,
+    "windSpeed": 10.6,
+    "windDirection": 315,
+    "type": "RAIN",
+    "windBeaufort": 5
+  },
+  "version": "1",
+  "hourly": [
+    {
+      "type": "RAIN",
+      "windSpeed": 10.6,
+      "temperature": 23,
+      "windDirection": 309,
+      "hour": 17,
+      "windBeaufort": 5
+    },
+    {
+      "type": "SUN",
+      "windSpeed": 2.8,
+      "temperature": 21,
+      "windDirection": 303,
+      "hour": 19,
+      "windBeaufort": 2
+    },
+    {
+      "type": "SUN",
+      "windSpeed": 2.8,
+      "temperature": 19,
+      "windDirection": 303,
+      "hour": 21,
+      "windBeaufort": 2
+    },
+    {
+      "type": "SUN",
+      "windSpeed": 2.8,
+      "temperature": 17,
+      "windDirection": 303,
+      "hour": 23,
+      "windBeaufort": 2
+    },
+    {
+      "type": "CLOUDY",
+      "windSpeed": 7.8,
+      "temperature": 8,
+      "windDirection": 315,
+      "hour": 1,
+      "windBeaufort": 4
+    },
+    {
+      "type": "CLOUDY",
+      "windSpeed": 7.8,
+      "temperature": 8,
+      "windDirection": 315,
+      "hour": 3,
+      "windBeaufort": 4
+    },
+    {
+      "type": "CLOUDY",
+      "windSpeed": 7.8,
+      "temperature": 9,
+      "windDirection": 315,
+      "hour": 5,
+      "windBeaufort": 4
+    },
+    {
+      "type": "CLOUDY",
+      "windSpeed": 7.8,
+      "temperature": 10,
+      "windDirection": 315,
+      "hour": 7,
+      "windBeaufort": 4
+    },
+    {
+      "type": "CLOUDY",
+      "windSpeed": 5.8,
+      "temperature": 11,
+      "windDirection": 308,
+      "hour": 9,
+      "windBeaufort": 3
+    },
+    {
+      "type": "CLOUDY",
+      "windSpeed": 5.8,
+      "temperature": 12,
+      "windDirection": 308,
+      "hour": 11,
+      "windBeaufort": 3
+    },
+    {
+      "type": "CLOUDY",
+      "windSpeed": 5.8,
+      "temperature": 13,
+      "windDirection": 308,
+      "hour": 13,
+      "windBeaufort": 3
+    },
+    {
+      "type": "CLOUDY",
+      "windSpeed": 5.8,
+      "temperature": 13,
+      "windDirection": 308,
+      "hour": 15,
+      "windBeaufort": 3
+    }
+  ],
+  "today": {
+    "dayInPeriod": 1,
+    "period": 6,
+    "label": "August"
+  },
+  "temperatureUnit": "°C",
+  "daily": [
+    {
+      "type": "SUN",
+      "label": "Sept",
+      "high": 13,
+      "low": 8,
+      "period": 7,
+      "windSpeed": 7.8,
+      "dayInPeriod": 1,
+      "windDirection": 315,
+      "windBeaufort": 4
+    },
+    {
+      "type": "PARTIALLY_CLOUDY",
+      "label": "Okt",
+      "high": 13,
+      "low": 8,
+      "period": 8,
+      "windSpeed": 6.5,
+      "dayInPeriod": 1,
+      "windDirection": 315,
+      "windBeaufort": 4
+    },
+    {
+      "type": "PARTIALLY_CLOUDY",
+      "label": "Nov",
+      "high": 14,
+      "low": 8,
+      "period": 9,
+      "windSpeed": 7,
+      "dayInPeriod": 1,
+      "windDirection": 315,
+      "windBeaufort": 4
+    },
+    {
+      "type": "SNOW",
+      "label": "Dez",
+      "high": 8,
+      "low": 4,
+      "period": 10,
+      "windSpeed": 11.1,
+      "dayInPeriod": 1,
+      "windDirection": 315,
+      "windBeaufort": 5
+    },
+    {
+      "type": "SNOW",
+      "label": "Jan",
+      "high": 10,
+      "low": 4,
+      "period": 11,
+      "windSpeed": 9.3,
+      "dayInPeriod": 1,
+      "windDirection": 315,
+      "windBeaufort": 5
+    },
+    {
+      "type": "SNOW",
+      "label": "Feb",
+      "high": 10,
+      "low": 4,
+      "period": 12,
+      "windSpeed": 7.5,
+      "dayInPeriod": 1,
+      "windDirection": 315,
+      "windBeaufort": 4
+    }
+  ]
+}

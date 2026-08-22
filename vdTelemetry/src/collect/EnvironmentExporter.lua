@@ -17,16 +17,26 @@ function VDT.EnvironmentExporter.collect(pda)
     time = ValueMapper.formatGameTime(environment),
   }
 
-  -- weather
+  -- weather. Only the temperature: the forecast is its own channel on its own cadence
+  -- (src/collect/WeatherExporter.lua), and this stays here because it is the live half. Today's
+  -- min/max exist nowhere else -- weather.json's outlook starts tomorrow -- and the header reads
+  -- this at the tick, where the weather channel may be switched off entirely.
+  --
+  -- getCurrentTemperature() rather than forecast:getCurrentWeather().temperature, which is what it
+  -- returns anyway: the forecast call also walks forecastItems for a weather type and derives a wind
+  -- angle, and three of its four fields were being dropped here 10x a second.
   local weather = environment.weather
   local minTemperatureInC, maxTemperatureInC = weather:getCurrentMinMaxTemperatures()
-  local currentTemperatureInC = weather.forecast:getCurrentWeather()
+  -- getTemperature converts to the player's chosen unit, so the unit label has to come from g_i18n
+  -- too: hardcoding "°C" here reported Fahrenheit values under a Celsius label for anyone who had
+  -- switched. Same pairing as the weather channel, and the same rounding -- MathUtil.round(x, 0) is
+  -- math.floor(x + 0.5), so the header and the calendar's "now" cell cannot print different degrees.
   model.weather = {
     temperature = {
       min = MathUtil.round(g_i18n:getTemperature(minTemperatureInC), 0),
       max = MathUtil.round(g_i18n:getTemperature(maxTemperatureInC), 0),
-      current = MathUtil.round(g_i18n:getTemperature(currentTemperatureInC.temperature), 0),
-      unit = "°C",
+      current = MathUtil.round(g_i18n:getTemperature(weather:getCurrentTemperature()), 0),
+      unit = g_i18n:getTemperatureUnit(false),
     },
   }
 

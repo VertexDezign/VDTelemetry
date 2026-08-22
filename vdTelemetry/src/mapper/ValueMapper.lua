@@ -56,6 +56,22 @@ function ValueMapper.convertFromMsToKMH(speedInMs)
   return speedInMs * 3.6
 end
 
+--- Wind speed as the Beaufort number the game prints in its own weather menu.
+---
+--- Lifted verbatim from InGameMenuCalendarFrame:meterPerSecondToBeaufort rather than derived from the
+--- real Beaufort scale: the game's version rounds the speed UP to a whole m/s before converting, so it
+--- disagrees with the physical scale at most speeds. Matching the menu matters more than being right
+--- about meteorology -- a forecast that reads "3" beside a game that says "4" is just wrong to a player.
+--- (`^` rather than the engine's math.pow: identical in Lua 5.1, and it survives a newer interpreter.)
+---@param speedInMs number|nil The wind speed in m/s
+---@return number|nil the Beaufort number, nil for a nil speed (callers default it)
+function ValueMapper.windSpeedToBeaufort(speedInMs)
+  if speedInMs == nil then
+    return nil
+  end
+  return math.floor((math.ceil(speedInMs) / 0.836) ^ (2 / 3))
+end
+
 ---@param value number 0..1
 ---@param decimals number How much decimals it should return, defaults to 2
 ---@return string The formated value as percentage

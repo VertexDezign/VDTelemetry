@@ -1,0 +1,57 @@
+-- Model definitions for the weather export channel (weather.json,
+-- src/collect/WeatherExporter.lua).
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/WeatherForecast.kt) and the
+-- fixtures in examples/json/weather/*.
+--
+-- The forecast half of the game's Anbaukalender (InGameMenuCalendarFrame): what it is doing now,
+-- twelve two-hourly steps ahead, and six days out. Distinct from the telemetry channel's
+-- `environment.weather`, which carries only the live min/max/current temperature at the 100 ms tick.
+--
+-- Temperatures are already in the player's chosen unit (g_i18n:getTemperature) and `temperatureUnit`
+-- names it, so a Fahrenheit player gets Fahrenheit here and the app never converts.
+
+---@class WeatherDayModel which day the forecast starts from
+---@field label string the game's own localized day caption ("August 1"), from formatDayInPeriod
+---@field period number 1..12
+---@field dayInPeriod number 1..daysPerPeriod
+
+---@class WeatherNowModel current conditions (forecast:getCurrentWeather())
+---@field type string the WeatherType name: SUN | PARTIALLY_CLOUDY | CLOUDY | RAIN | SNOW | HAIL |
+---  TWISTER | THUNDER
+---@field temperature number in `temperatureUnit`
+---@field windSpeed number m/s
+---@field windBeaufort number the game's own Beaufort number (ValueMapper.windSpeedToBeaufort), so
+---  our readout matches the one in the menu
+---@field windDirection number degrees, the game's raw angle. The game draws its arrow at
+---  `windDirection + 180`; consumers wanting to match it must do the same. Deliberately NOT put
+---  through ValueMapper.headingFromYRotation -- see the collector's header for why
+
+---@class WeatherHourModel one step of the hourly forecast, two hours apart
+---@field hour number the hour of the in-game day, 0..23. The list runs forward from now and wraps
+---  past midnight, so it is ordered rather than sorted
+---@field type string WeatherType name, as WeatherNowModel.type
+---@field temperature number in `temperatureUnit`
+---@field windSpeed number m/s
+---@field windBeaufort number
+---@field windDirection number degrees; same convention as WeatherNowModel.windDirection
+
+---@class WeatherDailyModel one day of the outlook
+---@field label string the game's own localized short day caption ("Aug 2")
+---@field period number 1..12
+---@field dayInPeriod number 1..daysPerPeriod
+---@field type string WeatherType name; the day's dominant type, as the game aggregates it
+---@field high number day's high, in `temperatureUnit`
+---@field low number day's low, in `temperatureUnit`
+---@field windSpeed number m/s
+---@field windBeaufort number
+---@field windDirection number degrees; same convention as WeatherNowModel.windDirection
+
+---@class WeatherForecastModel
+---@field version string channel version, independent of VDTelemetry.VERSION
+---@field temperatureUnit string the unit every temperature in this file is in ("°C" / "°F")
+---@field today WeatherDayModel?
+---@field current WeatherNowModel?
+---@field hourly WeatherHourModel[]? twelve steps, two hours apart, starting now
+---@field daily WeatherDailyModel[]? six days, starting tomorrow

@@ -16,6 +16,7 @@ import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
+import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
@@ -30,6 +31,7 @@ import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
+import net.vertexdezign.vdt.model.WeatherForecastData
 import kotlin.math.roundToInt
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -129,6 +131,16 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // INSTALLED, not merely "no data": the file only ever exists when it is.
   private val _invoices = MutableStateFlow<InvoicesData?>(null)
   val invoices: StateFlow<InvoicesData?> = _invoices.asStateFlow()
+
+  // Which periods each crop may be sown and harvested in, rewritten once per in-game day; same
+  // null-when-absent contract as production.
+  private val _cropCalendar = MutableStateFlow<CropCalendarData?>(null)
+  val cropCalendar: StateFlow<CropCalendarData?> = _cropCalendar.asStateFlow()
+
+  // The forecast (now, twelve two-hourly steps, six days), on the in-game hour; same
+  // null-when-absent contract as production.
+  private val _weather = MutableStateFlow<WeatherForecastData?>(null)
+  val weather: StateFlow<WeatherForecastData?> = _weather.asStateFlow()
 
   // Server-measured observed cadence of every channel file (diagnostics), refreshed on the server's
   // own slow timer. Null until the first stats frame arrives.
@@ -238,6 +250,14 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.Invoices -> {
                       _invoices.value = msg.data
+                    }
+
+                    is ServerMessage.CropCalendar -> {
+                      _cropCalendar.value = msg.data
+                    }
+
+                    is ServerMessage.Weather -> {
+                      _weather.value = msg.data
                     }
 
                     is ServerMessage.ChannelStats -> {

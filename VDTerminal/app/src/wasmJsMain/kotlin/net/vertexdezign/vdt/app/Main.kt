@@ -103,6 +103,8 @@ fun main() {
       missions = repository.missions,
       finance = repository.finance,
       invoices = repository.invoices,
+      cropCalendar = repository.cropCalendar,
+      weather = repository.weather,
       channelStats = repository.channelStats,
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,

@@ -34,6 +34,8 @@ import net.vertexdezign.vdt.app.panels.Navigation
 import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.panels.RigSlotPanel
 import net.vertexdezign.vdt.app.panels.TaskListPanel
+import net.vertexdezign.vdt.app.panels.WeatherIcons
+import net.vertexdezign.vdt.app.panels.WeatherSummary
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
 
@@ -335,6 +337,26 @@ object CropRotationWidget : Widget {
     val store = LocalVdtStore.current
     val cropRotation by store.cropRotation.collectAsState()
     CropRotationPanel(cropRotation, modifier, onCommand = store.onCommand)
+  }
+}
+
+/**
+ * The forecast at a glance: now, then the next few two-hourly steps. The glanceable half of the
+ * Calendar app — the crop grid needs a full page, and a tile that tried to hold twelve periods of it
+ * would be unreadable at any placeable size.
+ */
+object WeatherWidget : Widget {
+  override val id = "weather"
+  override val title = "Weather"
+  override val icon: ImageVector = WeatherIcons.PartiallyCloudy
+  override val defaultColSpan = 4
+  override val defaultRowSpan = 2
+  override val minColSpan = 2
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val weather by LocalVdtStore.current.weather.collectAsState()
+    WeatherSummary(weather, modifier)
   }
 }
 

@@ -2,6 +2,7 @@ package net.vertexdezign.vdt
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
@@ -16,6 +17,7 @@ import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
+import net.vertexdezign.vdt.model.WeatherForecastData
 
 /**
  * Messages pushed server -> client over the WebSocket, JSON-encoded.
@@ -187,6 +189,36 @@ sealed interface ServerMessage {
   @SerialName("invoices")
   data class Invoices(
     val data: InvoicesData? = null,
+  ) : ServerMessage
+
+  /**
+   * The crop calendar channel (`cropCalendar.json`): which periods each crop may be sown and
+   * harvested in. Event-driven and very nearly static — the mod rewrites it once per in-game day, for
+   * the "today" marker alone — which is a cadence of its own again, hence its own message.
+   *
+   * [data] is **null when `cropCalendar.json` is absent** (export disabled / no data yet): the app
+   * clears the grid then rather than leaving last session's crop list up, which on a different map is
+   * an entirely different set of crops.
+   */
+  @Serializable
+  @SerialName("cropCalendar")
+  data class CropCalendar(
+    val data: CropCalendarData? = null,
+  ) : ServerMessage
+
+  /**
+   * The weather channel (`weather.json`): the forecast — now, twelve two-hourly steps, six days.
+   * Event-driven on the in-game hour, the same beat the game's own weather menu refreshes on, so it
+   * is its own message rather than a field on [Telemetry] (whose `environment.weather` carries only
+   * the live temperature, at the ~100 ms tick).
+   *
+   * [data] is **null when `weather.json` is absent** (export disabled / no data yet): the app clears
+   * the strip then. A stale forecast is worse than none — it is read to decide whether to cut hay.
+   */
+  @Serializable
+  @SerialName("weather")
+  data class Weather(
+    val data: WeatherForecastData? = null,
   ) : ServerMessage
 
   /**
