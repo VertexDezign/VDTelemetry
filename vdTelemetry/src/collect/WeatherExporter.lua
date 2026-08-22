@@ -15,6 +15,19 @@
 -- reloads on, so our readout moves exactly when the menu's does. At default timescale an in-game
 -- hour is about a real minute, which makes this a ~1/min rewrite of a ~1 kB file.
 --
+-- WEATHER_CHANGED is the third, and it is not one of the frame's: `current` is live state rather than
+-- a forecast, and it turns over when a forecast item ends, not on the hour. Item durations are whole
+-- hours counted from whenever the forecast was first built, so the boundaries do not land on the hour
+-- -- on those two messages alone the exported `type` stayed wrong until the next hour ticked. The
+-- game publishes it from Weather:update on server and client alike (Environment:update calls
+-- weather:update unguarded), so a multiplayer client marks itself dirty off its own copy.
+--
+-- Accepted, in that write: the wind is the outgoing one. WindUpdater lerps to the new values over
+-- Weather.CHANGE_DURATION (30 in-game minutes) and the message goes out when the ramp starts, so the
+-- speed and angle are still the old weather's. The next HOUR_CHANGED lands after the ramp has
+-- finished and settles them -- half an in-game hour of drift on two fields, against giving this
+-- channel a timer it otherwise has no use for.
+--
 -- Temperatures go through g_i18n:getTemperature and the file names the resulting unit, so a player
 -- on Fahrenheit gets Fahrenheit here and the app never converts. Wind ships twice: windSpeed in m/s
 -- (the honest measurement) and windBeaufort (what the menu prints, via ValueMapper).
@@ -279,7 +292,8 @@ function VDT.WeatherExporter.markDirty()
 end
 
 -- Lazy subscribe: wait until the weather is up, then watch the two messages the game's own frame
--- reloads on. The initial markDirty() writes the forecast that was already there on load.
+-- reloads on plus the one it does not (see the header). The initial markDirty() writes the forecast
+-- that was already there on load.
 ---@param debugger GrisuDebug
 function VDT.WeatherExporter.tick(debugger)
   if VDT.WeatherExporter.subscribed or not VDT.WeatherExporter.isAvailable() then
@@ -288,14 +302,14 @@ function VDT.WeatherExporter.tick(debugger)
   if MessageType == nil or g_messageCenter == nil then
     return
   end
-  for _, message in ipairs({ "HOUR_CHANGED", "DAY_CHANGED" }) do
+  for _, message in ipairs({ "HOUR_CHANGED", "DAY_CHANGED", "WEATHER_CHANGED" }) do
     if MessageType[message] ~= nil then
       g_messageCenter:subscribe(MessageType[message], VDT.WeatherExporter.markDirty, VDT.WeatherExporter)
     end
   end
   VDT.WeatherExporter.subscribed = true
   VDT.WeatherExporter.markDirty()
-  debugger:info("Weather channel active (subscribed to hour/day changes)")
+  debugger:info("Weather channel active (subscribed to hour/day/weather changes)")
 end
 
 -- Self-register the channel (see ExportChannels). Event-driven: no interval, the subscriptions above

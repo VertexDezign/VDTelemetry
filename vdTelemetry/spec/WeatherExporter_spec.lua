@@ -291,3 +291,79 @@ describe("WeatherExporter.collect", function()
     assert.is_nil(VDT.WeatherExporter.collect())
   end)
 end)
+
+describe("WeatherExporter.tick", function()
+  local subscribed
+  local marked
+  local realMarkDirty
+  local debugger = {
+    info = function() end,
+  }
+
+  before_each(function()
+    subscribed = {}
+    marked = 0
+    realMarkDirty = VDT.ExportChannels.markDirty
+    VDT.ExportChannels.markDirty = function()
+      marked = marked + 1
+    end
+    VDT.WeatherExporter.subscribed = false
+    _G.MessageType = { HOUR_CHANGED = 1, DAY_CHANGED = 2, WEATHER_CHANGED = 3 }
+    _G.g_messageCenter = {
+      subscribe = function(_, message)
+        subscribed[message] = true
+      end,
+    }
+  end)
+
+  after_each(function()
+    VDT.ExportChannels.markDirty = realMarkDirty
+    VDT.WeatherExporter.subscribed = false
+    _G.MessageType = nil
+    _G.g_messageCenter = nil
+  end)
+
+  it("subscribes once and queues the first write", function()
+    installWorld({ current = { temperature = 20, windSpeed = 1, windDirection = 0, forecastType = 1 } })
+
+    VDT.WeatherExporter.tick(debugger)
+    assert.are.equal(1, marked)
+    assert.is_true(VDT.WeatherExporter.subscribed)
+
+    -- a second tick neither re-subscribes nor re-queues
+    VDT.WeatherExporter.tick(debugger)
+    assert.are.equal(1, marked)
+  end)
+
+  it("watches the weather change, not just the clock", function()
+    -- `current` turns over when a forecast item ends, and item boundaries do not land on the hour, so
+    -- hour/day alone left the exported type wrong until the next hour ticked.
+    installWorld({ current = { temperature = 20, windSpeed = 1, windDirection = 0, forecastType = 1 } })
+
+    VDT.WeatherExporter.tick(debugger)
+
+    assert.is_true(subscribed[MessageType.HOUR_CHANGED])
+    assert.is_true(subscribed[MessageType.DAY_CHANGED])
+    assert.is_true(subscribed[MessageType.WEATHER_CHANGED])
+  end)
+
+  it("waits for the weather before subscribing", function()
+    _G.g_currentMission = nil
+
+    VDT.WeatherExporter.tick(debugger)
+
+    assert.is_false(VDT.WeatherExporter.subscribed)
+    assert.are.equal(0, marked)
+  end)
+
+  it("skips a message the engine does not have", function()
+    -- Mirrored enum: an FS version without one of the three must cost that subscription, not the tick.
+    _G.MessageType = { HOUR_CHANGED = 1 }
+    installWorld({ current = { temperature = 20, windSpeed = 1, windDirection = 0, forecastType = 1 } })
+
+    VDT.WeatherExporter.tick(debugger)
+
+    assert.is_true(subscribed[1])
+    assert.is_true(VDT.WeatherExporter.subscribed)
+  end)
+end)

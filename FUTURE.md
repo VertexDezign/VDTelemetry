@@ -375,6 +375,10 @@ Each one is cheap to do while playing and settles something above.
   the labels cross the wire instead of being a lookup table in the app.
 - **Season length changed mid-session**, to confirm `PERIOD_LENGTH_CHANGED` fires and the today marker moves within its
   period. It is the one subscription in the crop calendar channel that is not exercised by simply letting a day pass.
+- **A weather change on a multiplayer client**, to confirm `WEATHER_CHANGED` reaches it. `Weather:update` publishes it
+  on server and client alike, and `Environment:update` calls that unguarded, so it should — but the same reasoning was
+  used about `owner.forecastItems` before anyone checked. Watch for the exported `current.type` turning over off the
+  hour; the sky changing while `weather.json` still says SUN is the failure.
 
 - Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? It is visible in the exported JSON as
   `display`, so this is just a matter of looking. Decides whether the stepped bar is worth building.
