@@ -455,47 +455,6 @@ engine load it wears the engine on, the service interval and system voltage. The
 - **A fixture is wanted.** No committed capture has an `ads` block; `AdsModelTest` decodes the shape with inline JSON
   and says so at the top. See the section below for the rule those follow.
 
-## Fleet (#84)
-
-Built: the `fleet` channel (the game's own vehicle-overview gate, one row per machine, condition/hours/value plus who
-has it and where it is), the `contributeFleetVehicle` integration stage carrying Advanced Damage System's maintenance
-record, and the Fleet app — search, five views, six sorts, a detail pane, and a row that hands its position to the map.
-The reasoning is in `src/collect/FleetExporter.lua` and `panels/FleetPanel.kt`. What it did not do:
-
-- **Validated in game on 2026-08-22**, singleplayer and from a multiplayer client, with rows compared against the
-  game's own vehicle overview and the ADS half against that mod's `P` menu — both matched. The two captures that came
-  out of it are committed (`examples/json/fleet/fleet.json`, 31 machines; `mp.json`, 63 from a client) and settle the
-  two claims the design rested on: owned machines are listed, so `Vehicle:getShowInVehiclesOverview` really is
-  `OWNED or LEASED` and the extracted source's `propertyState == LEASED` is a decompile artefact; and **the ADS block
-  arrives on a client**, thirteen machines of it with six carrying a full service history, which is what made reading
-  each vehicle's own spec right and `ADS_Main.vehicles` (keyed by the nil-on-a-client `uniqueId`) wrong.
-- **Waiting on an occasion rather than on effort:** no capture holds a machine *being driven by another player*, so the
-  "In use" rung and the implement-inherits-its-rig rule are proven only for the local player's own tractor — the
-  multiplayer session this was captured from is played solo, so that needs a second player to turn up rather than
-  someone to sit down and do it. Same for farm scoping against a farm that is not ours.
-- **Eleven machines across the two captures report themselves out of the tab rotation** — four in the singleplayer one
-  (a fire engine, its two reels, an old lorry), seven in the multiplayer one (a forage harvester and a feed mixer among
-  them). Confirmed by the player who captured them as their parking mod's doing, so both fixtures are *true*
-  positives — but the limitation stands in general, because nothing can tell that apart from a machine whose own XML
-  ships `isTabbable="false"`. See `FleetVehicle.isParked`.
-- **No widget and no alert.** The app contributes neither, so a page reaches it through `ShortcutWidget` like the other
-  list apps. A "3 machines need attention" tile is the obvious one; an alert for a breakdown on a machine you are *not*
-  in is the tempting one and the one to think about first — it fires while you are doing something else, which is what
-  makes it useful and what makes it a nuisance.
-- **No per-breakdown repair price.** ADS's workshop dialog prints one (`getBreakdownRepairPrice`), but it is computed
-  against the workshop the machine is standing in, so away from one it is a number whose meaning changes with where you
-  are. The service under way carries its price (`workshop.price`), which does not have that problem.
-- **The daily upkeep is not exported.** `getDailyUpkeep()` is a real running cost and the game prints it in the shop,
-  but neither in-game list shows it in its vehicle overview, so it stayed out of a channel whose brief was to mirror
-  them.
-- **Sell and reset are not offered.** Both are in the game's own overview and both are irreversible, so round 1 is
-  read-only by decision (the app's only action is showing a machine on the map). If they are ever wanted, they are
-  ordinary command-channel controls — `ResetVehicleEvent` and `g_shopController:sell`, each permission-gated the way
-  `MissionControl` gates its own.
-- **The map hand-off is one-way and unlabelled.** `MapFocus` centres the map and rings the position, but the map has no
-  idea *which* machine it is showing, so a second machine parked beside the first is indistinguishable. Naming the ring
-  would mean the map knowing about the fleet channel, which is a bigger change than the jump was worth.
-
 ---
 
 ## Captures wanted as fixtures
