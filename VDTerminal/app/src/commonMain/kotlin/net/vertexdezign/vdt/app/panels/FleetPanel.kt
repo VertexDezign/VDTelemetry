@@ -431,10 +431,11 @@ internal fun rowBadges(vehicle: FleetVehicle): List<String> = buildList {
     else -> Unit
   }
   if (vehicle.propertyState == PropertyState.LEASED) add("LEASED")
-  if (vehicle.isAI) {
-    add("AI")
-  } else if (vehicle.isControlled) {
-    add("IN USE")
+  // Who has it, or that it has been put away: one rung of statusLabel's ladder, short enough for a row.
+  when {
+    vehicle.isAI -> add("AI")
+    vehicle.isControlled -> add("IN USE")
+    vehicle.isParked -> add("PARKED")
   }
 }
 

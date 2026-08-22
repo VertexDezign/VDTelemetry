@@ -160,13 +160,21 @@ private fun FactsCard(vehicle: FleetVehicle) {
   }
 }
 
-/** Who has the machine right now, in words. */
+/**
+ * Who has the machine right now, in words, first answer wins.
+ *
+ * **Parked means put away**, not merely standing still: it is the machine's tab-rotation flag, which
+ * is what the parking mods turn off, so it is something the player did on purpose. A machine nobody
+ * is driving and nobody has parked is *idle* — the difference matters to anyone running such a mod,
+ * and calling that state "parked" quietly took their word for it.
+ */
 internal fun statusLabel(vehicle: FleetVehicle): String = when {
   vehicle.isEntered -> "You are in it"
   vehicle.isAI -> "Helper driving"
   vehicle.isControlled -> "In use"
+  vehicle.isParked -> "Parked"
   vehicle.attachedTo != null -> "Attached"
-  else -> "Parked"
+  else -> "Idle"
 }
 
 @Composable

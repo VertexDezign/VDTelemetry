@@ -204,6 +204,8 @@ class FleetPanelTest {
     assertEquals(listOf("FAULT"), rowBadges(machine(ads = ads(breakdowns = listOf(FleetBreakdown(id = "OIL"))))))
     assertEquals(emptyList(), rowBadges(machine()))
     assertEquals(listOf("LEASED"), rowBadges(machine(propertyState = PropertyState.LEASED)))
+    assertEquals(listOf("PARKED"), rowBadges(machine().copy(isTabbable = false)))
+    assertEquals(listOf("AI"), rowBadges(machine().copy(isTabbable = false, isAI = true)))
   }
 
   @Test
@@ -236,11 +238,23 @@ class FleetPanelTest {
 
   @Test
   fun saysWhoHasTheMachine() {
-    assertEquals("Parked", statusLabel(machine()))
+    assertEquals("Idle", statusLabel(machine()))
     assertEquals("Helper driving", statusLabel(machine().copy(isAI = true)))
     assertEquals("In use", statusLabel(machine().copy(isControlled = true)))
     assertEquals("You are in it", statusLabel(machine().copy(isEntered = true, isControlled = true)))
     assertEquals("Attached", statusLabel(machine().copy(attachedTo = 9)))
+  }
+
+  @Test
+  fun parkedIsPutAwayRatherThanMerelyStandingStill() {
+    // The tab-rotation flag is what a parking mod turns off, so it is the player's own act; a machine
+    // nobody has parked and nobody is driving is idle, and the two must not share a word.
+    assertEquals("Parked", statusLabel(machine().copy(isTabbable = false)))
+    assertEquals("Idle", statusLabel(machine().copy(isTabbable = true)))
+    // No seat at all is a third answer, and not "out of the rotation".
+    assertEquals("Idle", statusLabel(machine(fuel = null).copy(isTabbable = null)))
+    // Someone in the seat outranks it: a parked machine being driven is being driven.
+    assertEquals("In use", statusLabel(machine().copy(isTabbable = false, isControlled = true)))
   }
 
   @Test
