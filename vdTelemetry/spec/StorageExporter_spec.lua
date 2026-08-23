@@ -543,7 +543,7 @@ describe("StorageExporter.collect", function()
     setupWorld({ makeSilo("X", 1, "silo-x", { [12] = 1 }, { [12] = 10 }) }, nil)
 
     local model = VDT.StorageExporter.collect()
-    assert.are.equal("2", model.version)
+    assert.are.equal("3", model.version)
     assert.is_nil(model.storages)
   end)
 end)

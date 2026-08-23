@@ -8,7 +8,11 @@ import kotlinx.serialization.Serializable
  * farm holds outside a production point, on three keys.
  *
  * [storages] is the app's Storage view — the storage *placeables* you can walk up to and unload:
- * silos, manure heaps and object storages.
+ * silos, manure heaps and object storages. One kind is deliberately missing: a placeable a husbandry
+ * has taken over as its own store — the manure heap behind the barn, an `isExtension` slurry tank —
+ * whose liters the pen already reports as a condition bar, with a fill type on it
+ * ([HusbandryCondition.type]). Counting it here as well would have the stock overview and the price
+ * list price the same manure twice.
  * [bunkerSilos], [looseBales] and [loosePallets] deliberately are **not** part of it: they are the
  * rest of the farm's holding, and they exist for the price list and stock overview rather than for
  * that view. A panel rendering the Storage app reads [storages] and nothing else.
@@ -34,7 +38,8 @@ data class StorageData(
  * An owned storage placeable with no production. Two kinds, distinguished by [kind]:
  * - `fill` — a liter store: a silo, or a manure heap (which is not a `Storage` in the engine at all,
  *   but answers the same questions and is the solid twin of the slurry tank beside it). Contents in
- *   [fills] (per fill type, level/capacity).
+ *   [fills] (per fill type, level/capacity). A heap or tank wired into a **husbandry** does not
+ *   appear at all — see [StorageData] — so one here is a store the farm fills itself.
  * - `object` — an object storage (bales/pallets, count-based): total [count] / [capacity] objects,
  *   with a per-type breakdown in [objects] (which may be partial on a multiplayer client, where only
  *   counts are synced — the total is always accurate).

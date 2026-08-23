@@ -13,6 +13,12 @@
 -- animal counts, and getClusters() for the per-group breakdown. A cluster's breed/age label comes
 -- from animalSystem:getVisualByAge(subTypeIndex, age).store — the animal store item for that age.
 --
+-- Since v2 a condition bar also carries the FILL TYPE behind it where it has one (fillTypeByTitle),
+-- which makes this channel the sole reporter of the farm's manure and slurry: the heap and the tank
+-- ARE the barn's store, so the storage channel deliberately leaves them out (StorageExporter v3,
+-- feedsHusbandry) rather than have the stock overview count them twice. Some modded pens hold a
+-- manure pit of their own, and those liters never had anywhere else to be reported from.
+--
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
 VDT = VDT or {}
@@ -21,7 +27,10 @@ VDT.HusbandryExporter = {}
 VDT.HusbandryExporter.CHANNEL = "husbandry"
 VDT.HusbandryExporter.FILE_NAME = "husbandry.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin HusbandriesData.
-VDT.HusbandryExporter.VERSION = 1
+-- 2: `type` (fill type name) on the condition bars whose liters are real storage, which makes this
+--    channel the one place the farm's manure and slurry can be priced -- see fillTypeByTitle, and
+--    the matching StorageExporter v3, which stopped exporting the placeable holding them.
+VDT.HusbandryExporter.VERSION = 2
 -- Write cadence in ms. Husbandry state changes over in-game hours, so a 5 s refresh is plenty.
 VDT.HusbandryExporter.INTERVAL_MS = 5000
 
@@ -35,12 +44,61 @@ local function ratio(value)
   return math.floor(r * 10000 + 0.5) / 10000
 end
 
+-- Localized bar title -> fill type NAME, for the fill types this one pen's storage holds. This is
+-- how a condition bar gets a `type`, and the whole reason the storage channel can stop reporting the
+-- manure heap: without it the farm's manure is named only as "Mist", in the player's language, and
+-- nothing can price it.
+--
+-- Matched on the TITLE because the info table carries no fill type index and never has: every
+-- fill-backed bar is built as `info.title = fillType.title` and nothing else
+-- (PlaceableHusbandryStraw / ...LiquidManure / ...Water / ...Milk each do exactly that), so the
+-- title is the only handle back. Candidates are the fill types the pen's UNLOADING STATION supports,
+-- which does two jobs at once:
+--   * it keeps the map to a handful of entries belonging to THIS pen, so two fill types that share a
+--     title elsewhere in the game cannot collide here (and a pair that still does is dropped rather
+--     than guessed at);
+--   * it selects exactly the bars whose liters are real storage. It is the same test the specs
+--     themselves apply before they trust the bar (getHusbandryIsFillTypeSupported, the one they warn
+--     "Missing filltype in husbandry storage!" about), and it leaves out the pallet outputs on
+--     purpose: PlaceableHusbandryPallets keeps its own fillLevels of liters still WAITING to become
+--     an egg pallet, and stock that has no object yet must not be priced -- the pallet on the ground
+--     is what storage.json's `loosePallets` counts, once it exists.
+-- Food goes untyped too, and is passed no map at all: a food bar is a food GROUP ("Grass (30%)")
+-- summed over several fill types, and it lives in spec_husbandryFood's own fillLevels rather than in
+-- the pen's storage, so no other channel can double-report it either.
+---@param husbandry table a PlaceableHusbandry
+---@return table<string, string|boolean> title -> fill type name, or false where the title is ambiguous
+local function fillTypeByTitle(husbandry)
+  local map = {}
+  local spec = husbandry.spec_husbandry
+  local station = type(spec) == "table" and spec.unloadingStation or nil
+  local supported = type(station) == "table" and station.supportedFillTypes or nil
+  if type(supported) ~= "table" or g_fillTypeManager == nil then
+    return map
+  end
+  for fillTypeIndex in pairs(supported) do
+    local fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
+    if fillType ~= nil and type(fillType.title) == "string" and fillType.title ~= "" then
+      -- `false` marks a title two supported types share, and is sticky: neither can claim it back
+      map[fillType.title] = map[fillType.title] == nil and fillType.name or false
+    end
+  end
+  return map
+end
+
 -- One bar row from a condition/food info: the localized title, its [0,1] fill ratio (for the bar),
 -- the current liters (info.value) and the capacity when the info carries one (food does; the
 -- condition bars don't). invertedBar rides along for the output bars (high = needs emptying).
-local function barRow(info)
+--
+-- `types` (fillTypeByTitle, condition bars only) names what the liters ARE. A title it does not know
+-- leaves the row untyped, which is the honest answer in the one case it happens to a fill-backed
+-- bar: with no manure heap in range the straw spec appends "(no manure heap)" to the manure bar's
+-- title, and there being nowhere to put manure, its level is 0.
+local function barRow(info, types)
+  local fillTypeName = types ~= nil and types[info.title] or nil
   local row = {
     title = info.title,
+    type = type(fillTypeName) == "string" and fillTypeName or nil,
     ratio = ratio(info.ratio),
     value = math.floor(num(info.value)),
     inverted = info.invertedBar == true or nil,
@@ -119,11 +177,12 @@ local function collectHusbandry(husbandry, fallbackId)
   local conditions = {}
   local okCond, infos = pcall(husbandry.getConditionInfos, husbandry)
   if okCond and type(infos) == "table" then
+    local types = fillTypeByTitle(husbandry)
     for _, info in ipairs(infos) do
       if type(info.valueText) == "string" then
         productivity = ratio(info.ratio)
       elseif type(info.title) == "string" and info.title ~= "" then
-        conditions[#conditions + 1] = barRow(info)
+        conditions[#conditions + 1] = barRow(info, types)
       end
     end
   end

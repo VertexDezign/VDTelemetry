@@ -3,6 +3,8 @@
 -- interval-driven like mapVehicles.json, not tied to the main tick. Four blocks, one key each:
 --   * `storages` — the owned standalone storage PLACEABLES: liter silos (PlaceableSilo) and object
 --     storages (PlaceableObjectStorage — bales/pallets put away). This is the app's Storage view.
+--     A placeable a husbandry has taken over as its own store — the manure heap behind the barn, an
+--     `isExtension` slurry tank — is NOT here: those liters are husbandry.json's (see feedsHusbandry).
 --   * `bunkerSilos` — silage bunkers (PlaceableBunkerSilo / PlaceableMultiBunkerSilo).
 --   * `looseBales` / `loosePallets` — the bales and pallets lying around the farm, aggregated.
 --
@@ -34,7 +36,9 @@ VDT.StorageExporter.CHANNEL = "storage"
 VDT.StorageExporter.FILE_NAME = "storage.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin StorageData.
 -- 2: added bunkerSilos / looseBales / loosePallets, and type+level on an object storage's rows.
-VDT.StorageExporter.VERSION = 2
+-- 3: a storage a husbandry counts as its own is no longer exported (see feedsHusbandry) -- its
+--    liters live in husbandry.json instead, which carries a fill type on its bars from ITS v2.
+VDT.StorageExporter.VERSION = 3
 -- Write cadence in ms; matches ProductionExporter — fill levels/counts change on the order of seconds
 -- at most, so a 2 s refresh keeps the overview live without churn.
 VDT.StorageExporter.INTERVAL_MS = 2000
@@ -109,6 +113,45 @@ local function collectFillStorage(placeable, storages, farmId, fallbackIndex)
     kind = "fill",
     fills = rows,
   }
+end
+
+-- TRUE when a husbandry already counts these liters as its own, in which case the placeable holding
+-- them is not exported at all -- the manure would otherwise be summed twice by the stock overview
+-- and the price list, once here and once out of husbandry.json.
+--
+-- The wiring, which is the game's and not ours: a manure heap and any storage flagged `isExtension`
+-- (the slurry tank next to a barn) register themselves as a TARGET STORAGE of every extendable
+-- unloading station in range -- PlaceableManureHeap:onFinalizePlacement ->
+-- storageSystem:addStorageToUnloadingStations, and PlaceableHusbandry:onFinalizePlacement does the
+-- same sweep from its own side, so the link forms whichever placeable loads first. The barn's manure
+-- and slurry bars are then built from getHusbandryFillLevel(), which is
+-- UnloadingStation:getFillLevel() summing exactly those target storages
+-- (PlaceableHusbandryStraw / PlaceableHusbandryLiquidManure : getConditionInfos). The heap IS the
+-- barn's manure store; there is one heap of manure and it is reported once, by the pen that made it.
+--
+-- Read off the STORAGE rather than off the barn: the engine keeps `storage.unloadingStations` in
+-- sync from the other side (UnloadingStation:addTargetStorage calls storage:addUnloadingStation), so
+-- one plain field read answers it without walking every husbandry. A husbandry's station is the one
+-- whose owningPlaceable carries spec_husbandry -- the same storage attached to a plain silo's station
+-- keeps its export, because no silo double-reports it.
+--
+-- Wired on a multiplayer CLIENT too: Placeable:postReadStream calls finalizePlacement(), which
+-- raises onFinalizePlacement there exactly as on the host.
+---@param storages table[] the placeable's Storage-shaped objects
+---@return boolean
+local function feedsHusbandry(storages)
+  for _, storage in ipairs(storages) do
+    local stations = type(storage) == "table" and storage.unloadingStations or nil
+    if type(stations) == "table" then
+      for station in pairs(stations) do
+        local placeable = type(station) == "table" and station.owningPlaceable or nil
+        if type(placeable) == "table" and placeable.spec_husbandry ~= nil then
+          return true
+        end
+      end
+    end
+  end
+  return false
 end
 
 -- ROUND or SQUARE, off the bale's own XML through the bale manager's registry. A filename the manager
@@ -472,8 +515,11 @@ end
 
 -- Standalone storages: owned silo, manure-heap and object-storage placeables. Production points are
 -- excluded for free (they carry spec_productionPoint, none of the three specs below, and their
--- storage is reported by the production channel). Silo extensions stay out of scope for v1. Walked over the
--- placeable list because a Storage/object-storage has no reliable back-reference to its placeable.
+-- storage is reported by the production channel), and a placeable a husbandry feeds off is excluded
+-- deliberately (feedsHusbandry) -- WHOLE, not row by row, because an extension only ever holds what
+-- the barn it extends can put in it. Silo extensions (spec_siloExtension) stay out of scope for v1.
+-- Walked over the placeable list because a Storage/object-storage has no reliable back-reference to
+-- its placeable.
 ---@param farmId number
 ---@return StandaloneStorageModel[]
 local function collectStorages(farmId)
@@ -488,11 +534,18 @@ local function collectStorages(farmId)
     local okOwner, owner = pcall(placeable.getOwnerFarmId, placeable)
     if okOwner and owner == farmId then
       local entry
+      local fillStorages
       if placeable.spec_silo ~= nil and type(placeable.spec_silo.storages) == "table" then
-        entry = collectFillStorage(placeable, placeable.spec_silo.storages, farmId, #out + 1)
+        fillStorages = placeable.spec_silo.storages
       elseif placeable.spec_manureHeap ~= nil and type(placeable.spec_manureHeap.manureHeap) == "table" then
-        entry = collectFillStorage(placeable, { placeable.spec_manureHeap.manureHeap }, farmId, #out + 1)
+        fillStorages = { placeable.spec_manureHeap.manureHeap }
+      end
+      if fillStorages ~= nil then
+        if not feedsHusbandry(fillStorages) then
+          entry = collectFillStorage(placeable, fillStorages, farmId, #out + 1)
+        end
       elseif placeable.spec_objectStorage ~= nil then
+        -- no husbandry check here: an object storage is not a Storage, so it can never extend a barn
         entry = collectObjectStorage(placeable, farmId, #out + 1)
       end
       if entry ~= nil then

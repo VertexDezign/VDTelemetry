@@ -81,6 +81,53 @@ class HusbandryModelTest {
     assertRoundTrips(data)
   }
 
+  /**
+   * Channel v2 put a fill type on the condition bars whose liters are real storage, which is what
+   * lets the storage channel stop reporting the manure heap behind the barn (it would otherwise be
+   * counted twice). Inline JSON rather than a fixture: `basic.json` predates v2, and a capture with
+   * a heap wired into a pen is still wanted — see FUTURE.md.
+   */
+  @Test
+  fun conditionBarsCarryTheFillTypeBehindThem() {
+    val data =
+      VdtParser.parseHusbandry(
+        """
+        {
+          "version": "2",
+          "husbandries": [
+            {
+              "id": "CowBarn_1",
+              "name": "Kuhstall (mittel)",
+              "food": [
+                { "title": "Gras (30%)", "ratio": 0.2, "value": 1000, "capacity": 5000 }
+              ],
+              "conditions": [
+                { "title": "Stroh", "type": "STRAW", "ratio": 0.3, "value": 1500 },
+                { "title": "Mist", "type": "MANURE", "ratio": 0.42, "value": 3111, "inverted": true },
+                { "title": "Gülle", "type": "LIQUIDMANURE", "ratio": 0.7, "value": 21000, "inverted": true },
+                { "title": "Eier", "ratio": 0.1, "value": 400, "inverted": true }
+              ]
+            }
+          ]
+        }
+        """.trimIndent(),
+      )
+
+    val conditions = data.husbandries[0].conditions
+    // The pen's own store: these are the liters nothing else in the export names any more.
+    assertEquals("STRAW", conditions[0].type)
+    assertEquals("MANURE", conditions[1].type)
+    assertEquals(3111, conditions[1].value)
+    assertEquals("LIQUIDMANURE", conditions[2].type)
+    // A pallet output stays untyped: those liters are still waiting to become an egg pallet, and it
+    // is the pallet on the ground that storage.json counts, once it exists.
+    assertEquals("", conditions[3].type)
+    // A food bar is a group over several fill types, so it never carries one either.
+    assertEquals("", data.husbandries[0].food[0].type)
+
+    assertRoundTrips(data)
+  }
+
   @Test
   fun parsesEmptyHusbandryWithOmittedArray() {
     val data = VdtParser.parseHusbandry(example("empty.json"))

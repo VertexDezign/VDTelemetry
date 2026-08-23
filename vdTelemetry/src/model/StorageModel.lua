@@ -30,7 +30,10 @@
 ---@field type string? fill type name, absent when the object holds none
 ---@field level number? liters in that one object, absent together with `type`
 
----@class StandaloneStorageModel an owned storage placeable with no production
+---@class StandaloneStorageModel an owned storage placeable with no production. A placeable a
+---  husbandry has taken over as its own store — the manure heap behind the barn, an `isExtension`
+---  slurry tank — is NOT one of these: those liters are reported by husbandry.json's condition bars,
+---  which carry a fill type of their own, so that nothing counts them twice.
 ---@field id string stable id for app selection (placeable uniqueId, else a synthesized fallback)
 ---@field name string display name (owning placeable's name)
 ---@field kind string "fill" (liter silo) or "object" (object storage: bales/pallets, count-based)
