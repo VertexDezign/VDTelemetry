@@ -1181,14 +1181,14 @@ class VdtModelTest {
   // -------------------------------------------------------------------------
 
   /**
-   * The five committed mixer captures. Four are singleplayer, vanilla and mod version 16 — `correct`
+   * The seven committed mixer captures. Four are singleplayer, vanilla and mod version 16 — `correct`
    * (towed, a finished mix), `selfDriving_outOfRatio`, `selfDriving_single` and `selfDriving_mixing`
-   * (a valid ratio with the mix cycle still counting down). The fifth is [emptyMixerCapture].
+   * (a valid ratio with the mix cycle still counting down). The other three are [clientMixerCapture].
    *
    * Between them they cover all four [MixState] answers, both places the aspect can sit (a
    * self-propelled machine *is* the vehicle; a towed one is an implement), a mix cycle full, part way
-   * down and expired, two different tip-side counts, and two maps' recipes. What none of them can be
-   * is mid-tip, which is why that stays inline below.
+   * down and expired, a tub empty, loaded and being emptied, two different tip-side counts, and two
+   * maps' recipes.
    */
   private fun mixerCapture(
     name: String,
@@ -1196,14 +1196,21 @@ class VdtModelTest {
   ): Vehicle = assertNotNull(capture("telemetry/$folder/mixerWagon_$name.json").vehicle)
 
   /**
-   * The odd one out, and the only capture that is none of singleplayer, vanilla or version 16: a
-   * SILOKING self-propelled wagon with an **empty** tub, seen from a **joined multiplayer client** on
-   * a modded map whose `animalFood.xml` defines its own forage recipe.
+   * The three captures that are none of singleplayer, vanilla or version 16: one SILOKING
+   * self-propelled wagon on a modded map whose `animalFood.xml` defines its own forage recipe, seen
+   * from a **joined multiplayer client**.
    *
-   * It is what the four vanilla ones cannot be, three times over — see [anEmptyTubIsEmptyWhateverTheBarsSay],
-   * [theRecipeIsTheMapsAndNotTheBaseGames] and [theOnLoadDataArrivesOnAMultiplayerClient].
+   * `empty_moddedReceipe` is an empty tub; `unloading` is 18888 l of finished feed going out of the
+   * open left side; `unloadingError` is the same machine a minute later, refused by a trough that will
+   * not take the feed. Between them they are everything the vanilla four cannot be — see
+   * [anEmptyTubIsEmptyWhateverTheBarsSay], [theRecipeIsTheMapsAndNotTheBaseGames],
+   * [theOnLoadDataArrivesOnAMultiplayerClient], [theIngredientLevelsArriveOnAMultiplayerClient],
+   * [aWagonMidTipNamesTheSideItIsUsing] and [theRefusalIsTheEnginesAndNotTheAllowedFlag].
    */
-  private fun emptyMixerCapture(): Vehicle = mixerCapture("selfDriving_empty_moddedReceipe", "modded")
+  private fun clientMixerCapture(name: String): Vehicle = mixerCapture("selfDriving_$name", "modded")
+
+  /** The empty one, which is most of what the client captures are read for. */
+  private fun emptyMixerCapture(): Vehicle = clientMixerCapture("empty_moddedReceipe")
 
   /** The machine carrying the mixer — the vehicle itself, or its single implement. */
   private fun mixerMachine(name: String): Implement? = mixerCapture(name).implement.singleOrNull()
@@ -1471,6 +1478,79 @@ class VdtModelTest {
   }
 
   @Test
+  fun theIngredientLevelsArriveOnAMultiplayerClient() {
+    // The other half, and the one that had to be argued from the game's source until now: the mixer's
+    // fill unit is deliberately out of the normal fill-unit sync (`synchronizeFillLevel = false`), so
+    // the per-ingredient levels ride `MixerWagon`'s own update stream and the client re-applies them
+    // through `addFillUnitFillLevel`. Here they are on a client — three bars with real litres in them,
+    // summing to the tub's own level, and the engine's verdict on the mix arriving with them.
+    val mixer = assertNotNull(clientMixerCapture("unloading").mixer)
+    assertEquals(18887.77, mixer.value)
+    assertEquals(mixer.value, mixer.loaded, 0.01, "the bars account for the whole tub")
+    assertEquals(
+      listOf(8584.9, 6809.53, 3493.34, 0.0),
+      mixer.ingredients.map { it.value },
+    )
+
+    // Every bar inside its window, which is why the engine calls the load FORAGE rather than
+    // FORAGE_MIXING — the verdict is read, never recomputed, and here the two agree.
+    assertEquals("FORAGE", mixer.fillType)
+    assertEquals(MixState.READY, mixer.state)
+    assertTrue(mixer.ingredients.all { it.holds(mixer.shareOf(it)) })
+    assertEquals(0, mixer.remaining, "mixed: the cycle ran out before the door opened")
+    assertTrue(mixer.running)
+  }
+
+  @Test
+  fun aWagonMidTipNamesTheSideItIsUsing() {
+    // The first capture with the door actually open, and so the first `tipping.side` ever resolved:
+    // `Trailer:startTipping` sets `currentTipSideIndex` and `endTipping` clears it, so the field is
+    // non-null exactly while a tip is under way. Every other capture is CLOSED and has none.
+    val open = assertNotNull(clientMixerCapture("unloading").tipping)
+    assertEquals(TipState.OPEN, open.state)
+    assertEquals(1, open.side)
+    assertEquals("Links", open.sides[assertNotNull(open.side) - 1])
+
+    // It does not *discriminate* `side` from `preferredSide`, and no ordinary capture could:
+    // `startTipping` defaults to the preferred side, so the two are equal at the start of every tip.
+    // They diverge only if the preferred side is changed while the door is open, which is the case
+    // the panel keeps reading `side` for.
+    assertEquals(open.preferredSide, open.side)
+
+    val shut = assertNotNull(clientMixerCapture("unloadingError").tipping)
+    assertEquals(TipState.CLOSED, shut.state)
+    assertEquals(null, shut.side)
+    assertEquals(1, shut.preferredSide, "still the side the next tip will take")
+  }
+
+  @Test
+  fun theRefusalIsTheEnginesAndNotTheAllowedFlag() {
+    // The chip's whole reason to exist, captured: the machine is loaded and running, and the game will
+    // not let it unload here because the trough it is pointed at does not take this feed. Only the
+    // engine knows that.
+    val discharge = assertNotNull(clientMixerCapture("unloadingError").discharge)
+    assertEquals(DischargeReason.FILLTYPE_NOT_SUPPORTED, discharge.reason)
+
+    // And `allowed` is TRUE at the same time, which is the trap this pins: it is a saved per-vehicle
+    // permission (`setDischargeAllowed`, persisted as `dischargeable#isAllowed`), not "can unload
+    // here". Anything gating the refusal on it would show nothing at the trough.
+    assertEquals(true, discharge.allowed)
+
+    // `state` is OFF and the door is still shut: the raycast under the spout runs continuously, so the
+    // refusal is known *before* tipping starts rather than after nothing comes out. `hasObject` is
+    // false because the failed target is not a target — the ray passed it and reached the ground.
+    assertEquals(DischargeState.OFF, discharge.state)
+    assertEquals(false, discharge.hasObject)
+    assertEquals(true, discharge.hitTerrain)
+
+    // The successful case a minute earlier, for contrast: pointed at something it *can* fill, no reason.
+    val working = assertNotNull(clientMixerCapture("unloading").discharge)
+    assertEquals(DischargeState.OBJECT, working.state)
+    assertEquals(true, working.hasObject)
+    assertEquals(null, working.reason)
+  }
+
+  @Test
   fun mixerHoldsIsInclusiveOfItsWindowEnds() {
     val hay = assertNotNull(mixerCapture("selfDriving_single").mixer).ingredients.first()
     assertEquals(20, hay.minPercentage)
@@ -1550,17 +1630,40 @@ class VdtModelTest {
   }
 
   @Test
-  fun theTubIsWeighedOnItsOwn() {
-    // The two cases the empty capture cannot show. Both stay inline: the committed loaded captures are
-    // version 16 and predate the field, and a machine whose tub holds a material with no resolvable
-    // density has never been seen at all.
-    fun tub(json: String) = assertNotNull(VdtParser.parseJson(json).vehicle?.mixer)
+  fun theSameMachineCarriesTheSameConstantWhateverIsInTheTub() {
+    // The proof that the 617 kg is the *machine*: one wagon at three fill levels — empty, 15980 l and
+    // 18888 l — and after the tub's own weight is taken off the difference from empty, the same
+    // constant is left every time. No arithmetic on `Mass` alone could have separated those.
+    for (name in listOf("empty_moddedReceipe", "unloading", "unloadingError")) {
+      val vehicle = clientMixerCapture(name)
+      val mass = assertNotNull(vehicle.mass)
+      val load = assertNotNull(assertNotNull(vehicle.mixer).mass)
+      assertEquals(13.5, mass.empty, "same machine, $name")
+      assertEquals(0.617, mass.value - assertNotNull(mass.empty) - load, 0.001, name)
+    }
 
-    val loaded = tub("""{"version":"17","vehicle":{"mixer":{"value":18000.0,"capacity":25000,"mass":5.4}}}""")
-    assertEquals(5.4, loaded.mass)
+    // …and what the tub *does* weigh is the density of the mix: 0.300 kg/l, the same figure the vanilla
+    // captures had to be solved simultaneously for, on another map's recipe that happens to make the
+    // same feed.
+    val mixer = assertNotNull(clientMixerCapture("unloading").mixer)
+    assertEquals(5.666, mixer.mass)
+    assertEquals(0.0003, assertNotNull(mixer.mass) / mixer.value, 0.000001)
+  }
 
-    // Absent when the mod could not resolve a density; the panel falls back to the gross mass.
-    assertEquals(null, tub("""{"version":"17","vehicle":{"mixer":{"value":100.0,"capacity":25000}}}""").mass)
+  @Test
+  fun theTubsWeightIsAbsentWhenNoDensityCouldBeResolved() {
+    // The last case with no capture behind it: empty and loaded are both pinned against a real machine
+    // above, but every tub seen so far held something the mod could weigh. Absent rather than zero —
+    // the panel falls back to the gross mass, which is wrong by a known constant rather than by the
+    // whole load.
+    val mixer =
+      assertNotNull(
+        VdtParser
+          .parseJson("""{"version":"17","vehicle":{"mixer":{"value":100.0,"capacity":25000}}}""")
+          .vehicle
+          ?.mixer,
+      )
+    assertEquals(null, mixer.mass)
   }
 
   @Test
@@ -1579,8 +1682,9 @@ class VdtModelTest {
   fun tipSidesAreNamedAndOneIndexed() {
     // The names are 1-indexed by `side`/`preferredSide` because the engine's indices are, so a
     // consumer reads `sides[side - 1]`. Off by one here mislabels which way the wagon is unloading.
-    // Inline for the mid-tip case: every captured wagon was closed, so `side` is absent on all of
-    // them and only `preferredSide` has ever been seen resolved.
+    // A capture resolves `side` now (see [aWagonMidTipNamesTheSideItIsUsing]) but cannot separate the
+    // two indices, because `startTipping` defaults to the preferred side; the divergence — the
+    // preferred side changed while the door is open — stays inline.
     val tipping =
       assertNotNull(
         VdtParser

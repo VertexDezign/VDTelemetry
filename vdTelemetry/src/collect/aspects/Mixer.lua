@@ -30,10 +30,10 @@
 -- normal fill-unit sync (`synchronizeFillLevel = false` in MixerWagon:onLoad); the per-ingredient
 -- levels ride MixerWagon's own onReadStream / onReadUpdateStream instead, and the client re-applies
 -- them through addFillUnitFillLevel -- which is also what sets `activeTimer`. So both the ingredient
--- levels and the mixing state survive on a client. Half of that is observed rather than read: a capture
--- off a joined client (examples/json/telemetry/modded/mixerWagon_selfDriving_empty_moddedReceipe.json)
--- carries the windows, the authored titles and the recipe's fill type, i.e. everything onLoad builds --
--- but its tub was empty, so the levels arriving over that stream are still only argued from the source.
+-- levels and the mixing state survive on a client -- and that is now observed rather than argued. The
+-- three captures under examples/json/telemetry/modded/ are all off a joined client: they carry the
+-- windows, the authored titles and the recipe's fill type (everything onLoad builds) and, on the loaded
+-- two, per-ingredient litres that sum to the tub's own level with the engine's verdict alongside them.
 --
 -- Deliberately NOT collected: `spec.baleTriggers` (built under `if self.isServer` in onLoad, so it is
 -- nil on a client) and the bale-not-accepted warning (an event, not state -- a poll cannot see it).

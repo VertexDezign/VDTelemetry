@@ -535,7 +535,15 @@ data class ControlGroup(
 @Serializable
 data class Discharge(
   val state: DischargeState = DischargeState.OFF,
-  /** Whether unloading is permitted at all; some specs latch this off (e.g. while folding). */
+  /**
+   * Whether unloading is permitted **at all** — a master gate (`setIsDischargeAllowed`) other
+   * specializations latch off, e.g. while a cover is shut or a machine is mid-fold, and one the engine
+   * saves per vehicle.
+   *
+   * It is **not** a verdict on the spot the machine is standing on: a captured wagon reads `true` here
+   * while [reason] says the engine is refusing the trough in front of it. Gating the refusal on this
+   * would show the driver nothing at exactly the moment it matters.
+   */
   val allowed: Boolean = true,
   val nodeIndex: Int? = null,
   val fillUnitIndex: Int? = null,

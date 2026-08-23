@@ -37,6 +37,9 @@ function VDT.Discharge.collect(object)
   ---@type DischargeModel
   local model = {
     state = STATES[spec.currentDischargeState] or "OFF",
+    -- The master gate (setIsDischargeAllowed), which other specializations latch off -- a shut cover, a
+    -- machine mid-fold -- and which the engine saves per vehicle. It is NOT "can it unload here": a
+    -- captured mixer wagon has it true while `reason` below says the trough will not take the feed.
     allowed = spec.isDischargeAllowed,
   }
 

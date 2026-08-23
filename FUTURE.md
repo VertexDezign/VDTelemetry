@@ -136,33 +136,34 @@ dispatch rule has its first real user, but **none of round 1's four aspects has 
 
 ### Mixer wagon (#113), what round 1 left
 
-Built, and **well covered**: five captures — four vanilla singleplayer ones under
-`examples/json/telemetry/vanilla/mixerWagon_*.json` plus
-`examples/json/telemetry/modded/mixerWagon_selfDriving_empty_moddedReceipe.json` — drive eighteen
-`VdtModelTest` cases between them, and they closed every question this list opened with. The recipe lookup
+Built, and **covered by real captures throughout**: seven of them — four vanilla singleplayer ones under
+`examples/json/telemetry/vanilla/mixerWagon_*.json` and three off a **joined multiplayer client** on a
+modded map under `examples/json/telemetry/modded/mixerWagon_selfDriving_*.json` — drive twenty-two
+`VdtModelTest` cases between them, and every question this list opened with is closed. The recipe lookup
 lands on both machines; the authored ingredient titles arrive; the per-ingredient weight appears on half
 the base game's forage recipe (silage and mineral feed accept one material each, hay and straw pool two
 and are correctly unweighed); the mix cycle has been seen full, part way down and expired; the aspect has
-been seen on a `Vehicle` (self-propelled) *and* on an `Implement` (towed); and the empty tub weighs zero
-while its machine still reads 617 kg over its empty mass, which is the bug `mixer.mass` exists for, now
-captured rather than recounted. The layout was still only ever reviewed through ImageMagick mockups,
-because the sandbox has no browser.
+been seen on a `Vehicle` (self-propelled) *and* on an `Implement` (towed); the tub has been seen empty,
+loaded and emptying, with the door open on a named side and with the engine refusing a trough; and one
+machine at three fill levels shows the 617 kg constant that `mixer.mass` exists to keep out of the load.
+The layout was still only ever reviewed through ImageMagick mockups, because the sandbox has no browser.
 
-- **Multiplayer, half answered.** The modded capture is off a **joined client**, and everything the aspect
-  takes from `onLoad` is there: the ingredient names and windows, the authored titles, the recipe's own
-  fill type (found back through `g_currentMission.animalFoodSystem`, which a client also has), the mixing
-  time, the tip sides — and `mass`, so `Vehicle:updateMass` had run on that machine there. What an empty
-  tub cannot show is the sync itself: `mixer.remaining` and the per-ingredient levels take an unusual
-  route, since the mixer's fill unit is out of the normal fill-unit sync (`synchronizeFillLevel = false`)
-  and the levels ride `MixerWagon`'s own update stream, which the client re-applies through
-  `addFillUnitFillLevel` — also what sets `activeTimer`. So what is still wanted is a **loaded** wagon on a
-  client, mid-cycle.
-- **A wagon mid-tip.** Every captured wagon is `CLOSED`, so `tipping.side` (as against `preferredSide`)
-  has never been seen resolved, and neither has the discharge refusal chip — `discharge.reason` is absent
-  in all five, which is correct but means the wording has never been read on screen.
-- **A loaded capture at version 17.** The empty one pins `mixer.mass` at zero on a real machine; the four
-  loaded ones are v16 and predate the field, so a *loaded* tub's own weight is still asserted from inline
-  JSON.
+**Multiplayer is answered.** All three modded captures are off a client, and both halves of the aspect
+are there: what `MixerWagon:onLoad` builds (the windows, the authored titles, the recipe's fill type via
+`g_currentMission.animalFoodSystem`, the mixing time, the tip sides) *and* what rides the machine's own
+update stream, since the mixer's fill unit is out of the normal fill-unit sync
+(`synchronizeFillLevel = false`) — per-ingredient litres summing to the tub's own level, with the
+engine's verdict on the mix alongside them.
+
+- **Five of the six refusal reasons are still unseen.** A capture has `FILLTYPE_NOT_SUPPORTED` — a trough
+  that will not take TMR — so that chip's wording can be checked against a real refusal. The other five
+  (`NOT_ALLOWED_HERE`, `NO_FREE_CAPACITY`, `TOOLTYPE_NOT_SUPPORTED`, `NO_ACCESS`, `NO_ACCESS_LAND`) are
+  still only what seemed to fit a machine at a trough. Note `discharge.allowed` is **not** the refusal
+  flag: it is the master gate (`setIsDischargeAllowed`), and the captured refusal has it `true`.
+- **`tipping.side` and `preferredSide` have never been seen to differ.** `Trailer:startTipping` defaults
+  to the preferred side, so the two are equal at the start of every tip and a capture cannot separate
+  them; they diverge only if the preferred side is changed *while* the door is open. `TipChip` prefers
+  `side` mid-tip for that case, and `VdtModelTest` covers it inline.
 - **A per-fill-unit `mass` is the eventual home** for what `mixer.mass` does. Every load has this
   problem, not just a mixer's: `Mass.value - Mass.empty` counts the diesel, the DEF and anything
   hard-attached, so no machine's load can be read off it. `aspects/FillUnit.lua` already resolves each
@@ -542,16 +543,18 @@ machine that has them.
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
-- **A loaded mixer wagon on a multiplayer client**, and one **mid-tip**. Five are committed and cover the
-  rest: `vanilla/mixerWagon_correct` (towed, a finished mix, two tip sides),
+- **The mixer wagon is done** — seven captures, and nothing on the wanted list. Four vanilla singleplayer:
+  `vanilla/mixerWagon_correct` (towed, a finished mix, two tip sides),
   `vanilla/mixerWagon_selfDriving_outOfRatio` (the straw at 39% of the load against a 30% ceiling — a real
   instance of the share-of-the-load trap and now the test for it), `vanilla/mixerWagon_selfDriving_single`
-  (one material in, the cycle part way down), `vanilla/mixerWagon_selfDriving_mixing` (a full cycle just
-  restarted — the ratio is valid there, the mixing time simply has not run out) and
-  `modded/mixerWagon_selfDriving_empty_moddedReceipe` (an empty tub on a joined MP client, and a second
-  map's recipe: same four ingredient names as the base game's, different windows and wider material
-  pools). What none of them shows is a wagon actually tipping — so `tipping.side` and `discharge.reason`
-  are still unobserved — or the ingredient levels *arriving* on a client, which needs a loaded one.
+  (one material in, the cycle part way down) and `vanilla/mixerWagon_selfDriving_mixing` (a full cycle
+  just restarted — the ratio is valid there, the mixing time simply has not run out). Three more off a
+  **joined multiplayer client** on a modded map, one machine at three fill levels:
+  `modded/mixerWagon_selfDriving_empty_moddedReceipe` (empty, and a second map's recipe — same four
+  ingredient names as the base game's, different windows, wider material pools),
+  `modded/mixerWagon_selfDriving_unloading` (18888 l of finished feed going out of the open left side) and
+  `modded/mixerWagon_selfDriving_unloadingError` (the engine refusing a trough that will not take it). The
+  two narrow things they cannot show are in the ISOBUS section above, with why no capture would.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
