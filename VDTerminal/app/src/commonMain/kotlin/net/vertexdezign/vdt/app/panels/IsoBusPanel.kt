@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -116,7 +117,7 @@ private val BARE_HEADER_BELOW = 260.dp
 /** What one ingredient's label, bar and (occasional) shortfall line come to. Used to budget the art. */
 private val BAR_ROW_HEIGHT = 36.dp
 
-/** The status strip plus the gap under it. */
+/** One line of the status strip plus the gap under it; it wraps to a second when the chips need one. */
 private val STATUS_STRIP_HEIGHT = 23.dp
 
 /**
@@ -421,6 +422,13 @@ private fun Figure(label: String, value: String, sub: String?) {
 /**
  * The drum, the discharge and the fold, as a row of chips.
  *
+ * It **wraps** rather than running one line: five chips can be up at once (the mix state on a narrow
+ * tile, the drum, the tip side by its localized name, a refusal and the fold), and side by side the
+ * strip only has the art column's width. A plain `Row` would have laid the overflow past the panel's
+ * edge — and the chip most likely to fall off it is the last one added, the refusal, which is the one
+ * the driver is standing at the trough for. [STATUS_STRIP_HEIGHT] budgets one line; a second is taken
+ * from the bars, which are weighted, rather than from the panel.
+ *
  * "Running" is the **drum**, and it is deliberately not the machine's turn-on state: the drum also
  * turns while discharging and for the mix cycle after the last thing went in, so reading turn-on as
  * "is it running" calls a mixing machine idle.
@@ -434,10 +442,10 @@ private fun Figure(label: String, value: String, sub: String?) {
  */
 @Composable
 private fun MachineStatus(machine: IsoBusMachine, mixer: Mixer, showState: Boolean) {
-  Row(
+  FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
-    verticalAlignment = Alignment.CenterVertically,
+    verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     // Narrow, the header gave up the mix state; it leads the strip instead of being lost.
     if (showState) {
