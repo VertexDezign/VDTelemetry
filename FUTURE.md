@@ -108,6 +108,14 @@ What it did not do:
   case that reaches neither is `setDischarging` refused by the ground under the machine — but the engine publishes its
   own verdict on `discharge.reason` and the panel is already showing it, so there is nothing to report that the driver
   is not looking at.
+- **One unload control covers the game's two keybinds, and cannot express the rarer one.** The game
+  binds `TOGGLE_TIPSTATE` (into an object) and `TOGGLE_TIPSTATE_GROUND` separately; the app has a
+  single "Unload" and the mod picks, object first, which is the game's own priority — its
+  `updateActionEvents` offers "start tip to ground" only where `getCanToggleDischargeToObject()` is
+  false. That covers both ordinary cases: at a silo or a trough the object arm takes it, on open own
+  land the ground arm does. What it cannot do is what a driver *can* do by pressing the ground key
+  while parked at a trigger: dump on the floor anyway. Niche, and a second chip for it would cost the
+  strip more than the case is worth — revisit if anyone misses it.
 - **A refused tip gives the driver nothing back.** The unload control now applies the engine's full
   gate before it acts — `getCanDischargeToGround` is only "is this material physically tippable onto
   terrain" and says nothing about whose land it is, so `getCanDischargeToLand` and
