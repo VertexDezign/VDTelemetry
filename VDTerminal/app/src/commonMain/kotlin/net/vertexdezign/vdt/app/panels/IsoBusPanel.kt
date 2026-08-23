@@ -23,6 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Memory
@@ -35,6 +36,11 @@ import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,12 +56,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_mixer_wagon
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Discharge
 import net.vertexdezign.vdt.model.DischargeReason
+import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Mass
@@ -121,12 +129,38 @@ private val BAR_ROW_HEIGHT = 36.dp
 private val STATUS_STRIP_HEIGHT = 23.dp
 
 /**
+ * Below this the body is only just enough for the machine itself, so the rig diagram is dropped
+ * rather than shrunk — it is orientation, and the machine is the reason to look.
+ */
+private val MIN_BODY_FOR_SCHEMA = 140.dp
+
+/** A schema box has to hold an 8sp name to be worth drawing, and stops earning height past the max. */
+private val MIN_SCHEMA_HEIGHT = 34.dp
+private val MAX_SCHEMA_HEIGHT = 72.dp
+
+/**
  * One machine on the rig, flattened out of [Vehicle] or [Implement] — the two speak the same shape,
  * and a mixer wagon can be either (a self-propelled one is the vehicle).
  */
 internal data class IsoBusMachine(
   val name: String,
+  /** The game's vehicle type name. A **label hint only** — never the thing a section dispatches on. */
+  val type: String,
+  /**
+   * Whether the *game* has this machine selected — the engine's own per-object flag, mirrored onto
+   * every node in the rig, so exactly one is normally true. Read-only: nothing here can change it.
+   */
+  val selected: Boolean,
   val foldable: FoldableState?,
+  val damage: Int?,
+  /**
+   * This machine's **own** fill units, not its chain's.
+   *
+   * `RigSlotPanel` merges a chain because a slot *is* a chain — one position with everything behind
+   * it. Here every machine is its own node on the diagram with its own tap target, so rolling a
+   * child's tank into its parent's would double-count it the moment the child is selected too.
+   */
+  val fillUnits: List<FillUnit>,
   val tipping: Tipping?,
   val discharge: Discharge?,
   val mass: Mass?,
@@ -139,9 +173,31 @@ internal data class IsoBusMachine(
   val hasSection: Boolean get() = mixer != null
 }
 
-private fun Vehicle.isoBus() = IsoBusMachine(name, foldable, tipping, discharge, mass, mixer)
+internal fun Vehicle.isoBus() = IsoBusMachine(
+  name = name,
+  type = type,
+  selected = selection?.selected == true,
+  foldable = foldable,
+  damage = wearable?.damage,
+  fillUnits = fillUnits?.fillUnit ?: emptyList(),
+  tipping = tipping,
+  discharge = discharge,
+  mass = mass,
+  mixer = mixer,
+)
 
-private fun Implement.isoBus() = IsoBusMachine(name, foldable, tipping, discharge, mass, mixer)
+internal fun Implement.isoBus() = IsoBusMachine(
+  name = name,
+  type = type,
+  selected = selection?.selected == true,
+  foldable = foldable,
+  damage = wearable?.damage,
+  fillUnits = fillUnits?.fillUnit ?: emptyList(),
+  tipping = tipping,
+  discharge = discharge,
+  mass = mass,
+  mixer = mixer,
+)
 
 /** Every machine on the rig, the vehicle first, then its implements depth-first in hitch order. */
 internal fun rigMachines(vehicle: Vehicle): List<IsoBusMachine> {
@@ -195,7 +251,24 @@ private fun findIsoBusImplement(list: List<Implement>, position: String): Implem
  */
 @Composable
 fun IsoBusPanel(vehicle: Vehicle?, slot: RigSlot?, modifier: Modifier = Modifier) {
-  val machine = isoBusMachine(vehicle, slot)
+  // The diagram is the picker, and only where there is a choice to make: a tile pinned to a position
+  // has already been told which machine it follows, so it keeps the direct lookup. Empty on any rig
+  // whose objects carry no `schema` — every capture from before mod version 4 — and the panel then
+  // falls back to the auto-pick it used before the diagram existed.
+  val nodes = if (slot == null && vehicle != null) layoutRig(vehicle) else emptyList()
+
+  // Follow the *game's* selection, and let a tap override it until the game's selection next moves.
+  // That is what makes this behave like the terminal in the cab rather than like a menu: what you
+  // selected on the rig is what the screen is already showing, and looking at something else does
+  // not fight you for it. Nothing here can change the game's selection — it is read-only telemetry.
+  val gameSelectedId = selectedRigNode(nodes)?.id
+  var pinnedId by remember { mutableStateOf<String?>(null) }
+  LaunchedEffect(gameSelectedId) { pinnedId = null }
+  // Resolved against the live node list, so a pin left on a machine that has since been unhitched
+  // falls back to the game's selection rather than blanking the panel.
+  val selected = nodes.firstOrNull { it.id == pinnedId } ?: nodes.firstOrNull { it.id == gameSelectedId }
+
+  val machine = if (nodes.isEmpty()) isoBusMachine(vehicle, slot) else selected?.machine
   val mixer = machine?.mixer
 
   BoxWithConstraints(modifier) {
@@ -203,19 +276,20 @@ fun IsoBusPanel(vehicle: Vehicle?, slot: RigSlot?, modifier: Modifier = Modifier
     // over the other. The state is the thing you glance at, so it moves into the body's status strip
     // rather than being dropped — see [MachineStatus].
     val bareHeader = maxWidth < BARE_HEADER_BELOW
+    val bodyHeight = maxHeight
 
     Panel(
-      title = if (machine?.hasSection == true) machine.name else "ISOBUS",
+      title = machine?.name ?: "ISOBUS",
       icon = if (bareHeader) null else Icons.Filled.Memory,
       modifier = Modifier.fillMaxSize(),
       headerActions = { if (mixer != null && !bareHeader) MixStateChip(mixer) },
     ) {
-      if (mixer == null) {
+      if (machine == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
           Text(
             when {
               vehicle == null -> "No vehicle connected"
-              slot == null -> "No ISOBUS machine on the rig"
+              slot == null -> "Nothing on the rig"
               else -> "Nothing attached to ${slot.label.lowercase()}"
             },
             color = VdtColors.DarkGray,
@@ -224,19 +298,113 @@ fun IsoBusPanel(vehicle: Vehicle?, slot: RigSlot?, modifier: Modifier = Modifier
           )
         }
       } else {
-        MixerSection(machine, mixer, showStateInBody = bareHeader)
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          // One box is not a diagram — a lone tractor is already named in the header — and a tile too
+          // short for the band would spend all of it on the picture. Both are facts about the size
+          // this tile ended up at, which is how every other decision in this panel is taken.
+          val band = schemaHeight(bodyHeight, nodes.size)
+          if (band != null) {
+            RigSchema(nodes, selected?.id, onSelect = {
+              pinnedId = it
+            }, modifier = Modifier.height(band).fillMaxWidth())
+          }
+
+          MachineDetail(machine, Modifier.fillMaxWidth())
+
+          if (mixer != null) {
+            MixerSection(machine, mixer, showStateInBody = bareHeader, modifier = Modifier.weight(1f).fillMaxWidth())
+          }
+        }
       }
     }
   }
 }
+
+/**
+ * How much height the rig diagram gets, or null when it should not be drawn at all.
+ *
+ * A share of the body rather than a fixed band, bounded so it can neither vanish on a tall tile nor
+ * crowd out the machine below it on a short one. Two nodes are the floor: with one box there is no
+ * choice to picture and no selection to make.
+ */
+private fun schemaHeight(body: Dp, nodes: Int): Dp? {
+  if (nodes < 2) return null
+  if (body < MIN_BODY_FOR_SCHEMA) return null
+  return (body * 0.28f).coerceIn(MIN_SCHEMA_HEIGHT, MAX_SCHEMA_HEIGHT)
+}
+
+// ---------------------------------------------------------------------------
+// The generic machine — what every machine gets, with or without a section
+// ---------------------------------------------------------------------------
+
+/**
+ * The part of the screen that does not depend on knowing what the machine *is*: what it is called
+ * (in the header), what the game calls its type, how worn it is, and what is in it.
+ *
+ * This is the half of the terminal that makes the app useful on the overwhelming majority of rigs,
+ * where no aspect section exists yet — and it is deliberately the *frame* rather than a fallback. A
+ * machine that does have a section gets this too, with the section below it.
+ *
+ * The load is the one thing that moves: a machine whose section already draws its contents (a mixer
+ * wagon's tub *is* its fill unit — the capture reads 12400/24000 in both places) must not have them
+ * drawn twice, so the section owns them where there is one.
+ */
+@Composable
+private fun MachineDetail(machine: IsoBusMachine, modifier: Modifier = Modifier) {
+  Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(
+      Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+      verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+      // The game's own type name, unlocalized and modder-defined ("manureBarrel", "sprayer"). Shown
+      // as a label because that is all it is good for — no section anywhere dispatches on it.
+      if (machine.type.isNotBlank()) {
+        Text(
+          machine.type,
+          color = VdtColors.DarkGray,
+          fontSize = 10.sp,
+          fontWeight = FontWeight.Bold,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+          modifier = Modifier.align(Alignment.CenterVertically),
+        )
+      }
+      // Condition is carried by the number; the tint only reinforces it, and a machine in good order
+      // gets the same neutral chip as everything else on the strip.
+      machine.damage?.let { damage ->
+        Chip(
+          Icons.Filled.Build,
+          "${100 - damage}%",
+          if (damage >= WORN_FROM) VdtColors.Amber else VdtColors.DarkGray,
+        )
+      }
+    }
+
+    if (!machine.hasSection && machine.fillUnits.isNotEmpty()) {
+      FillUnitsDisplay(machine.fillUnits, Modifier.fillMaxWidth(), spacing = 4)
+    }
+  }
+}
+
+/**
+ * Damage past which the condition chip stops being neutral. The game starts warning the player around
+ * here, and below it a couple of per cent of wear is not news.
+ */
+private const val WORN_FROM = 20
 
 // ---------------------------------------------------------------------------
 // Mixer wagon
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun MixerSection(machine: IsoBusMachine, mixer: Mixer, showStateInBody: Boolean) {
-  BoxWithConstraints(Modifier.fillMaxSize()) {
+private fun MixerSection(
+  machine: IsoBusMachine,
+  mixer: Mixer,
+  showStateInBody: Boolean,
+  modifier: Modifier = Modifier,
+) {
+  BoxWithConstraints(modifier) {
     // Hoisted out of the scope: further in, these read as the enclosing Column's, not the box's.
     val bodyWidth = maxWidth
     val bodyHeight = maxHeight
