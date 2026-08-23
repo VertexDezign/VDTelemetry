@@ -108,6 +108,16 @@ What it did not do:
   case that reaches neither is `setDischarging` refused by the ground under the machine — but the engine publishes its
   own verdict on `discharge.reason` and the panel is already showing it, so there is nothing to report that the driver
   is not looking at.
+- **`lowered` can still be wrong on a self-propelled foldable.** Version 18 stopped every vehicle
+  alive reporting `lowered = false` — base `Vehicle:getIsLowered` is a hard `return false`, so a
+  tractor claimed a raised state and the terminal offered a control for it. The collector now asks
+  who answered rather than what they said: an object still holding the identical base function has no
+  opinion, and an override that hands the caller's default straight back (Attachable on a hitch that
+  does not move) has none either. What neither test catches is an override that *defers* to base —
+  `Foldable` does exactly that when fold-middle is not configured — because base ignores the default
+  it is given, so its `false` is indistinguishable from a real one. Catching it means reading spec
+  internals, which is the thing both tests exist to avoid. Left until a real machine shows it: every
+  committed capture is a v17 one, so the first v18 capture is what to look at.
 - **`examples/json/nested_trailers.json` still cannot be drawn.** It predates mod version 4 and carries no `schema` at
   all, so it is not the nesting fixture it looks like. The three-deep rig that *does* draw is
   `examples/json/telemetry/vanilla/liquidManure_dribbleBar.json`. A fresh nested-trailer capture would be worth having.

@@ -224,7 +224,20 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     stops, and its own one-shot zeroing at the state change does not survive a multiplayer client
 --     applying an rpm update that was already in flight behind the stop event — which left a smoothed
 --     remnant of idle sitting under 100 rpm on a machine that had been switched off. See issue #94.
-VDTelemetry.VERSION = 17
+-- 16: the mixer wagon's `mixer` aspect — the recipe it mixes to, how far each ingredient is from its
+--     window (in LITRES, since the bars are a share of the load rather than of the tub), whether the
+--     drum is turning, and the tip sides' names. Plus `mass` on any object. See issue #113.
+-- 17: `mixer.mass` is the TUB's load, weighed as its level times the density of what the tub reports
+--     — the same arithmetic FillUnit:getAdditionalComponentMass does for that unit. The machine's
+--     mass minus its empty mass is not a payload and never was: Vehicle:updateMass adds every fill
+--     unit including the diesel and DEF tanks, a hard-attached implement's whole mass and the tension
+--     belts, so an empty wagon read 617 kg of "load". See issue #113.
+-- 18: `lowered` is absent on a machine with nothing to raise. It used to be `false` on every vehicle
+--     alive, because base Vehicle registers `getIsLowered` on all of them and its whole body is
+--     `return false` — so a tractor exported a lowered state and a terminal offered a raise control
+--     for it. Now reported only where a specialization actually overrode that function AND does not
+--     hand the caller's default straight back. See issue #116.
+VDTelemetry.VERSION = 18
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
