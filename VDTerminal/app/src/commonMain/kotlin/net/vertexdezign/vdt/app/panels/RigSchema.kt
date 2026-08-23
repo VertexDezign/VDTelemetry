@@ -26,6 +26,7 @@ import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Schema
+import net.vertexdezign.vdt.model.SchemaJoint
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.math.cos
 import kotlin.math.max
@@ -76,6 +77,23 @@ private const val MAX_DEPTH = 5
 /** `VehicleSchemaOverlayData.new`'s own fallback for a silhouette that declares no invisible border. */
 private const val DEFAULT_BORDER = 0.05f
 
+/** `VehicleSchemaOverlayData:addAttacherJoint`'s own default lift, in pixels. */
+private const val DEFAULT_LIFT_Y = 5f
+
+/**
+ * Where to hang a child whose parent named no attachment points — everything the export knows about
+ * the join in that case is which end of the tractor it is on.
+ *
+ * `x = 1` puts it flush against the parent's edge, which is what every joint in every capture uses,
+ * and `invertX` picks the end: mirrored is ahead, unmirrored behind. A nested machine reports no
+ * position at all and goes behind, which is where a hitch chain runs.
+ */
+private fun fallbackJoint(position: String) = SchemaJoint(
+  x = 1f,
+  invertX = position == RigSlot.FRONT.implementPosition,
+  liftedOffsetY = DEFAULT_LIFT_Y,
+)
+
 /** The root machine's id. Children extend their parent's, so an id encodes the path to the node. */
 internal const val RIG_ROOT_ID = "0"
 
@@ -121,19 +139,29 @@ internal data class RigNode(
 )
 
 /**
- * Lays the rig out for drawing: the root machine plus every implement that carries a [Schema],
- * depth-first in hitch order.
+ * Lays the rig out for drawing: the root machine and every implement on it, depth-first in hitch
+ * order.
  *
  * A mirror of the game's `InputHelpDisplay:collectVehicleSchemaDisplayOverlays`, which is the
  * reference algorithm — the mod exports the raw `schema` and `jointDescIndex` and does no layout
  * arithmetic precisely so this can live here and change without a mod release.
  *
- * Nodes without a schema are **skipped along with their whole subtree**, as the game does: an object
- * with no silhouette has no box for its children to hang off, so there is nowhere to put them.
- * Returns empty when the root itself has none, which is every capture taken before mod version 4.
+ * **Every machine on the rig gets a box; the schema only refines where it goes.** This is one place
+ * the game is deliberately not copied. `schemaOverlay` is only assigned when a machine's XML declares
+ * `vehicle.base.schemaOverlay`, and where it is missing the game gives up outright — no diagram at
+ * all for the rig (`drawVehicleSchema` returns early), and a child with none is skipped along with
+ * its subtree. It can afford that: without a silhouette it has nothing to draw. We draw one generic
+ * box for every machine regardless, so there is nothing to give up, and a modded vehicle whose XML
+ * omits the element would otherwise cost the whole diagram — including the machines around it that
+ * did declare one.
+ *
+ * What a missing schema does cost is placement. A machine with no attacher joints of its own cannot
+ * say where its children hang, so those fall back to [fallbackJoint] and are placed by their
+ * `position` — ahead for `FRONT`, behind for anything else. That is the same fact `RigSlotPanel`
+ * works from, and it is honest about being coarser than the engine's geometry.
  */
 internal fun layoutRig(vehicle: Vehicle): List<RigNode> {
-  val schema = vehicle.schema ?: return emptyList()
+  val schema = vehicle.schema ?: Schema()
   val out = mutableListOf(
     RigNode(
       id = RIG_ROOT_ID,
@@ -164,10 +192,18 @@ private fun layoutChildren(
   out: MutableList<RigNode>,
 ) {
   for ((index, implement) in children.withIndex()) {
-    val schema = implement.schema ?: continue
-    // Lua is 1-based, so the exported index is too. An implement whose joint the parent does not
-    // have is dropped rather than guessed at — the game does the same (`jointDesc == nil` -> skip).
-    val joint = implement.jointDescIndex?.let { parentSchema.attacherJoint.getOrNull(it - 1) } ?: continue
+    val schema = implement.schema ?: Schema()
+    val joint =
+      if (parentSchema.attacherJoint.isEmpty()) {
+        // The parent named no attachment points at all — it has no schema, or one whose attacher
+        // joints declared no `schema` element. Place by position rather than dropping the machine.
+        fallbackJoint(implement.position)
+      } else {
+        // Lua is 1-based, so the exported index is too. An implement whose joint the parent *does*
+        // have a list for but is not in is dropped rather than guessed at: that is inconsistent data
+        // rather than absent data, and the game drops it too (`jointDesc == nil` -> skip).
+        implement.jointDescIndex?.let { parentSchema.attacherJoint.getOrNull(it - 1) } ?: continue
+      }
 
     val invertX = invertingX != joint.invertX
     var baseY = y + joint.y * BOX_H
@@ -242,9 +278,19 @@ internal fun controlTargetOf(node: RigNode): ControlTarget? = when {
   else -> RigSlot.entries.firstOrNull { it.implementPosition == node.machine.position }?.target
 }
 
-/** The node the diagram should start on: whatever the *game* has selected, else the root. */
-internal fun selectedRigNode(nodes: List<RigNode>): RigNode? =
-  nodes.firstOrNull { it.machine.selected } ?: nodes.firstOrNull()
+/**
+ * The node the diagram should start on.
+ *
+ * The game's own selection first — in every capture we hold that is the machine actually being
+ * worked, never the tractor, which is what makes the screen right before anyone touches it.
+ *
+ * Where the game says nothing (an older mod build, or a rig nobody has selected into yet), the first
+ * machine with a type-aware section is a better guess than the tractor: it is the one with something
+ * to show. That is the auto-pick this panel used before the diagram existed, kept rather than lost.
+ */
+internal fun selectedRigNode(nodes: List<RigNode>): RigNode? = nodes.firstOrNull { it.machine.selected }
+  ?: nodes.firstOrNull { it.machine.hasSection }
+  ?: nodes.firstOrNull()
 
 // ---------------------------------------------------------------------------
 // Drawing

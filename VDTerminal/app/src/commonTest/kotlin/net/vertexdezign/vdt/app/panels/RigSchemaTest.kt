@@ -2,6 +2,7 @@ package net.vertexdezign.vdt.app.panels
 
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.model.Implement
+import net.vertexdezign.vdt.model.Mixer
 import net.vertexdezign.vdt.model.Schema
 import net.vertexdezign.vdt.model.SchemaJoint
 import net.vertexdezign.vdt.model.Selection
@@ -42,10 +43,43 @@ private fun chain(depth: Int): Implement {
  */
 class RigSchemaTest {
   @Test
-  fun aRigWithoutASchemaDrawsNothing() {
-    // Every capture taken before mod version 4 looks like this, and so does any object the engine
-    // gave no schemaOverlay. Nothing to hang a diagram off, so there is no diagram.
-    assertTrue(layoutRig(Vehicle(name = "Tractor")).isEmpty())
+  fun aRigWithoutASchemaIsStillDrawn() {
+    // `schemaOverlay` is only assigned when a machine's XML declares it, so a modded vehicle can
+    // legitimately have none — and the game then draws no diagram at all, because it has no
+    // silhouette to draw. We have one generic box either way, so the machines are still placed:
+    // ahead or behind by their position, which is the same fact RigSlotPanel works from.
+    val rig =
+      Vehicle(
+        name = "Tractor",
+        implement =
+        listOf(
+          Implement(name = "Plough", position = "BACK"),
+          Implement(name = "Weight", position = "FRONT"),
+        ),
+      )
+    val nodes = layoutRig(rig)
+    assertEquals(listOf("Tractor", "Plough", "Weight"), nodes.map { it.machine.name })
+
+    val root = nodes.first { it.isRoot }
+    assertTrue(nodes.first { it.machine.name == "Plough" }.x < root.x, "BACK goes behind")
+    assertTrue(nodes.first { it.machine.name == "Weight" }.x > root.x, "FRONT goes ahead")
+  }
+
+  @Test
+  fun aNestedMachineWithNoPositionFallsInBehind() {
+    // Only top-level implements carry FRONT/BACK; deeper ones report nothing, and a hitch chain runs
+    // backwards.
+    val rig =
+      Vehicle(
+        name = "Tractor",
+        implement =
+        listOf(
+          Implement(name = "Dolly", position = "BACK", implement = listOf(Implement(name = "Trailer"))),
+        ),
+      )
+    val nodes = layoutRig(rig)
+    val dolly = nodes.first { it.machine.name == "Dolly" }
+    assertTrue(nodes.first { it.machine.name == "Trailer" }.x < dolly.x)
   }
 
   @Test
@@ -96,18 +130,20 @@ class RigSchemaTest {
   }
 
   @Test
-  fun aMissingSchemaTakesTheWholeSubtreeWithIt() {
-    // The game's own `continue`: an object with no silhouette has no box, so there is nowhere to
-    // hang its children -- they go too, rather than being reparented onto the grandparent.
+  fun aMachineWithNoSchemaKeepsItsSubtree() {
+    // Where the game drops such an object and everything behind it, we keep both: the box is the same
+    // box regardless, and dropping would orphan machines that did declare a schema. The child is
+    // placed by position, since a schema-less parent names no attachment points.
     val rig =
       tractor(
         Implement(
           name = "Unknown",
+          position = "BACK",
           jointDescIndex = 1,
-          implement = listOf(Implement(name = "Orphan", schema = schema(), jointDescIndex = 1)),
+          implement = listOf(Implement(name = "Behind it", schema = schema(), jointDescIndex = 1)),
         ),
       )
-    assertEquals(listOf(RIG_ROOT_ID), layoutRig(rig).map { it.id })
+    assertEquals(listOf("Tractor", "Unknown", "Behind it"), layoutRig(rig).map { it.machine.name })
   }
 
   @Test
@@ -196,7 +232,18 @@ class RigSchemaTest {
   }
 
   @Test
-  fun withNothingSelectedTheDiagramStartsOnTheTractor() {
+  fun withNothingSelectedTheDiagramStartsOnTheMachineThatHasSomethingToShow() {
+    // The auto-pick from before the diagram existed. A rig the game has not reported a selection for
+    // should still open on the mixer rather than on the tractor towing it.
+    val rig =
+      tractor(
+        Implement(name = "Mixer", position = "BACK", schema = schema(), jointDescIndex = 1, mixer = Mixer()),
+      )
+    assertEquals("Mixer", selectedRigNode(layoutRig(rig))?.machine?.name)
+  }
+
+  @Test
+  fun withNothingSelectedAndNothingToShowTheDiagramStartsOnTheTractor() {
     assertEquals("Tractor", selectedRigNode(layoutRig(tractor()))?.machine?.name)
   }
 

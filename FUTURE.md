@@ -108,9 +108,14 @@ What it did not do:
   case that reaches neither is `setDischarging` refused by the ground under the machine — but the engine publishes its
   own verdict on `discharge.reason` and the panel is already showing it, so there is nothing to report that the driver
   is not looking at.
-- **`examples/json/nested_trailers.json` still cannot be drawn.** It predates mod version 4 and carries no `schema` at
-  all, so it is not the nesting fixture it looks like. The three-deep rig that *does* draw is
-  `examples/json/telemetry/vanilla/liquidManure_dribbleBar.json`. A fresh nested-trailer capture would be worth having.
+- **A rig with no `schema` is drawn from `position` alone.** `schemaOverlay` is only assigned where a
+  machine's XML declares `vehicle.base.schemaOverlay`, and the game gives up on the whole diagram when
+  the root has none. We draw one generic box per machine either way, so the fallback places children
+  ahead or behind by their `position` — the same fact `RigSlotPanel` works from, and coarser than the
+  engine's geometry. Untested against a real machine that omits the element: every capture we hold
+  declares one. If a modded vehicle turns up with a rig that draws in a plainly wrong order, this is
+  where to look. (It also means `examples/json/nested_trailers.json`, which predates mod version 4
+  and carries no schema at all, finally draws — as a straight chain rather than at its real geometry.)
 
 ---
 
