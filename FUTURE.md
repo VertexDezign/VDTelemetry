@@ -40,34 +40,23 @@ working spec. It is indexed below rather than duplicated.
 
 The four rounds of `vehicle-data-plan.md` deliberately stopped at the data layer, on the rule *export first, UI later*,
 and left every rendering decision to a redesign that was coming. The redesign happened — display modes, the pillar
-cluster, pages, widget instances — **and did not consume that inbox.** Re-checked 2026-08-15: `VDTerminal/app` still
-contains no reference to `pipe`, `cover`, `discharge`,
-`tipping`, `baleCounter`, `workMode`, `schema`, `selection` or `controlGroup`. All of it is exported, none of it is
-drawn.
+cluster, pages, widget instances — **and did not consume that inbox.** Most of it was still undrawn as late as
+2026-08-15.
 
-- **The rig diagram** — the one that matters most, because it is a UI limitation caused by a data gap that has since
-  been closed. `RigSlotPanel` still finds its slots by string-matching `position ==
-  "FRONT"` / `"BACK"`, so anything nested or sideways is unrepresentable: `examples/json/nested_trailers.json`
-  is a committed fixture the app cannot draw. Mod version 4 exports what a real diagram needs —
-  `schema` (the engine's own `schemaOverlay`: name, offsets, and per-joint `x`/`y`/`rotation`/`invertX`
-  plus the lifted offsets) and `jointDescIndex` on each implement, which is the link that turns flat per-object data
-  into a drawable tree. The layout arithmetic was kept **out** of the mod on purpose so the diagram can change without a
-  mod release; `InputHelpDisplay:collectVehicleSchemaDisplayOverlays`
-  is the algorithm to mirror, depth cap of 5 included.
-- **Selection and control groups.** `selection.selected` is the engine's own per-object flag, so walking the tree finds
-  the selected node without touching the root's ordered `selectableObjects`;
-  `selection.controlGroup` is `{current, name, names}` off `spec_cylindered`. The game's own HUD prints only the group
-  *number* — we have the names from the XML, so the dashboard can do better than the game.
-- **Pipe and cover indicators**, on the vehicle and its implements. Both are objects now — `cover
-  {state, index, count}`, `pipe {state, current, target, numStates}` — so a panel can say *which* cover of several is
-  open and how far along a multi-state pipe is, rather than in-or-out.
+**#116 consumed the bulk of it** (2026-08-23): the rig diagram, `selection.selected`, `pipe`, `cover`, `discharge`,
+`tipping` and the machine's own fill units are all drawn now, on the ISOBUS screen, and pipe / cover / tip side /
+discharge became controls as well. What that left is under "The universal machine screen (#116)" below. What is
+still untouched from this inbox:
+
+- **Control-group names.** `selection.controlGroup` is `{current, name, names}` off `spec_cylindered` — a crane or
+  front loader splits its moving tools into named groups. The game's own HUD prints only the group *number*; we have
+  the names from the XML and still draw neither. A front-loader screen is where this belongs, and there isn't one.
 - **The stepped fill bar.** `fillUnit.display == STEP` marks consumables, where capacity is a slot count: the game draws
   one segment per slot with the part-used roll's fraction inside the next one, and labels it `"2 / 2"` (a `ceil`, not a
   percentage). `components/FillUnitsDisplay.kt` carries the note and renders a continuous bar.
-- **The work aspects.** `discharge`, `tipping`, `harvest`, `workMode`, `baleCounter` — `workWidth` is the one that has
-  since been drawn, by the section view.
-  `discharge.reason` is the pick of them — the engine's own verdict on why unloading is refused (`NO_FREE_CAPACITY`,
-  `NO_ACCESS_LAND`, …), the same code behind its on-screen warning, and nothing a dashboard could work out for itself.
+- **The work aspects that are still undrawn:** `harvest`, `workMode` and `baleCounter`. `workWidth` was drawn by the
+  section view, and `discharge` and `tipping` by #116 — `discharge.reason`, the engine's own verdict on why unloading
+  is refused, turned out to be exactly the pick of them it looked like.
 
 ### Two open calls on the mod side
 
@@ -83,36 +72,62 @@ drawn.
   `allowRefillDialog` and the storage/consuming split — which is what a *"you're on your last roll"*
   alert needs, and nothing else. Do it only if that alert is wanted.
 
-### Making pipe and cover controllable
+---
 
-An ordinary direct-call control, if it is wanted. `Pipe:setPipeState(state)` and
-`Cover:setCoverState(state)` each take an **absolute** state and each own their multiplayer event (`SetPipeStateEvent`,
-`SetCoverStateEvent`), which is exactly what the lossy command channel needs — same shape as `LightControl` and
-`MotorControl`, which call the engine setters directly. Two quirks worth knowing: `setPipeState` clamps to `numStates`,
-and `setCoverState` silently no-ops unless the vehicle `hasCovers` and the state is within `0..#covers`.
+## The universal machine screen (#116)
 
-This is **not** a departure from how `ImplementControl` works. That control routes lower/fold/activate through
-FS25_additionalInputs' `vdAI*` functions because additionalInputs **already owns** that spec-aware logic —
-attacher-joint lowering, fold-to-middle, `requiresPower`, the implement chain — and hand-rolling it per spec was fragile
-(a self-propelled foldable like the Krone BigM reports "lowered"
-via the Foldable fold-middle state, not Attachable, so a hand-rolled `setLoweredAll` no-ops on it). The rule is to use
-what is in vdAI, **not** to extend vdAI with functions only VDTelemetry needs. There is no pipe or cover function there,
-so calling the engine directly is the normal path, not an exception.
+Built 2026-08-23, all four steps: the rig diagram, the generic machine detail, the shared fold/power/raise controls,
+and the pipe / cover / tip side / discharge commands. The design lives in `panels/RigSchema.kt`,
+`components/ImplementControls.kt` and the three new controls under `vdTelemetry/src/command/`.
+
+**Nothing of it has been seen in a running game.** Every layout assertion is synthetic and every command is untested
+against a real machine — see the in-game checks below, which is where the real risk sits.
+
+What it did not do:
+
+- **Machines deeper in the hitch chain cannot be commanded.** `ControlTarget` names the vehicle and its front and rear
+  implements, because those are what vdAI's `vdAI*Front/Back` reach. The diagram happily *shows* a machine two levels
+  down — the Bomech in `liquidManure_dribbleBar.json` is one, and it is the machine the game has selected — and the app
+  renders its controls inert with a line saying why. Closing this needs a per-object address in the export and a
+  resolver mod-side, and for lower/fold/activate it would mean **not** going through vdAI, which the standing rule
+  forbids. Worth its own issue if it turns out to bite; a rig that deep is uncommon.
+- **One generic silhouette, not the game's ten.** Decided rather than deferred (see the issue), but worth a second look
+  once the diagram has been watched in motion: a chain of three identical boxes may scan worse than varied shapes.
+  `schema.name` is plumbed through to the drawing code and selects nothing, so adding shapes later is a lookup table
+  rather than a rework. The vocabulary is `VEHICLE`, `HARVESTER`, `TRUCK`, `CAR`, `LOADER`, `IMPLEMENT`, `TRAILER`,
+  `COMBINE_HEADER`, `FRONTLOADER`, `MOTORBIKE`; every capture we hold reports one of the first two only.
+- **`getUseTurnedOnSchema()`** — the game swaps to a *turned-on* variant of the silhouette. We export `isTurnedOn`, so a
+  running machine could read differently on the diagram even with one shape. Cheap; nobody has asked for it.
+- **`getAdditionalSchemaText()`** — the game prints extra text on a schema node (bale counts and such). Not exported at
+  all. Only worth adding if the diagram turns out to want it.
+- **The rotated-offset and rotation arms of the layout are unverified.** Every joint in every capture reads `rotation`
+  0 and both offsets 0, so those branches are written to the game's algorithm and have never run on real data. They are
+  there because leaving them out would silently misplace the first machine that does use them.
+- **Command outcomes still have nowhere to go**, the same as Missions and Finance. Prevention is the whole of the
+  reporting: the app greys the tip-side button while the trough is open, and the mod drops what it cannot do. The one
+  case that reaches neither is `setDischarging` refused by the ground under the machine — but the engine publishes its
+  own verdict on `discharge.reason` and the panel is already showing it, so there is nothing to report that the driver
+  is not looking at.
+- **`examples/json/nested_trailers.json` still cannot be drawn.** It predates mod version 4 and carries no `schema` at
+  all, so it is not the nesting fixture it looks like. The three-deep rig that *does* draw is
+  `examples/json/telemetry/vanilla/liquidManure_dribbleBar.json`. A fresh nested-trailer capture would be worth having.
 
 ---
 
 ## ISOBUS (#58)
 
 `isobus-plan.md` is still the spec; this is the index. Round 1's four aspects — `sowing`, `spraying`,
-`plow`, `tillage` — are built, tested and captured against real machines. `IsoBusApp` / `IsoBusPanel` /
-`IsoBusWidget` now exist, built for the **mixer wagon** (#113) — so the app side has a shell and the
-dispatch rule has its first real user, but **none of round 1's four aspects has a section yet**.
+`plow`, `tillage` — are built, tested and captured against real machines. The app side now has both
+halves of the terminal — the mixer wagon's section (#113) and the frame every machine gets (#116) —
+but **none of round 1's four aspects has a section yet**.
 
 - **Round 1's four sections.** Sowing, spraying, plough and tillage, rendered by aspect presence in the
   plan's order, added to `IsoBusPanel`'s stack next to the mixer's — the dispatch list is
   `IsoBusMachine.hasSection`, and each of the four has to be added to it and to the flattening the
-  panel does out of `Vehicle` / `Implement`. The one piece of refactoring to do first: extract the
-  section-shutoff bar and the work-area readout out of `RigSlotPanel` instead of reimplementing them.
+  panel does out of `Vehicle` / `Implement`. Half of the refactoring that was to come first is done:
+  #116 pulled the fold/power/raise trio out of `RigSlotPanel` into `components/ImplementControls.kt`.
+  The **section-shutoff bar and the work-area readout are still in `RigSlotPanel`** and want the same
+  treatment before a section reimplements them.
 - **The machine art for those four** is 17 generated SVGs on the unmerged `58-isobus-aspects` branch,
   along with `tools/isobus-art/` and `tools/isobus-mockup/`. **Whether Compose Resources decodes SVG at
   runtime in the wasm build was never verified** — only accessor generation was. The mixer's art is a
@@ -369,8 +384,18 @@ Each one is cheap to do while playing and settles something above.
   behaviour is `state >= 2`, which used to return `UNKNOWN` and was wrong by construction. The tell that you are looking
   at one is the action prompt reading **"Next cover"** rather than "Open/Close cover" — `Cover:updateActionText` uses
   that string only while `0 < state < #covers`.
-- Does `schema` come out populated on a real rig, and does `jointDescIndex` line up with the parent's
-  `attacherJoint` list? The one thing the synthetic tests cannot confirm.
+- **Does the rig diagram match the game's own?** #116's layout is a mirror of
+  `InputHelpDisplay:collectVehicleSchemaDisplayOverlays` and has never been compared against the HUD it copies. Drive
+  the dribble-bar rig and hold the two side by side. (The narrower question this replaces — whether `schema` and
+  `jointDescIndex` come out populated and line up — is **answered** by the committed captures: the Puma exports five
+  joints, the Kaweco carries index 3, the Bomech carries 1 into the Kaweco's single joint.)
+- **Do the four new commands work, and on a multiplayer client?** Pipe, cover, tip side and discharge all call engine
+  setters directly for the first time. Each owns its own MP event, so a client should be fine, but that is read off the
+  source rather than seen. The tip-side gate (trough must be shut) and the OBJECT-vs-GROUND pick are the two most
+  likely to be wrong in practice.
+- **Does the diagram follow the selection the way the cab does?** The captures all say the selected object is the
+  implement being worked, never the tractor, so the screen should already be on the right machine when you look at it.
+  Worth confirming while actually changing selection mid-drive.
 - Does `controlGroup` populate on a front loader or crane, with sensible `names`? They come from vehicle XML and may be
   unresolved i18n keys on some mods. Same question for `workMode.name`.
 - Does `discharge.reason` read `NO_FREE_CAPACITY` when the game refuses to unload? Back a trailer up to a full silo.
