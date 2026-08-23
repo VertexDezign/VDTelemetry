@@ -48,7 +48,7 @@ data actually changes — and none of them rides the 100 ms tick.
 | `mapLayers/` | ground layers: `index.json` (catalogue) + one raster file per plane — crops/growth/soil (core, `src/collect/MapLayersExporter.lua`) | own sweep cadence, per plane |
 | `gpsCourse.json` | the steering assist's guidance lines for the field being driven (core, `src/collect/GpsCourseExporter.lua`) | when the course itself changes (polled) |
 | `production.json` | own farm's production points + factories (core, `src/collect/ProductionExporter.lua`) | own interval (2 s) |
-| `storage.json` | own farm's standalone silos + object storages (core, `src/collect/StorageExporter.lua`) | own interval (2 s) |
+| `storage.json` | own farm's holding outside its productions: standalone silos + object storages, plus silage bunkers and the loose bales/pallets lying around (core, `src/collect/StorageExporter.lua`) | own interval (2 s) |
 | `husbandry.json` | own farm's animal pens (core, `src/collect/HusbandryExporter.lua`) | own interval (5 s) |
 | `fleet.json` | own farm's machines: condition, hours, value, and Advanced Damage System's maintenance record (core, `src/collect/FleetExporter.lua`) | own interval (5 s) |
 | `missions.json` | the farm's contracts (core, `src/collect/MissionExporter.lua`) | on contract change + 10 s |

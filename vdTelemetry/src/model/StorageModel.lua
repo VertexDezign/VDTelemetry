@@ -5,16 +5,30 @@
 -- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Storage.kt) and the fixtures in
 -- examples/json/storage/*.
 --
--- Scope: the LOCAL player's farm only (see g_localPlayer.farmId) — the owned standalone storages with
--- no production: liter silos and object storages (bales/pallets). Split off the sibling production
--- channel (src/model/ProductionModel.lua); the per-row ProductionFillModel is defined there and
--- reused here for a silo's fills (a silo's rows look exactly like a production point's internal
--- storage rows).
+-- Scope: the LOCAL player's farm only (see g_localPlayer.farmId) — everything it holds outside a
+-- production point: the standalone storage placeables (liter silos, manure heaps, object storages),
+-- the silage
+-- bunkers, and the loose bales and pallets lying around. Split off the sibling production channel
+-- (src/model/ProductionModel.lua); the per-row ProductionFillModel is defined there and reused here
+-- for a silo's fills (a silo's rows look exactly like a production point's internal storage rows).
 
 ---@class StoredObjectModel a group of identical stored objects in an object storage
 ---@field index number the group's objectInfoIndex (1-based) — the unload command's addressing key
 ---@field title string display name (the abstract object's dialog text, e.g. "Round bale (Straw)")
 ---@field count number number of that object currently stored
+---@field kind string? what the objects ARE: "BALE" | "PALLET" | "BIGBAG" — the same vocabulary
+---  LooseStockModel uses, so the two lists can be read as one
+---@field shape string? "ROUND" | "SQUARE", on kind=="BALE" only
+---@field type string? fill type name of what the objects HOLD — a separate question from `kind`, and
+---  one that fails on its own: a crate or a vegetable pallet holds no fill type at all
+---@field level number? liters in ONE of those objects — the group is identical objects, fill level
+---  included, so the group holds level * count. Absent together with `type`.
+
+---@class StoredObjectDetail what one stored object is, read off its abstract stand-in (internal)
+---@field kind string "BALE" | "PALLET" | "BIGBAG"
+---@field shape string? "ROUND" | "SQUARE" when it is a bale
+---@field type string? fill type name, absent when the object holds none
+---@field level number? liters in that one object, absent together with `type`
 
 ---@class StandaloneStorageModel an owned storage placeable with no production
 ---@field id string stable id for app selection (placeable uniqueId, else a synthesized fallback)
@@ -27,6 +41,29 @@
 ---@field maxUnloadAmount number? kind=="object": per-action unload cap (the effective max per type is
 ---  min(this, that group's count))
 
+---@class BunkerSiloModel a silage bunker (PlaceableBunkerSilo, or one bay of a multi-bay placeable)
+---@field id string stable id (placeable uniqueId, else a synthesized fallback; bay number appended)
+---@field name string display name (owning placeable's name, bay number appended when it has bays)
+---@field state string "FILL" | "CLOSED" | "FERMENTED" | "DRAIN"
+---@field type string? fill type name — the input type while filling, the output type once closed
+---@field title string? localized fill type title
+---@field level number liters currently in the bunker (there is no capacity: the walls are the limit)
+---@field compacted number? compaction percent 0..100 — present in state "FILL" only
+---@field fermenting number? fermentation percent 0..100 — present in "CLOSED"/"FERMENTED" only
+
+---@class LooseStockModel bales or pallets lying around the farm, grouped by fill type and form
+---@field type string fill type name
+---@field title string localized fill type title
+---@field kind string what they ARE: "BALE" | "PALLET" | "BIGBAG"
+---@field shape string? "ROUND" | "SQUARE", on kind=="BALE" only
+---@field count number how many objects are in the group
+---@field level number liters the whole group holds (a TOTAL, unlike StoredObjectModel.level)
+---@field fermenting number? bales only: how many of them are still fermenting, so still report the
+---  fill type they went in as rather than what they will become
+
 ---@class StorageModel
 ---@field version string channel version, independent of VDTelemetry.VERSION
 ---@field storages StandaloneStorageModel[]?
+---@field bunkerSilos BunkerSiloModel[]?
+---@field looseBales LooseStockModel[]?
+---@field loosePallets LooseStockModel[]?

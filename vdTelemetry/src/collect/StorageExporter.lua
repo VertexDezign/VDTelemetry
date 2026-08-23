@@ -1,7 +1,15 @@
--- Storage export channel: the LOCAL player's owned standalone storages with no production — liter
--- silos (PlaceableSilo) and object storages (PlaceableObjectStorage — bales/pallets) — written to
--- storage.json on its OWN interval. Fill levels/counts drift as material moves, so this is
--- interval-driven like mapVehicles.json, not tied to the main tick.
+-- Storage export channel: everything the LOCAL player's farm is holding outside a production point —
+-- written to storage.json on its OWN interval. Fill levels/counts drift as material moves, so this is
+-- interval-driven like mapVehicles.json, not tied to the main tick. Four blocks, one key each:
+--   * `storages` — the owned standalone storage PLACEABLES: liter silos (PlaceableSilo) and object
+--     storages (PlaceableObjectStorage — bales/pallets put away). This is the app's Storage view.
+--   * `bunkerSilos` — silage bunkers (PlaceableBunkerSilo / PlaceableMultiBunkerSilo).
+--   * `looseBales` / `loosePallets` — the bales and pallets lying around the farm, aggregated.
+--
+-- The last three are deliberately NOT part of `storages`: the Storage app renders that array and
+-- nothing else, so a separate key keeps a heap of chaff and 300 bales on the ground out of a view
+-- that is about buildings you can unload from. They exist for the price list (#112) and the stock
+-- overview (#118), which want the farm's whole sellable holding rather than its buildings.
 --
 -- Split off the sibling PRODUCTION channel (src/collect/ProductionExporter.lua, production.json) so
 -- each app/channel can evolve on its own. This module REUSES ProductionExporter's id / storage-row
@@ -9,7 +17,7 @@
 -- drift between the two channels (same pattern as HusbandryExporter). ProductionExporter is sourced
 -- first (see VDTelemetry.lua sourceFiles). The farm scope is the mod-wide VDT.Farm.ownFarmId.
 --
--- Reads only base-game state (g_currentMission.placeableSystem), so it lives in collect/, not
+-- Reads only base-game state (the placeable, item and vehicle systems), so it lives in collect/, not
 -- integrations/. Every engine read is pcall-guarded (fail-soft house rule): a placeable that throws
 -- is dropped, a bad storage row skipped, and writeDirty()'s pcall contains the rest.
 --
@@ -25,32 +33,56 @@ VDT.StorageExporter = {}
 VDT.StorageExporter.CHANNEL = "storage"
 VDT.StorageExporter.FILE_NAME = "storage.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin StorageData.
-VDT.StorageExporter.VERSION = 1
+-- 2: added bunkerSilos / looseBales / loosePallets, and type+level on an object storage's rows.
+VDT.StorageExporter.VERSION = 2
 -- Write cadence in ms; matches ProductionExporter — fill levels/counts change on the order of seconds
 -- at most, so a 2 s refresh keeps the overview live without churn.
 VDT.StorageExporter.INTERVAL_MS = 2000
+
+-- FillType.UNKNOWN — the engine's "no fill type" default index (see aspects/FillUnit.lua). An object
+-- sitting on it holds nothing nameable, so it is no resource and gets skipped rather than grouped
+-- under a fill type called UNKNOWN.
+local FILL_TYPE_UNKNOWN = 1
+
+-- BunkerSilo.STATE_* (objects/BunkerSilo.lua), named locally because the engine class is a bare
+-- global the specs do not stand up. FILL is the open heap being driven in and compacted, CLOSED is
+-- covered and fermenting, FERMENTED is done but still covered, DRAIN is opened and being taken out.
+local BUNKER_STATES = { [0] = "FILL", [1] = "CLOSED", [2] = "FERMENTED", [3] = "DRAIN" }
 
 local function num(v)
   return type(v) == "number" and v or 0
 end
 
-local function placeableName(placeable)
+local function placeableName(placeable, fallback)
   local okName, name = pcall(placeable.getName, placeable)
-  return (okName and type(name) == "string" and name ~= "") and name or "Storage"
+  return (okName and type(name) == "string" and name ~= "") and name or fallback or "Storage"
 end
 
--- A liter-fill silo (PlaceableSilo). Its Storage objects carry NO back-reference to the placeable
--- (PlaceableSilo sets owningPlaceable on its loading/unloading stations, never on the Storage), which
--- is why these can't be discovered from storageSystem:getStorages() -- we read spec_silo.storages
--- directly. A storagePerFarm silo holds one Storage per farm (storage.ownerFarmId per set); include
--- only the local farm's set. A normal owned silo sets ownerFarmId to the placeable owner, so the same
--- check passes. Duplicate fill types across sets are merged; an all-empty (0-level) silo still shows
--- as long as it has capacity for some fill type. Returns nil when there's nothing to show.
+-- A liter-fill storage placeable, from whatever list of Storage-shaped objects it keeps. Their objects
+-- carry NO back-reference to the placeable (PlaceableSilo sets owningPlaceable on its loading/unloading
+-- stations, never on the Storage), which is why these can't be discovered from
+-- storageSystem:getStorages() -- the specs are read directly.
+--
+-- TWO KINDS OF PLACEABLE come through here, because they answer the same three questions
+-- (getFillLevels / getFillLevel / getCapacity) and so go through ProductionExporter.storageRows
+-- unchanged:
+--   * PlaceableSilo -- spec_silo.storages, a LIST. A storagePerFarm silo holds one Storage per farm
+--     (storage.ownerFarmId per set); include only the local farm's set. A normal owned silo sets
+--     ownerFarmId to the placeable owner, so the same check passes.
+--   * PlaceableManureHeap -- spec_manureHeap.manureHeap, ONE object, and not a Storage subclass at all
+--     (it descends from Object) but with the identical reading surface. It is a building the farm
+--     unloads manure out of, so it belongs on this list next to the slurry tank that is its liquid
+--     twin; it was invisible until someone went looking for their Misthaufen and did not find it.
+--
+-- Duplicate fill types across sets are merged; an all-empty (0-level) storage still shows as long as
+-- it has capacity for some fill type. Returns nil when there's nothing to show.
+---@param placeable table
+---@param storages table[] the placeable's Storage-shaped objects
 ---@return StandaloneStorageModel|nil
-local function collectSilo(placeable, farmId, fallbackIndex)
+local function collectFillStorage(placeable, storages, farmId, fallbackIndex)
   local rows = {}
   local seen = {}
-  for _, storage in ipairs(placeable.spec_silo.storages) do
+  for _, storage in ipairs(storages) do
     local sOwner = storage.ownerFarmId
     if sOwner == nil or sOwner == farmId then
       for _, row in ipairs(VDT.ProductionExporter.storageRows(storage)) do
@@ -79,12 +111,79 @@ local function collectSilo(placeable, farmId, fallbackIndex)
   }
 end
 
+-- ROUND or SQUARE, off the bale's own XML through the bale manager's registry. A filename the manager
+-- does not know answers false, which is also the answer for "square" — a modded bale it has never
+-- heard of lands in the square bucket rather than one of its own.
+---@param bale table
+---@return string
+local function baleShape(bale)
+  if g_baleManager == nil then
+    return "SQUARE"
+  end
+  local ok, isRound = pcall(g_baleManager.getBaleInfoByXMLFilename, g_baleManager, bale.xmlFilename, true)
+  return (ok and isRound == true) and "ROUND" or "SQUARE"
+end
+
+-- What one object-storage group holds, per STORED OBJECT: its fill type, its liters, and WHAT IT IS —
+-- `kind` (BALE / PALLET / BIGBAG, the three things an object storage can hold) plus `shape` where a
+-- bale wants to say more. Same vocabulary as the loose rows, so a reader can union the two lists
+-- without parsing a localized title. A group is objects the game considers
+-- identical, fill level included (getIsIdentical), so one object's figures describe them all and the
+-- group total is level * count.
+--
+-- Read the way the game reads it, which differs by what the abstract object is standing in for: a
+-- *fermenting* bale is kept as a live hidden Bale (AbstractBaleObject.addToStorage) and answers
+-- getRealObject(); everything else — every other bale, every pallet — was deleted on the way in and
+-- survives only as a flat attributes table, `baleAttributes` or `palletAttributes`. WHICH of those two
+-- it is is the only honest bale/pallet discriminator here: the dialog text says "Rundballen" or
+-- "Bigbag" in the player's language, which is a label, not a type. Neither table exposes a getter, so
+-- both are read directly; both are filled from the update stream, so a multiplayer client has them.
+---@return StoredObjectDetail|nil nil when there is no nameable fill type on the object
+local function storedObjectDetail(object)
+  local fillTypeIndex, level, shape, kind
+  local okReal, real = pcall(object.getRealObject, object)
+  if okReal and type(real) == "table" then
+    local okType, t = pcall(real.getFillType, real)
+    local okLevel, l = pcall(real.getFillLevel, real)
+    fillTypeIndex, level = okType and t or nil, okLevel and l or nil
+    kind, shape = "BALE", baleShape(real)
+  else
+    local bale, pallet = object.baleAttributes, object.palletAttributes
+    if type(bale) == "table" then
+      fillTypeIndex, level = bale.fillType, bale.fillLevel
+      kind, shape = "BALE", baleShape(bale)
+    elseif type(pallet) == "table" then
+      fillTypeIndex, level = pallet.fillType, pallet.fillLevel
+      -- a big bag IS a pallet vehicle, but the game names the two apart everywhere it lists them, and
+      -- so does the stock overview's type column -- so they are two kinds here, not a kind and a flag
+      kind = pallet.isBigBag == true and "BIGBAG" or "PALLET"
+    end
+  end
+  if kind == nil then
+    return nil
+  end
+  -- What it IS and what is IN it are two questions, and the second can fail on its own: a crate or a
+  -- vegetable pallet has no fill type at all (FillType.UNKNOWN), and the game's own dialog text drops
+  -- the liter figure for exactly those. Such a row still says PALLET -- it is stock the farm owns,
+  -- just stock nothing can price.
+  local detail = { kind = kind, shape = shape }
+  if fillTypeIndex ~= nil and fillTypeIndex ~= FILL_TYPE_UNKNOWN then
+    local fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
+    if fillType ~= nil then
+      detail.type = fillType.name
+      detail.level = math.floor(num(level))
+    end
+  end
+  return detail
+end
+
 -- An object storage (PlaceableObjectStorage — bales/pallets). Count-based, not liters:
 -- spec.numStoredObjects / spec.capacity total, with spec.objectInfos grouping identical stored
--- objects. The per-group title comes from the live object's getDialogText(), which exists on the
--- server/SP host but not necessarily on an MP client (only counts stream there -- the game's own HUD
--- skips those too); we still report the accurate total and include a group row only when its title
--- resolves. Shown even when empty (capacity > 0) like an empty silo.
+-- objects. The per-group title comes from the object's getDialogText() and the rest from
+-- storedObjectDetail; a group whose title does not resolve is skipped rather than shown blank. The
+-- whole breakdown reaches a multiplayer client live -- the spec re-sends its full write stream
+-- whenever setObjectStorageObjectInfosDirty() raises its dirty flag, which every store and unload
+-- does. Shown even when empty (capacity > 0) like an empty silo.
 ---@return StandaloneStorageModel|nil
 local function collectObjectStorage(placeable, farmId, fallbackIndex)
   local spec = placeable.spec_objectStorage
@@ -106,7 +205,19 @@ local function collectObjectStorage(placeable, farmId, fallbackIndex)
     if count > 0 and first ~= nil then
       local okText, title = pcall(first.getDialogText, first)
       if okText and type(title) == "string" and title ~= "" then
-        objects[#objects + 1] = { index = index, title = title, count = count }
+        -- `kind`/`shape` say what the objects are, `type`/`level` what is in them -- and the second
+        -- pair goes missing on its own for a crate or a vegetable pallet, which holds no fill type.
+        -- `level` is ONE object's liters, so the group holds level * count.
+        local detail = storedObjectDetail(first)
+        objects[#objects + 1] = {
+          index = index,
+          title = title,
+          count = count,
+          type = detail ~= nil and detail.type or nil,
+          level = detail ~= nil and detail.level or nil,
+          shape = detail ~= nil and detail.shape or nil,
+          kind = detail ~= nil and detail.kind or nil,
+        }
       end
     end
   end
@@ -122,9 +233,246 @@ local function collectObjectStorage(placeable, farmId, fallbackIndex)
   }
 end
 
--- Standalone storages: owned silo and object-storage placeables. Production points are excluded for
--- free (they carry spec_productionPoint, not spec_silo / spec_objectStorage, and their storage is
--- reported by the production channel). Silo extensions stay out of scope for v1. Walked over the
+-- One silage bunker. Its fill level, state, compacted and fermenting percentages all ride the silo's
+-- own network streams (BunkerSilo:readStream / readUpdateStream), so a multiplayer client reads the
+-- same figures as the host.
+--
+-- WHICH FILL TYPE: the game's own answer, off BunkerSilo:update — the input type while filling, the
+-- output type once the silo is closed. Never the type the density map actually holds, which between
+-- covering and opening is the TARP "fermenting" type; the game says silage there and so do we.
+--
+-- There is no capacity to report: a bunker's ceiling is the shape of its walls, and the game itself
+-- only ever prints a fill level for one.
+---@param silo table a base-game BunkerSilo
+---@param id string
+---@param name string
+---@return BunkerSiloModel|nil nil when the silo is in a state this build does not know
+local function collectBunkerSilo(silo, id, name)
+  local state = BUNKER_STATES[silo.state]
+  if state == nil then
+    return nil
+  end
+  local fillTypeIndex = silo.outputFillType
+  if state == "FILL" then
+    fillTypeIndex = silo.inputFillType
+  end
+  local fillType = nil
+  if fillTypeIndex ~= nil and fillTypeIndex ~= FILL_TYPE_UNKNOWN then
+    fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
+  end
+  local row = {
+    id = id,
+    name = name,
+    state = state,
+    type = fillType ~= nil and fillType.name or nil,
+    title = fillType ~= nil and fillType.title or nil,
+    level = math.floor(num(silo.fillLevel)),
+  }
+  -- Each percentage only means something in the states that maintain it — the game prints one or the
+  -- other, never both — so the other is left out rather than reported as a stale zero.
+  if state == "FILL" then
+    row.compacted = math.floor(num(silo.compactedPercent))
+  elseif state == "CLOSED" or state == "FERMENTED" then
+    -- fermentingPercent is a 0..1 fraction, and the game rounds it up for display; match that.
+    row.fermenting = math.min(100, math.ceil(num(silo.fermentingPercent) * 100))
+  end
+  return row
+end
+
+-- The owned silage bunkers. Walked over the placeable list, the way the storages above are, rather
+-- than over the placeableSystem:getBunkerSilos() registry the engine also keeps: that one is filled
+-- from onFinalizePlacement, so it holds whatever was *placed*, while the placeable list is what the
+-- rest of this channel already reads and is the one thing here that has been seen to be complete.
+--
+-- A placeable carries either ONE silo (PlaceableBunkerSilo) or a row of bays (PlaceableMultiBunkerSilo,
+-- one silo per configured bay). A bay gets the bay number appended to both id and name, because the
+-- placeable's own name is the same for every bay of it and two bays fill independently.
+---@param farmId number
+---@return BunkerSiloModel[]
+local function collectBunkerSilos(farmId)
+  local out = {}
+  local system = g_currentMission.placeableSystem
+  local placeables = system ~= nil and system.placeables or nil
+  if type(placeables) ~= "table" then
+    return out
+  end
+
+  for _, placeable in ipairs(placeables) do
+    local silos
+    if placeable.spec_bunkerSilo ~= nil then
+      silos = { placeable.spec_bunkerSilo.bunkerSilo }
+    elseif placeable.spec_multiBunkerSilo ~= nil then
+      silos = placeable.spec_multiBunkerSilo.bunkerSilos
+    end
+    if type(silos) == "table" and #silos > 0 then
+      local okOwner, owner = pcall(placeable.getOwnerFarmId, placeable)
+      if okOwner and owner == farmId then
+        local name = placeableName(placeable, "Bunker silo")
+        local id = VDT.ProductionExporter.placeableId(placeable, "bunker" .. (#out + 1))
+        local isBay = #silos > 1
+        for index, silo in ipairs(silos) do
+          if type(silo) == "table" then
+            local row =
+              collectBunkerSilo(silo, isBay and (id .. "_" .. index) or id, isBay and (name .. " " .. index) or name)
+            if row ~= nil then
+              out[#out + 1] = row
+            end
+          end
+        end
+      end
+    end
+  end
+  return out
+end
+
+-- Find or start group `key`, seeded from `seed`. Every group carries a running count and liter total,
+-- so a caller only ever adds to them.
+---@return LooseStockModel
+local function groupRow(rows, seen, key, seed)
+  local row = seen[key]
+  if row == nil then
+    row = seed
+    row.count = 0
+    row.level = 0
+    seen[key] = row
+    rows[#rows + 1] = row
+  end
+  return row
+end
+
+-- Floor the accumulated liters and sort by the whole group key -- fill type, then kind, then shape --
+-- so the file is byte-stable between writes that saw the same stock (Lua table order is not).
+---@param rows LooseStockModel[]
+---@return LooseStockModel[]
+local function finishGroups(rows)
+  for _, row in ipairs(rows) do
+    row.level = math.floor(row.level)
+  end
+  table.sort(rows, function(a, b)
+    if a.type ~= b.type then
+      return a.type < b.type
+    end
+    if a.kind ~= b.kind then
+      return a.kind < b.kind
+    end
+    return (a.shape or "") < (b.shape or "")
+  end)
+  return rows
+end
+
+-- Bales lying around the farm: one row per (fill type, ROUND/SQUARE), each saying `kind = "BALE"` so
+-- it reads the same way a stored one does, with how many there are and how many liters they hold
+-- between them.
+--
+-- WHERE THEY LIVE: g_currentMission.itemSystem, the list the savegame's items are written from.
+-- Bale:readStream adds the bale to it, so a multiplayer client walks the same bales as the host.
+-- Bales put away in an object storage are NOT in it — storing one deletes the object and keeps an
+-- abstract stand-in — so nothing here is also counted under `storages`. Bales riding a trailer are,
+-- which is right: they are stock, they are just in transit.
+--
+-- Mission bales fall out for free: a contract's bales are owned by AccessHandler.NOBODY (BaleMission),
+-- so the own-farm gate never lets them in. The bale's own isMissionBale flag would NOT have done it —
+-- it is not streamed, so a client sees false on every bale.
+--
+-- A FERMENTING bale still reports what it went in as — grass, not silage; the swap happens at
+-- Bale:onFermentationEnd — so `fermenting` says how many of the group are on their way to becoming
+-- something else. Without it a stock overview would quietly price a wrapped grass bale as grass.
+---@param farmId number
+---@return LooseStockModel[]
+local function collectLooseBales(farmId)
+  local rows, seen = {}, {}
+  local system = g_currentMission.itemSystem
+  local items = system ~= nil and system.sortedItemsToSave or nil
+  if type(items) ~= "table" or Bale == nil then
+    return rows
+  end
+
+  for _, entry in ipairs(items) do
+    local bale = type(entry) == "table" and entry.item or nil
+    -- isa() rather than the registered class name: every subclass is stock too (a packed bale, a bale
+    -- in a tube), and a modded one registers under its own name. ForestryLog shares this list and is
+    -- not a Bale, which is exactly what the check is here to say.
+    local isBale = false
+    if type(bale) == "table" and type(bale.isa) == "function" then
+      local ok, result = pcall(bale.isa, bale, Bale)
+      isBale = ok and result == true
+    end
+    -- the farm off the field rather than getOwnerFarmId(): Object keeps it there and streams it, and
+    -- this loop runs once per bale on the map every 2 s, where a method call per bale is not free
+    if isBale and bale.ownerFarmId == farmId then
+      local fillType = g_fillTypeManager:getFillTypeByIndex(bale.fillType)
+      if fillType ~= nil and bale.fillType ~= FILL_TYPE_UNKNOWN then
+        local shape = baleShape(bale)
+        local row = groupRow(rows, seen, fillType.name .. "|" .. shape, {
+          type = fillType.name,
+          title = fillType.title,
+          kind = "BALE",
+          shape = shape,
+        })
+        row.count = row.count + 1
+        row.level = row.level + num(bale.fillLevel)
+        if bale.isFermenting == true then
+          row.fermenting = (row.fermenting or 0) + 1
+        end
+      end
+    end
+  end
+  return finishGroups(rows)
+end
+
+-- Pallets standing around the farm: one row per (fill type, PALLET/BIGBAG).
+--
+-- A pallet is a Vehicle carrying the Pallet specialization (`isPallet`), so these come off the vehicle
+-- list — the same list the fleet channel walks, which never reports one because the game's own
+-- overview does not (Pallet:getShowInVehiclesOverview returns false). The two channels cannot overlap.
+-- A pallet put away in an object storage is deleted like a bale, so again nothing is counted twice.
+--
+-- WHICH FILL UNIT: the pallet spec's own fillUnitIndex — the game's definition of what a pallet is a
+-- pallet OF, and the one AbstractPalletObject reads when it stores one. A pallet whose unit holds no
+-- nameable fill type is skipped: there is no resource on it to report.
+---@param farmId number
+---@return LooseStockModel[]
+local function collectLoosePallets(farmId)
+  local rows, seen = {}, {}
+  local system = g_currentMission.vehicleSystem
+  local vehicles = system ~= nil and system.vehicles or nil
+  if type(vehicles) ~= "table" then
+    return rows
+  end
+
+  for _, vehicle in ipairs(vehicles) do
+    if type(vehicle) == "table" and vehicle.isPallet == true and type(vehicle.spec_pallet) == "table" then
+      local okOwner, owner = pcall(vehicle.getOwnerFarmId, vehicle)
+      if okOwner and owner == farmId then
+        local unit = vehicle.spec_pallet.fillUnitIndex or 1
+        local okType, fillTypeIndex = pcall(vehicle.getFillUnitFillType, vehicle, unit)
+        local fillType = nil
+        if okType and fillTypeIndex ~= nil and fillTypeIndex ~= FILL_TYPE_UNKNOWN then
+          fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
+        end
+        if fillType ~= nil then
+          local okLevel, level = pcall(vehicle.getFillUnitFillLevel, vehicle, unit)
+          -- A big bag is a pallet with the BigBag specialization; the game names the two apart in its
+          -- own storage dialog and a stock list wants the same, since one is refillable and one is not.
+          -- The stored side reaches the same two words through palletAttributes.isBigBag.
+          local kind = vehicle.spec_bigBag ~= nil and "BIGBAG" or "PALLET"
+          local row = groupRow(rows, seen, fillType.name .. "|" .. kind, {
+            type = fillType.name,
+            title = fillType.title,
+            kind = kind,
+          })
+          row.count = row.count + 1
+          row.level = row.level + (okLevel and num(level) or 0)
+        end
+      end
+    end
+  end
+  return finishGroups(rows)
+end
+
+-- Standalone storages: owned silo, manure-heap and object-storage placeables. Production points are
+-- excluded for free (they carry spec_productionPoint, none of the three specs below, and their
+-- storage is reported by the production channel). Silo extensions stay out of scope for v1. Walked over the
 -- placeable list because a Storage/object-storage has no reliable back-reference to its placeable.
 ---@param farmId number
 ---@return StandaloneStorageModel[]
@@ -141,7 +489,9 @@ local function collectStorages(farmId)
     if okOwner and owner == farmId then
       local entry
       if placeable.spec_silo ~= nil and type(placeable.spec_silo.storages) == "table" then
-        entry = collectSilo(placeable, farmId, #out + 1)
+        entry = collectFillStorage(placeable, placeable.spec_silo.storages, farmId, #out + 1)
+      elseif placeable.spec_manureHeap ~= nil and type(placeable.spec_manureHeap.manureHeap) == "table" then
+        entry = collectFillStorage(placeable, { placeable.spec_manureHeap.manureHeap }, farmId, #out + 1)
       elseif placeable.spec_objectStorage ~= nil then
         entry = collectObjectStorage(placeable, farmId, #out + 1)
       end
@@ -153,9 +503,10 @@ local function collectStorages(farmId)
   return out
 end
 
--- Channel is available once the placeable system exists (map loaded) and fill types are known. While
--- spectating, it still writes an empty file so the app shows the (owned-nothing) empty state rather
--- than freezing.
+-- Channel is available once the placeable system exists (map loaded) and fill types are known — the
+-- item and vehicle systems the loose blocks read are guarded where they are used, so a build without
+-- one of them still writes the rest. While spectating, it still writes an empty file so the app shows
+-- the (owned-nothing) empty state rather than freezing.
 function VDT.StorageExporter.isAvailable()
   return g_currentMission ~= nil and g_currentMission.placeableSystem ~= nil and g_fillTypeManager ~= nil
 end
@@ -173,12 +524,20 @@ function VDT.StorageExporter.collect()
   end
 
   local storages = collectStorages(farmId)
+  local bunkerSilos = collectBunkerSilos(farmId)
+  -- The two loose blocks walk the item and vehicle lists rather than the placeable list; either
+  -- system being absent yields an empty table, which is omitted below like any other empty one.
+  local looseBales = collectLooseBales(farmId)
+  local loosePallets = collectLoosePallets(farmId)
 
   return {
     version = tostring(VDT.StorageExporter.VERSION),
     -- omit empty arrays: the Json encoder emits {} for an empty table, so a nil keeps the key absent
     -- and the Kotlin model falls back to emptyList() (see MapExporter / TaskList.lua).
     storages = #storages > 0 and storages or nil,
+    bunkerSilos = #bunkerSilos > 0 and bunkerSilos or nil,
+    looseBales = #looseBales > 0 and looseBales or nil,
+    loosePallets = #loosePallets > 0 and loosePallets or nil,
   }
 end
 
@@ -191,6 +550,6 @@ VDT.ExportChannels.register({
   isAvailable = VDT.StorageExporter.isAvailable,
   collect = VDT.StorageExporter.collect,
   intervalMs = VDT.StorageExporter.INTERVAL_MS,
-  -- Only this farm's silos and object storages are exported (ownFarmId).
+  -- Only this farm's silos, bunkers, bales and pallets are exported (ownFarmId).
   farmScoped = true,
 })
