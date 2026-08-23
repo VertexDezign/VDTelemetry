@@ -85,8 +85,9 @@ vehicle alive, the diagram re-centring and re-scaling itself whenever an impleme
 the unload control opening the trough on land the farm has no access to, and the same control offered on sprayers and
 seeders that cannot use it.
 
-**Confirmed in a multiplayer session 2026-08-23**: discharge into a trigger and onto the ground both work, and the
-pipe, cover and tip-side controls all switch and read back correctly. That covers every command this branch added.
+**Confirmed on a multiplayer client against a dedicated server, 2026-08-23**: discharge into a trigger and onto the
+ground both work, and the pipe, cover and tip-side controls all switch and read back correctly. That covers every
+command this branch added, over the network path that could actually drop one.
 
 What it did not do:
 
@@ -419,11 +420,11 @@ Each one is cheap to do while playing and settles something above.
   capture has one. (The narrower question this replaces — whether `schema` and
   `jointDescIndex` come out populated and line up — is **answered** by the committed captures: the Puma exports five
   joints, the Kaweco carries index 3, the Bomech carries 1 into the Kaweco's single joint.)
-- **Do the four new commands work in the multiplayer role nobody has played yet?** Answered for the role that was:
-  discharge (both into a trigger and onto the ground), pipe, cover and tip side were all exercised in a multiplayer
-  session on 2026-08-23, including the OBJECT-vs-GROUND pick. Each setter forks on `g_server ~= nil` — broadcasting
-  from the host, sending to the server from a client — so only the branch that session ran has been seen. Worth one
-  pass from the other side, and cheap to do.
+- **The four new commands in singleplayer.** Each setter forks on `g_server ~= nil`: it broadcasts where the process
+  *is* the server and sends to the server where it is not. On a dedicated server the mod only ever runs on the client,
+  so the 2026-08-23 session covered the sending arm — and the broadcasting arm is reached not by a different
+  multiplayer role but by **singleplayer**, where the player is their own server. Low risk (it is the shorter path, and
+  every other control in the mod takes it daily), but it is the arm no session has knowingly run for these four.
 - **Does the tip-side gate hold mid-tip?** `getCanTogglePreferdTipSide` requires the trough to be shut, and the app
   greys the control on the same condition, so the gate should never be reached from the terminal. Confirmed only that
   switching *works*, not that switching is refused while the trough is up.
