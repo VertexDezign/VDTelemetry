@@ -126,7 +126,20 @@ internal data class RigNode(
   val borderLeft: Float,
   val borderRight: Float,
   val x: Float,
+  /** Where the box is actually drawn: [restY] plus whatever lift is applied along its path. */
   val y: Float,
+  /**
+   * Where this node sits with nothing on the rig raised, and the total lift it *could* take if
+   * everything on its path were.
+   *
+   * These are what the diagram measures itself against, and they do not move when an implement is
+   * raised — which is the whole point. Fitting the band to the drawn positions instead made the
+   * tractor slide down and every box shrink the moment a plough came up, because the bounding box
+   * grew and the whole diagram was re-centred and re-scaled inside it. In the game the root is nailed
+   * to a fixed line and raised implements poke up above it; this is how that is reproduced.
+   */
+  val restY: Float,
+  val liftHeadroom: Float,
   /** Accumulated down the tree, in radians. */
   val rotation: Float,
   /**
@@ -172,11 +185,13 @@ internal fun layoutRig(vehicle: Vehicle): List<RigNode> {
       borderRight = schema.borderRight ?: DEFAULT_BORDER,
       x = 0f,
       y = 0f,
+      restY = 0f,
+      liftHeadroom = 0f,
       rotation = 0f,
       invertX = false,
     ),
   )
-  layoutChildren(1, schema, vehicle.implement, 0f, 0f, 0f, false, RIG_ROOT_ID, out)
+  layoutChildren(1, schema, vehicle.implement, 0f, 0f, 0f, 0f, 0f, false, RIG_ROOT_ID, out)
   return out
 }
 
@@ -186,6 +201,8 @@ private fun layoutChildren(
   children: List<Implement>,
   x: Float,
   y: Float,
+  restY: Float,
+  liftHeadroom: Float,
   rotation: Float,
   invertingX: Boolean,
   parentId: String,
@@ -207,6 +224,9 @@ private fun layoutChildren(
 
     val invertX = invertingX != joint.invertX
     var baseY = y + joint.y * BOX_H
+    // The same placement with no lift anywhere, tracked in parallel so the band can measure itself
+    // against something that does not move when an implement comes up.
+    var baseRestY = restY + joint.y * BOX_H
     // Mirrored, the child hangs off the parent's *near* edge and grows away from it; unmirrored it
     // hangs off the far edge, so its own width has to come back out of the sum. With every box the
     // same width this collapses to ±(joint.x * BOX_W), but it is written the game's way so that
@@ -226,14 +246,20 @@ private fun layoutChildren(
     val offsetX = if (invertX) -schema.offsetX * BOX_W else schema.offsetX * BOX_W
     val offsetY = schema.offsetY * BOX_H
     baseX -= offsetX * cos(rot) - offsetY * sin(rot)
-    baseY -= offsetX * sin(rot) + offsetY * cos(rot)
+    val rotatedOffsetY = offsetX * sin(rot) + offsetY * cos(rot)
+    baseY -= rotatedOffsetY
+    baseRestY -= rotatedOffsetY
 
     // A raised implement is nudged clear of the machine towing it, which is how the diagram shows
     // raised vs lowered at all. `getIsLowered` is false for anything that cannot be lowered, so a
     // trailer takes the nudge too — matching the game, which likewise does not special-case it.
+    // Reserved whether or not it is currently taken, so the band's extent is a fact about the rig
+    // rather than about what the driver has raised.
+    val lift = joint.liftedOffsetY / LIFT_REF_H * 0.5f
+    val baseHeadroom = liftHeadroom + lift
     if (implement.lowered != true) {
       baseX += joint.liftedOffsetX / LIFT_REF_W
-      baseY += joint.liftedOffsetY / LIFT_REF_H * 0.5f
+      baseY += lift
     }
 
     val id = "$parentId/$index"
@@ -246,12 +272,26 @@ private fun layoutChildren(
       borderRight = schema.borderRight ?: DEFAULT_BORDER,
       x = baseX,
       y = baseY,
+      restY = baseRestY,
+      liftHeadroom = baseHeadroom,
       rotation = rot,
       invertX = invertX,
     )
 
     if (depth <= MAX_DEPTH) {
-      layoutChildren(depth + 1, schema, implement.implement, baseX, baseY, rot, invertX, id, out)
+      layoutChildren(
+        depth + 1,
+        schema,
+        implement.implement,
+        baseX,
+        baseY,
+        baseRestY,
+        baseHeadroom,
+        rot,
+        invertX,
+        id,
+        out,
+      )
     }
   }
 }
@@ -340,8 +380,12 @@ internal fun RigSchema(
     for (node in nodes) {
       minX = min(minX, node.x)
       maxX = max(maxX, node.x + BOX_W)
-      minY = min(minY, node.y)
-      maxY = max(maxY, node.y + BOX_H)
+      // Vertically the band is measured against the rig at rest plus the room a raise would need, so
+      // neither the scale nor the origin moves when one is raised — the root stays put and only the
+      // implement travels, which is what the game's own diagram does. Horizontally it still fits the
+      // drawn extent, as the game does too (`getSchemaDelimiters` takes minX/maxX only).
+      minY = min(minY, node.restY)
+      maxY = max(maxY, node.restY + node.liftHeadroom + BOX_H)
     }
 
     val availW = maxWidth - SCHEMA_PADDING * 2

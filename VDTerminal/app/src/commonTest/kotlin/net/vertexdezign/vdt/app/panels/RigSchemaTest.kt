@@ -184,6 +184,53 @@ class RigSchemaTest {
   }
 
   @Test
+  fun raisingAnImplementMovesNothingButTheImplement() {
+    // The band measures itself against restY + liftHeadroom, and neither moves with the raise. Fit it
+    // to the drawn positions instead and the bounding box grows the moment a plough comes up, which
+    // re-centres AND re-scales the whole diagram: the tractor slides down and every box shrinks for a
+    // change that happened behind it.
+    fun rig(lowered: Boolean) = tractor(
+      Implement(name = "Plough", schema = schema(), jointDescIndex = 1, lowered = lowered),
+      joints = arrayOf(joint(lift = 5f)),
+    )
+
+    val up = layoutRig(rig(false))
+    val down = layoutRig(rig(true))
+
+    for (side in listOf(up, down)) {
+      val root = side.first { it.isRoot }
+      assertEquals(0f, root.restY)
+      assertEquals(0f, root.liftHeadroom)
+    }
+    // The implement's own anchor is identical either way; only where it is drawn differs.
+    val plough = { nodes: List<RigNode> -> nodes.first { !it.isRoot } }
+    assertEquals(plough(down).restY, plough(up).restY)
+    assertEquals(plough(down).liftHeadroom, plough(up).liftHeadroom)
+    assertTrue(plough(up).liftHeadroom > 0f, "the room a raise needs is reserved whether or not taken")
+    assertTrue(plough(up).y > plough(down).y)
+  }
+
+  @Test
+  fun theHeadroomAccumulatesDownAChain() {
+    // A machine behind a raised one is raised with it, so the room reserved has to cover the whole
+    // path rather than one hop.
+    val rig =
+      tractor(
+        Implement(
+          name = "Barrel",
+          schema = schema(joint(lift = 5f)),
+          jointDescIndex = 1,
+          implement = listOf(Implement(name = "Dribble bar", schema = schema(), jointDescIndex = 1)),
+        ),
+        joints = arrayOf(joint(lift = 5f)),
+      )
+    val nodes = layoutRig(rig)
+    val barrel = nodes.first { it.machine.name == "Barrel" }
+    val bar = nodes.first { it.machine.name == "Dribble bar" }
+    assertEquals(barrel.liftHeadroom * 2, bar.liftHeadroom)
+  }
+
+  @Test
   fun theChainStopsSixImplementsDown() {
     // InputHelpDisplay.MAX_SCHEMA_COLLECTION_DEPTH is 5 and the walk starts at 1 on the root's own
     // implements, so six levels are drawn and the seventh is not. Matching the game exactly means our
