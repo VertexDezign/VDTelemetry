@@ -460,6 +460,23 @@ Each one is cheap to do while playing and settles something above.
   where the autoplay policy and the idle timer are a different pair of rules. Open `http://<lan-ip>:3001`, tap the
   coffee cup, confirm **AWAKE**, leave it past the screen timeout. If Android turns out not to need the audio session,
   the unmute could be made conditional and the driver's music left alone there.
+- **Does a multi-bay bunker placeable really hand over one silo per bay (#117)?** The collector reads
+  `spec_multiBunkerSilo.bunkerSilos` and appends the bay number to the id and the name; nothing has
+  confirmed that the bay order matches what you see left-to-right, or that base-game maps even ship
+  such a placeable. `basic.json` looks like it answers this and does not: its three bunkers that share
+  a name are three separate single-bay placeables, which is why they carry no bay suffix.
+- **Does an MP client's bale count match the host's (#117)?** That a joined client sees loose bales
+  at all is **answered** — `mp_modded.json` is a client capture and carries 22 of them, so
+  `Bale:readStream` really does fill `itemSystem` there. The open half is whether it sees *all* of
+  them or only ones the engine considers relevant: nobody has stood a host and a client side by side
+  and compared the two counts. If they differ, the stock overview has to say so rather than quietly
+  under-report.
+- **What does the loose-stock walk cost on a farm that leaves its bales out (#117)?** It walks the
+  item list and the vehicle list every 2 s alongside the placeable list the channel already walked.
+  The captured farm ran it without a murmur in the script debug, but it only had 22 loose bales — that
+  farm keeps its 361 bales in barns, where they cost nothing to count. The number that matters is a
+  farm that leaves a season's worth lying on the ground. If it bites, the fix is a slower recompute
+  for the two loose blocks, not a slower channel — silo fill levels want to stay at 2 s.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.
@@ -572,18 +589,6 @@ machine that has them.
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
-- **The mixer wagon is done** — seven captures, and nothing on the wanted list. Four vanilla singleplayer:
-  `vanilla/mixerWagon_correct` (towed, a finished mix, two tip sides),
-  `vanilla/mixerWagon_selfDriving_outOfRatio` (the straw at 39% of the load against a 30% ceiling — a real
-  instance of the share-of-the-load trap and now the test for it), `vanilla/mixerWagon_selfDriving_single`
-  (one material in, the cycle part way down) and `vanilla/mixerWagon_selfDriving_mixing` (a full cycle
-  just restarted — the ratio is valid there, the mixing time simply has not run out). Three more off a
-  **joined multiplayer client** on a modded map, one machine at three fill levels:
-  `modded/mixerWagon_selfDriving_empty_moddedReceipe` (empty, and a second map's recipe — same four
-  ingredient names as the base game's, different windows, wider material pools),
-  `modded/mixerWagon_selfDriving_unloading` (18888 l of finished feed going out of the open left side) and
-  `modded/mixerWagon_selfDriving_unloadingError` (the engine refusing a trough that will not take it). The
-  two narrow things they cannot show are in the ISOBUS section above, with why no capture would.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
