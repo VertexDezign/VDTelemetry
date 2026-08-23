@@ -80,14 +80,24 @@ Built 2026-08-23, all four steps: the rig diagram, the generic machine detail, t
 pipe/cover/tip-side/discharge controls — all of them chips on one strip rather than buttons. The design lives in
 `panels/RigSchema.kt`, `components/ImplementControls.kt` and the three new controls under `vdTelemetry/src/command/`.
 
-**Validated in singleplayer as it was built**, which is where five of its bugs came from: `lowered` reported on every
+**Validated in a running game as it was built**, which is where five of its bugs came from: `lowered` reported on every
 vehicle alive, the diagram re-centring and re-scaling itself whenever an implement came up, trailers drawn hovering,
 the unload control opening the trough on land the farm has no access to, and the same control offered on sprayers and
-seeders that cannot use it.
+seeders that cannot use it. Not one of them was reachable by a test.
 
-**Confirmed on a multiplayer client against a dedicated server, 2026-08-23**: discharge into a trigger and onto the
-ground both work, and the pipe, cover and tip-side controls all switch and read back correctly. That covers every
-command this branch added, over the network path that could actually drop one.
+**Signed off 2026-08-23, in singleplayer and on a multiplayer client against a dedicated server**: discharge into a
+trigger and onto the ground, and the pipe, cover and tip-side controls, all work and read back correctly. That is every
+command this branch added, over both arms of the `g_server ~= nil` fork — the client's sendEvent path and
+singleplayer's local broadcast.
+
+The tip-side gate turned out to be unreachable from the terminal, which is the outcome to want: the app greys the
+control while the trough is up, so the mod's matching `getCanTogglePreferdTipSide` check can no longer be provoked
+from here at all.
+
+`examples/json/nested_trailers.json` was retaken for it — a Valtra with a front weight and two trailers, at export
+version 19, three deep with a schema on every node and the *nested* trailer selected. It is the first fixture to pin
+`lowered` going absent (18) and `discharge.canToggle` (19), and the first real rig the diagram's tree walk is asserted
+against.
 
 What it did not do:
 
@@ -139,8 +149,8 @@ What it did not do:
   ahead or behind by their `position` — the same fact `RigSlotPanel` works from, and coarser than the
   engine's geometry. Untested against a real machine that omits the element: every capture we hold
   declares one. If a modded vehicle turns up with a rig that draws in a plainly wrong order, this is
-  where to look. (It also means `examples/json/nested_trailers.json`, which predates mod version 4
-  and carries no schema at all, finally draws — as a straight chain rather than at its real geometry.)
+  where to look. No committed fixture exercises it any more: `nested_trailers.json`, which used to be
+  the version-4-era capture with no schema at all, was retaken at version 19 and carries one on every node.
 
 ---
 
@@ -420,20 +430,6 @@ Each one is cheap to do while playing and settles something above.
   capture has one. (The narrower question this replaces — whether `schema` and
   `jointDescIndex` come out populated and line up — is **answered** by the committed captures: the Puma exports five
   joints, the Kaweco carries index 3, the Bomech carries 1 into the Kaweco's single joint.)
-- **The four new commands in singleplayer.** Each setter forks on `g_server ~= nil`: it broadcasts where the process
-  *is* the server and sends to the server where it is not. On a dedicated server the mod only ever runs on the client,
-  so the 2026-08-23 session covered the sending arm — and the broadcasting arm is reached not by a different
-  multiplayer role but by **singleplayer**, where the player is their own server. Low risk (it is the shorter path, and
-  every other control in the mod takes it daily), but it is the arm no session has knowingly run for these four.
-- **Does the tip-side gate hold mid-tip?** `getCanTogglePreferdTipSide` requires the trough to be shut, and the app
-  greys the control on the same condition, so the gate should never be reached from the terminal. Confirmed only that
-  switching *works*, not that switching is refused while the trough is up.
-- **A capture at export version 19**, in progress: a tractor and two trailers, replacing `nested_trailers.json`, which
-  is a version-4-era capture with no `schema` at all. Every other committed fixture is version 17 or older, so nothing
-  yet pins either shape change #116 made — `lowered` absent on a machine with nothing to raise (18) and
-  `discharge.canToggle` (19). Both parse fine on the old fixtures *because* both are nullable, which is what makes the
-  gap easy to miss. When it lands, `VdtModelTest.parsesNestedTrailersAndAggregatesFillUnits` needs its figures
-  refreshed, and is the natural place to assert those two.
 - Does `controlGroup` populate on a front loader or crane, with sensible `names`? They come from vehicle XML and may be
   unresolved i18n keys on some mods. Same question for `workMode.name`.
 - Does `discharge.reason` read `NO_FREE_CAPACITY` when the game refuses to unload? Back a trailer up to a full silo.
