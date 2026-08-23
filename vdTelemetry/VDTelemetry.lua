@@ -114,6 +114,11 @@ local sourceFiles = {
   "src/command/CommandChannel.lua",
   "src/command/LightControl.lua",
   "src/command/ImplementControl.lua",
+  -- Resolves a command's target token to the object it names; the direct-call controls below need
+  -- the object itself, where ImplementControl only needs the vehicle vdAI walks from.
+  "src/command/TargetResolver.lua",
+  "src/command/PipeControl.lua",
+  "src/command/TrailerControl.lua",
   "src/command/MotorControl.lua",
   "src/command/CruiseControl.lua",
   -- Precision Farming application rate (auto/manual + the manual step). Resolves which machine on the

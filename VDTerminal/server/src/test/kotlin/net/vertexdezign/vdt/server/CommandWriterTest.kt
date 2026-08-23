@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.server
 
 import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.CruiseAction
 import net.vertexdezign.vdt.InvoiceLineInput
 import net.vertexdezign.vdt.OutputMode
@@ -226,5 +227,23 @@ class CommandWriterTest {
     CommandWriter(path).submit(ClientMessage.PayInvoice(1))
     val xml = path.readText()
     assertTrue(xml.contains("""<command id="2" type="payInvoice""""), xml)
+  }
+
+  @Test
+  fun `writes the machine commands with the attributes the mod parses`() {
+    // The attribute names are the contract with the mod's own parse, and a typo fails *silently*
+    // there: `xml:getString(key.."#target")` on a misspelled attribute returns nil, the resolver
+    // finds nothing, and the command is dropped without a word.
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    val writer = CommandWriter(path)
+    writer.submit(ClientMessage.SetPipeState(ControlTarget.BACK, state = 2))
+    writer.submit(ClientMessage.SetCoverState(ControlTarget.BACK, state = 0))
+    writer.submit(ClientMessage.SetTipSide(ControlTarget.BACK, side = 3))
+    writer.submit(ClientMessage.SetDischarging(ControlTarget.VEHICLE, on = true))
+    val xml = path.readText()
+    assertTrue(xml.contains("""type="setPipeState" target="back" state="2""""), xml)
+    assertTrue(xml.contains("""type="setCoverState" target="back" state="0""""), xml)
+    assertTrue(xml.contains("""type="setTipSide" target="back" side="3""""), xml)
+    assertTrue(xml.contains("""type="setDischarging" target="vehicle" on="true""""), xml)
   }
 }

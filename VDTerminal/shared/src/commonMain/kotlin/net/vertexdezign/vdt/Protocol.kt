@@ -373,6 +373,68 @@ sealed interface ClientMessage {
     val on: Boolean,
   ) : ClientMessage
 
+  /**
+   * Move the [target]'s pipe to an absolute [state]: `1` is fully retracted, up to the machine's
+   * `numStates`. Mod-side this is a direct `Pipe:setPipeState` — additionalInputs has no counterpart,
+   * so there is nothing to route through.
+   *
+   * The engine **clamps** to the machine's own `numStates`, which is the right authority: the app's
+   * copy of that number is a tick old, the machine's is not.
+   */
+  @Serializable
+  @SerialName("setPipeState")
+  data class SetPipeState(
+    val target: ControlTarget,
+    val state: Int,
+  ) : ClientMessage
+
+  /**
+   * Set the [target]'s cover to an absolute [state]: `0` closes everything, `1..count` opens that
+   * cover. A machine with several covers has one open at a time, which is why this is an index and
+   * not a boolean.
+   *
+   * `Cover:setCoverState` silently **no-ops** unless the machine `hasCovers` and the state is within
+   * `0..#covers`, so an out-of-range state does nothing at all rather than erroring.
+   */
+  @Serializable
+  @SerialName("setCoverState")
+  data class SetCoverState(
+    val target: ControlTarget,
+    val state: Int,
+  ) : ClientMessage
+
+  /**
+   * Choose which tip side the [target]'s next tip will use — `Tipping.preferredSide`, 1-based.
+   *
+   * The mod gates this on the engine's own `getCanTogglePreferdTipSide`, which requires the trough to
+   * be closed, so a command sent mid-tip is dropped rather than yanking a raised trough sideways.
+   */
+  @Serializable
+  @SerialName("setTipSide")
+  data class SetTipSide(
+    val target: ControlTarget,
+    val side: Int,
+  ) : ClientMessage
+
+  /**
+   * Start (`on = true`) or stop the [target] unloading.
+   *
+   * A boolean rather than the absolute [net.vertexdezign.vdt.model.DischargeState] the telemetry
+   * reports, and deliberately so: **which** flavour of unloading applies — into an object or onto the
+   * ground — is a fact about the spot the machine is standing on, which the app cannot know and which
+   * changes between the command being written and being read. The mod asks the engine the same two
+   * questions the game's own tip action asks, in the same order, and picks.
+   *
+   * Still absolute in the sense the channel needs: "unloading" and "not unloading" are both states,
+   * so a resend is a no-op rather than a toggle.
+   */
+  @Serializable
+  @SerialName("setDischarging")
+  data class SetDischarging(
+    val target: ControlTarget,
+    val on: Boolean,
+  ) : ClientMessage
+
   /** Start (`on = true`) or stop the vehicle's engine. */
   @Serializable
   @SerialName("setMotorState")

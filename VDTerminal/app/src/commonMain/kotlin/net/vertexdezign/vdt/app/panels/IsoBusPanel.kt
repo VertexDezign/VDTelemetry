@@ -23,8 +23,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -32,6 +35,7 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PriorityHigh
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
@@ -63,6 +67,8 @@ import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.ImplementControls
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.components.StatusColor
+import net.vertexdezign.vdt.app.components.StatusIconButton
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_mixer_wagon
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -70,6 +76,7 @@ import net.vertexdezign.vdt.model.Cover
 import net.vertexdezign.vdt.model.CoverType
 import net.vertexdezign.vdt.model.Discharge
 import net.vertexdezign.vdt.model.DischargeReason
+import net.vertexdezign.vdt.model.DischargeState
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
@@ -153,6 +160,13 @@ private val MAX_SCHEMA_HEIGHT = 72.dp
  * same buttons.
  */
 private val STACK_CONTROLS_BELOW = 140.dp
+
+/**
+ * The machine-action row's buttons. Shorter than the fold/power/raise trio's 48dp: there can be four
+ * of them and they sit under it, so they give up height to stay a second row rather than a second
+ * block.
+ */
+private val ACTION_HEIGHT = 40.dp
 
 /**
  * One machine on the rig, flattened out of [Vehicle] or [Implement] — the two speak the same shape,
@@ -451,6 +465,8 @@ private fun MachineDetail(
       stacked = stackControls,
     )
 
+    MachineActions(machine, target, onCommand, Modifier.fillMaxWidth())
+
     // Why the buttons above are inert, rather than leaving the driver to tap and wonder. The limit is
     // the command channel's, not the diagram's: see [controlTargetOf].
     if (target == null) {
@@ -464,6 +480,108 @@ private fun MachineDetail(
 
     if (!machine.hasSection && machine.fillUnits.isNotEmpty()) {
       FillUnitsDisplay(machine.fillUnits, Modifier.fillMaxWidth(), spacing = 4)
+    }
+  }
+}
+
+/**
+ * The machine-specific actions: the pipe, the cover, which side it tips and whether it is unloading.
+ *
+ * A second row rather than more chips, because these have to be *aimed at* — a chip is 23dp tall and
+ * this is read on a tablet in a moving cab. So the division of labour on this screen is: buttons act,
+ * chips explain. A button cannot say which of three covers is open or why the engine is refusing the
+ * trough; the strip above it does that, and neither repeats the other.
+ *
+ * Present only where the aspect is, the same dispatch rule as everything else here, and absent
+ * entirely on the great majority of machines that have none of the four.
+ *
+ * Every tap sends the ABSOLUTE next state, computed from what is rendered, so the lossy channel can
+ * drop or double it without desyncing. Cycles wrap the way the game's own actions do — a multi-state
+ * pipe steps to the next position, a multi-cover machine steps through its covers and back to shut.
+ */
+@Composable
+private fun MachineActions(
+  machine: IsoBusMachine,
+  target: ControlTarget?,
+  onCommand: (ClientMessage) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val pipe = machine.pipe
+  val cover = machine.cover
+  val tipping = machine.tipping
+  val discharge = machine.discharge
+  if (pipe == null && cover == null && tipping == null && discharge == null) return
+
+  Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    if (pipe != null) {
+      val out = pipe.state != PipeState.RETRACTED
+      StatusIconButton(
+        if (out) Icons.AutoMirrored.Filled.ArrowForward else Icons.AutoMirrored.Filled.ArrowBack,
+        Modifier.weight(1f),
+        height = ACTION_HEIGHT,
+        active = true,
+        color = if (out) StatusColor.Green else StatusColor.White,
+        // 1 is fully retracted and numStates is the far end, so stepping with a wrap covers both the
+        // ordinary two-position pipe and an auger wagon's multi-state one. `current` is 0 while the
+        // pipe is travelling; stepping from the target instead keeps a double-tap moving it onward.
+        onClick = target?.let {
+          {
+            val from = if (pipe.current > 0) pipe.current else pipe.target
+            val next = if (from >= pipe.numStates) 1 else maxOf(from, 1) + 1
+            onCommand(ClientMessage.SetPipeState(it, next))
+          }
+        },
+      )
+    }
+
+    if (cover != null) {
+      val open = cover.state == CoverType.OPEN || cover.index > 0
+      StatusIconButton(
+        if (open) Icons.Filled.LockOpen else Icons.Filled.Lock,
+        Modifier.weight(1f),
+        height = ACTION_HEIGHT,
+        active = cover.count > 0,
+        color = if (open) StatusColor.Green else StatusColor.White,
+        // 0 is everything shut; the game's own action reads "Next cover" while one of several is
+        // open, so the cycle runs 0 -> 1 -> ... -> count -> 0 rather than toggling the first.
+        onClick = target?.takeIf { cover.count > 0 }?.let {
+          { onCommand(ClientMessage.SetCoverState(it, if (cover.index >= cover.count) 0 else cover.index + 1)) }
+        },
+      )
+    }
+
+    val tipSides = tipping?.count ?: 0
+    if (tipping != null && tipSides > 1) {
+      // The trough has to be shut to change sides — the engine refuses otherwise — so the button
+      // greys out mid-tip rather than sending a command the mod would drop.
+      val canSwitch = tipping.state == TipState.CLOSED
+      StatusIconButton(
+        Icons.Filled.SwapHoriz,
+        Modifier.weight(1f),
+        height = ACTION_HEIGHT,
+        active = canSwitch,
+        onClick = target?.takeIf { canSwitch }?.let {
+          {
+            val from = tipping.preferredSide ?: 1
+            onCommand(ClientMessage.SetTipSide(it, if (from >= tipSides) 1 else from + 1))
+          }
+        },
+      )
+    }
+
+    if (discharge != null) {
+      val unloading = discharge.state != DischargeState.OFF
+      StatusIconButton(
+        Icons.Filled.Download,
+        Modifier.weight(1f),
+        height = ACTION_HEIGHT,
+        active = true,
+        color = if (unloading) StatusColor.Green else StatusColor.White,
+        // Not gated on `discharge.allowed`: that is a master latch other specializations hold, not a
+        // verdict on the spot the machine is on — a captured wagon reads `true` there while the
+        // engine refuses the trough in front of it. The mod asks the engine at the moment it acts.
+        onClick = target?.let { { onCommand(ClientMessage.SetDischarging(it, on = !unloading)) } },
+      )
     }
   }
 }
