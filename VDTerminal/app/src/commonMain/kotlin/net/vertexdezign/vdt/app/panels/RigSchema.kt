@@ -345,9 +345,16 @@ internal fun controlTargetOf(node: RigNode): ControlTarget? = when {
  * The game's own selection first — in every capture we hold that is the machine actually being
  * worked, never the tractor, which is what makes the screen right before anyone touches it.
  *
- * Where the game says nothing (an older mod build, or a rig nobody has selected into yet), the first
- * machine with a type-aware section is a better guess than the tractor: it is the one with something
- * to show. That is the auto-pick this panel used before the diagram existed, kept rather than lost.
+ * Where the game says nothing, the first machine with a type-aware section is a better guess than the
+ * tractor: it is the one with something to show. That is the auto-pick this panel used before the
+ * diagram existed, kept rather than lost.
+ *
+ * The game says nothing in two cases, and in both the node this returns is drawn as selected even
+ * though the game has selected nothing. That is deliberate: the mark then says *what this tile is
+ * showing*, which is the only meaning left, and there is nothing for it to be confused with — either
+ * the export predates `selection` entirely (mod version 4), or **nothing on the rig is selectable**,
+ * which is a bare tractor on a save with automatic motor start on. A rig where anything can be
+ * selected always has something selected: the engine picks the first candidate itself at load.
  */
 internal fun selectedRigNode(nodes: List<RigNode>): RigNode? = nodes.firstOrNull { it.machine.selected }
   ?: nodes.firstOrNull { it.machine.hasSection }

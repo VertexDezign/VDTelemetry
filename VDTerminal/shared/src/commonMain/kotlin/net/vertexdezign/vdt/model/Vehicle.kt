@@ -509,6 +509,12 @@ data class SchemaJoint(
  * `setSelectedVehicle` does not refuse a machine that fails it: it selects the first machine that
  * passes instead, so an ungated tap can move the selection to somewhere nobody pointed at.
  *
+ * Almost everything hitched to a tractor is selectable — `Attachable` overrides the engine's test to
+ * `true` outright — so what this usually marks is the **tractor**, and its answer is a fact about the
+ * *save* rather than about the machine: `Motorized` allows selection only while automatic motor start
+ * is off, since the player then has to select the tractor to start it by hand. On a default save the
+ * tractor is therefore not selectable, and the game's own selection key skips it too.
+ *
  * Null on a machine that could not answer — an export from before mod version 20, or an object with
  * no selection functions at all. Read that as *unknown*, never as permission.
  */

@@ -180,6 +180,33 @@ class VdtModelTest {
   }
 
   @Test
+  fun theTractorsSelectabilityFollowsTheAutomaticMotorStartSetting() {
+    // The same rig twice — the same Deutz-Fahr, the same two Pöttinger mowers — differing only in the
+    // game's automatic-motor-start setting. That setting, and nothing about the machine, is what
+    // decides whether a bare tractor can be selected at all: `Motorized:getCanBeSelected` returns true
+    // only while automatic start is OFF, because the player then has to select the tractor to start it
+    // by hand. With it ON it falls through to base `Vehicle:getCanBeSelected`, which is
+    // `VehicleDebug.state ~= 0` and therefore false in any normal game.
+    //
+    // So `selectable` is as much a fact about the save's settings as about the machine, and on a
+    // default save the rig diagram greys the tractor the driver is sitting in — which is exactly what
+    // the game's own selection key does with it. The implements are untouched either way: `Attachable`
+    // overrides the test to `true` outright.
+    val manualStart = assertNotNull(capture("multiple_implements.json").vehicle)
+    val autoStart = assertNotNull(capture("multiple_implements_automatic_motor_start.json").vehicle)
+
+    assertEquals(manualStart.name, autoStart.name, "the same tractor stands in both captures")
+    assertEquals(true, manualStart.selection?.selectable)
+    assertEquals(false, autoStart.selection?.selectable)
+    assertEquals(listOf(true, true), autoStart.implement.map { it.selection?.selectable })
+
+    // And the game still has a selection on the unselectable-tractor rig — one of the mowers, since
+    // the tractor is not a candidate. Nothing about `selectable` reaches `selected`.
+    assertEquals(listOf(false, true), autoStart.implement.map { it.selection?.selected })
+    assertEquals(false, autoStart.selection?.selected)
+  }
+
+  @Test
   fun parsesTheControlGroupsOfATurntableLadder() {
     // The first capture that has control groups at all, and it is the case the whole `available`
     // field exists for: a turntable ladder declares THREE groups and can currently reach only two of

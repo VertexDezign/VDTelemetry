@@ -207,8 +207,10 @@ internal data class IsoBusMachine(
    * `setSelectedVehicle` answers an ineligible machine by selecting a *different* one.
    *
    * Almost everything hitched to a tractor passes — `Attachable` alone overrides the engine's test to
-   * `true` — so what this usually marks is the bare tractor, which has nothing to control and which
-   * the game's own cycling key skips for the same reason.
+   * `true` — so what this usually marks is the **tractor**, and on a default save it always does: the
+   * engine allows selecting it only while automatic motor start is off. The game's own cycling key
+   * skips it for exactly the same reason, so a greyed tractor here is the diagram agreeing with the
+   * game rather than withholding something.
    */
   val selectable: Boolean,
   /** The moving-tool group being cycled, on a machine that splits its controls into named groups. */

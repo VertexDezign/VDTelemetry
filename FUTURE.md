@@ -199,21 +199,27 @@ The two engine facts everything here is shaped around, both silent:
   **currently active**, so the two numbers are different and a declared group can be unreachable. Hence
   `controlGroup.available`, which is what the chip cycles over — `names` would put a dead step in the loop.
 
-**Validated in singleplayer 2026-08-23**, and captured: `examples/json/subSelection.json` is a Mercedes turntable
-ladder, and it is the first fixture in the repo that has control groups at all — and exactly the shape `available` was
-built for. It declares **three** groups (`Türen`, `Leiterpark`, `Korb`) and can currently reach **two** (`[2, 3]`), so a
-cycle over `names` would step onto "Türen" and do nothing. `multiple_implements.json` was retaken alongside it at
-version 20, and is the fixture that pins `selectable` on a towing rig.
+**Validated in singleplayer 2026-08-23**, and captured three times over:
+
+- `subSelection.json` — a Mercedes turntable ladder, the first fixture in the repo with control groups at all, and
+  exactly the shape `available` was built for. It declares **three** groups (`Türen`, `Leiterpark`, `Korb`) and can
+  currently reach **two** (`[2, 3]`), so a cycle over `names` would step onto "Türen" and do nothing.
+- `multiple_implements.json` and `multiple_implements_automatic_motor_start.json` — the *same* rig, a Deutz-Fahr with
+  two Pöttinger mowers, differing only in the game's automatic-motor-start setting. The tractor's `selectable` flips
+  `true` -> `false` with it and the mowers stay `true`, which pins `Motorized:getCanBeSelected` against real data.
+
+The pair settles something worth stating plainly: **on a default save the tractor is not selectable**, so the rig
+diagram greys the machine the driver is sitting in. That is the common case rather than an edge one, and it is the
+diagram agreeing with the game — the game's own selection key skips the tractor for the same reason. The tractor is
+still readable on a tile pinned to the `VEHICLE` slot, which bypasses the diagram.
 
 What it did not do:
 
 - **A multiplayer client has not been tried.** The client-local claim is settled in principle (there is no event to
   send), but the command path is the same `g_server ~= nil` fork every other control takes and has not been walked for
   this one.
-- **A tap can no longer point the tile at a machine the game will not select.** That is the deliberate trade: the tile
-  shows the game's selection and only that, so the screen and the keyboard can never disagree. The machine it costs is
-  usually the bare tractor (nothing overrides `getCanBeSelected` on it unless automatic motor start is off), and that
-  one is still reachable — pin a tile to the `VEHICLE` slot, which bypasses the diagram entirely.
+- **A tap can no longer point the tile at a machine the game will not select.** The deliberate trade above: the tile
+  shows the game's selection and only that, so the screen and the keyboard can never disagree.
 - **Retargeting the existing controls at the selection.** #119's own non-goal, and the natural follow-up: it would close
   #116's `ControlTarget` ceiling using the node resolver this issue already built, but it changes how every command is
   addressed and reopens the vdAI question for lower / fold / activate. Its own issue.
@@ -502,11 +508,12 @@ Each one is cheap to do while playing and settles something above.
   `subSelection.json` (2026-08-23): a turntable ladder reports three localized German names and an `available` of
   `[2, 3]`, so the names resolve and a declared group really can be unreachable. Still open for a **modded** machine,
   whose XML may carry an unresolved i18n key; same question for `workMode.name`.
-- ~~Does `selection.selectable` come out the way the engine source says?~~ Half **answered**: it is `true` on a
-  Deutz-Fahr 8280 and on both mowers hitched to it (`multiple_implements.json`). The interesting half has not been seen
-  — a machine reporting **false**, which the engine source says should be a bare tractor with automatic motor start
-  enabled. Unhitch everything and look at the diagram: a greyed box is one the game's own selection key skips, so
-  cycling with the keyboard is the cross-check.
+- ~~Does `selection.selectable` come out the way the engine source says?~~ **Answered**, and by a controlled pair: the
+  same rig captured with automatic motor start off (`multiple_implements.json`) and on
+  (`multiple_implements_automatic_motor_start.json`). The tractor flips `true` -> `false` with the setting and both
+  mowers stay `true` throughout, which is `Motorized:getCanBeSelected` exactly. So the tractor is greyed on a **default**
+  save — the common case, not an edge one — and that is the diagram agreeing with the game, whose own selection key
+  skips it for the same reason.
 - Does a tap on the rig diagram move the game's selection **on a multiplayer client**? Singleplayer is signed off; the
   command path is the same `g_server ~= nil` fork every other control takes and has not been walked for this one.
 - Does `discharge.reason` read `NO_FREE_CAPACITY` when the game refuses to unload? Back a trailer up to a full silo.
@@ -615,9 +622,6 @@ engine load it wears the engine on, the service interval and system voltage. The
 The schema, selection and work aspects are all tested synthetically, because none of the committed captures contains a
 machine that has them.
 
-- **A machine the game will *not* select** (`selection.selectable == false`). Every version-20 capture we hold reads
-  `true` on every node, so the greyed arm of the rig diagram has never been seen against real data. The engine source
-  says a bare tractor with automatic motor start enabled is one.
 - **A front loader at version 20.** `tractor_frontloader.json` is at 19, and exports no `controlGroup` at all — which is
   itself worth confirming, since a loader's moving tools ought to give it one. `subSelection.json` covers the
   control-group shape meanwhile.

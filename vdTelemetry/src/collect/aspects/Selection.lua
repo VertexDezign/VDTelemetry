@@ -17,8 +17,14 @@
 --     flag a dashboard offering a tap on the diagram would sometimes move the selection to a
 --     different machine entirely (see command/SelectionControl.lua). Almost everything hitched to a
 --     tractor passes -- Attachable overrides getCanBeSelected to `true`, as do TurnOnVehicle,
---     Foldable, Trailer, Cover, Pipe and a dozen more -- so in practice this marks the machines with
---     nothing to control, the bare tractor among them.
+--     Foldable, Trailer, Cover, Pipe and a dozen more -- so what this usually marks is the TRACTOR.
+--
+--     And the tractor's answer is a fact about the SAVE, not about the machine: Motorized's override
+--     returns true only while automatic motor start is OFF (the player then has to select the tractor
+--     to start it by hand), and with the setting on it falls through to base Vehicle:getCanBeSelected,
+--     which is `VehicleDebug.state ~= 0` and false in any normal game. The two
+--     `multiple_implements*.json` captures are the same rig with the setting flipped, and the tractor
+--     flips with it.
 --
 --   * `controlGroup` — the sub-selection *within* a selected object: a crane or front loader splits
 --     its moving tools into named groups the player cycles through (spec_cylindered). The game's own
