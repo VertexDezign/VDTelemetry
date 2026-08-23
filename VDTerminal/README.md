@@ -23,6 +23,7 @@ whose mod isn't installed is not listed at all, rather than showing an empty scr
 |---|---|
 | **Vehicle** | the machine you're driving: engine and transmission, lighting, and a rig laid out the way it sits — front, machine, rear — with each slot's fill units, sections and rates |
 | **Map** | the PDA map: the DDS map image, POIs, fields, vehicle markers, the steering course, and the ground-layer overlays below |
+| **Fleet** | every machine the farm owns, the way the game's own vehicle overview lists them — condition, operating hours, age, what each is worth — searchable and sortable, with Advanced Damage System's maintenance record (state, service interval, faults found, what is in the workshop) where that mod is installed, and a row that puts itself on the map |
 | **Production** / **Storage** / **Animals** | the farm's production points and factories, its silos and object storages, and its animal pens |
 | **Contracts** | the farm's missions — on offer, running, waiting to be collected — with accept / cancel / collect |
 | **Calendar** | the game's crop calendar — the sowing and harvest periods of every crop, with a today line — searchable by name and filterable to what can be sown or harvested *now*, over the weather forecast (now, twelve two-hourly steps, six days) |

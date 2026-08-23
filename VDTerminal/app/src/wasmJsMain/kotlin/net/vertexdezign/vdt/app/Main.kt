@@ -100,6 +100,7 @@ fun main() {
       production = repository.production,
       storage = repository.storage,
       husbandry = repository.husbandry,
+      fleet = repository.fleet,
       missions = repository.missions,
       finance = repository.finance,
       invoices = repository.invoices,

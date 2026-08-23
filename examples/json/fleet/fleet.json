@@ -1,0 +1,1271 @@
+{
+  "date": {
+    "day": 1,
+    "year": 1,
+    "month": 6
+  },
+  "version": "1",
+  "vehicles": [
+    {
+      "type": "tool",
+      "posZ": 0.57856,
+      "propertyState": "OWNED",
+      "posX": 0.1534,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "POTATO",
+            "title": "Kartoffeln",
+            "fillLevelPercentage": 84,
+            "value": 2600,
+            "capacity": 3100,
+            "unit": "l"
+          },
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 3100,
+            "unit": ""
+          }
+        ]
+      },
+      "attachedTo": 652,
+      "name": "Volvo Universalschaufel (L90)",
+      "category": "Radlader Werkzeuge",
+      "sellPrice": 8850,
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 3,
+        "unit": "%"
+      },
+      "id": 622
+    },
+    {
+      "isAI": true,
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5,
+          "hours": 0.1
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "id": 626,
+      "posZ": 0.35128,
+      "sellPrice": 214400,
+      "posX": 0.50151,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 61,
+          "title": "Luft",
+          "value": 1826,
+          "capacity": 3000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 502,
+          "usage": 9.39,
+          "capacity": 505,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 35,
+          "capacity": 35,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "DEUTZ-FAHR 8280 TTV (KI-Helfer F)",
+      "category": "Mittelgroße Traktoren",
+      "propertyState": "OWNED",
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 51,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "isAI": true,
+      "type": "other",
+      "posZ": 0.35212,
+      "propertyState": "OWNED",
+      "posX": 0.50011,
+      "age": 0,
+      "attachedTo": 626,
+      "name": "PÖTTINGER NovaAlpin 301",
+      "category": "Mähtechnik",
+      "sellPrice": 12487,
+      "hours": 0.1,
+      "wearable": {
+        "wear": 1,
+        "damage": 0,
+        "dirt": 60,
+        "unit": "%"
+      },
+      "id": 627
+    },
+    {
+      "isAI": true,
+      "type": "other",
+      "posZ": 0.35057,
+      "propertyState": "OWNED",
+      "posX": 0.50269,
+      "age": 0,
+      "attachedTo": 626,
+      "name": "PÖTTINGER NOVADISC 900",
+      "category": "Mähtechnik",
+      "sellPrice": 28095,
+      "hours": 0.1,
+      "wearable": {
+        "wear": 1,
+        "damage": 0,
+        "dirt": 61,
+        "unit": "%"
+      },
+      "id": 628
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5.5,
+          "hours": 0
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "id": 629,
+      "posZ": 0.34176,
+      "sellPrice": 374400,
+      "posX": 0.49387,
+      "motorFillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 80,
+          "capacity": 80,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 778,
+          "usage": 0,
+          "capacity": 780,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "KRONE BiG M 450",
+      "category": "Mähtechnik",
+      "propertyState": "OWNED",
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 1,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5,
+          "hours": 0.4
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "type": "tractor",
+      "posZ": 0.62076,
+      "posX": 0.40873,
+      "id": 630,
+      "isTabbable": true,
+      "sellPrice": 191600,
+      "propertyState": "OWNED",
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 93,
+          "title": "Luft",
+          "value": 3729,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 99,
+          "value": 385,
+          "usage": 0,
+          "capacity": 390,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 48,
+          "capacity": 48,
+          "unit": "l"
+        }
+      },
+      "isEntered": true,
+      "name": "Case IH Puma 185 CVXDrive",
+      "category": "Mittelgroße Traktoren",
+      "age": 0,
+      "hours": 0.4,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 16,
+        "unit": "%"
+      },
+      "isControlled": true
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.43768,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "WHEAT",
+            "title": "Weizen",
+            "fillLevelPercentage": 100,
+            "value": 1760,
+            "capacity": 1760,
+            "unit": "l"
+          },
+          {
+            "type": "FERTILIZER",
+            "title": "Mineraldünger",
+            "fillLevelPercentage": 100,
+            "value": 1240,
+            "capacity": 1240,
+            "unit": "l"
+          }
+        ]
+      },
+      "posX": 0.46507,
+      "name": "SKY Agriculture Easydrill P250",
+      "category": "Sätechnik",
+      "sellPrice": 104190,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 631
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.42285,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 39000,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.44702,
+      "name": "Fortuna FTM 200 / 7.5",
+      "category": "Anhänger",
+      "sellPrice": 58446,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 632
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.42279,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 28500,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.45093,
+      "name": "Palaz Trailers RR2C 18L",
+      "category": "Anhänger",
+      "sellPrice": 27781,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 633
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.42309,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 23660,
+            "unit": ""
+          }
+        ]
+      },
+      "posX": 0.45288,
+      "name": "Record KMR 1850",
+      "category": "Anhänger",
+      "sellPrice": 80282,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 634
+    },
+    {
+      "type": "truck",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5,
+          "hours": 0
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "id": 635,
+      "posZ": 0.42841,
+      "sellPrice": 360000,
+      "posX": 0.45484,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 96,
+          "title": "Luft",
+          "value": 3820,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 400,
+          "usage": 0,
+          "capacity": 400,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 60,
+          "capacity": 60,
+          "unit": "l"
+        }
+      },
+      "isTabbable": false,
+      "name": "Schlingmann HLF20",
+      "category": "Diverses",
+      "propertyState": "OWNED",
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "attachedTo": 635,
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5,
+          "hours": 0
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "id": 636,
+      "posZ": 0.42639,
+      "sellPrice": 3040,
+      "posX": 0.45567,
+      "type": "tool",
+      "isTabbable": false,
+      "name": "Lizard Schlauchhaspel",
+      "category": "Diverses",
+      "propertyState": "OWNED",
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "attachedTo": 635,
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5,
+          "hours": 0
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "id": 637,
+      "posZ": 0.42624,
+      "sellPrice": 4720,
+      "posX": 0.45506,
+      "type": "tool",
+      "isTabbable": false,
+      "name": "Lizard Verkehrshaspel",
+      "category": "Diverses",
+      "propertyState": "OWNED",
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5,
+          "hours": 0.3
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "posZ": 0.661,
+      "id": 638,
+      "posX": 0.39619,
+      "sellPrice": 333600,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "LIQUIDFERTILIZER",
+            "title": "Flüssigdünger",
+            "fillLevelPercentage": 99,
+            "value": 6007.805,
+            "capacity": 6050,
+            "unit": "l"
+          }
+        ]
+      },
+      "motorFillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 81,
+          "capacity": 81,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 566,
+          "usage": 0,
+          "capacity": 568,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "Case IH Patriot 4450",
+      "category": "Feldspritzen",
+      "propertyState": "OWNED",
+      "hours": 0.3,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 14,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 6.2,
+          "hours": 0.2
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "posZ": 0.61461,
+      "id": 639,
+      "posX": 0.42999,
+      "sellPrice": 414360,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "HERBICIDE",
+            "title": "Herbizid",
+            "fillLevelPercentage": 100,
+            "value": 4162.386,
+            "capacity": 4164,
+            "unit": "l"
+          }
+        ]
+      },
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 68,
+          "title": "Luft",
+          "value": 2709,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 99,
+          "value": 563,
+          "usage": 0,
+          "capacity": 567,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 66,
+          "capacity": 66,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "Fendt Rogator 932",
+      "category": "Feldspritzen",
+      "propertyState": "OWNED",
+      "hours": 0.2,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 2,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "type": "truck",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5,
+          "hours": 0.2
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "id": 640,
+      "posZ": 0.45713,
+      "sellPrice": 46400,
+      "posX": 0.4645,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 83,
+          "title": "Luft",
+          "value": 3338,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 91,
+          "value": 100,
+          "usage": 0,
+          "capacity": 110,
+          "unit": "l"
+        }
+      },
+      "isTabbable": false,
+      "name": "IVECO_Magirus_Deutz Deutz F6L 614",
+      "category": "LKW",
+      "propertyState": "OWNED",
+      "hours": 0.2,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 1,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "OWNED",
+      "posZ": 0.43583,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "OILSEEDRADISH",
+            "title": "Ölrettich",
+            "fillLevelPercentage": 100,
+            "value": 360,
+            "capacity": 360,
+            "unit": "l"
+          }
+        ]
+      },
+      "posX": 0.46678,
+      "name": "Väderstad TopDown 600",
+      "category": "Grubber",
+      "sellPrice": 84741,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 641
+    },
+    {
+      "type": "toolTrailed",
+      "posZ": 0.61688,
+      "propertyState": "OWNED",
+      "posX": 0.39744,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 0,
+            "unit": ""
+          }
+        ]
+      },
+      "attachedTo": 647,
+      "name": "SKY Agriculture Methys HDS",
+      "category": "Scheibeneggen",
+      "sellPrice": 122022,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 7,
+        "unit": "%"
+      },
+      "id": 642
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.43812,
+      "age": 0,
+      "posX": 0.45989,
+      "name": "ALPEGO K-Dyno 5-200",
+      "category": "Tiefenlockerer",
+      "sellPrice": 8480,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 643
+    },
+    {
+      "type": "tool",
+      "propertyState": "OWNED",
+      "posZ": 0.44468,
+      "age": 0,
+      "posX": 0.47948,
+      "name": "LEMKEN Juwel 6 M V 4",
+      "category": "Pflüge",
+      "sellPrice": 12266,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 644
+    },
+    {
+      "type": "trailer",
+      "propertyState": "OWNED",
+      "posZ": 0.44213,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "MANURE",
+            "title": "Mist",
+            "fillLevelPercentage": 56,
+            "value": 15215,
+            "capacity": 27000,
+            "unit": "l"
+          }
+        ]
+      },
+      "posX": 0.47914,
+      "name": "Bunning Lowlander Widebody 250 HBD",
+      "category": "Miststreuer",
+      "sellPrice": 113849,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 645
+    },
+    {
+      "type": "other",
+      "propertyState": "OWNED",
+      "posZ": 0.43914,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "FERTILIZER",
+            "title": "Mineraldünger",
+            "fillLevelPercentage": 62,
+            "value": 5545,
+            "capacity": 9000,
+            "unit": "l"
+          }
+        ]
+      },
+      "posX": 0.47935,
+      "name": "AgriSpread AS2100 SCS",
+      "category": "Düngerstreuer",
+      "sellPrice": 52964,
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 646
+    },
+    {
+      "type": "tractor",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5,
+          "hours": 0.3
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "posZ": 0.62098,
+      "id": 647,
+      "posX": 0.39802,
+      "sellPrice": 340000,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "LIQUIDMANURE",
+            "title": "Gülle",
+            "fillLevelPercentage": 100,
+            "value": 22000,
+            "capacity": 22000,
+            "unit": "l"
+          }
+        ]
+      },
+      "motorFillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 63,
+          "capacity": 63,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 862,
+          "usage": 0,
+          "capacity": 865,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "Vredo VT5536",
+      "category": "Güllefässer",
+      "propertyState": "OWNED",
+      "hours": 0.3,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 7,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "type": "other",
+      "posZ": 0.61836,
+      "propertyState": "OWNED",
+      "posX": 0.41114,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "DIGESTATE",
+            "title": "Gärreste",
+            "fillLevelPercentage": 74,
+            "value": 14734.104,
+            "capacity": 20000,
+            "unit": "l"
+          }
+        ]
+      },
+      "attachedTo": 630,
+      "name": "Kaweco Profi II",
+      "category": "Güllefässer",
+      "sellPrice": 50959,
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 14,
+        "unit": "%"
+      },
+      "id": 648
+    },
+    {
+      "type": "tool",
+      "posZ": 0.61704,
+      "propertyState": "OWNED",
+      "posX": 0.41244,
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 0,
+            "unit": ""
+          }
+        ]
+      },
+      "attachedTo": 630,
+      "name": "Bomech Multi Profi 21/15",
+      "category": "Ausbringtechnik",
+      "sellPrice": 58446,
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 14,
+        "unit": "%"
+      },
+      "id": 649
+    },
+    {
+      "type": "truck",
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5.5,
+          "hours": 0.1
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "id": 650,
+      "posZ": 0.5744,
+      "sellPrice": 136000,
+      "posX": 0.15492,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 100,
+          "title": "Luft",
+          "value": 4000,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 886,
+          "usage": 0,
+          "capacity": 890,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 75,
+          "capacity": 75,
+          "unit": "l"
+        }
+      },
+      "isTabbable": true,
+      "name": "Mercedes-Benz Trucks Actros L 1863",
+      "category": "LKW",
+      "propertyState": "OWNED",
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 2,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "type": "trailer",
+      "posZ": 0.57068,
+      "propertyState": "OWNED",
+      "posX": 0.15769,
+      "age": 0,
+      "attachedTo": 650,
+      "name": "Demco Steel Drop Deck",
+      "category": "Tieflader",
+      "sellPrice": 39258,
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 2,
+        "unit": "%"
+      },
+      "id": 651
+    },
+    {
+      "type": "wheelloader",
+      "id": 652,
+      "posZ": 0.57922,
+      "sellPrice": 235443,
+      "posX": 0.15133,
+      "motorFillUnits": {
+        "fuel": {
+          "type": "electriccharge",
+          "title": "Elektrische Ladung",
+          "fillLevelPercentage": 99,
+          "value": 178,
+          "usage": 0,
+          "capacity": 180,
+          "unit": "kWh"
+        }
+      },
+      "isTabbable": true,
+      "name": "Volvo L90H Electric Conversion",
+      "category": "Radlader",
+      "propertyState": "OWNED",
+      "hours": 0.1,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 4,
+        "unit": "%"
+      },
+      "age": 0
+    },
+    {
+      "type": "tractor",
+      "leasePerDay": 14818,
+      "id": 653,
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 6.2,
+          "hours": 0
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "age": 0,
+      "posZ": 0.42305,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 100,
+          "title": "Luft",
+          "value": 4000,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 851,
+          "usage": 0,
+          "capacity": 851,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 37,
+          "capacity": 37,
+          "unit": "l"
+        }
+      },
+      "posX": 0.44263,
+      "name": "John Deere 8RX 310",
+      "category": "Großtraktoren",
+      "propertyState": "LEASED",
+      "hours": 0,
+      "wearable": {
+        "wear": 0,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "isTabbable": true
+    },
+    {
+      "type": "tractor",
+      "id": 654,
+      "ads": {
+        "state": "READY",
+        "inspected": {
+          "service": 100,
+          "condition": 100,
+          "complete": false
+        },
+        "service": {
+          "interval": 5.5,
+          "hours": 0
+        },
+        "lastInspection": {
+          "day": 1,
+          "year": 1,
+          "month": 6
+        }
+      },
+      "age": 0,
+      "posZ": 0.423,
+      "motorFillUnits": {
+        "air": {
+          "fillLevelPercentage": 100,
+          "title": "Luft",
+          "value": 4000,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 170,
+          "usage": 0,
+          "capacity": 170,
+          "unit": "l"
+        }
+      },
+      "posX": 0.44507,
+      "name": "Mercedes-Benz Trucks MB-trac 1500",
+      "category": "Mittelgroße Traktoren",
+      "propertyState": "MISSION",
+      "hours": 0,
+      "wearable": {
+        "wear": 24,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "isTabbable": true
+    },
+    {
+      "type": "toolTrailed",
+      "propertyState": "MISSION",
+      "age": 0,
+      "fillUnits": {
+        "fillUnit": [
+          {
+            "type": "",
+            "title": "",
+            "fillLevelPercentage": 0,
+            "value": 0,
+            "capacity": 4000,
+            "unit": ""
+          },
+          {
+            "display": "STEP",
+            "type": "BALE_NET",
+            "title": "Rundballennetz",
+            "fillLevelPercentage": 100,
+            "value": 2,
+            "capacity": 2,
+            "unit": ""
+          }
+        ]
+      },
+      "posZ": 0.42289,
+      "name": "KUHN VB 3190",
+      "category": "Rundballenpressen",
+      "posX": 0.44897,
+      "hours": 41.9,
+      "wearable": {
+        "wear": 17,
+        "damage": 0,
+        "dirt": 0,
+        "unit": "%"
+      },
+      "id": 655
+    }
+  ]
+}

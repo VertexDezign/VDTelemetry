@@ -449,13 +449,14 @@ engine load it wears the engine on, the service interval and system voltage. The
   and then hides it from its own HUD, so drawing it would tell the player something the mod chose to withhold.
   `transmission` is worse: declared in `ADS_Breakdowns.DASHBOARD` and referenced by not one breakdown in the mod. If a
   future ADS starts drawing either, they are two lamps and two glyphs away.
-- **The fleet is not exported.** `ADS_Main.vehicles` is every machine ADS manages, which is what its own `P` menu
-  lists — a "which of my machines is due, broken, or in the workshop" channel would be a real second-screen feature, and
-  the natural home for `currentState` / `getServiceFinishTime()` and the visible breakdown list, none of which the
-  vehicle model carries. It needs its own issue, and its own care in multiplayer: that table is keyed by `uniqueId`,
-  which is nil on an MP client.
-- **A fixture is wanted.** No committed capture has an `ads` block; `AdsModelTest` decodes the shape with inline JSON
-  and says so at the top. See the section below for the rule those follow.
+- **The fleet is now exported** — issue #84, the `fleet` channel and its `contributeFleetVehicle` stage. It does not
+  read `ADS_Main.vehicles` (keyed by `uniqueId`, which is nil on an MP client) but the per-vehicle spec of every machine
+  the farm owns, which is fully synced. See the section below for what that left open.
+- **A fixture is wanted.** No committed capture has the driven vehicle's `ads` block — the fleet captures carry the
+  *fleet* one (`examples/json/fleet/`), which is the maintenance record rather than the dashboard — so `AdsModelTest`
+  decodes the shape with inline JSON and says so at the top. See the section below for the rule those follow.
+
+---
 
 ## Captures wanted as fixtures
 
@@ -473,6 +474,15 @@ machine that has them.
   `transmissionTemperatur` is present) that is a little overdue for service and carrying a breakdown or two, so the
   lamps, the interval and the load are all non-trivial in the one file.
   `AdsModelTest` covers the shape with inline JSON meanwhile.
+- **A fleet capture with a machine actually in trouble** — wanted, but nothing to chase: the playthrough these came
+  from has not produced a breakdown or an overdue service yet, so it waits on the game rather than on anyone.
+  Two are committed —
+  `examples/json/fleet/fleet.json` (fresh singleplayer: a helper's rig, the player's own rig, contract equipment, a
+  leased tractor, an electric loader ADS excludes, four machines parked) and `mp.json` (a played-in multiplayer client:
+  ADS histories, real wear, consumables in slots). Between them the shapes are covered except the ones that need a
+  machine in **trouble**: nothing in either is overdue, in a workshop, carrying a discovered fault, or has ever had a
+  *complete* inspection — so `FleetAds.workshop`, the breakdown list and an exact condition figure are still inline
+  JSON in `FleetModelTest`.
 - **More invoices captures.** `examples/json/invoices/invoices.json` came out of the 2026-08-11 two-farm session and
   drives `InvoicesModelTest.parsesTheTwoFarmCapture`: three invoices from farm 1's side, one of them a proposal showing
   the direction inversion, a discounted line, and the full 56-entry German work-type catalogue. What it does not

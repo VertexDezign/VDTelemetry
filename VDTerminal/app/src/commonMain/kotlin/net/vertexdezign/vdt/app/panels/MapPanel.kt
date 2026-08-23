@@ -50,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -109,6 +110,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.components.SectionStrip
 import net.vertexdezign.vdt.app.components.boomOf
+import net.vertexdezign.vdt.app.state.MapFocus
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
@@ -383,6 +385,16 @@ fun MapPanel(
     autoCenter = false
     dragOffset = MapProjection.anchoredAt(norm, anchorFor(sidePx), sidePx, newScale)
     highlight = norm
+  }
+
+  // Another app can ask the map to show a place -- the fleet list handing over a machine's position.
+  // Consumed once (see MapFocus) and only after the map has been measured: focusOn does its
+  // arithmetic in pixels, and a jump computed against a zero-width map lands nowhere.
+  val focusRequest by MapFocus.pending.collectAsState()
+  LaunchedEffect(focusRequest, sidePx) {
+    if (focusRequest != null && sidePx > 0f) {
+      MapFocus.take()?.let { (x, z) -> focusOn(Offset(x, z)) }
+    }
   }
 
   LaunchedEffect(cacheKey) {

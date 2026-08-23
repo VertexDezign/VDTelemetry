@@ -13,6 +13,7 @@ import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FinanceData
+import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.InvoicesData
@@ -51,6 +52,8 @@ class VdtStore(
   val production: StateFlow<ProductionData?>,
   val storage: StateFlow<StorageData?>,
   val husbandry: StateFlow<HusbandriesData?>,
+  /** Every machine the farm owns, with its condition and ADS's record; null when absent. */
+  val fleet: StateFlow<FleetData?>,
   /** The farm's contracts — on offer, running, finished; null when the channel is absent. */
   val missions: StateFlow<MissionsData?>,
   /** The farm's books — balance, loan, the monthly table, the money log; null when absent. */

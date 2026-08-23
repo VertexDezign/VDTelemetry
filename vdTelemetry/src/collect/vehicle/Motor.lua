@@ -43,6 +43,44 @@ local function buildSecondaryFillUnit(vehicle, fillType, fillUnitIndex, usage)
   }
 end
 
+---Motor fill units: main fuel -> `fuel`, the others keyed by lowercased fill-type name (def / air).
+---AIR is included here (unlike the vehicle fill units, which filter it out).
+---
+---Public rather than folded into [VDT.Motor.collect] because the fleet channel wants a machine's fuel
+---without collecting the whole motor subtree: nothing else in a MotorModel means anything for a
+---machine nobody is sitting in.
+---@param vehicle Vehicle
+---@return MotorFillUnitsModel|nil nil when the vehicle has no motor, or its motor consumes nothing
+function VDT.Motor.collectFillUnits(vehicle)
+  local mSpec = vehicle.spec_motorized
+  if mSpec == nil or mSpec.consumersByFillType == nil then
+    return nil
+  end
+
+  local fillUnits = {}
+  local hasFillUnit = false
+  for fillTypeIndex, consumer in pairs(mSpec.consumersByFillType) do
+    local fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
+    if VDTelemetry.mainFuelTypes:contains(fillType.name) then
+      fillUnits.fuel = buildFuelFillUnit(vehicle, fillType, consumer.fillUnitIndex, mSpec.lastFuelUsage)
+    else
+      local usage
+      if fillType.name == FillType.DEF then
+        usage = mSpec.lastDefUsage
+      elseif fillType.name == FillType.AIR then
+        usage = mSpec.lastAirUsage
+      end
+      fillUnits[string.lower(fillType.name)] = buildSecondaryFillUnit(vehicle, fillType, consumer.fillUnitIndex, usage)
+    end
+    hasFillUnit = true
+  end
+
+  if not hasFillUnit then
+    return nil
+  end
+  return fillUnits
+end
+
 ---@param vehicle Vehicle
 ---@return MotorModel|nil
 function VDT.Motor.collect(vehicle)
@@ -132,28 +170,7 @@ function VDT.Motor.collect(vehicle)
     model.maxSpeed = maxSpeed
   end
 
-  -- motor fill units: main fuel -> `fuel`, others keyed by lowercased fill-type name (def / air).
-  -- AIR is included here (unlike the vehicle fill units, which filter it out).
-  local fillUnits = {}
-  local hasFillUnit = false
-  for fillTypeIndex, consumer in pairs(mSpec.consumersByFillType) do
-    local fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
-    if VDTelemetry.mainFuelTypes:contains(fillType.name) then
-      fillUnits.fuel = buildFuelFillUnit(vehicle, fillType, consumer.fillUnitIndex, mSpec.lastFuelUsage)
-    else
-      local usage
-      if fillType.name == FillType.DEF then
-        usage = mSpec.lastDefUsage
-      elseif fillType.name == FillType.AIR then
-        usage = mSpec.lastAirUsage
-      end
-      fillUnits[string.lower(fillType.name)] = buildSecondaryFillUnit(vehicle, fillType, consumer.fillUnitIndex, usage)
-    end
-    hasFillUnit = true
-  end
-  if hasFillUnit then
-    model.fillUnits = fillUnits
-  end
+  model.fillUnits = VDT.Motor.collectFillUnits(vehicle)
 
   return model
 end

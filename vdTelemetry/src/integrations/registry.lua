@@ -6,8 +6,14 @@
 -- function of that name; stages it doesn't care about it simply omits. Current stages:
 --   * contributeObject(object, model)        -- per vehicle/implement during the walk
 --   * contributeEnvironment(environment, model)
+--   * contributeFleetVehicle(vehicle, row)   -- per machine of the fleet channel
 -- Add more stages as new collectors gain extension points (e.g. a document/root stage). Add new
 -- integrations to `all`; they run in list order after the core collectors build the model.
+--
+-- A stage is a QUESTION, not a place: the fleet stage exists beside the object one because the two
+-- ask different things of the same mod -- what the machine you are in is doing right now, versus what
+-- the machine in the shed has had done to it -- and an integration answers whichever it has an answer
+-- for (see AdvancedDamageSystem.lua, which answers both, with different blocks).
 
 VDT = VDT or {}
 VDT.Integrations = {}
