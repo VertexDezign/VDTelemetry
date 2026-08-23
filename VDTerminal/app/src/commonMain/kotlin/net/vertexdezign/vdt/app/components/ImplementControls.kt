@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -44,6 +46,11 @@ private val ROW_HEIGHT = 48.dp
  * The two arrangements place identical buttons — only the container changes — so a resize can flip
  * between them without the controls themselves knowing. Stacked, they take their natural full-width
  * height instead of splitting the row three ways.
+ *
+ * Every one of the three **draws its state, not the action a tap would take** — the same icons, and
+ * the same direction, as the chips in `IsoBusPanel`'s status strip. Colour says the same thing twice
+ * rather than saying it alone: the shape is what has to carry folded-from-unfolded and on-from-off
+ * (see `VDTerminal/README.md` → "Design rules").
  */
 @Composable
 fun ImplementControls(
@@ -61,7 +68,7 @@ fun ImplementControls(
   val buttons = listOf<@Composable (Modifier) -> Unit>(
     { mod ->
       StatusIconButton(
-        Icons.Filled.UnfoldMore,
+        if (foldable == FoldableState.EXTENDED) Icons.Filled.UnfoldMore else Icons.Filled.UnfoldLess,
         mod,
         height = height,
         active = foldable != null,
@@ -74,7 +81,7 @@ fun ImplementControls(
     },
     { mod ->
       StatusIconButton(
-        Icons.Filled.PowerSettingsNew,
+        if (isTurnedOn == true) Icons.Filled.PowerSettingsNew else Icons.Filled.PowerOff,
         mod,
         height = height,
         active = isTurnedOn != null,

@@ -24,9 +24,9 @@ import net.vertexdezign.vdt.app.widgets.Widget
  * "nothing on the bus" state, exactly as an empty rig position does.
  *
  * Controls: the lower / fold / activate trio, shared with `RigSlotPanel` and addressed at whatever the
- * diagram has selected — where the command channel can name it. Pipe, cover and tip side are shown but
- * not yet settable: they have no counterpart in FS25_additionalInputs, so they need controls that call
- * the engine directly (issue #116, step 4).
+ * diagram has selected — where the command channel can name it. Pipe, cover, tip side and unloading
+ * are settable too, through commands of their own: they have no counterpart in FS25_additionalInputs,
+ * so the mod calls the engine setter directly.
  */
 object IsoBusApp : VdtApp {
   override val id = "isobus"

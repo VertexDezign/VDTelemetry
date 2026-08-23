@@ -20,6 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.vertexdezign.vdt.ControlTarget
@@ -65,6 +69,14 @@ private const val BOX_H = 0.03f
  */
 private const val LIFT_REF_W = 1920f
 private const val LIFT_REF_H = 1080f
+
+/**
+ * What the game multiplies the *vertical* lift offset by once it is normalized — and only the
+ * vertical one. Not a calibration of ours like [BOX_W]: it is in
+ * `InputHelpDisplay:collectVehicleSchemaDisplayOverlays` verbatim, so it moves only if the engine
+ * changes.
+ */
+private const val LIFT_Y_FACTOR = 0.5f
 
 /**
  * `InputHelpDisplay.MAX_SCHEMA_COLLECTION_DEPTH`. The walk starts at depth 1 on the root's own
@@ -261,7 +273,9 @@ private fun layoutChildren(
     //
     // The room is reserved whether or not the nudge is taken, so the band's extent is a fact about
     // the rig rather than about what the driver has raised. See [RigNode.restY].
-    val lift = joint.liftedOffsetY / LIFT_REF_H * 0.5f
+    // The halved height is the engine's own: `collectVehicleSchemaDisplayOverlays` normalizes the
+    // pixel offset and then adds `heightOffset * 0.5`, where it adds the width offset whole.
+    val lift = joint.liftedOffsetY / LIFT_REF_H * LIFT_Y_FACTOR
     val baseHeadroom = liftHeadroom + lift
     if (implement.lowered == false) {
       baseX += joint.liftedOffsetX / LIFT_REF_W
@@ -458,6 +472,7 @@ private fun RigBox(
   modifier: Modifier = Modifier,
 ) {
   val shape = RoundedCornerShape(3.dp)
+  val isSelected = selected
   Box(
     modifier
       // The halo grows outward and the offset takes it back, so the box still lands exactly where the
@@ -479,7 +494,15 @@ private fun RigBox(
         color = if (selected) VdtColors.TextDark else VdtColors.PanelBorder,
         shape = shape,
       )
-      .clickable { onSelect(node.id) }
+      .clickable(role = Role.Button) { onSelect(node.id) }
+      // The box has no text of its own -- the machine's name lives under the diagram -- so the only
+      // way a screen reader can tell one tap target from the next is here. `selected` is read into a
+      // local first: inside the semantics scope the bare name would resolve to the property being
+      // written.
+      .semantics {
+        contentDescription = node.machine.name
+        this.selected = isSelected
+      }
       .padding(horizontal = 2.dp),
     contentAlignment = Alignment.Center,
   ) {
