@@ -48,9 +48,10 @@ cluster, pages, widget instances — **and did not consume that inbox.** Most of
 discharge became controls as well. What that left is under "The universal machine screen (#116)" below. What is
 still untouched from this inbox:
 
-- **Control-group names.** `selection.controlGroup` is `{current, name, names}` off `spec_cylindered` — a crane or
-  front loader splits its moving tools into named groups. The game's own HUD prints only the group *number*; we have
-  the names from the XML and still draw neither. A front-loader screen is where this belongs, and there isn't one.
+- ~~**Control-group names.**~~ Drawn by **#119** (2026-08-23), on the ISOBUS strip and as a *control* rather than a
+  readout: the chip names the active group where the game's own HUD prints its number, and a tap steps to the next one
+  the machine can reach. What is still unanswered is whether the names come out of a real machine's XML legible — see
+  the in-game check below.
 - **The stepped fill bar.** `fillUnit.display == STEP` marks consumables, where capacity is a slot count: the game draws
   one segment per slot with the part-used roll's fraction inside the next one, and labels it `"2 / 2"` (a `ceil`, not a
   percentage). `components/FillUnitsDisplay.kt` carries the note and renders a continuous bar.
@@ -101,12 +102,16 @@ against.
 
 What it did not do:
 
-- **Machines deeper in the hitch chain cannot be commanded.** `ControlTarget` names the vehicle and its front and rear
-  implements, because those are what vdAI's `vdAI*Front/Back` reach. The diagram happily *shows* a machine two levels
-  down — the Bomech in `liquidManure_dribbleBar.json` is one, and it is the machine the game has selected — and the app
-  renders its controls inert with a line saying why. Closing this needs a per-object address in the export and a
-  resolver mod-side, and for lower/fold/activate it would mean **not** going through vdAI, which the standing rule
-  forbids. Worth its own issue if it turns out to bite; a rig that deep is uncommon.
+- **Machines deeper in the hitch chain cannot be commanded** — with the two exceptions #119 added. `ControlTarget` names
+  the vehicle and its front and rear implements, because those are what vdAI's `vdAI*Front/Back` reach. The diagram
+  happily *shows* a machine two levels down — the Bomech in `liquidManure_dribbleBar.json` is one, and it is the machine
+  the game has selected — and the app renders its fold / power / unload controls inert with a line saying why.
+
+  **#119 built the missing half of the answer and used it for selection only**: `command/SelectionControl.lua` resolves
+  the diagram's own node path (`0/1/0`) by walking `attachedImplements`, so *selecting* a machine and *choosing its
+  control group* reach any depth. What is left is retargeting the existing controls at it, which is a change to how
+  every command is addressed and which reopens the vdAI question for lower/fold/activate — #119 lists it as its own
+  non-goal, and it wants its own issue.
 - **One generic silhouette, not the game's ten** — and a front loader is the case that argues hardest against it. Its
   attacher joint reports `x = 0.8`, so its box genuinely overlaps the tractor's by a fifth: that is the game's own
   layout and it is right, because a loader mounts *onto* a tractor rather than being towed by one. The game can draw
@@ -170,6 +175,48 @@ What it did not do:
   declares one. If a modded vehicle turns up with a rig that draws in a plainly wrong order, this is
   where to look. No committed fixture exercises it any more: `nested_trailers.json`, which used to be
   the version-4-era capture with no schema at all, was retaken at version 19 and carries one on every node.
+
+---
+
+## The terminal drives the selection (#119)
+
+Built 2026-08-23. Tapping the rig diagram now moves the **game's** selection, and the control-group chip beside it moves
+the machine's sub-selection — one `setSelected` command, because `Vehicle:setSelectedObject` takes the object and the
+sub-selection together and `Cylindered` owns no separate setter for the group.
+
+Selection is **client-local**, which is why there is no multiplayer event of ours: nothing under
+`vehicles/specializations/events/` sends one, `setSelectedObject` sends nothing, and the flag is saved per savegame and
+read by that player's own HUD. Confirmed as the intent by the issue's author — the selection matters to whoever is
+driving and to nobody else.
+
+The two engine facts everything here is shaped around, both silent:
+
+- `setSelectedVehicle` does **not** refuse a machine that cannot be selected. It walks `selectableObjects` and selects
+  the first one that can be instead, so an ungated tap moves the selection to a machine nobody pointed at. Hence
+  `selection.selectable` (export version 20), the greyed boxes in `RigSchema`, and the same test applied again mod-side
+  against state a tick fresher than the app's.
+- `controlGroupMapping` is `subSelectionIndex -> group index` and holds only the groups whose moving tools are
+  **currently active**, so the two numbers are different and a declared group can be unreachable. Hence
+  `controlGroup.available`, which is what the chip cycles over — `names` would put a dead step in the loop.
+
+What it did not do:
+
+- **Nothing has been checked in a game yet.** The `available` list in particular has never been seen populated: the one
+  front loader in the fixtures (`tractor_frontloader.json`) exports no `controlGroup` at all, so both the group chip and
+  the group half of the command are written from the engine source and unproven. See the in-game checks below.
+- **No fixture carries `selectable` or `available`.** Captures are real game output and are never hand-authored, so
+  every committed one is at export version 19 or below and reads `selectable` as absent — which the app treats as *do
+  not offer the tap*, meaning the diagram is inert against every fixture we hold. A recapture at version 20 is wanted;
+  it is listed under "Captures wanted as fixtures".
+- **A tap can no longer point the tile at a machine the game will not select.** That is the deliberate trade: the tile
+  shows the game's selection and only that, so the screen and the keyboard can never disagree. The machine it costs is
+  usually the bare tractor (nothing overrides `getCanBeSelected` on it unless automatic motor start is off), and that
+  one is still reachable — pin a tile to the `VEHICLE` slot, which bypasses the diagram entirely.
+- **Retargeting the existing controls at the selection.** #119's own non-goal, and the natural follow-up: it would close
+  #116's `ControlTarget` ceiling using the node resolver this issue already built, but it changes how every command is
+  addressed and reopens the vdAI question for lower / fold / activate. Its own issue.
+- **Driving the moving tools themselves.** Selecting a crane's boom group is not extending it, and the second needs
+  continuous input the command channel is not shaped for.
 
 ---
 
@@ -449,8 +496,20 @@ Each one is cheap to do while playing and settles something above.
   capture has one. (The narrower question this replaces — whether `schema` and
   `jointDescIndex` come out populated and line up — is **answered** by the committed captures: the Puma exports five
   joints, the Kaweco carries index 3, the Bomech carries 1 into the Kaweco's single joint.)
-- Does `controlGroup` populate on a front loader or crane, with sensible `names`? They come from vehicle XML and may be
-  unresolved i18n keys on some mods. Same question for `workMode.name`.
+- Does `controlGroup` populate on a front loader or crane, with sensible `names` **and a populated `available`**? The
+  names come from vehicle XML and may be unresolved i18n keys on some mods; `available` is new in export version 20 and
+  has never been seen at all. This is now the single highest-value check on the vehicle channel, because #119's
+  control-group chip *and* the group half of its command both hang off it — the chip cycles `available`, and a machine
+  that reports an empty one gets a read-only chip. Get in a front loader with a tool on it and read the JSON. Same
+  question about i18n keys for `workMode.name`.
+- Does `selection.selectable` come out the way the engine source says — **false on a bare tractor** with automatic motor
+  start enabled, true on everything hitched to it? It decides which boxes on the rig diagram take a tap, so a wrong
+  answer is either a diagram that refuses every tap or one that offers a tap the mod then drops. Hitch something, look
+  at the diagram: the greyed boxes are the ones the game's own selection key skips, so cycling with the keyboard is the
+  cross-check.
+- Does a tap on the rig diagram actually move the game's selection, in **singleplayer and on a multiplayer client**? The
+  client-local claim is settled in principle (there is no event to send), but the command path is the same
+  `g_server ~= nil` fork every other control takes and has not been walked for this one.
 - Does `discharge.reason` read `NO_FREE_CAPACITY` when the game refuses to unload? Back a trailer up to a full silo.
   This is the highest-value single check of the work aspects.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a forage/carrot
@@ -557,6 +616,11 @@ engine load it wears the engine on, the service interval and system voltage. The
 The schema, selection and work aspects are all tested synthetically, because none of the committed captures contains a
 machine that has them.
 
+- **A rig at export version 20**, for `selection.selectable` and `selection.controlGroup.available`. Ideally the
+  front-loader rig retaken (`tractor_frontloader.json` is at 19 and exports no `controlGroup` at all), since a loader
+  with a tool on it is the one machine likely to report both a multi-group `names` and a partial `available`. Until one
+  exists the rig diagram is inert against every committed fixture, and the app's control-group cycle is asserted only
+  against synthetic models.
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`, the `STEP`
   consumable bar, and they would give `jointDescIndex` its first real chain.
 - **More finance captures.** `examples/json/finance/vanilla.json` is a fresh singleplayer save, so it has one period and

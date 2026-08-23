@@ -322,6 +322,54 @@ class RigSchemaTest {
   }
 
   // -------------------------------------------------------------------------
+  // Selectability: which node the game will let a tap move the selection to
+  // -------------------------------------------------------------------------
+
+  @Test
+  fun aMachineIsATapTargetOnlyWhenTheGameSaysItCanBeSelected() {
+    // The gate on writing the selection. `setSelectedVehicle` does not refuse a machine that fails
+    // the engine's own test — it selects the first one that passes instead — so a tap offered here
+    // would move the selection to a machine nobody pointed at.
+    val rig =
+      tractor(
+        Implement(
+          name = "Plough",
+          schema = schema(),
+          jointDescIndex = 1,
+          selection = Selection(selected = false, selectable = true),
+        ),
+      )
+    val nodes = layoutRig(rig)
+    assertTrue(nodes.first { it.machine.name == "Plough" }.machine.selectable)
+    // The tractor in this rig reports no selection block at all.
+    assertTrue(!nodes.first { it.isRoot }.machine.selectable)
+  }
+
+  @Test
+  fun aMachineThatCannotSayIsNotATapTarget() {
+    // An export from before mod version 20 carries `selected` and nothing else. Unknown has to read
+    // as "do not offer it", never as permission: the alternative is a tap that silently moves the
+    // selection somewhere else on every rig running an older mod.
+    val rig = tractor(Implement(name = "Plough", schema = schema(), jointDescIndex = 1, selection = Selection()))
+    assertTrue(!layoutRig(rig).first { !it.isRoot }.machine.selectable)
+  }
+
+  @Test
+  fun anUnselectableMachineIsStillDrawnOnTheDiagram() {
+    // It is part of the rig, and the diagram is the shape of what is being towed. Only the tap goes.
+    val rig =
+      tractor(
+        Implement(
+          name = "Weight",
+          schema = schema(),
+          jointDescIndex = 1,
+          selection = Selection(selected = false, selectable = false),
+        ),
+      )
+    assertEquals(listOf("Tractor", "Weight"), layoutRig(rig).map { it.machine.name })
+  }
+
+  // -------------------------------------------------------------------------
   // Addressing: which node a command can actually name
   // -------------------------------------------------------------------------
 

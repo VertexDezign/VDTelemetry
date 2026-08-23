@@ -435,6 +435,41 @@ sealed interface ClientMessage {
     val on: Boolean,
   ) : ClientMessage
 
+  /**
+   * Make the machine at [node] the one the player's controls act on, and — in the same command — put
+   * it on control group [controlGroup].
+   *
+   * One command with two arguments because it is one engine call: `Cylindered` owns no separate
+   * "current group" setter, it registers each group as a *sub-selection* of the machine, and
+   * `Vehicle:setSelectedObject` takes the object and the sub-selection together.
+   *
+   * [node] is the **rig diagram's own path** (`0`, `0/1`, `0/1/0` — see
+   * `net.vertexdezign.vdt.app.panels.RigNode.id`), not the engine's `selectionObject.index`. The
+   * engine's index is native but it is rebuilt on every attach and detach, so it can go stale between
+   * this being rendered and being read; the path is resolved mod-side by the same walk over
+   * `attachedImplements` that built the tree the app drew, so what was drawn and what the command
+   * reaches are the same node by construction.
+   *
+   * [controlGroup] is 1-based into [net.vertexdezign.vdt.model.ControlGroup.names], or null for
+   * "leave the group alone". Only send one the machine reports in
+   * [net.vertexdezign.vdt.model.ControlGroup.available]: a group whose moving tools are inactive has
+   * no sub-selection to reach it by, and the mod selects the machine without it.
+   *
+   * **Absolute**, like the rest of the channel — it names a state rather than a step, so a dropped or
+   * doubled command is harmless. Selection is client-local: there is no engine event behind it, so
+   * this moves nothing for any other player.
+   *
+   * The mod applies the same `selectable` gate the app draws with, and drops the command when it
+   * fails. That is not belt-and-braces: `setSelectedVehicle` silently selects a *different* machine
+   * when handed one that cannot be selected, and the app's copy of the flag is a tick old.
+   */
+  @Serializable
+  @SerialName("setSelected")
+  data class SetSelected(
+    val node: String,
+    val controlGroup: Int? = null,
+  ) : ClientMessage
+
   /** Start (`on = true`) or stop the vehicle's engine. */
   @Serializable
   @SerialName("setMotorState")
