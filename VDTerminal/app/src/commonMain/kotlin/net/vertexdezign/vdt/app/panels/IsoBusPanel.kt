@@ -358,8 +358,7 @@ fun IsoBusPanel(
         }
       } else {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          // One box is not a diagram — a lone tractor is already named in the header — and a tile too
-          // short for the band would spend all of it on the picture. Both are facts about the size
+          // A tile too short for the band would spend all of it on the picture — a fact about the size
           // this tile ended up at, which is how every other decision in this panel is taken.
           val band = schemaHeight(bodyHeight, nodes.size)
           // Wide enough, the band carries the machine's type and condition in the room either side of
@@ -412,15 +411,20 @@ fun IsoBusPanel(
 }
 
 /**
- * How much height the rig diagram gets, or null when it should not be drawn at all.
+ * How much height the rig diagram gets, or null when the tile is too short to spend any on it.
  *
  * A share of the body rather than a fixed band, bounded so it can neither vanish on a tall tile nor
  * crowd out the machine below it on a short one — and a *small* share, because the diagram is
- * orientation and the machine under it is the reason to look. Two nodes are the floor: with one box
- * there is no choice to picture and no selection to make.
+ * orientation and the machine under it is the reason to look.
+ *
+ * **One machine is still a diagram.** A bare tractor draws its own box and nothing else, exactly as
+ * the game's HUD does — the band is where the rig lives, and a band that appears the moment something
+ * is hitched and vanishes when it is unhitched makes the whole panel jump for a change the driver
+ * already knows about. It is also where the type and condition sit once there is width for them
+ * ([IDENTITY_ON_BAND_FROM]), so an empty rig would drop those back into the chip strip on a hitch.
  */
 private fun schemaHeight(body: Dp, nodes: Int): Dp? {
-  if (nodes < 2) return null
+  if (nodes == 0) return null
   if (body < MIN_BODY_FOR_SCHEMA) return null
   return (body * 0.15f).coerceIn(MIN_SCHEMA_HEIGHT, MAX_SCHEMA_HEIGHT)
 }
