@@ -158,18 +158,49 @@ class VdtModelTest {
 
   @Test
   fun parsesMultipleImplements() {
-    val data = model("mutliple_implements.json")
+    val data = capture("multiple_implements.json")
     val v = assertNotNull(data.vehicle)
 
-    // Reversing, and carrying the placeholder group this machine has no business having: it has no
-    // ranges, and the capture predates the mod dropping the name `getGearGroupToDisplay` returns for
-    // that case. The fixture records what v5 wrote — don't "fix" it.
-    assertEquals("N", v.motor?.gear?.group)
-    assertEquals("R", v.motor?.gear?.value)
+    // Retaken at version 20, and it settles what the v5 capture used to record: a machine with no
+    // ranges reports NO group at all now, where the old fixture carried the placeholder `"N"` that
+    // `getGearGroupToDisplay` hands back for that case.
+    assertEquals("", v.motor?.gear?.group)
+    assertEquals("D", v.motor?.gear?.value)
 
     assertEquals(2, v.implement.size)
 
-    assertJsonRoundTrips(data)
+    // The rig diagram's tap targets, from a real game: everything here is selectable, and the FRONT
+    // mower is what the game has selected — not the tractor towing it.
+    assertEquals(true, v.selection?.selectable)
+    assertEquals(false, v.selection?.selected)
+    assertEquals(listOf(true, true), v.implement.map { it.selection?.selectable })
+    assertEquals(listOf(true, false), v.implement.map { it.selection?.selected })
+    // A mower has no moving-tool groups, so the subtree is absent rather than an empty one.
+    assertNull(v.implement[0].selection?.controlGroup)
+  }
+
+  @Test
+  fun parsesTheControlGroupsOfATurntableLadder() {
+    // The first capture that has control groups at all, and it is the case the whole `available`
+    // field exists for: a turntable ladder declares THREE groups and can currently reach only two of
+    // them. `names` is what the vehicle XML declares; `available` is what `controlGroupMapping` holds,
+    // which is only the groups whose moving tools are active. Cycling `names` here would step onto
+    // "Türen" and do nothing at all.
+    val v = assertNotNull(capture("subSelection.json").vehicle)
+    val selection = assertNotNull(v.selection)
+    val group = assertNotNull(selection.controlGroup)
+
+    assertEquals(listOf("Türen", "Leiterpark", "Korb"), group.names)
+    assertEquals(listOf(2, 3), group.available)
+    assertEquals(2, group.current)
+    // `name` is the resolved entry, 1-based into `names` — the one thing the game's own HUD never
+    // prints, since it shows the number.
+    assertEquals("Leiterpark", group.name)
+
+    // Self-propelled: the machine with the groups IS the vehicle, so there is no implement to look at.
+    assertEquals(true, selection.selected)
+    assertEquals(true, selection.selectable)
+    assertTrue(v.implement.isEmpty())
   }
 
   @Test
@@ -683,7 +714,7 @@ class VdtModelTest {
     assertEquals(null, model("tractor_with_cultivator.json").vehicle?.sowing)
     assertEquals(
       null,
-      model("mutliple_implements.json")
+      model("multiple_implements.json")
         .vehicle
         ?.implement
         ?.first()
@@ -698,7 +729,7 @@ class VdtModelTest {
     // cultivator readout on a mower — with `kind = CULTIVATOR` and `deepMode = true` invented whole.
     val mower =
       assertNotNull(
-        model("mutliple_implements.json")
+        model("multiple_implements.json")
           .vehicle
           ?.implement
           ?.first(),

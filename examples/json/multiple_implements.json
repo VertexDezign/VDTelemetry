@@ -1,0 +1,347 @@
+{
+  "vehicle": {
+    "ai": {
+      "active": false
+    },
+    "type": "tractor",
+    "selection": {
+      "selectable": true,
+      "selected": false
+    },
+    "brand": {
+      "name": "DEUTZFAHR",
+      "title": "DEUTZ-FAHR"
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 156,
+      "linesVisible": false,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "motor": {
+      "state": "ON",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 33,
+        "forward": 63
+      },
+      "fillUnits": {
+        "air": {
+          "fillLevelPercentage": 87,
+          "title": "Luft",
+          "value": 2617,
+          "capacity": 3000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 502,
+          "usage": 8.55,
+          "capacity": 505,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 35,
+          "capacity": 35,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "rpm": {
+        "value": 850,
+        "max": 2200,
+        "min": 0
+      },
+      "load": {
+        "value": 9.7,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 66,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "implement": [
+      {
+        "isTurnedOn": false,
+        "lowered": false,
+        "workAreas": [
+          {
+            "type": "MOWER",
+            "index": 1,
+            "active": false,
+            "processing": false,
+            "unit": "m",
+            "shape": [
+              0.51653,
+              0.30409,
+              0.51517,
+              0.30469,
+              0.51645,
+              0.30391
+            ],
+            "width": 3.05
+          }
+        ],
+        "foldable": "EXTENDED",
+        "brand": {
+          "name": "POETTINGER",
+          "title": "PÖTTINGER"
+        },
+        "type": "mower",
+        "selection": {
+          "selectable": true,
+          "selected": true
+        },
+        "name": "PÖTTINGER NovaAlpin 301",
+        "position": "FRONT",
+        "jointDescIndex": 2,
+        "mass": {
+          "value": 0.52,
+          "empty": 0.52
+        },
+        "schema": {
+          "name": "IMPLEMENT",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "wearable": {
+          "wear": 1,
+          "damage": 0,
+          "dirt": 49,
+          "unit": "%"
+        }
+      },
+      {
+        "isTurnedOn": false,
+        "lowered": false,
+        "workAreas": [
+          {
+            "type": "MOWER",
+            "index": 1,
+            "active": false,
+            "processing": false,
+            "unit": "m",
+            "shape": [
+              0.51652,
+              0.30052,
+              0.51498,
+              0.30119,
+              0.51642,
+              0.30028
+            ],
+            "width": 3.45
+          },
+          {
+            "type": "MOWER",
+            "index": 2,
+            "active": false,
+            "processing": false,
+            "unit": "m",
+            "shape": [
+              0.51406,
+              0.3016,
+              0.51251,
+              0.30228,
+              0.51395,
+              0.30136
+            ],
+            "width": 3.45
+          }
+        ],
+        "foldable": "FOLDED",
+        "brand": {
+          "name": "POETTINGER",
+          "title": "PÖTTINGER"
+        },
+        "type": "mower",
+        "selection": {
+          "selectable": true,
+          "selected": false
+        },
+        "name": "PÖTTINGER NOVADISC 900",
+        "position": "BACK",
+        "jointDescIndex": 1,
+        "mass": {
+          "value": 1.48,
+          "empty": 1.48
+        },
+        "schema": {
+          "name": "IMPLEMENT",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "wearable": {
+          "wear": 1,
+          "damage": 0,
+          "dirt": 50,
+          "unit": "%"
+        }
+      }
+    ],
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 42,
+      "unit": "%"
+    },
+    "mass": {
+      "value": 11.524,
+      "empty": 7.56
+    },
+    "name": "DEUTZ-FAHR 8280 TTV",
+    "ads": {
+      "electrical": {
+        "unit": "V",
+        "systemVoltage": 14.1
+      },
+      "transmissionTemperatur": {
+        "value": 76,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "inspected": {
+        "service": 100,
+        "condition": 100,
+        "complete": false
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "warning": "OFF",
+        "battery": "OFF",
+        "service": "OFF",
+        "engine": "OFF",
+        "brakes": "OFF"
+      },
+      "load": {
+        "value": 10,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 5,
+        "hours": 0.3
+      }
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 63
+    },
+    "operatingTime": {
+      "value": "0.25",
+      "unit": "h"
+    },
+    "schema": {
+      "name": "VEHICLE",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    }
+  },
+  "version": "20",
+  "environment": {
+    "date": "01.08.2024",
+    "weather": {
+      "temperature": {
+        "min": 19,
+        "current": 27,
+        "max": 29,
+        "unit": "°C"
+      }
+    },
+    "time": "18:53",
+    "pda": {
+      "height": 2048,
+      "player": {
+        "heading": 156,
+        "posX": 0.51511900033802,
+        "farmId": 1,
+        "posZ": 0.30276755988598,
+        "headingUnit": "°"
+      },
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.dds",
+      "width": 2048
+    }
+  }
+}

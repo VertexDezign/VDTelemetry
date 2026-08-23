@@ -199,15 +199,17 @@ The two engine facts everything here is shaped around, both silent:
   **currently active**, so the two numbers are different and a declared group can be unreachable. Hence
   `controlGroup.available`, which is what the chip cycles over — `names` would put a dead step in the loop.
 
+**Validated in singleplayer 2026-08-23**, and captured: `examples/json/subSelection.json` is a Mercedes turntable
+ladder, and it is the first fixture in the repo that has control groups at all — and exactly the shape `available` was
+built for. It declares **three** groups (`Türen`, `Leiterpark`, `Korb`) and can currently reach **two** (`[2, 3]`), so a
+cycle over `names` would step onto "Türen" and do nothing. `multiple_implements.json` was retaken alongside it at
+version 20, and is the fixture that pins `selectable` on a towing rig.
+
 What it did not do:
 
-- **Nothing has been checked in a game yet.** The `available` list in particular has never been seen populated: the one
-  front loader in the fixtures (`tractor_frontloader.json`) exports no `controlGroup` at all, so both the group chip and
-  the group half of the command are written from the engine source and unproven. See the in-game checks below.
-- **No fixture carries `selectable` or `available`.** Captures are real game output and are never hand-authored, so
-  every committed one is at export version 19 or below and reads `selectable` as absent — which the app treats as *do
-  not offer the tap*, meaning the diagram is inert against every fixture we hold. A recapture at version 20 is wanted;
-  it is listed under "Captures wanted as fixtures".
+- **A multiplayer client has not been tried.** The client-local claim is settled in principle (there is no event to
+  send), but the command path is the same `g_server ~= nil` fork every other control takes and has not been walked for
+  this one.
 - **A tap can no longer point the tile at a machine the game will not select.** That is the deliberate trade: the tile
   shows the game's selection and only that, so the screen and the keyboard can never disagree. The machine it costs is
   usually the bare tractor (nothing overrides `getCanBeSelected` on it unless automatic motor start is off), and that
@@ -496,20 +498,17 @@ Each one is cheap to do while playing and settles something above.
   capture has one. (The narrower question this replaces — whether `schema` and
   `jointDescIndex` come out populated and line up — is **answered** by the committed captures: the Puma exports five
   joints, the Kaweco carries index 3, the Bomech carries 1 into the Kaweco's single joint.)
-- Does `controlGroup` populate on a front loader or crane, with sensible `names` **and a populated `available`**? The
-  names come from vehicle XML and may be unresolved i18n keys on some mods; `available` is new in export version 20 and
-  has never been seen at all. This is now the single highest-value check on the vehicle channel, because #119's
-  control-group chip *and* the group half of its command both hang off it — the chip cycles `available`, and a machine
-  that reports an empty one gets a read-only chip. Get in a front loader with a tool on it and read the JSON. Same
-  question about i18n keys for `workMode.name`.
-- Does `selection.selectable` come out the way the engine source says — **false on a bare tractor** with automatic motor
-  start enabled, true on everything hitched to it? It decides which boxes on the rig diagram take a tap, so a wrong
-  answer is either a diagram that refuses every tap or one that offers a tap the mod then drops. Hitch something, look
-  at the diagram: the greyed boxes are the ones the game's own selection key skips, so cycling with the keyboard is the
-  cross-check.
-- Does a tap on the rig diagram actually move the game's selection, in **singleplayer and on a multiplayer client**? The
-  client-local claim is settled in principle (there is no event to send), but the command path is the same
-  `g_server ~= nil` fork every other control takes and has not been walked for this one.
+- ~~Does `controlGroup` populate, with sensible `names` and a populated `available`?~~ **Answered** by
+  `subSelection.json` (2026-08-23): a turntable ladder reports three localized German names and an `available` of
+  `[2, 3]`, so the names resolve and a declared group really can be unreachable. Still open for a **modded** machine,
+  whose XML may carry an unresolved i18n key; same question for `workMode.name`.
+- ~~Does `selection.selectable` come out the way the engine source says?~~ Half **answered**: it is `true` on a
+  Deutz-Fahr 8280 and on both mowers hitched to it (`multiple_implements.json`). The interesting half has not been seen
+  — a machine reporting **false**, which the engine source says should be a bare tractor with automatic motor start
+  enabled. Unhitch everything and look at the diagram: a greyed box is one the game's own selection key skips, so
+  cycling with the keyboard is the cross-check.
+- Does a tap on the rig diagram move the game's selection **on a multiplayer client**? Singleplayer is signed off; the
+  command path is the same `g_server ~= nil` fork every other control takes and has not been walked for this one.
 - Does `discharge.reason` read `NO_FREE_CAPACITY` when the game refuses to unload? Back a trailer up to a full silo.
   This is the highest-value single check of the work aspects.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a forage/carrot
@@ -616,11 +615,12 @@ engine load it wears the engine on, the service interval and system voltage. The
 The schema, selection and work aspects are all tested synthetically, because none of the committed captures contains a
 machine that has them.
 
-- **A rig at export version 20**, for `selection.selectable` and `selection.controlGroup.available`. Ideally the
-  front-loader rig retaken (`tractor_frontloader.json` is at 19 and exports no `controlGroup` at all), since a loader
-  with a tool on it is the one machine likely to report both a multi-group `names` and a partial `available`. Until one
-  exists the rig diagram is inert against every committed fixture, and the app's control-group cycle is asserted only
-  against synthetic models.
+- **A machine the game will *not* select** (`selection.selectable == false`). Every version-20 capture we hold reads
+  `true` on every node, so the greyed arm of the rig diagram has never been seen against real data. The engine source
+  says a bare tractor with automatic motor start enabled is one.
+- **A front loader at version 20.** `tractor_frontloader.json` is at 19, and exports no `controlGroup` at all — which is
+  itself worth confirming, since a loader's moving tools ought to give it one. `subSelection.json` covers the
+  control-group shape meanwhile.
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`, the `STEP`
   consumable bar, and they would give `jointDescIndex` its first real chain.
 - **More finance captures.** `examples/json/finance/vanilla.json` is a fresh singleplayer save, so it has one period and
