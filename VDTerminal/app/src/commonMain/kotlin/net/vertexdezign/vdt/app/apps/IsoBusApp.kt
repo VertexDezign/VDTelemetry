@@ -23,9 +23,10 @@ import net.vertexdezign.vdt.app.widgets.Widget
  * Base-game data on the main telemetry channel, so it is always available — the panel renders its own
  * "nothing on the bus" state, exactly as an empty rig position does.
  *
- * Read-only. The lower / fold / activate controls stay in `RigSlotPanel`; a mixer wagon's tip side and
- * its tipping have no counterpart in FS25_additionalInputs, so putting them here would mean reaching
- * past that boundary for the first time. That is a decision of its own and not part of round 1.
+ * Controls: the lower / fold / activate trio, shared with `RigSlotPanel` and addressed at whatever the
+ * diagram has selected — where the command channel can name it. Pipe, cover and tip side are shown but
+ * not yet settable: they have no counterpart in FS25_additionalInputs, so they need controls that call
+ * the engine directly (issue #116, step 4).
  */
 object IsoBusApp : VdtApp {
   override val id = "isobus"
@@ -36,9 +37,10 @@ object IsoBusApp : VdtApp {
 
   @Composable
   override fun FullPage(modifier: Modifier) {
-    val telemetry by LocalVdtStore.current.telemetry.collectAsState()
-    // Auto: the full page has no placement to configure, so it shows whatever on the rig announced
-    // itself — the way a terminal does.
-    IsoBusPanel(telemetry?.vehicle, slot = null, modifier = modifier)
+    val store = LocalVdtStore.current
+    val telemetry by store.telemetry.collectAsState()
+    // Auto: the full page has no placement to configure, so the rig diagram is the picker and it
+    // opens on whatever the game has selected — the way a terminal does.
+    IsoBusPanel(telemetry?.vehicle, slot = null, modifier = modifier, onCommand = store.onCommand)
   }
 }

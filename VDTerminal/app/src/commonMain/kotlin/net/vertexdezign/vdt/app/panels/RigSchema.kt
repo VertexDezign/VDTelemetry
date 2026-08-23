@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Schema
@@ -96,6 +97,8 @@ internal data class RigNode(
   val id: String,
   val machine: IsoBusMachine,
   val isRoot: Boolean,
+  /** 0 for the root machine, 1 for what is hitched to it, and so on. See [controlTargetOf]. */
+  val depth: Int,
   val x: Float,
   val y: Float,
   /** Accumulated down the tree, in radians. */
@@ -128,6 +131,7 @@ internal fun layoutRig(vehicle: Vehicle): List<RigNode> {
       id = RIG_ROOT_ID,
       machine = vehicle.isoBus(),
       isRoot = true,
+      depth = 0,
       x = 0f,
       y = 0f,
       rotation = 0f,
@@ -187,12 +191,43 @@ private fun layoutChildren(
     }
 
     val id = "$parentId/$index"
-    out += RigNode(id, implement.isoBus(), isRoot = false, x = baseX, y = baseY, rotation = rot, invertX = invertX)
+    out += RigNode(
+      id = id,
+      machine = implement.isoBus(),
+      isRoot = false,
+      depth = depth,
+      x = baseX,
+      y = baseY,
+      rotation = rot,
+      invertX = invertX,
+    )
 
     if (depth <= MAX_DEPTH) {
       layoutChildren(depth + 1, schema, implement.implement, baseX, baseY, rot, invertX, id, out)
     }
   }
+}
+
+/**
+ * Which [ControlTarget] addresses [node], or **null when nothing does**.
+ *
+ * `ControlTarget` reaches three places — the controlled vehicle, and the implements on its front and
+ * rear attachers — because that is what FS25_additionalInputs' `vdAI*Front/Back` functions reach, and
+ * the rule here is to use what vdAI already has rather than to extend it. So the diagram can show a
+ * machine the command channel has no way to name: in `liquidManure_dribbleBar.json` the Bomech is
+ * hitched behind the Kaweco, and only the Kaweco is the tractor's rear implement.
+ *
+ * Strictly structural, and deliberately stricter than `RigSlotPanel`'s recursive position search: a
+ * `position` of `BACK` two levels down is the *dolly's* rear, not the tractor's, and commanding it as
+ * though it were the tractor's would move the wrong machine.
+ */
+internal fun controlTargetOf(node: RigNode): ControlTarget? = when {
+  node.isRoot -> ControlTarget.VEHICLE
+
+  node.depth != 1 -> null
+
+  // Reuses RigSlot's own position -> target table rather than keeping a second copy of the tokens.
+  else -> RigSlot.entries.firstOrNull { it.implementPosition == node.machine.position }?.target
 }
 
 /** The node the diagram should start on: whatever the *game* has selected, else the root. */

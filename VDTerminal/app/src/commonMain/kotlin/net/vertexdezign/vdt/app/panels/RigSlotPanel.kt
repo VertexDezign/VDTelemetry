@@ -44,10 +44,9 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
+import net.vertexdezign.vdt.app.components.ImplementControls
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SectionView
-import net.vertexdezign.vdt.app.components.StatusColor
-import net.vertexdezign.vdt.app.components.StatusIconButton
 import net.vertexdezign.vdt.app.components.ownRates
 import net.vertexdezign.vdt.app.components.sectionMember
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -220,13 +219,6 @@ private val STACK_CONTROLS_BELOW = 140.dp
 private val BARE_HEADER_BELOW = 100.dp
 
 /**
- * Stacked, the three controls are the tallest thing in the panel, and at the default 48dp they take
- * the whole of a three-row tile before the name and condition get any. 40dp is still a comfortable
- * target on a tablet and leaves the rest of the panel room to exist.
- */
-private val STACKED_BUTTON_HEIGHT = 40.dp
-
-/**
  * Renders [slot] of [vehicle]: its name, condition, the fold/power/raise controls, and its load.
  *
  * An empty implement position still draws the panel, greyed — the tile is a fixed place on the page,
@@ -327,11 +319,17 @@ fun RigSlotPanel(
           SectionView(state.workWidth, state.workAreas, state.precisionFarming, onCommand = onCommand)
         }
 
-        // Each control is clickable only when this slot has that aspect; the tap sends the ABSOLUTE
-        // target for the slot's position, computed from the rendered state (idempotent over the lossy
-        // command channel — see ClientMessage). Front/back are routed mod-side through
-        // FS25_additionalInputs.
-        RigSlotControls(state, slot.target, stacked = stackControls, onCommand = onCommand)
+        // A slot is always addressable — it *is* one of the three positions the command channel
+        // reaches — so the target is never null here. See [ImplementControls] for what a null one
+        // means, which is the case the ISOBUS diagram runs into.
+        ImplementControls(
+          foldable = state?.foldable,
+          isTurnedOn = state?.isTurnedOn,
+          lowered = state?.lowered,
+          target = slot.target,
+          onCommand = onCommand,
+          stacked = stackControls,
+        )
 
         if (state != null) FillUnitsDisplay(fillUnits, Modifier.fillMaxWidth(), spacing = 4)
       }
@@ -387,77 +385,6 @@ private fun NameBox(state: RigSlotState?, empty: String) {
           )
         }
       }
-    }
-  }
-}
-
-/**
- * The fold / power / raise trio, in a row when there is width for it and stacked when there isn't.
- *
- * The three buttons are identical either way — only the container changes — so the arrangement can
- * flip on a resize without the controls themselves knowing. Stacked, they take their natural
- * full-width height instead of splitting the row three ways.
- */
-@Composable
-private fun RigSlotControls(
-  state: RigSlotState?,
-  target: ControlTarget,
-  stacked: Boolean,
-  onCommand: (ClientMessage) -> Unit,
-) {
-  val foldable = state?.foldable
-
-  // Declared once and placed by whichever container wins, so the two arrangements can't drift apart.
-  val height = if (stacked) STACKED_BUTTON_HEIGHT else 48.dp
-  val buttons = listOf<@Composable (Modifier) -> Unit>(
-    { mod ->
-      StatusIconButton(
-        Icons.Filled.UnfoldMore,
-        mod,
-        height = height,
-        active = foldable != null,
-        color = if (foldable == FoldableState.EXTENDED) StatusColor.Green else StatusColor.White,
-        onClick =
-        foldable?.let {
-          { onCommand(ClientMessage.SetFolded(target, on = it == FoldableState.EXTENDED)) }
-        },
-      )
-    },
-    { mod ->
-      StatusIconButton(
-        Icons.Filled.PowerSettingsNew,
-        mod,
-        height = height,
-        active = state?.isTurnedOn != null,
-        color = if (state?.isTurnedOn == true) StatusColor.Green else StatusColor.White,
-        onClick =
-        state?.isTurnedOn?.let {
-          { onCommand(ClientMessage.SetActivated(target, on = !it)) }
-        },
-      )
-    },
-    { mod ->
-      StatusIconButton(
-        if (state?.lowered == true) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
-        mod,
-        height = height,
-        active = state?.lowered != null,
-        color = if (state?.lowered == true) StatusColor.Green else StatusColor.White,
-        onClick =
-        state?.lowered?.let {
-          { onCommand(ClientMessage.SetLowered(target, on = !it)) }
-        },
-      )
-    },
-  )
-
-  if (stacked) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      for (button in buttons) button(Modifier)
-    }
-  } else {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      for (button in buttons) button(Modifier.weight(1f))
     }
   }
 }

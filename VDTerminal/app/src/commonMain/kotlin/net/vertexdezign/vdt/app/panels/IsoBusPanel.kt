@@ -26,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PowerOff
@@ -56,11 +58,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
+import net.vertexdezign.vdt.app.components.ImplementControls
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_mixer_wagon
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.Cover
+import net.vertexdezign.vdt.model.CoverType
 import net.vertexdezign.vdt.model.Discharge
 import net.vertexdezign.vdt.model.DischargeReason
 import net.vertexdezign.vdt.model.FillUnit
@@ -70,6 +77,8 @@ import net.vertexdezign.vdt.model.Mass
 import net.vertexdezign.vdt.model.MixState
 import net.vertexdezign.vdt.model.Mixer
 import net.vertexdezign.vdt.model.MixerIngredient
+import net.vertexdezign.vdt.model.Pipe
+import net.vertexdezign.vdt.model.PipeState
 import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.Tipping
 import net.vertexdezign.vdt.model.Vehicle
@@ -139,11 +148,23 @@ private val MIN_SCHEMA_HEIGHT = 34.dp
 private val MAX_SCHEMA_HEIGHT = 72.dp
 
 /**
+ * Below this the three controls can no longer sit in a row and still be worth aiming at — they need
+ * roughly 40dp each plus the gaps — so they stack. The same threshold `RigSlotPanel` uses, for the
+ * same buttons.
+ */
+private val STACK_CONTROLS_BELOW = 140.dp
+
+/**
  * One machine on the rig, flattened out of [Vehicle] or [Implement] — the two speak the same shape,
  * and a mixer wagon can be either (a self-propelled one is the vehicle).
  */
 internal data class IsoBusMachine(
   val name: String,
+  /**
+   * `FRONT` / `BACK` for an implement, empty for the vehicle. Part of how a node is *addressed*
+   * rather than part of what it is — see [controlTargetOf].
+   */
+  val position: String,
   /** The game's vehicle type name. A **label hint only** — never the thing a section dispatches on. */
   val type: String,
   /**
@@ -152,6 +173,8 @@ internal data class IsoBusMachine(
    */
   val selected: Boolean,
   val foldable: FoldableState?,
+  val lowered: Boolean?,
+  val isTurnedOn: Boolean?,
   val damage: Int?,
   /**
    * This machine's **own** fill units, not its chain's.
@@ -163,6 +186,8 @@ internal data class IsoBusMachine(
   val fillUnits: List<FillUnit>,
   val tipping: Tipping?,
   val discharge: Discharge?,
+  val pipe: Pipe?,
+  val cover: Cover?,
   val mass: Mass?,
   val mixer: Mixer?,
 ) {
@@ -175,26 +200,37 @@ internal data class IsoBusMachine(
 
 internal fun Vehicle.isoBus() = IsoBusMachine(
   name = name,
+  // The vehicle is not attached to anything; it is what the attaching is done to.
+  position = "",
   type = type,
   selected = selection?.selected == true,
   foldable = foldable,
+  lowered = lowered,
+  isTurnedOn = isTurnedOn,
   damage = wearable?.damage,
   fillUnits = fillUnits?.fillUnit ?: emptyList(),
   tipping = tipping,
   discharge = discharge,
+  pipe = pipe,
+  cover = cover,
   mass = mass,
   mixer = mixer,
 )
 
 internal fun Implement.isoBus() = IsoBusMachine(
   name = name,
+  position = position,
   type = type,
   selected = selection?.selected == true,
   foldable = foldable,
+  lowered = lowered,
+  isTurnedOn = isTurnedOn,
   damage = wearable?.damage,
   fillUnits = fillUnits?.fillUnit ?: emptyList(),
   tipping = tipping,
   discharge = discharge,
+  pipe = pipe,
+  cover = cover,
   mass = mass,
   mixer = mixer,
 )
@@ -250,7 +286,12 @@ private fun findIsoBusImplement(list: List<Implement>, position: String): Implem
  * what fits is a fact about the size the tile ended up at.
  */
 @Composable
-fun IsoBusPanel(vehicle: Vehicle?, slot: RigSlot?, modifier: Modifier = Modifier) {
+fun IsoBusPanel(
+  vehicle: Vehicle?,
+  slot: RigSlot?,
+  modifier: Modifier = Modifier,
+  onCommand: (ClientMessage) -> Unit = {},
+) {
   // The diagram is the picker, and only where there is a choice to make: a tile pinned to a position
   // has already been told which machine it follows, so it keeps the direct lookup. Empty on any rig
   // whose objects carry no `schema` — every capture from before mod version 4 — and the panel then
@@ -276,7 +317,10 @@ fun IsoBusPanel(vehicle: Vehicle?, slot: RigSlot?, modifier: Modifier = Modifier
     // over the other. The state is the thing you glance at, so it moves into the body's status strip
     // rather than being dropped — see [MachineStatus].
     val bareHeader = maxWidth < BARE_HEADER_BELOW
+    // Hoisted out of the scope: inside the Panel's content lambda these read as its BoxScope's, not
+    // this box's — the same trap [MixerSection] documents.
     val bodyHeight = maxHeight
+    val stackControls = maxWidth < STACK_CONTROLS_BELOW
 
     Panel(
       title = machine?.name ?: "ISOBUS",
@@ -309,7 +353,16 @@ fun IsoBusPanel(vehicle: Vehicle?, slot: RigSlot?, modifier: Modifier = Modifier
             }, modifier = Modifier.height(band).fillMaxWidth())
           }
 
-          MachineDetail(machine, Modifier.fillMaxWidth())
+          // The diagram addresses a node by where it sits in the tree; a pinned tile is already a
+          // position, so it addresses itself. Either way a machine the channel cannot name gets null.
+          val target = if (nodes.isEmpty()) slot?.target ?: ControlTarget.VEHICLE else selected?.let(::controlTargetOf)
+          MachineDetail(
+            machine = machine,
+            target = target,
+            onCommand = onCommand,
+            modifier = Modifier.fillMaxWidth(),
+            stackControls = stackControls,
+          )
 
           if (mixer != null) {
             MixerSection(machine, mixer, showStateInBody = bareHeader, modifier = Modifier.weight(1f).fillMaxWidth())
@@ -350,7 +403,13 @@ private fun schemaHeight(body: Dp, nodes: Int): Dp? {
  * drawn twice, so the section owns them where there is one.
  */
 @Composable
-private fun MachineDetail(machine: IsoBusMachine, modifier: Modifier = Modifier) {
+private fun MachineDetail(
+  machine: IsoBusMachine,
+  target: ControlTarget?,
+  onCommand: (ClientMessage) -> Unit,
+  modifier: Modifier = Modifier,
+  stackControls: Boolean = false,
+) {
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
     FlowRow(
       Modifier.fillMaxWidth(),
@@ -381,10 +440,108 @@ private fun MachineDetail(machine: IsoBusMachine, modifier: Modifier = Modifier)
       }
     }
 
+    MachineStatus(machine, Modifier.fillMaxWidth())
+
+    ImplementControls(
+      foldable = machine.foldable,
+      isTurnedOn = machine.isTurnedOn,
+      lowered = machine.lowered,
+      target = target,
+      onCommand = onCommand,
+      stacked = stackControls,
+    )
+
+    // Why the buttons above are inert, rather than leaving the driver to tap and wonder. The limit is
+    // the command channel's, not the diagram's: see [controlTargetOf].
+    if (target == null) {
+      Text(
+        "Controls reach the tractor and its front and rear only",
+        color = VdtColors.TextDisabled,
+        fontSize = 9.sp,
+        lineHeight = 11.sp,
+      )
+    }
+
     if (!machine.hasSection && machine.fillUnits.isNotEmpty()) {
       FillUnitsDisplay(machine.fillUnits, Modifier.fillMaxWidth(), spacing = 4)
     }
   }
+}
+
+/**
+ * What the machine is doing, as a strip of chips — the part of the old mixer status strip that was
+ * never about mixing. Tipping, the engine's refusal to unload, the pipe, the cover and the fold state
+ * belong to any machine that has them, so they moved out of the mixer's section and into the frame.
+ *
+ * Every chip is absent when its aspect is, which is the same dispatch rule the sections follow.
+ */
+@Composable
+private fun MachineStatus(machine: IsoBusMachine, modifier: Modifier = Modifier) {
+  FlowRow(
+    modifier,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+    verticalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    machine.tipping?.let { TipChip(it) }
+
+    // The engine's own "why is nothing coming out". A terminal earns its place at the trough here:
+    // the tip side is open, the drum is turning, and the reason it is not unloading is a fact only
+    // the game has. Absent whenever nothing is wrong, which is most of the time.
+    machine.discharge?.reason?.let { Chip(Icons.Filled.PriorityHigh, refusalOf(it), VdtColors.Amber) }
+
+    machine.pipe?.let { PipeChip(it) }
+    machine.cover?.let { CoverChip(it) }
+
+    when (machine.foldable) {
+      FoldableState.FOLDED -> Chip(Icons.Filled.UnfoldLess, "Folded", VdtColors.DarkGray)
+      FoldableState.EXTENDED -> Chip(Icons.Filled.UnfoldMore, "Unfolded", VdtColors.AccentText)
+      null -> Unit
+    }
+  }
+}
+
+/**
+ * Where the spout is. A pipe often has more than the two positions [PipeState] can name — an auger
+ * wagon's is a multi-state animation — so a machine that reports more says which one it is at rather
+ * than in-or-out, and `current != target` is the engine still travelling.
+ */
+@Composable
+private fun PipeChip(pipe: Pipe) {
+  val moving = pipe.state == PipeState.MOVING || (pipe.current != 0 && pipe.current != pipe.target)
+  val label = when {
+    moving -> "Pipe moving"
+
+    pipe.state == PipeState.RETRACTED -> "Pipe in"
+
+    // 1 is fully retracted, so anything above it is a real position worth naming on a multi-state pipe.
+    pipe.numStates > 2 && pipe.current > 0 -> "Pipe ${pipe.current}/${pipe.numStates}"
+
+    else -> "Pipe out"
+  }
+  Chip(
+    if (pipe.state == PipeState.RETRACTED) Icons.Filled.UnfoldLess else Icons.Filled.UnfoldMore,
+    label,
+    if (pipe.state == PipeState.RETRACTED) VdtColors.DarkGray else VdtColors.AccentText,
+  )
+}
+
+/**
+ * Which cover is open, on a machine that has more than one. `index` is 0 when everything is shut, so
+ * it doubles as the closed state; the count is what makes naming the open one worth the room.
+ */
+@Composable
+private fun CoverChip(cover: Cover) {
+  val open = cover.state == CoverType.OPEN || cover.index > 0
+  val label = when {
+    !open -> "Cover closed"
+    cover.count > 1 -> "Cover ${cover.index} of ${cover.count}"
+    else -> "Cover open"
+  }
+  Chip(
+    if (open) Icons.Filled.LockOpen else Icons.Filled.Lock,
+    label,
+    if (open) VdtColors.AccentText else VdtColors.DarkGray,
+  )
 }
 
 /**
@@ -414,7 +571,7 @@ private fun MixerSection(
       Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(0.55f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
           MachineArt(mixer, machine.mass, Modifier.weight(1f).fillMaxWidth())
-          MachineStatus(machine, mixer, showStateInBody)
+          MixerStatus(mixer, showStateInBody)
         }
         RatioBars(mixer, bodyWidth * 0.45f, Modifier.weight(0.45f).fillMaxHeight())
       }
@@ -426,7 +583,7 @@ private fun MixerSection(
         } else {
           TubReadout(mixer, machine.mass, Modifier.fillMaxWidth())
         }
-        MachineStatus(machine, mixer, showStateInBody)
+        MixerStatus(mixer, showStateInBody)
         RatioBars(mixer, bodyWidth, Modifier.weight(1f).fillMaxWidth())
       }
     }
@@ -609,7 +766,7 @@ private fun Figure(label: String, value: String, sub: String?) {
  * only. See FUTURE.md.
  */
 @Composable
-private fun MachineStatus(machine: IsoBusMachine, mixer: Mixer, showState: Boolean) {
+private fun MixerStatus(mixer: Mixer, showState: Boolean) {
   FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -630,19 +787,6 @@ private fun MachineStatus(machine: IsoBusMachine, mixer: Mixer, showState: Boole
       mixer.running -> Chip(Icons.Filled.Sync, "Running", VdtColors.AccentText)
 
       else -> Chip(Icons.Filled.Pause, "Idle", VdtColors.DarkGray)
-    }
-
-    machine.tipping?.let { TipChip(it) }
-
-    // The engine's own "why is nothing coming out". A terminal earns its place at the trough here:
-    // the tip side is open, the drum is turning, and the reason it is not unloading is a fact only
-    // the game has. Absent whenever nothing is wrong, which is most of the time.
-    machine.discharge?.reason?.let { Chip(Icons.Filled.PriorityHigh, refusalOf(it), VdtColors.Amber) }
-
-    when (machine.foldable) {
-      FoldableState.FOLDED -> Chip(Icons.Filled.UnfoldLess, "Folded", VdtColors.DarkGray)
-      FoldableState.EXTENDED -> Chip(Icons.Filled.UnfoldMore, "Unfolded", VdtColors.AccentText)
-      null -> Unit
     }
   }
 }

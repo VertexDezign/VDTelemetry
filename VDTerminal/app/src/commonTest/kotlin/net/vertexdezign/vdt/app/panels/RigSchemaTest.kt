@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Schema
 import net.vertexdezign.vdt.model.SchemaJoint
@@ -7,6 +8,7 @@ import net.vertexdezign.vdt.model.Selection
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** A joint at the parent's edge — `x = 1` is what every machine in every capture exports. */
@@ -196,5 +198,67 @@ class RigSchemaTest {
   @Test
   fun withNothingSelectedTheDiagramStartsOnTheTractor() {
     assertEquals("Tractor", selectedRigNode(layoutRig(tractor()))?.machine?.name)
+  }
+
+  // -------------------------------------------------------------------------
+  // Addressing: which node a command can actually name
+  // -------------------------------------------------------------------------
+
+  @Test
+  fun theTractorAndItsOwnFrontAndRearAreAddressable() {
+    val rig =
+      tractor(
+        Implement(name = "Plough", position = "BACK", schema = schema(), jointDescIndex = 1),
+        Implement(name = "Weight", position = "FRONT", schema = schema(), jointDescIndex = 2),
+        joints = arrayOf(joint(invertX = false), joint(invertX = true)),
+      )
+    val nodes = layoutRig(rig)
+    assertEquals(ControlTarget.VEHICLE, controlTargetOf(nodes.first { it.isRoot }))
+    assertEquals(ControlTarget.BACK, controlTargetOf(nodes.first { it.machine.name == "Plough" }))
+    assertEquals(ControlTarget.FRONT, controlTargetOf(nodes.first { it.machine.name == "Weight" }))
+  }
+
+  @Test
+  fun aMachineDeeperInTheChainIsNotAddressable() {
+    // The dribble-bar rig: the Bomech is hitched behind the Kaweco, so the only thing on the
+    // tractor's rear attacher is the Kaweco. The panel shows the Bomech and refuses to command it.
+    val rig =
+      tractor(
+        Implement(
+          name = "Barrel",
+          position = "BACK",
+          schema = schema(joint()),
+          jointDescIndex = 1,
+          implement = listOf(Implement(name = "Dribble bar", schema = schema(), jointDescIndex = 1)),
+        ),
+      )
+    val nodes = layoutRig(rig)
+    assertEquals(ControlTarget.BACK, controlTargetOf(nodes.first { it.machine.name == "Barrel" }))
+    assertNull(controlTargetOf(nodes.first { it.machine.name == "Dribble bar" }))
+  }
+
+  @Test
+  fun aNestedRearImplementIsNotTheTractorsRear() {
+    // The one that would be silently wrong: `position` is BACK on both, but the deeper one is the
+    // *dolly's* rear. vdAI's vdAI*Back moves whatever is on the tractor, so addressing this as BACK
+    // would fold, raise or switch off a different machine than the one on screen.
+    val rig =
+      tractor(
+        Implement(
+          name = "Dolly",
+          position = "BACK",
+          schema = schema(joint()),
+          jointDescIndex = 1,
+          implement = listOf(Implement(name = "Trailer", position = "BACK", schema = schema(), jointDescIndex = 1)),
+        ),
+      )
+    assertNull(controlTargetOf(layoutRig(rig).first { it.machine.name == "Trailer" }))
+  }
+
+  @Test
+  fun anImplementOnNeitherAttacherIsNotAddressable() {
+    // Real captures do this: the Bomech's `position` is the empty string, not FRONT or BACK.
+    val rig = tractor(Implement(name = "Odd", position = "", schema = schema(), jointDescIndex = 1))
+    assertNull(controlTargetOf(layoutRig(rig).first { !it.isRoot }))
   }
 }
