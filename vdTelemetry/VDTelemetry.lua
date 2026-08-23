@@ -117,7 +117,7 @@ local sourceFiles = {
   -- Resolves a command's target token to the object it names; the direct-call controls below need
   -- the object itself, where ImplementControl only needs the vehicle vdAI walks from.
   "src/command/TargetResolver.lua",
-  "src/command/PipeControl.lua",
+  "src/command/PipeCoverControl.lua",
   "src/command/TrailerControl.lua",
   "src/command/MotorControl.lua",
   "src/command/CruiseControl.lua",

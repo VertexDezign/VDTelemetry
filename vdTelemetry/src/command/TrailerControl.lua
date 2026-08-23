@@ -1,7 +1,7 @@
 -- Executes tip-side and unloading commands from the app -> mod back-channel. The inverse of the
 -- VDT.Tipping and VDT.Discharge aspect collectors.
 --
--- Direct engine calls, for the same reason as PipeControl: additionalInputs has no vdAI* counterpart
+-- Direct engine calls, for the same reason as PipeCoverControl: additionalInputs has no vdAI* counterpart
 -- for either, so calling the setter is the normal path rather than an exception.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).

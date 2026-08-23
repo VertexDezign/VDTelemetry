@@ -22,14 +22,14 @@
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
 VDT = VDT or {}
-VDT.PipeControl = {}
+VDT.PipeCoverControl = {}
 
 ---Move the target's pipe to an absolute state (1 = fully retracted, up to `numStates`).
 ---@param vehicle Vehicle the controlled vehicle
 ---@param target string vehicle|front|back
 ---@param state number
 ---@param debugger GrisuDebug
-function VDT.PipeControl.setPipeState(vehicle, target, state, debugger)
+function VDT.PipeCoverControl.setPipeState(vehicle, target, state, debugger)
   local object = VDT.TargetResolver.resolve(vehicle, target, debugger)
   if object == nil then
     return
@@ -47,7 +47,7 @@ end
 ---@param target string vehicle|front|back
 ---@param state number
 ---@param debugger GrisuDebug
-function VDT.PipeControl.setCoverState(vehicle, target, state, debugger)
+function VDT.PipeCoverControl.setCoverState(vehicle, target, state, debugger)
   local object = VDT.TargetResolver.resolve(vehicle, target, debugger)
   if object == nil then
     return
@@ -71,13 +71,13 @@ end
 VDT.CommandRegistry.register("setPipeState", {
   parse = parseTargetState,
   execute = function(vehicle, params, debugger)
-    VDT.PipeControl.setPipeState(vehicle, params.target, params.state, debugger)
+    VDT.PipeCoverControl.setPipeState(vehicle, params.target, params.state, debugger)
   end,
 })
 
 VDT.CommandRegistry.register("setCoverState", {
   parse = parseTargetState,
   execute = function(vehicle, params, debugger)
-    VDT.PipeControl.setCoverState(vehicle, params.target, params.state, debugger)
+    VDT.PipeCoverControl.setCoverState(vehicle, params.target, params.state, debugger)
   end,
 })
