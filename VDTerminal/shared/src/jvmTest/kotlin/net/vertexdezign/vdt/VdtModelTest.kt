@@ -289,6 +289,50 @@ class VdtModelTest {
   }
 
   @Test
+  fun aFrontLoaderMountsOnTheTractorRatherThanHangingOffIt() {
+    // The capture that corrected an assumption: a front loader does NOT sit above the tractor. Every
+    // joint here reports `y = 0` like every other capture — what makes it mount rather than tow is
+    // `x = 0.8` on the tractor's sixth attacher, the only non-1.0 joint anywhere in the fixtures. The
+    // loader's slot therefore starts at 80% of the tractor's and the two overlap by a fifth of a box.
+    val v = assertNotNull(model("tractor_frontloader.json").vehicle)
+
+    val loader = assertNotNull(v.implement.singleOrNull())
+    assertEquals("FRONT", loader.position)
+    assertEquals(6, loader.jointDescIndex)
+
+    val joint = assertNotNull(v.schema?.attacherJoint?.getOrNull(5))
+    assertEquals(0.8f, joint.x)
+    assertEquals(0f, joint.y)
+    assertTrue(joint.invertX, "mirrored, so the loader grows forward from the tractor's near edge")
+
+    // Still nothing exercising the rotated arms of the layout — see FUTURE.md.
+    // (`v.schema` is smart-cast non-null by the assertNotNull above.)
+    assertTrue(v.schema.attacherJoint.all { it.rotation == 0f })
+  }
+
+  @Test
+  fun aShovelIsDischargeableButNotSomethingAPlayerUnloads() {
+    // The other half of `canToggle`, and the first capture to show it false. A shovel is Dischargeable
+    // — that is how the material leaves it — but tipping it is done by moving the loader, not by a tip
+    // action, so the game offers none and neither does the terminal.
+    val v = assertNotNull(model("tractor_frontloader.json").vehicle)
+    val shovel =
+      assertNotNull(
+        v.implement
+          .singleOrNull()
+          ?.implement
+          ?.singleOrNull(),
+      )
+    assertEquals("Bressel und Lade Schaufel L16", shovel.name)
+    assertEquals(false, shovel.discharge?.canToggle)
+
+    // And it is the selected machine, hanging off the loader with no position of its own — the third
+    // capture in a row where what the game has selected is what RigSlotPanel cannot address.
+    assertEquals("", shovel.position)
+    assertTrue(shovel.selection?.selected == true)
+  }
+
+  @Test
   fun coercesNullCapacityToDefault() {
     // A pass-through fill unit (a forage/carrot harvester's output) has no capacity in its XML, so
     // the engine reports +inf and the mod's JSON encoder emits `capacity: null`. A strict parse blew

@@ -354,6 +354,23 @@ private val MIN_ICON_WIDTH = 24.dp
 private val SCHEMA_PADDING = 4.dp
 
 /**
+ * A ring of the panel's own ground drawn just outside each box, so a machine that sits **on** another
+ * still reads as two machines.
+ *
+ * The same idea as the invisible borders, applied where they cannot reach. Those inset a box inside
+ * its own slot, which separates neighbours that merely touch; a mounted machine overlaps its parent's
+ * slot outright. A front loader's attacher joint reports `x = 0.8` — the only non-1.0 joint in any
+ * capture — so its slot starts at 80% of the tractor's and the two boxes cross by a tenth of a box
+ * width even after both insets. The game gets away with drawing that as-is because its silhouettes
+ * are distinct shapes with transparent ground; ours are identical rectangles, and two of those
+ * crossing read as one dented box.
+ *
+ * Deliberately **not** a fix to the placement: the overlap is what the game reports and what a front
+ * loader physically does. Only the drawing changes.
+ */
+private val HALO = 1.5.dp
+
+/**
  * The rig, drawn: one box per machine, hitched the way the game's own HUD diagram hitches them, with
  * the selected one standing out and every box a tap target.
  *
@@ -443,6 +460,13 @@ private fun RigBox(
   val shape = RoundedCornerShape(3.dp)
   Box(
     modifier
+      // The halo grows outward and the offset takes it back, so the box still lands exactly where the
+      // layout put it — the separation is drawn, never placed.
+      .offset(x = -HALO, y = -HALO)
+      .width(width + HALO * 2)
+      .height(height + HALO * 2)
+      .background(VdtColors.Panel, RoundedCornerShape(4.5.dp))
+      .padding(HALO)
       .width(width)
       .height(height)
       // About the box's own centre. No capture has produced a non-zero rotation yet — every joint in

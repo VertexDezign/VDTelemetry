@@ -574,12 +574,17 @@ private fun MachineStatus(
  * The game's own type name, unlocalized and modder-defined ("manureBarrel", "sprayer"). A plain label
  * because that is all it is good for — no section anywhere dispatches on it, and nothing can be done
  * to it. Ellipsized, since the flank it usually sits in is a quarter of the panel.
+ *
+ * A **modded** type carries its mod as a prefix, the way the game namespaces everything a mod
+ * registers: `FS25_JohnDeere_6MSeries.tractor_foldable`. Which mod it came from is not what the label
+ * is for, and at a quarter of the panel the prefix is all that survives the ellipsis — so it goes,
+ * leaving the part that says what the machine *is*. A base-game type has no dot and is untouched.
  */
 @Composable
 private fun TypeLabel(machine: IsoBusMachine) {
   if (machine.type.isBlank()) return
   Text(
-    machine.type,
+    machine.type.substringAfterLast('.'),
     color = VdtColors.DarkGray,
     fontSize = 10.sp,
     fontWeight = FontWeight.Bold,

@@ -107,18 +107,37 @@ What it did not do:
   renders its controls inert with a line saying why. Closing this needs a per-object address in the export and a
   resolver mod-side, and for lower/fold/activate it would mean **not** going through vdAI, which the standing rule
   forbids. Worth its own issue if it turns out to bite; a rig that deep is uncommon.
-- **One generic silhouette, not the game's ten.** Decided rather than deferred (see the issue), but worth a second look
-  once the diagram has been watched in motion: a chain of three identical boxes may scan worse than varied shapes.
-  `schema.name` is plumbed through to the drawing code and selects nothing, so adding shapes later is a lookup table
+- **One generic silhouette, not the game's ten** — and a front loader is the case that argues hardest against it. Its
+  attacher joint reports `x = 0.8`, so its box genuinely overlaps the tractor's by a fifth: that is the game's own
+  layout and it is right, because a loader mounts *onto* a tractor rather than being towed by one. The game can draw
+  that as-is because its silhouettes are distinct shapes on transparent ground; two identical rectangles crossing read
+  as one dented box instead, which is why they now get a ring of the panel's ground drawn around them. That is a
+  legibility patch, not the answer.
+
+  The answer, if it is wanted, is the game's own overlays, and it comes in two parts that can be taken separately:
+
+  - **Geometry.** `dataS/vehicleSchemaOverlays.xml` carries `#size` per overlay name (`"26px 26px"` and the like). The
+    mod can read it once at load and export width and height per schema name, and the boxes then have the game's
+    proportions — a loader is a small box on a big tractor rather than two equal ones. Data, not artwork.
+  - **The art itself.** The same file carries `#filename` (an atlas) and `#uvs` per overlay. The server already reads
+    art out of the player's own game install and decodes it — `AssetResolver` resolves game-dir-relative paths and has
+    a `mods` branch, `Dds.kt` and `ImagePipeline.kt` do the rest — which is exactly how the map image works. Slicing
+    that atlas by its UVs is the same trick pointed at a different file, and nothing of Giants' ships. The wrinkle is
+    modded silhouettes: `loadVehicleSchemaOverlays` walks every active mod's `modDesc`, so full coverage means walking
+    the mods directory too.
+
+  `schema.name` is already plumbed through to the drawing code and selects nothing, so either part is a lookup table
   rather than a rework. The vocabulary is `VEHICLE`, `HARVESTER`, `TRUCK`, `CAR`, `LOADER`, `IMPLEMENT`, `TRAILER`,
-  `COMBINE_HEADER`, `FRONTLOADER`, `MOTORBIKE`; every capture we hold reports one of the first two only.
+  `COMBINE_HEADER`, `FRONTLOADER`, `MOTORBIKE`; the captures report `VEHICLE`, `IMPLEMENT` and `FRONTLOADER`.
 - **`getUseTurnedOnSchema()`** — the game swaps to a *turned-on* variant of the silhouette. We export `isTurnedOn`, so a
   running machine could read differently on the diagram even with one shape. Cheap; nobody has asked for it.
 - **`getAdditionalSchemaText()`** — the game prints extra text on a schema node (bale counts and such). Not exported at
   all. Only worth adding if the diagram turns out to want it.
 - **The rotated-offset and rotation arms of the layout are unverified.** Every joint in every capture reads `rotation`
   0 and both offsets 0, so those branches are written to the game's algorithm and have never run on real data. They are
-  there because leaving them out would silently misplace the first machine that does use them.
+  there because leaving them out would silently misplace the first machine that does use them. A front loader was the
+  obvious candidate and turned out **not** to be one: `tractor_frontloader.json` mounts its loader over the tractor
+  with `joint.x = 0.8` and a `y` of 0, like everything else. Whatever uses the rotated arms, it is not that.
 - **Command outcomes still have nowhere to go**, the same as Missions and Finance. Prevention is the whole of the
   reporting: the app greys the tip-side button while the trough is open, and the mod drops what it cannot do. The one
   case that reaches neither is `setDischarging` refused by the ground under the machine — but the engine publishes its

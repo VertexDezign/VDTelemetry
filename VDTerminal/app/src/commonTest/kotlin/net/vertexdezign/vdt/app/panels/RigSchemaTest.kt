@@ -111,6 +111,32 @@ class RigSchemaTest {
   }
 
   @Test
+  fun aJointShortOfTheParentsEdgeMountsTheChildOverIt() {
+    // `x = 1` hangs a child flush against the parent; anything less overlaps it. A front loader's
+    // attacher reports 0.8 — the only non-1.0 joint in any capture — which is what puts its box a
+    // fifth of the way over the tractor's instead of beside it. The diagram draws that overlap on
+    // purpose; what stops two identical rectangles reading as one dented box is the halo, not the
+    // placement.
+    fun rigWithJointAt(jointX: Float) = layoutRig(
+      tractor(
+        Implement(name = "Loader", position = "FRONT", schema = schema(), jointDescIndex = 1),
+        joints = arrayOf(SchemaJoint(x = jointX, invertX = true)),
+      ),
+    )
+
+    val root = rigWithJointAt(1f).first { it.isRoot }
+    // `x = 1` is where every other capture's joints sit: flush against the parent's far edge.
+    val flush = rigWithJointAt(1f).first { !it.isRoot }
+    val mounted = rigWithJointAt(0.8f).first { !it.isRoot }
+
+    assertTrue(flush.x > root.x, "mirrored, so the child grows forward from the parent")
+    // Stated against the flush case rather than against the box width, which is a private calibration
+    // this test has no business knowing.
+    assertTrue(mounted.x < flush.x, "0.8 starts the child short of the parent's far edge")
+    assertTrue(mounted.x > root.x, "but still forward of it, so the two boxes cross rather than swap")
+  }
+
+  @Test
   fun theJointIndexIsOneBased() {
     // Lua's indexing, carried across the wire unchanged. Off by one here and every implement on a
     // multi-joint tractor lands on the wrong end -- silently, because index 1 exists too.
