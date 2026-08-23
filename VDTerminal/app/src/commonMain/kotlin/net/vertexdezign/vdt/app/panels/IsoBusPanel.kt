@@ -160,6 +160,16 @@ private val MIN_SCHEMA_HEIGHT = 22.dp
 private val MAX_SCHEMA_HEIGHT = 40.dp
 
 /**
+ * Width from which the type and the condition move onto the diagram's band, one at each end.
+ *
+ * Set by what the three have to fit side by side: the diagram's own drawn width is about 160dp for a
+ * three-machine rig at the tallest band, and it is given the middle half, so the flanks get a quarter
+ * each — enough for a twelve-character type name and a `96%` chip at 10sp. Below this the flanks
+ * would start clipping the type, and the strip below has room to spare.
+ */
+private val IDENTITY_ON_BAND_FROM = 340.dp
+
+/**
  * One machine on the rig, flattened out of [Vehicle] or [Implement] — the two speak the same shape,
  * and a mixer wagon can be either (a self-propelled one is the vehicle).
  */
@@ -322,9 +332,10 @@ fun IsoBusPanel(
     // over the other. The state is the thing you glance at, so it moves into the body's status strip
     // rather than being dropped — see [MachineStatus].
     val bareHeader = maxWidth < BARE_HEADER_BELOW
-    // Hoisted out of the scope: inside the Panel's content lambda this reads as its BoxScope's, not
+    // Hoisted out of the scope: inside the Panel's content lambda these read as its BoxScope's, not
     // this box's — the same trap [MixerSection] documents.
     val bodyHeight = maxHeight
+    val bodyWidth = maxWidth
 
     Panel(
       title = machine?.name ?: "ISOBUS",
@@ -351,10 +362,33 @@ fun IsoBusPanel(
           // short for the band would spend all of it on the picture. Both are facts about the size
           // this tile ended up at, which is how every other decision in this panel is taken.
           val band = schemaHeight(bodyHeight, nodes.size)
+          // Wide enough, the band carries the machine's type and condition in the room either side of
+          // the diagram, which is otherwise empty: the diagram is height-limited, so on a wide tile it
+          // sits in the middle of a mostly blank strip. They come out of the chip strip when they do,
+          // never appearing twice. Narrow, there is no such room and they stay where they were.
+          val identityOnBand = band != null && bodyWidth >= IDENTITY_ON_BAND_FROM
           if (band != null) {
-            RigSchema(nodes, selected?.id, onSelect = {
-              pinnedId = it
-            }, modifier = Modifier.height(band).fillMaxWidth())
+            if (identityOnBand) {
+              Row(
+                Modifier.height(band).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                // Equal weights on the flanks are what keeps the diagram *centred* rather than merely
+                // between them — a long type name would otherwise shove it off to the right.
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { TypeLabel(machine) }
+                RigSchema(
+                  nodes,
+                  selected?.id,
+                  onSelect = { pinnedId = it },
+                  modifier = Modifier.weight(2f).fillMaxHeight(),
+                )
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { DamageChip(machine) }
+              }
+            } else {
+              RigSchema(nodes, selected?.id, onSelect = {
+                pinnedId = it
+              }, modifier = Modifier.height(band).fillMaxWidth())
+            }
           }
 
           // The diagram addresses a node by where it sits in the tree; a pinned tile is already a
@@ -364,6 +398,7 @@ fun IsoBusPanel(
             machine = machine,
             target = target,
             onCommand = onCommand,
+            showIdentity = !identityOnBand,
             modifier = Modifier.fillMaxWidth(),
           )
 
@@ -412,9 +447,10 @@ private fun MachineDetail(
   target: ControlTarget?,
   onCommand: (ClientMessage) -> Unit,
   modifier: Modifier = Modifier,
+  showIdentity: Boolean = true,
 ) {
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    MachineStatus(machine, target, onCommand, Modifier.fillMaxWidth())
+    MachineStatus(machine, target, onCommand, showIdentity, Modifier.fillMaxWidth())
 
     // Why the controls above are inert, rather than leaving the driver to tap and wonder. The limit
     // is the command channel's, not the diagram's: see [controlTargetOf].
@@ -464,6 +500,7 @@ private fun MachineStatus(
   machine: IsoBusMachine,
   target: ControlTarget?,
   onCommand: (ClientMessage) -> Unit,
+  showIdentity: Boolean,
   modifier: Modifier = Modifier,
 ) {
   FlowRow(
@@ -471,28 +508,10 @@ private fun MachineStatus(
     horizontalArrangement = Arrangement.spacedBy(6.dp),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
-    // The game's own type name, unlocalized and modder-defined ("manureBarrel", "sprayer"). A plain
-    // label because that is all it is good for — no section anywhere dispatches on it.
-    if (machine.type.isNotBlank()) {
-      Text(
-        machine.type,
-        color = VdtColors.DarkGray,
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.align(Alignment.CenterVertically),
-      )
-    }
-
-    // Condition is carried by the number; the tint only reinforces it, and a machine in good order
-    // gets the same neutral chip as everything else on the strip.
-    machine.damage?.let { damage ->
-      Chip(
-        Icons.Filled.Build,
-        "${100 - damage}%",
-        if (damage >= WORN_FROM) VdtColors.Amber else VdtColors.DarkGray,
-      )
+    // Only when the diagram's band did not take them; see [IDENTITY_ON_BAND_FROM].
+    if (showIdentity) {
+      Box(Modifier.align(Alignment.CenterVertically)) { TypeLabel(machine) }
+      DamageChip(machine)
     }
 
     // The three any machine on the rig might have, first: they are its operating state, where the
@@ -545,6 +564,39 @@ private fun MachineStatus(
     machine.pipe?.let { PipeChip(it, target, onCommand) }
     machine.cover?.let { CoverChip(it, target, onCommand) }
   }
+}
+
+/**
+ * The game's own type name, unlocalized and modder-defined ("manureBarrel", "sprayer"). A plain label
+ * because that is all it is good for — no section anywhere dispatches on it, and nothing can be done
+ * to it. Ellipsized, since the flank it usually sits in is a quarter of the panel.
+ */
+@Composable
+private fun TypeLabel(machine: IsoBusMachine) {
+  if (machine.type.isBlank()) return
+  Text(
+    machine.type,
+    color = VdtColors.DarkGray,
+    fontSize = 10.sp,
+    fontWeight = FontWeight.Bold,
+    maxLines = 1,
+    overflow = TextOverflow.Ellipsis,
+  )
+}
+
+/**
+ * Condition, as a percentage rather than the damage the mod reports — a driver reads "how much is
+ * left", not "how much is gone". The number carries it; the tint only reinforces, and a machine in
+ * good order gets the same neutral chip as anything else that cannot be acted on.
+ */
+@Composable
+private fun DamageChip(machine: IsoBusMachine) {
+  val damage = machine.damage ?: return
+  Chip(
+    Icons.Filled.Build,
+    "${100 - damage}%",
+    if (damage >= WORN_FROM) VdtColors.Amber else VdtColors.DarkGray,
+  )
 }
 
 /**
