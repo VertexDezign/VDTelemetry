@@ -148,11 +148,15 @@ private val STATUS_STRIP_HEIGHT = 23.dp
  * Below this the body is only just enough for the machine itself, so the rig diagram is dropped
  * rather than shrunk — it is orientation, and the machine is the reason to look.
  */
-private val MIN_BODY_FOR_SCHEMA = 140.dp
+private val MIN_BODY_FOR_SCHEMA = 96.dp
 
-/** A schema box has to hold an 8sp name to be worth drawing, and stops earning height past the max. */
-private val MIN_SCHEMA_HEIGHT = 34.dp
-private val MAX_SCHEMA_HEIGHT = 72.dp
+/**
+ * The band the rig diagram gets. Small, and deliberately: the game's own is a thin strip of
+ * silhouettes at the bottom of the screen, and ours carries no text either, so height buys it nothing
+ * past the point where a box is a legible shape and a reachable tap target.
+ */
+private val MIN_SCHEMA_HEIGHT = 22.dp
+private val MAX_SCHEMA_HEIGHT = 40.dp
 
 /**
  * Below this the three controls can no longer sit in a row and still be worth aiming at — they need
@@ -391,13 +395,14 @@ fun IsoBusPanel(
  * How much height the rig diagram gets, or null when it should not be drawn at all.
  *
  * A share of the body rather than a fixed band, bounded so it can neither vanish on a tall tile nor
- * crowd out the machine below it on a short one. Two nodes are the floor: with one box there is no
- * choice to picture and no selection to make.
+ * crowd out the machine below it on a short one — and a *small* share, because the diagram is
+ * orientation and the machine under it is the reason to look. Two nodes are the floor: with one box
+ * there is no choice to picture and no selection to make.
  */
 private fun schemaHeight(body: Dp, nodes: Int): Dp? {
   if (nodes < 2) return null
   if (body < MIN_BODY_FOR_SCHEMA) return null
-  return (body * 0.28f).coerceIn(MIN_SCHEMA_HEIGHT, MAX_SCHEMA_HEIGHT)
+  return (body * 0.15f).coerceIn(MIN_SCHEMA_HEIGHT, MAX_SCHEMA_HEIGHT)
 }
 
 // ---------------------------------------------------------------------------

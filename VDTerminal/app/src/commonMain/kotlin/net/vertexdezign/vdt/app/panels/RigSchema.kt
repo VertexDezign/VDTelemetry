@@ -15,18 +15,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Implement
@@ -78,6 +73,9 @@ private const val LIFT_REF_H = 1080f
  */
 private const val MAX_DEPTH = 5
 
+/** `VehicleSchemaOverlayData.new`'s own fallback for a silhouette that declares no invisible border. */
+private const val DEFAULT_BORDER = 0.05f
+
 /** The root machine's id. Children extend their parent's, so an id encodes the path to the node. */
 internal const val RIG_ROOT_ID = "0"
 
@@ -99,6 +97,16 @@ internal data class RigNode(
   val isRoot: Boolean,
   /** 0 for the root machine, 1 for what is hitched to it, and so on. See [controlTargetOf]. */
   val depth: Int,
+  /**
+   * The share of this machine's slot that is padding, left and right.
+   *
+   * The game's silhouettes carry this space *inside the artwork*, which is why its diagram can butt
+   * neighbours up against each other and still read as separate machines. We draw a plain box, so we
+   * have to inset it by the same amount or a three-machine rig renders as one long bar. Defaulted to
+   * the engine's own 0.05 when a machine names none.
+   */
+  val borderLeft: Float,
+  val borderRight: Float,
   val x: Float,
   val y: Float,
   /** Accumulated down the tree, in radians. */
@@ -132,6 +140,8 @@ internal fun layoutRig(vehicle: Vehicle): List<RigNode> {
       machine = vehicle.isoBus(),
       isRoot = true,
       depth = 0,
+      borderLeft = schema.borderLeft ?: DEFAULT_BORDER,
+      borderRight = schema.borderRight ?: DEFAULT_BORDER,
       x = 0f,
       y = 0f,
       rotation = 0f,
@@ -196,6 +206,8 @@ private fun layoutChildren(
       machine = implement.isoBus(),
       isRoot = false,
       depth = depth,
+      borderLeft = schema.borderLeft ?: DEFAULT_BORDER,
+      borderRight = schema.borderRight ?: DEFAULT_BORDER,
       x = baseX,
       y = baseY,
       rotation = rot,
@@ -238,11 +250,13 @@ internal fun selectedRigNode(nodes: List<RigNode>): RigNode? =
 // Drawing
 // ---------------------------------------------------------------------------
 
-/** Below this a box is too small to hold a legible name, so it draws as a bare box. */
-private val MIN_LABEL_WIDTH = 44.dp
-
-/** Below this the root's icon crowds the name off its box, so the name wins. */
-private val MIN_ICON_WIDTH = 60.dp
+/**
+ * Below this the root's icon has no room to read and the box is drawn bare.
+ *
+ * Low, because a bare box is a perfectly good node: nothing on this diagram is *named*, so a box that
+ * cannot hold its icon has lost a hint rather than its meaning.
+ */
+private val MIN_ICON_WIDTH = 24.dp
 
 /** Room around the diagram, so a box on the edge is not flush against the panel. */
 private val SCHEMA_PADDING = 4.dp
@@ -251,11 +265,15 @@ private val SCHEMA_PADDING = 4.dp
  * The rig, drawn: one box per machine, hitched the way the game's own HUD diagram hitches them, with
  * the selected one standing out and every box a tap target.
  *
- * Selection is carried by **brightness and border weight**, never by hue alone — a selected box is
- * dark with light text where the others are light with dark text, which survives being read by
- * someone who cannot separate the two colours. The root machine is marked with an [Icons.Filled.Agriculture]
- * icon rather than a colour or a second shape, matching what `RigSlotPanel` already uses for the
- * vehicle slot.
+ * **No names on it.** The game's own diagram carries none either — it is a shape and a position, read
+ * at a glance while driving — and the panel header already names whatever is selected, with the type
+ * and condition directly under it. Putting the names back would cost the band roughly three times the
+ * height for something already on screen twice.
+ *
+ * Selection is carried by **brightness and border weight**, never by hue alone: a selected box is a
+ * dark solid where the others are light outlines, which survives being read by someone who cannot
+ * separate the two colours. The root machine is marked with an [Icons.Filled.Agriculture] icon rather
+ * than a colour or a second shape, matching what `RigSlotPanel` already uses for the vehicle slot.
  */
 @Composable
 internal fun RigSchema(
@@ -295,16 +313,20 @@ internal fun RigSchema(
 
     Box(Modifier.fillMaxSize()) {
       for (node in nodes) {
+        // The slot is what the layout placed; the box drawn in it is inset by the machine's own
+        // invisible borders, so neighbours butted up against each other still read as two machines.
+        val insetLeft = scale * BOX_W * node.borderLeft
+        val insetRight = scale * BOX_W * node.borderRight
         RigBox(
           node = node,
           selected = node.id == selectedId,
-          width = boxW,
+          width = boxW - insetLeft - insetRight,
           height = boxH,
           onSelect = onSelect,
           // Schema y points up and Compose's points down, so the box's *lower* edge measured from
           // the bottom becomes its *upper* edge measured from the top.
           modifier = Modifier.offset(
-            x = originX + scale * (node.x - minX),
+            x = originX + scale * (node.x - minX) + insetLeft,
             y = originY + scale * (maxY - node.y - BOX_H),
           ),
         )
@@ -346,19 +368,7 @@ private fun RigBox(
         Icons.Filled.Agriculture,
         contentDescription = null,
         tint = if (selected) VdtColors.White else VdtColors.DarkGray,
-        modifier = Modifier.align(Alignment.CenterStart).size((height * 0.5f).coerceAtMost(14.dp)),
-      )
-    }
-    if (width >= MIN_LABEL_WIDTH) {
-      Text(
-        node.machine.name,
-        fontSize = 8.sp,
-        lineHeight = 10.sp,
-        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-        color = if (selected) VdtColors.White else VdtColors.TextDark,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        textAlign = TextAlign.Center,
+        modifier = Modifier.size((height * 0.6f).coerceAtMost(14.dp)),
       )
     }
   }

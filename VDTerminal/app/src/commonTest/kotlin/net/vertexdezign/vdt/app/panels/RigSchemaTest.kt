@@ -261,4 +261,24 @@ class RigSchemaTest {
     val rig = tractor(Implement(name = "Odd", position = "", schema = schema(), jointDescIndex = 1))
     assertNull(controlTargetOf(layoutRig(rig).first { !it.isRoot }))
   }
+
+  @Test
+  fun aSilhouetteWithNoInvisibleBorderGetsTheEnginesOwnDefault() {
+    // The borders are what keeps a three-machine chain from drawing as one long bar: the game's
+    // silhouettes carry the padding inside the artwork, ours has to inset the box by the same share.
+    // A machine that declares none must still get a gap, so the fallback is the engine's own 0.05.
+    val bare = layoutRig(tractor()).first()
+    assertEquals(0.05f, bare.borderLeft)
+    assertEquals(0.05f, bare.borderRight)
+
+    val declared =
+      layoutRig(
+        Vehicle(
+          name = "Tractor",
+          schema = Schema(name = "VEHICLE", borderLeft = 0.2f, borderRight = 0.1f),
+        ),
+      ).first()
+    assertEquals(0.2f, declared.borderLeft)
+    assertEquals(0.1f, declared.borderRight)
+  }
 }
