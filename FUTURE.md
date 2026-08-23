@@ -76,12 +76,17 @@ still untouched from this inbox:
 
 ## The universal machine screen (#116)
 
-Built 2026-08-23, all four steps: the rig diagram, the generic machine detail, the shared fold/power/raise controls,
-and the pipe / cover / tip side / discharge commands. The design lives in `panels/RigSchema.kt`,
-`components/ImplementControls.kt` and the three new controls under `vdTelemetry/src/command/`.
+Built 2026-08-23, all four steps: the rig diagram, the generic machine detail, the fold/power/raise and
+pipe/cover/tip-side/discharge controls — all of them chips on one strip rather than buttons. The design lives in
+`panels/RigSchema.kt`, `components/ImplementControls.kt` and the three new controls under `vdTelemetry/src/command/`.
 
-**Nothing of it has been seen in a running game.** Every layout assertion is synthetic and every command is untested
-against a real machine — see the in-game checks below, which is where the real risk sits.
+**Validated in singleplayer as it was built**, which is where five of its bugs came from: `lowered` reported on every
+vehicle alive, the diagram re-centring and re-scaling itself whenever an implement came up, trailers drawn hovering,
+the unload control opening the trough on land the farm has no access to, and the same control offered on sprayers and
+seeders that cannot use it.
+
+**Not seen on a multiplayer client at all**, and the last round of discharge fixes has not been seen anywhere yet — see
+the in-game checks below, which is where the remaining risk sits.
 
 What it did not do:
 
@@ -408,18 +413,21 @@ Each one is cheap to do while playing and settles something above.
   behaviour is `state >= 2`, which used to return `UNKNOWN` and was wrong by construction. The tell that you are looking
   at one is the action prompt reading **"Next cover"** rather than "Open/Close cover" — `Cover:updateActionText` uses
   that string only while `0 < state < #covers`.
-- **Does the rig diagram match the game's own?** #116's layout is a mirror of
-  `InputHelpDisplay:collectVehicleSchemaDisplayOverlays` and has never been compared against the HUD it copies. Drive
-  the dribble-bar rig and hold the two side by side. (The narrower question this replaces — whether `schema` and
+- **Does the rig diagram match the game's own?** Compared against the HUD during #116 and corrected three times from
+  it — the band now anchors on the root the way the game's does, draws a lone tractor, and leaves a trailer level with
+  what tows it. What has *not* been checked is a rig whose joints carry a non-zero `rotation` or `offset`, since no
+  capture has one. (The narrower question this replaces — whether `schema` and
   `jointDescIndex` come out populated and line up — is **answered** by the committed captures: the Puma exports five
   joints, the Kaweco carries index 3, the Bomech carries 1 into the Kaweco's single joint.)
 - **Do the four new commands work, and on a multiplayer client?** Pipe, cover, tip side and discharge all call engine
   setters directly for the first time. Each owns its own MP event, so a client should be fine, but that is read off the
-  source rather than seen. The tip-side gate (trough must be shut) and the OBJECT-vs-GROUND pick are the two most
-  likely to be wrong in practice.
-- **Does the diagram follow the selection the way the cab does?** The captures all say the selected object is the
-  implement being worked, never the tractor, so the screen should already be on the right machine when you look at it.
-  Worth confirming while actually changing selection mid-drive.
+  source rather than seen — **nothing here has been tried on a client**. Discharge has had a singleplayer pass (it is
+  where two bugs came from) but **not since they were fixed**; pipe, cover and tip side have had none at all. The
+  tip-side gate (trough must be shut) and the OBJECT-vs-GROUND pick are the two most likely to be wrong in practice.
+- **A capture at export version 19.** Every committed fixture is version 17 or older, so nothing pins either of the
+  two shape changes #116 made: `lowered` absent on a machine with nothing to raise (18) and `discharge.canToggle` (19).
+  Both parse fine on the old fixtures because both are nullable, which is exactly why a fresh capture is worth taking —
+  the repo's own cadence is a capture per collector, and these two changed what an existing collector *omits*.
 - Does `controlGroup` populate on a front loader or crane, with sensible `names`? They come from vehicle XML and may be
   unresolved i18n keys on some mods. Same question for `workMode.name`.
 - Does `discharge.reason` read `NO_FREE_CAPACITY` when the game refuses to unload? Back a trailer up to a full silo.
