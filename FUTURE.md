@@ -199,7 +199,7 @@ The two engine facts everything here is shaped around, both silent:
   **currently active**, so the two numbers are different and a declared group can be unreachable. Hence
   `controlGroup.available`, which is what the chip cycles over — `names` would put a dead step in the loop.
 
-**Validated in singleplayer 2026-08-23**, and captured three times over:
+**Validated in singleplayer 2026-08-23**, and captured:
 
 - `subSelection.json` — a Mercedes turntable ladder, the first fixture in the repo with control groups at all, and
   exactly the shape `available` was built for. It declares **three** groups (`Türen`, `Leiterpark`, `Korb`) and can
@@ -207,17 +207,22 @@ The two engine facts everything here is shaped around, both silent:
 - `multiple_implements.json` and `multiple_implements_automatic_motor_start.json` — the *same* rig, a Deutz-Fahr with
   two Pöttinger mowers, differing only in the game's automatic-motor-start setting. The tractor's `selectable` flips
   `true` -> `false` with it and the mowers stay `true`, which pins `Motorized:getCanBeSelected` against real data.
+- `tractor_frontloader.json`, retaken at version 20, which corrected the assumption this feature started from: a front
+  loader declares **no control groups at all**. It has moving tools and no named groups, so `controlGroup` is absent on
+  every node of that rig — and the game would print nothing there either, since it gates its own readout on
+  `1 < #controlGroupNames`. The chip's home is a crane or a ladder, not a loader.
 
-The pair settles something worth stating plainly: **on a default save the tractor is not selectable**, so the rig
+The motor-start pair settles something worth stating plainly: **on a default save the tractor is not selectable**, so the rig
 diagram greys the machine the driver is sitting in. That is the common case rather than an edge one, and it is the
 diagram agreeing with the game — the game's own selection key skips the tractor for the same reason. The tractor is
 still readable on a tile pinned to the `VEHICLE` slot, which bypasses the diagram.
 
+**Signed off on a multiplayer client 2026-08-23**, against a turntable ladder: selecting a machine and stepping its
+control group both work, and the selection stays the client's own. That is every command this issue added, over both
+arms of the `g_server ~= nil` fork.
+
 What it did not do:
 
-- **A multiplayer client has not been tried.** The client-local claim is settled in principle (there is no event to
-  send), but the command path is the same `g_server ~= nil` fork every other control takes and has not been walked for
-  this one.
 - **A tap can no longer point the tile at a machine the game will not select.** The deliberate trade above: the tile
   shows the game's selection and only that, so the screen and the keyboard can never disagree.
 - **Retargeting the existing controls at the selection.** #119's own non-goal, and the natural follow-up: it would close
@@ -514,8 +519,6 @@ Each one is cheap to do while playing and settles something above.
   mowers stay `true` throughout, which is `Motorized:getCanBeSelected` exactly. So the tractor is greyed on a **default**
   save — the common case, not an edge one — and that is the diagram agreeing with the game, whose own selection key
   skips it for the same reason.
-- Does a tap on the rig diagram move the game's selection **on a multiplayer client**? Singleplayer is signed off; the
-  command path is the same `g_server ~= nil` fork every other control takes and has not been walked for this one.
 - Does `discharge.reason` read `NO_FREE_CAPACITY` when the game refuses to unload? Back a trailer up to a full silo.
   This is the highest-value single check of the work aspects.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a forage/carrot
@@ -619,12 +622,9 @@ engine load it wears the engine on, the service interval and system voltage. The
 
 ## Captures wanted as fixtures
 
-The schema, selection and work aspects are all tested synthetically, because none of the committed captures contains a
-machine that has them.
+The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
+them. (The schema and selection aspects were in this list until #116 and #119 captured them.)
 
-- **A front loader at version 20.** `tractor_frontloader.json` is at 19, and exports no `controlGroup` at all — which is
-  itself worth confirming, since a loader's moving tools ought to give it one. `subSelection.json` covers the
-  control-group shape meanwhile.
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`, the `STEP`
   consumable bar, and they would give `jointDescIndex` its first real chain.
 - **More finance captures.** `examples/json/finance/vanilla.json` is a fresh singleplayer save, so it has one period and

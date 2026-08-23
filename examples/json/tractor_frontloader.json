@@ -5,6 +5,7 @@
     },
     "type": "FS25_JohnDeere_6MSeries.tractor_foldable",
     "selection": {
+      "selectable": true,
       "selected": false
     },
     "brand": {
@@ -43,7 +44,7 @@
       "direction": "FORWARD",
       "parkingBrake": false,
       "temperatur": {
-        "value": 63,
+        "value": 60,
         "min": 20,
         "max": 120,
         "unit": "°C"
@@ -81,7 +82,7 @@
           "title": "Diesel",
           "fillLevelPercentage": 99,
           "value": 172,
-          "usage": 3.75,
+          "usage": 0,
           "capacity": 175,
           "unit": "l"
         },
@@ -156,6 +157,7 @@
               "unit": "%"
             },
             "selection": {
+              "selectable": true,
               "selected": true
             },
             "name": "Bressel und Lade Schaufel L16",
@@ -193,6 +195,7 @@
           "unit": "%"
         },
         "selection": {
+          "selectable": true,
           "selected": false
         },
         "jointDescIndex": 6
@@ -215,7 +218,7 @@
         "systemVoltage": 12.7
       },
       "transmissionTemperatur": {
-        "value": 55,
+        "value": 53,
         "min": 20,
         "max": 120,
         "unit": "°C"
@@ -234,7 +237,7 @@
         "brakes": "OFF"
       },
       "load": {
-        "value": 9,
+        "value": 0,
         "unit": "%",
         "overloadAt": 85
       },
@@ -314,18 +317,18 @@
       "offsetX": 0
     }
   },
-  "version": "19",
+  "version": "20",
   "environment": {
     "date": "02.08.2025",
     "weather": {
       "temperature": {
-        "min": 19,
-        "current": 28,
-        "max": 28,
+        "min": 24,
+        "current": 34,
+        "max": 34,
         "unit": "°C"
       }
     },
-    "time": "16:02",
+    "time": "16:52",
     "pda": {
       "height": 2048,
       "player": {

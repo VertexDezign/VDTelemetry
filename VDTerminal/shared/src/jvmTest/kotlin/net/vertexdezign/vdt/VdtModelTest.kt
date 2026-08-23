@@ -391,6 +391,29 @@ class VdtModelTest {
   }
 
   @Test
+  fun aFrontLoaderDeclaresNoControlGroupsAtAll() {
+    // The machine the control-group chip was expected to be *for*, and it turns out not to be one: a
+    // loader and its shovel have moving tools but name no groups, so `controlGroup` is absent on all
+    // three nodes of this rig. That is the engine agreeing with itself rather than a gap — the game
+    // gates its own group readout on `1 < #controlGroupNames` and would print nothing here either.
+    // The chip's home is a crane or a ladder (see `subSelection.json`).
+    val v = assertNotNull(capture("tractor_frontloader.json").vehicle)
+    val loader = assertNotNull(v.implement.singleOrNull())
+    val shovel = assertNotNull(loader.implement.singleOrNull())
+
+    assertNull(v.selection?.controlGroup)
+    assertNull(loader.selection?.controlGroup)
+    assertNull(shovel.selection?.controlGroup)
+
+    // Every node selectable, tractor included: this save has automatic motor start off — the same
+    // setting `multiple_implements.json` was taken under. See
+    // [theTractorsSelectabilityFollowsTheAutomaticMotorStartSetting].
+    assertEquals(true, v.selection?.selectable)
+    assertEquals(true, loader.selection?.selectable)
+    assertEquals(true, shovel.selection?.selectable)
+  }
+
+  @Test
   fun coercesNullCapacityToDefault() {
     // A pass-through fill unit (a forage/carrot harvester's output) has no capacity in its XML, so
     // the engine reports +inf and the mod's JSON encoder emits `capacity: null`. A strict parse blew
