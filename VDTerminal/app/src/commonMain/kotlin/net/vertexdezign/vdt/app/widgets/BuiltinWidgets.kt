@@ -256,11 +256,12 @@ object IsoBusWidget : Widget {
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
-    val telemetry by LocalVdtStore.current.telemetry.collectAsState()
+    val store = LocalVdtStore.current
+    val telemetry by store.telemetry.collectAsState()
     // Anything that is not one of the three positions means auto — including a value this widget has
     // stopped offering, which is the fallback the option's docs leave to the widget.
     val slot = RigSlot.entries.firstOrNull { it.name == slotOption.resolve(config) }
-    IsoBusPanel(telemetry?.vehicle, slot, modifier)
+    IsoBusPanel(telemetry?.vehicle, slot, modifier, onCommand = store.onCommand)
   }
 }
 

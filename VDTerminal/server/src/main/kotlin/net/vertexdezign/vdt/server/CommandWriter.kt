@@ -82,6 +82,22 @@ class CommandWriter(
         """<command id="$id" type="setActivated" target="${message.target.token}" on="${message.on}"/>"""
       }
 
+      is ClientMessage.SetPipeState -> {
+        """<command id="$id" type="setPipeState" target="${message.target.token}" state="${message.state}"/>"""
+      }
+
+      is ClientMessage.SetCoverState -> {
+        """<command id="$id" type="setCoverState" target="${message.target.token}" state="${message.state}"/>"""
+      }
+
+      is ClientMessage.SetTipSide -> {
+        """<command id="$id" type="setTipSide" target="${message.target.token}" side="${message.side}"/>"""
+      }
+
+      is ClientMessage.SetDischarging -> {
+        """<command id="$id" type="setDischarging" target="${message.target.token}" on="${message.on}"/>"""
+      }
+
       is ClientMessage.SetMotorState -> {
         """<command id="$id" type="setMotorState" on="${message.on}"/>"""
       }

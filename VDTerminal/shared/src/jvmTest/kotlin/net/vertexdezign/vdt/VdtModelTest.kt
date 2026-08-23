@@ -23,6 +23,7 @@ import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -176,29 +177,30 @@ class VdtModelTest {
     val data = model("nested_trailers.json")
     val v = assertNotNull(data.vehicle)
 
-    // BACK is a trailer that itself pulls a nested trailer; both carry wheat.
+    // BACK is a trailer that itself pulls a nested trailer; both carry sorghum.
     val back = assertNotNull(v.implement.firstOrNull { it.position == "BACK" })
     assertEquals("trailer", back.type)
+    assertEquals("Rudolph TDK 301 RP", back.name)
     assertEquals(
-      18500f,
+      14201.513f,
       back.fillUnits
         ?.fillUnit
         ?.singleOrNull()
         ?.value,
     )
 
-    // the nested trailer is reachable and carries its own fill unit
+    // The nested trailer is reachable and carries its own fill unit.
     val nested = assertNotNull(back.implement.singleOrNull())
-    assertEquals("Rudolph DK 280 RP", nested.name)
+    assertEquals("Rudolph DK 280 W", nested.name)
     assertEquals(
-      "WHEAT",
+      "SORGHUM",
       nested.fillUnits
         ?.fillUnit
         ?.singleOrNull()
         ?.type,
     )
     assertEquals(
-      18500f,
+      4067.089f,
       nested.fillUnits
         ?.fillUnit
         ?.singleOrNull()
@@ -216,9 +218,118 @@ class VdtModelTest {
           ?.sum() ?: 0f
       ) +
         imp.implement.map { totalFill(it) }.sum()
-    assertEquals(37000f, totalFill(back))
+    assertEquals(18268.602f, totalFill(back))
 
     assertJsonRoundTrips(data)
+  }
+
+  @Test
+  fun theRigDiagramHasEverythingItNeedsFromARealCapture() {
+    // The one committed capture taken at export version 19, and the only one carrying a three-deep
+    // rig with a schema on every node. It is what the ISOBUS diagram is built out of, so the pieces
+    // that turn flat per-object data into a drawable tree are pinned here against real data rather
+    // than against a synthetic fixture.
+    val data = model("nested_trailers.json")
+    val v = assertNotNull(data.vehicle)
+
+    assertEquals("VEHICLE", v.schema?.name)
+    // Four attachment points on the tractor, and each implement names the one it hangs off. Getting
+    // this index off by one lands every implement on the wrong end of the machine, silently.
+    assertEquals(4, v.schema?.attacherJoint?.size)
+    val front = assertNotNull(v.implement.firstOrNull { it.position == "FRONT" })
+    val back = assertNotNull(v.implement.firstOrNull { it.position == "BACK" })
+    assertEquals(4, front.jointDescIndex)
+    assertEquals(2, back.jointDescIndex)
+
+    // The machine the game has selected is the one at the END of the chain, and its `position` is
+    // empty — it hangs off the trailer, not off the tractor. That is the case the rig diagram exists
+    // for and the one `RigSlotPanel` cannot address at all.
+    val nested = assertNotNull(back.implement.singleOrNull())
+    assertEquals("", nested.position)
+    assertEquals(1, nested.jointDescIndex)
+    assertTrue(nested.selection?.selected == true)
+    assertTrue(v.selection?.selected == false)
+  }
+
+  @Test
+  fun aMachineWithNothingToRaiseReportsNoLoweredState() {
+    // Export version 18. Base `Vehicle:getIsLowered` is registered on every vehicle and its whole body
+    // is `return false`, so every machine alive used to claim a raised state and the terminal offered
+    // a raise control for a tractor. Absent now — and absent on the trailers too, which is what keeps
+    // them drawn level with the tractor instead of hovering above it.
+    val v = assertNotNull(model("nested_trailers.json").vehicle)
+    assertNull(v.lowered)
+
+    val back = assertNotNull(v.implement.firstOrNull { it.position == "BACK" })
+    assertNull(back.lowered)
+    assertNull(back.implement.singleOrNull()?.lowered)
+
+    // The front weight sits on a three-point hitch that does lower, so `false` there is a fact rather
+    // than the base default. Losing this one would mean the fix had gone too far.
+    val front = assertNotNull(v.implement.firstOrNull { it.position == "FRONT" })
+    assertEquals(false, front.lowered)
+  }
+
+  @Test
+  fun aTrailerSaysUnloadingIsSomethingAPlayerCanStart() {
+    // Export version 19. A sprayer and a seeder are Dischargeable exactly as a trailer is — that is
+    // how the material leaves them — so nothing else exported tells them apart, and the terminal
+    // offered an unload control on every one of them. Both trailers here say true; the flag earns its
+    // place on the machines that will say false.
+    val v = assertNotNull(model("nested_trailers.json").vehicle)
+    val back = assertNotNull(v.implement.firstOrNull { it.position == "BACK" })
+    assertEquals(true, back.discharge?.canToggle)
+    assertEquals(
+      true,
+      back.implement
+        .singleOrNull()
+        ?.discharge
+        ?.canToggle,
+    )
+  }
+
+  @Test
+  fun aFrontLoaderMountsOnTheTractorRatherThanHangingOffIt() {
+    // The capture that corrected an assumption: a front loader does NOT sit above the tractor. Every
+    // joint here reports `y = 0` like every other capture — what makes it mount rather than tow is
+    // `x = 0.8` on the tractor's sixth attacher, the only non-1.0 joint anywhere in the fixtures. The
+    // loader's slot therefore starts at 80% of the tractor's and the two overlap by a fifth of a box.
+    val v = assertNotNull(model("tractor_frontloader.json").vehicle)
+
+    val loader = assertNotNull(v.implement.singleOrNull())
+    assertEquals("FRONT", loader.position)
+    assertEquals(6, loader.jointDescIndex)
+
+    val joint = assertNotNull(v.schema?.attacherJoint?.getOrNull(5))
+    assertEquals(0.8f, joint.x)
+    assertEquals(0f, joint.y)
+    assertTrue(joint.invertX, "mirrored, so the loader grows forward from the tractor's near edge")
+
+    // Still nothing exercising the rotated arms of the layout — see FUTURE.md.
+    // (`v.schema` is smart-cast non-null by the assertNotNull above.)
+    assertTrue(v.schema.attacherJoint.all { it.rotation == 0f })
+  }
+
+  @Test
+  fun aShovelIsDischargeableButNotSomethingAPlayerUnloads() {
+    // The other half of `canToggle`, and the first capture to show it false. A shovel is Dischargeable
+    // — that is how the material leaves it — but tipping it is done by moving the loader, not by a tip
+    // action, so the game offers none and neither does the terminal.
+    val v = assertNotNull(model("tractor_frontloader.json").vehicle)
+    val shovel =
+      assertNotNull(
+        v.implement
+          .singleOrNull()
+          ?.implement
+          ?.singleOrNull(),
+      )
+    assertEquals("Bressel und Lade Schaufel L16", shovel.name)
+    assertEquals(false, shovel.discharge?.canToggle)
+
+    // And it is the selected machine, hanging off the loader with no position of its own — the third
+    // capture in a row where what the game has selected is what RigSlotPanel cannot address.
+    assertEquals("", shovel.position)
+    assertTrue(shovel.selection?.selected == true)
   }
 
   @Test

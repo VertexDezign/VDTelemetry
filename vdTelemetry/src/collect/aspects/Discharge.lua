@@ -7,8 +7,9 @@
 -- for its own on-screen warning.
 --
 -- Everything here is a plain field read of engine-maintained state. The spec also exposes
--- getCanDischargeToGround/AtPosition/ToObject, but those run terrain and fill-type queries, so they
--- are deliberately NOT called on the export path.
+-- getCanDischargeToGround/AtPosition/ToObject/ToLand, but those run terrain, fill-type and land-access
+-- queries, so they are deliberately NOT called on the export path. `canToggle` below is the exception
+-- that proves the rule: the two getCanToggle* functions read nothing but XML-loaded flags on the node.
 
 VDT = VDT or {}
 VDT.Discharge = {}
@@ -53,6 +54,16 @@ function VDT.Discharge.collect(object)
     model.hasObject = node.dischargeObject ~= nil
     model.hitTerrain = node.dischargeHitTerrain == true
     model.reason = REASONS[node.dischargeFailedReason]
+    -- Whether unloading is something a PLAYER can start on this machine at all, as opposed to
+    -- something the engine does by itself. Both getCanToggle* are pure reads of flags the node loaded
+    -- from XML: `canDischargeToObject`, `canDischargeToGround`, and `canStartGroundDischargeAutomatically`.
+    --
+    -- This is what tells a sprayer or a seeder apart from a trailer. They are Dischargeable too --
+    -- that is how the material leaves them -- but it leaves continuously while they work rather than
+    -- on a command, so both toggles are false and the game registers no tip action for them. Without
+    -- this the terminal offered an unload control that could not do anything, on every one of them.
+    model.canToggle = (object.getCanToggleDischargeToObject ~= nil and object:getCanToggleDischargeToObject())
+      or (object.getCanToggleDischargeToGround ~= nil and object:getCanToggleDischargeToGround())
   end
 
   return model

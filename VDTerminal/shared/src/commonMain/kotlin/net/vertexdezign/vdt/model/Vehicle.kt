@@ -551,6 +551,19 @@ data class Discharge(
   val hasObject: Boolean? = null,
   /** The node is pointed at terrain, i.e. tipping on the ground is physically possible here. */
   val hitTerrain: Boolean? = null,
+  /**
+   * Whether unloading is something a **player can start at all** on this machine, as opposed to
+   * something the engine does by itself while the machine works.
+   *
+   * This is what tells a sprayer or a seeder apart from a trailer. They are `Dischargeable` too —
+   * that is how the material leaves them — but it leaves continuously rather than on a command, so
+   * the game registers no tip action for them and neither of the engine's `getCanToggleDischarge*`
+   * is true. Offer no unload control where this is false: there is nothing for it to do.
+   *
+   * Null from a mod older than version 19, which is read as "no idea, so assume it can" — the
+   * behaviour that shipped before the flag existed.
+   */
+  val canToggle: Boolean? = null,
   val reason: DischargeReason? = null,
 )
 

@@ -114,6 +114,11 @@ local sourceFiles = {
   "src/command/CommandChannel.lua",
   "src/command/LightControl.lua",
   "src/command/ImplementControl.lua",
+  -- Resolves a command's target token to the object it names; the direct-call controls below need
+  -- the object itself, where ImplementControl only needs the vehicle vdAI walks from.
+  "src/command/TargetResolver.lua",
+  "src/command/PipeCoverControl.lua",
+  "src/command/TrailerControl.lua",
   "src/command/MotorControl.lua",
   "src/command/CruiseControl.lua",
   -- Precision Farming application rate (auto/manual + the manual step). Resolves which machine on the
@@ -219,7 +224,26 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     stops, and its own one-shot zeroing at the state change does not survive a multiplayer client
 --     applying an rpm update that was already in flight behind the stop event — which left a smoothed
 --     remnant of idle sitting under 100 rpm on a machine that had been switched off. See issue #94.
-VDTelemetry.VERSION = 17
+-- 16: the mixer wagon's `mixer` aspect — the recipe it mixes to, how far each ingredient is from its
+--     window (in LITRES, since the bars are a share of the load rather than of the tub), whether the
+--     drum is turning, and the tip sides' names. Plus `mass` on any object. See issue #113.
+-- 17: `mixer.mass` is the TUB's load, weighed as its level times the density of what the tub reports
+--     — the same arithmetic FillUnit:getAdditionalComponentMass does for that unit. The machine's
+--     mass minus its empty mass is not a payload and never was: Vehicle:updateMass adds every fill
+--     unit including the diesel and DEF tanks, a hard-attached implement's whole mass and the tension
+--     belts, so an empty wagon read 617 kg of "load". See issue #113.
+-- 18: `lowered` is absent on a machine with nothing to raise. It used to be `false` on every vehicle
+--     alive, because base Vehicle registers `getIsLowered` on all of them and its whole body is
+--     `return false` — so a tractor exported a lowered state and a terminal offered a raise control
+--     for it. Now reported only where a specialization actually overrode that function AND does not
+--     hand the caller's default straight back. See issue #116.
+-- 19: `discharge.canToggle` — whether a player can start unloading on this machine at all, or whether
+--     the engine does it by itself while the machine works. A sprayer and a seeder are Dischargeable
+--     exactly as a trailer is, which is how the material leaves them, so nothing already exported told
+--     the two apart and a terminal offered an unload control that could not do anything. Both of the
+--     engine's own getCanToggleDischarge* are false there, and it registers no tip action for them.
+--     See issue #116.
+VDTelemetry.VERSION = 19
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

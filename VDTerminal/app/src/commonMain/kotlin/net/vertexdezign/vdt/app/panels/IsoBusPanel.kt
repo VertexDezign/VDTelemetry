@@ -3,6 +3,7 @@ package net.vertexdezign.vdt.app.panels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,18 +24,33 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PowerOff
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.PriorityHigh
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,18 +66,27 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.ControlTarget
+import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_mixer_wagon
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.Cover
+import net.vertexdezign.vdt.model.CoverType
 import net.vertexdezign.vdt.model.Discharge
 import net.vertexdezign.vdt.model.DischargeReason
+import net.vertexdezign.vdt.model.DischargeState
+import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Mass
 import net.vertexdezign.vdt.model.MixState
 import net.vertexdezign.vdt.model.Mixer
 import net.vertexdezign.vdt.model.MixerIngredient
+import net.vertexdezign.vdt.model.Pipe
+import net.vertexdezign.vdt.model.PipeState
 import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.Tipping
 import net.vertexdezign.vdt.model.Vehicle
@@ -121,14 +146,63 @@ private val BAR_ROW_HEIGHT = 36.dp
 private val STATUS_STRIP_HEIGHT = 23.dp
 
 /**
+ * Below this the body is only just enough for the machine itself, so the rig diagram is dropped
+ * rather than shrunk — it is orientation, and the machine is the reason to look.
+ */
+private val MIN_BODY_FOR_SCHEMA = 96.dp
+
+/**
+ * The band the rig diagram gets. Small, and deliberately: the game's own is a thin strip of
+ * silhouettes at the bottom of the screen, and ours carries no text either, so height buys it nothing
+ * past the point where a box is a legible shape and a reachable tap target.
+ */
+private val MIN_SCHEMA_HEIGHT = 22.dp
+private val MAX_SCHEMA_HEIGHT = 40.dp
+
+/**
+ * Width from which the type and the condition move onto the diagram's band, one at each end.
+ *
+ * Set by what the three have to fit side by side: the diagram's own drawn width is about 160dp for a
+ * three-machine rig at the tallest band, and it is given the middle half, so the flanks get a quarter
+ * each — enough for a twelve-character type name and a `96%` chip at 10sp. Below this the flanks
+ * would start clipping the type, and the strip below has room to spare.
+ */
+private val IDENTITY_ON_BAND_FROM = 340.dp
+
+/**
  * One machine on the rig, flattened out of [Vehicle] or [Implement] — the two speak the same shape,
  * and a mixer wagon can be either (a self-propelled one is the vehicle).
  */
 internal data class IsoBusMachine(
   val name: String,
+  /**
+   * `FRONT` / `BACK` for an implement, empty for the vehicle. Part of how a node is *addressed*
+   * rather than part of what it is — see [controlTargetOf].
+   */
+  val position: String,
+  /** The game's vehicle type name. A **label hint only** — never the thing a section dispatches on. */
+  val type: String,
+  /**
+   * Whether the *game* has this machine selected — the engine's own per-object flag, mirrored onto
+   * every node in the rig, so exactly one is normally true. Read-only: nothing here can change it.
+   */
+  val selected: Boolean,
   val foldable: FoldableState?,
+  val lowered: Boolean?,
+  val isTurnedOn: Boolean?,
+  val damage: Int?,
+  /**
+   * This machine's **own** fill units, not its chain's.
+   *
+   * `RigSlotPanel` merges a chain because a slot *is* a chain — one position with everything behind
+   * it. Here every machine is its own node on the diagram with its own tap target, so rolling a
+   * child's tank into its parent's would double-count it the moment the child is selected too.
+   */
+  val fillUnits: List<FillUnit>,
   val tipping: Tipping?,
   val discharge: Discharge?,
+  val pipe: Pipe?,
+  val cover: Cover?,
   val mass: Mass?,
   val mixer: Mixer?,
 ) {
@@ -139,9 +213,42 @@ internal data class IsoBusMachine(
   val hasSection: Boolean get() = mixer != null
 }
 
-private fun Vehicle.isoBus() = IsoBusMachine(name, foldable, tipping, discharge, mass, mixer)
+internal fun Vehicle.isoBus() = IsoBusMachine(
+  name = name,
+  // The vehicle is not attached to anything; it is what the attaching is done to.
+  position = "",
+  type = type,
+  selected = selection?.selected == true,
+  foldable = foldable,
+  lowered = lowered,
+  isTurnedOn = isTurnedOn,
+  damage = wearable?.damage,
+  fillUnits = fillUnits?.fillUnit ?: emptyList(),
+  tipping = tipping,
+  discharge = discharge,
+  pipe = pipe,
+  cover = cover,
+  mass = mass,
+  mixer = mixer,
+)
 
-private fun Implement.isoBus() = IsoBusMachine(name, foldable, tipping, discharge, mass, mixer)
+internal fun Implement.isoBus() = IsoBusMachine(
+  name = name,
+  position = position,
+  type = type,
+  selected = selection?.selected == true,
+  foldable = foldable,
+  lowered = lowered,
+  isTurnedOn = isTurnedOn,
+  damage = wearable?.damage,
+  fillUnits = fillUnits?.fillUnit ?: emptyList(),
+  tipping = tipping,
+  discharge = discharge,
+  pipe = pipe,
+  cover = cover,
+  mass = mass,
+  mixer = mixer,
+)
 
 /** Every machine on the rig, the vehicle first, then its implements depth-first in hitch order. */
 internal fun rigMachines(vehicle: Vehicle): List<IsoBusMachine> {
@@ -194,8 +301,30 @@ private fun findIsoBusImplement(list: List<Implement>, position: String): Implem
  * what fits is a fact about the size the tile ended up at.
  */
 @Composable
-fun IsoBusPanel(vehicle: Vehicle?, slot: RigSlot?, modifier: Modifier = Modifier) {
-  val machine = isoBusMachine(vehicle, slot)
+fun IsoBusPanel(
+  vehicle: Vehicle?,
+  slot: RigSlot?,
+  modifier: Modifier = Modifier,
+  onCommand: (ClientMessage) -> Unit = {},
+) {
+  // The diagram is the picker, and only where there is a choice to make: a tile pinned to a position
+  // has already been told which machine it follows, so it keeps the direct lookup. Empty on any rig
+  // whose objects carry no `schema` — every capture from before mod version 4 — and the panel then
+  // falls back to the auto-pick it used before the diagram existed.
+  val nodes = if (slot == null && vehicle != null) layoutRig(vehicle) else emptyList()
+
+  // Follow the *game's* selection, and let a tap override it until the game's selection next moves.
+  // That is what makes this behave like the terminal in the cab rather than like a menu: what you
+  // selected on the rig is what the screen is already showing, and looking at something else does
+  // not fight you for it. Nothing here can change the game's selection — it is read-only telemetry.
+  val gameSelectedId = selectedRigNode(nodes)?.id
+  var pinnedId by remember { mutableStateOf<String?>(null) }
+  LaunchedEffect(gameSelectedId) { pinnedId = null }
+  // Resolved against the live node list, so a pin left on a machine that has since been unhitched
+  // falls back to the game's selection rather than blanking the panel.
+  val selected = nodes.firstOrNull { it.id == pinnedId } ?: nodes.firstOrNull { it.id == gameSelectedId }
+
+  val machine = if (nodes.isEmpty()) isoBusMachine(vehicle, slot) else selected?.machine
   val mixer = machine?.mixer
 
   BoxWithConstraints(modifier) {
@@ -203,19 +332,23 @@ fun IsoBusPanel(vehicle: Vehicle?, slot: RigSlot?, modifier: Modifier = Modifier
     // over the other. The state is the thing you glance at, so it moves into the body's status strip
     // rather than being dropped — see [MachineStatus].
     val bareHeader = maxWidth < BARE_HEADER_BELOW
+    // Hoisted out of the scope: inside the Panel's content lambda these read as its BoxScope's, not
+    // this box's — the same trap [MixerSection] documents.
+    val bodyHeight = maxHeight
+    val bodyWidth = maxWidth
 
     Panel(
-      title = if (machine?.hasSection == true) machine.name else "ISOBUS",
+      title = machine?.name ?: "ISOBUS",
       icon = if (bareHeader) null else Icons.Filled.Memory,
       modifier = Modifier.fillMaxSize(),
       headerActions = { if (mixer != null && !bareHeader) MixStateChip(mixer) },
     ) {
-      if (mixer == null) {
+      if (machine == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
           Text(
             when {
               vehicle == null -> "No vehicle connected"
-              slot == null -> "No ISOBUS machine on the rig"
+              slot == null -> "Nothing on the rig"
               else -> "Nothing attached to ${slot.label.lowercase()}"
             },
             color = VdtColors.DarkGray,
@@ -224,19 +357,363 @@ fun IsoBusPanel(vehicle: Vehicle?, slot: RigSlot?, modifier: Modifier = Modifier
           )
         }
       } else {
-        MixerSection(machine, mixer, showStateInBody = bareHeader)
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          // A tile too short for the band would spend all of it on the picture — a fact about the size
+          // this tile ended up at, which is how every other decision in this panel is taken.
+          val band = schemaHeight(bodyHeight, nodes.size)
+          // Wide enough, the band carries the machine's type and condition in the room either side of
+          // the diagram, which is otherwise empty: the diagram is height-limited, so on a wide tile it
+          // sits in the middle of a mostly blank strip. They come out of the chip strip when they do,
+          // never appearing twice. Narrow, there is no such room and they stay where they were.
+          val identityOnBand = band != null && bodyWidth >= IDENTITY_ON_BAND_FROM
+          if (band != null) {
+            if (identityOnBand) {
+              Row(
+                Modifier.height(band).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                // Equal weights on the flanks are what keeps the diagram *centred* rather than merely
+                // between them — a long type name would otherwise shove it off to the right.
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { TypeLabel(machine) }
+                RigSchema(
+                  nodes,
+                  selected?.id,
+                  onSelect = { pinnedId = it },
+                  modifier = Modifier.weight(2f).fillMaxHeight(),
+                )
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { DamageChip(machine) }
+              }
+            } else {
+              RigSchema(nodes, selected?.id, onSelect = {
+                pinnedId = it
+              }, modifier = Modifier.height(band).fillMaxWidth())
+            }
+          }
+
+          // The diagram addresses a node by where it sits in the tree; a pinned tile is already a
+          // position, so it addresses itself. Either way a machine the channel cannot name gets null.
+          val target = if (nodes.isEmpty()) slot?.target ?: ControlTarget.VEHICLE else selected?.let(::controlTargetOf)
+          MachineDetail(
+            machine = machine,
+            target = target,
+            onCommand = onCommand,
+            showIdentity = !identityOnBand,
+            modifier = Modifier.fillMaxWidth(),
+          )
+
+          if (mixer != null) {
+            MixerSection(machine, mixer, showStateInBody = bareHeader, modifier = Modifier.weight(1f).fillMaxWidth())
+          }
+        }
       }
     }
   }
 }
+
+/**
+ * How much height the rig diagram gets, or null when the tile is too short to spend any on it.
+ *
+ * A share of the body rather than a fixed band, bounded so it can neither vanish on a tall tile nor
+ * crowd out the machine below it on a short one — and a *small* share, because the diagram is
+ * orientation and the machine under it is the reason to look.
+ *
+ * **One machine is still a diagram.** A bare tractor draws its own box and nothing else, exactly as
+ * the game's HUD does — the band is where the rig lives, and a band that appears the moment something
+ * is hitched and vanishes when it is unhitched makes the whole panel jump for a change the driver
+ * already knows about. It is also where the type and condition sit once there is width for them
+ * ([IDENTITY_ON_BAND_FROM]), so an empty rig would drop those back into the chip strip on a hitch.
+ */
+private fun schemaHeight(body: Dp, nodes: Int): Dp? {
+  if (nodes == 0) return null
+  if (body < MIN_BODY_FOR_SCHEMA) return null
+  return (body * 0.15f).coerceIn(MIN_SCHEMA_HEIGHT, MAX_SCHEMA_HEIGHT)
+}
+
+// ---------------------------------------------------------------------------
+// The generic machine — what every machine gets, with or without a section
+// ---------------------------------------------------------------------------
+
+/**
+ * The part of the screen that does not depend on knowing what the machine *is*: what it is called
+ * (in the header), what the game calls its type, how worn it is, and what is in it.
+ *
+ * This is the half of the terminal that makes the app useful on the overwhelming majority of rigs,
+ * where no aspect section exists yet — and it is deliberately the *frame* rather than a fallback. A
+ * machine that does have a section gets this too, with the section below it.
+ *
+ * The load is the one thing that moves: a machine whose section already draws its contents (a mixer
+ * wagon's tub *is* its fill unit — the capture reads 12400/24000 in both places) must not have them
+ * drawn twice, so the section owns them where there is one.
+ */
+@Composable
+private fun MachineDetail(
+  machine: IsoBusMachine,
+  target: ControlTarget?,
+  onCommand: (ClientMessage) -> Unit,
+  modifier: Modifier = Modifier,
+  showIdentity: Boolean = true,
+) {
+  Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    MachineStatus(machine, target, onCommand, showIdentity, Modifier.fillMaxWidth())
+
+    // Why the controls above are inert, rather than leaving the driver to tap and wonder. The limit
+    // is the command channel's, not the diagram's: see [controlTargetOf].
+    if (target == null) {
+      Text(
+        "Controls reach the tractor and its front and rear only",
+        color = VdtColors.TextDisabled,
+        fontSize = 9.sp,
+        lineHeight = 11.sp,
+      )
+    }
+
+    if (!machine.hasSection && machine.fillUnits.isNotEmpty()) {
+      FillUnitsDisplay(machine.fillUnits, Modifier.fillMaxWidth(), spacing = 4)
+    }
+  }
+}
+
+/**
+ * Everything the machine *is* and *is doing*, as one wrapping strip: its type, its condition, and a
+ * chip per aspect it carries.
+ *
+ * One row rather than three. The type and the condition used to sit above the status chips, and the
+ * status chips above a row of icon buttons — three lines saying what fits on one, two of which said
+ * the same thing twice: a chip reading "Unfolded" over a button whose only job was to fold it.
+ *
+ * **A chip that names a state the app can change IS the control for it.** No icon buttons on this
+ * screen at all, so there is one way to change anything rather than two. What it costs is a smaller
+ * target than a 48dp button; what it buys is a control that says *which* of three covers is open, or
+ * which side the trough will tip to, which an icon button never could — and a panel that fits a
+ * machine and its whole state in the space the buttons alone used to take.
+ *
+ * An actionable chip is told apart from a read-only one by **weight and outline, never by hue**:
+ * light with a border against flat grey, and taller.
+ *
+ * (`RigSlotPanel` keeps its buttons. A rig slot shows three fixed aspects with no labels to fold a
+ * control into, and it is the tile a driver puts on a page precisely to have big targets.)
+ *
+ * Every tap sends the ABSOLUTE next state, computed from what is rendered, so the lossy channel can
+ * drop or double it without desyncing. Cycles wrap the way the game's own actions do — a multi-state
+ * pipe steps to the next position, a multi-cover machine steps through its covers and back to shut.
+ *
+ * A null [target] means the command channel cannot name this machine, and every chip goes read-only.
+ */
+@Composable
+private fun MachineStatus(
+  machine: IsoBusMachine,
+  target: ControlTarget?,
+  onCommand: (ClientMessage) -> Unit,
+  showIdentity: Boolean,
+  modifier: Modifier = Modifier,
+) {
+  FlowRow(
+    modifier,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+    verticalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    // Only when the diagram's band did not take them; see [IDENTITY_ON_BAND_FROM].
+    if (showIdentity) {
+      Box(Modifier.align(Alignment.CenterVertically)) { TypeLabel(machine) }
+      DamageChip(machine)
+    }
+
+    // The three any machine on the rig might have, first: they are its operating state, where the
+    // rest of the strip is situational.
+    machine.isTurnedOn?.let { on ->
+      Chip(
+        if (on) Icons.Filled.PowerSettingsNew else Icons.Filled.PowerOff,
+        if (on) "On" else "Off",
+        if (on) VdtColors.AccentText else VdtColors.DarkGray,
+        onClick = target?.let { { onCommand(ClientMessage.SetActivated(it, on = !on)) } },
+      )
+    }
+
+    machine.lowered?.let { down ->
+      Chip(
+        if (down) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
+        if (down) "Lowered" else "Raised",
+        if (down) VdtColors.AccentText else VdtColors.DarkGray,
+        onClick = target?.let { { onCommand(ClientMessage.SetLowered(it, on = !down)) } },
+      )
+    }
+
+    when (machine.foldable) {
+      FoldableState.FOLDED -> Chip(
+        Icons.Filled.UnfoldLess,
+        "Folded",
+        VdtColors.DarkGray,
+        onClick = target?.let { { onCommand(ClientMessage.SetFolded(it, on = false)) } },
+      )
+
+      FoldableState.EXTENDED -> Chip(
+        Icons.Filled.UnfoldMore,
+        "Unfolded",
+        VdtColors.AccentText,
+        onClick = target?.let { { onCommand(ClientMessage.SetFolded(it, on = true)) } },
+      )
+
+      null -> Unit
+    }
+
+    machine.tipping?.let { TipChip(it, target, onCommand) }
+    machine.discharge?.let { DischargeChip(it, target, onCommand) }
+
+    // The engine's own "why is nothing coming out". A terminal earns its place at the trough here:
+    // the tip side is open, the drum is turning, and the reason it is not unloading is a fact only
+    // the game has. Absent whenever nothing is wrong, which is most of the time — and read-only,
+    // because it is an explanation rather than a state anything here can set.
+    machine.discharge?.reason?.let { Chip(Icons.Filled.PriorityHigh, refusalOf(it), VdtColors.Amber) }
+
+    machine.pipe?.let { PipeChip(it, target, onCommand) }
+    machine.cover?.let { CoverChip(it, target, onCommand) }
+  }
+}
+
+/**
+ * The game's own type name, unlocalized and modder-defined ("manureBarrel", "sprayer"). A plain label
+ * because that is all it is good for — no section anywhere dispatches on it, and nothing can be done
+ * to it. Ellipsized, since the flank it usually sits in is a quarter of the panel.
+ *
+ * A **modded** type carries its mod as a prefix, the way the game namespaces everything a mod
+ * registers: `FS25_JohnDeere_6MSeries.tractor_foldable`. Which mod it came from is not what the label
+ * is for, and at a quarter of the panel the prefix is all that survives the ellipsis — so it goes,
+ * leaving the part that says what the machine *is*. A base-game type has no dot and is untouched.
+ */
+@Composable
+private fun TypeLabel(machine: IsoBusMachine) {
+  if (machine.type.isBlank()) return
+  Text(
+    machine.type.substringAfterLast('.'),
+    color = VdtColors.DarkGray,
+    fontSize = 10.sp,
+    fontWeight = FontWeight.Bold,
+    maxLines = 1,
+    overflow = TextOverflow.Ellipsis,
+  )
+}
+
+/**
+ * Condition, as a percentage rather than the damage the mod reports — a driver reads "how much is
+ * left", not "how much is gone". The number carries it; the tint only reinforces, and a machine in
+ * good order gets the same neutral chip as anything else that cannot be acted on.
+ */
+@Composable
+private fun DamageChip(machine: IsoBusMachine) {
+  val damage = machine.damage ?: return
+  Chip(
+    Icons.Filled.Build,
+    "${100 - damage}%",
+    if (damage >= WORN_FROM) VdtColors.Amber else VdtColors.DarkGray,
+  )
+}
+
+/**
+ * Where the spout is. A pipe often has more than the two positions [PipeState] can name — an auger
+ * wagon's is a multi-state animation — so a machine that reports more says which one it is at rather
+ * than in-or-out, and `current != target` is the engine still travelling.
+ */
+@Composable
+private fun PipeChip(pipe: Pipe, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
+  val moving = pipe.state == PipeState.MOVING || (pipe.current != 0 && pipe.current != pipe.target)
+  val label = when {
+    moving -> "Pipe moving"
+
+    pipe.state == PipeState.RETRACTED -> "Pipe in"
+
+    // 1 is fully retracted, so anything above it is a real position worth naming on a multi-state pipe.
+    pipe.numStates > 2 && pipe.current > 0 -> "Pipe ${pipe.current}/${pipe.numStates}"
+
+    else -> "Pipe out"
+  }
+  Chip(
+    if (pipe.state == PipeState.RETRACTED) Icons.Filled.UnfoldLess else Icons.Filled.UnfoldMore,
+    label,
+    if (pipe.state == PipeState.RETRACTED) VdtColors.DarkGray else VdtColors.AccentText,
+    // 1 is fully retracted and numStates the far end, so stepping with a wrap covers both the
+    // ordinary two-position pipe and an auger wagon's multi-state one. `current` is 0 while the pipe
+    // is travelling; stepping from the target instead keeps a second tap moving it onward.
+    onClick = target?.let {
+      {
+        val from = if (pipe.current > 0) pipe.current else pipe.target
+        onCommand(ClientMessage.SetPipeState(it, if (from >= pipe.numStates) 1 else maxOf(from, 1) + 1))
+      }
+    },
+  )
+}
+
+/**
+ * Which cover is open, on a machine that has more than one. `index` is 0 when everything is shut, so
+ * it doubles as the closed state; the count is what makes naming the open one worth the room.
+ */
+@Composable
+private fun CoverChip(cover: Cover, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
+  val open = cover.state == CoverType.OPEN || cover.index > 0
+  val label = when {
+    !open -> "Cover closed"
+    cover.count > 1 -> "Cover ${cover.index} of ${cover.count}"
+    else -> "Cover open"
+  }
+  Chip(
+    if (open) Icons.Filled.LockOpen else Icons.Filled.Lock,
+    label,
+    if (open) VdtColors.AccentText else VdtColors.DarkGray,
+    // 0 is everything shut; the game's own action reads "Next cover" while one of several is open, so
+    // the cycle runs 0 -> 1 -> ... -> count -> 0 rather than toggling the first.
+    onClick = target?.takeIf { cover.count > 0 }?.let {
+      { onCommand(ClientMessage.SetCoverState(it, if (cover.index >= cover.count) 0 else cover.index + 1)) }
+    },
+  )
+}
+
+/**
+ * Whether material is leaving the machine, and the one chip on the strip that names an **action**
+ * while idle rather than a state: "Unload" is what a tap does, "Unloading" is what is happening. A
+ * machine sitting still has nothing to report here, and a chip reading "Not unloading" would be noise
+ * on every trailer on the rig.
+ *
+ * **Absent entirely on a machine the player cannot start unloading** ([Discharge.canToggle]). A
+ * sprayer and a seeder are `Dischargeable` exactly as a trailer is — that is how the material leaves
+ * them — but it leaves while they work rather than on a command, so the game offers no tip action and
+ * neither did we, once the mod started saying so. Before that the chip was there and did nothing.
+ *
+ * Not gated on `discharge.allowed`: that is a master latch other specializations hold, not a verdict
+ * on the spot the machine is standing on — a captured wagon reads `true` there while the engine is
+ * refusing the trough in front of it. The mod asks the engine at the moment it acts, and the refusal
+ * chip beside this one carries the answer.
+ */
+@Composable
+private fun DischargeChip(discharge: Discharge, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
+  val unloading = discharge.state != DischargeState.OFF
+  // Null is an older mod that never reported the flag; keep the pre-19 behaviour rather than hiding a
+  // control that used to work. Something already unloading always gets a chip, so it can be stopped.
+  if (discharge.canToggle == false && !unloading) return
+  Chip(
+    Icons.Filled.Download,
+    if (unloading) "Unloading" else "Unload",
+    if (unloading) VdtColors.AccentText else VdtColors.DarkGray,
+    onClick = target?.let { { onCommand(ClientMessage.SetDischarging(it, on = !unloading)) } },
+  )
+}
+
+/**
+ * Damage past which the condition chip stops being neutral. The game starts warning the player around
+ * here, and below it a couple of per cent of wear is not news.
+ */
+private const val WORN_FROM = 20
 
 // ---------------------------------------------------------------------------
 // Mixer wagon
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun MixerSection(machine: IsoBusMachine, mixer: Mixer, showStateInBody: Boolean) {
-  BoxWithConstraints(Modifier.fillMaxSize()) {
+private fun MixerSection(
+  machine: IsoBusMachine,
+  mixer: Mixer,
+  showStateInBody: Boolean,
+  modifier: Modifier = Modifier,
+) {
+  BoxWithConstraints(modifier) {
     // Hoisted out of the scope: further in, these read as the enclosing Column's, not the box's.
     val bodyWidth = maxWidth
     val bodyHeight = maxHeight
@@ -246,7 +723,7 @@ private fun MixerSection(machine: IsoBusMachine, mixer: Mixer, showStateInBody: 
       Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(0.55f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
           MachineArt(mixer, machine.mass, Modifier.weight(1f).fillMaxWidth())
-          MachineStatus(machine, mixer, showStateInBody)
+          MixerStatus(mixer, showStateInBody)
         }
         RatioBars(mixer, bodyWidth * 0.45f, Modifier.weight(0.45f).fillMaxHeight())
       }
@@ -258,7 +735,7 @@ private fun MixerSection(machine: IsoBusMachine, mixer: Mixer, showStateInBody: 
         } else {
           TubReadout(mixer, machine.mass, Modifier.fillMaxWidth())
         }
-        MachineStatus(machine, mixer, showStateInBody)
+        MixerStatus(mixer, showStateInBody)
         RatioBars(mixer, bodyWidth, Modifier.weight(1f).fillMaxWidth())
       }
     }
@@ -441,7 +918,7 @@ private fun Figure(label: String, value: String, sub: String?) {
  * only. See FUTURE.md.
  */
 @Composable
-private fun MachineStatus(machine: IsoBusMachine, mixer: Mixer, showState: Boolean) {
+private fun MixerStatus(mixer: Mixer, showState: Boolean) {
   FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -463,19 +940,6 @@ private fun MachineStatus(machine: IsoBusMachine, mixer: Mixer, showState: Boole
 
       else -> Chip(Icons.Filled.Pause, "Idle", VdtColors.DarkGray)
     }
-
-    machine.tipping?.let { TipChip(it) }
-
-    // The engine's own "why is nothing coming out". A terminal earns its place at the trough here:
-    // the tip side is open, the drum is turning, and the reason it is not unloading is a fact only
-    // the game has. Absent whenever nothing is wrong, which is most of the time.
-    machine.discharge?.reason?.let { Chip(Icons.Filled.PriorityHigh, refusalOf(it), VdtColors.Amber) }
-
-    when (machine.foldable) {
-      FoldableState.FOLDED -> Chip(Icons.Filled.UnfoldLess, "Folded", VdtColors.DarkGray)
-      FoldableState.EXTENDED -> Chip(Icons.Filled.UnfoldMore, "Unfolded", VdtColors.AccentText)
-      null -> Unit
-    }
   }
 }
 
@@ -488,20 +952,38 @@ private fun MachineStatus(machine: IsoBusMachine, mixer: Mixer, showState: Boole
  * take.
  */
 @Composable
-private fun TipChip(tipping: Tipping) {
+private fun TipChip(tipping: Tipping, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
   val open = tipping.state != TipState.CLOSED
   val index = if (open) tipping.side ?: tipping.preferredSide else tipping.preferredSide
   val name = index?.let { tipping.sides.getOrNull(it - 1) }?.ifBlank { null }
   val label = when (tipping.state) {
     TipState.CLOSED -> name?.let { "Tip: $it" } ?: "Closed"
+
     TipState.OPENING -> name?.let { "Opening $it" } ?: "Opening"
-    TipState.OPEN -> name?.let { "Unloading $it" } ?: "Unloading"
+
+    // "Open", not "Unloading": this aspect is the trough moving, and [DischargeChip] beside it is the
+    // material actually leaving. A trough can sit fully open with nothing coming out, which is the
+    // window this chip exists to show — and with both on one strip the old wording read as a
+    // contradiction whenever the engine was refusing the spot.
+    TipState.OPEN -> name?.let { "Open: $it" } ?: "Open"
+
     TipState.CLOSING -> name?.let { "Closing $it" } ?: "Closing"
   }
+  // The trough has to be shut to change sides — the engine refuses otherwise — so the chip goes
+  // read-only mid-tip rather than sending a command the mod would drop. A machine with one side has
+  // nothing to cycle.
+  val sides = tipping.count ?: 0
+  val canSwitch = sides > 1 && tipping.state == TipState.CLOSED
   Chip(
     if (open) Icons.Filled.Sync else Icons.Filled.Pause,
     label,
     if (open) VdtColors.AccentText else VdtColors.DarkGray,
+    onClick = target?.takeIf { canSwitch }?.let {
+      {
+        val from = tipping.preferredSide ?: 1
+        onCommand(ClientMessage.SetTipSide(it, if (from >= sides) 1 else from + 1))
+      }
+    },
   )
 }
 
@@ -519,15 +1001,21 @@ internal fun refusalOf(reason: DischargeReason): String = when (reason) {
 }
 
 @Composable
-private fun Chip(icon: ImageVector, label: String, tint: Color) {
-  Row(
-    Modifier
-      .clip(RoundedCornerShape(3.dp))
-      .background(VdtColors.TrackGray)
-      .padding(horizontal = 6.dp, vertical = 3.dp),
-    horizontalArrangement = Arrangement.spacedBy(4.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
+private fun Chip(icon: ImageVector, label: String, tint: Color, onClick: (() -> Unit)? = null) {
+  val shape = RoundedCornerShape(3.dp)
+  // Actionable chips are told apart by weight and outline, never by hue: a raised, outlined, taller
+  // chip against a flat grey one. The extra height is not decoration — it is what makes the tap
+  // target reachable in a moving cab, where a 19dp chip is not.
+  var box = Modifier.clip(shape)
+  box = if (onClick != null) {
+    box.background(VdtColors.White)
+      .border(1.dp, VdtColors.PanelBorder, shape)
+      .clickable(onClick = onClick)
+      .padding(horizontal = 8.dp, vertical = 6.dp)
+  } else {
+    box.background(VdtColors.TrackGray).padding(horizontal = 6.dp, vertical = 3.dp)
+  }
+  Row(box, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
     Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(11.dp))
     Text(label, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
   }

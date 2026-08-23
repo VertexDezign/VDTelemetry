@@ -78,6 +78,7 @@
 ---@field hasObject boolean?
 ---@field hitTerrain boolean?
 ---@field reason string? NOT_ALLOWED_HERE | NO_FREE_CAPACITY | FILLTYPE_NOT_SUPPORTED | TOOLTYPE_NOT_SUPPORTED | NO_ACCESS | NO_ACCESS_LAND
+---@field canToggle boolean? whether a player can start/stop unloading at all, as opposed to the engine doing it while the machine works
 
 -- The trough moving, as opposed to material leaving it (see DischargeModel). `side` is nil until a
 -- tip side is picked; `preferredSide` is what the next tip will use.
