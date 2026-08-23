@@ -222,6 +222,13 @@
       "count": 1
     },
     {
+      "type": "HONEY",
+      "title": "Honig",
+      "kind": "PALLET",
+      "level": 42,
+      "count": 1
+    },
+    {
       "type": "LIME",
       "title": "Kalk",
       "kind": "BIGBAG",
@@ -256,12 +263,12 @@
       "compacted": 0
     },
     {
-      "state": "CLOSED",
+      "state": "FERMENTED",
       "type": "SILAGE",
       "name": "Kleines Bunkersilo 6m x 31m",
       "id": "placeable86fbf84d48d404ffab0b367e6d6c3dc9",
       "level": 3111,
-      "fermenting": 5,
+      "fermenting": 100,
       "title": "Silage"
     }
   ]
