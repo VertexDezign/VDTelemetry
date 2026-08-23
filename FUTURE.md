@@ -104,17 +104,22 @@ so calling the engine directly is the normal path, not an exception.
 ## ISOBUS (#58)
 
 `isobus-plan.md` is still the spec; this is the index. Round 1's four aspects — `sowing`, `spraying`,
-`plow`, `tillage` — are built, tested and captured against real machines. **The app side is not started**: there is no
-`IsoBusApp`, no `IsoBusPanel`, no widget.
+`plow`, `tillage` — are built, tested and captured against real machines. `IsoBusApp` / `IsoBusPanel` /
+`IsoBusWidget` now exist, built for the **mixer wagon** (#113) — so the app side has a shell and the
+dispatch rule has its first real user, but **none of round 1's four aspects has a section yet**.
 
-- **Round 1, app side.** The app, the panel (sections rendered by aspect presence, in the plan's order)
-  and a widget with a slot `ConfigOption` — `FRONT` / `REAR` / `VEHICLE`, mirroring
-  `RigSlotWidget.SLOT_KEY` — so a combination rig can carry a seeder tile and a sprayer tile at once. The one piece of
-  refactoring it should do first: extract the section-shutoff bar and the work-area readout out of `RigSlotPanel`
-  instead of reimplementing them.
+- **Round 1's four sections.** Sowing, spraying, plough and tillage, rendered by aspect presence in the
+  plan's order, added to `IsoBusPanel`'s stack next to the mixer's — the dispatch list is
+  `IsoBusMachine.hasSection`, and each of the four has to be added to it and to the flattening the
+  panel does out of `Vehicle` / `Implement`. The one piece of refactoring to do first: extract the
+  section-shutoff bar and the work-area readout out of `RigSlotPanel` instead of reimplementing them.
+- **The machine art for those four** is 17 generated SVGs on the unmerged `58-isobus-aspects` branch,
+  along with `tools/isobus-art/` and `tools/isobus-mockup/`. **Whether Compose Resources decodes SVG at
+  runtime in the wasm build was never verified** — only accessor generation was. The mixer's art is a
+  PNG and sidesteps it, so the question is still open and blocks that branch, not this one.
 - **Round 2 classes**, in rough value order: baler + wrapper (bale in progress, bale type, auto-drop —
-  `Baler.lua` carries all of it), trailer / forage wagon, mixer wagon (the game ships a
-  `MixerWagonHUDExtension` whose mixing-ratio bar is worth copying), then harvesters, as the issue suggests.
+  `Baler.lua` carries all of it), trailer / forage wagon, then harvesters, as the issue suggests. The
+  mixer wagon is done (#113).
 - **Round 2 controls.** Seed index (`setSeedIndex` / `changeSeedIndex` already send `SetSeedIndexEvent`), plough
   rotation (`setRotationMax` / `setRotationCenter`, both take `noEventSend` and own their event), the sprayer's
   doubled-amount toggle. None of them needs an MP event of our own.
@@ -489,6 +494,18 @@ machine that has them.
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
+- **The mixer wagon is done** — seven captures, and nothing on the wanted list. Four vanilla singleplayer:
+  `vanilla/mixerWagon_correct` (towed, a finished mix, two tip sides),
+  `vanilla/mixerWagon_selfDriving_outOfRatio` (the straw at 39% of the load against a 30% ceiling — a real
+  instance of the share-of-the-load trap and now the test for it), `vanilla/mixerWagon_selfDriving_single`
+  (one material in, the cycle part way down) and `vanilla/mixerWagon_selfDriving_mixing` (a full cycle
+  just restarted — the ratio is valid there, the mixing time simply has not run out). Three more off a
+  **joined multiplayer client** on a modded map, one machine at three fill levels:
+  `modded/mixerWagon_selfDriving_empty_moddedReceipe` (empty, and a second map's recipe — same four
+  ingredient names as the base game's, different windows, wider material pools),
+  `modded/mixerWagon_selfDriving_unloading` (18888 l of finished feed going out of the open left side) and
+  `modded/mixerWagon_selfDriving_unloadingError` (the engine refusing a trough that will not take it). The
+  two narrow things they cannot show are in the ISOBUS section above, with why no capture would.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.

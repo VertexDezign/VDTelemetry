@@ -74,13 +74,14 @@ describe("Discharge.collect", function()
 end)
 
 describe("Tipping.collect", function()
-  local function trailer(tipState, current, preferred, count)
+  local function trailer(tipState, current, preferred, count, sides)
     return {
       spec_trailer = {
         tipState = tipState,
         currentTipSideIndex = current,
         preferedTipSideIndex = preferred,
         tipSideCount = count,
+        tipSides = sides,
       },
     }
   end
@@ -105,6 +106,28 @@ describe("Tipping.collect", function()
 
     local tipping = VDT.Tipping.collect(trailer(2, 2, 3, 3))
     assert.are.equal(2, tipping.side)
+  end)
+
+  it("names the sides, index-aligned with side and preferredSide", function()
+    -- Trailer:loadTipSide has already run the XML's #name through g_i18n:convertText with the
+    -- machine's own customEnvironment, so these arrive localized and there is nothing to look up.
+    local sides = { { name = "Links" }, { name = "Rechts" }, { name = "Hinten" } }
+    local model = VDT.Tipping.collect(trailer(2, 2, 3, 3, sides))
+    assert.are.same({ "Links", "Rechts", "Hinten" }, model.sides)
+    assert.are.equal("Rechts", model.sides[model.side])
+    assert.are.equal("Hinten", model.sides[model.preferredSide])
+  end)
+
+  it("keeps the list aligned rather than skipping an unnamed side", function()
+    -- loadTipSide rejects a side whose #name does not resolve, so this should not happen; if it ever
+    -- does, dropping the entry would relabel every side after it instead of merely missing one.
+    local sides = { { name = "Links" }, {}, { name = "Hinten" } }
+    local model = VDT.Tipping.collect(trailer(0, nil, 3, 3, sides))
+    assert.are.same({ "Links", "", "Hinten" }, model.sides)
+  end)
+
+  it("leaves the names out on a trailer whose sides the game never named", function()
+    assert.is_nil(VDT.Tipping.collect(trailer(0, nil, 1, 1)).sides)
   end)
 end)
 

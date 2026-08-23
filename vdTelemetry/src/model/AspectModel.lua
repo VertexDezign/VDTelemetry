@@ -86,6 +86,7 @@
 ---@field side number?
 ---@field preferredSide number?
 ---@field count number?
+---@field sides string[]? the sides' localized names, index-aligned with side / preferredSide
 
 -- Straw handling on a combine: swath it for baling, or chop it back onto the field.
 ---@class HarvestModel
@@ -192,3 +193,42 @@
 ---@field kind string CULTIVATOR | POWER_HARROW | SUBSOILER
 ---@field deepMode boolean
 ---@field limitToField boolean
+
+-- A mixer wagon. `fillType` is the engine's own verdict on the mix -- `recipe`'s fill type once every
+-- ingredient sits inside its window, FORAGE_MIXING while one does not, the single ingredient's own
+-- type while only one is loaded -- so a panel reads it rather than re-deriving it. `running` is the
+-- drum turning, which is NOT the isTurnedOn aspect next to it: turn-on is the machine's PICKUP. The
+-- ingredient list, its names and its windows are map data (animalFood.xml) and are absent on a
+-- machine whose XML names no recipe. See collect/aspects/Mixer.lua.
+---@class MixerModel
+---@field running boolean the drum is turning: powered, and mixing or picking up or discharging
+---@field powered boolean nothing turns without it
+---@field remaining number ms left of the mix cycle, 0 once mixed
+---@field mixingTime number ms this machine takes to mix after a fill change
+---@field value number litres in the tub
+---@field capacity number
+---@field mass number? tonnes of feed in the tub; 0 when empty, absent when the material has no density
+---@field fillType string?
+---@field title string?
+---@field recipe string? fill type the finished mix becomes; absent when the recipe was not resolved
+---@field ingredients MixerIngredientModel[]?
+
+-- One bar of the mixing-ratio readout. `value` is LITRES and the share a bar draws is
+-- `value / sum(value)` -- a share of what is loaded, never of the tub's capacity. `mass` is present
+-- only when the ingredient pools a single material; several materials share one litre count with no
+-- record of which went in, so no honest weight exists for it.
+---@class MixerIngredientModel
+---@field name string the recipe's ingredient token
+---@field title string? localized label
+---@field fillTypes string[] the materials this ingredient accepts, by ascending fill type index
+---@field minPercentage number
+---@field maxPercentage number
+---@field value number
+---@field mass number? tonnes
+
+-- What the machine weighs right now, in TONNES, and what it weighs empty -- the payload a panel
+-- prints is the difference. Per-machine: a tractor and its implements each report their own.
+-- `empty` is absent until the engine has run its first mass update on the machine.
+---@class MassModel
+---@field value number
+---@field empty number?
