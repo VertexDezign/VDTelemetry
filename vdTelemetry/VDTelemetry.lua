@@ -237,7 +237,13 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     `return false` — so a tractor exported a lowered state and a terminal offered a raise control
 --     for it. Now reported only where a specialization actually overrode that function AND does not
 --     hand the caller's default straight back. See issue #116.
-VDTelemetry.VERSION = 18
+-- 19: `discharge.canToggle` — whether a player can start unloading on this machine at all, or whether
+--     the engine does it by itself while the machine works. A sprayer and a seeder are Dischargeable
+--     exactly as a trailer is, which is how the material leaves them, so nothing already exported told
+--     the two apart and a terminal offered an unload control that could not do anything. Both of the
+--     engine's own getCanToggleDischarge* are false there, and it registers no tip action for them.
+--     See issue #116.
+VDTelemetry.VERSION = 19
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

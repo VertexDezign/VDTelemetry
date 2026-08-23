@@ -108,6 +108,17 @@ What it did not do:
   case that reaches neither is `setDischarging` refused by the ground under the machine — but the engine publishes its
   own verdict on `discharge.reason` and the panel is already showing it, so there is nothing to report that the driver
   is not looking at.
+- **A refused tip gives the driver nothing back.** The unload control now applies the engine's full
+  gate before it acts — `getCanDischargeToGround` is only "is this material physically tippable onto
+  terrain" and says nothing about whose land it is, so `getCanDischargeToLand` and
+  `getCanDischargeAtPosition` had to join it, which is what
+  `actionEventToggleDischargeToGround` runs. Before that the trough opened on someone else's field
+  and nothing came out. Now nothing happens at all, where the game blinks
+  *"you don't have access to this land"* — and we have no way to blink. Preventing it instead would
+  mean exporting the land check per tick, which `aspects/Discharge.lua` deliberately avoids along with
+  every other positional query. `getCanDischargeToLand` is the cheap one of the three (two
+  `localToWorld` and two farmland lookups, where `getCanDischargeAtPosition` runs a density-map line
+  test), so it is the candidate if this turns out to matter.
 - **A rig with no `schema` is drawn from `position` alone.** `schemaOverlay` is only assigned where a
   machine's XML declares `vehicle.base.schemaOverlay`, and the game gives up on the whole diagram when
   the root has none. We draw one generic box per machine either way, so the fallback places children

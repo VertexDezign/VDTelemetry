@@ -667,6 +667,11 @@ private fun CoverChip(cover: Cover, target: ControlTarget?, onCommand: (ClientMe
  * machine sitting still has nothing to report here, and a chip reading "Not unloading" would be noise
  * on every trailer on the rig.
  *
+ * **Absent entirely on a machine the player cannot start unloading** ([Discharge.canToggle]). A
+ * sprayer and a seeder are `Dischargeable` exactly as a trailer is — that is how the material leaves
+ * them — but it leaves while they work rather than on a command, so the game offers no tip action and
+ * neither did we, once the mod started saying so. Before that the chip was there and did nothing.
+ *
  * Not gated on `discharge.allowed`: that is a master latch other specializations hold, not a verdict
  * on the spot the machine is standing on — a captured wagon reads `true` there while the engine is
  * refusing the trough in front of it. The mod asks the engine at the moment it acts, and the refusal
@@ -675,6 +680,9 @@ private fun CoverChip(cover: Cover, target: ControlTarget?, onCommand: (ClientMe
 @Composable
 private fun DischargeChip(discharge: Discharge, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
   val unloading = discharge.state != DischargeState.OFF
+  // Null is an older mod that never reported the flag; keep the pre-19 behaviour rather than hiding a
+  // control that used to work. Something already unloading always gets a chip, so it can be stopped.
+  if (discharge.canToggle == false && !unloading) return
   Chip(
     Icons.Filled.Download,
     if (unloading) "Unloading" else "Unload",

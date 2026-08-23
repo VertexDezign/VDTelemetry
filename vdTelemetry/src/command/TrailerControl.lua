@@ -90,17 +90,28 @@ function VDT.TrailerControl.setDischarging(vehicle, target, on, debugger)
     return
   end
 
-  -- The game's own order: an object under the node wins over the ground under it.
+  -- The game's own order and the game's own gates, in the game's own sequence. Unloading into an
+  -- object wins over unloading onto the ground.
+  --
+  -- The GROUND arm needs all THREE of the engine's checks, which is what actionEventToggleDischargeToGround
+  -- runs before it will open anything: getCanDischargeToGround is only "is this physically tippable
+  -- material onto terrain", and says nothing about whose land it is. Skipping the other two opened the
+  -- trough on someone else's field and then let nothing come out, where the game refuses outright and
+  -- blinks a warning.
   if object:getCanToggleDischargeToObject() and object:getCanDischargeToObject(node) then
     object:setManualDischargeState(DISCHARGE_OBJECT)
     debugger:debug("setManualDischargeState(%s, OBJECT)", target)
-  elseif object:getCanToggleDischargeToGround() and object:getCanDischargeToGround(node) then
+  elseif
+    object:getCanToggleDischargeToGround()
+    and object:getCanDischargeToGround(node)
+    and object:getCanDischargeToLand(node)
+    and object:getCanDischargeAtPosition(node)
+  then
     object:setManualDischargeState(DISCHARGE_GROUND)
     debugger:debug("setManualDischargeState(%s, GROUND)", target)
   else
-    -- The engine is refusing this spot. It already publishes WHY, on the discharge aspect's `reason`,
-    -- and the app shows it -- so there is nothing to report from here that the driver is not already
-    -- looking at.
+    -- Refused. The game blinks a warning here; we have no way to, and the app is already showing the
+    -- engine's own `reason` whenever it has recorded one. See FUTURE.md for what that leaves.
     debugger:debug("setDischarging: %s cannot unload here, ignoring", target)
   end
 end
