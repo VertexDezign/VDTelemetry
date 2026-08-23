@@ -251,13 +251,19 @@ private fun layoutChildren(
     baseRestY -= rotatedOffsetY
 
     // A raised implement is nudged clear of the machine towing it, which is how the diagram shows
-    // raised vs lowered at all. `getIsLowered` is false for anything that cannot be lowered, so a
-    // trailer takes the nudge too — matching the game, which likewise does not special-case it.
-    // Reserved whether or not it is currently taken, so the band's extent is a fact about the rig
-    // rather than about what the driver has raised.
+    // raised from lowered at all.
+    //
+    // Only an explicit `false` earns the nudge. A machine with no lowered state at all — a trailer on
+    // a ball hitch — sits level with whatever is towing it, and that is not a special case of ours:
+    // the game asks `object:getIsLowered(TRUE)`, so an object with no opinion is handed `true` back
+    // and reads as lowered. Our export says the same thing by leaving the key out, which is exactly
+    // what mod version 18 changed. Treating null as raised put every trailer on the rig up in the air.
+    //
+    // The room is reserved whether or not the nudge is taken, so the band's extent is a fact about
+    // the rig rather than about what the driver has raised. See [RigNode.restY].
     val lift = joint.liftedOffsetY / LIFT_REF_H * 0.5f
     val baseHeadroom = liftHeadroom + lift
-    if (implement.lowered != true) {
+    if (implement.lowered == false) {
       baseX += joint.liftedOffsetX / LIFT_REF_W
       baseY += lift
     }

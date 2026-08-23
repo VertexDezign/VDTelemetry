@@ -178,9 +178,10 @@ class RigSchemaTest {
     val down = layoutRig(rig(true)).first { !it.isRoot }
     assertTrue(raised.y > down.y, "schema y points up, so the raised implement sits higher")
 
-    // Anything that cannot be lowered reports no state at all and takes the nudge, as it does in the
-    // game -- `getIsLowered` is simply false there.
-    assertEquals(raised.y, layoutRig(rig(null)).first { !it.isRoot }.y)
+    // A machine with no lowered state at all sits LEVEL with what is towing it -- a trailer on a ball
+    // hitch is not hovering. The game asks getIsLowered(true), so no opinion reads as lowered, and
+    // treating null as raised put every trailer on the rig in the air.
+    assertEquals(down.y, layoutRig(rig(null)).first { !it.isRoot }.y)
   }
 
   @Test
