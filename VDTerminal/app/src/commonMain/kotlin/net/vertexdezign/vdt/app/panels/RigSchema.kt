@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -344,9 +345,16 @@ internal fun controlTargetOf(node: RigNode): ControlTarget? = when {
  * The game's own selection first — in every capture we hold that is the machine actually being
  * worked, never the tractor, which is what makes the screen right before anyone touches it.
  *
- * Where the game says nothing (an older mod build, or a rig nobody has selected into yet), the first
- * machine with a type-aware section is a better guess than the tractor: it is the one with something
- * to show. That is the auto-pick this panel used before the diagram existed, kept rather than lost.
+ * Where the game says nothing, the first machine with a type-aware section is a better guess than the
+ * tractor: it is the one with something to show. That is the auto-pick this panel used before the
+ * diagram existed, kept rather than lost.
+ *
+ * The game says nothing in two cases, and in both the node this returns is drawn as selected even
+ * though the game has selected nothing. That is deliberate: the mark then says *what this tile is
+ * showing*, which is the only meaning left, and there is nothing for it to be confused with — either
+ * the export predates `selection` entirely (mod version 4), or **nothing on the rig is selectable**,
+ * which is a bare tractor on a save with automatic motor start on. A rig where anything can be
+ * selected always has something selected: the engine picks the first candidate itself at load.
  */
 internal fun selectedRigNode(nodes: List<RigNode>): RigNode? = nodes.firstOrNull { it.machine.selected }
   ?: nodes.firstOrNull { it.machine.hasSection }
@@ -386,17 +394,25 @@ private val HALO = 1.5.dp
 
 /**
  * The rig, drawn: one box per machine, hitched the way the game's own HUD diagram hitches them, with
- * the selected one standing out and every box a tap target.
+ * the selected one standing out and every box the game will let you select a tap target.
  *
  * **No names on it.** The game's own diagram carries none either — it is a shape and a position, read
  * at a glance while driving — and the panel header already names whatever is selected, with the type
  * and condition directly under it. Putting the names back would cost the band roughly three times the
  * height for something already on screen twice.
  *
- * Selection is carried by **brightness and border weight**, never by hue alone: a selected box is a
- * dark solid where the others are light outlines, which survives being read by someone who cannot
- * separate the two colours. The root machine is marked with an [Icons.Filled.Agriculture] icon rather
- * than a colour or a second shape, matching what `RigSlotPanel` already uses for the vehicle slot.
+ * Three states, and all three are carried by **brightness and border weight**, never by hue: the
+ * selected box is a dark solid, a selectable one a light box with an outline, and one the game will
+ * not select a flat fill with no outline at all. That is the same idiom the status chips below use to
+ * separate a control from a readout, and it survives being read by someone who cannot separate two
+ * colours. The root machine is marked with an [Icons.Filled.Agriculture] icon rather than a colour or
+ * a second shape, matching what `RigSlotPanel` already uses for the vehicle slot.
+ *
+ * [onSelect] fires only for a machine the game can actually select. The unselectable ones are drawn
+ * because the rig has them — the diagram is the shape of what you are towing — but they are not
+ * offered as targets, because `setSelectedVehicle` answers a machine it cannot select by selecting a
+ * different one, and a tap that moves the selection somewhere else is worse than a tap that does
+ * nothing. See [net.vertexdezign.vdt.model.Selection.selectable].
  */
 @Composable
 internal fun RigSchema(
@@ -473,6 +489,11 @@ private fun RigBox(
 ) {
   val shape = RoundedCornerShape(3.dp)
   val isSelected = selected
+  // A box the game will not select is still drawn — it is part of the rig — but it is not a target.
+  // The already-selected box stays one: re-selecting it changes nothing (the mod sends the engine no
+  // control group in that case, so it does not even disturb which tools are live), and a box that
+  // stopped taking taps the moment it was selected would read as broken rather than as done.
+  val canTap = node.machine.selectable
   Box(
     modifier
       // The halo grows outward and the offset takes it back, so the box still lands exactly where the
@@ -488,13 +509,29 @@ private fun RigBox(
       // every fixture reads 0 — so this is the same faithful-but-unverified arm as the offsets above.
       .rotate(node.rotation * 180f / kotlin.math.PI.toFloat())
       .clip(shape)
-      .background(if (selected) VdtColors.TextDark else VdtColors.White)
+      .background(
+        when {
+          selected -> VdtColors.TextDark
+
+          canTap -> VdtColors.White
+
+          // Flat and outline-less, the way a read-only chip is flat where an actionable one is raised
+          // and outlined. Nothing here is said by hue.
+          else -> VdtColors.TrackGray
+        },
+      )
       .border(
-        width = if (selected) 2.dp else 1.dp,
+        width = if (selected) {
+          2.dp
+        } else if (canTap) {
+          1.dp
+        } else {
+          0.dp
+        },
         color = if (selected) VdtColors.TextDark else VdtColors.PanelBorder,
         shape = shape,
       )
-      .clickable(role = Role.Button) { onSelect(node.id) }
+      .then(if (canTap) Modifier.clickable(role = Role.Button) { onSelect(node.id) } else Modifier)
       // The box has no text of its own -- the machine's name lives under the diagram -- so the only
       // way a screen reader can tell one tap target from the next is here. `selected` is read into a
       // local first: inside the semantics scope the bare name would resolve to the property being
@@ -502,6 +539,7 @@ private fun RigBox(
       .semantics {
         contentDescription = node.machine.name
         this.selected = isSelected
+        if (!canTap) disabled()
       }
       .padding(horizontal = 2.dp),
     contentAlignment = Alignment.Center,
@@ -510,7 +548,11 @@ private fun RigBox(
       Icon(
         Icons.Filled.Agriculture,
         contentDescription = null,
-        tint = if (selected) VdtColors.White else VdtColors.DarkGray,
+        tint = when {
+          selected -> VdtColors.White
+          canTap -> VdtColors.DarkGray
+          else -> VdtColors.TextDisabled
+        },
         modifier = Modifier.size((height * 0.6f).coerceAtMost(14.dp)),
       )
     }

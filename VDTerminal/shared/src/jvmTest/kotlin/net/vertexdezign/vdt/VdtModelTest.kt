@@ -158,18 +158,76 @@ class VdtModelTest {
 
   @Test
   fun parsesMultipleImplements() {
-    val data = model("mutliple_implements.json")
+    val data = capture("multiple_implements.json")
     val v = assertNotNull(data.vehicle)
 
-    // Reversing, and carrying the placeholder group this machine has no business having: it has no
-    // ranges, and the capture predates the mod dropping the name `getGearGroupToDisplay` returns for
-    // that case. The fixture records what v5 wrote — don't "fix" it.
-    assertEquals("N", v.motor?.gear?.group)
-    assertEquals("R", v.motor?.gear?.value)
+    // Retaken at version 20, and it settles what the v5 capture used to record: a machine with no
+    // ranges reports NO group at all now, where the old fixture carried the placeholder `"N"` that
+    // `getGearGroupToDisplay` hands back for that case.
+    assertEquals("", v.motor?.gear?.group)
+    assertEquals("D", v.motor?.gear?.value)
 
     assertEquals(2, v.implement.size)
 
-    assertJsonRoundTrips(data)
+    // The rig diagram's tap targets, from a real game: everything here is selectable, and the FRONT
+    // mower is what the game has selected — not the tractor towing it.
+    assertEquals(true, v.selection?.selectable)
+    assertEquals(false, v.selection?.selected)
+    assertEquals(listOf(true, true), v.implement.map { it.selection?.selectable })
+    assertEquals(listOf(true, false), v.implement.map { it.selection?.selected })
+    // A mower has no moving-tool groups, so the subtree is absent rather than an empty one.
+    assertNull(v.implement[0].selection?.controlGroup)
+  }
+
+  @Test
+  fun theTractorsSelectabilityFollowsTheAutomaticMotorStartSetting() {
+    // The same rig twice — the same Deutz-Fahr, the same two Pöttinger mowers — differing only in the
+    // game's automatic-motor-start setting. That setting, and nothing about the machine, is what
+    // decides whether a bare tractor can be selected at all: `Motorized:getCanBeSelected` returns true
+    // only while automatic start is OFF, because the player then has to select the tractor to start it
+    // by hand. With it ON it falls through to base `Vehicle:getCanBeSelected`, which is
+    // `VehicleDebug.state ~= 0` and therefore false in any normal game.
+    //
+    // So `selectable` is as much a fact about the save's settings as about the machine, and on a
+    // default save the rig diagram greys the tractor the driver is sitting in — which is exactly what
+    // the game's own selection key does with it. The implements are untouched either way: `Attachable`
+    // overrides the test to `true` outright.
+    val manualStart = assertNotNull(capture("multiple_implements.json").vehicle)
+    val autoStart = assertNotNull(capture("multiple_implements_automatic_motor_start.json").vehicle)
+
+    assertEquals(manualStart.name, autoStart.name, "the same tractor stands in both captures")
+    assertEquals(true, manualStart.selection?.selectable)
+    assertEquals(false, autoStart.selection?.selectable)
+    assertEquals(listOf(true, true), autoStart.implement.map { it.selection?.selectable })
+
+    // And the game still has a selection on the unselectable-tractor rig — one of the mowers, since
+    // the tractor is not a candidate. Nothing about `selectable` reaches `selected`.
+    assertEquals(listOf(false, true), autoStart.implement.map { it.selection?.selected })
+    assertEquals(false, autoStart.selection?.selected)
+  }
+
+  @Test
+  fun parsesTheControlGroupsOfATurntableLadder() {
+    // The first capture that has control groups at all, and it is the case the whole `available`
+    // field exists for: a turntable ladder declares THREE groups and can currently reach only two of
+    // them. `names` is what the vehicle XML declares; `available` is what `controlGroupMapping` holds,
+    // which is only the groups whose moving tools are active. Cycling `names` here would step onto
+    // "Türen" and do nothing at all.
+    val v = assertNotNull(capture("subSelection.json").vehicle)
+    val selection = assertNotNull(v.selection)
+    val group = assertNotNull(selection.controlGroup)
+
+    assertEquals(listOf("Türen", "Leiterpark", "Korb"), group.names)
+    assertEquals(listOf(2, 3), group.available)
+    assertEquals(2, group.current)
+    // `name` is the resolved entry, 1-based into `names` — the one thing the game's own HUD never
+    // prints, since it shows the number.
+    assertEquals("Leiterpark", group.name)
+
+    // Self-propelled: the machine with the groups IS the vehicle, so there is no implement to look at.
+    assertEquals(true, selection.selected)
+    assertEquals(true, selection.selectable)
+    assertTrue(v.implement.isEmpty())
   }
 
   @Test
@@ -330,6 +388,29 @@ class VdtModelTest {
     // capture in a row where what the game has selected is what RigSlotPanel cannot address.
     assertEquals("", shovel.position)
     assertTrue(shovel.selection?.selected == true)
+  }
+
+  @Test
+  fun aFrontLoaderDeclaresNoControlGroupsAtAll() {
+    // The machine the control-group chip was expected to be *for*, and it turns out not to be one: a
+    // loader and its shovel have moving tools but name no groups, so `controlGroup` is absent on all
+    // three nodes of this rig. That is the engine agreeing with itself rather than a gap — the game
+    // gates its own group readout on `1 < #controlGroupNames` and would print nothing here either.
+    // The chip's home is a crane or a ladder (see `subSelection.json`).
+    val v = assertNotNull(capture("tractor_frontloader.json").vehicle)
+    val loader = assertNotNull(v.implement.singleOrNull())
+    val shovel = assertNotNull(loader.implement.singleOrNull())
+
+    assertNull(v.selection?.controlGroup)
+    assertNull(loader.selection?.controlGroup)
+    assertNull(shovel.selection?.controlGroup)
+
+    // Every node selectable, tractor included: this save has automatic motor start off — the same
+    // setting `multiple_implements.json` was taken under. See
+    // [theTractorsSelectabilityFollowsTheAutomaticMotorStartSetting].
+    assertEquals(true, v.selection?.selectable)
+    assertEquals(true, loader.selection?.selectable)
+    assertEquals(true, shovel.selection?.selectable)
   }
 
   @Test
@@ -683,7 +764,7 @@ class VdtModelTest {
     assertEquals(null, model("tractor_with_cultivator.json").vehicle?.sowing)
     assertEquals(
       null,
-      model("mutliple_implements.json")
+      model("multiple_implements.json")
         .vehicle
         ?.implement
         ?.first()
@@ -698,7 +779,7 @@ class VdtModelTest {
     // cultivator readout on a mower — with `kind = CULTIVATOR` and `deepMode = true` invented whole.
     val mower =
       assertNotNull(
-        model("mutliple_implements.json")
+        model("multiple_implements.json")
           .vehicle
           ?.implement
           ?.first(),

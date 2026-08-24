@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Icon
@@ -66,6 +67,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
@@ -73,6 +75,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_mixer_wagon
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.ControlGroup
 import net.vertexdezign.vdt.model.Cover
 import net.vertexdezign.vdt.model.CoverType
 import net.vertexdezign.vdt.model.Discharge
@@ -160,6 +163,17 @@ private val MIN_SCHEMA_HEIGHT = 22.dp
 private val MAX_SCHEMA_HEIGHT = 40.dp
 
 /**
+ * How long a tap on the diagram is drawn before the game has confirmed it.
+ *
+ * The round trip is a WebSocket hop, a file write, the mod's command poll (half the export interval)
+ * and the next export — call it two intervals at the 100 ms default, and more on a slower profile.
+ * Generous enough that the ordinary case never expires, short enough that a command the mod dropped
+ * stops being shown as though it had worked. Expiring costs nothing when it is wrong: the diagram
+ * simply falls back to whatever the game says, which is what it would have shown anyway.
+ */
+private const val SELECT_ECHO_MS = 1500L
+
+/**
  * Width from which the type and the condition move onto the diagram's band, one at each end.
  *
  * Set by what the three have to fit side by side: the diagram's own drawn width is about 160dp for a
@@ -184,9 +198,23 @@ internal data class IsoBusMachine(
   val type: String,
   /**
    * Whether the *game* has this machine selected — the engine's own per-object flag, mirrored onto
-   * every node in the rig, so exactly one is normally true. Read-only: nothing here can change it.
+   * every node in the rig, so exactly one is normally true.
    */
   val selected: Boolean,
+  /**
+   * Whether the game would let the player select it — [net.vertexdezign.vdt.model.Selection.selectable],
+   * defaulted to `false` where the mod could not say, because unknown must not read as permission:
+   * `setSelectedVehicle` answers an ineligible machine by selecting a *different* one.
+   *
+   * Almost everything hitched to a tractor passes — `Attachable` alone overrides the engine's test to
+   * `true` — so what this usually marks is the **tractor**, and on a default save it always does: the
+   * engine allows selecting it only while automatic motor start is off. The game's own cycling key
+   * skips it for exactly the same reason, so a greyed tractor here is the diagram agreeing with the
+   * game rather than withholding something.
+   */
+  val selectable: Boolean,
+  /** The moving-tool group being cycled, on a machine that splits its controls into named groups. */
+  val controlGroup: ControlGroup?,
   val foldable: FoldableState?,
   val lowered: Boolean?,
   val isTurnedOn: Boolean?,
@@ -219,6 +247,8 @@ internal fun Vehicle.isoBus() = IsoBusMachine(
   position = "",
   type = type,
   selected = selection?.selected == true,
+  selectable = selection?.selectable == true,
+  controlGroup = selection?.controlGroup,
   foldable = foldable,
   lowered = lowered,
   isTurnedOn = isTurnedOn,
@@ -237,6 +267,8 @@ internal fun Implement.isoBus() = IsoBusMachine(
   position = position,
   type = type,
   selected = selection?.selected == true,
+  selectable = selection?.selectable == true,
+  controlGroup = selection?.controlGroup,
   foldable = foldable,
   lowered = lowered,
   isTurnedOn = isTurnedOn,
@@ -313,16 +345,33 @@ fun IsoBusPanel(
   // falls back to the auto-pick it used before the diagram existed.
   val nodes = if (slot == null && vehicle != null) layoutRig(vehicle) else emptyList()
 
-  // Follow the *game's* selection, and let a tap override it until the game's selection next moves.
-  // That is what makes this behave like the terminal in the cab rather than like a menu: what you
-  // selected on the rig is what the screen is already showing, and looking at something else does
-  // not fight you for it. Nothing here can change the game's selection — it is read-only telemetry.
+  // The diagram shows the *game's* selection, and a tap MOVES it (issue #119) rather than pointing
+  // this tile somewhere else. That is what makes this behave like the terminal in the cab rather than
+  // like a menu: there is one selection, the keyboard and the screen agree about it, and what you
+  // last touched is what both are acting on.
+  //
+  // What is left of the tile's old local pin is an optimistic echo. The tap is drawn immediately so
+  // the screen answers the finger, and the game's own next tick confirms it a beat later. If it never
+  // does — the mod dropped the command, the machine was unhitched in between — the echo expires and
+  // the diagram goes back to the truth instead of showing a tap that did not happen.
   val gameSelectedId = selectedRigNode(nodes)?.id
-  var pinnedId by remember { mutableStateOf<String?>(null) }
-  LaunchedEffect(gameSelectedId) { pinnedId = null }
-  // Resolved against the live node list, so a pin left on a machine that has since been unhitched
+  var echoId by remember { mutableStateOf<String?>(null) }
+  LaunchedEffect(gameSelectedId) { echoId = null }
+  LaunchedEffect(echoId) {
+    if (echoId != null) {
+      delay(SELECT_ECHO_MS)
+      echoId = null
+    }
+  }
+  // Resolved against the live node list, so an echo left on a machine that has since been unhitched
   // falls back to the game's selection rather than blanking the panel.
-  val selected = nodes.firstOrNull { it.id == pinnedId } ?: nodes.firstOrNull { it.id == gameSelectedId }
+  val selected = nodes.firstOrNull { it.id == echoId } ?: nodes.firstOrNull { it.id == gameSelectedId }
+  // RigSchema only offers a tap on a machine the game will actually select, so this needs no gate of
+  // its own; the mod applies the same test again against state a tick fresher than ours.
+  val onSelectNode: (String) -> Unit = { id ->
+    echoId = id
+    onCommand(ClientMessage.SetSelected(id))
+  }
 
   val machine = if (nodes.isEmpty()) isoBusMachine(vehicle, slot) else selected?.machine
   val mixer = machine?.mixer
@@ -378,15 +427,13 @@ fun IsoBusPanel(
                 RigSchema(
                   nodes,
                   selected?.id,
-                  onSelect = { pinnedId = it },
+                  onSelect = onSelectNode,
                   modifier = Modifier.weight(2f).fillMaxHeight(),
                 )
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { DamageChip(machine) }
               }
             } else {
-              RigSchema(nodes, selected?.id, onSelect = {
-                pinnedId = it
-              }, modifier = Modifier.height(band).fillMaxWidth())
+              RigSchema(nodes, selected?.id, onSelect = onSelectNode, modifier = Modifier.height(band).fillMaxWidth())
             }
           }
 
@@ -396,6 +443,10 @@ fun IsoBusPanel(
           MachineDetail(
             machine = machine,
             target = target,
+            // The control-group control addresses the machine by its node path rather than by a
+            // target token, so it reaches machines `target` cannot name — and, on a tile pinned to a
+            // slot, no path exists and it falls back to naming the group without offering the step.
+            node = selected?.id,
             onCommand = onCommand,
             showIdentity = !identityOnBand,
             modifier = Modifier.fillMaxWidth(),
@@ -449,18 +500,21 @@ private fun schemaHeight(body: Dp, nodes: Int): Dp? {
 private fun MachineDetail(
   machine: IsoBusMachine,
   target: ControlTarget?,
+  node: String?,
   onCommand: (ClientMessage) -> Unit,
   modifier: Modifier = Modifier,
   showIdentity: Boolean = true,
 ) {
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    MachineStatus(machine, target, onCommand, showIdentity, Modifier.fillMaxWidth())
+    MachineStatus(machine, target, node, onCommand, showIdentity, Modifier.fillMaxWidth())
 
-    // Why the controls above are inert, rather than leaving the driver to tap and wonder. The limit
-    // is the command channel's, not the diagram's: see [controlTargetOf].
+    // Why the machine's own controls are inert, rather than leaving the driver to tap and wonder. The
+    // limit is the command channel's, not the diagram's: see [controlTargetOf]. Named rather than
+    // written as "the controls", because the control group beside them is addressed by node path and
+    // is not subject to it.
     if (target == null) {
       Text(
-        "Controls reach the tractor and its front and rear only",
+        "Fold, power and unload reach the tractor and its front and rear only",
         color = VdtColors.TextDisabled,
         fontSize = 9.sp,
         lineHeight = 11.sp,
@@ -503,6 +557,7 @@ private fun MachineDetail(
 private fun MachineStatus(
   machine: IsoBusMachine,
   target: ControlTarget?,
+  node: String?,
   onCommand: (ClientMessage) -> Unit,
   showIdentity: Boolean,
   modifier: Modifier = Modifier,
@@ -567,7 +622,67 @@ private fun MachineStatus(
 
     machine.pipe?.let { PipeChip(it, target, onCommand) }
     machine.cover?.let { CoverChip(it, target, onCommand) }
+    ControlGroupChip(machine, node, onCommand)
   }
+}
+
+/**
+ * Which set of moving tools the machine's own controls are driving — a crane's boom against its
+ * grab, a front loader's arms against the tool on the end.
+ *
+ * **It says the name, where the game says the number.** The game's HUD prints
+ * `"Control group: 2"` because the number is all it carries to the screen; the names are declared in
+ * the vehicle's XML and the mod exports them, so there is a word to print instead. That is the whole
+ * reason this chip is worth its room on the strip.
+ *
+ * Shown only while a group is named, which on the game's side normally means the machine is the
+ * selected one — the chip is a readout of live state, not a menu of what the machine could do. A
+ * tap steps to the next group the machine can *currently* reach ([ControlGroup.available]), which is
+ * not the same as the next one it declares: a group whose tools are inactive has no sub-selection and
+ * cannot be reached at all. Named and reachable are separate answers, so the chip can be a label with
+ * no tap on it — see [nextControlGroup].
+ *
+ * Stepping is one [ClientMessage.SetSelected] with the group named — selecting a machine and choosing
+ * its group is a single engine call, so it is a single command here too.
+ */
+@Composable
+private fun ControlGroupChip(machine: IsoBusMachine, node: String?, onCommand: (ClientMessage) -> Unit) {
+  val group = machine.controlGroup ?: return
+  val label = group.names.getOrNull(group.current - 1)?.takeIf { it.isNotBlank() } ?: return
+  val next = nextControlGroup(group)
+  Chip(
+    Icons.Filled.Tune,
+    label,
+    VdtColors.AccentText,
+    onClick = if (node != null && next != null) {
+      { onCommand(ClientMessage.SetSelected(node, next)) }
+    } else {
+      null
+    },
+  )
+}
+
+/**
+ * The group a tap steps to, or null when there is nowhere to step.
+ *
+ * Cycles over what the machine can reach right now, wrapping the way the game's own selection key
+ * does. [ControlGroup.available] is the only source, and an empty one is the end of it: the chip
+ * keeps its label and loses its tap.
+ *
+ * Deliberately no fallback to [ControlGroup.names]. Absent availability is two different things at
+ * once on the wire — an export from before mod version 20, which reported none, and a version-20
+ * machine none of whose groups is reachable, its moving tools inactive so no sub-selection exists to
+ * name them. Cycling the declared groups would draw a live control the mod can only drop for the
+ * second of those, and the first never had a tap to lose: the label, which is all a pre-20 export
+ * ever put on screen here, is drawn either way.
+ *
+ * A [ControlGroup.current] outside the cycle (nothing active yet) steps to the first entry, since
+ * `indexOf` returns -1 and the wrap turns that into 0.
+ */
+internal fun nextControlGroup(group: ControlGroup): Int? {
+  val options = group.available
+  if (options.size < 2) return null
+  return options[(options.indexOf(group.current) + 1) % options.size]
 }
 
 /**

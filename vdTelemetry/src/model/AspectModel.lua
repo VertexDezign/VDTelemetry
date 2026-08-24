@@ -60,13 +60,20 @@
 
 -- The moving-tool group the player is cycling through on a Cylindered object (crane, front loader).
 -- `current` is 0 when none is active; `name` is names[current], absent when current is 0.
+-- `available` is which of those groups can be switched to right now -- `names` is what the XML
+-- declares, and a group whose moving tools are inactive has no sub-selection to reach it by.
 ---@class ControlGroupModel
 ---@field current number
 ---@field name string?
 ---@field names string[]
+---@field available number[]? indices into names, in the order the game's selection cycle visits them
 
+-- `selectable` is the engine's own verdict (getCanBeSelected and not getBlockSelection), and the
+-- gate a dashboard needs before offering a tap: setSelectedVehicle silently selects something ELSE
+-- when handed an object that fails it.
 ---@class SelectionModel
 ---@field selected boolean
+---@field selectable boolean?
 ---@field controlGroup ControlGroupModel?
 
 -- `reason` is the engine's own code for why unloading is blocked; absent when nothing is wrong.

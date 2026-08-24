@@ -14,9 +14,9 @@ meaning is an `Icon` rather than a character — live in `VDTerminal/README.md` 
 `CLAUDE.md`), and a limitation that belongs to one feature lives as a comment on that feature. The "Accepted
 limitations" section that used to close this file was dissolved into those two homes on 2026-08-15.
 
-Pruned 2026-08-13 and again 2026-08-15: entries describing work that is now finished were removed, and the "validated
-in-game" narratives compressed to a line. The 2026-08-15 pass went further and dropped the *design records* of shipped
-features — why the invoice totals are computed the way they are, how the ELS detector works, what the change-detection
+Pruned 2026-08-13, 2026-08-15 and 2026-08-23: entries describing work that is now finished were removed, and the
+"validated in-game" narratives compressed to a line. The 2026-08-15 pass went further and dropped the *design records*
+of shipped features — why the invoice totals are computed the way they are, how the ELS detector works, what the change-detection
 hook funnels through. Every one of those was checked against the file it documents before it went: they live in the
 module headers now, which is where the next reader is. What stays is what the work did **not** do. Nothing was lost that
 the code does not already carry — `git log -p FUTURE.md` has the long form if a decision needs its original reasoning.
@@ -43,14 +43,11 @@ and left every rendering decision to a redesign that was coming. The redesign ha
 cluster, pages, widget instances — **and did not consume that inbox.** Most of it was still undrawn as late as
 2026-08-15.
 
-**#116 consumed the bulk of it** (2026-08-23): the rig diagram, `selection.selected`, `pipe`, `cover`, `discharge`,
-`tipping` and the machine's own fill units are all drawn now, on the ISOBUS screen, and pipe / cover / tip side /
-discharge became controls as well. What that left is under "The universal machine screen (#116)" below. What is
-still untouched from this inbox:
+**#116 consumed the bulk of it** (2026-08-23) and **#119 the rest of it bar the work aspects** — the rig diagram,
+`selection` in all three of its parts, `pipe`, `cover`, `discharge`, `tipping` and the machine's own fill units are all
+drawn on the ISOBUS screen, and pipe / cover / tip side / discharge / selection / control group became controls as well.
+What those two left is under their own headings below. What is still untouched from this inbox:
 
-- **Control-group names.** `selection.controlGroup` is `{current, name, names}` off `spec_cylindered` — a crane or
-  front loader splits its moving tools into named groups. The game's own HUD prints only the group *number*; we have
-  the names from the XML and still draw neither. A front-loader screen is where this belongs, and there isn't one.
 - **The stepped fill bar.** `fillUnit.display == STEP` marks consumables, where capacity is a slot count: the game draws
   one segment per slot with the part-used roll's fraction inside the next one, and labels it `"2 / 2"` (a `ceil`, not a
   percentage). `components/FillUnitsDisplay.kt` carries the note and renders a continuous bar.
@@ -76,37 +73,20 @@ still untouched from this inbox:
 
 ## The universal machine screen (#116)
 
-Built 2026-08-23, all four steps: the rig diagram, the generic machine detail, the fold/power/raise and
-pipe/cover/tip-side/discharge controls — all of them chips on one strip rather than buttons. The design lives in
-`panels/RigSchema.kt`, `components/ImplementControls.kt` and the three new controls under `vdTelemetry/src/command/`.
-
-**Validated in a running game as it was built**, which is where five of its bugs came from: `lowered` reported on every
-vehicle alive, the diagram re-centring and re-scaling itself whenever an implement came up, trailers drawn hovering,
-the unload control opening the trough on land the farm has no access to, and the same control offered on sprayers and
-seeders that cannot use it. Not one of them was reachable by a test.
-
-**Signed off 2026-08-23, in singleplayer and on a multiplayer client against a dedicated server**: discharge into a
-trigger and onto the ground, and the pipe, cover and tip-side controls, all work and read back correctly. That is every
-command this branch added, over both arms of the `g_server ~= nil` fork — the client's sendEvent path and
-singleplayer's local broadcast.
-
-The tip-side gate turned out to be unreachable from the terminal, which is the outcome to want: the app greys the
-control while the trough is up, so the mod's matching `getCanTogglePreferdTipSide` check can no longer be provoked
-from here at all.
-
-`examples/json/nested_trailers.json` was retaken for it — a Valtra with a front weight and two trailers, at export
-version 19, three deep with a schema on every node and the *nested* trailer selected. It is the first fixture to pin
-`lowered` going absent (18) and `discharge.canToggle` (19), and the first real rig the diagram's tree walk is asserted
-against.
+Built 2026-08-23 and signed off in singleplayer and on a multiplayer client against a dedicated server: the rig
+diagram, the generic machine detail, and the fold / power / raise / pipe / cover / tip-side / discharge controls, all
+of them chips on one strip rather than buttons. The design lives in `panels/RigSchema.kt`,
+`components/ImplementControls.kt` and the three controls it added under `vdTelemetry/src/command/`;
+`examples/json/nested_trailers.json` was retaken for it and is named in `VdtModelTest`.
 
 What it did not do:
 
-- **Machines deeper in the hitch chain cannot be commanded.** `ControlTarget` names the vehicle and its front and rear
-  implements, because those are what vdAI's `vdAI*Front/Back` reach. The diagram happily *shows* a machine two levels
-  down — the Bomech in `liquidManure_dribbleBar.json` is one, and it is the machine the game has selected — and the app
-  renders its controls inert with a line saying why. Closing this needs a per-object address in the export and a
-  resolver mod-side, and for lower/fold/activate it would mean **not** going through vdAI, which the standing rule
-  forbids. Worth its own issue if it turns out to bite; a rig that deep is uncommon.
+- **Machines deeper in the hitch chain cannot be commanded** — except by selection, which #119 added. `ControlTarget`
+  names the vehicle and its front and rear implements, because those are what vdAI's `vdAI*Front/Back` reach. The
+  diagram happily *shows* a machine two levels down — the Bomech in `liquidManure_dribbleBar.json` is one, and it is the
+  machine the game has selected — and the app renders its fold / power / unload controls inert with a line saying why.
+  #119's `command/SelectionControl.lua` resolves any depth by node path; pointing the rest of the commands at it is the
+  follow-up under that heading below.
 - **One generic silhouette, not the game's ten** — and a front loader is the case that argues hardest against it. Its
   attacher joint reports `x = 0.8`, so its box genuinely overlaps the tractor's by a fifth: that is the game's own
   layout and it is right, because a loader mounts *onto* a tractor rather than being towed by one. The game can draw
@@ -170,6 +150,29 @@ What it did not do:
   declares one. If a modded vehicle turns up with a rig that draws in a plainly wrong order, this is
   where to look. No committed fixture exercises it any more: `nested_trailers.json`, which used to be
   the version-4-era capture with no schema at all, was retaken at version 19 and carries one on every node.
+
+---
+
+## The terminal drives the selection (#119)
+
+Built 2026-08-23 and signed off in singleplayer and on a multiplayer client: a tap on the rig diagram moves the game's
+own selection, and the control-group chip beside it moves the machine's sub-selection, both as one `setSelected`
+command. Four version-20 captures pin it and are named in `VdtModelTest`. The two engine traps everything is shaped
+around — `setSelectedVehicle` silently selecting a *different* machine when refused, and `controlGroupMapping` not being
+the control-group index — live in `aspects/Selection.lua`, `command/SelectionControl.lua` and the `Selection` /
+`ControlGroup` / `SetSelected` doc comments.
+
+What it did not do:
+
+- **Retargeting the existing controls at the selection.** The natural follow-up, and #119's own non-goal: it would close
+  #116's `ControlTarget` ceiling using the node resolver this issue already built, but it changes how every command is
+  addressed and reopens the vdAI question for lower / fold / activate. Its own issue.
+- **Driving the moving tools themselves.** Selecting a crane's boom group is not extending it, and the second needs
+  continuous input the command channel is not shaped for.
+- **No front loader has a control group**, so the chip is dead weight on the commonest rig that looked like its
+  audience. That is the engine's own answer rather than a gap — a loader names no groups, and the game prints nothing
+  there either — but it means the chip has been seen working on exactly one machine class, a turntable ladder. If a
+  crane turns out to behave differently, that is where it will show.
 
 ---
 
@@ -449,8 +452,9 @@ Each one is cheap to do while playing and settles something above.
   capture has one. (The narrower question this replaces — whether `schema` and
   `jointDescIndex` come out populated and line up — is **answered** by the committed captures: the Puma exports five
   joints, the Kaweco carries index 3, the Bomech carries 1 into the Kaweco's single joint.)
-- Does `controlGroup` populate on a front loader or crane, with sensible `names`? They come from vehicle XML and may be
-  unresolved i18n keys on some mods. Same question for `workMode.name`.
+- Do `controlGroup.names` and `workMode.name` resolve on a **modded** machine? Both come from vehicle XML and may be
+  unresolved i18n keys there. The base game is answered — `subSelection.json`'s turntable ladder reports three
+  localized German names — so this is only about mods now.
 - Does `discharge.reason` read `NO_FREE_CAPACITY` when the game refuses to unload? Back a trailer up to a full silo.
   This is the highest-value single check of the work aspects.
 - Do any fill units in normal use differ between `showOnHud` and `showOnInfoHud` — in particular, does a forage/carrot
@@ -554,8 +558,8 @@ engine load it wears the engine on, the service interval and system voltage. The
 
 ## Captures wanted as fixtures
 
-The schema, selection and work aspects are all tested synthetically, because none of the committed captures contains a
-machine that has them.
+The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
+them. (The schema and selection aspects were in this list until #116 and #119 captured them.)
 
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`, the `STEP`
   consumable bar, and they would give `jointDescIndex` its first real chain.

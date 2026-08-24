@@ -33,15 +33,33 @@ local function withSchema(name, joints)
   }
 end
 
--- An object that reports a selection state, optionally with Cylindered control groups.
-local function selectable(isSelected, groupNames, currentGroup)
+-- An object that reports a selection state, optionally with Cylindered control groups. `mapping` is
+-- spec_cylindered's own subSelectionIndex -> group index table; left out, every named group is taken
+-- to be reachable, which is the state the engine builds at load.
+local function selectable(isSelected, groupNames, currentGroup, mapping)
   local object = {
     getIsSelected = function()
       return isSelected
     end,
+    getCanBeSelected = function()
+      return true
+    end,
+    getBlockSelection = function()
+      return false
+    end,
   }
   if groupNames ~= nil then
-    object.spec_cylindered = { controlGroupNames = groupNames, currentControlGroupIndex = currentGroup }
+    if mapping == nil then
+      mapping = {}
+      for index in ipairs(groupNames) do
+        mapping[index] = index
+      end
+    end
+    object.spec_cylindered = {
+      controlGroupNames = groupNames,
+      currentControlGroupIndex = currentGroup,
+      controlGroupMapping = mapping,
+    }
   end
   return object
 end
@@ -111,6 +129,49 @@ describe("Selection.collect", function()
     local g = VDT.Selection.collect(selectable(false, { "Kran", "Greifer" }, 0)).controlGroup
     assert.are.equal(0, g.current)
     assert.is_nil(g.name)
+    assert.are.equal(2, #g.names)
+  end)
+
+  it("mirrors the engine's own selectability test", function()
+    local object = selectable(true)
+    assert.is_true(VDT.Selection.collect(object).selectable)
+
+    -- Either half is enough to rule it out, and they are asked separately because the engine asks
+    -- them separately (registerSelectableObjects).
+    object.getCanBeSelected = function()
+      return false
+    end
+    assert.is_false(VDT.Selection.collect(object).selectable)
+
+    object.getCanBeSelected = function()
+      return true
+    end
+    object.getBlockSelection = function()
+      return true
+    end
+    assert.is_false(VDT.Selection.collect(object).selectable)
+  end)
+
+  it("leaves selectable absent when the object cannot answer", function()
+    -- Unknown is not the same as no: an older shape must not read as "go ahead and select it".
+    local object = selectable(true)
+    object.getCanBeSelected = nil
+    assert.is_nil(VDT.Selection.collect(object).selectable)
+  end)
+
+  it("reports which control groups can actually be reached, in cycling order", function()
+    -- controlGroupMapping is subSelectionIndex -> group index and holds only the groups whose moving
+    -- tools are active; a dashboard offering the others would draw a control that does nothing.
+    local g =
+      VDT.Selection.collect(selectable(true, { "Kran", "Greifer", "Stuetzen" }, 1, { [1] = 1, [2] = 3 })).controlGroup
+    assert.are.same({ 1, 3 }, g.available)
+    assert.are.equal(3, #g.names)
+  end)
+
+  it("omits available when no group is reachable", function()
+    -- Every group's tools inactive: the names are still declared, but nothing can be switched to.
+    local g = VDT.Selection.collect(selectable(true, { "Kran", "Greifer" }, 0, {})).controlGroup
+    assert.is_nil(g.available)
     assert.are.equal(2, #g.names)
   end)
 end)

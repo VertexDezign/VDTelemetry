@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.model.ControlGroup
 import net.vertexdezign.vdt.model.DischargeReason
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Mixer
@@ -155,6 +156,47 @@ class IsoBusTest {
     val phrases = DischargeReason.entries.map { refusalOf(it) }
     assertEquals(DischargeReason.entries.size, phrases.toSet().size, "each reason gets its own words")
     assertTrue(phrases.none { it.isBlank() })
+  }
+
+  // -------------------------------------------------------------------------
+  // The control group a tap steps to
+  // -------------------------------------------------------------------------
+
+  @Test
+  fun theGroupCycleWrapsThroughWhatTheMachineCanActuallyReach() {
+    // `available` is not `names`: a group whose moving tools are inactive has no sub-selection, so
+    // stepping onto it would send a command the mod can only drop. Cycling `names` instead would put
+    // a dead step in the middle of the loop.
+    val group =
+      ControlGroup(current = 1, names = listOf("Boom", "Grab", "Legs"), available = listOf(1, 3))
+    assertEquals(3, nextControlGroup(group))
+    assertEquals(1, nextControlGroup(group.copy(current = 3)), "and wraps back to the first")
+  }
+
+  @Test
+  fun declaredGroupsWithNoAvailabilityAreNotAStep() {
+    // No availability is a pre-20 export AND a machine whose every group is currently unreachable —
+    // the wire does not tell them apart. Cycling `names` would give the second a tap the mod can only
+    // drop, and the first never had one; both keep the label.
+    val group = ControlGroup(current = 1, names = listOf("Boom", "Grab"))
+    assertNull(nextControlGroup(group))
+    assertNull(nextControlGroup(group.copy(current = 2)))
+  }
+
+  @Test
+  fun aMachineWithOneReachableGroupHasNothingToStepTo() {
+    assertNull(nextControlGroup(ControlGroup(current = 1, names = listOf("Boom"), available = listOf(1))))
+    // Three declared but only one reachable is still nothing to step to.
+    assertNull(nextControlGroup(ControlGroup(current = 2, names = listOf("A", "B", "C"), available = listOf(2))))
+    assertNull(nextControlGroup(ControlGroup()))
+  }
+
+  @Test
+  fun withNoGroupActiveTheFirstTapNamesTheFirstOne() {
+    // `current` is 0 while the machine is not the selected one, and the command selects the machine
+    // and the group together — so stepping from nowhere has to land somewhere real.
+    val group = ControlGroup(current = 0, names = listOf("Boom", "Grab"), available = listOf(1, 2))
+    assertEquals(1, nextControlGroup(group))
   }
 
   // -------------------------------------------------------------------------

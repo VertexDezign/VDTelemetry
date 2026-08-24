@@ -119,6 +119,10 @@ local sourceFiles = {
   "src/command/TargetResolver.lua",
   "src/command/PipeCoverControl.lua",
   "src/command/TrailerControl.lua",
+  -- Drives the game's own machine selection (and, in the same call, the Cylindered control group).
+  -- Addresses a machine by the rig diagram's node path rather than by a target token, so it resolves
+  -- its own walk and does not use TargetResolver.
+  "src/command/SelectionControl.lua",
   "src/command/MotorControl.lua",
   "src/command/CruiseControl.lua",
   -- Precision Farming application rate (auto/manual + the manual step). Resolves which machine on the
@@ -243,7 +247,13 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     the two apart and a terminal offered an unload control that could not do anything. Both of the
 --     engine's own getCanToggleDischarge* are false there, and it registers no tip action for them.
 --     See issue #116.
-VDTelemetry.VERSION = 19
+-- 20: `selection.selectable` -- whether the game would let the player select this object at all
+--     (getCanBeSelected and not getBlockSelection, the engine's own test) -- and
+--     `selection.controlGroup.available`, which of the declared control groups currently has a
+--     sub-selection to reach it by. Both exist because selection became WRITABLE: setSelectedVehicle
+--     silently selects a different machine when handed one that fails the first test, and no
+--     argument reaches a group that fails the second. See issue #119.
+VDTelemetry.VERSION = 20
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

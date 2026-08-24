@@ -502,10 +502,26 @@ data class SchemaJoint(
 /**
  * What the player's controls are currently acting on. [selected] is the engine's own flag, mirrored
  * onto every object in the rig, so exactly one node in the tree is normally true.
+ *
+ * [selectable] is whether the game would let the player select this object at all — the engine's own
+ * `getCanBeSelected() and not getBlockSelection()`, which is the test it applies when it builds the
+ * root's selectable list. It is the gate on **writing** the selection, and it exists because
+ * `setSelectedVehicle` does not refuse a machine that fails it: it selects the first machine that
+ * passes instead, so an ungated tap can move the selection to somewhere nobody pointed at.
+ *
+ * Almost everything hitched to a tractor is selectable — `Attachable` overrides the engine's test to
+ * `true` outright — so what this usually marks is the **tractor**, and its answer is a fact about the
+ * *save* rather than about the machine: `Motorized` allows selection only while automatic motor start
+ * is off, since the player then has to select the tractor to start it by hand. On a default save the
+ * tractor is therefore not selectable, and the game's own selection key skips it too.
+ *
+ * Null on a machine that could not answer — an export from before mod version 20, or an object with
+ * no selection functions at all. Read that as *unknown*, never as permission.
  */
 @Serializable
 data class Selection(
   val selected: Boolean = false,
+  val selectable: Boolean? = null,
   val controlGroup: ControlGroup? = null,
 )
 
@@ -513,12 +529,24 @@ data class Selection(
  * The moving-tool group being cycled on a `Cylindered` object (a crane or front loader splits its
  * controls into named groups). [current] is `0` when none is active, otherwise a 1-based index into
  * [names]; [name] is the resolved entry. The game's HUD only ever shows the number.
+ *
+ * [available] is which of those groups can be switched to **right now**, in the order the game's own
+ * selection cycle visits them. Not the same list as [names] and not a cosmetic subset of it: a group
+ * whose moving tools are inactive has no sub-selection registered for it, and no argument to
+ * `setSelectedVehicle` reaches it. Cycle over this, not over [names], or the control offers a step
+ * that does nothing.
+ *
+ * Empty means **no group can be reached right now** — every declared group's tools are inactive, or
+ * the export predates mod version 20 and could not say. The two are not told apart on the wire and
+ * do not need to be: neither one names a group a command could reach, so both read as *nothing to
+ * step to*. [names] is still the readout.
  */
 @Serializable
 data class ControlGroup(
   val current: Int = 0,
   val name: String? = null,
   val names: List<String> = emptyList(),
+  val available: List<Int> = emptyList(),
 )
 
 // ---------------------------------------------------------------------------

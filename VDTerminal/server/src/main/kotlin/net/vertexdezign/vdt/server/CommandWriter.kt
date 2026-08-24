@@ -98,6 +98,14 @@ class CommandWriter(
         """<command id="$id" type="setDischarging" target="${message.target.token}" on="${message.on}"/>"""
       }
 
+      is ClientMessage.SetSelected -> {
+        // `node` is a path the app built out of array indices, so in practice it is digits and
+        // slashes -- but it is the one attribute here that arrives as free-form text over the
+        // WebSocket rather than as an enum token, so it is escaped like the task ids are.
+        val groupAttr = message.controlGroup?.let { " controlGroup=\"$it\"" } ?: ""
+        """<command id="$id" type="setSelected" node="${esc(message.node)}"$groupAttr/>"""
+      }
+
       is ClientMessage.SetMotorState -> {
         """<command id="$id" type="setMotorState" on="${message.on}"/>"""
       }
