@@ -375,6 +375,9 @@ class RigSchemaTest {
 
   @Test
   fun theTractorAndItsOwnFrontAndRearAreAddressable() {
+    // Nothing on this rig is selected, which is the case the positional tokens are the fallback for:
+    // an export from before `selection` existed, or a rig where nothing can be selected. They keep
+    // meaning exactly what they meant, which is also why RigSlotPanel still addresses by position.
     val rig =
       tractor(
         Implement(name = "Plough", position = "BACK", schema = schema(), jointDescIndex = 1),
@@ -437,32 +440,23 @@ class RigSchemaTest {
   }
 
   @Test
-  fun aPositionalTokenWinsOverTheSelectionWhereItReaches() {
-    // The two are NOT interchangeable, so being selected must not change how a machine the positional
-    // tokens already reach is addressed: vdAILowerVehicle lowers the tractor alone, where
-    // vdAILowerSelected would cascade into everything hitched to it — from a chip that reads the
-    // tractor's own state.
+  fun theSelectionOutranksAPositionalTokenTheMachineAlsoHas() {
+    // A selected rear implement is addressed as the SELECTION, not as BACK, and that is a scope
+    // choice rather than a preference: BACK names a position on the tractor and cascades into
+    // everything hitched at it, so it would move the dolly's trailer too — from a chip reading the
+    // dolly's own state. The selection is the only token that means "this one machine".
     val rig =
-      Vehicle(
-        name = "Tractor",
-        schema = Schema(name = "VEHICLE", attacherJoint = listOf(joint())),
-        selection = Selection(selected = true, selectable = true),
-        implement =
-        listOf(Implement(name = "Plough", position = "BACK", schema = schema(), jointDescIndex = 1)),
-      )
-    assertEquals(ControlTarget.VEHICLE, controlTargetOf(layoutRig(rig).first { it.isRoot }))
-
-    val rearSelected =
       tractor(
         Implement(
-          name = "Plough",
+          name = "Dolly",
           position = "BACK",
-          schema = schema(),
+          schema = schema(joint()),
           jointDescIndex = 1,
           selection = Selection(selected = true, selectable = true),
+          implement = listOf(Implement(name = "Trailer", schema = schema(), jointDescIndex = 1)),
         ),
       )
-    assertEquals(ControlTarget.BACK, controlTargetOf(layoutRig(rearSelected).first { !it.isRoot }))
+    assertEquals(ControlTarget.SELECTED, controlTargetOf(layoutRig(rig).first { it.machine.name == "Dolly" }))
   }
 
   @Test

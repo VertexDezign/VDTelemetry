@@ -996,8 +996,9 @@ enum class CruiseAction(
  * `commands.xml`), kept explicit so the enum can be renamed without breaking it.
  *
  * Three of the four are **positional**, and they are positions on the *controlled vehicle*:
- * [VEHICLE] is that vehicle itself, [FRONT] and [BACK] are the implements on its own attachers.
- * Nothing deeper in a hitch chain has a position of its own, which is the ceiling [SELECTED] lifts.
+ * [VEHICLE] is that vehicle itself, [FRONT] and [BACK] are the implements on its own attachers — and
+ * everything hitched behind those, since a positional command cascades down the chain it names.
+ * Nothing deeper has a position of its own, which is the ceiling [SELECTED] lifts.
  *
  * Lower / fold / activate route mod-side through FS25_additionalInputs' `vdAI<Action><Address>`
  * functions, one per member; pipe / cover / tip side / discharge resolve the token to an object in
@@ -1021,10 +1022,13 @@ enum class ControlTarget(
    * lower id, and the mod dispatches strictly in id order within one poll, so the two arrive in the
    * order they were sent.
    *
-   * **Not a drop-in for the positional three**, which is why
-   * `net.vertexdezign.vdt.app.panels.controlTargetOf` still prefers them wherever they reach:
-   * `vdAILowerVehicle` lowers the tractor alone, where `vdAILowerSelected` lowers the selected
-   * machine *and* cascades into everything hitched to it.
+   * The only token whose scope is **one machine**: it acts on the selected machine and nothing else,
+   * where [FRONT] and [BACK] name a position and cascade into what is hitched behind it. That is why
+   * `net.vertexdezign.vdt.app.panels.controlTargetOf` prefers this one wherever the game has made a
+   * selection — the rig diagram shows one machine per box and its controls read that machine's own
+   * state, so this is the address that matches what the driver is looking at. On the controlled
+   * vehicle the two coincide: `vdAILowerSelected` on a machine hitched to nothing routes through the
+   * same pickup / fold-middle / attacher lowering `vdAILowerVehicle` does.
    *
    * Resolves to nothing when nothing is selected, which is an ordinary state rather than an error —
    * a rig where nothing can be selected has nothing selected.

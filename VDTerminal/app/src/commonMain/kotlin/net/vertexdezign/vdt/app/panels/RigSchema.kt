@@ -320,17 +320,23 @@ private fun layoutChildren(
 /**
  * Which [ControlTarget] addresses [node], or **null when nothing does**.
  *
- * **Positional first, selection second** (issue #120). The three positional tokens reach the
- * controlled vehicle and the implements on its own front and rear attachers, and where one of them
- * reaches, it is what this returns — unchanged, so a command means exactly what it meant before. Only
- * where none of them reaches does the fourth get used, and then only if the game really has this
- * machine selected.
+ * **The selection first** (issue #120), because it is the only token whose scope is *one machine*.
+ * The diagram draws one box per machine and the strip below it reads that machine's own aspects, so
+ * the address that moves exactly it is the honest one. [ControlTarget.BACK] does not: it names a
+ * position on the tractor and moves everything hitched at it, children included. Addressing a
+ * selected dolly that way would raise the trailer behind it too, from a chip showing the dolly's own
+ * `lowered` — and the machine one level deeper, which has no positional token at all, would move
+ * alone. Same panel, same chip, two scopes the driver cannot see. Preferring the selection makes it
+ * one.
  *
- * That order is not deference to the older tokens, it is what the tokens *do*: `vdAILowerVehicle`
- * lowers the tractor alone, where `vdAILowerSelected` lowers the selected machine **and cascades into
- * everything hitched to it**. Addressing a selected tractor as [ControlTarget.SELECTED] would lower
- * the whole rig from a chip that reads the tractor's own state, which is a control lying about its
- * scope.
+ * On the root the two are the same call — `vdAILowerSelected` on a machine hitched to nothing routes
+ * through the same pickup / fold-middle / attacher lowering `vdAILowerVehicle` does — so nothing is
+ * traded away there.
+ *
+ * The positional three are the **fallback**, for a rig where the game has selected nothing: an export
+ * from before `selection` existed, or a rig where nothing *can* be selected. They keep meaning
+ * exactly what they meant, which is also why `RigSlotPanel` still addresses by position and is
+ * untouched: a pinned slot really does mean "whatever is on the rear".
  *
  * What is left null is a machine deeper than the tractor's own attachers that the game has *not*
  * selected — in `liquidManure_dribbleBar.json` the Bomech is hitched behind the Kaweco, so it is
@@ -349,18 +355,15 @@ private fun layoutChildren(
  * commanding it as though it were the tractor's would move the wrong machine.
  */
 internal fun controlTargetOf(node: RigNode): ControlTarget? = when {
+  node.machine.selected -> ControlTarget.SELECTED
+
   node.isRoot -> ControlTarget.VEHICLE
 
+  node.depth != 1 -> null
+
   // Reuses RigSlot's own position -> target table rather than keeping a second copy of the tokens.
-  node.depth == 1 -> RigSlot.entries.firstOrNull { it.implementPosition == node.machine.position }?.target
-    ?: selectedTargetOf(node)
-
-  else -> selectedTargetOf(node)
+  else -> RigSlot.entries.firstOrNull { it.implementPosition == node.machine.position }?.target
 }
-
-/** [ControlTarget.SELECTED] where the game has [node] selected, and null where it has not. */
-private fun selectedTargetOf(node: RigNode): ControlTarget? =
-  if (node.machine.selected) ControlTarget.SELECTED else null
 
 /**
  * The node the diagram should start on.

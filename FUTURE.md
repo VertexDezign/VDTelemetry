@@ -189,6 +189,13 @@ rule is intact: the function was asked for and granted rather than invented here
 for the direct-engine controls through `Vehicle:getSelectedVehicle()` — not `currentSelection.object`, which is the
 selection *entry* and whose `.vehicle` is the machine.
 
+On the diagram the selection is now the **preferred** address, not a last resort, and that is a scope choice:
+`selected` is the only token meaning *one machine*, where `front` / `back` name a position on the tractor and cascade
+into everything hitched behind it. A selected dolly addressed as `back` would raise the trailer behind it from a chip
+reading the dolly's own state, and the machine one level deeper — which has no positional token at all — would move
+alone: same panel, same chip, two scopes the driver cannot see. The positional three stay as the fallback for a rig
+the game has selected nothing on.
+
 What it did not do:
 
 - **Nobody has driven it.** Every part of this is unvalidated in game, in singleplayer and on a multiplayer client
@@ -507,10 +514,11 @@ Each one is cheap to do while playing and settles something above.
   for the two loose blocks, not a slower channel — silo fill levels want to stay at 2 s.
 - **Does a deep machine really answer its controls when selected (#120)?** The dribble-bar rig is the case: select the
   Bomech behind the Kaweco and fold, power and unload it, then select the Kaweco and confirm the same chips move that
-  one instead. Two things only a game can answer — whether `vdAILowerSelected`'s cascade into the selected machine's
-  own implements is what a driver wants on a real chain, and whether the one-tick gap between tapping a machine and its
-  chips going live is noticeable (the app deliberately waits for the game to confirm the selection rather than trusting
-  its own echo, so that a refused selection can never move a different machine). Needs additionalInputs 1.2.0.0.
+  one instead. Two things only a game can answer — whether the tighter scope reads right in the cab (a selected rear
+  implement is now addressed as the selection, so it moves alone where `BACK` would have taken its children with it),
+  and whether the one-tick gap between tapping a machine and its chips going live is noticeable (the app deliberately
+  waits for the game to confirm the selection rather than trusting its own echo, so that a refused selection can never
+  move a different machine). Needs additionalInputs 1.2.0.0.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.

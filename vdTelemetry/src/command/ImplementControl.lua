@@ -23,9 +23,13 @@
 -- only this mod would use. VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION is what holds the mod to a
 -- version that has them.
 --
--- The addresses are NOT interchangeable where they overlap, which is why the app keeps choosing
--- between them (see controlTargetOf in the terminal): vdAILowerVehicle lowers the tractor alone,
--- while vdAILowerSelected lowers the selected machine AND cascades into everything hitched to it.
+-- `Selected` is also the only address whose scope is ONE machine: Front and Back name a position and
+-- cascade into whatever is hitched behind it, where the selected functions act on the selected
+-- machine and stop. That is why the app prefers it wherever the game has made a selection (see
+-- controlTargetOf in the terminal) -- the rig diagram draws one box per machine and its controls read
+-- that machine's own state. On the controlled vehicle the two coincide: vdAILowerSelected on a
+-- machine hitched to nothing routes through the same pickup / fold-middle / attacher lowering that
+-- vdAILowerVehicle does.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
