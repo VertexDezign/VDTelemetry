@@ -41,6 +41,19 @@ data class Husbandry(
 @Serializable
 data class HusbandryCondition(
   val title: String = "",
+  /**
+   * Fill type name of what the bar's liters **are** — condition bars only, and only where those
+   * liters are real storage the pen holds: water, straw, milk, manure, slurry. Empty on a food bar
+   * (a food *group* summed over several fill types) and on the pallet-output bars (liters still
+   * waiting to become an egg pallet, which are nobody's stock until the pallet exists —
+   * [StorageData.loosePallets] counts it then).
+   *
+   * This is the **only** place the farm's manure and slurry are named: the heap behind the barn and
+   * an `isExtension` slurry tank are the pen's own store, so [StorageData.storages] leaves their
+   * placeable out rather than have a stock overview count the same liters twice. [title] cannot
+   * stand in for it — it is the game's label, in the player's language.
+   */
+  val type: String = "",
   /** Fill/level ratio in `[0,1]` (drives the bar). */
   val ratio: Float = 0f,
   /** Current fill level in liters. */

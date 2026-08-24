@@ -11,6 +11,11 @@
 
 ---@class HusbandryConditionModel one condition/food bar (food group, water, straw, an output, ...)
 ---@field title string localized label (from getFoodInfos / getConditionInfos)
+---@field type string? fill type name of what the bar's liters ARE — condition bars only, and only
+---  where the liters are real storage the pen holds (water, straw, milk, manure, slurry). Absent on
+---  a food bar (a food GROUP over several fill types) and on the pallet-output bars (liters still
+---  waiting to become an egg pallet, which are nobody's stock yet). This is the only place the
+---  farm's manure and slurry are named: the storage channel leaves their placeable out.
 ---@field ratio number fill/level ratio in [0,1] (for the bar)
 ---@field value number current fill level in liters
 ---@field capacity number? storage capacity in liters, when the info carries one (food does)

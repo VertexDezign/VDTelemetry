@@ -39,9 +39,14 @@ local function makeCluster(subTypeIndex, count, age, health, reproduction, suppo
   }
 end
 
+-- `opts.supportedFillTypes` is the pen's unloading station's supported set (fill type index -> true),
+-- the list a condition bar's `type` is resolved against; a pen without one keeps no storage of its
+-- own and every bar stays untyped.
 local function makeHusbandry(opts)
+  local station = opts.supportedFillTypes ~= nil and { supportedFillTypes = opts.supportedFillTypes } or nil
   return {
     uniqueId = opts.uniqueId,
+    spec_husbandry = { unloadingStation = station },
     getName = function()
       return opts.name
     end,
@@ -69,11 +74,18 @@ end
 -- `breedNames` maps a subtype index -> the breed title. The stubbed subtype's fillTypeIndex equals
 -- its subtype index, and the fill-type-title lookup uses the same key, mirroring the real chain
 -- getSubTypeByIndex(idx).fillTypeIndex -> getFillTypeTitleByIndex(...).
-local function installWorld(husbandries, farmId, breedNames)
+--
+-- `fillTypes` maps a fill type index -> { name = ..., title = ... }, the pair behind a condition
+-- bar's `type`: the game builds such a bar's title from the fill type's localized `title`, and the
+-- exporter matches on it to report the language-independent `name`.
+local function installWorld(husbandries, farmId, breedNames, fillTypes)
   _G.g_localPlayer = farmId ~= nil and { farmId = farmId } or nil
   _G.g_fillTypeManager = {
     getFillTypeTitleByIndex = function(_, fillTypeIndex)
       return breedNames and breedNames[fillTypeIndex] or nil
+    end,
+    getFillTypeByIndex = function(_, fillTypeIndex)
+      return fillTypes and fillTypes[fillTypeIndex] or nil
     end,
   }
   _G.g_currentMission = {
@@ -125,7 +137,7 @@ describe("HusbandryExporter.collect", function()
 
     local model = VDT.HusbandryExporter.collect()
 
-    assert.are.equal("1", model.version)
+    assert.are.equal("2", model.version)
     assert.are.equal(1, #model.husbandries)
     local h = model.husbandries[1]
     assert.are.equal("cowbarn-1", h.id)
@@ -166,7 +178,7 @@ describe("HusbandryExporter.collect", function()
   it("returns just the version while spectating (no local farm)", function()
     installWorld({ makeHusbandry({ uniqueId = "x", name = "X" }) }, nil, {})
     local model = VDT.HusbandryExporter.collect()
-    assert.are.equal("1", model.version)
+    assert.are.equal("2", model.version)
     assert.is_nil(model.husbandries)
   end)
 
@@ -182,6 +194,88 @@ describe("HusbandryExporter.collect", function()
     assert.is_nil(model.husbandries[1].conditions)
     assert.is_nil(model.husbandries[1].animals)
     assert.is_nil(string.find(Json.encode(model), "{}", 1, true))
+  end)
+
+  it("names what a condition bar's liters are, from the pen's own supported fill types", function()
+    local pen = makeHusbandry({
+      uniqueId = "cowbarn-1",
+      name = "Cow Barn",
+      numAnimals = 4,
+      maxNumAnimals = 10,
+      productivity = 1,
+      -- a food GROUP, not a fill type: it never gets a `type`, and is passed no map at all
+      food = { { title = "Grass (30%)", ratio = 0.2, value = 1000, capacity = 5000 } },
+      conditions = {
+        { title = "Water", ratio = 0.5, value = 4500 },
+        { title = "Straw", ratio = 0.3, value = 3000 },
+        { title = "Manure", ratio = 0.9, value = 9000, invertedBar = true },
+        -- the pen holds no eggs: PlaceableHusbandryPallets' liters are not in the unloading
+        -- station's set, so the output bar waiting to become a pallet stays unpriced
+        { title = "Egg", ratio = 0.4, value = 400, invertedBar = true },
+      },
+      supportedFillTypes = { [1] = true, [2] = true, [3] = true },
+    })
+    installWorld({ pen }, 1, {}, {
+      [1] = { name = "WATER", title = "Water" },
+      [2] = { name = "STRAW", title = "Straw" },
+      [3] = { name = "MANURE", title = "Manure" },
+    })
+
+    local h = VDT.HusbandryExporter.collect().husbandries[1]
+    assert.are.equal("WATER", h.conditions[1].type)
+    assert.are.equal("STRAW", h.conditions[2].type)
+    assert.are.equal("MANURE", h.conditions[3].type)
+    assert.is_nil(h.conditions[4].type)
+    assert.is_nil(h.food[1].type)
+  end)
+
+  it("leaves a bar untyped when its title is not the plain fill-type title", function()
+    -- with no manure heap in range the straw spec appends "(no manure heap)" to the bar's title,
+    -- and there being nowhere to put the manure, its level is 0 -- untyped is the honest answer
+    local pen = makeHusbandry({
+      uniqueId = "cowbarn-1",
+      name = "Cow Barn",
+      numAnimals = 1,
+      maxNumAnimals = 10,
+      productivity = 1,
+      conditions = { { title = "Manure (no manure heap)", ratio = 0, value = 0, invertedBar = true } },
+      supportedFillTypes = { [3] = true },
+    })
+    installWorld({ pen }, 1, {}, { [3] = { name = "MANURE", title = "Manure" } })
+
+    assert.is_nil(VDT.HusbandryExporter.collect().husbandries[1].conditions[1].type)
+  end)
+
+  it("drops a title two supported fill types share rather than guessing which one it is", function()
+    local pen = makeHusbandry({
+      uniqueId = "cowbarn-1",
+      name = "Cow Barn",
+      numAnimals = 1,
+      maxNumAnimals = 10,
+      productivity = 1,
+      conditions = { { title = "Water", ratio = 0.5, value = 500 } },
+      supportedFillTypes = { [1] = true, [7] = true },
+    })
+    installWorld({ pen }, 1, {}, {
+      [1] = { name = "WATER", title = "Water" },
+      [7] = { name = "WATER_MODDED", title = "Water" },
+    })
+
+    assert.is_nil(VDT.HusbandryExporter.collect().husbandries[1].conditions[1].type)
+  end)
+
+  it("leaves every bar untyped when the pen keeps no storage of its own", function()
+    local pen = makeHusbandry({
+      uniqueId = "horsepen-1",
+      name = "Horse Pen",
+      numAnimals = 1,
+      maxNumAnimals = 4,
+      productivity = 1,
+      conditions = { { title = "Water", ratio = 0.5, value = 500 } },
+    })
+    installWorld({ pen }, 1, {}, { [1] = { name = "WATER", title = "Water" } })
+
+    assert.is_nil(VDT.HusbandryExporter.collect().husbandries[1].conditions[1].type)
   end)
 
   it("falls back to a generic name when the breed fill-type title can't be resolved", function()

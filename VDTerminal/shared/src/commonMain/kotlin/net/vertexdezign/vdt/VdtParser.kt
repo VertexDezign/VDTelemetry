@@ -61,7 +61,7 @@ object VdtParser {
   /** Parse the `production.json` channel (own-farm production points + factories) into [ProductionData]. */
   fun parseProduction(text: String): ProductionData = json.decodeFromString(ProductionData.serializer(), text)
 
-  /** Parse the `storage.json` channel (own-farm standalone silos + object storages) into [StorageData]. */
+  /** Parse the `storage.json` channel (own-farm storages, bunkers and loose stock) into [StorageData]. */
   fun parseStorage(text: String): StorageData = json.decodeFromString(StorageData.serializer(), text)
 
   /** Parse the `husbandry.json` channel (owned animal pens) into [HusbandriesData]. */
