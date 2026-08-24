@@ -174,12 +174,13 @@ class IsoBusTest {
   }
 
   @Test
-  fun aGroupCycleFallsBackToTheDeclaredNamesWhenTheModReportsNoAvailability() {
-    // Mod versions before 20 exported only `names`. Dropping the control there would take away a
-    // readout that used to work; the mod refuses a step it cannot take.
+  fun declaredGroupsWithNoAvailabilityAreNotAStep() {
+    // No availability is a pre-20 export AND a machine whose every group is currently unreachable —
+    // the wire does not tell them apart. Cycling `names` would give the second a tap the mod can only
+    // drop, and the first never had one; both keep the label.
     val group = ControlGroup(current = 1, names = listOf("Boom", "Grab"))
-    assertEquals(2, nextControlGroup(group))
-    assertEquals(1, nextControlGroup(group.copy(current = 2)))
+    assertNull(nextControlGroup(group))
+    assertNull(nextControlGroup(group.copy(current = 2)))
   }
 
   @Test

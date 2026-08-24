@@ -635,11 +635,12 @@ private fun MachineStatus(
  * the vehicle's XML and the mod exports them, so there is a word to print instead. That is the whole
  * reason this chip is worth its room on the strip.
  *
- * Shown only while a group is actually active, which on the game's side means the machine is the
+ * Shown only while a group is named, which on the game's side normally means the machine is the
  * selected one — the chip is a readout of live state, not a menu of what the machine could do. A
  * tap steps to the next group the machine can *currently* reach ([ControlGroup.available]), which is
  * not the same as the next one it declares: a group whose tools are inactive has no sub-selection and
- * cannot be reached at all.
+ * cannot be reached at all. Named and reachable are separate answers, so the chip can be a label with
+ * no tap on it — see [nextControlGroup].
  *
  * Stepping is one [ClientMessage.SetSelected] with the group named — selecting a machine and choosing
  * its group is a single engine call, so it is a single command here too.
@@ -665,15 +666,21 @@ private fun ControlGroupChip(machine: IsoBusMachine, node: String?, onCommand: (
  * The group a tap steps to, or null when there is nowhere to step.
  *
  * Cycles over what the machine can reach right now, wrapping the way the game's own selection key
- * does. Falls back to every declared group for an export from before mod version 20, which reported
- * no availability — that is the pre-20 behaviour rather than a guess, and the mod drops a step it
- * cannot take.
+ * does. [ControlGroup.available] is the only source, and an empty one is the end of it: the chip
+ * keeps its label and loses its tap.
+ *
+ * Deliberately no fallback to [ControlGroup.names]. Absent availability is two different things at
+ * once on the wire — an export from before mod version 20, which reported none, and a version-20
+ * machine none of whose groups is reachable, its moving tools inactive so no sub-selection exists to
+ * name them. Cycling the declared groups would draw a live control the mod can only drop for the
+ * second of those, and the first never had a tap to lose: the label, which is all a pre-20 export
+ * ever put on screen here, is drawn either way.
  *
  * A [ControlGroup.current] outside the cycle (nothing active yet) steps to the first entry, since
  * `indexOf` returns -1 and the wrap turns that into 0.
  */
 internal fun nextControlGroup(group: ControlGroup): Int? {
-  val options = group.available.ifEmpty { List(group.names.size) { it + 1 } }
+  val options = group.available
   if (options.size < 2) return null
   return options[(options.indexOf(group.current) + 1) % options.size]
 }

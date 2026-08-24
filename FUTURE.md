@@ -43,7 +43,7 @@ and left every rendering decision to a redesign that was coming. The redesign ha
 cluster, pages, widget instances — **and did not consume that inbox.** Most of it was still undrawn as late as
 2026-08-15.
 
-**#116 consumed the bulk of it** (2026-08-23) and **#119 the last of the vehicle aspects** — the rig diagram,
+**#116 consumed the bulk of it** (2026-08-23) and **#119 the rest of it bar the work aspects** — the rig diagram,
 `selection` in all three of its parts, `pipe`, `cover`, `discharge`, `tipping` and the machine's own fill units are all
 drawn on the ISOBUS screen, and pipe / cover / tip side / discharge / selection / control group became controls as well.
 What those two left is under their own headings below. What is still untouched from this inbox:

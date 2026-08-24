@@ -534,8 +534,12 @@ data class Selection(
  * selection cycle visits them. Not the same list as [names] and not a cosmetic subset of it: a group
  * whose moving tools are inactive has no sub-selection registered for it, and no argument to
  * `setSelectedVehicle` reaches it. Cycle over this, not over [names], or the control offers a step
- * that does nothing. Empty on an export from before mod version 20, where [names] is the best that
- * can be had.
+ * that does nothing.
+ *
+ * Empty means **no group can be reached right now** — every declared group's tools are inactive, or
+ * the export predates mod version 20 and could not say. The two are not told apart on the wire and
+ * do not need to be: neither one names a group a command could reach, so both read as *nothing to
+ * step to*. [names] is still the readout.
  */
 @Serializable
 data class ControlGroup(
