@@ -512,9 +512,17 @@ private fun MachineDetail(
     // limit is the command channel's, not the diagram's: see [controlTargetOf]. Named rather than
     // written as "the controls", because the control group beside them is addressed by node path and
     // is not subject to it.
+    //
+    // Two different situations since #120, and only one of them is a dead end. A machine deep in the
+    // chain is commandable as soon as it is the game's selection, and a tap on the diagram is what
+    // moves that — so where the game would take it, the line is directions rather than an apology.
     if (target == null) {
       Text(
-        "Fold, power and unload reach the tractor and its front and rear only",
+        if (machine.selectable) {
+          "Select it on the diagram to fold, power or unload it"
+        } else {
+          "Fold, power and unload reach the tractor, its front and rear, and the selected machine"
+        },
         color = VdtColors.TextDisabled,
         fontSize = 9.sp,
         lineHeight = 11.sp,

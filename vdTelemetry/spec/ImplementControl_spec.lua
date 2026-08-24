@@ -43,6 +43,29 @@ describe("ImplementControl dispatch", function()
     assert.are.same({ { "vdAIActivateVehicle", true } }, v.calls)
   end)
 
+  it("routes a selected lower to vdAILowerSelected", function()
+    -- The fourth address (issue #120). It reaches a machine hitched behind another one, which no
+    -- positional function can name -- and it is still vdAI doing the work, not a fallback here.
+    local v = fakeVehicle({ "vdAILowerSelected" })
+    VDT.ImplementControl.setLowered(v, "selected", true, debugger)
+    assert.are.same({ { "vdAILowerSelected", true } }, v.calls)
+  end)
+
+  it("routes selected fold and activate to their own vdAI functions", function()
+    local v = fakeVehicle({ "vdAIFoldSelected", "vdAIActivateSelected" })
+    VDT.ImplementControl.setFolded(v, "selected", true, debugger)
+    VDT.ImplementControl.setActivated(v, "selected", false, debugger)
+    assert.are.same({ { "vdAIFoldSelected", true }, { "vdAIActivateSelected", false } }, v.calls)
+  end)
+
+  it("never confuses the selection with a position", function()
+    -- The failure that would be silent: an old additionalInputs has the positional functions and not
+    -- the selected ones, so falling back to one of them would move a different machine.
+    local v = fakeVehicle({ "vdAILowerVehicle", "vdAILowerFront", "vdAILowerBack" })
+    VDT.ImplementControl.setLowered(v, "selected", true, debugger)
+    assert.are.same({}, v.calls)
+  end)
+
   it("does not crash when the additionalInputs function is missing", function()
     local v = fakeVehicle({}) -- no vdAI* functions present
     VDT.ImplementControl.setLowered(v, "front", true, debugger)

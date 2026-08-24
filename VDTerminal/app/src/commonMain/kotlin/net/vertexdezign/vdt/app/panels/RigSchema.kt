@@ -320,24 +320,47 @@ private fun layoutChildren(
 /**
  * Which [ControlTarget] addresses [node], or **null when nothing does**.
  *
- * `ControlTarget` reaches three places — the controlled vehicle, and the implements on its front and
- * rear attachers — because that is what FS25_additionalInputs' `vdAI*Front/Back` functions reach, and
- * the rule here is to use what vdAI already has rather than to extend it. So the diagram can show a
- * machine the command channel has no way to name: in `liquidManure_dribbleBar.json` the Bomech is
- * hitched behind the Kaweco, and only the Kaweco is the tractor's rear implement.
+ * **Positional first, selection second** (issue #120). The three positional tokens reach the
+ * controlled vehicle and the implements on its own front and rear attachers, and where one of them
+ * reaches, it is what this returns — unchanged, so a command means exactly what it meant before. Only
+ * where none of them reaches does the fourth get used, and then only if the game really has this
+ * machine selected.
  *
- * Strictly structural, and deliberately stricter than `RigSlotPanel`'s recursive position search: a
- * `position` of `BACK` two levels down is the *dolly's* rear, not the tractor's, and commanding it as
- * though it were the tractor's would move the wrong machine.
+ * That order is not deference to the older tokens, it is what the tokens *do*: `vdAILowerVehicle`
+ * lowers the tractor alone, where `vdAILowerSelected` lowers the selected machine **and cascades into
+ * everything hitched to it**. Addressing a selected tractor as [ControlTarget.SELECTED] would lower
+ * the whole rig from a chip that reads the tractor's own state, which is a control lying about its
+ * scope.
+ *
+ * What is left null is a machine deeper than the tractor's own attachers that the game has *not*
+ * selected — in `liquidManure_dribbleBar.json` the Bomech is hitched behind the Kaweco, so it is
+ * reachable exactly while it is the selection. Since a tap on the diagram moves that selection, the
+ * driver's own way out is to select it.
+ *
+ * The selection read here is the **game's confirmed flag**, never the panel's optimistic echo of a
+ * tap it has just sent. An echo is a request: if the mod refuses it — the machine stopped being
+ * selectable in the tick in between — the selection has not moved, and a command addressed at it
+ * would act on whatever *is* selected instead. That is the same "moves a different machine" failure
+ * `setSelectedVehicle` is gated against mod-side, and it is worth one telemetry tick of read-only
+ * chips to keep it impossible.
+ *
+ * Otherwise strictly structural, and deliberately stricter than `RigSlotPanel`'s recursive position
+ * search: a `position` of `BACK` two levels down is the *dolly's* rear, not the tractor's, and
+ * commanding it as though it were the tractor's would move the wrong machine.
  */
 internal fun controlTargetOf(node: RigNode): ControlTarget? = when {
   node.isRoot -> ControlTarget.VEHICLE
 
-  node.depth != 1 -> null
-
   // Reuses RigSlot's own position -> target table rather than keeping a second copy of the tokens.
-  else -> RigSlot.entries.firstOrNull { it.implementPosition == node.machine.position }?.target
+  node.depth == 1 -> RigSlot.entries.firstOrNull { it.implementPosition == node.machine.position }?.target
+    ?: selectedTargetOf(node)
+
+  else -> selectedTargetOf(node)
 }
+
+/** [ControlTarget.SELECTED] where the game has [node] selected, and null where it has not. */
+private fun selectedTargetOf(node: RigNode): ControlTarget? =
+  if (node.machine.selected) ControlTarget.SELECTED else null
 
 /**
  * The node the diagram should start on.

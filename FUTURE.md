@@ -81,12 +81,10 @@ of them chips on one strip rather than buttons. The design lives in `panels/RigS
 
 What it did not do:
 
-- **Machines deeper in the hitch chain cannot be commanded** — except by selection, which #119 added. `ControlTarget`
-  names the vehicle and its front and rear implements, because those are what vdAI's `vdAI*Front/Back` reach. The
-  diagram happily *shows* a machine two levels down — the Bomech in `liquidManure_dribbleBar.json` is one, and it is the
-  machine the game has selected — and the app renders its fold / power / unload controls inert with a line saying why.
-  #119's `command/SelectionControl.lua` resolves any depth by node path; pointing the rest of the commands at it is the
-  follow-up under that heading below.
+- ~~**Machines deeper in the hitch chain cannot be commanded.**~~ **Closed by #120**: `ControlTarget` gained a fourth
+  token, `selected`, and a machine at any depth is commandable while it is the game's selection — which a tap on the
+  diagram now sets. The Bomech in `liquidManure_dribbleBar.json` was the case that argued for it and is the case it
+  fixes. See "Controls address the selected machine (#120)" below.
 - **One generic silhouette, not the game's ten** — and a front loader is the case that argues hardest against it. Its
   attacher joint reports `x = 0.8`, so its box genuinely overlaps the tractor's by a fifth: that is the game's own
   layout and it is right, because a loader mounts *onto* a tractor rather than being towed by one. The game can draw
@@ -164,15 +162,47 @@ the control-group index — live in `aspects/Selection.lua`, `command/SelectionC
 
 What it did not do:
 
-- **Retargeting the existing controls at the selection.** The natural follow-up, and #119's own non-goal: it would close
-  #116's `ControlTarget` ceiling using the node resolver this issue already built, but it changes how every command is
-  addressed and reopens the vdAI question for lower / fold / activate. Its own issue.
+- ~~**Retargeting the existing controls at the selection.**~~ #119's own non-goal, taken as **#120** — and the vdAI
+  question it reopened was answered by asking rather than by hand-rolling: additionalInputs 1.2.0.0 added
+  `vdAI<Action>Selected`. See its heading below.
 - **Driving the moving tools themselves.** Selecting a crane's boom group is not extending it, and the second needs
   continuous input the command channel is not shaped for.
 - **No front loader has a control group**, so the chip is dead weight on the commonest rig that looked like its
   audience. That is the engine's own answer rather than a gap — a loader names no groups, and the game prints nothing
   there either — but it means the chip has been seen working on exactly one machine class, a turntable ladder. If a
   crane turns out to behave differently, that is where it will show.
+
+---
+
+## Controls address the selected machine (#120)
+
+Built 2026-08-24, **not yet run in game**. `ControlTarget` grew a fourth token, `selected`, and with it the ceiling
+#116 left behind is gone: fold / power / raise / pipe / cover / tip side / discharge all reach a machine at any depth
+of the rig while the game has it selected, and since #119 a tap on the diagram is what selects it.
+
+The decision the issue existed to take went the third way, not the first. Option 1's fallback — hand-rolling a
+selection-addressed lower next to vdAI's positional ones — was never written, because
+**[AdditionalInputs #5](https://github.com/VertexDezign/AdditionalInputs/pull/5) added
+`vdAILowerSelected` / `vdAIFoldSelected` / `vdAIActivateSelected`** (1.2.0.0). So `ImplementControl` routes the new
+token exactly like the three positional ones, the fold-middle scar stays fixed in one place, and the standing vdAI
+rule is intact: the function was asked for and granted rather than invented here. `TargetResolver` resolves the token
+for the direct-engine controls through `Vehicle:getSelectedVehicle()` — not `currentSelection.object`, which is the
+selection *entry* and whose `.vehicle` is the machine.
+
+What it did not do:
+
+- **Nobody has driven it.** Every part of this is unvalidated in game, in singleplayer and on a multiplayer client
+  alike. The rig to try it on is the dribble bar: select the Bomech behind the Kaweco and fold, power and unload it,
+  then tap back to the Kaweco and confirm the same chips move the *other* machine. See "In-game checks nobody has run".
+- **The dependency is a draft.** `REQUIRED_MIN_MINOR_VERSION` is 2 and additionalInputs 1.2.0.0 is not released, so a
+  build from this branch disables its own export against every published version of it. The docs already name 1.2 as
+  the floor. Releasing VDTelemetry ahead of it would ship a mod that switches itself off.
+- **`RigSlotPanel` still addresses positionally**, which was the issue's own non-goal and stays right: a pinned slot
+  *is* a position, and its buttons should keep meaning "whatever is on the rear" rather than following a selection the
+  driver moved somewhere else.
+- **A machine the game will not select can still not be commanded**, and now that is the only thing that cannot. It is
+  the engine's own verdict rather than a gap of ours — `getCanBeSelected` is what the game's own cycling key obeys —
+  and the panel says so in place of the old "tractor and its front and rear only" line.
 
 ---
 
@@ -475,6 +505,12 @@ Each one is cheap to do while playing and settles something above.
   farm keeps its 361 bales in barns, where they cost nothing to count. The number that matters is a
   farm that leaves a season's worth lying on the ground. If it bites, the fix is a slower recompute
   for the two loose blocks, not a slower channel — silo fill levels want to stay at 2 s.
+- **Does a deep machine really answer its controls when selected (#120)?** The dribble-bar rig is the case: select the
+  Bomech behind the Kaweco and fold, power and unload it, then select the Kaweco and confirm the same chips move that
+  one instead. Two things only a game can answer — whether `vdAILowerSelected`'s cascade into the selected machine's
+  own implements is what a driver wants on a real chain, and whether the one-tick gap between tapping a machine and its
+  chips going live is noticeable (the app deliberately waits for the game to confirm the selection rather than trusting
+  its own echo, so that a refused selection can never move a different machine). Needs additionalInputs 1.2.0.0.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.

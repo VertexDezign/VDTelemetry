@@ -992,10 +992,16 @@ enum class CruiseAction(
 }
 
 /**
- * What a control command acts on. `vehicle` is the controlled vehicle itself (the mod calls its
- * native setter directly); `front`/`back` are its attached implements, routed mod-side through
- * FS25_additionalInputs' `vdAI…Front/Back` functions. [token] is the wire vocabulary (the `target=`
- * attribute in `commands.xml`), kept explicit so the enum can be renamed without breaking it.
+ * What a control command acts on. [token] is the wire vocabulary (the `target=` attribute in
+ * `commands.xml`), kept explicit so the enum can be renamed without breaking it.
+ *
+ * Three of the four are **positional**, and they are positions on the *controlled vehicle*:
+ * [VEHICLE] is that vehicle itself, [FRONT] and [BACK] are the implements on its own attachers.
+ * Nothing deeper in a hitch chain has a position of its own, which is the ceiling [SELECTED] lifts.
+ *
+ * Lower / fold / activate route mod-side through FS25_additionalInputs' `vdAI<Action><Address>`
+ * functions, one per member; pipe / cover / tip side / discharge resolve the token to an object in
+ * the mod's own `TargetResolver` and call the engine setter on it.
  */
 @Serializable
 enum class ControlTarget(
@@ -1004,6 +1010,26 @@ enum class ControlTarget(
   VEHICLE("vehicle"),
   FRONT("front"),
   BACK("back"),
+
+  /**
+   * Whatever machine the **game** has selected — at any depth of the rig, so this is the only way to
+   * address a machine hitched behind another one (issue #120).
+   *
+   * Not "wherever the game happens to point": a tap on the rig diagram *moves* the game's selection
+   * (issue #119), so this addresses what the driver last touched, and the terminal and the keyboard
+   * agree about which machine that is. A `setSelected` written before a control command carries a
+   * lower id, and the mod dispatches strictly in id order within one poll, so the two arrive in the
+   * order they were sent.
+   *
+   * **Not a drop-in for the positional three**, which is why
+   * `net.vertexdezign.vdt.app.panels.controlTargetOf` still prefers them wherever they reach:
+   * `vdAILowerVehicle` lowers the tractor alone, where `vdAILowerSelected` lowers the selected
+   * machine *and* cascades into everything hitched to it.
+   *
+   * Resolves to nothing when nothing is selected, which is an ordinary state rather than an error —
+   * a rig where nothing can be selected has nothing selected.
+   */
+  SELECTED("selected"),
 }
 
 /**

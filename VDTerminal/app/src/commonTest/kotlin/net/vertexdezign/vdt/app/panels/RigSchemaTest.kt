@@ -388,9 +388,10 @@ class RigSchemaTest {
   }
 
   @Test
-  fun aMachineDeeperInTheChainIsNotAddressable() {
+  fun aMachineDeeperInTheChainIsNotAddressableUntilItIsSelected() {
     // The dribble-bar rig: the Bomech is hitched behind the Kaweco, so the only thing on the
-    // tractor's rear attacher is the Kaweco. The panel shows the Bomech and refuses to command it.
+    // tractor's rear attacher is the Kaweco. Nothing positional names the Bomech, and until the game
+    // selects it the panel shows it and refuses to command it.
     val rig =
       tractor(
         Implement(
@@ -407,10 +408,69 @@ class RigSchemaTest {
   }
 
   @Test
+  fun theSelectedMachineIsAddressableAtAnyDepth() {
+    // The same rig with the game's own selection where the capture actually has it — on the Bomech.
+    // This is the whole of #120: the machine that had no token is reachable because it is selected,
+    // and a tap on the diagram is what put it there.
+    val rig =
+      tractor(
+        Implement(
+          name = "Barrel",
+          position = "BACK",
+          schema = schema(joint()),
+          jointDescIndex = 1,
+          implement =
+          listOf(
+            Implement(
+              name = "Dribble bar",
+              schema = schema(),
+              jointDescIndex = 1,
+              selection = Selection(selected = true, selectable = true),
+            ),
+          ),
+        ),
+      )
+    assertEquals(
+      ControlTarget.SELECTED,
+      controlTargetOf(layoutRig(rig).first { it.machine.name == "Dribble bar" }),
+    )
+  }
+
+  @Test
+  fun aPositionalTokenWinsOverTheSelectionWhereItReaches() {
+    // The two are NOT interchangeable, so being selected must not change how a machine the positional
+    // tokens already reach is addressed: vdAILowerVehicle lowers the tractor alone, where
+    // vdAILowerSelected would cascade into everything hitched to it — from a chip that reads the
+    // tractor's own state.
+    val rig =
+      Vehicle(
+        name = "Tractor",
+        schema = Schema(name = "VEHICLE", attacherJoint = listOf(joint())),
+        selection = Selection(selected = true, selectable = true),
+        implement =
+        listOf(Implement(name = "Plough", position = "BACK", schema = schema(), jointDescIndex = 1)),
+      )
+    assertEquals(ControlTarget.VEHICLE, controlTargetOf(layoutRig(rig).first { it.isRoot }))
+
+    val rearSelected =
+      tractor(
+        Implement(
+          name = "Plough",
+          position = "BACK",
+          schema = schema(),
+          jointDescIndex = 1,
+          selection = Selection(selected = true, selectable = true),
+        ),
+      )
+    assertEquals(ControlTarget.BACK, controlTargetOf(layoutRig(rearSelected).first { !it.isRoot }))
+  }
+
+  @Test
   fun aNestedRearImplementIsNotTheTractorsRear() {
     // The one that would be silently wrong: `position` is BACK on both, but the deeper one is the
     // *dolly's* rear. vdAI's vdAI*Back moves whatever is on the tractor, so addressing this as BACK
-    // would fold, raise or switch off a different machine than the one on screen.
+    // would fold, raise or switch off a different machine than the one on screen. Still true after
+    // #120 — the selection is what gained an address, not the positional tokens.
     val rig =
       tractor(
         Implement(
