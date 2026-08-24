@@ -465,33 +465,12 @@ Each one is cheap to do while playing and settles something above.
   confirmed that the bay order matches what you see left-to-right, or that base-game maps even ship
   such a placeable. `basic.json` looks like it answers this and does not: its three bunkers that share
   a name are three separate single-bay placeables, which is why they carry no bay suffix.
-- **Does an MP client's bale count match the host's (#117)?** That a joined client sees loose bales
-  at all is **answered** — `mp_modded.json` is a client capture and carries 22 of them, so
-  `Bale:readStream` really does fill `itemSystem` there. The open half is whether it sees *all* of
-  them or only ones the engine considers relevant: nobody has stood a host and a client side by side
-  and compared the two counts. If they differ, the stock overview has to say so rather than quietly
-  under-report.
 - **What does the loose-stock walk cost on a farm that leaves its bales out (#117)?** It walks the
   item list and the vehicle list every 2 s alongside the placeable list the channel already walked.
   The captured farm ran it without a murmur in the script debug, but it only had 22 loose bales — that
   farm keeps its 361 bales in barns, where they cost nothing to count. The number that matters is a
   farm that leaves a season's worth lying on the ground. If it bites, the fix is a slower recompute
   for the two loose blocks, not a slower channel — silo fill levels want to stay at 2 s.
-- **Does the manure heap really drop out of `storage.json` — and turn up on the pen's bar (#117)?** The rule is
-  read off the game's own wiring (`storage.unloadingStations` holding a station whose `owningPlaceable` carries
-  `spec_husbandry`), and the game source says a heap placed near a barn is registered exactly so. What nobody
-  has *seen* is the outcome: own a barn with a heap behind it, and the heap should be gone from the Storage app
-  while `husbandry.json` reports the same liters on a condition bar carrying `"type": "MANURE"`. Check a
-  multiplayer client too — the link forms there via `Placeable:postReadStream` → `finalizePlacement()`, which is
-  a different path from the host's.
-- **Is a slurry tank ever an extension at all?** The liquid-manure half of that rule has never fired: the tank in
-  `examples/json/storage/basic.json` is a plain `PlaceableSilo` the farm fills itself (which is why it also holds
-  digestate), not a barn extension. If no base-game tank sets `isExtension`, the rule still costs nothing — it is
-  the same check for both — but the manure heap is then the only case it ever matches.
-- **Does a modded pen with a built-in manure pit report its manure?** These were the reason the fill type went on
-  the condition bars: such a pit is inside the husbandry, so no placeable ever carried it and `storage.json` never
-  saw it. The bar should now name it `MANURE`. The one way it can miss is a mod that builds its bar's title from
-  something other than the fill type's own title, which no base-game spec does.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.
@@ -604,12 +583,15 @@ machine that has them.
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
-- **A husbandry capture at channel v2**, with a manure heap wired into the pen. `examples/json/husbandry/basic.json`
-  predates the fill type on the condition bars (and predates the capture rule below — it is hand-written, English
-  titles and all), so nothing committed shows a bar carrying `"type"`, and nothing shows the storage channel's
-  matching omission. `HusbandryModelTest.conditionBarsCarryTheFillTypeBehindThem` covers the shape with inline JSON
-  meanwhile. Ideally the same session yields the `storage.json` beside it, so the pair proves the manure is counted
-  once.
+- **`fermented_silo.json` at v3.** The rest of the set has caught up: `examples/json/husbandry/basic.json` is a real
+  v2 capture (a 52-animal cow barn, its four condition bars typed) replacing the hand-written English-titled file that
+  predated the capture rule below, and `storage/basic.json` and `storage/mp_modded.json` are both v3 recaptures.
+  `storage/fermented_silo.json` is the one still at v2 — it is the *second half of a before/after pair* with
+  `basic.json` (the same bunker, CLOSED at 5% then FERMENTED at 100%), so recapturing it means catching that save in
+  the same state again rather than simply exporting once. Low value: its farm has no husbandry-fed storage either, so
+  v3 would change its version string and nothing else. `examples/json/*/empty.json` are v1 captures too, though
+  nothing either version added shows in an empty file. Still inline JSON meanwhile, because no captured pen has one:
+  `HusbandryModelTest.aPalletOutputBarStaysUntyped`.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.

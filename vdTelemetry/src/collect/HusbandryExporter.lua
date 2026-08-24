@@ -16,8 +16,11 @@
 -- Since v2 a condition bar also carries the FILL TYPE behind it where it has one (fillTypeByTitle),
 -- which makes this channel the sole reporter of the farm's manure and slurry: the heap and the tank
 -- ARE the barn's store, so the storage channel deliberately leaves them out (StorageExporter v3,
--- feedsHusbandry) rather than have the stock overview count them twice. Some modded pens hold a
--- manure pit of their own, and those liters never had anywhere else to be reported from.
+-- feedsHusbandry) rather than have the stock overview count them twice. A pen that keeps its store
+-- INSIDE itself -- no heap placeable anywhere -- was never reported at all before this: the barn in
+-- examples/json/husbandry/basic.json holds 3834 l of manure and 233 l of slurry that appear nowhere
+-- in the storage capture from the same farm (examples/json/storage/mp_modded.json), which is where
+-- this channel became the only place they are named.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 

@@ -129,14 +129,28 @@ end
 -- (PlaceableHusbandryStraw / PlaceableHusbandryLiquidManure : getConditionInfos). The heap IS the
 -- barn's manure store; there is one heap of manure and it is reported once, by the pen that made it.
 --
+-- Whether a given heap IS one of those is decided at runtime, per placement, not by what it is in the
+-- shop: StorageSystem:getIsStationCompatible asks only for the same farm, distance <
+-- station.storageRadius, and one shared fill type. So the same heap is a plain farm store standing
+-- alone and the barn's own store standing beside one -- which is why this must be read live rather
+-- than inferred from the placeable. (ManureHeap.isExtension defaults to TRUE, where
+-- Storage.isExtension defaults to false, so every heap is a candidate and a slurry tank only where
+-- its XML says so.)
+--
 -- Read off the STORAGE rather than off the barn: the engine keeps `storage.unloadingStations` in
 -- sync from the other side (UnloadingStation:addTargetStorage calls storage:addUnloadingStation), so
 -- one plain field read answers it without walking every husbandry. A husbandry's station is the one
 -- whose owningPlaceable carries spec_husbandry -- the same storage attached to a plain silo's station
 -- keeps its export, because no silo double-reports it.
 --
+-- Seen in a game (singleplayer, 2026-08-24): build a barn beside a standing heap and the heap leaves
+-- this export, its liters appearing on the pen's manure bar instead. Recapturing the singleplayer
+-- fixtures at v3 changed the version string and nothing else, so a heap with no barn in range keeps
+-- its export -- both directions of the rule, in the game rather than only in the specs.
+--
 -- Wired on a multiplayer CLIENT too: Placeable:postReadStream calls finalizePlacement(), which
--- raises onFinalizePlacement there exactly as on the host.
+-- raises onFinalizePlacement there exactly as on the host (untested with a heap; a client reporting
+-- a barn's own internal store is covered by examples/json/storage/mp_modded.json).
 ---@param storages table[] the placeable's Storage-shaped objects
 ---@return boolean
 local function feedsHusbandry(storages)
