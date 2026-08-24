@@ -8,11 +8,6 @@
 --   * `bunkerSilos` — silage bunkers (PlaceableBunkerSilo / PlaceableMultiBunkerSilo).
 --   * `looseBales` / `loosePallets` — the bales and pallets lying around the farm, aggregated.
 --
--- The last three are deliberately NOT part of `storages`: the Storage app renders that array and
--- nothing else, so a separate key keeps a heap of chaff and 300 bales on the ground out of a view
--- that is about buildings you can unload from. They exist for the price list (#112) and the stock
--- overview (#118), which want the farm's whole sellable holding rather than its buildings.
---
 -- Split off the sibling PRODUCTION channel (src/collect/ProductionExporter.lua, production.json) so
 -- each app/channel can evolve on its own. This module REUSES ProductionExporter's id / storage-row
 -- helpers (placeableId, storageRows) — one definition, so stable ids and fill-row formatting can't
@@ -81,8 +76,8 @@ end
 -- Duplicate fill types across sets are merged; an all-empty (0-level) storage still shows as long as
 -- it has capacity for some fill type. Returns nil when there's nothing to show.
 ---@param placeable table
----@param storages table[] the placeable's Storage-shaped objects
----@return StandaloneStorageModel|nil
+---@param storages  table[] the placeable's Storage-shaped objects
+---@return StandaloneStorageModel | nil
 local function collectFillStorage(placeable, storages, farmId, fallbackIndex)
   local rows = {}
   local seen = {}
@@ -195,7 +190,7 @@ end
 -- it is is the only honest bale/pallet discriminator here: the dialog text says "Rundballen" or
 -- "Bigbag" in the player's language, which is a label, not a type. Neither table exposes a getter, so
 -- both are read directly; both are filled from the update stream, so a multiplayer client has them.
----@return StoredObjectDetail|nil nil when there is no nameable fill type on the object
+---@return StoredObjectDetail | nil nil when there is no nameable fill type on the object
 local function storedObjectDetail(object)
   local fillTypeIndex, level, shape, kind
   local okReal, real = pcall(object.getRealObject, object)
@@ -241,7 +236,7 @@ end
 -- whole breakdown reaches a multiplayer client live -- the spec re-sends its full write stream
 -- whenever setObjectStorageObjectInfosDirty() raises its dirty flag, which every store and unload
 -- does. Shown even when empty (capacity > 0) like an empty silo.
----@return StandaloneStorageModel|nil
+---@return StandaloneStorageModel | nil
 local function collectObjectStorage(placeable, farmId, fallbackIndex)
   local spec = placeable.spec_objectStorage
   local capacity = math.floor(num(spec.capacity))
@@ -300,10 +295,10 @@ end
 --
 -- There is no capacity to report: a bunker's ceiling is the shape of its walls, and the game itself
 -- only ever prints a fill level for one.
----@param silo table a base-game BunkerSilo
----@param id string
+---@param silo table  a base-game BunkerSilo
+---@param id   string
 ---@param name string
----@return BunkerSiloModel|nil nil when the silo is in a state this build does not know
+---@return BunkerSiloModel | nil nil when the silo is in a state this build does not know
 local function collectBunkerSilo(silo, id, name)
   local state = BUNKER_STATES[silo.state]
   if state == nil then
@@ -578,8 +573,8 @@ function VDT.StorageExporter.isAvailable()
   return g_currentMission ~= nil and g_currentMission.placeableSystem ~= nil and g_fillTypeManager ~= nil
 end
 
----Build the storage model, or nil when the placeable system isn't up yet (skips the write).
----@return StorageModel|nil
+--- Build the storage model, or nil when the placeable system isn't up yet (skips the write).
+---@return StorageModel | nil
 function VDT.StorageExporter.collect()
   if not VDT.StorageExporter.isAvailable() then
     return nil

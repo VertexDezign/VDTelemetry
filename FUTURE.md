@@ -583,15 +583,6 @@ machine that has them.
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
-- **`fermented_silo.json` at v3.** The rest of the set has caught up: `examples/json/husbandry/basic.json` is a real
-  v2 capture (a 52-animal cow barn, its four condition bars typed) replacing the hand-written English-titled file that
-  predated the capture rule below, and `storage/basic.json` and `storage/mp_modded.json` are both v3 recaptures.
-  `storage/fermented_silo.json` is the one still at v2 — it is the *second half of a before/after pair* with
-  `basic.json` (the same bunker, CLOSED at 5% then FERMENTED at 100%), so recapturing it means catching that save in
-  the same state again rather than simply exporting once. Low value: its farm has no husbandry-fed storage either, so
-  v3 would change its version string and nothing else. `examples/json/*/empty.json` are v1 captures too, though
-  nothing either version added shows in an empty file. Still inline JSON meanwhile, because no captured pen has one:
-  `HusbandryModelTest.aPalletOutputBarStaysUntyped`.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
