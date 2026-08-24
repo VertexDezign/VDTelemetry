@@ -15,11 +15,13 @@ import kotlin.test.assertTrue
  * lossless JSON round-trip — the storage channel's half of the mod↔Kotlin contract. Production points
  * are covered by [ProductionModelTest].
  *
- * Four fixtures, all real game captures. `basic.json` is a singleplayer farm mid-silage-season and
- * `fermented_silo.json` the same farm once its covered bunker has finished; `mp_modded.json` is a
- * played-in **multiplayer client** on a modded map, and `empty.json` the own-farm-with-nothing
- * document. Between them they carry every version 2 state. The two shapes no capture can hold — a
- * channel version 1 file, and a stored row the mod could not read at all — are asserted inline.
+ * Four fixtures, all real game captures, and they do not all sit at the same channel version — a
+ * capture is whatever the game wrote that day. `basic.json` is a singleplayer farm mid-silage-season,
+ * recaptured at version 3, and `fermented_silo.json` the same farm once its covered bunker has
+ * finished, still at version 2; `mp_modded.json` is a played-in **multiplayer client** on a modded
+ * map, also recaptured at version 3; `empty.json` is the own-farm-with-nothing document. Between them
+ * they carry every state the channel has ever written. The two shapes no capture can hold — a channel
+ * version 1 file, and a stored row the mod could not read at all — are asserted inline.
  */
 class StorageModelTest {
   private val json = Json { encodeDefaults = true }
@@ -43,19 +45,28 @@ class StorageModelTest {
   /**
    * The singleplayer capture, taken mid-silage-season: six storages including a manure heap, three
    * bunkers in two states, square and fermenting bales, and stored objects that hold no fill type at
-   * all. Between this and [parsesTheMultiplayerV2Capture] every version 2 state but one is covered by
+   * all. Between this and [parsesTheMultiplayerCapture] every state the channel writes is covered by
    * real game data.
+   *
+   * Recaptured at version 3 from the same save, and **the version string is the only thing that
+   * changed** — which is the evidence that the version 3 exclusion does not over-fire. This farm's
+   * heap and slurry tank are standalone, no barn connected to either, so the rule must leave all six
+   * storages exactly where they were; an over-eager `feedsHusbandry` would silently delete a building
+   * the farm really owns, and that would show here as a missing row.
    */
   @Test
   fun parsesBasicStorage() {
     val data = VdtParser.parseStorage(example("basic.json"))
 
-    assertEquals("2", data.version)
+    assertEquals("3", data.version)
     assertEquals(6, data.storages.size)
 
     // A manure heap is a `fill` storage like any other, which is the point: in the engine it is not a
     // Storage at all, it hangs off a spec of its own, and it was invisible to this channel until
     // someone went looking for theirs. Here it is, next to the slurry tank that is its liquid twin.
+    // Both are standalone — the farm fills them itself, no barn feeds either — which is why version 3
+    // still reports them (it takes only a storage a husbandry feeds), and why the tank can also hold
+    // digestate.
     val heap = data.storages.single { it.name == "Misthaufen" }
     assertEquals("fill", heap.kind)
     assertEquals("MANURE", heap.fills.single().type)
@@ -202,12 +213,28 @@ class StorageModelTest {
    * read from a joined **client**, which is what makes it the proof that none of the four blocks is
    * host-only. The map is modded, which is why `GRASS_FERMENTED` appears where a vanilla save would
    * say `SILAGE` — a reminder that fill type names are map data, not a fixed vocabulary.
+   *
+   * Recaptured at version 3, and every id in it changed — which is a fact about clients, not about
+   * the recapture. A bought placeable's `uniqueId` lives in the host's savegame and is never sent:
+   * `Placeable:readStream` carries filename, position and rotation only, so on the client
+   * `PlaceableSystem:addPlaceable` mints one itself (`Utils.getUniqueId`, an MD5 over the object and
+   * `getTime()`) and it differs every session. Only a *preplaced* placeable keeps a stable id there,
+   * from the map's own attribute — the `preplaced_…` ids in the singleplayer captures. Nothing may
+   * key on a client id across sessions.
+   *
+   * What v3 shows here it shows by **absence**, and it takes the husbandry fixture to see it: the same
+   * farm's cow barn in `examples/json/husbandry/basic.json` holds 3834 l of `MANURE` and 233 l of
+   * `LIQUIDMANURE` on its condition bars, and neither liter appears anywhere in this file. That is the
+   * whole point of the pair — one heap of manure, reported once, by the pen that made it. The barn
+   * keeps its own store rather than filling a heap placeable nearby, so nothing was ever in `storages`
+   * to drop; the exclusion `feedsHusbandry` makes for a heap that *is* a placeable is not what this
+   * capture exercises.
    */
   @Test
-  fun parsesTheMultiplayerV2Capture() {
+  fun parsesTheMultiplayerCapture() {
     val data = VdtParser.parseStorage(example("mp_modded.json"))
 
-    assertEquals("2", data.version)
+    assertEquals("3", data.version)
     assertEquals(5, data.storages.size)
 
     // Two bunkers, in two different states, and each carries only the percentage its own state
@@ -221,7 +248,7 @@ class StorageModelTest {
     val draining = data.bunkerSilos.single { it.state == "DRAIN" }
     // Opened, the game names the output type, and so does the export.
     assertEquals("SILAGE", draining.type)
-    assertEquals(526858, draining.level)
+    assertEquals(520486, draining.level)
     assertEquals(0, draining.compacted)
     assertEquals(0, draining.fermenting)
 

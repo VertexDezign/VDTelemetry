@@ -38,45 +38,50 @@ class HusbandryModelTest {
   fun parsesBasicHusbandry() {
     val data = VdtParser.parseHusbandry(example("basic.json"))
 
-    assertEquals("1", data.version)
+    assertEquals("2", data.version)
     assertEquals(1, data.husbandries.size)
 
     val pen = data.husbandries[0]
-    assertEquals("CowBarn_1", pen.id)
-    assertEquals("Cow Barn (medium)", pen.name)
-    assertEquals(12, pen.numAnimals)
-    assertEquals(20, pen.maxNumAnimals)
-    assertEquals(0.82f, pen.productivity)
+    assertEquals("placeablebc4f20e4b1794d29a61be8056cdf319d", pen.id)
+    assertEquals("Moderner Kuhstall", pen.name)
+    assertEquals(52, pen.numAnimals)
+    assertEquals(70, pen.maxNumAnimals)
+    assertEquals(1f, pen.productivity)
 
-    // Food is its own list (getFoodInfos), separate from the condition bars — with liters + capacity.
-    assertEquals(2, pen.food.size)
-    assertEquals("Total Mixed Ration (100%)", pen.food[0].title)
-    assertEquals(0.55f, pen.food[0].ratio)
-    assertEquals(2750, pen.food[0].value)
-    assertEquals(5000, pen.food[0].capacity)
+    // Food is its own list (getFoodInfos), separate from the condition bars — with liters + capacity,
+    // and every group sharing the pen's one food capacity.
+    assertEquals(4, pen.food.size)
+    assertEquals("Totalmischration (100%)", pen.food[0].title)
+    assertEquals(0.9031f, pen.food[0].ratio)
+    assertEquals(30480, pen.food[0].value)
+    assertEquals(33750, pen.food[0].capacity)
+    // A food bar is a group summed over several fill types, so it never carries a fill type.
+    assertEquals("", pen.food[0].type)
 
-    assertEquals(4, pen.conditions.size)
-    assertEquals("Water", pen.conditions[0].title)
-    assertEquals(0.9f, pen.conditions[0].ratio)
-    assertEquals(4500, pen.conditions[0].value)
     // Condition bars carry no capacity (only food groups do) -> defaults to 0.
-    assertEquals(0, pen.conditions[0].capacity)
-    assertFalse(pen.conditions[0].inverted)
-    // The manure output bar is inverted; the omitted `inverted` on the others defaults to false.
-    assertTrue(pen.conditions[3].inverted)
+    assertEquals(4, pen.conditions.size)
+    assertEquals("Stroh", pen.conditions[1].title)
+    assertEquals(0.9384f, pen.conditions[1].ratio)
+    assertEquals(20059, pen.conditions[1].value)
+    assertEquals(0, pen.conditions[1].capacity)
+    // The output bars read inversely (a high level wants emptying); the intake bar does not, and its
+    // omitted `inverted` defaults to false.
+    assertTrue(pen.conditions[0].inverted)
+    assertFalse(pen.conditions[1].inverted)
 
-    assertEquals(2, pen.animals.size)
+    assertEquals(19, pen.animals.size)
     val holstein = pen.animals[0]
-    assertEquals("Holstein", holstein.name)
-    assertEquals(8, holstein.count)
-    assertEquals(24, holstein.age)
-    assertEquals(95, holstein.health)
-    assertEquals(60, holstein.reproduction)
+    assertEquals("Holstein Kuh", holstein.name)
+    assertEquals(7, holstein.count)
+    assertEquals(22, holstein.age)
+    assertEquals(100, holstein.health)
+    assertEquals(30, holstein.reproduction)
     assertTrue(holstein.supportsReproduction)
-    // The calf omits reproduction fields -> defaults (0 / false).
-    val calf = pen.animals[1]
-    assertEquals(0, calf.reproduction)
-    assertFalse(calf.supportsReproduction)
+    // A bull omits supportsReproduction -> defaults to false.
+    val bull = pen.animals[4]
+    assertEquals("Holstein Bulle", bull.name)
+    assertEquals(0, bull.reproduction)
+    assertFalse(bull.supportsReproduction)
 
     assertRoundTrips(data)
   }
@@ -84,11 +89,29 @@ class HusbandryModelTest {
   /**
    * Channel v2 put a fill type on the condition bars whose liters are real storage, which is what
    * lets the storage channel stop reporting the manure heap behind the barn (it would otherwise be
-   * counted twice). Inline JSON rather than a fixture: `basic.json` predates v2, and a capture with
-   * a heap wired into a pen is still wanted — see FUTURE.md.
+   * counted twice). The capture is a cow barn, so all four of its bars are typed — the untyped
+   * pallet output is covered separately below.
    */
   @Test
   fun conditionBarsCarryTheFillTypeBehindThem() {
+    val pen = VdtParser.parseHusbandry(example("basic.json")).husbandries[0]
+
+    // Milk and straw the game would name in the player's language either way; manure and slurry are
+    // the ones nothing else in the export names any more, since storage.json leaves the heap out.
+    assertEquals(listOf("MILK", "STRAW", "MANURE", "LIQUIDMANURE"), pen.conditions.map { it.type })
+    assertEquals("Mist", pen.conditions[2].title)
+    assertEquals(3834, pen.conditions[2].value)
+    assertEquals("Gülle", pen.conditions[3].title)
+    assertEquals(233, pen.conditions[3].value)
+  }
+
+  /**
+   * Inline JSON, because no captured pen has one: a pallet output's liters are still waiting to
+   * become an egg pallet, so the bar stays untyped — nobody's stock until the pallet exists, and it
+   * is `storage.json`'s `loosePallets` that counts it then.
+   */
+  @Test
+  fun aPalletOutputBarStaysUntyped() {
     val data =
       VdtParser.parseHusbandry(
         """
@@ -96,15 +119,10 @@ class HusbandryModelTest {
           "version": "2",
           "husbandries": [
             {
-              "id": "CowBarn_1",
-              "name": "Kuhstall (mittel)",
-              "food": [
-                { "title": "Gras (30%)", "ratio": 0.2, "value": 1000, "capacity": 5000 }
-              ],
+              "id": "ChickenCoop_1",
+              "name": "Hühnerstall",
               "conditions": [
                 { "title": "Stroh", "type": "STRAW", "ratio": 0.3, "value": 1500 },
-                { "title": "Mist", "type": "MANURE", "ratio": 0.42, "value": 3111, "inverted": true },
-                { "title": "Gülle", "type": "LIQUIDMANURE", "ratio": 0.7, "value": 21000, "inverted": true },
                 { "title": "Eier", "ratio": 0.1, "value": 400, "inverted": true }
               ]
             }
@@ -114,16 +132,9 @@ class HusbandryModelTest {
       )
 
     val conditions = data.husbandries[0].conditions
-    // The pen's own store: these are the liters nothing else in the export names any more.
     assertEquals("STRAW", conditions[0].type)
-    assertEquals("MANURE", conditions[1].type)
-    assertEquals(3111, conditions[1].value)
-    assertEquals("LIQUIDMANURE", conditions[2].type)
-    // A pallet output stays untyped: those liters are still waiting to become an egg pallet, and it
-    // is the pallet on the ground that storage.json counts, once it exists.
-    assertEquals("", conditions[3].type)
-    // A food bar is a group over several fill types, so it never carries one either.
-    assertEquals("", data.husbandries[0].food[0].type)
+    assertEquals("", conditions[1].type)
+    assertTrue(conditions[1].inverted)
 
     assertRoundTrips(data)
   }

@@ -1,5 +1,5 @@
 {
-  "version": "2",
+  "version": "3",
   "looseBales": [
     {
       "type": "DRYGRASS_WINDROW",
@@ -20,7 +20,7 @@
   ],
   "storages": [
     {
-      "id": "placeable6933b07da8af3a9c5ca976e7e575a583",
+      "id": "placeable74cc4d12305cfeb2001b7b314a135ba6",
       "kind": "fill",
       "name": "Betriebshalle mit Silo",
       "fills": [
@@ -161,7 +161,7 @@
       ],
       "name": "Offene Garage aus Holz",
       "maxUnloadAmount": 25,
-      "id": "placeablee189de32741f294c8a99cdb8c32516a3",
+      "id": "placeablefc779468ae2f9d0ed22359af1e8881d4",
       "kind": "object",
       "capacity": 250,
       "count": 10
@@ -211,7 +211,7 @@
       ],
       "name": "Palettenregal",
       "maxUnloadAmount": 25,
-      "id": "placeable9c474e6fbc50232210f02d9cbb12cbdf",
+      "id": "placeable0ac0cabbbe8155cc2f3565b5685ff4a8",
       "kind": "object",
       "capacity": 40,
       "count": 5
@@ -230,7 +230,7 @@
       ],
       "name": "Ballenlager 350",
       "maxUnloadAmount": 25,
-      "id": "placeable456286c75054bbe77279da50a0d176d0",
+      "id": "placeable593d14be6eeae8a831660de4eca15f0d",
       "kind": "object",
       "capacity": 350,
       "count": 50
@@ -285,7 +285,7 @@
       ],
       "name": "Futterhalle",
       "maxUnloadAmount": 25,
-      "id": "placeableb0fbb5152712ea450ac6c47d6a5110eb",
+      "id": "placeable6fe8bb012f08e2540e02da702f5d3aa2",
       "kind": "object",
       "capacity": 1000,
       "count": 311
@@ -305,7 +305,7 @@
       "state": "FILL",
       "type": "CHAFF",
       "name": "Bunkersilo",
-      "id": "placeable19a7d65941d5d8890e20ca3c2731ccbb",
+      "id": "placeablec49ac0374e4e3d6b8d23b6b38f12d8b9",
       "level": 0,
       "title": "Häckselgut",
       "compacted": 0
@@ -314,8 +314,8 @@
       "state": "DRAIN",
       "type": "SILAGE",
       "name": "Großes Bunkersilo 25m x 34m",
-      "id": "placeable13e8d39b434f84d77c98b696cb47aa02",
-      "level": 526858,
+      "id": "placeable82de1955875f4f80d4799f06e4f358c0",
+      "level": 520486,
       "title": "Silage"
     }
   ]
