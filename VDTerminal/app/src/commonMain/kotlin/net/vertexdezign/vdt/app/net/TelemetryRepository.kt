@@ -28,6 +28,7 @@ import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.MissionsData
+import net.vertexdezign.vdt.model.PricesData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
@@ -122,6 +123,12 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // contract as production -- a fleet that has stopped being reported must not keep listing machines.
   private val _fleet = MutableStateFlow<FleetData?>(null)
   val fleet: StateFlow<FleetData?> = _fleet.asStateFlow()
+
+  // The map's price board, on the mod's own 30 s interval. Not farm-scoped, and carries no stock:
+  // valuing what the farm owns is a join against [storage] and its siblings. Same null-when-absent
+  // contract as production -- a board that has stopped being reported must not keep pricing stock.
+  private val _prices = MutableStateFlow<PricesData?>(null)
+  val prices: StateFlow<PricesData?> = _prices.asStateFlow()
 
   // The farm's contracts, event-driven plus the mod's slow countdown interval; same
   // null-when-absent contract as production.
@@ -248,6 +255,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.Fleet -> {
                       _fleet.value = msg.data
+                    }
+
+                    is ServerMessage.Prices -> {
+                      _prices.value = msg.data
                     }
 
                     is ServerMessage.Missions -> {

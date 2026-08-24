@@ -171,6 +171,10 @@ fun main() {
   // record); same absence rule -- a machine that has quietly stopped being reported is the one thing
   // a list of machines must not do.
   val fleetState = watcher.register("fleet.json", nullOnAbsent = true) { VdtParser.parseFleet(it) }
+  // prices.json is interval-driven on the mod's 30 s cadence -- the interval the game itself
+  // refreshes a multiplayer client's prices on. Same absence rule: a stale board would value today's
+  // stock at last session's prices.
+  val pricesState = watcher.register("prices.json", nullOnAbsent = true) { VdtParser.parsePrices(it) }
   watcher.launchIn(appScope)
 
   // The ground-layer rasters live in their own folder, one file per plane plus index.json naming the
@@ -361,6 +365,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val pricesJob =
+          launch {
+            pricesState.collect { data ->
+              val message: ServerMessage = ServerMessage.Prices(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         val missionsJob =
           launch {
             missionsState.collect { data ->
@@ -456,6 +467,7 @@ fun main() {
           storageJob.cancel()
           husbandryJob.cancel()
           fleetJob.cancel()
+          pricesJob.cancel()
           missionsJob.cancel()
           financeJob.cancel()
           invoicesJob.cancel()
