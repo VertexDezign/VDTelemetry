@@ -85,6 +85,16 @@ local function makeManureHeap(name, owner, uniqueId, level, capacity)
   }
 end
 
+-- Wires a storage into an unloading station's target list, the way UnloadingStation:addTargetStorage
+-- does (`storage.unloadingStations[station] = station`). `owner` is the station's owningPlaceable:
+-- one carrying spec_husbandry is a barn, which is what makes the storage the barn's own store.
+local function attachStation(storage, owner)
+  storage.unloadingStations = storage.unloadingStations or {}
+  local station = { owningPlaceable = owner }
+  storage.unloadingStations[station] = station
+  return storage
+end
+
 -- An object-storage placeable (spec_objectStorage). `groups` is a list of { title, count } modelled
 -- as the game's objectInfos (each with an abstract object exposing getDialogText).
 local function makeObjectStorage(name, owner, uniqueId, capacity, numStored, groups, maxUnload)
@@ -378,6 +388,51 @@ describe("StorageExporter.collect", function()
     assert.are.equal("MANURE", s.fills[1].type)
     assert.are.equal(42000, s.fills[1].level)
     assert.are.equal(200000, s.fills[1].capacity)
+  end)
+
+  it("drops a heap a barn has taken over as its own store, and only that one", function()
+    -- The whole of channel v3: a heap in a barn's range registers itself as a target storage of the
+    -- barn's unloading station, and the pen's manure bar then reads THESE liters
+    -- (getHusbandryFillLevel = UnloadingStation:getFillLevel). Exporting it here as well would have
+    -- the stock overview price the same manure twice, so the placeable goes -- husbandry.json names
+    -- it instead, on a condition bar carrying its fill type.
+    local barn = { spec_husbandry = {} }
+    local fed = makeManureHeap("Misthaufen am Stall", 1, "heap-fed", 3834, 735000)
+    attachStation(fed.spec_manureHeap.manureHeap, barn)
+    local standalone = makeManureHeap("Misthaufen", 1, "heap-standalone", 3111, 735000)
+    setupWorld({ fed, standalone }, 1)
+
+    local model = VDT.StorageExporter.collect()
+    assert.are.equal(1, #model.storages)
+    assert.are.equal("heap-standalone", model.storages[1].id)
+  end)
+
+  it("keeps a storage whose station belongs to no husbandry", function()
+    -- The other half of the same rule, and the one every committed capture actually shows: a heap or
+    -- a slurry tank the farm fills itself keeps its export. A plain unloading station -- a silo's own
+    -- tipping point -- is not a barn, and no silo double-reports what it feeds.
+    local heap = makeManureHeap("Misthaufen", 1, "heap-1", 3111, 735000)
+    attachStation(heap.spec_manureHeap.manureHeap, { spec_silo = {} })
+    local tank = makeSilo("Güllebehälter", 1, "tank-1", { [12] = 145000 }, { [12] = 300000 })
+    setupWorld({ heap, tank }, 1)
+
+    local model = VDT.StorageExporter.collect()
+    assert.are.equal(2, #model.storages)
+    assert.are.equal("heap-1", model.storages[1].id)
+    assert.are.equal("tank-1", model.storages[2].id)
+  end)
+
+  it("drops the whole placeable when any one of its storages feeds a husbandry", function()
+    -- An extension only ever holds what the barn can put in it, so there is nothing else on it to
+    -- lose -- and half-exporting a placeable would leave the app a storage whose totals don't add up.
+    local silo = makeSilo("Stallanbau", 1, "annex-1", { [20] = 20059 }, { [20] = 21376 })
+    local second = makeStorage({ [12] = 233 }, { [12] = 55000 })
+    second.ownerFarmId = 1
+    attachStation(second, { spec_husbandry = {} })
+    silo.spec_silo.storages[2] = second
+    setupWorld({ silo }, 1)
+
+    assert.is_nil(VDT.StorageExporter.collect().storages)
   end)
 
   it("still says what a stored object IS when it holds no fill type", function()
