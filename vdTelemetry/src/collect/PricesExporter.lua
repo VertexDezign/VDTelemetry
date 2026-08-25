@@ -309,6 +309,22 @@ function VDT.PricesExporter.collect()
     usedFillTypes[fillTypeIndex] = true
   end
 
+  -- Rows are APPENDED, never assigned: grouping per placeable is our choice, and a placeable type is
+  -- just a list of specializations, so a map is free to build one out of two selling-station (or two
+  -- buying-station) components. The storage system then hands us both, pointing at one
+  -- owningPlaceable, and the second one's rows have to join the first's rather than replace them --
+  -- which also means the sort has to wait until every pass below has contributed.
+  local function appendRows(entry, field, rows)
+    local existing = entry[field]
+    if existing == nil then
+      entry[field] = rows
+      return
+    end
+    for _, row in ipairs(rows) do
+      existing[#existing + 1] = row
+    end
+  end
+
   -- Sell side: every selling station the prices menu would list. hideFromPricesMenu is the map's own
   -- opt-out (mission-only tip triggers set it) and is honoured here for the same reason the game
   -- honours it -- those are not places a player can choose to sell at.
@@ -348,7 +364,7 @@ function VDT.PricesExporter.collect()
           end
         end
         if #rows > 0 then
-          entryFor(placeable, station, stationName(station, placeable)).sell = sortRows(rows)
+          appendRows(entryFor(placeable, station, stationName(station, placeable)), "sell", rows)
         end
       end
     end
@@ -374,7 +390,7 @@ function VDT.PricesExporter.collect()
           end
         end
         if #rows > 0 then
-          entryFor(placeable, station, stationName(station, placeable)).buy = sortRows(rows)
+          appendRows(entryFor(placeable, station, stationName(station, placeable)), "buy", rows)
         end
       end
     end
@@ -398,9 +414,19 @@ function VDT.PricesExporter.collect()
         end
         if #rows > 0 then
           local entry = entryFor(placeable, nil, stationName(nil, placeable))
-          entry.pallets = sortRows(rows)
+          appendRows(entry, "pallets", rows)
           entry.isPalletStation = true
         end
+      end
+    end
+  end
+
+  -- Sorted here rather than in the passes above, because a station's list is only complete once all
+  -- three have run (see appendRows).
+  for _, entry in ipairs(stations) do
+    for _, field in ipairs({ "sell", "buy", "pallets" }) do
+      if entry[field] ~= nil then
+        sortRows(entry[field])
       end
     end
   end

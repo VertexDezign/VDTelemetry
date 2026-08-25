@@ -387,6 +387,53 @@ describe("PricesExporter.collect", function()
     assert.are.equal(1850, byType(station.buy).DIESEL.price)
   end)
 
+  it("merges two selling stations on one placeable instead of letting the second win", function()
+    -- A placeable type is a list of specializations, so nothing stops a map from building one out of
+    -- two selling-station components -- and then the storage system hands us two stations pointing at
+    -- the same owningPlaceable. Grouping per placeable is our choice, so it is on us to add the
+    -- second station's rows to the first's rather than replace them.
+    local placeable = { uniqueId = "market-1" }
+    setupWorld({
+      unloading = {
+        makeSellingStation({
+          name = "Farmers Market",
+          placeable = placeable,
+          accepted = { [1] = true },
+          prices = { [1] = 0.9 },
+        }),
+        makeSellingStation({
+          name = "Farmers Market",
+          placeable = placeable,
+          accepted = { [3] = true },
+          prices = { [3] = 1.2 },
+        }),
+      },
+      loading = {
+        makeBuyingStation({
+          name = "Farmers Market",
+          placeable = placeable,
+          supported = { [2] = true },
+          prices = { [2] = 1.85 },
+        }),
+        makeBuyingStation({
+          name = "Farmers Market",
+          placeable = placeable,
+          supported = { [3] = true },
+          prices = { [3] = 1.2 },
+        }),
+      },
+    })
+
+    local station = VDT.PricesExporter.collect().stations[1]
+    assert.are.equal(2, #station.sell)
+    assert.are.equal(2, #station.buy)
+    -- and still sorted, which is only true if the sort runs after both passes have contributed
+    assert.are.equal("FERTILIZER", station.sell[1].type)
+    assert.are.equal("WHEAT", station.sell[2].type)
+    assert.are.equal("DIESEL", station.buy[1].type)
+    assert.are.equal("FERTILIZER", station.buy[2].type)
+  end)
+
   it("exports a pallet shop's price per pallet, unscaled", function()
     setupWorld({
       pallets = {
