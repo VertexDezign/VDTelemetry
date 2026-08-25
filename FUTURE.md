@@ -81,10 +81,6 @@ of them chips on one strip rather than buttons. The design lives in `panels/RigS
 
 What it did not do:
 
-- ~~**Machines deeper in the hitch chain cannot be commanded.**~~ **Closed by #120**: `ControlTarget` gained a fourth
-  token, `selected`, and a machine at any depth is commandable while it is the game's selection — which a tap on the
-  diagram now sets. The Bomech in `liquidManure_dribbleBar.json` was the case that argued for it and is the case it
-  fixes. See "Controls address the selected machine (#120)" below.
 - **One generic silhouette, not the game's ten** — and a front loader is the case that argues hardest against it. Its
   attacher joint reports `x = 0.8`, so its box genuinely overlaps the tractor's by a fifth: that is the game's own
   layout and it is right, because a loader mounts *onto* a tractor rather than being towed by one. The game can draw
@@ -148,63 +144,6 @@ What it did not do:
   declares one. If a modded vehicle turns up with a rig that draws in a plainly wrong order, this is
   where to look. No committed fixture exercises it any more: `nested_trailers.json`, which used to be
   the version-4-era capture with no schema at all, was retaken at version 19 and carries one on every node.
-
----
-
-## The terminal drives the selection (#119)
-
-Built 2026-08-23 and signed off in singleplayer and on a multiplayer client: a tap on the rig diagram moves the game's
-own selection, and the control-group chip beside it moves the machine's sub-selection, both as one `setSelected`
-command. Four version-20 captures pin it and are named in `VdtModelTest`. The two engine traps everything is shaped
-around — `setSelectedVehicle` silently selecting a *different* machine when refused, and `controlGroupMapping` not being
-the control-group index — live in `aspects/Selection.lua`, `command/SelectionControl.lua` and the `Selection` /
-`ControlGroup` / `SetSelected` doc comments.
-
-What it did not do:
-
-- ~~**Retargeting the existing controls at the selection.**~~ #119's own non-goal, taken as **#120** — and the vdAI
-  question it reopened was answered by asking rather than by hand-rolling: additionalInputs 1.2.0.0 added
-  `vdAI<Action>Selected`. See its heading below.
-- **Driving the moving tools themselves.** Selecting a crane's boom group is not extending it, and the second needs
-  continuous input the command channel is not shaped for.
-- **No front loader has a control group**, so the chip is dead weight on the commonest rig that looked like its
-  audience. That is the engine's own answer rather than a gap — a loader names no groups, and the game prints nothing
-  there either — but it means the chip has been seen working on exactly one machine class, a turntable ladder. If a
-  crane turns out to behave differently, that is where it will show.
-
----
-
-## Controls address the selected machine (#120)
-
-Built 2026-08-24 and signed off in singleplayer and on a multiplayer client. `ControlTarget` grew a fourth token,
-`selected`, and with it the ceiling #116 left behind is gone: fold / power / raise / pipe / cover / tip side / discharge
-all reach a machine at any depth of the rig while the game has it selected, and since #119 a tap on the diagram is what
-selects it.
-
-The decision the issue existed to take went the third way, not the first. Option 1's fallback — hand-rolling a
-selection-addressed lower next to vdAI's positional ones — was never written, because
-**[AdditionalInputs 1.2.0.0](https://github.com/VertexDezign/AdditionalInputs/releases) added
-`vdAILowerSelected` / `vdAIFoldSelected` / `vdAIActivateSelected`** (released 2026-08-25). So `ImplementControl`
-routes the new token exactly like the three positional ones, the fold-middle scar stays fixed in one place, and the
-standing vdAI rule is intact: the function was asked for and granted rather than invented here. `TargetResolver` resolves the token
-for the direct-engine controls through `Vehicle:getSelectedVehicle()` — not `currentSelection.object`, which is the
-selection *entry* and whose `.vehicle` is the machine.
-
-On the diagram the selection is now the **preferred** address, not a last resort, and that is a scope choice:
-`selected` is the only token meaning *one machine*, where `front` / `back` name a position on the tractor and cascade
-into everything hitched behind it. A selected dolly addressed as `back` would raise the trailer behind it from a chip
-reading the dolly's own state, and the machine one level deeper — which has no positional token at all — would move
-alone: same panel, same chip, two scopes the driver cannot see. The positional three stay as the fallback for a rig
-the game has selected nothing on.
-
-What it did not do:
-
-- **`RigSlotPanel` still addresses positionally**, which was the issue's own non-goal and stays right: a pinned slot
-  *is* a position, and its buttons should keep meaning "whatever is on the rear" rather than following a selection the
-  driver moved somewhere else.
-- **A machine the game will not select can still not be commanded**, and now that is the only thing that cannot. It is
-  the engine's own verdict rather than a gap of ours — `getCanBeSelected` is what the game's own cycling key obeys —
-  and the panel says so in place of the old "tractor and its front and rear only" line.
 
 ---
 
