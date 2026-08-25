@@ -545,6 +545,13 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   MP client** (does the history really stop at five?), and **one with notifications in the log** — the hook itself is
   confirmed working in singleplayer, so this is now wanted as a fixture rather than as proof. `FinanceModelTest` covers
   those three shapes with inline JSON meanwhile.
+- **A real 512² `growth` raster**, captured on the same save as `examples/json/map/vanilla.json` (both
+  are `terrainSize: 2048`, so they co-register). The committed `examples/json/mapLayers/*.json` are
+  hand-authored 8×8 grids — fine for the decoder's padding/trimming rules, useless for anything that
+  joins a raster against field polygons: 77 fields over 64 cells. Wanted by the per-field status
+  histogram (issue #131), whose whole claim is that the raster resolves a field better than a
+  single centre sample does, and which cannot be shown to at that grid size.
+
 - **A capture with Advanced Damage System installed**, for the `ads` block — ideally a CVT machine (so
   `transmissionTemperatur` is present) that is a little overdue for service and carrying a breakdown or two, so the
   lamps, the interval and the load are all non-trivial in the one file.
