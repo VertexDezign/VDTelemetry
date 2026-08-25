@@ -176,9 +176,10 @@ What it did not do:
 
 ## Controls address the selected machine (#120)
 
-Built 2026-08-24, **not yet run in game**. `ControlTarget` grew a fourth token, `selected`, and with it the ceiling
-#116 left behind is gone: fold / power / raise / pipe / cover / tip side / discharge all reach a machine at any depth
-of the rig while the game has it selected, and since #119 a tap on the diagram is what selects it.
+Built 2026-08-24 and signed off in singleplayer and on a multiplayer client. `ControlTarget` grew a fourth token,
+`selected`, and with it the ceiling #116 left behind is gone: fold / power / raise / pipe / cover / tip side / discharge
+all reach a machine at any depth of the rig while the game has it selected, and since #119 a tap on the diagram is what
+selects it.
 
 The decision the issue existed to take went the third way, not the first. Option 1's fallback — hand-rolling a
 selection-addressed lower next to vdAI's positional ones — was never written, because
@@ -198,9 +199,6 @@ the game has selected nothing on.
 
 What it did not do:
 
-- **Nobody has driven it.** Every part of this is unvalidated in game, in singleplayer and on a multiplayer client
-  alike. The rig to try it on is the dribble bar: select the Bomech behind the Kaweco and fold, power and unload it,
-  then tap back to the Kaweco and confirm the same chips move the *other* machine. See "In-game checks nobody has run".
 - **The dependency is a draft.** `REQUIRED_MIN_MINOR_VERSION` is 2 and additionalInputs 1.2.0.0 is not released, so a
   build from this branch disables its own export against every published version of it. The docs already name 1.2 as
   the floor. Releasing VDTelemetry ahead of it would ship a mod that switches itself off.
@@ -512,13 +510,6 @@ Each one is cheap to do while playing and settles something above.
   farm keeps its 361 bales in barns, where they cost nothing to count. The number that matters is a
   farm that leaves a season's worth lying on the ground. If it bites, the fix is a slower recompute
   for the two loose blocks, not a slower channel — silo fill levels want to stay at 2 s.
-- **Does a deep machine really answer its controls when selected (#120)?** The dribble-bar rig is the case: select the
-  Bomech behind the Kaweco and fold, power and unload it, then select the Kaweco and confirm the same chips move that
-  one instead. Two things only a game can answer — whether the tighter scope reads right in the cab (a selected rear
-  implement is now addressed as the selection, so it moves alone where `BACK` would have taken its children with it),
-  and whether the one-tick gap between tapping a machine and its chips going live is noticeable (the app deliberately
-  waits for the game to confirm the selection rather than trusting its own echo, so that a refused selection can never
-  move a different machine). Needs additionalInputs 1.2.0.0.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.
