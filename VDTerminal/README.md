@@ -367,6 +367,9 @@ driver saw looking at both at once.
 - A Material icon with a nose on it — `Icons.Filled.Agriculture` is a tractor facing **right** — is
   mirrored with `Modifier.scale(scaleX = -1f, scaleY = 1f)` wherever it is part of a side view. As a
   header or app icon it is a label rather than a picture of a machine, and stays as it is.
+- An arrow that names a **position on the machine** points along it, not up and down it: `RigSlot.icon`
+  marks the front slot `West` and the rear one `East`. Up and down are left to what really does move
+  up and down — the raise/lower control, a sort direction, money in and out.
 - `RigSchema` keeps the game's frame in `layoutRig` (forward is +x) and mirrors once at the point of
   drawing, in `drawnLeft` — which also flips the insets and the sign of any rotation. If the game's own
   silhouette atlas is ever adopted for the boxes (see `FUTURE.md`), that art faces right and has to be
