@@ -54,6 +54,7 @@ data actually changes — and none of them rides the 100 ms tick.
 | `missions.json` | the farm's contracts (core, `src/collect/MissionExporter.lua`) | on contract change + 10 s |
 | `finance.json` | the farm's books: balance, loan, the monthly table, the money log (core, `src/collect/FinanceExporter.lua`) | on period/loan change + 5 s |
 | `fieldInfo.json` | per-field agronomy, for the field-info popup (core, `src/collect/FieldInfoExporter.lua`) | own interval (30 s) |
+| `prices.json` | the map's price board: what every station pays or charges, plus the twelve-month curve per commodity (core, `src/collect/PricesExporter.lua`) | own interval (30 s) |
 | `cropCalendar.json` | which periods each crop may be sown and harvested in (core, `src/collect/CropCalendarExporter.lua`) | on day / season-length change, + a 2 s growth-mode watch |
 | `weather.json` | the forecast: now, twelve two-hourly steps, six days (core, `src/collect/WeatherExporter.lua`) | on hour / day / weather change |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
@@ -135,6 +136,29 @@ It is by far the mod's most expensive channel, so it is the one channel tied to 
 **under the `low` preset it is switched off entirely** — no sampling, no files — and the `mapLayers/`
 files are deleted so VDTerminal drops the overlays. It runs from `medium` upwards, and under `custom` your own
 `enabled` toggle decides.
+
+`prices.json` carries the map's **price board** — the data the game's own "Prices" table draws, collected
+once instead of read station by station in a menu. One entry per station *placeable* (a shop that both
+buys grain and sells seed is two stations on one building, and appears once), with what it pays for
+every fill type it accepts, what it charges for the ones it sells by the litre, and what its counter
+pallets cost. Each sell row carries the price trend the game shows as an arrow — `climbing`, `falling`
+or `steady` — and, while one is running, the great demand at that station with its premium and the
+in-game hours it has left. Stations carry a marker in the same normalized frame as `map.json`, so the
+terminal can place them on the overlay it already draws.
+
+The commodities are listed once in their own catalogue rather than repeated per station, because the
+part that repeats — the **twelve-month price curve** — belongs to the commodity, not the station. That
+curve is the game's own running per-period average (`fillType.economy.history`, what its fluctuation
+graph plots), so it reflects the prices this save has actually seen; the best month and its price come
+straight off it.
+
+**Every price is per 1000 litres**, the unit the game itself prints, with the economic-difficulty
+multiplier already folded in — pallet prices are the exception and are for a whole pallet. The channel
+is **not farm-scoped** (a price is the same number for every farm) and deliberately carries **no fill
+levels**: what the farm actually owns is already on the storage, husbandry and production channels, and
+valuing stock against this board is a join the terminal does rather than a second stock walk. Its 30 s
+cadence matches the interval the game itself refreshes a multiplayer client's prices on, so a client
+cannot be fresher than this and the server has nothing quicker to report.
 
 ### Keeping telemetry writes off the SSD (optional)
 
@@ -273,6 +297,7 @@ leftover `commands.xml` on load, so stale commands never fire at session start.
         <channel id="cropRotation" enabled="true"/>
         <channel id="invoices" enabled="true"/>
         <channel id="fieldInfo" enabled="true" intervalMs="30000"/>
+        <channel id="prices" enabled="true" intervalMs="30000"/>
         <channel id="cropCalendar" enabled="true"/>
         <channel id="weather" enabled="true"/>
     </channels>

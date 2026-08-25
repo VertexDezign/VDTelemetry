@@ -14,6 +14,7 @@ import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.MissionsData
+import net.vertexdezign.vdt.model.PricesData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
@@ -235,6 +236,25 @@ sealed interface ServerMessage {
   @SerialName("fleet")
   data class Fleet(
     val data: FleetData? = null,
+  ) : ServerMessage
+
+  /**
+   * The prices channel (`prices.json`): the map's price board — what every station pays for each
+   * fill type, what the ones that sell to you charge, and the twelve-month curve behind each
+   * commodity. Interval-driven on the mod's own 30 s cadence, which matches the interval the game
+   * itself refreshes a multiplayer client's prices on.
+   *
+   * Unlike its neighbours this channel is **not farm-scoped** — a price is the same number for every
+   * farm — and it carries no fill levels: valuing stock is a join against [Storage] and its
+   * siblings, not a second stock walk.
+   *
+   * [data] is **null when `prices.json` is absent** (export disabled / no data yet): the app clears
+   * the board then rather than valuing today's stock at last session's prices.
+   */
+  @Serializable
+  @SerialName("prices")
+  data class Prices(
+    val data: PricesData? = null,
   ) : ServerMessage
 
   /**

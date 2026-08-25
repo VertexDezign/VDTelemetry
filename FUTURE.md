@@ -446,6 +446,15 @@ Each one is cheap to do while playing and settles something above.
   farm keeps its 361 bales in barns, where they cost nothing to count. The number that matters is a
   farm that leaves a season's worth lying on the ground. If it bites, the fix is a slower recompute
   for the two loose blocks, not a slower channel — silo fill levels want to stay at 2 s.
+- **Does the price board match the game's own Prices table (#112)?** Open the in-game menu beside the terminal and
+  compare a handful of rows: the same stations, the same numbers per 1000 l, the same climbing/falling arrows. The two
+  read the same fields, so a mismatch means the export picked the wrong one — most likely a station the game hides and
+  we do not, or a fill type it filters by `showOnPriceTable` at a level we kept.
+- **Does a great demand come through on a multiplayer client (#112)?** The premium and the countdown come from
+  `economyManager.greatDemands`, which reaches a client only by `GreatDemandsEvent` on the in-game hour; the
+  `greatDemand` flag itself rides in the synced price bits and should always be there. So the check is whether a client
+  ever shows the flag *without* the premium beside it, and for how long — the exporter reports the flag alone in that
+  case by design, but nobody has seen how often it happens.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.
@@ -527,6 +536,24 @@ engine load it wears the engine on, the service interval and system voltage. The
 
 ---
 
+## Price board (#112)
+
+The `prices.json` channel is built (mod + shared model + parser + server broadcast); the **stock
+overview that consumes it is #118** and does not exist yet, so nothing in the app reads
+`TelemetryRepository.prices` today. What the channel leaves open:
+
+- **Nothing has looked at a real board in game.** See the in-game checks below for the two that matter.
+- **A pallet shop's price never moves**, because the game bakes the difficulty multiplier into
+  `pallet.price` once at load and never revisits it. That is the game's own behaviour, exported as-is
+  — worth knowing before someone reads a static number as a bug.
+- **`basePrice` is a reference, not a price anybody pays.** It is the fill type's own per-litre price
+  at seasonal factor 1, so a station whose XML sets a `priceScale` sells above or below it
+  permanently. The per-station base (`originalFillTypePrices`) was deliberately left out: it is not
+  synced to a multiplayer client, so exporting it would give the two a different column.
+- **No buy-side trend, because there is none.** A `BuyingStation`'s price is the fill type's base
+  times the station's scale times the difficulty multiplier — no dynamics, no seasonal factor. If the
+  app wants to show diesel getting dearer, that is a history the terminal would have to keep itself.
+
 ## Captures wanted as fixtures
 
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
@@ -558,6 +585,18 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
+- **A prices capture with a great demand running.** Two boards are committed. `vanilla.json` is a played-in
+  singleplayer board, 44 stations against 121 commodities, and covers the sell/buy/pallet mix on one placeable and the
+  station the game reaches only by train (`PricesModelTest.parsesTheVanillaCapture` /
+  `theCaptureCarriesEveryStationShape`). `mp_modded.json` is a modded map from a multiplayer client, 26 stations
+  against 166 commodities, and covers what a base-game board cannot: five stations sharing one name, a curve that is
+  zero in ten of twelve months, and — held against `examples/json/map/mp_modded.json` from the same session — five
+  stations the map puts no marker on at all. What neither can contain, because a demand only runs for a few in-game
+  hours and has to be caught while it is happening: a **running great demand**, ideally captured on both the host and a
+  client in the same session, since only the host has the premium and the countdown. A **commodity with no economy**
+  (no twelve-month curve at all) is still missing too — every fill type on both boards has one, the modded chain
+  commodities included, they just have not been priced in most months. `PricesModelTest` covers both with inline JSON
+  meanwhile, and says so at the top.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.

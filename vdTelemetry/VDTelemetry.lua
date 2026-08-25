@@ -91,6 +91,10 @@ local sourceFiles = {
   -- and both read only base-game managers.
   "src/collect/CropCalendarExporter.lua",
   "src/collect/WeatherExporter.lua",
+  -- Prices channel: the map's price board -- what each station pays or charges, plus the twelve-month
+  -- curve per commodity (own interval, world state rather than farm state). Reuses MapExporter's
+  -- normalization for the station marker and ProductionExporter's id helper, so it follows both.
+  "src/collect/PricesExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/AdvancedDamageSystem.lua",

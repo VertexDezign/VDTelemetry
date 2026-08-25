@@ -168,6 +168,7 @@ private val FRIENDLY_NAMES =
     "storage.json" to "Storage",
     "husbandry.json" to "Animals",
     "fleet.json" to "Fleet",
+    "prices.json" to "Prices",
     "missions.json" to "Missions",
     "fieldInfo.json" to "Field info",
     "cropCalendar.json" to "Crop calendar",

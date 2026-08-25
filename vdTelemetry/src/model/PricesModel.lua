@@ -1,0 +1,66 @@
+-- Model definitions for the prices export channel (prices.json, src/collect/PricesExporter.lua).
+--
+-- Annotation-only (LuaLS @class): these files carry NO runtime logic and are not source()'d.
+-- The shape maps 1:1 to the Kotlin model in VDTerminal/shared (model/Prices.kt) and the fixtures in
+-- examples/json/prices/*.
+--
+-- Scope: the whole map, not one farm. What a station pays (or charges) is the same number for
+-- everyone, so this channel is not farmScoped -- it is the price board, and the stock that gets
+-- valued against it lives on the storage/husbandry channels (issue #112 deliberately keeps fill
+-- levels out of here).
+--
+-- It mirrors what the game's own prices table shows (InGameMenuStatisticsFrame, "Prices"): one row
+-- per station placeable, with the sell price of every fill type it accepts, the buy price of every
+-- one it provides, and the pallets it sells whole. The fill types are listed once in their own
+-- catalogue rather than repeated per station, because the part that repeats -- the twelve-month
+-- price curve -- is a property of the commodity, not of the station.
+--
+-- PRICE UNIT: every price here is **per 1000 litres**, the unit the game itself prints (its menu
+-- multiplies the per-litre figure by 1000 before displaying it), and includes the economic-difficulty
+-- multiplier that is already in what the station actually pays. The one exception is
+-- PricesPalletModel.price, which is a whole pallet. A consumer valuing N litres of stock therefore
+-- computes `N / 1000 * price`.
+
+---@class PricesSellModel what one station pays for one fill type
+---@field type string fill type internal name (joins to PricesFillTypeModel.type)
+---@field price number currency per 1000 l, effective right now (SellingStation:getEffectiveFillTypePrice)
+---@field trend string "climbing"|"falling"|"steady" -- where the price is heading (the game's own arrows)
+---@field greatDemand boolean? true while this station+fill type is the great-demand pairing; omitted otherwise
+---@field demandMultiplier number? the great demand's price factor (1.1-1.4); only with greatDemand
+---@field demandHoursLeft number? in-game hours the great demand still runs; only with greatDemand
+
+---@class PricesBuyModel what one station charges for one fill type
+---@field type string fill type internal name (joins to PricesFillTypeModel.type)
+---@field price number currency per 1000 l (BuyingStation:getEffectiveFillTypePrice)
+
+---@class PricesPalletModel one pallet a pallet shop sells
+---@field type string fill type internal name (joins to PricesFillTypeModel.type)
+---@field price number currency for the WHOLE pallet, not per 1000 l (getEffectivePricePerPallet)
+
+---@class PricesStationModel one station placeable, from the price board's point of view
+---@field id string stable id (placeable uniqueId, else a synthesized fallback) -- see the MP caveat
+---@field name string display name (SellingStation/BuyingStation:getName(), else the placeable's)
+---@field posX number? normalized [0,1] map x, same frame as map.json; omitted when unresolvable
+---@field posZ number? normalized [0,1] map z, same frame as map.json; omitted when unresolvable
+---@field isTrainStation boolean? true when the station is only reachable by train
+---@field isPalletStation boolean? true when the placeable sells pallets over the counter
+---@field sell PricesSellModel[]? what it buys FROM the player (omitted when it sells nothing)
+---@field buy PricesBuyModel[]? what it sells TO the player by the litre (diesel, seed, fertilizer, ...)
+---@field pallets PricesPalletModel[]? what it sells TO the player by the pallet
+
+---@class PricesFillTypeModel one commodity on the board, listed once for every station that names it
+---@field type string fill type internal name, stable token (g_fillTypeManager name, e.g. "WHEAT")
+---@field title string localized display name (fillType.title)
+---@field basePrice number currency per 1000 l at seasonal factor 1 -- the reference, not a live price
+---@field isCrop boolean? true when the fill type is a harvestable fruit (the game's own split)
+---@field showOnPriceTable boolean? true when the game's own prices menu lists it
+---@field months number[]? the twelve monthly prices per 1000 l (fillType.economy.history), index = period
+---@field bestMonth number? the period (1-12) with the highest entry in months
+---@field bestPrice number? that highest entry, currency per 1000 l
+
+---@class PricesModel
+---@field version string channel version, independent of VDTelemetry.VERSION
+---@field period number? the current in-game period (1-12), so the app can mark "now" on the curve
+---@field priceMultiplier number the economic-difficulty factor already folded into every price here
+---@field fillTypes PricesFillTypeModel[]?
+---@field stations PricesStationModel[]?

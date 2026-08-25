@@ -1,0 +1,5873 @@
+{
+  "stations": [
+    {
+      "name": "Baggerschiff",
+      "posX": 0.00886,
+      "id": "preplaced_dredgingBoat_d57108aa7ea2a114454cb10d18f58079",
+      "posZ": 0.63258,
+      "buy": [
+        {
+          "price": 62.5,
+          "type": "STONE"
+        }
+      ]
+    },
+    {
+      "sell": [
+        {
+          "price": 262.47,
+          "type": "BARLEY",
+          "trend": "climbing"
+        },
+        {
+          "price": 1725.89,
+          "type": "BARREL",
+          "trend": "climbing"
+        },
+        {
+          "price": 1685.26,
+          "type": "BATHTUB",
+          "trend": "climbing"
+        },
+        {
+          "price": 124.12,
+          "type": "BEETROOT",
+          "trend": "falling"
+        },
+        {
+          "price": 1332.69,
+          "type": "BOARDS",
+          "trend": "falling"
+        },
+        {
+          "price": 1398.38,
+          "type": "BREAD",
+          "trend": "climbing"
+        },
+        {
+          "price": 1305.2,
+          "type": "BUCKET",
+          "trend": "steady"
+        },
+        {
+          "price": 2570.26,
+          "type": "BUFFALOMILK_BOTTLED",
+          "trend": "steady"
+        },
+        {
+          "price": 7769.47,
+          "type": "BUFFALOMOZZARELLA",
+          "trend": "falling"
+        },
+        {
+          "price": 1153.61,
+          "type": "BUTTER",
+          "trend": "climbing"
+        },
+        {
+          "price": 3269.41,
+          "type": "CAKE",
+          "trend": "climbing"
+        },
+        {
+          "price": 2564.78,
+          "type": "CANNED_PEAS",
+          "trend": "climbing"
+        },
+        {
+          "price": 595.42,
+          "type": "CANOLA",
+          "trend": "falling"
+        },
+        {
+          "price": 1569.06,
+          "type": "CANOLA_OIL",
+          "trend": "climbing"
+        },
+        {
+          "price": 133.65,
+          "type": "CARROT",
+          "trend": "falling"
+        },
+        {
+          "price": 2970.26,
+          "type": "CARTONROLL",
+          "trend": "falling"
+        },
+        {
+          "price": 1204.93,
+          "type": "CASTLEROCK",
+          "trend": "climbing"
+        },
+        {
+          "price": 1068.13,
+          "type": "CEMENT",
+          "trend": "falling"
+        },
+        {
+          "price": 1608.71,
+          "type": "CEMENTBRICKS",
+          "trend": "falling"
+        },
+        {
+          "price": 3498.5,
+          "type": "CEREAL",
+          "trend": "falling"
+        },
+        {
+          "price": 39.62,
+          "type": "CHAFF",
+          "trend": "falling"
+        },
+        {
+          "price": 1882.1,
+          "type": "CHEESE",
+          "trend": "falling"
+        },
+        {
+          "price": 422.61,
+          "type": "CHILLI",
+          "trend": "falling"
+        },
+        {
+          "price": 1936.34,
+          "type": "CHOCOLATE",
+          "trend": "falling"
+        },
+        {
+          "price": 7304.62,
+          "type": "CLOTHES",
+          "trend": "falling"
+        },
+        {
+          "price": 1062.03,
+          "type": "COTTON",
+          "trend": "climbing"
+        },
+        {
+          "price": 51,
+          "type": "DRYGRASS_WINDROW",
+          "trend": "climbing"
+        },
+        {
+          "price": 1056.85,
+          "type": "EGG",
+          "trend": "steady"
+        },
+        {
+          "price": 379.16,
+          "type": "ENOKI",
+          "trend": "climbing"
+        },
+        {
+          "price": 3392.78,
+          "type": "FABRIC",
+          "trend": "falling"
+        },
+        {
+          "price": 659.84,
+          "type": "FERMENTEDNAPACABBAGE",
+          "trend": "falling"
+        },
+        {
+          "price": 1488.17,
+          "type": "FISHFOOD",
+          "trend": "falling"
+        },
+        {
+          "price": 582.83,
+          "type": "FLOUR",
+          "trend": "climbing"
+        },
+        {
+          "price": 1707.31,
+          "type": "FRIEDONION",
+          "trend": "climbing"
+        },
+        {
+          "price": 2017.56,
+          "type": "FURNITURE",
+          "trend": "falling"
+        },
+        {
+          "price": 421.93,
+          "type": "GARLIC",
+          "trend": "falling"
+        },
+        {
+          "price": 1799.5,
+          "type": "GOATCHEESE",
+          "trend": "steady"
+        },
+        {
+          "price": 2216.27,
+          "type": "GOATMILK_BOTTLED",
+          "trend": "falling"
+        },
+        {
+          "price": 553.31,
+          "type": "GRAPE",
+          "trend": "falling"
+        },
+        {
+          "price": 1695.73,
+          "type": "GRAPEJUICE",
+          "trend": "falling"
+        },
+        {
+          "price": 41.24,
+          "type": "GRASS_WINDROW",
+          "trend": "climbing"
+        },
+        {
+          "price": 732.6,
+          "type": "GREENBEAN",
+          "trend": "climbing"
+        },
+        {
+          "price": 238.18,
+          "type": "HAY_PELLETS",
+          "trend": "falling"
+        },
+        {
+          "price": 922.68,
+          "type": "HONEY",
+          "trend": "falling"
+        },
+        {
+          "price": 1933.37,
+          "type": "JARRED_GREENBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 898.26,
+          "type": "LETTUCE",
+          "trend": "climbing"
+        },
+        {
+          "price": 340.1,
+          "type": "MAIZE",
+          "trend": "falling"
+        },
+        {
+          "price": 574.85,
+          "type": "MILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 332.93,
+          "type": "NAPACABBAGE",
+          "trend": "falling"
+        },
+        {
+          "price": 1541.2,
+          "type": "NOODLESOUP",
+          "trend": "climbing"
+        },
+        {
+          "price": 434.16,
+          "type": "OAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 575.06,
+          "type": "OLIVE",
+          "trend": "falling"
+        },
+        {
+          "price": 2397.21,
+          "type": "OLIVE_OIL",
+          "trend": "falling"
+        },
+        {
+          "price": 198.3,
+          "type": "ONION",
+          "trend": "climbing"
+        },
+        {
+          "price": 319.49,
+          "type": "ONIONBAG",
+          "trend": "climbing"
+        },
+        {
+          "price": 1569.9,
+          "type": "ONIONSALT",
+          "trend": "climbing"
+        },
+        {
+          "price": 904.97,
+          "type": "ONIONSOUP",
+          "trend": "climbing"
+        },
+        {
+          "price": 808.07,
+          "type": "OYSTER",
+          "trend": "falling"
+        },
+        {
+          "price": 3275.61,
+          "type": "PAPERROLL",
+          "trend": "falling"
+        },
+        {
+          "price": 129.27,
+          "type": "PARSNIP",
+          "trend": "climbing"
+        },
+        {
+          "price": 1063.61,
+          "type": "PEA",
+          "trend": "falling"
+        },
+        {
+          "price": 1984.28,
+          "type": "PLANKS",
+          "trend": "falling"
+        },
+        {
+          "price": 218.83,
+          "type": "POTATO",
+          "trend": "climbing"
+        },
+        {
+          "price": 1550.31,
+          "type": "POTATOCHIPS",
+          "trend": "falling"
+        },
+        {
+          "price": 4889.1,
+          "type": "PREFABWALL",
+          "trend": "climbing"
+        },
+        {
+          "price": 574.49,
+          "type": "PRESERVEDBEETROOT",
+          "trend": "falling"
+        },
+        {
+          "price": 569.92,
+          "type": "PRESERVEDCARROTS",
+          "trend": "climbing"
+        },
+        {
+          "price": 579.66,
+          "type": "PRESERVEDPARSNIP",
+          "trend": "falling"
+        },
+        {
+          "price": 1841.61,
+          "type": "RAISINS",
+          "trend": "falling"
+        },
+        {
+          "price": 1147.88,
+          "type": "RICE",
+          "trend": "steady"
+        },
+        {
+          "price": 768.48,
+          "type": "RICEFLOUR",
+          "trend": "climbing"
+        },
+        {
+          "price": 565.79,
+          "type": "RICELONGGRAIN",
+          "trend": "steady"
+        },
+        {
+          "price": 1526.9,
+          "type": "RICEROLLS",
+          "trend": "climbing"
+        },
+        {
+          "price": 3345.24,
+          "type": "RICESAPLINGS",
+          "trend": "falling"
+        },
+        {
+          "price": 1500.35,
+          "type": "RICE_BAGS",
+          "trend": "falling"
+        },
+        {
+          "price": 2685.4,
+          "type": "RICE_BOXES",
+          "trend": "climbing"
+        },
+        {
+          "price": 1766.85,
+          "type": "RICE_OIL",
+          "trend": "falling"
+        },
+        {
+          "price": 1604.54,
+          "type": "ROOFPLATES",
+          "trend": "falling"
+        },
+        {
+          "price": 4948.33,
+          "type": "ROPE",
+          "trend": "climbing"
+        },
+        {
+          "price": 3640.09,
+          "type": "SALMON",
+          "trend": "falling"
+        },
+        {
+          "price": 255.64,
+          "type": "SEEDS",
+          "trend": "falling"
+        },
+        {
+          "price": 1642.17,
+          "type": "SHINGLEROOF",
+          "trend": "climbing"
+        },
+        {
+          "price": 119.82,
+          "type": "SILAGE",
+          "trend": "climbing"
+        },
+        {
+          "price": 361.1,
+          "type": "SORGHUM",
+          "trend": "climbing"
+        },
+        {
+          "price": 843.43,
+          "type": "SOUPCANSBEETROOT",
+          "trend": "steady"
+        },
+        {
+          "price": 865.67,
+          "type": "SOUPCANSCARROTS",
+          "trend": "climbing"
+        },
+        {
+          "price": 932.16,
+          "type": "SOUPCANSMIXED",
+          "trend": "climbing"
+        },
+        {
+          "price": 921.13,
+          "type": "SOUPCANSPARSNIP",
+          "trend": "falling"
+        },
+        {
+          "price": 1233.08,
+          "type": "SOUPCANSPOTATO",
+          "trend": "climbing"
+        },
+        {
+          "price": 698.47,
+          "type": "SOYBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 222.47,
+          "type": "SPINACH",
+          "trend": "climbing"
+        },
+        {
+          "price": 746.49,
+          "type": "SPINACH_BAGS",
+          "trend": "climbing"
+        },
+        {
+          "price": 421.16,
+          "type": "SPRING_ONION",
+          "trend": "falling"
+        },
+        {
+          "price": 257.53,
+          "type": "STONEBIG",
+          "trend": "climbing"
+        },
+        {
+          "price": 33.44,
+          "type": "STRAW",
+          "trend": "climbing"
+        },
+        {
+          "price": 414.41,
+          "type": "STRAWBERRY",
+          "trend": "steady"
+        },
+        {
+          "price": 169.32,
+          "type": "STRAW_PELLETS",
+          "trend": "climbing"
+        },
+        {
+          "price": 533.55,
+          "type": "SUGAR",
+          "trend": "falling"
+        },
+        {
+          "price": 169.15,
+          "type": "SUGARBEET",
+          "trend": "climbing"
+        },
+        {
+          "price": 226.25,
+          "type": "SUGARBEET_CUT",
+          "trend": "falling"
+        },
+        {
+          "price": 122.78,
+          "type": "SUGARCANE",
+          "trend": "climbing"
+        },
+        {
+          "price": 715.53,
+          "type": "SUNFLOWER",
+          "trend": "climbing"
+        },
+        {
+          "price": 1912.65,
+          "type": "SUNFLOWER_OIL",
+          "trend": "climbing"
+        },
+        {
+          "price": 455.17,
+          "type": "TOMATO",
+          "trend": "climbing"
+        },
+        {
+          "price": 2268.04,
+          "type": "TROUT",
+          "trend": "falling"
+        },
+        {
+          "price": 283.09,
+          "type": "WHEAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 2892.41,
+          "type": "WOODBEAM",
+          "trend": "climbing"
+        },
+        {
+          "price": 184.11,
+          "type": "WOODCHIPS",
+          "trend": "climbing"
+        },
+        {
+          "price": 770.06,
+          "type": "WOOL",
+          "trend": "falling"
+        }
+      ],
+      "name": "Bauernmarkt",
+      "posX": 0.69434,
+      "id": "preplaced_farmersMarketUS_d93675aaa380fcfbf6b424d87ab69221",
+      "posZ": 0.16846
+    },
+    {
+      "sell": [
+        {
+          "price": 31.37,
+          "type": "LIQUIDMANURE",
+          "trend": "falling"
+        },
+        {
+          "price": 30.12,
+          "type": "MANURE",
+          "trend": "climbing"
+        },
+        {
+          "price": 122.69,
+          "type": "SILAGE",
+          "trend": "falling"
+        },
+        {
+          "price": 219.33,
+          "type": "SUGARBEET_CUT",
+          "trend": "falling"
+        }
+      ],
+      "name": "Biogasanlage 1MW",
+      "posX": 0.88574,
+      "id": "preplaced_bga1mw_af2de644a023e731de69c3ac7c699c08",
+      "posZ": 0.06055
+    },
+    {
+      "sell": [
+        {
+          "price": 1146.46,
+          "type": "BUTTER",
+          "trend": "climbing"
+        },
+        {
+          "price": 1028.34,
+          "type": "EGG",
+          "trend": "climbing"
+        },
+        {
+          "price": 580.94,
+          "type": "FLOUR",
+          "trend": "climbing"
+        },
+        {
+          "price": 588.9,
+          "type": "MILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 737.38,
+          "type": "RICEFLOUR",
+          "trend": "climbing"
+        },
+        {
+          "price": 418.49,
+          "type": "STRAWBERRY",
+          "trend": "falling"
+        },
+        {
+          "price": 533.27,
+          "type": "SUGAR",
+          "trend": "steady"
+        }
+      ],
+      "name": "Bäckerei",
+      "posX": 0.13947,
+      "id": "preplaced_bakeryUS_8d094eed22adf420e133d1cc16eb4fe9",
+      "posZ": 0.41128
+    },
+    {
+      "sell": [
+        {
+          "price": 1333.18,
+          "type": "BOARDS",
+          "trend": "falling"
+        },
+        {
+          "price": 2052.78,
+          "type": "PLANKS",
+          "trend": "falling"
+        }
+      ],
+      "name": "Böttcherei",
+      "posX": 0.76807,
+      "id": "preplaced_cooperUS_dae40985003cf260eb9d6d41959ac3b0",
+      "posZ": 0.95947
+    },
+    {
+      "pallets": [
+        {
+          "price": 2563,
+          "type": "BARREL"
+        },
+        {
+          "price": 2462,
+          "type": "BATHTUB"
+        },
+        {
+          "price": 1872,
+          "type": "BOARDS"
+        },
+        {
+          "price": 2376,
+          "type": "BREAD"
+        },
+        {
+          "price": 1858,
+          "type": "BUCKET"
+        },
+        {
+          "price": 3586,
+          "type": "BUFFALOMILK_BOTTLED"
+        },
+        {
+          "price": 10800,
+          "type": "BUFFALOMOZZARELLA"
+        },
+        {
+          "price": 1613,
+          "type": "BUTTER"
+        },
+        {
+          "price": 4752,
+          "type": "CAKE"
+        },
+        {
+          "price": 3738,
+          "type": "CANNED_PEAS"
+        },
+        {
+          "price": 2362,
+          "type": "CANOLA_OIL"
+        },
+        {
+          "price": 4176,
+          "type": "CARTONROLL"
+        },
+        {
+          "price": 1512,
+          "type": "CEMENT"
+        },
+        {
+          "price": 2275,
+          "type": "CEMENTBRICKS"
+        },
+        {
+          "price": 5472,
+          "type": "CEREAL"
+        },
+        {
+          "price": 2592,
+          "type": "CHEESE"
+        },
+        {
+          "price": 763,
+          "type": "CHILLI"
+        },
+        {
+          "price": 2880,
+          "type": "CHOCOLATE"
+        },
+        {
+          "price": 12240,
+          "type": "CLOTHES"
+        },
+        {
+          "price": 1613,
+          "type": "EGG"
+        },
+        {
+          "price": 605,
+          "type": "ENOKI"
+        },
+        {
+          "price": 5760,
+          "type": "FABRIC"
+        },
+        {
+          "price": 936,
+          "type": "FERMENTEDNAPACABBAGE"
+        },
+        {
+          "price": 994,
+          "type": "FLOUR"
+        },
+        {
+          "price": 2808,
+          "type": "FURNITURE"
+        },
+        {
+          "price": 835,
+          "type": "GARLIC"
+        },
+        {
+          "price": 2534,
+          "type": "GOATCHEESE"
+        },
+        {
+          "price": 4061,
+          "type": "GOATMILK"
+        },
+        {
+          "price": 3038,
+          "type": "GOATMILK_BOTTLED"
+        },
+        {
+          "price": 2376,
+          "type": "GRAPEJUICE"
+        },
+        {
+          "price": 1440,
+          "type": "HONEY"
+        },
+        {
+          "price": 2716,
+          "type": "JARRED_GREENBEAN"
+        },
+        {
+          "price": 864,
+          "type": "LETTUCE"
+        },
+        {
+          "price": 835,
+          "type": "MILK_BOTTLED"
+        },
+        {
+          "price": 792,
+          "type": "NAPACABBAGE"
+        },
+        {
+          "price": 2232,
+          "type": "NOODLESOUP"
+        },
+        {
+          "price": 3514,
+          "type": "OLIVE_OIL"
+        },
+        {
+          "price": 1246,
+          "type": "OYSTER"
+        },
+        {
+          "price": 4608,
+          "type": "PAPERROLL"
+        },
+        {
+          "price": 2794,
+          "type": "PLANKS"
+        },
+        {
+          "price": 4320,
+          "type": "POTATOCHIPS"
+        },
+        {
+          "price": 7128,
+          "type": "PREFABWALL"
+        },
+        {
+          "price": 1613,
+          "type": "PRESERVEDBEETROOT"
+        },
+        {
+          "price": 1670,
+          "type": "PRESERVEDCARROTS"
+        },
+        {
+          "price": 1665,
+          "type": "PRESERVEDPARSNIP"
+        },
+        {
+          "price": 2347,
+          "type": "RAISINS"
+        },
+        {
+          "price": 1310,
+          "type": "RICEFLOUR"
+        },
+        {
+          "price": 2160,
+          "type": "RICEROLLS"
+        },
+        {
+          "price": 2108,
+          "type": "RICE_BAGS"
+        },
+        {
+          "price": 3931,
+          "type": "RICE_BOXES"
+        },
+        {
+          "price": 2563,
+          "type": "RICE_OIL"
+        },
+        {
+          "price": 2275,
+          "type": "ROOFPLATES"
+        },
+        {
+          "price": 7272,
+          "type": "ROPE"
+        },
+        {
+          "price": 2434,
+          "type": "SOUPCANSBEETROOT"
+        },
+        {
+          "price": 2549,
+          "type": "SOUPCANSCARROTS"
+        },
+        {
+          "price": 2707,
+          "type": "SOUPCANSMIXED"
+        },
+        {
+          "price": 2534,
+          "type": "SOUPCANSPARSNIP"
+        },
+        {
+          "price": 3586,
+          "type": "SOUPCANSPOTATO"
+        },
+        {
+          "price": 1116,
+          "type": "SPINACH_BAGS"
+        },
+        {
+          "price": 648,
+          "type": "SPRING_ONION"
+        },
+        {
+          "price": 648,
+          "type": "STRAWBERRY"
+        },
+        {
+          "price": 720,
+          "type": "SUGAR"
+        },
+        {
+          "price": 2563,
+          "type": "SUNFLOWER_OIL"
+        },
+        {
+          "price": 720,
+          "type": "TOMATO"
+        },
+        {
+          "price": 4193,
+          "type": "WOODBEAM"
+        },
+        {
+          "price": 1354,
+          "type": "WOOL"
+        }
+      ],
+      "sell": [
+        {
+          "price": 1860.27,
+          "type": "BARREL",
+          "trend": "falling"
+        },
+        {
+          "price": 1665.08,
+          "type": "BATHTUB",
+          "trend": "climbing"
+        },
+        {
+          "price": 1296.28,
+          "type": "BOARDS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1255.27,
+          "type": "BUCKET",
+          "trend": "climbing"
+        },
+        {
+          "price": 2880.63,
+          "type": "CARTONROLL",
+          "trend": "climbing"
+        },
+        {
+          "price": 1226.38,
+          "type": "CASTLEROCK",
+          "trend": "falling"
+        },
+        {
+          "price": 1067.96,
+          "type": "CEMENT",
+          "trend": "falling"
+        },
+        {
+          "price": 1579.73,
+          "type": "CEMENTBRICKS",
+          "trend": "steady"
+        },
+        {
+          "price": 7261.95,
+          "type": "CLOTHES",
+          "trend": "falling"
+        },
+        {
+          "price": 3350.04,
+          "type": "FABRIC",
+          "trend": "falling"
+        },
+        {
+          "price": 1431.11,
+          "type": "FISHFOOD",
+          "trend": "falling"
+        },
+        {
+          "price": 1695.02,
+          "type": "FRIEDONION",
+          "trend": "climbing"
+        },
+        {
+          "price": 1964.79,
+          "type": "FURNITURE",
+          "trend": "falling"
+        },
+        {
+          "price": 323.64,
+          "type": "ONIONBAG",
+          "trend": "falling"
+        },
+        {
+          "price": 1560.25,
+          "type": "ONIONSALT",
+          "trend": "climbing"
+        },
+        {
+          "price": 950.57,
+          "type": "ONIONSOUP",
+          "trend": "falling"
+        },
+        {
+          "price": 3178.89,
+          "type": "PAPERROLL",
+          "trend": "climbing"
+        },
+        {
+          "price": 1861.04,
+          "type": "PLANKS",
+          "trend": "climbing"
+        },
+        {
+          "price": 4953.44,
+          "type": "PREFABWALL",
+          "trend": "climbing"
+        },
+        {
+          "price": 3253.51,
+          "type": "RICESAPLINGS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1598.5,
+          "type": "ROOFPLATES",
+          "trend": "falling"
+        },
+        {
+          "price": 5067.37,
+          "type": "ROPE",
+          "trend": "falling"
+        },
+        {
+          "price": 1673.97,
+          "type": "SHINGLEROOF",
+          "trend": "falling"
+        },
+        {
+          "price": 265.68,
+          "type": "STONEBIG",
+          "trend": "falling"
+        },
+        {
+          "price": 2946.21,
+          "type": "WOODBEAM",
+          "trend": "falling"
+        }
+      ],
+      "name": "Depot",
+      "posX": 0.53125,
+      "id": "preplaced_warehouseLogisticUS_50e6adca71b9959d380c07a433a37572",
+      "posZ": 0.47983,
+      "isPalletStation": true
+    },
+    {
+      "sell": [
+        {
+          "price": 124.38,
+          "type": "BEETROOT",
+          "trend": "falling"
+        },
+        {
+          "price": 133.92,
+          "type": "CARROT",
+          "trend": "falling"
+        },
+        {
+          "price": 411.43,
+          "type": "CHILLI",
+          "trend": "climbing"
+        },
+        {
+          "price": 1083.13,
+          "type": "EGG",
+          "trend": "falling"
+        },
+        {
+          "price": 603.24,
+          "type": "FLOUR",
+          "trend": "falling"
+        },
+        {
+          "price": 418.12,
+          "type": "GARLIC",
+          "trend": "steady"
+        },
+        {
+          "price": 757.48,
+          "type": "GREENBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 317.48,
+          "type": "NAPACABBAGE",
+          "trend": "climbing"
+        },
+        {
+          "price": 131.4,
+          "type": "PARSNIP",
+          "trend": "falling"
+        },
+        {
+          "price": 1017.61,
+          "type": "PEA",
+          "trend": "climbing"
+        },
+        {
+          "price": 1188.03,
+          "type": "RICE",
+          "trend": "falling"
+        },
+        {
+          "price": 743.45,
+          "type": "RICEFLOUR",
+          "trend": "climbing"
+        },
+        {
+          "price": 565.05,
+          "type": "RICELONGGRAIN",
+          "trend": "falling"
+        },
+        {
+          "price": 217.98,
+          "type": "SPINACH",
+          "trend": "climbing"
+        },
+        {
+          "price": 414.77,
+          "type": "SPRING_ONION",
+          "trend": "falling"
+        }
+      ],
+      "name": "Dosenfabrik",
+      "posX": 0.72119,
+      "id": "preplaced_cannedPackagedFactoryUS_012df9a4dbb00fc2a24b17849008dd3c",
+      "posZ": 0.13623
+    },
+    {
+      "sell": [
+        {
+          "price": 272.99,
+          "type": "BARLEY",
+          "trend": "falling"
+        },
+        {
+          "price": 125.28,
+          "type": "BEETROOT",
+          "trend": "falling"
+        },
+        {
+          "price": 596.52,
+          "type": "CANOLA",
+          "trend": "climbing"
+        },
+        {
+          "price": 132.41,
+          "type": "CARROT",
+          "trend": "falling"
+        },
+        {
+          "price": 517.35,
+          "type": "GRAPE",
+          "trend": "climbing"
+        },
+        {
+          "price": 759.44,
+          "type": "GREENBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 335.86,
+          "type": "MAIZE",
+          "trend": "falling"
+        },
+        {
+          "price": 441.94,
+          "type": "OAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 577.69,
+          "type": "OLIVE",
+          "trend": "falling"
+        },
+        {
+          "price": 210.92,
+          "type": "ONION",
+          "trend": "climbing"
+        },
+        {
+          "price": 134.93,
+          "type": "PARSNIP",
+          "trend": "falling"
+        },
+        {
+          "price": 1041.49,
+          "type": "PEA",
+          "trend": "steady"
+        },
+        {
+          "price": 214.32,
+          "type": "POTATO",
+          "trend": "climbing"
+        },
+        {
+          "price": 1155.16,
+          "type": "RICE",
+          "trend": "steady"
+        },
+        {
+          "price": 563.72,
+          "type": "RICELONGGRAIN",
+          "trend": "falling"
+        },
+        {
+          "price": 361.48,
+          "type": "SORGHUM",
+          "trend": "climbing"
+        },
+        {
+          "price": 729.67,
+          "type": "SOYBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 231.96,
+          "type": "SPINACH",
+          "trend": "falling"
+        },
+        {
+          "price": 175.91,
+          "type": "SUGARBEET",
+          "trend": "falling"
+        },
+        {
+          "price": 219.39,
+          "type": "SUGARBEET_CUT",
+          "trend": "climbing"
+        },
+        {
+          "price": 121.01,
+          "type": "SUGARCANE",
+          "trend": "climbing"
+        },
+        {
+          "price": 745.66,
+          "type": "SUNFLOWER",
+          "trend": "falling"
+        },
+        {
+          "price": 287.81,
+          "type": "WHEAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 184.14,
+          "type": "WOODCHIPS",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Getreide Flusssilo",
+      "posX": 0.38554,
+      "id": "placeablee5bf5d14083958eb53a0b86d8d66716e",
+      "posZ": 0.2228
+    },
+    {
+      "sell": [
+        {
+          "price": 254.79,
+          "type": "BARLEY",
+          "trend": "climbing"
+        },
+        {
+          "price": 125.39,
+          "type": "BEETROOT",
+          "trend": "falling"
+        },
+        {
+          "price": 593.71,
+          "type": "CANOLA",
+          "trend": "climbing"
+        },
+        {
+          "price": 128.56,
+          "type": "CARROT",
+          "trend": "climbing"
+        },
+        {
+          "price": 546.59,
+          "type": "GRAPE",
+          "trend": "falling"
+        },
+        {
+          "price": 727.88,
+          "type": "GREENBEAN",
+          "trend": "climbing"
+        },
+        {
+          "price": 345.77,
+          "type": "MAIZE",
+          "trend": "falling"
+        },
+        {
+          "price": 433.66,
+          "type": "OAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 557.61,
+          "type": "OLIVE",
+          "trend": "climbing"
+        },
+        {
+          "price": 205,
+          "type": "ONION",
+          "trend": "climbing"
+        },
+        {
+          "price": 137.61,
+          "type": "PARSNIP",
+          "trend": "falling"
+        },
+        {
+          "price": 1054.03,
+          "type": "PEA",
+          "trend": "steady"
+        },
+        {
+          "price": 227.04,
+          "type": "POTATO",
+          "trend": "falling"
+        },
+        {
+          "price": 1122.42,
+          "type": "RICE",
+          "trend": "climbing"
+        },
+        {
+          "price": 554.11,
+          "type": "RICELONGGRAIN",
+          "trend": "steady"
+        },
+        {
+          "price": 363.48,
+          "type": "SORGHUM",
+          "trend": "climbing"
+        },
+        {
+          "price": 687.7,
+          "type": "SOYBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 235.23,
+          "type": "SPINACH",
+          "trend": "falling"
+        },
+        {
+          "price": 166.13,
+          "type": "SUGARBEET",
+          "trend": "climbing"
+        },
+        {
+          "price": 227.84,
+          "type": "SUGARBEET_CUT",
+          "trend": "falling"
+        },
+        {
+          "price": 127.51,
+          "type": "SUGARCANE",
+          "trend": "falling"
+        },
+        {
+          "price": 718.29,
+          "type": "SUNFLOWER",
+          "trend": "climbing"
+        },
+        {
+          "price": 285.01,
+          "type": "WHEAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 189.38,
+          "type": "WOODCHIPS",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Getreide-Lastschiffterminal 01",
+      "posX": 0.9397,
+      "id": "placeable4b039cc81c173b333e8db87e369d193f",
+      "posZ": 0.75537
+    },
+    {
+      "sell": [
+        {
+          "price": 270.5,
+          "type": "BARLEY",
+          "trend": "climbing"
+        },
+        {
+          "price": 119.05,
+          "type": "BEETROOT",
+          "trend": "climbing"
+        },
+        {
+          "price": 574.15,
+          "type": "CANOLA",
+          "trend": "climbing"
+        },
+        {
+          "price": 132.63,
+          "type": "CARROT",
+          "trend": "falling"
+        },
+        {
+          "price": 546.76,
+          "type": "GRAPE",
+          "trend": "falling"
+        },
+        {
+          "price": 752.12,
+          "type": "GREENBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 341.19,
+          "type": "MAIZE",
+          "trend": "falling"
+        },
+        {
+          "price": 449.15,
+          "type": "OAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 546.34,
+          "type": "OLIVE",
+          "trend": "climbing"
+        },
+        {
+          "price": 209.21,
+          "type": "ONION",
+          "trend": "climbing"
+        },
+        {
+          "price": 127.12,
+          "type": "PARSNIP",
+          "trend": "climbing"
+        },
+        {
+          "price": 1029.79,
+          "type": "PEA",
+          "trend": "falling"
+        },
+        {
+          "price": 223.49,
+          "type": "POTATO",
+          "trend": "falling"
+        },
+        {
+          "price": 1168.1,
+          "type": "RICE",
+          "trend": "falling"
+        },
+        {
+          "price": 574.34,
+          "type": "RICELONGGRAIN",
+          "trend": "falling"
+        },
+        {
+          "price": 348.6,
+          "type": "SORGHUM",
+          "trend": "climbing"
+        },
+        {
+          "price": 697.52,
+          "type": "SOYBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 226.22,
+          "type": "SPINACH",
+          "trend": "climbing"
+        },
+        {
+          "price": 175.26,
+          "type": "SUGARBEET",
+          "trend": "falling"
+        },
+        {
+          "price": 227.82,
+          "type": "SUGARBEET_CUT",
+          "trend": "falling"
+        },
+        {
+          "price": 126.92,
+          "type": "SUGARCANE",
+          "trend": "falling"
+        },
+        {
+          "price": 742.76,
+          "type": "SUNFLOWER",
+          "trend": "climbing"
+        },
+        {
+          "price": 283.03,
+          "type": "WHEAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 179.83,
+          "type": "WOODCHIPS",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Getreide-Lastschiffterminal 02",
+      "posX": 0.10206,
+      "id": "placeablea3f9fa40141de484d5845217a6126bb5",
+      "posZ": 0.72591
+    },
+    {
+      "sell": [
+        {
+          "price": 277.91,
+          "type": "BARLEY",
+          "trend": "falling"
+        },
+        {
+          "price": 458.68,
+          "type": "OAT",
+          "trend": "steady"
+        },
+        {
+          "price": 1125.74,
+          "type": "RICE",
+          "trend": "climbing"
+        },
+        {
+          "price": 544.61,
+          "type": "RICELONGGRAIN",
+          "trend": "climbing"
+        },
+        {
+          "price": 354.34,
+          "type": "SORGHUM",
+          "trend": "climbing"
+        },
+        {
+          "price": 278.56,
+          "type": "WHEAT",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Getreidemühle",
+      "posX": 0.55882,
+      "id": "preplaced_grainFlourMillUS_1b34012227b9f300527609ff06517123",
+      "posZ": 0.51935
+    },
+    {
+      "sell": [
+        {
+          "price": 1418.95,
+          "type": "BOARDS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1173.39,
+          "type": "CEMENT",
+          "trend": "falling"
+        },
+        {
+          "price": 1705.5,
+          "type": "CEMENTBRICKS",
+          "trend": "climbing"
+        },
+        {
+          "price": 2102.24,
+          "type": "PLANKS",
+          "trend": "climbing"
+        },
+        {
+          "price": 5339.34,
+          "type": "PREFABWALL",
+          "trend": "climbing"
+        },
+        {
+          "price": 1699.42,
+          "type": "ROOFPLATES",
+          "trend": "climbing"
+        },
+        {
+          "price": 3354.63,
+          "type": "WOODBEAM",
+          "trend": "falling"
+        }
+      ],
+      "name": "Getreidespeicher-Museum",
+      "posX": 0.90425,
+      "id": "preplaced_grainElevatorMuseum_fd436b2e09815cd8b2ec7259ef239ca5",
+      "posZ": 0.70418
+    },
+    {
+      "sell": [
+        {
+          "price": 114.82,
+          "type": "WATER",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Gewächshaus für Reissetzlinge",
+      "posX": 0.93785,
+      "id": "preplaced_greenHousesTarpLarge_71bc3d0674b8d6fcd7f2e22faaf517c6",
+      "posZ": 0.58725
+    },
+    {
+      "sell": [
+        {
+          "price": 265.87,
+          "type": "BARLEY",
+          "trend": "climbing"
+        },
+        {
+          "price": 1762.19,
+          "type": "BARREL",
+          "trend": "climbing"
+        },
+        {
+          "price": 1680.58,
+          "type": "BATHTUB",
+          "trend": "climbing"
+        },
+        {
+          "price": 122.86,
+          "type": "BEETROOT",
+          "trend": "falling"
+        },
+        {
+          "price": 1309.22,
+          "type": "BOARDS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1428.56,
+          "type": "BREAD",
+          "trend": "falling"
+        },
+        {
+          "price": 1295.69,
+          "type": "BUCKET",
+          "trend": "falling"
+        },
+        {
+          "price": 2548.45,
+          "type": "BUFFALOMILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 7495.28,
+          "type": "BUFFALOMOZZARELLA",
+          "trend": "climbing"
+        },
+        {
+          "price": 1173.3,
+          "type": "BUTTER",
+          "trend": "falling"
+        },
+        {
+          "price": 3273.55,
+          "type": "CAKE",
+          "trend": "climbing"
+        },
+        {
+          "price": 2583.75,
+          "type": "CANNED_PEAS",
+          "trend": "climbing"
+        },
+        {
+          "price": 573.65,
+          "type": "CANOLA",
+          "trend": "climbing"
+        },
+        {
+          "price": 1514.6,
+          "type": "CANOLA_OIL",
+          "trend": "climbing"
+        },
+        {
+          "price": 132.52,
+          "type": "CARROT",
+          "trend": "falling"
+        },
+        {
+          "price": 2914.69,
+          "type": "CARTONROLL",
+          "trend": "falling"
+        },
+        {
+          "price": 1243.82,
+          "type": "CASTLEROCK",
+          "trend": "falling"
+        },
+        {
+          "price": 1077.3,
+          "type": "CEMENT",
+          "trend": "falling"
+        },
+        {
+          "price": 1546.65,
+          "type": "CEMENTBRICKS",
+          "trend": "climbing"
+        },
+        {
+          "price": 3408.04,
+          "type": "CEREAL",
+          "trend": "climbing"
+        },
+        {
+          "price": 1786.04,
+          "type": "CHEESE",
+          "trend": "climbing"
+        },
+        {
+          "price": 414.09,
+          "type": "CHILLI",
+          "trend": "climbing"
+        },
+        {
+          "price": 1890.06,
+          "type": "CHOCOLATE",
+          "trend": "climbing"
+        },
+        {
+          "price": 7339.01,
+          "type": "CLOTHES",
+          "trend": "falling"
+        },
+        {
+          "price": 1046.34,
+          "type": "EGG",
+          "trend": "falling"
+        },
+        {
+          "price": 390.32,
+          "type": "ENOKI",
+          "trend": "falling"
+        },
+        {
+          "price": 3186.36,
+          "type": "FABRIC",
+          "trend": "climbing"
+        },
+        {
+          "price": 648.53,
+          "type": "FERMENTEDNAPACABBAGE",
+          "trend": "steady"
+        },
+        {
+          "price": 1436.13,
+          "type": "FISHFOOD",
+          "trend": "falling"
+        },
+        {
+          "price": 581.99,
+          "type": "FLOUR",
+          "trend": "climbing"
+        },
+        {
+          "price": 1673.09,
+          "type": "FRIEDONION",
+          "trend": "climbing"
+        },
+        {
+          "price": 1952.19,
+          "type": "FURNITURE",
+          "trend": "climbing"
+        },
+        {
+          "price": 408.95,
+          "type": "GARLIC",
+          "trend": "climbing"
+        },
+        {
+          "price": 1745.65,
+          "type": "GOATCHEESE",
+          "trend": "climbing"
+        },
+        {
+          "price": 2152.86,
+          "type": "GOATMILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 533.24,
+          "type": "GRAPE",
+          "trend": "falling"
+        },
+        {
+          "price": 1712.05,
+          "type": "GRAPEJUICE",
+          "trend": "falling"
+        },
+        {
+          "price": 774.31,
+          "type": "GREENBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 235.75,
+          "type": "HAY_PELLETS",
+          "trend": "falling"
+        },
+        {
+          "price": 923.38,
+          "type": "HONEY",
+          "trend": "falling"
+        },
+        {
+          "price": 1933.43,
+          "type": "JARRED_GREENBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 898.11,
+          "type": "LETTUCE",
+          "trend": "climbing"
+        },
+        {
+          "price": 352.96,
+          "type": "MAIZE",
+          "trend": "falling"
+        },
+        {
+          "price": 588.1,
+          "type": "MILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 327.31,
+          "type": "NAPACABBAGE",
+          "trend": "falling"
+        },
+        {
+          "price": 1513.76,
+          "type": "NOODLESOUP",
+          "trend": "climbing"
+        },
+        {
+          "price": 452.74,
+          "type": "OAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 580.75,
+          "type": "OLIVE",
+          "trend": "falling"
+        },
+        {
+          "price": 2259.12,
+          "type": "OLIVE_OIL",
+          "trend": "steady"
+        },
+        {
+          "price": 217.31,
+          "type": "ONION",
+          "trend": "falling"
+        },
+        {
+          "price": 309.36,
+          "type": "ONIONBAG",
+          "trend": "climbing"
+        },
+        {
+          "price": 1636.36,
+          "type": "ONIONSALT",
+          "trend": "climbing"
+        },
+        {
+          "price": 897.51,
+          "type": "ONIONSOUP",
+          "trend": "climbing"
+        },
+        {
+          "price": 815.17,
+          "type": "OYSTER",
+          "trend": "falling"
+        },
+        {
+          "price": 3062.05,
+          "type": "PAPERROLL",
+          "trend": "climbing"
+        },
+        {
+          "price": 135.41,
+          "type": "PARSNIP",
+          "trend": "falling"
+        },
+        {
+          "price": 1035.66,
+          "type": "PEA",
+          "trend": "climbing"
+        },
+        {
+          "price": 1953.03,
+          "type": "PLANKS",
+          "trend": "falling"
+        },
+        {
+          "price": 224.76,
+          "type": "POTATO",
+          "trend": "falling"
+        },
+        {
+          "price": 1479.47,
+          "type": "POTATOCHIPS",
+          "trend": "climbing"
+        },
+        {
+          "price": 4947.08,
+          "type": "PREFABWALL",
+          "trend": "falling"
+        },
+        {
+          "price": 544.23,
+          "type": "PRESERVEDBEETROOT",
+          "trend": "climbing"
+        },
+        {
+          "price": 580.28,
+          "type": "PRESERVEDCARROTS",
+          "trend": "steady"
+        },
+        {
+          "price": 587.65,
+          "type": "PRESERVEDPARSNIP",
+          "trend": "falling"
+        },
+        {
+          "price": 1749.96,
+          "type": "RAISINS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1096.66,
+          "type": "RICE",
+          "trend": "climbing"
+        },
+        {
+          "price": 792.9,
+          "type": "RICEFLOUR",
+          "trend": "falling"
+        },
+        {
+          "price": 557.77,
+          "type": "RICELONGGRAIN",
+          "trend": "falling"
+        },
+        {
+          "price": 1587.16,
+          "type": "RICEROLLS",
+          "trend": "falling"
+        },
+        {
+          "price": 3299.47,
+          "type": "RICESAPLINGS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1479.86,
+          "type": "RICE_BAGS",
+          "trend": "falling"
+        },
+        {
+          "price": 2697.83,
+          "type": "RICE_BOXES",
+          "trend": "climbing"
+        },
+        {
+          "price": 1740.55,
+          "type": "RICE_OIL",
+          "trend": "falling"
+        },
+        {
+          "price": 1593.81,
+          "type": "ROOFPLATES",
+          "trend": "falling"
+        },
+        {
+          "price": 5013.92,
+          "type": "ROPE",
+          "trend": "steady"
+        },
+        {
+          "price": 3714.11,
+          "type": "SALMON",
+          "trend": "falling"
+        },
+        {
+          "price": 283.48,
+          "type": "SEEDS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1728.6,
+          "type": "SHINGLEROOF",
+          "trend": "falling"
+        },
+        {
+          "price": 362.23,
+          "type": "SORGHUM",
+          "trend": "climbing"
+        },
+        {
+          "price": 841.34,
+          "type": "SOUPCANSBEETROOT",
+          "trend": "climbing"
+        },
+        {
+          "price": 872.24,
+          "type": "SOUPCANSCARROTS",
+          "trend": "climbing"
+        },
+        {
+          "price": 945.83,
+          "type": "SOUPCANSMIXED",
+          "trend": "falling"
+        },
+        {
+          "price": 901.79,
+          "type": "SOUPCANSPARSNIP",
+          "trend": "falling"
+        },
+        {
+          "price": 1273.49,
+          "type": "SOUPCANSPOTATO",
+          "trend": "falling"
+        },
+        {
+          "price": 734.87,
+          "type": "SOYBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 238.25,
+          "type": "SPINACH",
+          "trend": "falling"
+        },
+        {
+          "price": 768.9,
+          "type": "SPINACH_BAGS",
+          "trend": "climbing"
+        },
+        {
+          "price": 407.49,
+          "type": "SPRING_ONION",
+          "trend": "climbing"
+        },
+        {
+          "price": 263.96,
+          "type": "STONEBIG",
+          "trend": "falling"
+        },
+        {
+          "price": 426.62,
+          "type": "STRAWBERRY",
+          "trend": "falling"
+        },
+        {
+          "price": 168.27,
+          "type": "STRAW_PELLETS",
+          "trend": "climbing"
+        },
+        {
+          "price": 540.1,
+          "type": "SUGAR",
+          "trend": "falling"
+        },
+        {
+          "price": 168.91,
+          "type": "SUGARBEET",
+          "trend": "climbing"
+        },
+        {
+          "price": 222.37,
+          "type": "SUGARBEET_CUT",
+          "trend": "climbing"
+        },
+        {
+          "price": 123.3,
+          "type": "SUGARCANE",
+          "trend": "climbing"
+        },
+        {
+          "price": 749.08,
+          "type": "SUNFLOWER",
+          "trend": "steady"
+        },
+        {
+          "price": 1946.8,
+          "type": "SUNFLOWER_OIL",
+          "trend": "climbing"
+        },
+        {
+          "price": 480.11,
+          "type": "TOMATO",
+          "trend": "falling"
+        },
+        {
+          "price": 2198.15,
+          "type": "TROUT",
+          "trend": "climbing"
+        },
+        {
+          "price": 290.8,
+          "type": "WHEAT",
+          "trend": "climbing"
+        },
+        {
+          "price": 872.56,
+          "type": "WOOD",
+          "trend": "falling"
+        },
+        {
+          "price": 2826.68,
+          "type": "WOODBEAM",
+          "trend": "climbing"
+        },
+        {
+          "price": 179.72,
+          "type": "WOODCHIPS",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Goldcrest Valley",
+      "posX": 0.99561,
+      "id": "sellingStationTrain01",
+      "posZ": 0.72217,
+      "isTrainStation": true
+    },
+    {
+      "sell": [
+        {
+          "price": 29.96,
+          "type": "LIQUIDMANURE",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Gülle",
+      "posX": 0.40127,
+      "id": "preplaced_buyingStationLiquidManure_7a4a6779b0a1fd4777acbe046e303e78",
+      "posZ": 0.53624,
+      "buy": [
+        {
+          "price": 36.3,
+          "type": "LIQUIDMANURE"
+        }
+      ]
+    },
+    {
+      "name": "Kalkstation 1",
+      "posX": 0.92688,
+      "id": "preplaced_limeStation_2fe33c4a3bbb2b754265e0586bdf654b",
+      "posZ": 0.74831,
+      "buy": [
+        {
+          "price": 1280,
+          "type": "FERTILIZER"
+        },
+        {
+          "price": 180,
+          "type": "LIME"
+        }
+      ]
+    },
+    {
+      "name": "Kalkstation 2",
+      "posX": 0.71558,
+      "id": "preplaced_limeStation_9ab231893125edcd6f45d512ad48bbd9",
+      "posZ": 0.16602,
+      "buy": [
+        {
+          "price": 1280,
+          "type": "FERTILIZER"
+        },
+        {
+          "price": 180,
+          "type": "LIME"
+        }
+      ]
+    },
+    {
+      "name": "Kalkstation 3",
+      "posX": 0.18266,
+      "id": "preplaced_limeStation_d17d40f890154be7891db523edf9a356",
+      "posZ": 0.28437,
+      "buy": [
+        {
+          "price": 1280,
+          "type": "FERTILIZER"
+        },
+        {
+          "price": 180,
+          "type": "LIME"
+        }
+      ]
+    },
+    {
+      "name": "Kalkstation 4",
+      "posX": 0.01489,
+      "id": "preplaced_limeStation_417771406a772f6650b10a12dfb43ce4",
+      "posZ": 0.62817,
+      "buy": [
+        {
+          "price": 1280,
+          "type": "FERTILIZER"
+        },
+        {
+          "price": 180,
+          "type": "LIME"
+        }
+      ]
+    },
+    {
+      "sell": [
+        {
+          "price": 1423.77,
+          "type": "BREAD",
+          "trend": "steady"
+        },
+        {
+          "price": 2475.11,
+          "type": "BUFFALOMILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 7620.19,
+          "type": "BUFFALOMOZZARELLA",
+          "trend": "climbing"
+        },
+        {
+          "price": 1162.63,
+          "type": "BUTTER",
+          "trend": "falling"
+        },
+        {
+          "price": 3445.69,
+          "type": "CAKE",
+          "trend": "falling"
+        },
+        {
+          "price": 2586.96,
+          "type": "CANNED_PEAS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1543.39,
+          "type": "CANOLA_OIL",
+          "trend": "climbing"
+        },
+        {
+          "price": 3646.37,
+          "type": "CEREAL",
+          "trend": "falling"
+        },
+        {
+          "price": 1823.68,
+          "type": "CHEESE",
+          "trend": "climbing"
+        },
+        {
+          "price": 410.3,
+          "type": "CHILLI",
+          "trend": "steady"
+        },
+        {
+          "price": 1907.06,
+          "type": "CHOCOLATE",
+          "trend": "climbing"
+        },
+        {
+          "price": 1054.74,
+          "type": "EGG",
+          "trend": "falling"
+        },
+        {
+          "price": 396.64,
+          "type": "ENOKI",
+          "trend": "falling"
+        },
+        {
+          "price": 635.2,
+          "type": "FERMENTEDNAPACABBAGE",
+          "trend": "climbing"
+        },
+        {
+          "price": 574.28,
+          "type": "FLOUR",
+          "trend": "climbing"
+        },
+        {
+          "price": 417.03,
+          "type": "GARLIC",
+          "trend": "falling"
+        },
+        {
+          "price": 1760.52,
+          "type": "GOATCHEESE",
+          "trend": "climbing"
+        },
+        {
+          "price": 2089.44,
+          "type": "GOATMILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 568.24,
+          "type": "GRAPE",
+          "trend": "falling"
+        },
+        {
+          "price": 1675.83,
+          "type": "GRAPEJUICE",
+          "trend": "climbing"
+        },
+        {
+          "price": 889.48,
+          "type": "HONEY",
+          "trend": "climbing"
+        },
+        {
+          "price": 1898.16,
+          "type": "JARRED_GREENBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 909.07,
+          "type": "LETTUCE",
+          "trend": "climbing"
+        },
+        {
+          "price": 589.08,
+          "type": "MILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 337.4,
+          "type": "NAPACABBAGE",
+          "trend": "falling"
+        },
+        {
+          "price": 1552.18,
+          "type": "NOODLESOUP",
+          "trend": "falling"
+        },
+        {
+          "price": 2305.36,
+          "type": "OLIVE_OIL",
+          "trend": "falling"
+        },
+        {
+          "price": 792.59,
+          "type": "OYSTER",
+          "trend": "falling"
+        },
+        {
+          "price": 1474.48,
+          "type": "POTATOCHIPS",
+          "trend": "climbing"
+        },
+        {
+          "price": 550.62,
+          "type": "PRESERVEDBEETROOT",
+          "trend": "climbing"
+        },
+        {
+          "price": 577.82,
+          "type": "PRESERVEDCARROTS",
+          "trend": "climbing"
+        },
+        {
+          "price": 554.46,
+          "type": "PRESERVEDPARSNIP",
+          "trend": "climbing"
+        },
+        {
+          "price": 1781.09,
+          "type": "RAISINS",
+          "trend": "climbing"
+        },
+        {
+          "price": 742.89,
+          "type": "RICEFLOUR",
+          "trend": "climbing"
+        },
+        {
+          "price": 1523.12,
+          "type": "RICEROLLS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1503.7,
+          "type": "RICE_BAGS",
+          "trend": "falling"
+        },
+        {
+          "price": 2762.75,
+          "type": "RICE_BOXES",
+          "trend": "falling"
+        },
+        {
+          "price": 1633.48,
+          "type": "RICE_OIL",
+          "trend": "climbing"
+        },
+        {
+          "price": 3601.87,
+          "type": "SALMON",
+          "trend": "climbing"
+        },
+        {
+          "price": 871.18,
+          "type": "SOUPCANSBEETROOT",
+          "trend": "falling"
+        },
+        {
+          "price": 907.96,
+          "type": "SOUPCANSCARROTS",
+          "trend": "falling"
+        },
+        {
+          "price": 931.8,
+          "type": "SOUPCANSMIXED",
+          "trend": "climbing"
+        },
+        {
+          "price": 852.86,
+          "type": "SOUPCANSPARSNIP",
+          "trend": "climbing"
+        },
+        {
+          "price": 1213.06,
+          "type": "SOUPCANSPOTATO",
+          "trend": "climbing"
+        },
+        {
+          "price": 769.62,
+          "type": "SPINACH_BAGS",
+          "trend": "steady"
+        },
+        {
+          "price": 411.81,
+          "type": "SPRING_ONION",
+          "trend": "steady"
+        },
+        {
+          "price": 425.21,
+          "type": "STRAWBERRY",
+          "trend": "falling"
+        },
+        {
+          "price": 510.45,
+          "type": "SUGAR",
+          "trend": "climbing"
+        },
+        {
+          "price": 1875.91,
+          "type": "SUNFLOWER_OIL",
+          "trend": "climbing"
+        },
+        {
+          "price": 477.44,
+          "type": "TOMATO",
+          "trend": "falling"
+        },
+        {
+          "price": 2237.19,
+          "type": "TROUT",
+          "trend": "steady"
+        }
+      ],
+      "name": "Kleiner Bauernkiosk",
+      "posX": 0.11101,
+      "id": "preplaced_farmerKioskSmall_b6e9a0fd8925f17a166b9b84160e7d22",
+      "posZ": 0.56992
+    },
+    {
+      "sell": [
+        {
+          "price": 31.35,
+          "type": "MANURE",
+          "trend": "falling"
+        }
+      ],
+      "name": "Mist",
+      "posX": 0.43509,
+      "id": "preplaced_buyingStationManure_26e11bad657c21bcc0983a0d3f8f941e",
+      "posZ": 0.54174,
+      "buy": [
+        {
+          "price": 36.3,
+          "type": "MANURE"
+        }
+      ]
+    },
+    {
+      "sell": [
+        {
+          "price": 3549.41,
+          "type": "BUFFALOMILK",
+          "trend": "climbing"
+        },
+        {
+          "price": 2891.79,
+          "type": "GOATMILK",
+          "trend": "climbing"
+        },
+        {
+          "price": 718.87,
+          "type": "MILK",
+          "trend": "climbing"
+        },
+        {
+          "price": 535.55,
+          "type": "SUGAR",
+          "trend": "falling"
+        }
+      ],
+      "name": "Molkerei",
+      "posX": 0.48306,
+      "id": "preplaced_dairyUS_6a57aafa055fad4cea620480ab71ec36",
+      "posZ": 0.36389
+    },
+    {
+      "sell": [
+        {
+          "price": 989.6,
+          "type": "WOOD",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Papierfabrik",
+      "posX": 0.85223,
+      "id": "preplaced_paperMill_f91429739d9b166e9109c834b9500697",
+      "posZ": 0.42264
+    },
+    {
+      "sell": [
+        {
+          "price": 1342.74,
+          "type": "BREAD",
+          "trend": "climbing"
+        },
+        {
+          "price": 2454.81,
+          "type": "BUFFALOMILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 7571.9,
+          "type": "BUFFALOMOZZARELLA",
+          "trend": "climbing"
+        },
+        {
+          "price": 1123.8,
+          "type": "BUTTER",
+          "trend": "climbing"
+        },
+        {
+          "price": 3299.82,
+          "type": "CAKE",
+          "trend": "climbing"
+        },
+        {
+          "price": 2668.37,
+          "type": "CANNED_PEAS",
+          "trend": "falling"
+        },
+        {
+          "price": 1621.05,
+          "type": "CANOLA_OIL",
+          "trend": "falling"
+        },
+        {
+          "price": 3595.09,
+          "type": "CEREAL",
+          "trend": "falling"
+        },
+        {
+          "price": 1823.58,
+          "type": "CHEESE",
+          "trend": "climbing"
+        },
+        {
+          "price": 417.95,
+          "type": "CHILLI",
+          "trend": "falling"
+        },
+        {
+          "price": 1926.28,
+          "type": "CHOCOLATE",
+          "trend": "climbing"
+        },
+        {
+          "price": 1032.25,
+          "type": "EGG",
+          "trend": "climbing"
+        },
+        {
+          "price": 398.68,
+          "type": "ENOKI",
+          "trend": "falling"
+        },
+        {
+          "price": 642.54,
+          "type": "FERMENTEDNAPACABBAGE",
+          "trend": "climbing"
+        },
+        {
+          "price": 603.46,
+          "type": "FLOUR",
+          "trend": "falling"
+        },
+        {
+          "price": 439.31,
+          "type": "GARLIC",
+          "trend": "falling"
+        },
+        {
+          "price": 1840.14,
+          "type": "GOATCHEESE",
+          "trend": "falling"
+        },
+        {
+          "price": 2113.68,
+          "type": "GOATMILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 527.97,
+          "type": "GRAPE",
+          "trend": "falling"
+        },
+        {
+          "price": 1698.01,
+          "type": "GRAPEJUICE",
+          "trend": "falling"
+        },
+        {
+          "price": 898.53,
+          "type": "HONEY",
+          "trend": "climbing"
+        },
+        {
+          "price": 1912.45,
+          "type": "JARRED_GREENBEAN",
+          "trend": "falling"
+        },
+        {
+          "price": 892.65,
+          "type": "LETTUCE",
+          "trend": "climbing"
+        },
+        {
+          "price": 585.82,
+          "type": "MILK_BOTTLED",
+          "trend": "climbing"
+        },
+        {
+          "price": 322.67,
+          "type": "NAPACABBAGE",
+          "trend": "falling"
+        },
+        {
+          "price": 1598.62,
+          "type": "NOODLESOUP",
+          "trend": "falling"
+        },
+        {
+          "price": 2381.88,
+          "type": "OLIVE_OIL",
+          "trend": "falling"
+        },
+        {
+          "price": 787.48,
+          "type": "OYSTER",
+          "trend": "steady"
+        },
+        {
+          "price": 1458.87,
+          "type": "POTATOCHIPS",
+          "trend": "climbing"
+        },
+        {
+          "price": 551.07,
+          "type": "PRESERVEDBEETROOT",
+          "trend": "climbing"
+        },
+        {
+          "price": 585.78,
+          "type": "PRESERVEDCARROTS",
+          "trend": "falling"
+        },
+        {
+          "price": 575.83,
+          "type": "PRESERVEDPARSNIP",
+          "trend": "steady"
+        },
+        {
+          "price": 1709.96,
+          "type": "RAISINS",
+          "trend": "climbing"
+        },
+        {
+          "price": 772,
+          "type": "RICEFLOUR",
+          "trend": "climbing"
+        },
+        {
+          "price": 1532.04,
+          "type": "RICEROLLS",
+          "trend": "climbing"
+        },
+        {
+          "price": 1503.54,
+          "type": "RICE_BAGS",
+          "trend": "falling"
+        },
+        {
+          "price": 2806.83,
+          "type": "RICE_BOXES",
+          "trend": "falling"
+        },
+        {
+          "price": 1719.21,
+          "type": "RICE_OIL",
+          "trend": "falling"
+        },
+        {
+          "price": 3688.49,
+          "type": "SALMON",
+          "trend": "falling"
+        },
+        {
+          "price": 875.36,
+          "type": "SOUPCANSBEETROOT",
+          "trend": "falling"
+        },
+        {
+          "price": 917.85,
+          "type": "SOUPCANSCARROTS",
+          "trend": "falling"
+        },
+        {
+          "price": 944.22,
+          "type": "SOUPCANSMIXED",
+          "trend": "falling"
+        },
+        {
+          "price": 892.53,
+          "type": "SOUPCANSPARSNIP",
+          "trend": "falling"
+        },
+        {
+          "price": 1239.49,
+          "type": "SOUPCANSPOTATO",
+          "trend": "steady"
+        },
+        {
+          "price": 766.5,
+          "type": "SPINACH_BAGS",
+          "trend": "climbing"
+        },
+        {
+          "price": 415.39,
+          "type": "SPRING_ONION",
+          "trend": "falling"
+        },
+        {
+          "price": 434.55,
+          "type": "STRAWBERRY",
+          "trend": "falling"
+        },
+        {
+          "price": 519.07,
+          "type": "SUGAR",
+          "trend": "climbing"
+        },
+        {
+          "price": 1942.34,
+          "type": "SUNFLOWER_OIL",
+          "trend": "climbing"
+        },
+        {
+          "price": 474.56,
+          "type": "TOMATO",
+          "trend": "falling"
+        },
+        {
+          "price": 2242.02,
+          "type": "TROUT",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Restaurant",
+      "posX": 0.77686,
+      "id": "placeable2b7704cfd100ccbb48ccc34d9f759df9",
+      "posZ": 0.66943
+    },
+    {
+      "sell": [
+        {
+          "price": 3360.75,
+          "type": "FABRIC",
+          "trend": "falling"
+        }
+      ],
+      "name": "Schneiderei",
+      "posX": 0.04751,
+      "id": "preplaced_tailorUS_ba37f9ad172186dab2dd5eea9f0c6dae",
+      "posZ": 0.50555
+    },
+    {
+      "sell": [
+        {
+          "price": 1275.25,
+          "type": "BOARDS",
+          "trend": "climbing"
+        },
+        {
+          "price": 2020.67,
+          "type": "PLANKS",
+          "trend": "falling"
+        },
+        {
+          "price": 991.25,
+          "type": "WOOD",
+          "trend": "falling"
+        }
+      ],
+      "name": "Schreinerei",
+      "posX": 0.50352,
+      "id": "preplaced_carpenterUS_7ed62cb62f3c73fb7eb4232094fd0b02",
+      "posZ": 0.56076
+    },
+    {
+      "sell": [
+        {
+          "price": 1073.67,
+          "type": "COTTON",
+          "trend": "climbing"
+        },
+        {
+          "price": 792.68,
+          "type": "WOOL",
+          "trend": "falling"
+        }
+      ],
+      "name": "Seilerei",
+      "posX": 0.56543,
+      "id": "preplaced_ropeMakerUS_03f108844472ea85d30064fffcb9d4ef",
+      "posZ": 0.9663
+    },
+    {
+      "sell": [
+        {
+          "price": 1562.77,
+          "type": "BOARDS",
+          "trend": "steady"
+        },
+        {
+          "price": 3856.3,
+          "type": "FABRIC",
+          "trend": "climbing"
+        },
+        {
+          "price": 2409.04,
+          "type": "PLANKS",
+          "trend": "falling"
+        },
+        {
+          "price": 6112.49,
+          "type": "ROPE",
+          "trend": "climbing"
+        },
+        {
+          "price": 3489.97,
+          "type": "WOODBEAM",
+          "trend": "steady"
+        }
+      ],
+      "name": "Spielplatz",
+      "posX": 0.02385,
+      "id": "preplaced_playgroundMakerShip_245cb26898581e6c66929df864cb3d6d",
+      "posZ": 0.88307
+    },
+    {
+      "sell": [
+        {
+          "price": 1387.59,
+          "type": "BOARDS",
+          "trend": "falling"
+        },
+        {
+          "price": 2013.65,
+          "type": "PLANKS",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Spielplatz Handwerkerhalle",
+      "posX": 0.01613,
+      "id": "preplaced_playgroundMakerHall_b11f649dc4c4c29bf7811dc8d60dbd8d",
+      "posZ": 0.87624
+    },
+    {
+      "sell": [
+        {
+          "price": 1148.48,
+          "type": "COTTON",
+          "trend": "falling"
+        },
+        {
+          "price": 786.18,
+          "type": "WOOL",
+          "trend": "falling"
+        }
+      ],
+      "name": "Spinnerei",
+      "posX": 0.94963,
+      "id": "preplaced_spinneryUS_a25f06045748bf7505845589ee4158bb",
+      "posZ": 0.17106
+    },
+    {
+      "sell": [
+        {
+          "price": 992.08,
+          "type": "WOOD",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Sägemühle",
+      "posX": 0.61457,
+      "id": "preplaced_sawmillUS_437337621e9c6c506305c70d1344f267",
+      "posZ": 0.72547
+    },
+    {
+      "name": "Tankstelle",
+      "posX": 0.90458,
+      "id": "preplaced_gasStation_0c3c3c5ee94d260a0f9eb99fa69106a9",
+      "posZ": 0.92994,
+      "buy": [
+        {
+          "price": 1500,
+          "type": "DIESEL"
+        }
+      ]
+    },
+    {
+      "name": "Tankstelle",
+      "posX": 0.11046,
+      "id": "preplaced_gasStation_7540a5f821c23cbdae37bdb1661b843e",
+      "posZ": 0.37784,
+      "buy": [
+        {
+          "price": 1500,
+          "type": "DIESEL"
+        }
+      ]
+    },
+    {
+      "name": "Tankstelle",
+      "posX": 0.46216,
+      "id": "preplaced_gasStation_f6f5f6117c4c8b395e009c1e8572fc28",
+      "posZ": 0.46143,
+      "buy": [
+        {
+          "price": 1500,
+          "type": "DIESEL"
+        }
+      ]
+    },
+    {
+      "sell": [
+        {
+          "price": 38.97,
+          "type": "CHAFF",
+          "trend": "falling"
+        },
+        {
+          "price": 51.71,
+          "type": "DRYGRASS_WINDROW",
+          "trend": "climbing"
+        },
+        {
+          "price": 120.38,
+          "type": "FORAGE",
+          "trend": "climbing"
+        },
+        {
+          "price": 41.12,
+          "type": "GRASS_WINDROW",
+          "trend": "climbing"
+        },
+        {
+          "price": 228.57,
+          "type": "HAY_PELLETS",
+          "trend": "falling"
+        },
+        {
+          "price": 123.6,
+          "type": "SILAGE",
+          "trend": "falling"
+        },
+        {
+          "price": 35.42,
+          "type": "STRAW",
+          "trend": "steady"
+        },
+        {
+          "price": 172.29,
+          "type": "STRAW_PELLETS",
+          "trend": "steady"
+        },
+        {
+          "price": 209.83,
+          "type": "SUGARBEET_CUT",
+          "trend": "climbing"
+        },
+        {
+          "price": 182.33,
+          "type": "WOODCHIPS",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Viehhändler",
+      "posX": 0.45658,
+      "id": "preplaced_sellingStationProducts_d4837e2423a2042b2945f18aa901b230",
+      "posZ": 0.50981
+    },
+    {
+      "sell": [
+        {
+          "price": 3427.92,
+          "type": "FABRIC",
+          "trend": "falling"
+        },
+        {
+          "price": 2033.26,
+          "type": "PLANKS",
+          "trend": "falling"
+        },
+        {
+          "price": 4994.39,
+          "type": "ROPE",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Wagonbauer",
+      "posX": 0.37301,
+      "id": "preplaced_wagonBuilder_75b2e943cb29e21366b77a10eebcf6b9",
+      "posZ": 0.13892
+    },
+    {
+      "name": "Wassertank",
+      "posX": 0.32446,
+      "id": "placeable2826836c2a5a056c85150984d10deefb",
+      "posZ": 0.97412,
+      "buy": [
+        {
+          "price": 100,
+          "type": "WATER"
+        }
+      ]
+    },
+    {
+      "name": "Wassertank",
+      "posX": 0.67822,
+      "id": "placeable42974032a1f99e5be514e944994c7f68",
+      "posZ": 0.13281,
+      "buy": [
+        {
+          "price": 100,
+          "type": "WATER"
+        }
+      ]
+    },
+    {
+      "name": "Wassertank",
+      "posX": 0.11133,
+      "id": "placeable7715776f44995ebb3a9acd55f590c6f9",
+      "posZ": 0.2439,
+      "buy": [
+        {
+          "price": 100,
+          "type": "WATER"
+        }
+      ]
+    },
+    {
+      "name": "Wassertank",
+      "posX": 0.70923,
+      "id": "placeableb7136178d2438571a154dcd427222bc9",
+      "posZ": 0.88184,
+      "buy": [
+        {
+          "price": 100,
+          "type": "WATER"
+        }
+      ]
+    },
+    {
+      "name": "Wassertank",
+      "posX": 0.14087,
+      "id": "placeabled4a875f64991aa37f312d0e424beaa7e",
+      "posZ": 0.43848,
+      "buy": [
+        {
+          "price": 100,
+          "type": "WATER"
+        }
+      ]
+    },
+    {
+      "name": "Wassertank",
+      "posX": 0.49341,
+      "id": "placeablefebf051bd0a6a0ef7437af80cca657f9",
+      "posZ": 0.47656,
+      "buy": [
+        {
+          "price": 100,
+          "type": "WATER"
+        }
+      ]
+    },
+    {
+      "sell": [
+        {
+          "price": 49.8,
+          "type": "STONE",
+          "trend": "falling"
+        }
+      ],
+      "name": "Zementwerk",
+      "posX": 0.01868,
+      "id": "preplaced_cementFactoryUS_3ee76b3d743178576ab66e879a95c08f",
+      "posZ": 0.63599
+    },
+    {
+      "sell": [
+        {
+          "price": 580.14,
+          "type": "CANOLA",
+          "trend": "climbing"
+        },
+        {
+          "price": 566.95,
+          "type": "OLIVE",
+          "trend": "falling"
+        },
+        {
+          "price": 1135.23,
+          "type": "RICE",
+          "trend": "climbing"
+        },
+        {
+          "price": 549.98,
+          "type": "RICELONGGRAIN",
+          "trend": "climbing"
+        },
+        {
+          "price": 740.21,
+          "type": "SUNFLOWER",
+          "trend": "climbing"
+        }
+      ],
+      "name": "Ölmühle",
+      "posX": 0.97187,
+      "id": "preplaced_oilPlantUS_ae66c3fd0af51416eb82bcf919f60c12",
+      "posZ": 0.83018
+    }
+  ],
+  "version": "1",
+  "priceMultiplier": 1,
+  "fillTypes": [
+    {
+      "bestMonth": 11,
+      "type": "BARLEY",
+      "title": "Gerste",
+      "showOnPriceTable": true,
+      "bestPrice": 379,
+      "months": [
+        313,
+        335,
+        310,
+        294,
+        266,
+        257,
+        269,
+        310,
+        338,
+        354,
+        379,
+        338
+      ],
+      "isCrop": true,
+      "basePrice": 313
+    },
+    {
+      "bestMonth": 6,
+      "type": "BARREL",
+      "title": "Fass",
+      "showOnPriceTable": true,
+      "bestPrice": 1783,
+      "months": [
+        1780,
+        1780,
+        1780,
+        1780,
+        1780,
+        1783,
+        1780,
+        1780,
+        1780,
+        1780,
+        1780,
+        1780
+      ],
+      "basePrice": 1780
+    },
+    {
+      "bestMonth": 1,
+      "type": "BATHTUB",
+      "title": "Badewanne",
+      "showOnPriceTable": true,
+      "bestPrice": 1710,
+      "months": [
+        1710,
+        1710,
+        1710,
+        1710,
+        1710,
+        1692,
+        1710,
+        1710,
+        1710,
+        1710,
+        1710,
+        1710
+      ],
+      "basePrice": 1710
+    },
+    {
+      "bestMonth": 11,
+      "type": "BEETROOT",
+      "title": "Rote Beete",
+      "showOnPriceTable": true,
+      "bestPrice": 140,
+      "months": [
+        128,
+        122,
+        116,
+        110,
+        116,
+        122,
+        122,
+        122,
+        128,
+        134,
+        140,
+        134
+      ],
+      "isCrop": true,
+      "basePrice": 122
+    },
+    {
+      "bestMonth": 5,
+      "type": "BOARDS",
+      "title": "Bretter",
+      "showOnPriceTable": true,
+      "bestPrice": 1430,
+      "months": [
+        1144,
+        1196,
+        1326,
+        1352,
+        1430,
+        1338,
+        1313,
+        1261,
+        1235,
+        1209,
+        1183,
+        1170
+      ],
+      "basePrice": 1300
+    },
+    {
+      "bestMonth": 11,
+      "type": "BREAD",
+      "title": "Brot",
+      "showOnPriceTable": true,
+      "bestPrice": 1997,
+      "months": [
+        1650,
+        1766,
+        1633,
+        1551,
+        1403,
+        1356,
+        1419,
+        1633,
+        1782,
+        1864,
+        1997,
+        1782
+      ],
+      "basePrice": 1650
+    },
+    {
+      "bestMonth": 1,
+      "type": "BUCKET",
+      "title": "Eimer",
+      "showOnPriceTable": true,
+      "bestPrice": 1290,
+      "months": [
+        1290,
+        1290,
+        1290,
+        1290,
+        1290,
+        1287,
+        1290,
+        1290,
+        1290,
+        1290,
+        1290,
+        1290
+      ],
+      "basePrice": 1290
+    },
+    {
+      "bestMonth": 8,
+      "type": "BUFFALOMILK",
+      "title": "Büffelmilch",
+      "showOnPriceTable": true,
+      "bestPrice": 3815,
+      "months": [
+        3710,
+        3535,
+        3360,
+        3150,
+        3325,
+        3404,
+        3605,
+        3815,
+        3430,
+        3360,
+        3780,
+        3745
+      ],
+      "basePrice": 3500
+    },
+    {
+      "bestMonth": 8,
+      "type": "BUFFALOMILK_BOTTLED",
+      "title": "Büffelmilch (abgefüllt)",
+      "showOnPriceTable": true,
+      "bestPrice": 2714,
+      "months": [
+        2639,
+        2515,
+        2390,
+        2241,
+        2365,
+        2415,
+        2565,
+        2714,
+        2440,
+        2390,
+        2689,
+        2664
+      ],
+      "basePrice": 2490
+    },
+    {
+      "bestMonth": 8,
+      "type": "BUFFALOMOZZARELLA",
+      "title": "Büffelmozzarella",
+      "showOnPriceTable": true,
+      "bestPrice": 8175,
+      "months": [
+        7950,
+        7575,
+        7200,
+        6750,
+        7125,
+        7298,
+        7725,
+        8175,
+        7350,
+        7200,
+        8100,
+        8025
+      ],
+      "basePrice": 7500
+    },
+    {
+      "bestMonth": 8,
+      "type": "BUTTER",
+      "title": "Butter",
+      "showOnPriceTable": true,
+      "bestPrice": 1221,
+      "months": [
+        1187,
+        1131,
+        1075,
+        1008,
+        1064,
+        1097,
+        1154,
+        1221,
+        1098,
+        1075,
+        1210,
+        1198
+      ],
+      "basePrice": 1120
+    },
+    {
+      "bestMonth": 8,
+      "type": "CAKE",
+      "title": "Kuchen",
+      "showOnPriceTable": true,
+      "bestPrice": 3597,
+      "months": [
+        3498,
+        3333,
+        3168,
+        2970,
+        3135,
+        3202,
+        3399,
+        3597,
+        3234,
+        3168,
+        3564,
+        3531
+      ],
+      "basePrice": 3300
+    },
+    {
+      "bestMonth": 6,
+      "type": "CANNED_PEAS",
+      "title": "Dosenerbsen",
+      "showOnPriceTable": true,
+      "bestPrice": 2597,
+      "months": [
+        2596,
+        2596,
+        2596,
+        2596,
+        2596,
+        2597,
+        2596,
+        2596,
+        2596,
+        2596,
+        2596,
+        2596
+      ],
+      "basePrice": 2596
+    },
+    {
+      "bestMonth": 10,
+      "type": "CANOLA",
+      "title": "Raps",
+      "showOnPriceTable": true,
+      "bestPrice": 730,
+      "months": [
+        645,
+        597,
+        567,
+        513,
+        488,
+        543,
+        597,
+        651,
+        681,
+        730,
+        651,
+        603
+      ],
+      "isCrop": true,
+      "basePrice": 603
+    },
+    {
+      "bestMonth": 10,
+      "type": "CANOLA_OIL",
+      "title": "Rapsöl",
+      "showOnPriceTable": true,
+      "bestPrice": 1984,
+      "months": [
+        1755,
+        1624,
+        1542,
+        1394,
+        1328,
+        1462,
+        1624,
+        1771,
+        1853,
+        1984,
+        1771,
+        1640
+      ],
+      "basePrice": 1640
+    },
+    {
+      "bestMonth": 11,
+      "type": "CARROT",
+      "title": "Karotten",
+      "showOnPriceTable": true,
+      "bestPrice": 152,
+      "months": [
+        139,
+        132,
+        125,
+        119,
+        125,
+        132,
+        132,
+        132,
+        139,
+        145,
+        152,
+        145
+      ],
+      "isCrop": true,
+      "basePrice": 132
+    },
+    {
+      "bestMonth": 6,
+      "type": "CARTONROLL",
+      "title": "Kartonrolle",
+      "showOnPriceTable": true,
+      "bestPrice": 2913,
+      "months": [
+        2900,
+        2900,
+        2900,
+        2900,
+        2900,
+        2913,
+        2900,
+        2900,
+        2900,
+        2900,
+        2900,
+        2900
+      ],
+      "basePrice": 2900
+    },
+    {
+      "bestMonth": 5,
+      "type": "CASTLEROCK",
+      "title": "Naturmauerstein",
+      "showOnPriceTable": true,
+      "bestPrice": 1320,
+      "months": [
+        1100,
+        1155,
+        1210,
+        1265,
+        1320,
+        1251,
+        1210,
+        1155,
+        1100,
+        1045,
+        1045,
+        1045
+      ],
+      "basePrice": 1100
+    },
+    {
+      "bestMonth": 6,
+      "type": "CEMENT",
+      "title": "Zementsäcke",
+      "showOnPriceTable": true,
+      "bestPrice": 1053,
+      "months": [
+        1050,
+        1050,
+        1050,
+        1050,
+        1050,
+        1053,
+        1050,
+        1050,
+        1050,
+        1050,
+        1050,
+        1050
+      ],
+      "basePrice": 1050
+    },
+    {
+      "bestMonth": 6,
+      "type": "CEMENTBRICKS",
+      "title": "Betonziegel",
+      "showOnPriceTable": true,
+      "bestPrice": 1603,
+      "months": [
+        1580,
+        1580,
+        1580,
+        1580,
+        1580,
+        1603,
+        1580,
+        1580,
+        1580,
+        1580,
+        1580,
+        1580
+      ],
+      "basePrice": 1580
+    },
+    {
+      "bestMonth": 1,
+      "type": "CEREAL",
+      "title": "Müsli",
+      "showOnPriceTable": true,
+      "bestPrice": 4256,
+      "months": [
+        4256,
+        4104,
+        3648,
+        3800,
+        3572,
+        3760,
+        3458,
+        3838,
+        3686,
+        3800,
+        3914,
+        4066
+      ],
+      "basePrice": 3800
+    },
+    {
+      "bestMonth": 10,
+      "type": "CHAFF",
+      "title": "Häckselgut",
+      "months": [
+        45,
+        44,
+        42,
+        40,
+        42,
+        40,
+        39,
+        45,
+        45,
+        47,
+        47,
+        47
+      ],
+      "bestPrice": 47,
+      "basePrice": 42
+    },
+    {
+      "bestMonth": 8,
+      "type": "CHEESE",
+      "title": "Käse",
+      "showOnPriceTable": true,
+      "bestPrice": 1962,
+      "months": [
+        1908,
+        1818,
+        1728,
+        1620,
+        1710,
+        1753,
+        1854,
+        1962,
+        1764,
+        1728,
+        1944,
+        1926
+      ],
+      "basePrice": 1800
+    },
+    {
+      "bestMonth": 12,
+      "type": "CHILLI",
+      "title": "Chilischoten",
+      "showOnPriceTable": true,
+      "bestPrice": 508,
+      "months": [
+        472,
+        468,
+        450,
+        445,
+        423,
+        435,
+        414,
+        405,
+        441,
+        454,
+        486,
+        508
+      ],
+      "basePrice": 450
+    },
+    {
+      "bestMonth": 4,
+      "type": "CHOCOLATE",
+      "title": "Schokolade",
+      "showOnPriceTable": true,
+      "bestPrice": 2160,
+      "months": [
+        1980,
+        2040,
+        2080,
+        2160,
+        1880,
+        1866,
+        1900,
+        1820,
+        1920,
+        2000,
+        2080,
+        2160
+      ],
+      "basePrice": 2000
+    },
+    {
+      "bestMonth": 3,
+      "type": "CLOTHES",
+      "title": "Kleidung",
+      "showOnPriceTable": true,
+      "bestPrice": 10965,
+      "months": [
+        9605,
+        10625,
+        10965,
+        10115,
+        8415,
+        7612,
+        6885,
+        6545,
+        7225,
+        8075,
+        7905,
+        8245
+      ],
+      "basePrice": 8500
+    },
+    {
+      "bestMonth": 1,
+      "type": "COTTON",
+      "title": "Baumwolle",
+      "showOnPriceTable": true,
+      "bestPrice": 1390,
+      "months": [
+        1390,
+        1290,
+        1277,
+        1277,
+        1152,
+        1104,
+        1089,
+        1277,
+        1277,
+        1302,
+        1227,
+        1340
+      ],
+      "isCrop": true,
+      "basePrice": 1252
+    },
+    {
+      "bestMonth": 1,
+      "type": "DIESEL",
+      "title": "Diesel",
+      "showOnPriceTable": true,
+      "bestPrice": 1500,
+      "months": [
+        1500,
+        1500,
+        1500,
+        1500,
+        1500,
+        1500,
+        1500,
+        1500,
+        1500,
+        1500,
+        1500,
+        1500
+      ],
+      "basePrice": 1500
+    },
+    {
+      "bestMonth": 11,
+      "type": "DRYGRASS_WINDROW",
+      "title": "Heu",
+      "showOnPriceTable": true,
+      "bestPrice": 62,
+      "months": [
+        59,
+        57,
+        54,
+        52,
+        50,
+        50,
+        52,
+        55,
+        59,
+        60,
+        62,
+        62
+      ],
+      "basePrice": 56
+    },
+    {
+      "bestMonth": 9,
+      "type": "EGG",
+      "title": "Eier",
+      "showOnPriceTable": true,
+      "bestPrice": 1400,
+      "months": [
+        885,
+        795,
+        1019,
+        1232,
+        1243,
+        1046,
+        1053,
+        1154,
+        1400,
+        1355,
+        1210,
+        1019
+      ],
+      "basePrice": 1120
+    },
+    {
+      "bestMonth": 12,
+      "type": "ENOKI",
+      "title": "Enoki",
+      "showOnPriceTable": true,
+      "bestPrice": 475,
+      "months": [
+        441,
+        437,
+        420,
+        416,
+        395,
+        406,
+        386,
+        378,
+        412,
+        424,
+        454,
+        475
+      ],
+      "basePrice": 420
+    },
+    {
+      "bestMonth": 3,
+      "type": "FABRIC",
+      "title": "Stoff",
+      "showOnPriceTable": true,
+      "bestPrice": 5160,
+      "months": [
+        4520,
+        5000,
+        5160,
+        4760,
+        3960,
+        3597,
+        3240,
+        3080,
+        3400,
+        3800,
+        3720,
+        3880
+      ],
+      "basePrice": 4000
+    },
+    {
+      "bestMonth": 1,
+      "type": "FERMENTEDNAPACABBAGE",
+      "title": "Kimchi",
+      "showOnPriceTable": true,
+      "bestPrice": 650,
+      "months": [
+        650,
+        650,
+        650,
+        650,
+        650,
+        648,
+        650,
+        650,
+        650,
+        650,
+        650,
+        650
+      ],
+      "basePrice": 650
+    },
+    {
+      "bestMonth": 1,
+      "type": "FERTILIZER",
+      "title": "Mineraldünger",
+      "showOnPriceTable": true,
+      "bestPrice": 1600,
+      "months": [
+        1600,
+        1600,
+        1600,
+        1600,
+        1600,
+        1600,
+        1600,
+        1600,
+        1600,
+        1600,
+        1600,
+        1600
+      ],
+      "basePrice": 1600
+    },
+    {
+      "bestMonth": 5,
+      "type": "FISHFOOD",
+      "title": "Fischfutter",
+      "showOnPriceTable": true,
+      "bestPrice": 1690,
+      "months": [
+        1170,
+        1300,
+        1430,
+        1560,
+        1690,
+        1559,
+        1430,
+        1300,
+        1170,
+        1105,
+        1040,
+        1105
+      ],
+      "basePrice": 1300
+    },
+    {
+      "bestMonth": 11,
+      "type": "FLOUR",
+      "title": "Mehl",
+      "showOnPriceTable": true,
+      "bestPrice": 835,
+      "months": [
+        690,
+        738,
+        683,
+        649,
+        587,
+        567,
+        593,
+        683,
+        745,
+        780,
+        835,
+        745
+      ],
+      "basePrice": 690
+    },
+    {
+      "bestMonth": 1,
+      "type": "FORAGE",
+      "title": "Totalmischration",
+      "showOnPriceTable": true,
+      "bestPrice": 124,
+      "months": [
+        124,
+        124,
+        124,
+        124,
+        124,
+        122,
+        124,
+        124,
+        124,
+        124,
+        124,
+        124
+      ],
+      "basePrice": 124
+    },
+    {
+      "bestMonth": 10,
+      "type": "FRIEDONION",
+      "title": "Frittierte Zwiebeln",
+      "showOnPriceTable": true,
+      "bestPrice": 2236,
+      "months": [
+        2064,
+        1892,
+        1720,
+        1548,
+        1462,
+        1602,
+        1720,
+        1892,
+        2064,
+        2236,
+        2236,
+        2236
+      ],
+      "basePrice": 1720
+    },
+    {
+      "bestMonth": 5,
+      "type": "FURNITURE",
+      "title": "Möbel",
+      "showOnPriceTable": true,
+      "bestPrice": 2145,
+      "months": [
+        1716,
+        1794,
+        1989,
+        2028,
+        2145,
+        1995,
+        1970,
+        1892,
+        1853,
+        1814,
+        1775,
+        1755
+      ],
+      "basePrice": 1950
+    },
+    {
+      "bestMonth": 12,
+      "type": "GARLIC",
+      "title": "Knoblauch",
+      "showOnPriceTable": true,
+      "bestPrice": 508,
+      "months": [
+        472,
+        468,
+        450,
+        445,
+        423,
+        436,
+        414,
+        405,
+        441,
+        454,
+        486,
+        508
+      ],
+      "basePrice": 450
+    },
+    {
+      "bestMonth": 8,
+      "type": "GOATCHEESE",
+      "title": "Ziegenkäse",
+      "showOnPriceTable": true,
+      "bestPrice": 1918,
+      "months": [
+        1866,
+        1778,
+        1690,
+        1584,
+        1672,
+        1714,
+        1813,
+        1918,
+        1725,
+        1690,
+        1901,
+        1883
+      ],
+      "basePrice": 1760
+    },
+    {
+      "bestMonth": 8,
+      "type": "GOATMILK",
+      "title": "Ziegenmilch",
+      "showOnPriceTable": true,
+      "bestPrice": 3074,
+      "months": [
+        2989,
+        2848,
+        2707,
+        2538,
+        2679,
+        2761,
+        2905,
+        3074,
+        2764,
+        2707,
+        3046,
+        3017
+      ],
+      "basePrice": 2820
+    },
+    {
+      "bestMonth": 8,
+      "type": "GOATMILK_BOTTLED",
+      "title": "Ziegenmilch (abgefüllt)",
+      "showOnPriceTable": true,
+      "bestPrice": 2300,
+      "months": [
+        2237,
+        2131,
+        2026,
+        1899,
+        2004,
+        2055,
+        2173,
+        2300,
+        2068,
+        2026,
+        2279,
+        2258
+      ],
+      "basePrice": 2110
+    },
+    {
+      "bestMonth": 3,
+      "type": "GRAPE",
+      "title": "Trauben",
+      "showOnPriceTable": true,
+      "bestPrice": 724,
+      "months": [
+        633,
+        651,
+        724,
+        663,
+        621,
+        553,
+        525,
+        452,
+        507,
+        531,
+        573,
+        597
+      ],
+      "isCrop": true,
+      "basePrice": 603
+    },
+    {
+      "bestMonth": 12,
+      "type": "GRAPEJUICE",
+      "title": "Traubensaft",
+      "showOnPriceTable": true,
+      "bestPrice": 1848,
+      "months": [
+        1683,
+        1716,
+        1732,
+        1633,
+        1551,
+        1662,
+        1683,
+        1732,
+        1782,
+        1666,
+        1584,
+        1848
+      ],
+      "basePrice": 1650
+    },
+    {
+      "bestMonth": 11,
+      "type": "GRASS_WINDROW",
+      "title": "Gras",
+      "showOnPriceTable": true,
+      "bestPrice": 50,
+      "months": [
+        47,
+        46,
+        43,
+        42,
+        41,
+        41,
+        42,
+        45,
+        47,
+        49,
+        50,
+        50
+      ],
+      "isCrop": true,
+      "basePrice": 45
+    },
+    {
+      "bestMonth": 6,
+      "type": "GREENBEAN",
+      "title": "Buschbohnen",
+      "showOnPriceTable": true,
+      "bestPrice": 756,
+      "months": [
+        677,
+        677,
+        691,
+        727,
+        727,
+        756,
+        749,
+        756,
+        749,
+        734,
+        727,
+        698
+      ],
+      "isCrop": true,
+      "basePrice": 720
+    },
+    {
+      "bestMonth": 11,
+      "type": "HAY_PELLETS",
+      "title": "Heupellets",
+      "showOnPriceTable": true,
+      "bestPrice": 280,
+      "months": [
+        267,
+        260,
+        244,
+        232,
+        224,
+        228,
+        234,
+        247,
+        265,
+        272,
+        280,
+        280
+      ],
+      "basePrice": 252
+    },
+    {
+      "bestMonth": 1,
+      "type": "HONEY",
+      "title": "Honig",
+      "showOnPriceTable": true,
+      "bestPrice": 1120,
+      "months": [
+        1120,
+        1080,
+        1010,
+        1000,
+        960,
+        920,
+        910,
+        940,
+        970,
+        1000,
+        1030,
+        1070
+      ],
+      "basePrice": 1000
+    },
+    {
+      "bestMonth": 6,
+      "type": "JARRED_GREENBEAN",
+      "title": "Eingemachte Buschbohnen",
+      "showOnPriceTable": true,
+      "bestPrice": 1904,
+      "months": [
+        1886,
+        1886,
+        1886,
+        1886,
+        1886,
+        1904,
+        1886,
+        1886,
+        1886,
+        1886,
+        1886,
+        1886
+      ],
+      "basePrice": 1886
+    },
+    {
+      "bestMonth": 12,
+      "type": "LETTUCE",
+      "title": "Salat",
+      "showOnPriceTable": true,
+      "bestPrice": 1119,
+      "months": [
+        1039,
+        1030,
+        990,
+        980,
+        931,
+        947,
+        911,
+        891,
+        970,
+        1000,
+        1069,
+        1119
+      ],
+      "basePrice": 990
+    },
+    {
+      "bestMonth": 1,
+      "type": "LIME",
+      "title": "Kalk",
+      "showOnPriceTable": true,
+      "bestPrice": 225,
+      "months": [
+        225,
+        225,
+        225,
+        225,
+        225,
+        225,
+        225,
+        225,
+        225,
+        225,
+        225,
+        225
+      ],
+      "basePrice": 225
+    },
+    {
+      "bestMonth": 11,
+      "type": "LIQUIDMANURE",
+      "title": "Gülle",
+      "showOnPriceTable": true,
+      "bestPrice": 37,
+      "months": [
+        35,
+        34,
+        32,
+        30,
+        29,
+        29,
+        31,
+        32,
+        35,
+        36,
+        37,
+        37
+      ],
+      "basePrice": 33
+    },
+    {
+      "bestMonth": 11,
+      "type": "MAIZE",
+      "title": "Mais",
+      "showOnPriceTable": true,
+      "bestPrice": 505,
+      "months": [
+        426,
+        410,
+        395,
+        433,
+        498,
+        359,
+        334,
+        270,
+        232,
+        350,
+        505,
+        372
+      ],
+      "isCrop": true,
+      "basePrice": 380
+    },
+    {
+      "bestMonth": 11,
+      "type": "MANURE",
+      "title": "Mist",
+      "showOnPriceTable": true,
+      "bestPrice": 37,
+      "months": [
+        35,
+        34,
+        32,
+        30,
+        29,
+        29,
+        31,
+        32,
+        35,
+        36,
+        37,
+        37
+      ],
+      "basePrice": 33
+    },
+    {
+      "bestMonth": 8,
+      "type": "MILK",
+      "title": "Milch",
+      "showOnPriceTable": true,
+      "bestPrice": 763,
+      "months": [
+        742,
+        707,
+        672,
+        630,
+        665,
+        685,
+        721,
+        763,
+        686,
+        672,
+        756,
+        749
+      ],
+      "basePrice": 700
+    },
+    {
+      "bestMonth": 8,
+      "type": "MILK_BOTTLED",
+      "title": "Milch (abgefüllt)",
+      "showOnPriceTable": true,
+      "bestPrice": 632,
+      "months": [
+        615,
+        586,
+        557,
+        522,
+        551,
+        564,
+        597,
+        632,
+        568,
+        557,
+        626,
+        621
+      ],
+      "basePrice": 580
+    },
+    {
+      "bestMonth": 12,
+      "type": "NAPACABBAGE",
+      "title": "Chinakohl",
+      "showOnPriceTable": true,
+      "bestPrice": 395,
+      "months": [
+        367,
+        364,
+        350,
+        346,
+        329,
+        341,
+        322,
+        315,
+        343,
+        353,
+        378,
+        395
+      ],
+      "basePrice": 350
+    },
+    {
+      "bestMonth": 1,
+      "type": "NOODLESOUP",
+      "title": "Nudelsuppe",
+      "showOnPriceTable": true,
+      "bestPrice": 1550,
+      "months": [
+        1550,
+        1550,
+        1550,
+        1550,
+        1550,
+        1550,
+        1550,
+        1550,
+        1550,
+        1550,
+        1550,
+        1550
+      ],
+      "basePrice": 1550
+    },
+    {
+      "bestMonth": 11,
+      "type": "OAT",
+      "title": "Hafer",
+      "showOnPriceTable": true,
+      "bestPrice": 644,
+      "months": [
+        532,
+        569,
+        527,
+        500,
+        452,
+        433,
+        458,
+        527,
+        575,
+        601,
+        644,
+        575
+      ],
+      "isCrop": true,
+      "basePrice": 532
+    },
+    {
+      "bestMonth": 4,
+      "type": "OLIVE",
+      "title": "Oliven",
+      "showOnPriceTable": true,
+      "bestPrice": 724,
+      "months": [
+        597,
+        633,
+        651,
+        724,
+        663,
+        600,
+        561,
+        525,
+        452,
+        507,
+        531,
+        573
+      ],
+      "isCrop": true,
+      "basePrice": 603
+    },
+    {
+      "bestMonth": 4,
+      "type": "OLIVE_OIL",
+      "title": "Olivenöl",
+      "showOnPriceTable": true,
+      "bestPrice": 2928,
+      "months": [
+        2416,
+        2562,
+        2635,
+        2928,
+        2684,
+        2450,
+        2269,
+        2123,
+        1830,
+        2050,
+        2147,
+        2318
+      ],
+      "basePrice": 2440
+    },
+    {
+      "bestMonth": 11,
+      "type": "ONION",
+      "title": "Zwiebeln",
+      "showOnPriceTable": true,
+      "bestPrice": 303,
+      "months": [
+        250,
+        268,
+        248,
+        235,
+        213,
+        203,
+        215,
+        248,
+        270,
+        282,
+        303,
+        270
+      ],
+      "isCrop": true,
+      "basePrice": 250
+    },
+    {
+      "bestMonth": 10,
+      "type": "ONIONBAG",
+      "title": "Zwiebeln (Abgepackt)",
+      "showOnPriceTable": true,
+      "bestPrice": 422,
+      "months": [
+        357,
+        325,
+        309,
+        292,
+        276,
+        302,
+        325,
+        357,
+        390,
+        422,
+        390,
+        390
+      ],
+      "basePrice": 325
+    },
+    {
+      "bestMonth": 10,
+      "type": "ONIONSALT",
+      "title": "Zwiebelsalz",
+      "showOnPriceTable": true,
+      "bestPrice": 2088,
+      "months": [
+        1740,
+        1653,
+        1566,
+        1479,
+        1392,
+        1515,
+        1653,
+        1740,
+        1914,
+        2088,
+        1914,
+        1914
+      ],
+      "basePrice": 1740
+    },
+    {
+      "bestMonth": 10,
+      "type": "ONIONSOUP",
+      "title": "Zwiebelsuppe",
+      "showOnPriceTable": true,
+      "bestPrice": 1204,
+      "months": [
+        1118,
+        1032,
+        946,
+        860,
+        817,
+        880,
+        946,
+        1032,
+        1118,
+        1204,
+        1204,
+        1204
+      ],
+      "basePrice": 860
+    },
+    {
+      "bestMonth": 12,
+      "type": "OYSTER",
+      "title": "Austernpilz",
+      "showOnPriceTable": true,
+      "bestPrice": 977,
+      "months": [
+        908,
+        900,
+        865,
+        856,
+        813,
+        836,
+        796,
+        778,
+        848,
+        874,
+        934,
+        977
+      ],
+      "basePrice": 865
+    },
+    {
+      "bestMonth": 1,
+      "type": "PAPERROLL",
+      "title": "Papierrolle",
+      "showOnPriceTable": true,
+      "bestPrice": 3200,
+      "months": [
+        3200,
+        3200,
+        3200,
+        3200,
+        3200,
+        3185,
+        3200,
+        3200,
+        3200,
+        3200,
+        3200,
+        3200
+      ],
+      "basePrice": 3200
+    },
+    {
+      "bestMonth": 11,
+      "type": "PARSNIP",
+      "title": "Pastinaken",
+      "showOnPriceTable": true,
+      "bestPrice": 151,
+      "months": [
+        138,
+        131,
+        124,
+        118,
+        124,
+        131,
+        131,
+        131,
+        138,
+        144,
+        151,
+        144
+      ],
+      "isCrop": true,
+      "basePrice": 131
+    },
+    {
+      "bestMonth": 10,
+      "type": "PEA",
+      "title": "Erbsen",
+      "showOnPriceTable": true,
+      "bestPrice": 1144,
+      "months": [
+        1019,
+        978,
+        1019,
+        1061,
+        1040,
+        1042,
+        1040,
+        1082,
+        1123,
+        1144,
+        1102,
+        1061
+      ],
+      "isCrop": true,
+      "basePrice": 1040
+    },
+    {
+      "bestMonth": 6,
+      "type": "PLANKS",
+      "title": "Lange Bretter",
+      "showOnPriceTable": true,
+      "bestPrice": 1952,
+      "months": [
+        1941,
+        1941,
+        1941,
+        1941,
+        1941,
+        1952,
+        1941,
+        1941,
+        1941,
+        1941,
+        1941,
+        1941
+      ],
+      "basePrice": 1941
+    },
+    {
+      "bestMonth": 10,
+      "type": "POTATO",
+      "title": "Kartoffeln",
+      "showOnPriceTable": true,
+      "bestPrice": 255,
+      "months": [
+        222,
+        211,
+        200,
+        211,
+        222,
+        222,
+        222,
+        233,
+        244,
+        255,
+        244,
+        233
+      ],
+      "isCrop": true,
+      "basePrice": 222
+    },
+    {
+      "bestMonth": 1,
+      "type": "POTATOCHIPS",
+      "title": "Kartoffelchips",
+      "showOnPriceTable": true,
+      "bestPrice": 1500,
+      "months": [
+        1500,
+        1500,
+        1500,
+        1500,
+        1500,
+        1496,
+        1500,
+        1500,
+        1500,
+        1500,
+        1500,
+        1500
+      ],
+      "basePrice": 1500
+    },
+    {
+      "bestMonth": 6,
+      "type": "PREFABWALL",
+      "title": "Fertigwand",
+      "showOnPriceTable": true,
+      "bestPrice": 5009,
+      "months": [
+        4950,
+        4950,
+        4950,
+        4950,
+        4950,
+        5009,
+        4950,
+        4950,
+        4950,
+        4950,
+        4950,
+        4950
+      ],
+      "basePrice": 4950
+    },
+    {
+      "bestMonth": 1,
+      "type": "PRESERVEDBEETROOT",
+      "title": "Rote-Bete-Dosen",
+      "showOnPriceTable": true,
+      "bestPrice": 560,
+      "months": [
+        560,
+        560,
+        560,
+        560,
+        560,
+        558,
+        560,
+        560,
+        560,
+        560,
+        560,
+        560
+      ],
+      "basePrice": 560
+    },
+    {
+      "bestMonth": 1,
+      "type": "PRESERVEDCARROTS",
+      "title": "Karottendosen",
+      "showOnPriceTable": true,
+      "bestPrice": 580,
+      "months": [
+        580,
+        580,
+        580,
+        580,
+        580,
+        580,
+        580,
+        580,
+        580,
+        580,
+        580,
+        580
+      ],
+      "basePrice": 580
+    },
+    {
+      "bestMonth": 1,
+      "type": "PRESERVEDPARSNIP",
+      "title": "Pastinakendosen",
+      "showOnPriceTable": true,
+      "bestPrice": 578,
+      "months": [
+        578,
+        578,
+        578,
+        578,
+        578,
+        578,
+        578,
+        578,
+        578,
+        578,
+        578,
+        578
+      ],
+      "basePrice": 578
+    },
+    {
+      "bestMonth": 8,
+      "type": "RAISINS",
+      "title": "Rosinen",
+      "showOnPriceTable": true,
+      "bestPrice": 1809,
+      "months": [
+        1760,
+        1744,
+        1711,
+        1581,
+        1532,
+        1672,
+        1793,
+        1809,
+        1728,
+        1548,
+        1483,
+        1614
+      ],
+      "basePrice": 1630
+    },
+    {
+      "bestMonth": 5,
+      "type": "RICE",
+      "title": "Reis",
+      "showOnPriceTable": true,
+      "bestPrice": 1155,
+      "months": [
+        1034,
+        1056,
+        1111,
+        1111,
+        1155,
+        1141,
+        1155,
+        1144,
+        1122,
+        1111,
+        1067,
+        1034
+      ],
+      "isCrop": true,
+      "basePrice": 1100
+    },
+    {
+      "bestMonth": 11,
+      "type": "RICEFLOUR",
+      "title": "Reismehl",
+      "showOnPriceTable": true,
+      "bestPrice": 1101,
+      "months": [
+        910,
+        974,
+        901,
+        855,
+        774,
+        749,
+        783,
+        901,
+        983,
+        1028,
+        1101,
+        983
+      ],
+      "basePrice": 910
+    },
+    {
+      "bestMonth": 5,
+      "type": "RICELONGGRAIN",
+      "title": "Langkornreis",
+      "showOnPriceTable": true,
+      "bestPrice": 556,
+      "months": [
+        498,
+        509,
+        535,
+        535,
+        556,
+        555,
+        556,
+        551,
+        541,
+        535,
+        514,
+        498
+      ],
+      "isCrop": true,
+      "basePrice": 530
+    },
+    {
+      "bestMonth": 1,
+      "type": "RICEROLLS",
+      "title": "Reisrollen",
+      "showOnPriceTable": true,
+      "bestPrice": 1550,
+      "months": [
+        1550,
+        1550,
+        1550,
+        1550,
+        1550,
+        1546,
+        1550,
+        1550,
+        1550,
+        1550,
+        1550,
+        1550
+      ],
+      "basePrice": 1550
+    },
+    {
+      "bestMonth": 1,
+      "type": "RICESAPLINGS",
+      "title": "Reis Setzlinge",
+      "showOnPriceTable": true,
+      "bestPrice": 3330,
+      "months": [
+        3330,
+        3330,
+        3330,
+        3330,
+        3330,
+        3314,
+        3330,
+        3330,
+        3330,
+        3330,
+        3330,
+        3330
+      ],
+      "basePrice": 3330
+    },
+    {
+      "bestMonth": 6,
+      "type": "RICE_BAGS",
+      "title": "Reissack",
+      "showOnPriceTable": true,
+      "bestPrice": 1480,
+      "months": [
+        1464,
+        1464,
+        1464,
+        1464,
+        1464,
+        1480,
+        1464,
+        1464,
+        1464,
+        1464,
+        1464,
+        1464
+      ],
+      "basePrice": 1464
+    },
+    {
+      "bestMonth": 6,
+      "type": "RICE_BOXES",
+      "title": "Reisbox",
+      "showOnPriceTable": true,
+      "bestPrice": 2734,
+      "months": [
+        2730,
+        2730,
+        2730,
+        2730,
+        2730,
+        2734,
+        2730,
+        2730,
+        2730,
+        2730,
+        2730,
+        2730
+      ],
+      "basePrice": 2730
+    },
+    {
+      "bestMonth": 4,
+      "type": "RICE_OIL",
+      "title": "Reisöl",
+      "showOnPriceTable": true,
+      "bestPrice": 2136,
+      "months": [
+        1762,
+        1869,
+        1922,
+        2136,
+        1958,
+        1793,
+        1655,
+        1549,
+        1335,
+        1495,
+        1566,
+        1691
+      ],
+      "basePrice": 1780
+    },
+    {
+      "bestMonth": 6,
+      "type": "ROOFPLATES",
+      "title": "Dachplatte",
+      "showOnPriceTable": true,
+      "bestPrice": 1609,
+      "months": [
+        1580,
+        1580,
+        1580,
+        1580,
+        1580,
+        1609,
+        1580,
+        1580,
+        1580,
+        1580,
+        1580,
+        1580
+      ],
+      "basePrice": 1580
+    },
+    {
+      "bestMonth": 6,
+      "type": "ROPE",
+      "title": "Seil",
+      "showOnPriceTable": true,
+      "bestPrice": 5150,
+      "months": [
+        5050,
+        5050,
+        5050,
+        5050,
+        5050,
+        5150,
+        5050,
+        5050,
+        5050,
+        5050,
+        5050,
+        5050
+      ],
+      "basePrice": 5050
+    },
+    {
+      "bestMonth": 5,
+      "type": "SALMON",
+      "title": "Lachs",
+      "showOnPriceTable": true,
+      "bestPrice": 3900,
+      "months": [
+        3380,
+        3510,
+        3640,
+        3770,
+        3900,
+        3729,
+        3640,
+        3510,
+        3380,
+        3250,
+        3120,
+        3250
+      ],
+      "basePrice": 2600
+    },
+    {
+      "bestMonth": 11,
+      "type": "SEEDS",
+      "title": "Saatgut",
+      "showOnPriceTable": true,
+      "bestPrice": 1089,
+      "months": [
+        900,
+        963,
+        891,
+        846,
+        765,
+        485,
+        774,
+        891,
+        972,
+        1017,
+        1089,
+        972
+      ],
+      "basePrice": 900
+    },
+    {
+      "bestMonth": 5,
+      "type": "SHINGLEROOF",
+      "title": "Dachschindeln",
+      "showOnPriceTable": true,
+      "bestPrice": 1796,
+      "months": [
+        1530,
+        1596,
+        1663,
+        1729,
+        1796,
+        1711,
+        1663,
+        1596,
+        1530,
+        1463,
+        1463,
+        1463
+      ],
+      "basePrice": 1330
+    },
+    {
+      "bestMonth": 1,
+      "type": "SILAGE",
+      "title": "Silage",
+      "showOnPriceTable": true,
+      "bestPrice": 121,
+      "months": [
+        121,
+        121,
+        121,
+        121,
+        121,
+        121,
+        121,
+        121,
+        121,
+        121,
+        121,
+        121
+      ],
+      "basePrice": 121
+    },
+    {
+      "bestMonth": 11,
+      "type": "SORGHUM",
+      "title": "Hirse",
+      "showOnPriceTable": true,
+      "bestPrice": 525,
+      "months": [
+        482,
+        447,
+        400,
+        366,
+        340,
+        347,
+        370,
+        413,
+        464,
+        499,
+        525,
+        520
+      ],
+      "isCrop": true,
+      "basePrice": 430
+    },
+    {
+      "bestMonth": 6,
+      "type": "SOUPCANSBEETROOT",
+      "title": "Rote-Beete-Suppe",
+      "showOnPriceTable": true,
+      "bestPrice": 851,
+      "months": [
+        845,
+        845,
+        845,
+        845,
+        845,
+        851,
+        845,
+        845,
+        845,
+        845,
+        845,
+        845
+      ],
+      "basePrice": 845
+    },
+    {
+      "bestMonth": 6,
+      "type": "SOUPCANSCARROTS",
+      "title": "Karottensuppe",
+      "showOnPriceTable": true,
+      "bestPrice": 887,
+      "months": [
+        885,
+        885,
+        885,
+        885,
+        885,
+        887,
+        885,
+        885,
+        885,
+        885,
+        885,
+        885
+      ],
+      "basePrice": 885
+    },
+    {
+      "bestMonth": 1,
+      "type": "SOUPCANSMIXED",
+      "title": "Dreierlei-Suppe",
+      "showOnPriceTable": true,
+      "bestPrice": 940,
+      "months": [
+        940,
+        940,
+        940,
+        940,
+        940,
+        940,
+        940,
+        940,
+        940,
+        940,
+        940,
+        940
+      ],
+      "basePrice": 940
+    },
+    {
+      "bestMonth": 6,
+      "type": "SOUPCANSPARSNIP",
+      "title": "Pastinakensuppe",
+      "showOnPriceTable": true,
+      "bestPrice": 886,
+      "months": [
+        880,
+        880,
+        880,
+        880,
+        880,
+        886,
+        880,
+        880,
+        880,
+        880,
+        880,
+        880
+      ],
+      "basePrice": 880
+    },
+    {
+      "bestMonth": 1,
+      "type": "SOUPCANSPOTATO",
+      "title": "Kartoffelsuppe",
+      "showOnPriceTable": true,
+      "bestPrice": 1245,
+      "months": [
+        1245,
+        1245,
+        1245,
+        1245,
+        1245,
+        1244,
+        1245,
+        1245,
+        1245,
+        1245,
+        1245,
+        1245
+      ],
+      "basePrice": 1245
+    },
+    {
+      "bestMonth": 5,
+      "type": "SOYBEAN",
+      "title": "Sojabohnen",
+      "showOnPriceTable": true,
+      "bestPrice": 1237,
+      "months": [
+        770,
+        817,
+        902,
+        1105,
+        1237,
+        811,
+        677,
+        630,
+        599,
+        677,
+        576,
+        498
+      ],
+      "isCrop": true,
+      "basePrice": 778
+    },
+    {
+      "bestMonth": 6,
+      "type": "SPINACH",
+      "title": "Spinat",
+      "showOnPriceTable": true,
+      "bestPrice": 231,
+      "months": [
+        207,
+        207,
+        211,
+        222,
+        222,
+        231,
+        229,
+        231,
+        229,
+        224,
+        222,
+        213
+      ],
+      "isCrop": true,
+      "basePrice": 220
+    },
+    {
+      "bestMonth": 1,
+      "type": "SPINACH_BAGS",
+      "title": "Spinatsack",
+      "showOnPriceTable": true,
+      "bestPrice": 775,
+      "months": [
+        775,
+        775,
+        775,
+        775,
+        775,
+        769,
+        775,
+        775,
+        775,
+        775,
+        775,
+        775
+      ],
+      "basePrice": 775
+    },
+    {
+      "bestMonth": 12,
+      "type": "SPRING_ONION",
+      "title": "Frühlingslauch",
+      "showOnPriceTable": true,
+      "bestPrice": 508,
+      "months": [
+        472,
+        468,
+        450,
+        445,
+        423,
+        434,
+        414,
+        405,
+        441,
+        454,
+        486,
+        508
+      ],
+      "basePrice": 450
+    },
+    {
+      "bestMonth": 1,
+      "type": "STONE",
+      "title": "Steine",
+      "showOnPriceTable": true,
+      "bestPrice": 50,
+      "months": [
+        50,
+        50,
+        50,
+        50,
+        50,
+        50,
+        50,
+        50,
+        50,
+        50,
+        50,
+        50
+      ],
+      "basePrice": 50
+    },
+    {
+      "bestMonth": 5,
+      "type": "STONEBIG",
+      "title": "Quaderfelsen",
+      "showOnPriceTable": true,
+      "bestPrice": 287,
+      "months": [
+        237,
+        250,
+        262,
+        275,
+        287,
+        271,
+        262,
+        250,
+        237,
+        225,
+        225,
+        225
+      ],
+      "basePrice": 250
+    },
+    {
+      "bestMonth": 11,
+      "type": "STRAW",
+      "title": "Stroh",
+      "showOnPriceTable": true,
+      "bestPrice": 50,
+      "months": [
+        41,
+        44,
+        41,
+        39,
+        35,
+        33,
+        35,
+        41,
+        44,
+        46,
+        50,
+        44
+      ],
+      "isCrop": true,
+      "basePrice": 41
+    },
+    {
+      "bestMonth": 12,
+      "type": "STRAWBERRY",
+      "title": "Erdbeeren",
+      "showOnPriceTable": true,
+      "bestPrice": 508,
+      "months": [
+        472,
+        468,
+        450,
+        445,
+        423,
+        439,
+        414,
+        405,
+        441,
+        454,
+        486,
+        508
+      ],
+      "basePrice": 450
+    },
+    {
+      "bestMonth": 11,
+      "type": "STRAW_PELLETS",
+      "title": "Strohpellets",
+      "showOnPriceTable": true,
+      "bestPrice": 205,
+      "months": [
+        196,
+        191,
+        179,
+        170,
+        165,
+        165,
+        172,
+        181,
+        194,
+        200,
+        205,
+        205
+      ],
+      "basePrice": 185
+    },
+    {
+      "bestMonth": 5,
+      "type": "SUGAR",
+      "title": "Zucker",
+      "showOnPriceTable": true,
+      "bestPrice": 525,
+      "months": [
+        470,
+        480,
+        505,
+        505,
+        525,
+        521,
+        525,
+        520,
+        510,
+        505,
+        485,
+        470
+      ],
+      "basePrice": 500
+    },
+    {
+      "bestMonth": 10,
+      "type": "SUGARBEET",
+      "title": "Zuckerrüben",
+      "showOnPriceTable": true,
+      "bestPrice": 198,
+      "months": [
+        172,
+        163,
+        155,
+        163,
+        172,
+        172,
+        172,
+        181,
+        189,
+        198,
+        189,
+        181
+      ],
+      "isCrop": true,
+      "basePrice": 172
+    },
+    {
+      "bestMonth": 10,
+      "type": "SUGARBEET_CUT",
+      "title": "Zuckerrübenschnitzel",
+      "showOnPriceTable": true,
+      "bestPrice": 255,
+      "months": [
+        222,
+        211,
+        200,
+        211,
+        222,
+        222,
+        222,
+        233,
+        244,
+        255,
+        244,
+        233
+      ],
+      "basePrice": 222
+    },
+    {
+      "bestMonth": 5,
+      "type": "SUGARCANE",
+      "title": "Zuckerrohr",
+      "showOnPriceTable": true,
+      "bestPrice": 125,
+      "months": [
+        112,
+        114,
+        120,
+        120,
+        125,
+        124,
+        125,
+        124,
+        121,
+        120,
+        115,
+        112
+      ],
+      "isCrop": true,
+      "basePrice": 119
+    },
+    {
+      "bestMonth": 1,
+      "type": "SUNFLOWER",
+      "title": "Sonnenblumen",
+      "showOnPriceTable": true,
+      "bestPrice": 808,
+      "months": [
+        808,
+        787,
+        707,
+        586,
+        633,
+        690,
+        740,
+        747,
+        713,
+        437,
+        498,
+        754
+      ],
+      "isCrop": true,
+      "basePrice": 673
+    },
+    {
+      "bestMonth": 1,
+      "type": "SUNFLOWER_OIL",
+      "title": "Sonnenblumenöl",
+      "showOnPriceTable": true,
+      "bestPrice": 2136,
+      "months": [
+        2136,
+        2083,
+        1869,
+        1549,
+        1673,
+        1816,
+        1958,
+        1976,
+        1887,
+        1157,
+        1317,
+        1994
+      ],
+      "basePrice": 1780
+    },
+    {
+      "bestMonth": 12,
+      "type": "TOMATO",
+      "title": "Tomaten",
+      "showOnPriceTable": true,
+      "bestPrice": 565,
+      "months": [
+        525,
+        520,
+        500,
+        495,
+        470,
+        488,
+        460,
+        450,
+        490,
+        505,
+        540,
+        565
+      ],
+      "basePrice": 500
+    },
+    {
+      "bestMonth": 5,
+      "type": "TROUT",
+      "title": "Forelle",
+      "showOnPriceTable": true,
+      "bestPrice": 2415,
+      "months": [
+        2070,
+        2156,
+        2242,
+        2329,
+        2415,
+        2289,
+        2242,
+        2156,
+        2070,
+        1984,
+        1898,
+        1984
+      ],
+      "basePrice": 1725
+    },
+    {
+      "bestMonth": 7,
+      "type": "WATER",
+      "title": "Wasser",
+      "months": [
+        95,
+        97,
+        100,
+        100,
+        105,
+        111,
+        115,
+        110,
+        110,
+        105,
+        100,
+        97
+      ],
+      "bestPrice": 115,
+      "basePrice": 100
+    },
+    {
+      "bestMonth": 11,
+      "type": "WHEAT",
+      "title": "Weizen",
+      "showOnPriceTable": true,
+      "bestPrice": 408,
+      "months": [
+        337,
+        361,
+        334,
+        317,
+        286,
+        277,
+        290,
+        334,
+        364,
+        381,
+        408,
+        364
+      ],
+      "isCrop": true,
+      "basePrice": 337
+    },
+    {
+      "bestMonth": 1,
+      "type": "WOOD",
+      "title": "Holz",
+      "showOnPriceTable": true,
+      "bestPrice": 1000,
+      "months": [
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        983,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1000
+      ],
+      "basePrice": 1000
+    },
+    {
+      "bestMonth": 6,
+      "type": "WOODBEAM",
+      "title": "Holzbalken",
+      "showOnPriceTable": true,
+      "bestPrice": 2925,
+      "months": [
+        2912,
+        2912,
+        2912,
+        2912,
+        2912,
+        2925,
+        2912,
+        2912,
+        2912,
+        2912,
+        2912,
+        2912
+      ],
+      "basePrice": 2912
+    },
+    {
+      "bestMonth": 11,
+      "type": "WOODCHIPS",
+      "title": "Hackschnitzel",
+      "showOnPriceTable": true,
+      "bestPrice": 541,
+      "months": [
+        397,
+        317,
+        237,
+        195,
+        170,
+        173,
+        198,
+        256,
+        365,
+        458,
+        541,
+        531
+      ],
+      "basePrice": 320
+    },
+    {
+      "bestMonth": 3,
+      "type": "WOOL",
+      "title": "Wolle",
+      "showOnPriceTable": true,
+      "bestPrice": 1213,
+      "months": [
+        1062,
+        1175,
+        1213,
+        1119,
+        931,
+        825,
+        761,
+        724,
+        799,
+        893,
+        874,
+        912
+      ],
+      "basePrice": 940
+    }
+  ],
+  "period": 6
+}

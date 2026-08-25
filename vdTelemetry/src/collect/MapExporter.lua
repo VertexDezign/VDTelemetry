@@ -239,8 +239,13 @@ local function collectPolygon(field, sizeX, sizeZ)
 end
 
 -- The farms with their in-game map colors (Farm:getColor() — per-farm palette color in MP, the
--- fixed singleplayer green in SP, exactly what the game's own farmlands overlay uses). The
--- spectator farm (id 0) is skipped; a farm whose color can't be read exports without one.
+-- fixed singleplayer green in SP, exactly what the game's own farmlands overlay uses). Skipped: the
+-- two farms the game creates for itself and hides from its own farm screen — the spectator farm
+-- (id 0, caught by farmId > 0) and the guided-tour farm (FarmManager.GUIDED_TOUR_FARM_ID, 14). The
+-- tour farm needs its own check because isSpectator is false on it; it has no name, owns nothing,
+-- and in multiplayer it still draws a palette color, so leaving it in would put a nameless twin —
+-- possibly in a real farm's color — in every farm list the app ever builds. A farm whose color
+-- can't be read exports without one.
 ---@return MapFarmModel[]
 local function collectFarms()
   local farms = {}
@@ -249,8 +254,18 @@ local function collectFarms()
     return farms
   end
 
+  -- Off the class when it is reachable, with the engine's own value as the fallback.
+  local guidedTourId = (FarmManager ~= nil and type(FarmManager.GUIDED_TOUR_FARM_ID) == "number")
+      and FarmManager.GUIDED_TOUR_FARM_ID
+    or 14
+
   for _, farm in ipairs(manager.farms) do
-    if type(farm.farmId) == "number" and farm.farmId > 0 and farm.isSpectator ~= true then
+    if
+      type(farm.farmId) == "number"
+      and farm.farmId > 0
+      and farm.farmId ~= guidedTourId
+      and farm.isSpectator ~= true
+    then
       ---@type MapFarmModel
       local entry = { id = farm.farmId }
       if type(farm.name) == "string" and farm.name ~= "" then
