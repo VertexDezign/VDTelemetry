@@ -1,0 +1,9 @@
+# Commits that only moved code around. `git blame` skips them with
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# set once per clone; GitHub reads this file on its own.
+
+# #129 one code style for the repo, and it is intellij_idea -- 38 files in server and shared
+# reformatted when the two ktlint styles the build had drifted into were unified.
+1f6d580f0283acfa07351a07429a63cfd6f46bea
