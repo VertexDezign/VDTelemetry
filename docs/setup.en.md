@@ -16,7 +16,7 @@ and you need both:
 | | |
 |---|---|
 | **The game** | Farming Simulator 25, on Windows or on Linux under Proton |
-| **A second mod** | [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs/releases), version **1.1 or newer** (any 1.x). VDTelemetry cannot run without it and will switch itself off if it is missing |
+| **A second mod** | [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs/releases), version **1.2 or newer** (any 1.x). VDTelemetry cannot run without it and will switch itself off if it is missing |
 | **A browser** | Any recent Chrome, Edge or Firefox — on the gaming PC, and on the tablet or phone if you want one |
 
 Everything runs on your own machine. Nothing is uploaded anywhere.

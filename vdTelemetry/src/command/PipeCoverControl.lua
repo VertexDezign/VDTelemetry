@@ -26,7 +26,7 @@ VDT.PipeCoverControl = {}
 
 ---Move the target's pipe to an absolute state (1 = fully retracted, up to `numStates`).
 ---@param vehicle Vehicle the controlled vehicle
----@param target string vehicle|front|back
+---@param target string vehicle|front|back|selected
 ---@param state number
 ---@param debugger GrisuDebug
 function VDT.PipeCoverControl.setPipeState(vehicle, target, state, debugger)
@@ -44,7 +44,7 @@ end
 
 ---Set the target's cover to an absolute state: 0 closes everything, 1..count opens that cover.
 ---@param vehicle Vehicle the controlled vehicle
----@param target string vehicle|front|back
+---@param target string vehicle|front|back|selected
 ---@param state number
 ---@param debugger GrisuDebug
 function VDT.PipeCoverControl.setCoverState(vehicle, target, state, debugger)

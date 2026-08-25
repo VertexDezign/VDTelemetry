@@ -1,17 +1,35 @@
 -- Executes lower/fold/activate commands from the app -> mod back-channel, for the controlled
--- vehicle and its front/back attached implements. The inverse of the VDT.Lowered / VDT.Foldable /
--- VDT.TurnOn aspect collectors: it maps an absolute target ("front lowered", "vehicle folded",
--- "back turned on") onto an action. Absolute (not toggle) for the same reason as LightControl --
--- the file channel is lossy/async, so an idempotent set-to-state is self-correcting where a dropped
--- or doubled toggle would desync.
+-- vehicle, its front/back attached implements, and whatever machine the game has selected. The
+-- inverse of the VDT.Lowered / VDT.Foldable / VDT.TurnOn aspect collectors: it maps an absolute
+-- target ("front lowered", "vehicle folded", "selected turned on") onto an action. Absolute (not
+-- toggle) for the same reason as LightControl -- the file channel is lossy/async, so an idempotent
+-- set-to-state is self-correcting where a dropped or doubled toggle would desync.
 --
 -- Every target routes through FS25_additionalInputs (a hard dependency), which owns the spec-aware
 -- logic: attacher-joint lowering, fold-to-middle, requiresPower, the whole implement chain. We do
 -- NOT reimplement any of that here -- doing so per spec was fragile (e.g. a self-propelled foldable
 -- like the Krone BigM reports "lowered" via the Foldable fold-middle state, not Attachable, so a
 -- hand-rolled setLoweredAll no-ops on it). additionalInputs exposes, on the vehicle:
---   vdAI<Action><Position>(on)   Action in {Lower,Fold,Activate}, Position in {Vehicle,Front,Back}
+--   vdAI<Action><Address>(on)   Action in {Lower,Fold,Activate}, Address in {Vehicle,Front,Back,Selected}
 -- each taking the absolute on/off state.
+--
+-- `Selected` is the fourth address and the reason this file did not have to grow a fallback for
+-- issue #120. A machine hitched behind another one has no hitch position of its own, so the three
+-- positional functions cannot reach it -- and hand-rolling a selection-addressed lower here would
+-- have walked straight back into the BigM scar above. It went into additionalInputs instead
+-- (1.2.0.0), which is where the spec-aware logic already lives and where the fix stays in one place;
+-- "act on the selected machine" is not a VDTelemetry-specific idea. That is a request granted, not
+-- the standing rule bent: we still call only vdAI functions that exist, and we still do not add ones
+-- only this mod would use. VDTelemetry.VD_AI.REQUIRED_MIN_MINOR_VERSION is what holds the mod to a
+-- version that has them.
+--
+-- `Selected` is also the only address whose scope is ONE machine: Front and Back name a position and
+-- cascade into whatever is hitched behind it, where the selected functions act on the selected
+-- machine and stop. That is why the app prefers it wherever the game has made a selection (see
+-- controlTargetOf in the terminal) -- the rig diagram draws one box per machine and its controls read
+-- that machine's own state. On the controlled vehicle the two coincide: vdAILowerSelected on a
+-- machine hitched to nothing routes through the same pickup / fold-middle / attacher lowering that
+-- vdAILowerVehicle does.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
@@ -23,6 +41,7 @@ local AI_FUNC = {
   vehicle = { lower = "vdAILowerVehicle", fold = "vdAIFoldVehicle", activate = "vdAIActivateVehicle" },
   front = { lower = "vdAILowerFront", fold = "vdAIFoldFront", activate = "vdAIActivateFront" },
   back = { lower = "vdAILowerBack", fold = "vdAIFoldBack", activate = "vdAIActivateBack" },
+  selected = { lower = "vdAILowerSelected", fold = "vdAIFoldSelected", activate = "vdAIActivateSelected" },
 }
 
 -- Route an action for a target through FS25_additionalInputs' vdAI* function.
@@ -44,7 +63,7 @@ end
 
 ---Lower (on=true) or raise the target.
 ---@param vehicle Vehicle
----@param target string vehicle|front|back
+---@param target string vehicle|front|back|selected
 ---@param on boolean
 ---@param debugger GrisuDebug
 function VDT.ImplementControl.setLowered(vehicle, target, on, debugger)
@@ -53,7 +72,7 @@ end
 
 ---Fold (on=true, transport) or unfold the target.
 ---@param vehicle Vehicle
----@param target string vehicle|front|back
+---@param target string vehicle|front|back|selected
 ---@param on boolean
 ---@param debugger GrisuDebug
 function VDT.ImplementControl.setFolded(vehicle, target, on, debugger)
@@ -62,7 +81,7 @@ end
 
 ---Turn the target on (on=true) or off.
 ---@param vehicle Vehicle
----@param target string vehicle|front|back
+---@param target string vehicle|front|back|selected
 ---@param on boolean
 ---@param debugger GrisuDebug
 function VDT.ImplementControl.setActivated(vehicle, target, on, debugger)

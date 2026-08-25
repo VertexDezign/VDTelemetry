@@ -268,9 +268,14 @@ VDTelemetry.COMMAND_SUBDIR = "commands/"
 -- page; clamped to MIN_INTERVAL_MS since sub-frame intervals are pointless (a game frame is ~16-33 ms).
 VDTelemetry.DEFAULT_INTERVAL_MS = 100
 VDTelemetry.MIN_INTERVAL_MS = 16
+-- The FS25_additionalInputs the mod is built against. Major must match exactly (it is bumped for a
+-- breaking change); minor is a floor, raised whenever we start calling a function a newer version
+-- added. 2 is `vdAI<Action>Selected`, which ImplementControl needs to address the selected machine
+-- (issue #120). Failing the check switches the export off rather than letting half the commands
+-- silently do nothing.
 VDTelemetry.VD_AI = {
   REQUIRED_MAJOR_VERSION = 1,
-  REQUIRED_MIN_MINOR_VERSION = 1,
+  REQUIRED_MIN_MINOR_VERSION = 2,
 }
 
 VDTelemetry.mainFuelTypes = Set:new({ "DIESEL", "ELECTRICCHARGE", "METHANE" })

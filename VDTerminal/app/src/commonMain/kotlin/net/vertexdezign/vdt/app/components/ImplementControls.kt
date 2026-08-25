@@ -36,12 +36,14 @@ private val ROW_HEIGHT = 48.dp
  *
  * Each control is clickable only when the machine has that aspect **and** [target] is non-null. A tap
  * sends the ABSOLUTE state for the target, computed from what is rendered — idempotent over the lossy
- * command channel, where a dropped or doubled toggle would desync (see [ClientMessage]). Front and
- * back are routed mod-side through FS25_additionalInputs.
+ * command channel, where a dropped or doubled toggle would desync (see [ClientMessage]). Every target
+ * is routed mod-side through FS25_additionalInputs.
  *
- * A **null [target] means the machine is not addressable**: `ControlTarget` reaches the vehicle and
- * its front and rear implements, so anything deeper in a hitch chain can be shown but not commanded.
- * The buttons then render the state and refuse the tap, rather than pretending to work.
+ * A **null [target] means the machine is not addressable**: `ControlTarget` reaches the vehicle, its
+ * front and rear implements, and whatever the game has selected, so what is left out is a machine
+ * deeper in a hitch chain that is not the selection — shown, but not commandable until it is selected
+ * (see `controlTargetOf`). The buttons then render the state and refuse the tap, rather than
+ * pretending to work.
  *
  * The two arrangements place identical buttons — only the container changes — so a resize can flip
  * between them without the controls themselves knowing. Stacked, they take their natural full-width

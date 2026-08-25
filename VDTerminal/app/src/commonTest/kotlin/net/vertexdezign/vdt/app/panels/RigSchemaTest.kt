@@ -375,6 +375,9 @@ class RigSchemaTest {
 
   @Test
   fun theTractorAndItsOwnFrontAndRearAreAddressable() {
+    // Nothing on this rig is selected, which is the case the positional tokens are the fallback for:
+    // an export from before `selection` existed, or a rig where nothing can be selected. They keep
+    // meaning exactly what they meant, which is also why RigSlotPanel still addresses by position.
     val rig =
       tractor(
         Implement(name = "Plough", position = "BACK", schema = schema(), jointDescIndex = 1),
@@ -388,9 +391,10 @@ class RigSchemaTest {
   }
 
   @Test
-  fun aMachineDeeperInTheChainIsNotAddressable() {
+  fun aMachineDeeperInTheChainIsNotAddressableUntilItIsSelected() {
     // The dribble-bar rig: the Bomech is hitched behind the Kaweco, so the only thing on the
-    // tractor's rear attacher is the Kaweco. The panel shows the Bomech and refuses to command it.
+    // tractor's rear attacher is the Kaweco. Nothing positional names the Bomech, and until the game
+    // selects it the panel shows it and refuses to command it.
     val rig =
       tractor(
         Implement(
@@ -407,10 +411,60 @@ class RigSchemaTest {
   }
 
   @Test
+  fun theSelectedMachineIsAddressableAtAnyDepth() {
+    // The same rig with the game's own selection where the capture actually has it — on the Bomech.
+    // This is the whole of #120: the machine that had no token is reachable because it is selected,
+    // and a tap on the diagram is what put it there.
+    val rig =
+      tractor(
+        Implement(
+          name = "Barrel",
+          position = "BACK",
+          schema = schema(joint()),
+          jointDescIndex = 1,
+          implement =
+          listOf(
+            Implement(
+              name = "Dribble bar",
+              schema = schema(),
+              jointDescIndex = 1,
+              selection = Selection(selected = true, selectable = true),
+            ),
+          ),
+        ),
+      )
+    assertEquals(
+      ControlTarget.SELECTED,
+      controlTargetOf(layoutRig(rig).first { it.machine.name == "Dribble bar" }),
+    )
+  }
+
+  @Test
+  fun theSelectionOutranksAPositionalTokenTheMachineAlsoHas() {
+    // A selected rear implement is addressed as the SELECTION, not as BACK, and that is a scope
+    // choice rather than a preference: BACK names a position on the tractor and cascades into
+    // everything hitched at it, so it would move the dolly's trailer too — from a chip reading the
+    // dolly's own state. The selection is the only token that means "this one machine".
+    val rig =
+      tractor(
+        Implement(
+          name = "Dolly",
+          position = "BACK",
+          schema = schema(joint()),
+          jointDescIndex = 1,
+          selection = Selection(selected = true, selectable = true),
+          implement = listOf(Implement(name = "Trailer", schema = schema(), jointDescIndex = 1)),
+        ),
+      )
+    assertEquals(ControlTarget.SELECTED, controlTargetOf(layoutRig(rig).first { it.machine.name == "Dolly" }))
+  }
+
+  @Test
   fun aNestedRearImplementIsNotTheTractorsRear() {
     // The one that would be silently wrong: `position` is BACK on both, but the deeper one is the
     // *dolly's* rear. vdAI's vdAI*Back moves whatever is on the tractor, so addressing this as BACK
-    // would fold, raise or switch off a different machine than the one on screen.
+    // would fold, raise or switch off a different machine than the one on screen. Still true after
+    // #120 — the selection is what gained an address, not the positional tokens.
     val rig =
       tractor(
         Implement(

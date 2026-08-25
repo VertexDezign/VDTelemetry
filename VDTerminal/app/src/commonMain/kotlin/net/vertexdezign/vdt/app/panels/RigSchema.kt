@@ -320,17 +320,43 @@ private fun layoutChildren(
 /**
  * Which [ControlTarget] addresses [node], or **null when nothing does**.
  *
- * `ControlTarget` reaches three places — the controlled vehicle, and the implements on its front and
- * rear attachers — because that is what FS25_additionalInputs' `vdAI*Front/Back` functions reach, and
- * the rule here is to use what vdAI already has rather than to extend it. So the diagram can show a
- * machine the command channel has no way to name: in `liquidManure_dribbleBar.json` the Bomech is
- * hitched behind the Kaweco, and only the Kaweco is the tractor's rear implement.
+ * **The selection first** (issue #120), because it is the only token whose scope is *one machine*.
+ * The diagram draws one box per machine and the strip below it reads that machine's own aspects, so
+ * the address that moves exactly it is the honest one. [ControlTarget.BACK] does not: it names a
+ * position on the tractor and moves everything hitched at it, children included. Addressing a
+ * selected dolly that way would raise the trailer behind it too, from a chip showing the dolly's own
+ * `lowered` — and the machine one level deeper, which has no positional token at all, would move
+ * alone. Same panel, same chip, two scopes the driver cannot see. Preferring the selection makes it
+ * one.
  *
- * Strictly structural, and deliberately stricter than `RigSlotPanel`'s recursive position search: a
- * `position` of `BACK` two levels down is the *dolly's* rear, not the tractor's, and commanding it as
- * though it were the tractor's would move the wrong machine.
+ * On the root the two are the same call — `vdAILowerSelected` on a machine hitched to nothing routes
+ * through the same pickup / fold-middle / attacher lowering `vdAILowerVehicle` does — so nothing is
+ * traded away there.
+ *
+ * The positional three are the **fallback**, for a rig where the game has selected nothing: an export
+ * from before `selection` existed, or a rig where nothing *can* be selected. They keep meaning
+ * exactly what they meant, which is also why `RigSlotPanel` still addresses by position and is
+ * untouched: a pinned slot really does mean "whatever is on the rear".
+ *
+ * What is left null is a machine deeper than the tractor's own attachers that the game has *not*
+ * selected — in `liquidManure_dribbleBar.json` the Bomech is hitched behind the Kaweco, so it is
+ * reachable exactly while it is the selection. Since a tap on the diagram moves that selection, the
+ * driver's own way out is to select it.
+ *
+ * The selection read here is the **game's confirmed flag**, never the panel's optimistic echo of a
+ * tap it has just sent. An echo is a request: if the mod refuses it — the machine stopped being
+ * selectable in the tick in between — the selection has not moved, and a command addressed at it
+ * would act on whatever *is* selected instead. That is the same "moves a different machine" failure
+ * `setSelectedVehicle` is gated against mod-side, and it is worth one telemetry tick of read-only
+ * chips to keep it impossible.
+ *
+ * Otherwise strictly structural, and deliberately stricter than `RigSlotPanel`'s recursive position
+ * search: a `position` of `BACK` two levels down is the *dolly's* rear, not the tractor's, and
+ * commanding it as though it were the tractor's would move the wrong machine.
  */
 internal fun controlTargetOf(node: RigNode): ControlTarget? = when {
+  node.machine.selected -> ControlTarget.SELECTED
+
   node.isRoot -> ControlTarget.VEHICLE
 
   node.depth != 1 -> null

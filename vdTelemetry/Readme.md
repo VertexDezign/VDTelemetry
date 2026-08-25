@@ -18,7 +18,7 @@ Link to Discord Post: [GameGlass Discord](https://discord.com/channels/522506741
 
 ## Requirements
 
-* [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs) — major version 1, minor 1 or newer.
+* [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs) — major version 1, minor 2 or newer.
   Without it the mod logs an error and disables the export (there is no in-game warning yet).
 
 ## Output

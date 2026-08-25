@@ -81,12 +81,6 @@ of them chips on one strip rather than buttons. The design lives in `panels/RigS
 
 What it did not do:
 
-- **Machines deeper in the hitch chain cannot be commanded** — except by selection, which #119 added. `ControlTarget`
-  names the vehicle and its front and rear implements, because those are what vdAI's `vdAI*Front/Back` reach. The
-  diagram happily *shows* a machine two levels down — the Bomech in `liquidManure_dribbleBar.json` is one, and it is the
-  machine the game has selected — and the app renders its fold / power / unload controls inert with a line saying why.
-  #119's `command/SelectionControl.lua` resolves any depth by node path; pointing the rest of the commands at it is the
-  follow-up under that heading below.
 - **One generic silhouette, not the game's ten** — and a front loader is the case that argues hardest against it. Its
   attacher joint reports `x = 0.8`, so its box genuinely overlaps the tractor's by a fifth: that is the game's own
   layout and it is right, because a loader mounts *onto* a tractor rather than being towed by one. The game can draw
@@ -150,29 +144,6 @@ What it did not do:
   declares one. If a modded vehicle turns up with a rig that draws in a plainly wrong order, this is
   where to look. No committed fixture exercises it any more: `nested_trailers.json`, which used to be
   the version-4-era capture with no schema at all, was retaken at version 19 and carries one on every node.
-
----
-
-## The terminal drives the selection (#119)
-
-Built 2026-08-23 and signed off in singleplayer and on a multiplayer client: a tap on the rig diagram moves the game's
-own selection, and the control-group chip beside it moves the machine's sub-selection, both as one `setSelected`
-command. Four version-20 captures pin it and are named in `VdtModelTest`. The two engine traps everything is shaped
-around — `setSelectedVehicle` silently selecting a *different* machine when refused, and `controlGroupMapping` not being
-the control-group index — live in `aspects/Selection.lua`, `command/SelectionControl.lua` and the `Selection` /
-`ControlGroup` / `SetSelected` doc comments.
-
-What it did not do:
-
-- **Retargeting the existing controls at the selection.** The natural follow-up, and #119's own non-goal: it would close
-  #116's `ControlTarget` ceiling using the node resolver this issue already built, but it changes how every command is
-  addressed and reopens the vdAI question for lower / fold / activate. Its own issue.
-- **Driving the moving tools themselves.** Selecting a crane's boom group is not extending it, and the second needs
-  continuous input the command channel is not shaped for.
-- **No front loader has a control group**, so the chip is dead weight on the commonest rig that looked like its
-  audience. That is the engine's own answer rather than a gap — a loader names no groups, and the game prints nothing
-  there either — but it means the chip has been seen working on exactly one machine class, a turntable ladder. If a
-  crane turns out to behave differently, that is where it will show.
 
 ---
 

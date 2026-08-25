@@ -22,7 +22,7 @@ local DISCHARGE_GROUND = 2
 ---is why the game gates its own action on getCanTogglePreferdTipSide (tip state must be CLOSED) -- we
 ---gate on the same thing rather than yanking a raised trough sideways.
 ---@param vehicle Vehicle the controlled vehicle
----@param target string vehicle|front|back
+---@param target string vehicle|front|back|selected
 ---@param side number 1-based tip side index
 ---@param debugger GrisuDebug
 function VDT.TrailerControl.setTipSide(vehicle, target, side, debugger)
@@ -59,7 +59,7 @@ end
 ---automatic-redischarge tracking when unloading stops. Going straight to setDischargeState skips
 ---that, leaving the trailer aimed at an object it has finished with.
 ---@param vehicle Vehicle the controlled vehicle
----@param target string vehicle|front|back
+---@param target string vehicle|front|back|selected
 ---@param on boolean
 ---@param debugger GrisuDebug
 function VDT.TrailerControl.setDischarging(vehicle, target, on, debugger)
