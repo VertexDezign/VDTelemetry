@@ -111,6 +111,27 @@ class RigSchemaTest {
   }
 
   @Test
+  fun theRigIsDrawnFacingLeft() {
+    // The layout above is the game's frame, where forward is +x; the drawing mirrors it, because every
+    // other side view in this app drives right-to-left (issue #129). The whole of that mirror is
+    // `drawnLeft`, so this is where the app's facing is pinned — get it backwards and the diagram
+    // still draws a perfectly plausible rig, pointing the opposite way to the tractor on the Lighting
+    // panel beside it.
+    val rig =
+      tractor(
+        Implement(name = "Plough", schema = schema(), jointDescIndex = 1),
+        Implement(name = "Weight", schema = schema(), jointDescIndex = 2),
+        joints = arrayOf(joint(invertX = false), joint(invertX = true)),
+      )
+    val nodes = layoutRig(rig)
+    val maxX = nodes.maxOf { it.x }
+    fun drawn(name: String) = drawnLeft(nodes.first { it.machine.name == name }.x, maxX)
+
+    assertTrue(drawn("Weight") < drawn("Tractor"), "the front implement is drawn left of the tractor")
+    assertTrue(drawn("Tractor") < drawn("Plough"), "and the rear one right of it")
+  }
+
+  @Test
   fun aJointShortOfTheParentsEdgeMountsTheChildOverIt() {
     // `x = 1` hangs a child flush against the parent; anything less overlaps it. A front loader's
     // attacher reports 0.8 — the only non-1.0 joint in any capture — which is what puts its box a

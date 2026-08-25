@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
@@ -115,8 +116,11 @@ internal const val RIG_ROOT_ID = "0"
 // ---------------------------------------------------------------------------
 
 /**
- * One machine, placed. [x] / [y] are the box's lower-left corner in the units described above, with
- * **y pointing up** — the game's axis, not Compose's. [RigSchema] flips it when it draws.
+ * One machine, placed. [x] / [y] are the box's lower-left corner in the units described above, in the
+ * game's own frame throughout: **y points up** where Compose's points down, and **x points forward**,
+ * so on these numbers the machine drives left-to-right. [RigSchema] flips both when it draws — the
+ * vertical because Compose measures the other way, the horizontal because this app's machines face
+ * left (see [drawnLeft]).
  *
  * [id] is a path (`0`, `0/1`, `0/1/0`) rather than an index into the flattened list: it survives a
  * machine further up the rig gaining or losing a child, which an index does not, so a selection
@@ -402,6 +406,25 @@ private val MIN_ICON_WIDTH = 24.dp
 private val SCHEMA_PADDING = 4.dp
 
 /**
+ * Where a node whose left edge is at [x] gets drawn: schema units, measured rightward from the left
+ * edge of a band whose rig ends at [maxX].
+ *
+ * **The rig faces left here; the game's faces right.** This is the one place the diagram departs from
+ * `collectVehicleSchemaDisplayOverlays` on purpose (issue #129). Every other side view in this app
+ * drives right-to-left — the tractor the Lighting panel lays its buttons over, the ISOBUS machine art,
+ * every glyph in `ClusterIcons` (see its `WorkFront`) — and the run of rig-slot tiles is ordered front,
+ * machine, rear for the same reason. The diagram was the only picture pointing the other way, and two
+ * directions in one app is a picture that fights itself.
+ *
+ * A mirror at the point of drawing rather than a change to [layoutRig], so the layout stays a
+ * line-for-line reading of the engine's algorithm and can go on being compared against it: the game's
+ * axis in, the screen's out, exactly as the vertical flip beside it does. Everything that has a nose
+ * on it goes through here — the box positions, the sign of a joint's rotation, and the root's tractor
+ * glyph; the boxes themselves are symmetric and need nothing.
+ */
+internal fun drawnLeft(x: Float, maxX: Float): Float = maxX - x - BOX_W
+
+/**
  * A ring of the panel's own ground drawn just outside each box, so a machine that sits **on** another
  * still reads as two machines.
  *
@@ -419,8 +442,9 @@ private val SCHEMA_PADDING = 4.dp
 private val HALO = 1.5.dp
 
 /**
- * The rig, drawn: one box per machine, hitched the way the game's own HUD diagram hitches them, with
- * the selected one standing out and every box the game will let you select a tap target.
+ * The rig, drawn: one box per machine, hitched the way the game's own HUD diagram hitches them — but
+ * facing left, the way every machine in this app faces (see [drawnLeft]) — with the selected one
+ * standing out and every box the game will let you select a tap target.
  *
  * **No names on it.** The game's own diagram carries none either — it is a shape and a position, read
  * at a glance while driving — and the panel header already names whatever is selected, with the type
@@ -484,18 +508,21 @@ internal fun RigSchema(
       for (node in nodes) {
         // The slot is what the layout placed; the box drawn in it is inset by the machine's own
         // invisible borders, so neighbours butted up against each other still read as two machines.
-        val insetLeft = scale * BOX_W * node.borderLeft
-        val insetRight = scale * BOX_W * node.borderRight
+        // The two swap sides with the diagram: [drawnLeft] mirrors it, so what insets the box from
+        // the screen's left is the machine's *right* border. The width is the same either way.
+        val insetLeft = scale * BOX_W * node.borderRight
+        val insetRight = scale * BOX_W * node.borderLeft
         RigBox(
           node = node,
           selected = node.id == selectedId,
           width = boxW - insetLeft - insetRight,
           height = boxH,
           onSelect = onSelect,
-          // Schema y points up and Compose's points down, so the box's *lower* edge measured from
-          // the bottom becomes its *upper* edge measured from the top.
+          // Both axes are the game's and neither is Compose's: schema y points up, so the box's
+          // *lower* edge measured from the bottom becomes its *upper* edge measured from the top, and
+          // schema x points forward, so the rig is mirrored to face left. See [drawnLeft].
           modifier = Modifier.offset(
-            x = originX + scale * (node.x - minX) + insetLeft,
+            x = originX + scale * drawnLeft(node.x, maxX) + insetLeft,
             y = originY + scale * (maxY - node.y - BOX_H),
           ),
         )
@@ -531,9 +558,10 @@ private fun RigBox(
       .padding(HALO)
       .width(width)
       .height(height)
-      // About the box's own centre. No capture has produced a non-zero rotation yet — every joint in
-      // every fixture reads 0 — so this is the same faithful-but-unverified arm as the offsets above.
-      .rotate(node.rotation * 180f / kotlin.math.PI.toFloat())
+      // About the box's own centre, and negated: the diagram is mirrored, and a mirror reverses which
+      // way an angle turns. No capture has produced a non-zero rotation yet — every joint in every
+      // fixture reads 0 — so this is the same faithful-but-unverified arm as the offsets above.
+      .rotate(-node.rotation * 180f / kotlin.math.PI.toFloat())
       .clip(shape)
       .background(
         when {
@@ -579,7 +607,9 @@ private fun RigBox(
           canTap -> VdtColors.DarkGray
           else -> VdtColors.TextDisabled
         },
-        modifier = Modifier.size((height * 0.6f).coerceAtMost(14.dp)),
+        // Mirrored, because Material's tractor faces right and this rig faces left: it is the only
+        // mark on the diagram with a nose on it. See [drawnLeft].
+        modifier = Modifier.size((height * 0.6f).coerceAtMost(14.dp)).scale(scaleX = -1f, scaleY = 1f),
       )
     }
   }

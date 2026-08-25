@@ -96,9 +96,10 @@ What it did not do:
   - **The art itself.** The same file carries `#filename` (an atlas) and `#uvs` per overlay. The server already reads
     art out of the player's own game install and decodes it — `AssetResolver` resolves game-dir-relative paths and has
     a `mods` branch, `Dds.kt` and `ImagePipeline.kt` do the rest — which is exactly how the map image works. Slicing
-    that atlas by its UVs is the same trick pointed at a different file, and nothing of Giants' ships. The wrinkle is
-    modded silhouettes: `loadVehicleSchemaOverlays` walks every active mod's `modDesc`, so full coverage means walking
-    the mods directory too.
+    that atlas by its UVs is the same trick pointed at a different file, and nothing of Giants' ships. Two wrinkles:
+    modded silhouettes — `loadVehicleSchemaOverlays` walks every active mod's `modDesc`, so full coverage means walking
+    the mods directory too — and facing, since the game's silhouettes face right and our diagram faces left (#129), so
+    the slices need mirroring on the way in.
 
   `schema.name` is already plumbed through to the drawing code and selects nothing, so either part is a lookup table
   rather than a rework. The vocabulary is `VEHICLE`, `HARVESTER`, `TRUCK`, `CAR`, `LOADER`, `IMPLEMENT`, `TRAILER`,

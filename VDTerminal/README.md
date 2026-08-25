@@ -307,8 +307,8 @@ thrown away and the storage key did not have to change.
 
 ## Design rules
 
-Two constraints that apply to **every** new panel, widget and mark. Both have cost a round of rework
-already, and neither is discoverable from the code you happen to be editing — so they live here.
+Three constraints that apply to **every** new panel, widget and mark. Each has cost a round of rework
+already, and none of them is discoverable from the code you happen to be editing — so they live here.
 
 ### Hue never carries a state on its own
 
@@ -350,6 +350,31 @@ rule existed.
   #77 pulled it and `≈` out of the money panels for their ASCII spellings.
 
 If a new glyph is genuinely needed as text, look at it in a browser before shipping it.
+
+### A machine drawn from the side faces left
+
+One driving direction across the whole app: **right to left**, the machine's nose at the left edge of
+whatever draws it. It is arbitrary in itself — what is not arbitrary is that two pictures of the same
+tractor, on screen at once, must point the same way. The tractor schematic under the Lighting panel's
+buttons faces left, so `ClusterIcons` draws its machines facing left, so the ISOBUS machine art does
+too; the rig diagram followed the *game's* schema instead, which faces right, and issue #129 is what a
+driver saw looking at both at once.
+
+- Art (`mb_trac.png`, `isobus_mixer_wagon.png`) is drawn or sourced already facing left.
+- Our own glyphs end up facing left. `ClusterIcons`' shared `TRACTOR` path is authored facing right,
+  and both lamps built on it (`WorkFront`, `WorkRear`) are wrapped in its `mirrored` helper — which is
+  a flip about the viewport, so a glyph that needs turning round costs one line and no re-tracing.
+- A Material icon with a nose on it — `Icons.Filled.Agriculture` is a tractor facing **right** — is
+  mirrored with `Modifier.scale(scaleX = -1f, scaleY = 1f)` wherever it is part of a side view. As a
+  header or app icon it is a label rather than a picture of a machine, and stays as it is.
+- `RigSchema` keeps the game's frame in `layoutRig` (forward is +x) and mirrors once at the point of
+  drawing, in `drawnLeft` — which also flips the insets and the sign of any rotation. If the game's own
+  silhouette atlas is ever adopted for the boxes (see `FUTURE.md`), that art faces right and has to be
+  mirrored too.
+
+Not every picture has a driving direction, and those are left alone: the section strip runs across the
+boom, the map is heading-up, and the steering glyphs are drawn from above with the front axle at the
+top.
 
 ## Tests
 
