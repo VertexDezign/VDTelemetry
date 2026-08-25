@@ -183,10 +183,10 @@ selects it.
 
 The decision the issue existed to take went the third way, not the first. Option 1's fallback — hand-rolling a
 selection-addressed lower next to vdAI's positional ones — was never written, because
-**[AdditionalInputs #5](https://github.com/VertexDezign/AdditionalInputs/pull/5) added
-`vdAILowerSelected` / `vdAIFoldSelected` / `vdAIActivateSelected`** (1.2.0.0). So `ImplementControl` routes the new
-token exactly like the three positional ones, the fold-middle scar stays fixed in one place, and the standing vdAI
-rule is intact: the function was asked for and granted rather than invented here. `TargetResolver` resolves the token
+**[AdditionalInputs 1.2.0.0](https://github.com/VertexDezign/AdditionalInputs/releases) added
+`vdAILowerSelected` / `vdAIFoldSelected` / `vdAIActivateSelected`** (released 2026-08-25). So `ImplementControl`
+routes the new token exactly like the three positional ones, the fold-middle scar stays fixed in one place, and the
+standing vdAI rule is intact: the function was asked for and granted rather than invented here. `TargetResolver` resolves the token
 for the direct-engine controls through `Vehicle:getSelectedVehicle()` — not `currentSelection.object`, which is the
 selection *entry* and whose `.vehicle` is the machine.
 
@@ -199,9 +199,6 @@ the game has selected nothing on.
 
 What it did not do:
 
-- **The dependency is a draft.** `REQUIRED_MIN_MINOR_VERSION` is 2 and additionalInputs 1.2.0.0 is not released, so a
-  build from this branch disables its own export against every published version of it. The docs already name 1.2 as
-  the floor. Releasing VDTelemetry ahead of it would ship a mod that switches itself off.
 - **`RigSlotPanel` still addresses positionally**, which was the issue's own non-goal and stays right: a pinned slot
   *is* a position, and its buttons should keep meaning "whatever is on the rear" rather than following a selection the
   driver moved somewhere else.
