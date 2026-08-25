@@ -585,12 +585,14 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
-- **A prices capture.** there is no `examples/json/prices/`: no capture of the price board exists, so `PricesModelTest`
-  is inline JSON throughout and says so at the top. Wanted from a played-in save (the twelve-month curve is a *running*
-  average, so a fresh save's is just the seasonal factors): the sell/buy/pallet mix on one placeable, a station the
-  game reaches only by train, and — the one that has to be caught while it is happening — a **running great demand**,
-  ideally captured on both the host and a client in the same session, since only the host has the premium and the
-  countdown.
+- **A prices capture with a great demand running.** `examples/json/prices/vanilla.json` is committed — a played-in
+  singleplayer board, 44 stations against 121 commodities, and it already covers the sell/buy/pallet mix on one
+  placeable and the station the game reaches only by train (`PricesModelTest.parsesTheVanillaCapture` /
+  `theCaptureCarriesEveryStationShape`). What it cannot contain, because a demand only runs for a few in-game hours and
+  has to be caught while it is happening: a **running great demand**, ideally captured on both the host and a client in
+  the same session, since only the host has the premium and the countdown. A **commodity with no economy** (no
+  twelve-month curve at all) is missing for the same reason — every fill type in this board has one. `PricesModelTest`
+  covers both with inline JSON meanwhile, and says so at the top.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
