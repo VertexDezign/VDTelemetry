@@ -366,6 +366,10 @@ fun IsoBusPanel(
   // Resolved against the live node list, so an echo left on a machine that has since been unhitched
   // falls back to the game's selection rather than blanking the panel.
   val selected = nodes.firstOrNull { it.id == echoId } ?: nodes.firstOrNull { it.id == gameSelectedId }
+  // True exactly while the tile is showing a tap the game has not answered yet. The controls stay
+  // inert through it — they are addressed at the game's confirmed selection, never at the echo — but
+  // the driver must not be told to do the thing they have just done: see [MachineDetail].
+  val awaitingSelection = echoId != null && selected?.id == echoId
   // RigSchema only offers a tap on a machine the game will actually select, so this needs no gate of
   // its own; the mod applies the same test again against state a tick fresher than ours.
   val onSelectNode: (String) -> Unit = { id ->
@@ -443,6 +447,7 @@ fun IsoBusPanel(
           MachineDetail(
             machine = machine,
             target = target,
+            awaitingSelection = awaitingSelection,
             // The control-group control addresses the machine by its node path rather than by a
             // target token, so it reaches machines `target` cannot name — and, on a tile pinned to a
             // slot, no path exists and it falls back to naming the group without offering the step.
@@ -504,6 +509,7 @@ private fun MachineDetail(
   onCommand: (ClientMessage) -> Unit,
   modifier: Modifier = Modifier,
   showIdentity: Boolean = true,
+  awaitingSelection: Boolean = false,
 ) {
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
     MachineStatus(machine, target, node, onCommand, showIdentity, Modifier.fillMaxWidth())
@@ -516,7 +522,13 @@ private fun MachineDetail(
     // Two different situations since #120, and only one of them is a dead end. A machine deep in the
     // chain is commandable as soon as it is the game's selection, and a tap on the diagram is what
     // moves that — so where the game would take it, the line is directions rather than an apology.
-    if (target == null) {
+    //
+    // Silent while that tap is in flight. Selecting a trailer hitched behind another trailer leaves
+    // this null for the beat between the tap and the game's next export, and the directions would
+    // then be telling the driver to do what they are already waiting on. Nothing is being hidden: the
+    // chips are visibly inert for that beat, and if the selection is refused the echo expires and the
+    // line comes back with the panel's state unchanged.
+    if (target == null && !awaitingSelection) {
       Text(
         if (machine.selectable) {
           "Select it on the diagram to fold, power or unload it"
