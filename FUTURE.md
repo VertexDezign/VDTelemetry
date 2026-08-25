@@ -450,6 +450,15 @@ Each one is cheap to do while playing and settles something above.
   compare a handful of rows: the same stations, the same numbers per 1000 l, the same climbing/falling arrows. The two
   read the same fields, so a mismatch means the export picked the wrong one — most likely a station the game hides and
   we do not, or a fill type it filters by `showOnPriceTable` at a level we kept.
+- **Does the Market app's stock *value* match what selling actually pays (#118)?** The amounts are settled — counted by
+  hand in game on 2026-08-25 and correct, bales included (a third-party stock mod disagreed and turned out to be the one
+  at fault: it ignores bales that are not at full capacity). What has not been checked is the money: pick a commodity,
+  read its row, sell that load and compare.
+- **Does the projected best month hold up (#118)?** The table projects today's best station along the curve's shape
+  (`price × months[peak] / months[now]`) rather than quoting the curve, which is a market average across stations. The
+  honest check is a slow one: note the projection, wait for the peak period, and see what that station actually pays.
+  Note the peak *month* is not part of the projection and is expected to sit a period either side of a factors-derived
+  table — see `peakMonth` for why that is arithmetic rather than a bug.
 - **Does a great demand come through on a multiplayer client (#112)?** The premium and the countdown come from
   `economyManager.greatDemands`, which reaches a client only by `GreatDemandsEvent` on the in-game hour; the
   `greatDemand` flag itself rides in the synced price bits and should always be there. So the check is whether a client
@@ -536,13 +545,29 @@ engine load it wears the engine on, the service interval and system voltage. The
 
 ---
 
-## Price board (#112)
+## Price board (#112) and the Market app (#118)
 
-The `prices.json` channel is built (mod + shared model + parser + server broadcast); the **stock
-overview that consumes it is #118** and does not exist yet, so nothing in the app reads
-`TelemetryRepository.prices` today. What the channel leaves open:
+The `prices.json` channel is built (mod + shared model + parser + server broadcast) and the **Market
+app** consumes it: a Prices tab over the board itself, and a Stock tab joining it against the
+storage / production / husbandry channels. What the two leave open:
 
-- **Nothing has looked at a real board in game.** See the in-game checks below for the two that matter.
+- **Nothing has looked at a real board in game.** See the in-game checks below for the ones that matter.
+- **The Market app has never been on screen against a live game** — only against the committed
+  captures, through its unit tests. Both tabs, singleplayer and an MP client, are wanted.
+- **The Stock tab has no dashboard tile.** It is a full page only, like Storage and Production; a
+  "what is the yard worth" widget is the obvious one to add, and a "great demand running" alert is
+  the obvious rule (nothing raises one today).
+- **"Output" is inferred, not read.** The stock table counts a production point's storage row only
+  when some line names that fill type as an *output*, and a pen's condition bar only when the game
+  marks it `invertedBar` — inputs are things you bought and fed in, not stock you can fetch. The
+  pen half is exact (`PlaceableHusbandryStraw` sets the flag false on straw and true on manure); the
+  production half is a proxy, because what a trailer can actually load is the point's
+  **loading station** fill types and those are not exported. A map whose loading station also serves
+  an input would be under-reported. Exporting `outputFillTypeIds` (or the loading station's supported
+  set) on the production channel would settle it.
+- **Neither tab can put a station or a store on the map.** The board carries `posX`/`posZ` per
+  station, so a "show on map" on a seller row is only the Fleet app's jump wired up; a storage row
+  cannot do the same, because the storage channel carries no position at all.
 - **A pallet shop's price never moves**, because the game bakes the difficulty multiplier into
   `pallet.price` once at load and never revisits it. That is the game's own behaviour, exported as-is
   — worth knowing before someone reads a static number as a bug.

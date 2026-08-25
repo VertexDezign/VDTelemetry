@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -48,6 +47,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.ConfirmDialog
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.components.ViewTab
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.FinancePeriod
@@ -96,8 +96,8 @@ fun FinancePanel(
     modifier = modifier,
     headerActions = {
       if (hasInvoices) {
-        ViewTab("Books", !showInvoices) { showInvoices = false }
-        ViewTab("Invoices", showInvoices) { showInvoices = true }
+        ViewTab("Books", !showInvoices, { showInvoices = false })
+        ViewTab("Invoices", showInvoices, { showInvoices = true })
       }
       if (!showInvoices && data?.stats?.isNotEmpty() == true) {
         Icon(
@@ -124,26 +124,6 @@ fun FinancePanel(
       else -> FinanceContent(data, hideEmpty, onCommand)
     }
   }
-}
-
-/**
- * One of the panel header's view tabs. `selectable` rather than `clickable`: which of the two is
- * showing is carried by fill and text colour, which a screen reader cannot see, so the selected state
- * has to be in the semantics as well.
- */
-@Composable
-private fun ViewTab(label: String, active: Boolean, onClick: () -> Unit) {
-  Text(
-    label.uppercase(),
-    color = if (active) VdtColors.White else VdtColors.DarkGray,
-    fontSize = 9.sp,
-    fontWeight = FontWeight.Bold,
-    modifier = Modifier
-      .clip(RoundedCornerShape(4.dp))
-      .background(if (active) VdtColors.Green else VdtColors.TrackGray)
-      .selectable(selected = active, role = Role.Tab, onClick = onClick)
-      .padding(horizontal = 8.dp, vertical = 4.dp),
-  )
 }
 
 @Composable

@@ -16,6 +16,7 @@ object AppRegistry {
       ProductionApp,
       StorageApp,
       AnimalsApp,
+      MarketApp,
       MissionsApp,
       CalendarApp,
       FinanceApp,

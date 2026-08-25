@@ -21,6 +21,7 @@ import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayersInfo
 import net.vertexdezign.vdt.model.MapVehiclesData
 import net.vertexdezign.vdt.model.MissionsData
+import net.vertexdezign.vdt.model.PricesData
 import net.vertexdezign.vdt.model.ProductionData
 import net.vertexdezign.vdt.model.StorageData
 import net.vertexdezign.vdt.model.TaskListData
@@ -52,6 +53,12 @@ class VdtStore(
   val production: StateFlow<ProductionData?>,
   val storage: StateFlow<StorageData?>,
   val husbandry: StateFlow<HusbandriesData?>,
+  /**
+   * The map's price board — what every station pays and charges, and the twelve-month curve behind
+   * each commodity. Not farm-scoped and carrying no fill levels: valuing stock against it is the
+   * Market app's join with the three channels above.
+   */
+  val prices: StateFlow<PricesData?>,
   /** Every machine the farm owns, with its condition and ADS's record; null when absent. */
   val fleet: StateFlow<FleetData?>,
   /** The farm's contracts — on offer, running, finished; null when the channel is absent. */
