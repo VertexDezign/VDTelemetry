@@ -1,0 +1,49 @@
+# At the repo root rather than beside the Gradle build it mostly serves, because the root is the only
+# place the IDE's ktlint looks: the plugin reads the .editorconfig of the folder IntelliJ was opened
+# on, and one a directory further down it ignores. Spotless is pointed at this path explicitly, from
+# VDTerminal/build.gradle.kts. The Lua half of the repo wants the same [*] block anyway -- spaces,
+# width 2, LF, 120 columns -- which is what vdTelemetry/stylua.toml is already set to.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.{kt,kts}]
+max_line_length = 120
+
+# The `ij_` half of the file is for IntelliJ, not for ktlint: ktlint reads .editorconfig and so does
+# the IDE, so this is where the two can be told the same thing once. These four are the set ktlint
+# itself recommends (see its "IntelliJ IDEA configuration" page) and they settle the fight the two
+# formatters otherwise have over imports — the IDE collapsing a package's imports into a star and
+# Spotless expanding them again, over and over.
+#
+# It cannot make them agree everywhere: ktlint deliberately deviates from the IDE's formatter in
+# places, and a wrapped assignment is one of them (the IDE adds a continuation indent where ktlint
+# keeps the value at its argument's level). The fix for that is to let ktlint do the formatting in
+# the IDE too — the Ktlint plugin, Settings > Tools > KtLint, distract-free mode — rather than to
+# chase it with more style settings here. `./gradlew spotlessApply` is what CI's spotlessCheck
+# measures against either way.
+ij_kotlin_code_style_defaults = KOTLIN_OFFICIAL
+ij_kotlin_name_count_to_use_star_import = 2147483647
+ij_kotlin_name_count_to_use_star_import_for_members = 2147483647
+ij_kotlin_packages_to_use_import_on_demand = unset
+
+# The app module alone is on ktlint's other code style, and this is not a taste: a Spotless ktlint
+# step that carries an editorConfigOverride formats to `intellij_idea` whatever this file says, and
+# the compose ruleset's two settings make `app` the one module carrying one. `server` and `shared`,
+# which pass no override, get ktlint's own default of `ktlint_official`. The split is visible in the
+# sources -- a short signature stays on one line in `app` and is broken out with a trailing comma in
+# the other two -- and it was found the hard way: setting a code style for the whole repo here left
+# `app` untouched and asked for 30-odd files in the other two modules to be rewritten.
+#
+# Written down so that a ktlint outside this build -- the IDE's plugin, a CLI run -- formats each
+# module the way the build will measure it. Deleting these two lines does not make the repo one
+# style; it makes the IDE disagree with the build about this module. Unifying the two is a
+# whole-module reformat and a decision nobody has taken.
+[VDTerminal/app/**/*.kt]
+ktlint_code_style = intellij_idea

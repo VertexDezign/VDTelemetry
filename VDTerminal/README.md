@@ -401,7 +401,14 @@ them.
 over the Kotlin sources (`.kt`) and the Gradle build scripts (`*.gradle.kts`) in every module. The
 [compose-rules](https://mrmans0n.github.io/compose-rules/) ktlint ruleset adds Compose-specific
 checks and is applied to the `app` module's Compose UI (there its `compose:function-naming` replaces
-the standard `function-naming` rule). Rules are tuned in the root `.editorconfig`.
+the standard `function-naming` rule). Rules are tuned in the `.editorconfig` at the **repo**
+root, a directory above this one — which is where the IDE's own ktlint reads it from, so there is
+only ever one of them.
+
+Two ktlint code styles are in play, which that file explains and pins: `app` is formatted
+`intellij_idea` (any Spotless step with an `editorConfigOverride` is, and the compose ruleset gives
+`app` one), `server` and `shared` to ktlint's own `ktlint_official`. It shows up as a short signature
+staying on one line in `app` and being broken out with a trailing comma in the other two.
 
 ```bash
 ./gradlew spotlessCheck   # verify formatting (fails on violations)
