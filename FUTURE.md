@@ -585,14 +585,18 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   contain, because that session never got there: an **incoming** invoice, a **paid** one, and one that has **accrued a
   penalty**. `InvoicesModelTest`
   covers those three with inline JSON meanwhile, and says so at the top.
-- **A prices capture with a great demand running.** `examples/json/prices/vanilla.json` is committed — a played-in
-  singleplayer board, 44 stations against 121 commodities, and it already covers the sell/buy/pallet mix on one
-  placeable and the station the game reaches only by train (`PricesModelTest.parsesTheVanillaCapture` /
-  `theCaptureCarriesEveryStationShape`). What it cannot contain, because a demand only runs for a few in-game hours and
-  has to be caught while it is happening: a **running great demand**, ideally captured on both the host and a client in
-  the same session, since only the host has the premium and the countdown. A **commodity with no economy** (no
-  twelve-month curve at all) is missing for the same reason — every fill type in this board has one. `PricesModelTest`
-  covers both with inline JSON meanwhile, and says so at the top.
+- **A prices capture with a great demand running.** Two boards are committed. `vanilla.json` is a played-in
+  singleplayer board, 44 stations against 121 commodities, and covers the sell/buy/pallet mix on one placeable and the
+  station the game reaches only by train (`PricesModelTest.parsesTheVanillaCapture` /
+  `theCaptureCarriesEveryStationShape`). `mp_modded.json` is a modded map from a multiplayer client, 26 stations
+  against 166 commodities, and covers what a base-game board cannot: five stations sharing one name, a curve that is
+  zero in ten of twelve months, and — held against `examples/json/map/mp_modded.json` from the same session — five
+  stations the map puts no marker on at all. What neither can contain, because a demand only runs for a few in-game
+  hours and has to be caught while it is happening: a **running great demand**, ideally captured on both the host and a
+  client in the same session, since only the host has the premium and the countdown. A **commodity with no economy**
+  (no twelve-month curve at all) is still missing too — every fill type on both boards has one, the modded chain
+  commodities included, they just have not been priced in most months. `PricesModelTest` covers both with inline JSON
+  meanwhile, and says so at the top.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.

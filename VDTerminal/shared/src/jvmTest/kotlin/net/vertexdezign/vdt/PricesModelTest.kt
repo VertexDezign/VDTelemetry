@@ -14,15 +14,19 @@ import kotlin.test.assertTrue
  * The `prices.json` channel the mod writes for the map's price board
  * (`src/collect/PricesExporter.lua`).
  *
- * [parsesTheVanillaCapture] and [theCaptureCarriesEveryStationShape] decode the committed
- * `examples/json/prices/vanilla.json` — a whole vanilla board, 44 stations against 121 commodities
- * — through the real server path ([VdtParser.parsePrices]), and pin the invariants the exporter
- * promises: every row joins to the catalogue, one placeable is one row, and every list arrives
- * sorted.
+ * Two captures drive this. [parsesTheVanillaCapture] and [theCaptureCarriesEveryStationShape]
+ * decode `examples/json/prices/vanilla.json` — a whole vanilla board in singleplayer, 44 stations
+ * against 121 commodities — through the real server path ([VdtParser.parsePrices]), and pin the
+ * invariants the exporter promises: every row joins to the catalogue, one placeable is one row, and
+ * every list arrives sorted. [parsesTheModdedMultiplayerCapture] and the three tests after it
+ * decode `mp_modded.json`, a modded map on a multiplayer client, for what a base-game board cannot
+ * show: a catalogue half again as large, five stations sharing one name, a curve that is mostly
+ * zero, and (against `examples/json/map/mp_modded.json` from the same session) stations the map
+ * puts no marker on at all.
  *
  * The rest is **inline JSON deliberately.** Fixtures in this project are real game captures and
- * never hand-authored, and the two shapes below that the capture does not contain — a running great
- * demand, and a commodity with no economy — are still waiting on a save that has them (FUTURE.md
+ * never hand-authored, and the two shapes neither capture contains — a running great demand, and a
+ * commodity with no economy at all — are still waiting on a save that has them (FUTURE.md
  * → "Captures wanted as fixtures"). Their fill-type names and prices are therefore illustrative,
  * and those tests pin the *shape* and the absence rules rather than any map's numbers.
  *
@@ -34,14 +38,19 @@ import kotlin.test.assertTrue
 class PricesModelTest {
   private val json = Json { encodeDefaults = true }
 
-  private fun example(name: String): String {
+  private fun example(name: String): String = capture("prices/$name")
+
+  /** The map channel, for the one cross-channel invariant below. */
+  private fun mapExample(name: String): String = capture("map/$name")
+
+  private fun capture(relative: String): String {
     var dir: File? = File(".").absoluteFile
     while (dir != null) {
-      val candidate = File(dir, "examples/json/prices/$name")
+      val candidate = File(dir, "examples/json/$relative")
       if (candidate.exists()) return candidate.readText()
       dir = dir.parentFile
     }
-    error("Could not locate examples/json/prices/$name from ${File(".").absolutePath}")
+    error("Could not locate examples/json/$relative from ${File(".").absolutePath}")
   }
 
   private fun assertRoundTrips(data: PricesData) {
@@ -181,6 +190,195 @@ class PricesModelTest {
         .map { it.trend }
         .toSet()
     assertEquals(setOf("climbing", "falling", "steady"), trends)
+  }
+
+  /**
+   * The second committed capture: a **modded map, seen from a multiplayer client** — 26 stations
+   * against 166 commodities, 46 of which never appear on the vanilla board. It is the proof that
+   * the catalogue is data: nothing mod-side or app-side enumerates fill types, so a map that trades
+   * rye, winter wheat, six ice creams and a biogas chain arrives complete without a line of code.
+   */
+  @Test
+  fun parsesTheModdedMultiplayerCapture() {
+    val data = VdtParser.parsePrices(example("mp_modded.json"))
+
+    assertEquals("1", data.version)
+    assertEquals(6, data.period)
+    assertEquals(1f, data.priceMultiplier, "another hard-economy save — no factor to unfold")
+    assertEquals(26, data.stations.size)
+    assertEquals(166, data.fillTypes.size)
+
+    // The join holds in both directions here too, over a board of a different shape: half the
+    // stations of the vanilla map, half again as many commodities, and one pallet counter
+    // contributing 66 of the 653 rows.
+    val catalogue = data.fillTypes.associateBy { it.type }
+    assertEquals(data.fillTypes.size, catalogue.size, "one catalogue entry per fill type")
+    assertEquals(579, data.stations.sumOf { it.sell.size })
+    assertEquals(8, data.stations.sumOf { it.buy.size })
+    assertEquals(66, data.stations.sumOf { it.pallets.size })
+    val rowTypes =
+      data.stations.flatMap { station ->
+        station.sell.map { it.type } + station.buy.map { it.type } + station.pallets.map { it.type }
+      }
+    assertEquals(653, rowTypes.size)
+    assertEquals(catalogue.keys, rowTypes.toSet(), "every row joins to exactly one catalogue entry")
+
+    // Sorted on the way out, same as the vanilla board.
+    val names = data.stations.map { it.name }
+    assertEquals(names.sorted(), names)
+    assertEquals(catalogue.keys.sorted(), data.fillTypes.map { it.type })
+    val market = data.stations.first { it.name == "Agraria Markt" }
+    assertEquals(150, market.sell.size)
+    assertEquals(market.sell.map { it.type }.sorted(), market.sell.map { it.type })
+
+    // What this map adds, measured against the other capture: 46 commodities the vanilla board
+    // never listed — crops (rye, spelt, triticale, winter wheat), produce chains (six ice creams),
+    // a biogas chain's intermediates. Each arrives with a title and a full curve, because both come
+    // off the fill type itself rather than off any list we keep.
+    val vanilla =
+      VdtParser
+        .parsePrices(example("vanilla.json"))
+        .fillTypes
+        .map { it.type }
+        .toSet()
+    val added = catalogue.keys - vanilla
+    assertEquals(46, added.size)
+    assertTrue(added.containsAll(listOf("RYE", "SPELT", "TRITICALE", "WINTERWHEAT", "ICECREAMVANILLA", "RAWMETHANE")))
+    assertEquals(setOf("STONE"), vanilla - catalogue.keys, "and only the dredger's stone is missing the other way")
+    assertTrue(added.all { catalogue.getValue(it).title.isNotEmpty() && catalogue.getValue(it).months.size == 12 })
+    val rye = catalogue.getValue("RYE")
+    assertEquals("Roggen", rye.title)
+    assertTrue(rye.isCrop)
+    assertEquals(10, rye.bestMonth)
+    assertEquals(270f, rye.bestPrice)
+
+    assertEquals(32, data.fillTypes.count { it.isCrop })
+    assertTrue(data.fillTypes.all { it.months.size == 12 && it.bestPrice == it.months.max() })
+    assertEquals(
+      listOf("CCMRAW", "CHAFF", "COMPOSTRAW", "COTTON", "DIGESTATE1", "DIGESTATE3", "RAWMETHANE", "SUGARCANE", "WATER"),
+      data.fillTypes.filter { !it.showOnPriceTable }.map { it.type },
+      "the game's own table hides these; the flag is a filter the app can offer, not a verdict",
+    )
+
+    // Still no great demand and no train station: this map has neither, so both stay inline JSON.
+    assertTrue(data.stations.flatMap { it.sell }.none { it.greatDemand })
+    assertTrue(data.stations.none { it.isTrainStation })
+    assertEquals(
+      setOf("climbing", "falling", "steady"),
+      data.stations
+        .flatMap { it.sell }
+        .map { it.trend }
+        .toSet(),
+    )
+
+    assertRoundTrips(data)
+  }
+
+  /**
+   * The station shapes on this board: the buy-only pump, the spread on one placeable, the pallet
+   * counter and its unit trap — the same rules as the vanilla capture, re-read on a modded map — and
+   * the one shape only this capture has, five separate placeables sharing a single name.
+   */
+  @Test
+  fun theModdedBoardRepeatsAStationNameFiveTimes() {
+    val data = VdtParser.parsePrices(example("mp_modded.json"))
+
+    // Five garden plots, one name. The id is the key and the position is what tells them apart on
+    // screen — anything that grouped this board by name would collapse five stations into one.
+    val plots = data.stations.filter { it.name == "Gartengrundstück Mist" }
+    assertEquals(5, plots.size)
+    assertEquals(5, plots.map { it.id }.distinct().size)
+    assertEquals(5, plots.map { it.posX to it.posZ }.distinct().size)
+    assertTrue(plots.all { it.sell.map { row -> row.type } == listOf("MANURE", "SEEDS", "WATER") })
+    assertEquals(
+      26,
+      data.stations
+        .map { it.id }
+        .distinct()
+        .size,
+      "ids stay unique where names do not",
+    )
+
+    // Buy-only, twice over: the fuel pump and the seed-and-fertilizer dealer pay for nothing, and
+    // the empty `sell` is the whole difference between that and a station that pays zero.
+    val fuel = data.stations.first { it.name == "Tankstelle" }
+    assertTrue(fuel.sell.isEmpty())
+    assertEquals(1500f, fuel.buy.single { it.type == "DIESEL" }.price)
+    val dealer = data.stations.first { it.name == "Händler für Saatgut und Dünger" }
+    assertTrue(dealer.sell.isEmpty())
+    assertEquals(listOf("FERTILIZER", "HERBICIDE", "LIME", "LIQUIDFERTILIZER", "SEEDS"), dealer.buy.map { it.type })
+
+    // One placeable, both directions, one fill type: the slurry station charges 36.30 per 1000 l
+    // and pays 30.00 for the same litres, and the spread only reads as a spread on one entry.
+    val slurry = data.stations.first { it.name == "Gülle" }
+    assertEquals(36.3f, slurry.buy.single { it.type == "LIQUIDMANURE" }.price)
+    assertEquals(30f, slurry.sell.single { it.type == "LIQUIDMANURE" }.price)
+
+    // And the unit trap again, on this map's depot: 1872 for a whole pallet of boards against
+    // 1319 per 1000 l for the same fill type. Two columns, two units, never summed.
+    val depot = data.stations.first { it.name == "Depot" }
+    assertTrue(depot.isPalletStation)
+    assertEquals(66, depot.pallets.size)
+    assertEquals(38, depot.sell.size)
+    assertEquals(1872f, depot.pallets.single { it.type == "BOARDS" }.price)
+    assertEquals(1319f, depot.sell.single { it.type == "BOARDS" }.price)
+  }
+
+  /**
+   * Why #112 kept coordinates on this channel instead of joining the board to `map.json` by name.
+   * The two captures come from the same session, so they can be held against each other: 21 of the
+   * 26 stations sit on a map marker at exactly the same normalized coordinates — the two channels
+   * share one frame to the last decimal — and the five garden plots have **no marker at all**. A
+   * board drawn by joining to the map would have silently lost them.
+   */
+  @Test
+  fun everyStationCarriesItsOwnPositionBecauseNotAllOfThemAreOnTheMap() {
+    val board = VdtParser.parsePrices(example("mp_modded.json"))
+    val markers = VdtParser.parseMap(mapExample("mp_modded.json")).pois
+
+    val (onTheMap, unmarked) =
+      board.stations.partition { station ->
+        markers.any { it.posX == station.posX && it.posZ == station.posZ }
+      }
+    assertEquals(21, onTheMap.size)
+    assertTrue(
+      onTheMap.all { station ->
+        markers.single { it.posX == station.posX && it.posZ == station.posZ }.name == station.name
+      },
+      "where a marker does exist it is exactly one marker, and it agrees on the name",
+    )
+    assertEquals(List(5) { "Gartengrundstück Mist" }, unmarked.map { it.name })
+    assertTrue(
+      unmarked.all { it.posX != null && it.posZ != null },
+      "a station the map never marks still knows where it is",
+    )
+  }
+
+  /**
+   * A curve can be mostly zero. Three of this board's mod-added commodities — the two digestates and
+   * raw methane, all internal to a biogas chain — have a running average recorded in two periods
+   * only, so ten of their twelve months are 0. That is not a price: a chart plotting the curve
+   * cannot let those zeros set its floor, and "cheapest month" over them would name a month nobody
+   * can sell in. `bestMonth`/`bestPrice` still agree with the curve, and the game hides all three
+   * from its own table — which is the app's ready-made default filter.
+   */
+  @Test
+  fun aCurveCanBeMostlyZeroOnAModdedChainCommodity() {
+    val data = VdtParser.parsePrices(example("mp_modded.json"))
+
+    val sparse = data.fillTypes.filter { it.months.contains(0f) }
+    assertEquals(listOf("DIGESTATE1", "DIGESTATE3", "RAWMETHANE"), sparse.map { it.type })
+    assertTrue(sparse.none { it.showOnPriceTable })
+
+    val digestate = data.fillTypes.single { it.type == "DIGESTATE1" }
+    assertEquals("Fermentergärreste", digestate.title)
+    assertEquals(listOf(0f, 0f, 0f, 0f, 0f, 0f, 33f, 32f, 0f, 0f, 0f, 0f), digestate.months)
+    assertEquals(7, digestate.bestMonth)
+    assertEquals(33f, digestate.bestPrice)
+    assertEquals(2, digestate.months.count { it > 0f }, "two periods seen, ten never priced")
+
+    // The vanilla board has no such gap, which is why this needed the modded capture to show up.
+    assertTrue(VdtParser.parsePrices(example("vanilla.json")).fillTypes.none { it.months.contains(0f) })
   }
 
   @Test
