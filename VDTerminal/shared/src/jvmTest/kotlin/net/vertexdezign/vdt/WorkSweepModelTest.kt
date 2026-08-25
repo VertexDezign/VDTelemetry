@@ -39,14 +39,14 @@ class WorkSweepModelTest {
     active = active,
     type = type,
     shape =
-      listOf(
-        x / terrain,
-        z / terrain,
-        (x + width) / terrain,
-        z / terrain,
-        x / terrain,
-        (z + depth) / terrain,
-      ),
+    listOf(
+      x / terrain,
+      z / terrain,
+      (x + width) / terrain,
+      z / terrain,
+      x / terrain,
+      (z + depth) / terrain,
+    ),
   )
 
   private fun rig(vararg areas: WorkArea) = Vehicle(implement = listOf(Implement(workAreas = areas.toList())))
@@ -61,10 +61,7 @@ class WorkSweepModelTest {
     // catch a mispairing. The left one is switched off for a sample and back on afterwards.
     val sweep = WorkSweep()
 
-    fun left(
-      z: Float,
-      active: Boolean = true,
-    ) = area(x = 500f, z = z, active = active)
+    fun left(z: Float, active: Boolean = true) = area(x = 500f, z = z, active = active)
 
     fun right(z: Float) = area(x = 512f, z = z)
 
@@ -99,23 +96,18 @@ class WorkSweepModelTest {
    * derived fourth corner back on the centre line at the far end. Sweeping the `start -> width` edge
    * — which is the leading edge of every *rectangular* area — covers half of this one.
    */
-  private fun fan(
-    z: Float,
-    centre: Float = 500f,
-    width: Float = 36f,
-    depth: Float = 10f,
-  ) = WorkArea(
+  private fun fan(z: Float, centre: Float = 500f, width: Float = 36f, depth: Float = 10f) = WorkArea(
     index = 1,
     active = true,
     shape =
-      listOf(
-        centre / terrain,
-        z / terrain,
-        (centre - width / 2f) / terrain,
-        (z + depth / 2f) / terrain,
-        (centre + width / 2f) / terrain,
-        (z + depth / 2f) / terrain,
-      ),
+    listOf(
+      centre / terrain,
+      z / terrain,
+      (centre - width / 2f) / terrain,
+      (z + depth / 2f) / terrain,
+      (centre + width / 2f) / terrain,
+      (z + depth / 2f) / terrain,
+    ),
   )
 
   /** Positive or negative according to which way the ring is wound; only the sign is read. */
@@ -161,16 +153,15 @@ class WorkSweepModelTest {
    * the header has already cut, several meters wider than the header cut it, so a sweep that took it
    * painted every combine pass at the width of the spread instead of the width of the cut.
    */
-  private fun combine(z: Float) =
-    Vehicle(
-      workAreas =
-        listOf(
-          // Both sit behind the header, at the back of the machine.
-          area(x = 494f, z = z - 8f, width = 12f, depth = 1f, type = "COMBINECHOPPER"),
-          area(x = 498f, z = z - 8f, width = 4f, depth = 1f, type = "COMBINESWATH"),
-        ),
-      implement = listOf(Implement(workAreas = listOf(area(x = 495.5f, z = z, width = 9f, type = "CUTTER")))),
-    )
+  private fun combine(z: Float) = Vehicle(
+    workAreas =
+    listOf(
+      // Both sit behind the header, at the back of the machine.
+      area(x = 494f, z = z - 8f, width = 12f, depth = 1f, type = "COMBINECHOPPER"),
+      area(x = 498f, z = z - 8f, width = 4f, depth = 1f, type = "COMBINESWATH"),
+    ),
+    implement = listOf(Implement(workAreas = listOf(area(x = 495.5f, z = z, width = 9f, type = "CUTTER")))),
+  )
 
   @Test
   fun sweepsTheHeaderAndNotTheStrawBehindIt() {

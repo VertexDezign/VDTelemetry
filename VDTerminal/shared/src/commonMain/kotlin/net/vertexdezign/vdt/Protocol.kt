@@ -30,9 +30,7 @@ import net.vertexdezign.vdt.model.WeatherForecastData
 sealed interface ServerMessage {
   @Serializable
   @SerialName("telemetry")
-  data class Telemetry(
-    val data: VdtData,
-  ) : ServerMessage
+  data class Telemetry(val data: VdtData) : ServerMessage
 
   /**
    * The optional FS25_TaskList channel. Broadcast on its own cadence (event-driven, not the ~100 ms
@@ -46,9 +44,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("taskList")
-  data class TaskList(
-    val data: TaskListData? = null,
-  ) : ServerMessage
+  data class TaskList(val data: TaskListData? = null) : ServerMessage
 
   /**
    * The optional FS25_CropRotation channel. Like [TaskList], a distinct event-driven message (not a
@@ -57,9 +53,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("cropRotation")
-  data class CropRotation(
-    val data: CropRotationData? = null,
-  ) : ServerMessage
+  data class CropRotation(val data: CropRotationData? = null) : ServerMessage
 
   /**
    * The map overlay channel (POIs + fields, `map.json`). Event-driven like [TaskList], hence a
@@ -71,9 +65,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("map")
-  data class MapUpdate(
-    val data: MapData? = null,
-  ) : ServerMessage
+  data class MapUpdate(val data: MapData? = null) : ServerMessage
 
   /**
    * The vehicle-marker channel (`mapVehicles.json`). Broadcast on the mod's own ~1 s vehicle
@@ -83,9 +75,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("mapVehicles")
-  data class MapVehicles(
-    val data: MapVehiclesData? = null,
-  ) : ServerMessage
+  data class MapVehicles(val data: MapVehiclesData? = null) : ServerMessage
 
   /**
    * The GPS course channel (`gpsCourse.json`): the steering assist's guidance lines for the field
@@ -98,9 +88,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("gpsCourse")
-  data class GpsCourse(
-    val data: GpsCourseData? = null,
-  ) : ServerMessage
+  data class GpsCourse(val data: GpsCourseData? = null) : ServerMessage
 
   /**
    * The per-field agronomy channel (`fieldInfo.json`), feeding the field-info popup. Interval-driven
@@ -111,9 +99,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("fieldInfo")
-  data class FieldInfo(
-    val data: FieldInfoData? = null,
-  ) : ServerMessage
+  data class FieldInfo(val data: FieldInfoData? = null) : ServerMessage
 
   /**
    * The production channel (own-farm production points + factories, `production.json`).
@@ -124,9 +110,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("production")
-  data class Production(
-    val data: ProductionData? = null,
-  ) : ServerMessage
+  data class Production(val data: ProductionData? = null) : ServerMessage
 
   /**
    * The storage channel (own-farm standalone storages — silos + object storages, `storage.json`).
@@ -136,9 +120,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("storage")
-  data class Storage(
-    val data: StorageData? = null,
-  ) : ServerMessage
+  data class Storage(val data: StorageData? = null) : ServerMessage
 
   /**
    * The husbandry channel (own-farm animal pens, `husbandry.json`). Interval-driven on the mod's own
@@ -148,9 +130,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("husbandry")
-  data class Husbandry(
-    val data: HusbandriesData? = null,
-  ) : ServerMessage
+  data class Husbandry(val data: HusbandriesData? = null) : ServerMessage
 
   /**
    * The missions channel (the farm's contracts, `missions.json`). The mod writes it when a contract
@@ -161,9 +141,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("missions")
-  data class Missions(
-    val data: MissionsData? = null,
-  ) : ServerMessage
+  data class Missions(val data: MissionsData? = null) : ServerMessage
 
   /**
    * The finance channel (the local farm's books, `finance.json`). Interval-driven on the mod's own
@@ -174,9 +152,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("finance")
-  data class Finance(
-    val data: FinanceData? = null,
-  ) : ServerMessage
+  data class Finance(val data: FinanceData? = null) : ServerMessage
 
   /**
    * The invoices channel (`invoices.json`, FS25_Invoices): billing between farms. Purely event-driven
@@ -189,9 +165,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("invoices")
-  data class Invoices(
-    val data: InvoicesData? = null,
-  ) : ServerMessage
+  data class Invoices(val data: InvoicesData? = null) : ServerMessage
 
   /**
    * The crop calendar channel (`cropCalendar.json`): which periods each crop may be sown and
@@ -204,9 +178,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("cropCalendar")
-  data class CropCalendar(
-    val data: CropCalendarData? = null,
-  ) : ServerMessage
+  data class CropCalendar(val data: CropCalendarData? = null) : ServerMessage
 
   /**
    * The weather channel (`weather.json`): the forecast — now, twelve two-hourly steps, six days.
@@ -219,9 +191,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("weather")
-  data class Weather(
-    val data: WeatherForecastData? = null,
-  ) : ServerMessage
+  data class Weather(val data: WeatherForecastData? = null) : ServerMessage
 
   /**
    * The fleet channel (`fleet.json`): every machine the farm owns, its condition, and Advanced Damage
@@ -234,9 +204,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("fleet")
-  data class Fleet(
-    val data: FleetData? = null,
-  ) : ServerMessage
+  data class Fleet(val data: FleetData? = null) : ServerMessage
 
   /**
    * The prices channel (`prices.json`): the map's price board — what every station pays for each
@@ -253,9 +221,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("prices")
-  data class Prices(
-    val data: PricesData? = null,
-  ) : ServerMessage
+  data class Prices(val data: PricesData? = null) : ServerMessage
 
   /**
    * Diagnostics: the **observed** write cadence of each channel file, as measured server-side (how
@@ -269,9 +235,7 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("channelStats")
-  data class ChannelStats(
-    val data: ChannelStatsData,
-  ) : ServerMessage
+  data class ChannelStats(val data: ChannelStatsData) : ServerMessage
 
   /**
    * The ground-layer channel (`mapLayers/`): the raster overlays this map offers — crops / growth /
@@ -285,15 +249,11 @@ sealed interface ServerMessage {
    */
   @Serializable
   @SerialName("mapLayers")
-  data class MapLayers(
-    val data: MapLayersInfo? = null,
-  ) : ServerMessage
+  data class MapLayers(val data: MapLayersInfo? = null) : ServerMessage
 
   @Serializable
   @SerialName("error")
-  data class Error(
-    val message: String,
-  ) : ServerMessage
+  data class Error(val message: String) : ServerMessage
 }
 
 /** A snapshot of every channel's observed cadence, plus the server clock it was taken at. */
@@ -351,17 +311,12 @@ sealed interface ClientMessage {
   /** Set one light on/off. The four beam/work lights are mask bits mod-side; `beacon` is a bool. */
   @Serializable
   @SerialName("setLight")
-  data class SetLight(
-    val light: LightTarget,
-    val on: Boolean,
-  ) : ClientMessage
+  data class SetLight(val light: LightTarget, val on: Boolean) : ClientMessage
 
   /** Set the (single) turn-light state — indicators are one enum, not three independent booleans. */
   @Serializable
   @SerialName("setTurnLight")
-  data class SetTurnLight(
-    val state: TurnLightState,
-  ) : ClientMessage
+  data class SetTurnLight(val state: TurnLightState) : ClientMessage
 
   /**
    * Lower (`on = true`) or raise (`false`) the [target].
@@ -372,26 +327,17 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setLowered")
-  data class SetLowered(
-    val target: ControlTarget,
-    val on: Boolean,
-  ) : ClientMessage
+  data class SetLowered(val target: ControlTarget, val on: Boolean) : ClientMessage
 
   /** Fold (`on = true`, transport) or unfold (`false`, work) the [target]. */
   @Serializable
   @SerialName("setFolded")
-  data class SetFolded(
-    val target: ControlTarget,
-    val on: Boolean,
-  ) : ClientMessage
+  data class SetFolded(val target: ControlTarget, val on: Boolean) : ClientMessage
 
   /** Turn the [target] on (`on = true`) or off — PTO / powered tools. */
   @Serializable
   @SerialName("setActivated")
-  data class SetActivated(
-    val target: ControlTarget,
-    val on: Boolean,
-  ) : ClientMessage
+  data class SetActivated(val target: ControlTarget, val on: Boolean) : ClientMessage
 
   /**
    * Move the [target]'s pipe to an absolute [state]: `1` is fully retracted, up to the machine's
@@ -403,10 +349,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setPipeState")
-  data class SetPipeState(
-    val target: ControlTarget,
-    val state: Int,
-  ) : ClientMessage
+  data class SetPipeState(val target: ControlTarget, val state: Int) : ClientMessage
 
   /**
    * Set the [target]'s cover to an absolute [state]: `0` closes everything, `1..count` opens that
@@ -418,10 +361,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setCoverState")
-  data class SetCoverState(
-    val target: ControlTarget,
-    val state: Int,
-  ) : ClientMessage
+  data class SetCoverState(val target: ControlTarget, val state: Int) : ClientMessage
 
   /**
    * Choose which tip side the [target]'s next tip will use — `Tipping.preferredSide`, 1-based.
@@ -431,10 +371,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setTipSide")
-  data class SetTipSide(
-    val target: ControlTarget,
-    val side: Int,
-  ) : ClientMessage
+  data class SetTipSide(val target: ControlTarget, val side: Int) : ClientMessage
 
   /**
    * Start (`on = true`) or stop the [target] unloading.
@@ -450,10 +387,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setDischarging")
-  data class SetDischarging(
-    val target: ControlTarget,
-    val on: Boolean,
-  ) : ClientMessage
+  data class SetDischarging(val target: ControlTarget, val on: Boolean) : ClientMessage
 
   /**
    * Make the machine at [node] the one the player's controls act on, and — in the same command — put
@@ -485,17 +419,12 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setSelected")
-  data class SetSelected(
-    val node: String,
-    val controlGroup: Int? = null,
-  ) : ClientMessage
+  data class SetSelected(val node: String, val controlGroup: Int? = null) : ClientMessage
 
   /** Start (`on = true`) or stop the vehicle's engine. */
   @Serializable
   @SerialName("setMotorState")
-  data class SetMotorState(
-    val on: Boolean,
-  ) : ClientMessage
+  data class SetMotorState(val on: Boolean) : ClientMessage
 
   /**
    * Put the rig's Precision Farming sprayer into automatic (`auto = true`) or manual rate mode.
@@ -505,9 +434,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setSprayAmountAuto")
-  data class SetSprayAmountAuto(
-    val auto: Boolean,
-  ) : ClientMessage
+  data class SetSprayAmountAuto(val auto: Boolean) : ClientMessage
 
   /**
    * Set the manual rate to an absolute [step] — PF's `sprayAmountManual`, an index into its level
@@ -523,9 +450,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setSprayAmountStep")
-  data class SetSprayAmountStep(
-    val step: Int,
-  ) : ClientMessage
+  data class SetSprayAmountStep(val step: Int) : ClientMessage
 
   /**
    * Cruise control. One command with an [action] (`enable`/`disable`/`setSpeed`) rather than
@@ -534,10 +459,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setCruiseControl")
-  data class SetCruiseControl(
-    val action: CruiseAction,
-    val speed: Float? = null,
-  ) : ClientMessage {
+  data class SetCruiseControl(val action: CruiseAction, val speed: Float? = null) : ClientMessage {
     init {
       // A non-finite speed would serialize to `speed="Infinity"`/`"NaN"`, which the mod's Lua
       // `tonumber` turns into `inf`/`nan` rather than nil — so its `speed == nil` guard misses it.
@@ -555,9 +477,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setGpsLinesVisible")
-  data class SetGpsLinesVisible(
-    val on: Boolean,
-  ) : ClientMessage
+  data class SetGpsLinesVisible(val on: Boolean) : ClientMessage
 
   // ---- FS25_TaskList write-back (farm page). All target the mod's own task state via its MP event
   // wrappers, so they run with no current vehicle (requiresVehicle = false mod-side). ----
@@ -565,35 +485,22 @@ sealed interface ClientMessage {
   /** Mark the due (active) task `taskId` in `groupId` complete. */
   @Serializable
   @SerialName("completeTask")
-  data class CompleteTask(
-    val groupId: String,
-    val taskId: String,
-  ) : ClientMessage
+  data class CompleteTask(val groupId: String, val taskId: String) : ClientMessage
 
   /** Remove task `taskId` from `groupId` entirely. */
   @Serializable
   @SerialName("deleteTask")
-  data class DeleteTask(
-    val groupId: String,
-    val taskId: String,
-  ) : ClientMessage
+  data class DeleteTask(val groupId: String, val taskId: String) : ClientMessage
 
   /** Add a new Standard task to `groupId`. The mod generates the task id. */
   @Serializable
   @SerialName("createTask")
-  data class CreateTask(
-    val groupId: String,
-    val task: TaskInput,
-  ) : ClientMessage
+  data class CreateTask(val groupId: String, val task: TaskInput) : ClientMessage
 
   /** Replace the existing task `taskId` in `groupId` with [task]'s values. */
   @Serializable
   @SerialName("editTask")
-  data class EditTask(
-    val groupId: String,
-    val taskId: String,
-    val task: TaskInput,
-  ) : ClientMessage
+  data class EditTask(val groupId: String, val taskId: String, val task: TaskInput) : ClientMessage
 
   // ---- FS25_CropRotation write-back (farm page). All drive the planner's own MP event wrappers, so
   // they run with no current vehicle (requiresVehicle = false mod-side). `rotationIndex` is the
@@ -602,48 +509,32 @@ sealed interface ClientMessage {
   /** Set the main crop of `slot` in plan `rotationIndex` to fruit-type [state] (idempotent). */
   @Serializable
   @SerialName("setRotationCrop")
-  data class SetRotationCrop(
-    val rotationIndex: Int,
-    val slot: Int,
-    val state: Int,
-  ) : ClientMessage
+  data class SetRotationCrop(val rotationIndex: Int, val slot: Int, val state: Int) : ClientMessage
 
   /** Set the catch crop of `slot` in plan `rotationIndex` to [catchCropState] (0 = none; idempotent). */
   @Serializable
   @SerialName("setRotationCatchCrop")
-  data class SetRotationCatchCrop(
-    val rotationIndex: Int,
-    val slot: Int,
-    val catchCropState: Int,
-  ) : ClientMessage
+  data class SetRotationCatchCrop(val rotationIndex: Int, val slot: Int, val catchCropState: Int) : ClientMessage
 
   /** Append a slot to plan `rotationIndex`. */
   @Serializable
   @SerialName("addRotationSlot")
-  data class AddRotationSlot(
-    val rotationIndex: Int,
-  ) : ClientMessage
+  data class AddRotationSlot(val rotationIndex: Int) : ClientMessage
 
   /** Drop the last slot of plan `rotationIndex` (the mod keeps at least one). */
   @Serializable
   @SerialName("removeRotationSlot")
-  data class RemoveRotationSlot(
-    val rotationIndex: Int,
-  ) : ClientMessage
+  data class RemoveRotationSlot(val rotationIndex: Int) : ClientMessage
 
   /** Create a new one-slot rotation plan named [name] on the local player's farm (mod resolves the id). */
   @Serializable
   @SerialName("createRotation")
-  data class CreateRotation(
-    val name: String,
-  ) : ClientMessage
+  data class CreateRotation(val name: String) : ClientMessage
 
   /** Delete plan `rotationIndex` entirely. */
   @Serializable
   @SerialName("deleteRotation")
-  data class DeleteRotation(
-    val rotationIndex: Int,
-  ) : ClientMessage
+  data class DeleteRotation(val rotationIndex: Int) : ClientMessage
 
   // ---- Production write-back (production app). Both drive the base-game ProductionPoint setters
   // via their MP events, so they run with no current vehicle (requiresVehicle = false mod-side).
@@ -655,11 +546,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setProductionEnabled")
-  data class SetProductionEnabled(
-    val pointId: String,
-    val productionId: String,
-    val enabled: Boolean,
-  ) : ClientMessage
+  data class SetProductionEnabled(val pointId: String, val productionId: String, val enabled: Boolean) : ClientMessage
 
   /**
    * Set the distribution [mode] of buffered output [fillType] (its internal name) in point `pointId`.
@@ -668,11 +555,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setProductionOutputMode")
-  data class SetProductionOutputMode(
-    val pointId: String,
-    val fillType: String,
-    val mode: OutputMode,
-  ) : ClientMessage
+  data class SetProductionOutputMode(val pointId: String, val fillType: String, val mode: OutputMode) : ClientMessage
 
   /**
    * Unload [amount] stored objects (bales/pallets) of one group out of object storage [storageId] —
@@ -685,12 +568,8 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("unloadObjectStorage")
-  data class UnloadObjectStorage(
-    val storageId: String,
-    val index: Int,
-    val title: String,
-    val amount: Int,
-  ) : ClientMessage
+  data class UnloadObjectStorage(val storageId: String, val index: Int, val title: String, val amount: Int) :
+    ClientMessage
 
   /**
    * Take on the contract [missionId] — the same action as the in-game contracts screen's Accept, and
@@ -704,10 +583,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("acceptMission")
-  data class AcceptMission(
-    val missionId: Int,
-    val lease: Boolean = false,
-  ) : ClientMessage
+  data class AcceptMission(val missionId: Int, val lease: Boolean = false) : ClientMessage
 
   /**
    * Give up the running contract [missionId] — the in-game screen's Cancel, which forfeits it. The
@@ -716,9 +592,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("cancelMission")
-  data class CancelMission(
-    val missionId: Int,
-  ) : ClientMessage
+  data class CancelMission(val missionId: Int) : ClientMessage
 
   /**
    * Collect the finished contract [missionId] — the in-game screen's "complete", which pays out
@@ -726,9 +600,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("dismissMission")
-  data class DismissMission(
-    val missionId: Int,
-  ) : ClientMessage
+  data class DismissMission(val missionId: Int) : ClientMessage
 
   /**
    * Set the farm's base-game loan to [amount] — borrowing the difference, or repaying it when the
@@ -748,9 +620,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setLoan")
-  data class SetLoan(
-    val amount: Int,
-  ) : ClientMessage {
+  data class SetLoan(val amount: Int) : ClientMessage {
     init {
       // A negative loan is not a thing the engine can represent (it clamps at 0), and the mod's
       // guard would reject it — rejecting at the type boundary instead makes it unrepresentable end
@@ -776,10 +646,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("takeLoan")
-  data class TakeLoan(
-    val amount: Int,
-    val durationYears: Int,
-  ) : ClientMessage {
+  data class TakeLoan(val amount: Int, val durationYears: Int) : ClientMessage {
     init {
       // The mod rejects both, so rejecting at the type boundary makes them unrepresentable end to end
       // (the constructor also runs during kotlinx decode). The upper bounds are deliberately NOT here:
@@ -804,10 +671,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("repayLoan")
-  data class RepayLoan(
-    val loanId: Int,
-    val amount: Int,
-  ) : ClientMessage {
+  data class RepayLoan(val loanId: Int, val amount: Int) : ClientMessage {
     init {
       require(amount > 0) { "repayment must be > 0, was $amount" }
     }
@@ -827,9 +691,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("setMapLayers")
-  data class SetMapLayers(
-    val ids: List<String> = emptyList(),
-  ) : ClientMessage
+  data class SetMapLayers(val ids: List<String> = emptyList()) : ClientMessage
 
   /**
    * Settle an FS25_Invoices invoice billed to this farm.
@@ -845,9 +707,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("payInvoice")
-  data class PayInvoice(
-    val invoiceId: Int,
-  ) : ClientMessage
+  data class PayInvoice(val invoiceId: Int) : ClientMessage
 
   /**
    * Withdraw an invoice: one we issued and nobody has paid, or a proposal we raised. Deletes the
@@ -855,9 +715,7 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("cancelInvoice")
-  data class CancelInvoice(
-    val invoiceId: Int,
-  ) : ClientMessage
+  data class CancelInvoice(val invoiceId: Int) : ClientMessage
 
   /**
    * Accept a proposal addressed to this farm, turning it into a real unpaid invoice. Only the issuer a
@@ -866,16 +724,12 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("validateProposal")
-  data class ValidateProposal(
-    val invoiceId: Int,
-  ) : ClientMessage
+  data class ValidateProposal(val invoiceId: Int) : ClientMessage
 
   /** Reject a proposal addressed to this farm. Deletes it, same as [CancelInvoice]. */
   @Serializable
   @SerialName("refuseProposal")
-  data class RefuseProposal(
-    val invoiceId: Int,
-  ) : ClientMessage
+  data class RefuseProposal(val invoiceId: Int) : ClientMessage
 
   /**
    * Raise a new FS25_Invoices invoice against [farmId], or — with [proposal] set — ask that farm to
@@ -889,11 +743,8 @@ sealed interface ClientMessage {
    */
   @Serializable
   @SerialName("createInvoice")
-  data class CreateInvoice(
-    val farmId: Int,
-    val lines: List<InvoiceLineInput>,
-    val proposal: Boolean = false,
-  ) : ClientMessage {
+  data class CreateInvoice(val farmId: Int, val lines: List<InvoiceLineInput>, val proposal: Boolean = false) :
+    ClientMessage {
     init {
       // The mod refuses all three, so rejecting them at the type boundary makes them unrepresentable
       // end to end (the constructor also runs during kotlinx decode). MAX_LINES is the mod's own cap.
@@ -947,9 +798,7 @@ data class InvoiceLineInput(
  * carries), kept explicit so the enum can be renamed without breaking the contract.
  */
 @Serializable
-enum class OutputMode(
-  val token: String,
-) {
+enum class OutputMode(val token: String) {
   KEEP("keep"),
   DIRECT_SELL("directSell"),
   AUTO_DELIVER("autoDeliver"),
@@ -1003,9 +852,7 @@ data class TaskInput(
  * `commands.xml`). `SET_SPEED` carries the target in `SetCruiseControl.speed`.
  */
 @Serializable
-enum class CruiseAction(
-  val token: String,
-) {
+enum class CruiseAction(val token: String) {
   ENABLE("enable"),
   DISABLE("disable"),
   SET_SPEED("setSpeed"),
@@ -1025,9 +872,7 @@ enum class CruiseAction(
  * the mod's own `TargetResolver` and call the engine setter on it.
  */
 @Serializable
-enum class ControlTarget(
-  val token: String,
-) {
+enum class ControlTarget(val token: String) {
   VEHICLE("vehicle"),
   FRONT("front"),
   BACK("back"),
@@ -1061,9 +906,7 @@ enum class ControlTarget(
  * `commands.xml`); it is kept explicit so the enum can be renamed without breaking the contract.
  */
 @Serializable
-enum class LightTarget(
-  val token: String,
-) {
+enum class LightTarget(val token: String) {
   BEACON("beacon"),
   LOW_BEAM("lowBeam"),
   HIGH_BEAM("highBeam"),
@@ -1073,9 +916,7 @@ enum class LightTarget(
 
 /** Turn-light state. [token] is the wire vocabulary shared with the mod (the `state=` attribute). */
 @Serializable
-enum class TurnLightState(
-  val token: String,
-) {
+enum class TurnLightState(val token: String) {
   OFF("off"),
   LEFT("left"),
   RIGHT("right"),

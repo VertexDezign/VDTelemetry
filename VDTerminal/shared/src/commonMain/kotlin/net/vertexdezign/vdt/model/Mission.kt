@@ -154,10 +154,7 @@ data class MissionNpc(
 
 /** One row of the game's contract detail list — both sides already localized by the game. */
 @Serializable
-data class MissionDetail(
-  val title: String = "",
-  val value: String = "",
-)
+data class MissionDetail(val title: String = "", val value: String = "")
 
 /** The engine's `MissionStatus`. */
 @Serializable

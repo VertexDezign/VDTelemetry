@@ -11,17 +11,10 @@ data class Environment(
 )
 
 @Serializable
-data class Weather(
-  val temperature: Temperature? = null,
-)
+data class Weather(val temperature: Temperature? = null)
 
 @Serializable
-data class Temperature(
-  val min: Int = 0,
-  val max: Int = 0,
-  val current: Int = 0,
-  val unit: String = "",
-)
+data class Temperature(val min: Int = 0, val max: Int = 0, val current: Int = 0, val unit: String = "")
 
 /**
  * PDA / map data. `filename`/`width`/`height` are absent when the mod has no PDA reference, so they

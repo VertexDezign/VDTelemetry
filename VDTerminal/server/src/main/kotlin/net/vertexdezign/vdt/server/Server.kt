@@ -90,16 +90,15 @@ private const val COVERAGE_PUBLISH_INTERVAL_MS = 2000L
  * printed beside these. Best-effort: an interface enumeration that throws costs us the hint, not
  * the startup.
  */
-private fun lanUrls(port: Int): List<String> =
-  runCatching {
-    Collections
-      .list(NetworkInterface.getNetworkInterfaces())
-      .filter { it.isUp && !it.isLoopback }
-      .flatMap { Collections.list(it.inetAddresses) }
-      .filterIsInstance<Inet4Address>()
-      .filter { it.isSiteLocalAddress }
-      .map { "http://${it.hostAddress}:$port" }
-  }.getOrDefault(emptyList())
+private fun lanUrls(port: Int): List<String> = runCatching {
+  Collections
+    .list(NetworkInterface.getNetworkInterfaces())
+    .filter { it.isUp && !it.isLoopback }
+    .flatMap { Collections.list(it.inetAddresses) }
+    .filterIsInstance<Inet4Address>()
+    .filter { it.isSiteLocalAddress }
+    .map { "http://${it.hostAddress}:$port" }
+}.getOrDefault(emptyList())
 
 fun main() {
   val log = LoggerFactory.getLogger("VDTerminal")

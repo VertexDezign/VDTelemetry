@@ -26,10 +26,7 @@ data class CropRotationData(
 
 /** One selectable crop: [state] is the fruit-type index a write command sends back, [name] the label. */
 @Serializable
-data class CropOption(
-  val state: Int = 0,
-  val name: String = "",
-)
+data class CropOption(val state: Int = 0, val name: String = "")
 
 /** One named rotation plan: an ordered [sequence] of crops the farmer cycles a field through. */
 @Serializable
@@ -70,7 +67,4 @@ data class CropRotationSlot(
 
 /** One dropdown option's preview: [state] is the crop/catch index, [yieldPercent] its resulting %. */
 @Serializable
-data class CropYield(
-  val state: Int = 0,
-  val yieldPercent: Int? = null,
-)
+data class CropYield(val state: Int = 0, val yieldPercent: Int? = null)

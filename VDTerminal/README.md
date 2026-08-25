@@ -405,10 +405,11 @@ the standard `function-naming` rule). Rules are tuned in the `.editorconfig` at 
 root, a directory above this one — which is where the IDE's own ktlint reads it from, so there is
 only ever one of them.
 
-Two ktlint code styles are in play, which that file explains and pins: `app` is formatted
-`intellij_idea` (any Spotless step with an `editorConfigOverride` is, and the compose ruleset gives
-`app` one), `server` and `shared` to ktlint's own `ktlint_official`. It shows up as a short signature
-staying on one line in `app` and being broken out with a trailing comma in the other two.
+The code style is `intellij_idea`, and it is pinned twice: in that `.editorconfig` for every ktlint
+that reads it, and in `build.gradle.kts` for `app`, whose step carries an `editorConfigOverride` and
+therefore formats to Spotless's own preset whatever the file says. That divergence is why the repo
+ran on two styles until August 2026 — `server` and `shared` on ktlint's `ktlint_official` default,
+`app` on `intellij_idea` — and why both places have to agree.
 
 ```bash
 ./gradlew spotlessCheck   # verify formatting (fails on violations)

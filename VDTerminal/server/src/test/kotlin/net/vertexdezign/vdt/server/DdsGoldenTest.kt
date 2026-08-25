@@ -11,15 +11,10 @@ import kotlin.test.fail
  * decoding risk — the Kotlin port and the Go decoder must agree exactly.
  */
 class DdsGoldenTest {
-  private fun resource(name: String): ByteArray =
-    javaClass.getResourceAsStream("/dds/$name")?.readBytes()
-      ?: fail("missing test resource /dds/$name")
+  private fun resource(name: String): ByteArray = javaClass.getResourceAsStream("/dds/$name")?.readBytes()
+    ?: fail("missing test resource /dds/$name")
 
-  private fun assertGolden(
-    name: String,
-    width: Int,
-    height: Int,
-  ) {
+  private fun assertGolden(name: String, width: Int, height: Int) {
     val decoded = Dds.decode(resource("$name.dds"))
     val golden = resource("$name.rgba")
 

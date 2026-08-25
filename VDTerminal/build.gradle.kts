@@ -49,6 +49,11 @@ allprojects {
       if (isComposeModule) {
         ktlintConfig.editorConfigOverride(
           mapOf(
+            // The repo's one code style, repeated from the .editorconfig because this module cannot
+            // read it from there: a step carrying an override formats to Spotless's own preset
+            // whatever the file says. Stated rather than inherited, so it survives Spotless changing
+            // what that preset is.
+            "ktlint_code_style" to "intellij_idea",
             "ktlint_standard_function-naming" to "disabled",
             // App-wide ambient state container, provided once at the root (see state/VdtStore.kt);
             // screen navigation, which user-placed widgets have no call chain to reach (Navigator.kt);

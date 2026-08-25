@@ -36,11 +36,7 @@ data class FleetData(
  * [year] counts from the start of the save.
  */
 @Serializable
-data class GameDate(
-  val year: Int = 0,
-  val month: Int = 0,
-  val day: Int = 1,
-) {
+data class GameDate(val year: Int = 0, val month: Int = 0, val day: Int = 1) {
   /** Months since [other], for the "3 months ago" the game's own maintenance screens print. */
   fun monthsSince(other: GameDate): Int = (year * 12 + month) - (other.year * 12 + other.month)
 }

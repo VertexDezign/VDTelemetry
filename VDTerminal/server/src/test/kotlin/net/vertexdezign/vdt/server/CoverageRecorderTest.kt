@@ -26,25 +26,19 @@ class CoverageRecorderTest {
    * A work area quad. [x]/[z] is the start corner, [width] runs across the boom and [depth] along
    * travel — all in meters, converted to the normalized frame the mod actually sends.
    */
-  private fun area(
-    x: Float,
-    z: Float,
-    width: Float,
-    depth: Float,
-    active: Boolean = true,
-  ) = WorkArea(
+  private fun area(x: Float, z: Float, width: Float, depth: Float, active: Boolean = true) = WorkArea(
     index = 1,
     type = "SPRAYER",
     active = active,
     shape =
-      listOf(
-        x / terrain,
-        z / terrain,
-        (x + width) / terrain,
-        z / terrain,
-        x / terrain,
-        (z + depth) / terrain,
-      ),
+    listOf(
+      x / terrain,
+      z / terrain,
+      (x + width) / terrain,
+      z / terrain,
+      x / terrain,
+      (z + depth) / terrain,
+    ),
   )
 
   private fun rig(vararg areas: WorkArea) = Vehicle(implement = listOf(Implement(workAreas = areas.toList())))
@@ -62,10 +56,9 @@ class CoverageRecorderTest {
   private val stamp = 48
 
   /** Cells marked worked in the current mask. */
-  private fun CoverageRecorder.worked(): Int =
-    snapshot()
-      .rows
-      .sumOf { row -> row.chunked(2).count { it != "00" } }
+  private fun CoverageRecorder.worked(): Int = snapshot()
+    .rows
+    .sumOf { row -> row.chunked(2).count { it != "00" } }
 
   @Test
   fun paintsAWideShallowBoomAcrossItsWholeWidth() {

@@ -27,10 +27,8 @@ class TelemetryWatcherTest {
     dir.toFile().deleteRecursively()
   }
 
-  private fun write(
-    name: String,
-    text: String,
-  ) = dir.resolve(name).also { it.parent.createDirectories() }.writeText(text)
+  private fun write(name: String, text: String) =
+    dir.resolve(name).also { it.parent.createDirectories() }.writeText(text)
 
   @Test
   fun discoversEveryUnclaimedJsonKeyedByBaseName() {

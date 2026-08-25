@@ -15,17 +15,12 @@ package net.vertexdezign.vdt.server
  *
  * Thread-safe: sessions come and go on their own coroutines.
  */
-class MapLayerSubscriptions(
-  private val publish: (List<String>) -> Unit,
-) {
+class MapLayerSubscriptions(private val publish: (List<String>) -> Unit) {
   private val bySession = mutableMapOf<Long, Set<String>>()
   private var union: Set<String> = emptySet()
 
   @Synchronized
-  fun show(
-    session: Long,
-    ids: Collection<String>,
-  ) {
+  fun show(session: Long, ids: Collection<String>) {
     bySession[session] = ids.toSet()
     recompute()
   }
@@ -51,10 +46,7 @@ class MapLayerSubscriptions(
    * write forever.
    */
   @Synchronized
-  fun reconcile(
-    modActive: Collection<String>,
-    offered: Collection<String>,
-  ) {
+  fun reconcile(modActive: Collection<String>, offered: Collection<String>) {
     val want = union.intersect(offered.toSet())
     if (want == modActive.toSet()) return
     publish(want.sorted())

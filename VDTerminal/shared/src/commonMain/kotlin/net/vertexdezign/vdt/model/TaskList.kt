@@ -14,10 +14,7 @@ import kotlinx.serialization.Serializable
  * them, and the tolerant-decode contract keeps an unknown int from breaking the parse.
  */
 @Serializable
-data class TaskListData(
-  val version: String = "",
-  val groups: List<TaskGroup> = emptyList(),
-)
+data class TaskListData(val version: String = "", val groups: List<TaskGroup> = emptyList())
 
 @Serializable
 data class TaskGroup(

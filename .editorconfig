@@ -16,6 +16,18 @@ insert_final_newline = true
 [*.{kt,kts}]
 max_line_length = 120
 
+# One ktlint code style for the whole repo, and it has to be said out loud in two places -- here for
+# every ktlint that reads this file (the IDE's plugin, a CLI run, and Spotless's server/shared steps),
+# and in VDTerminal/build.gradle.kts for `app`, whose step carries an editorConfigOverride and so
+# formats to whatever that says regardless of this file.
+#
+# The repo ran on two styles until 2026-08-25 without anyone choosing to: Spotless silently formats an
+# override-carrying step to `intellij_idea`, the compose ruleset gave `app` an override, and the other
+# two modules fell to ktlint's own `ktlint_official` default. It showed as a short signature staying on
+# one line in `app` and being broken out with a trailing comma in the other two. `intellij_idea` for
+# all three is the way round that left the app module -- the one anybody edits -- untouched.
+ktlint_code_style = intellij_idea
+
 # The `ij_` half of the file is for IntelliJ, not for ktlint: ktlint reads .editorconfig and so does
 # the IDE, so this is where the two can be told the same thing once. These four are the set ktlint
 # itself recommends (see its "IntelliJ IDEA configuration" page) and they settle the fight the two
@@ -32,18 +44,3 @@ ij_kotlin_code_style_defaults = KOTLIN_OFFICIAL
 ij_kotlin_name_count_to_use_star_import = 2147483647
 ij_kotlin_name_count_to_use_star_import_for_members = 2147483647
 ij_kotlin_packages_to_use_import_on_demand = unset
-
-# The app module alone is on ktlint's other code style, and this is not a taste: a Spotless ktlint
-# step that carries an editorConfigOverride formats to `intellij_idea` whatever this file says, and
-# the compose ruleset's two settings make `app` the one module carrying one. `server` and `shared`,
-# which pass no override, get ktlint's own default of `ktlint_official`. The split is visible in the
-# sources -- a short signature stays on one line in `app` and is broken out with a trailing comma in
-# the other two -- and it was found the hard way: setting a code style for the whole repo here left
-# `app` untouched and asked for 30-odd files in the other two modules to be rewritten.
-#
-# Written down so that a ktlint outside this build -- the IDE's plugin, a CLI run -- formats each
-# module the way the build will measure it. Deleting these two lines does not make the repo one
-# style; it makes the IDE disagree with the build about this module. Unifying the two is a
-# whole-module reformat and a decision nobody has taken.
-[VDTerminal/app/**/*.kt]
-ktlint_code_style = intellij_idea
