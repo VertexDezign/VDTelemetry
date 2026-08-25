@@ -10,3 +10,28 @@ insert_final_newline = true
 
 [*.{kt,kts}]
 max_line_length = 120
+
+# ktlint's code style, pinned so that every ktlint *outside* this build agrees with the one inside
+# it. Spotless presets `intellij_idea` and passes it as an editorConfigOverride, so its own runs
+# ignore this line and would behave the same without it -- but ktlint's own default is
+# `ktlint_official`, and anything left to that default (the IDE plugin, a CLI run) reformats a whole
+# file on sight: one parameter per line, expression bodies wrapped onto the next line, braces round
+# every `when` branch. CI then asks for all of it back.
+ktlint_code_style = intellij_idea
+
+# The `ij_` half of the file is for IntelliJ, not for ktlint: ktlint reads .editorconfig and so does
+# the IDE, so this is where the two can be told the same thing once. These four are the set ktlint
+# itself recommends (see its "IntelliJ IDEA configuration" page) and they settle the fight the two
+# formatters otherwise have over imports — the IDE collapsing a package's imports into a star and
+# Spotless expanding them again, over and over.
+#
+# It cannot make them agree everywhere: ktlint deliberately deviates from the IDE's formatter in
+# places, and a wrapped assignment is one of them (the IDE adds a continuation indent where ktlint
+# keeps the value at its argument's level). The fix for that is to let ktlint do the formatting in
+# the IDE too — the Ktlint plugin, Settings > Tools > KtLint, distract-free mode — rather than to
+# chase it with more style settings here. `./gradlew spotlessApply` is what CI's spotlessCheck
+# measures against either way.
+ij_kotlin_code_style_defaults = KOTLIN_OFFICIAL
+ij_kotlin_name_count_to_use_star_import = 2147483647
+ij_kotlin_name_count_to_use_star_import_for_members = 2147483647
+ij_kotlin_packages_to_use_import_on_demand = unset
