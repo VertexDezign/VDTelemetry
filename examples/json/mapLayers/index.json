@@ -1,5 +1,5 @@
 {
-  "version": "2",
+  "version": "3",
   "terrainSize": 2048,
   "gridSize": 8,
   "layers": [

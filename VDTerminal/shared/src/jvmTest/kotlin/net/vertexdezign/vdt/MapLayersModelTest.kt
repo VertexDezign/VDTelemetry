@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.LayerKind
 import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayerLegendEntry
 import net.vertexdezign.vdt.model.MapLayersInfo
@@ -44,13 +45,16 @@ class MapLayersModelTest {
   fun parsesOneRasterPlanePerFile() {
     val data = crops()
 
-    assertEquals("2", data.version)
+    assertEquals("3", data.version)
     assertEquals(2048f, data.terrainSize)
     assertEquals(8, data.gridSize)
     assertEquals("crops", data.id)
     assertEquals(2, data.legend.size)
-    assertEquals(MapLayerLegendEntry(1, "Weizen", "#c8b262"), data.legend[0])
-    assertEquals(MapLayerLegendEntry(2, "Mais", "#f5d743"), data.legend[1])
+    // Every entry on the crops plane is a fruit type, so they share one kind and differ by label —
+    // which is exactly the case where branching on `v` (a map-order-dependent fruit index) would be
+    // wrong and branching on `label` (localized: this capture is a German client) would be worse.
+    assertEquals(MapLayerLegendEntry(1, "Weizen", "#c8b262", "crop"), data.legend[0])
+    assertEquals(MapLayerLegendEntry(2, "Mais", "#f5d743", "crop"), data.legend[1])
     assertEquals(8, data.rows.size)
 
     // Each plane file repeats the geometry, so it decodes without reference to the catalogue.
@@ -58,6 +62,10 @@ class MapLayersModelTest {
     assertEquals("growth", growth.id)
     assertEquals(8, growth.gridSize)
     assertEquals(2048f, growth.terrainSize)
+    assertEquals(listOf("cultivated", "growing"), growth.legend.map { it.kind })
+
+    val soil = VdtParser.parseMapLayer(example("soil.json"))
+    assertEquals(listOf("needsLime", "fertilized"), soil.legend.map { it.kind })
 
     assertRoundTrips(data)
     assertRoundTrips(growth)
@@ -67,7 +75,7 @@ class MapLayersModelTest {
   fun parsesTheCatalogue() {
     val catalog = VdtParser.parseMapLayerCatalog(example("index.json"))
 
-    assertEquals("2", catalog.version)
+    assertEquals("3", catalog.version)
     assertEquals(2048f, catalog.terrainSize)
     assertEquals(8, catalog.gridSize)
     assertEquals(listOf("crops", "growth", "soil"), catalog.layers.map { it.id })
@@ -80,15 +88,90 @@ class MapLayersModelTest {
   /** Every field is optional on the wire — the mod writes only what it has. */
   @Test
   fun parsesAPlaneWithOmittedFields() {
-    val data = VdtParser.parseMapLayer("""{"version":"2"}""")
+    val data = VdtParser.parseMapLayer("""{"version":"3"}""")
 
-    assertEquals("2", data.version)
+    assertEquals("3", data.version)
     assertEquals(0f, data.terrainSize)
     assertEquals(0, data.gridSize)
     assertEquals("", data.id)
     assertTrue(data.legend.isEmpty())
     assertTrue(data.rows.isEmpty())
     assertRoundTrips(data)
+  }
+
+  /**
+   * A plane written before `mapLayers` version 3 has no `kind` anywhere, and a Precision Farming
+   * plane never has one at all — its values are measurements, not states. Both decode to null, which
+   * is "no grouping available" and must stay distinguishable from a known kind rather than
+   * collapsing into one.
+   */
+  @Test
+  fun legendKindIsNullWhereTheModEmitsNone() {
+    val old = VdtParser.parseMapLayer(
+      """{"version":"2","id":"growth","legend":[{"v":21,"label":"Ready to harvest","color":"#c68b1f"}]}""",
+    )
+    assertNull(old.legend.single().kind)
+    assertRoundTrips(old)
+
+    val pf = VdtParser.parseMapLayer(
+      """{"version":"3","id":"pfNitrogen","legend":[{"v":1,"label":"30 kg/ha","color":"#1a4dd1"}]}""",
+    )
+    assertNull(pf.legend.single().kind)
+    assertRoundTrips(pf)
+  }
+
+  /**
+   * Why [MapLayerLegendEntry.kind] is a string and [LayerKind] is resolved from it rather than being
+   * the wire type.
+   *
+   * The parser runs with `coerceInputValues = true`, so an enumerator kotlinx doesn't recognise is
+   * NOT an error — it is silently replaced by the property's default, taking the actual token with
+   * it. A `kind` the mod adds later would then reach the app as null with nothing left to log, count
+   * or name. As a string it survives, and [MapLayerLegendEntry.knownKind] reports honestly that this
+   * build doesn't know it.
+   */
+  @Test
+  fun anUnknownKindSurvivesAsItsRawToken() {
+    val data = VdtParser.parseMapLayer(
+      """{"version":"4","id":"growth","legend":[{"v":40,"label":"Ridge","kind":"ridge"}]}""",
+    )
+    val entry = data.legend.single()
+    assertEquals("ridge", entry.kind, "the token must reach the app intact, not be coerced away")
+    assertNull(entry.knownKind, "and must not be resolved to some kind this build does know")
+    assertRoundTrips(data)
+  }
+
+  /** The tokens are camelCase, which is exactly what no Kotlin enum member name can be. */
+  @Test
+  fun layerKindResolvesEveryTokenTheModEmits() {
+    assertEquals(LayerKind.HARVEST, LayerKind.of("harvest"))
+    assertEquals(LayerKind.NEEDS_PLOWING, LayerKind.of("needsPlowing"))
+    assertEquals(LayerKind.CROP, LayerKind.of("crop"))
+    // Case-sensitive, and deliberately so: "HARVEST" is not a token the mod ever writes, and
+    // accepting it would be inventing a second spelling of the contract.
+    assertNull(LayerKind.of("HARVEST"))
+    assertNull(LayerKind.of(null))
+    // Every member is reachable from its own token — no entry can drift out of the lookup.
+    assertEquals(LayerKind.entries, LayerKind.entries.map { LayerKind.of(it.token) })
+  }
+
+  /**
+   * The content version is the cache key for everything derived from a plane, not only for the PNG —
+   * so a legend that differs only in `kind` must not reuse the previous version, or a consumer that
+   * grouped cells by kind would keep the grouping it built before the meaning changed.
+   */
+  @Test
+  fun contentVersionSeparatesLegendsThatDifferOnlyInKind() {
+    fun plane(kind: String?) = MapLayerData(
+      version = "3",
+      gridSize = 2,
+      id = "growth",
+      legend = listOf(MapLayerLegendEntry(21, "Ready to harvest", "#c68b1f", kind)),
+      rows = listOf("15"),
+    )
+    assertNotEquals(plane("harvest").contentVersion, plane("cut").contentVersion)
+    assertNotEquals(plane("harvest").contentVersion, plane(null).contentVersion)
+    assertEquals(plane("harvest").contentVersion, plane("harvest").contentVersion)
   }
 
   @Test

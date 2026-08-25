@@ -101,13 +101,51 @@ data class MapLayerData(
  */
 const val COVERAGE_LAYER_ID = "coverage"
 
+/**
+ * One value a plane's raster carries, and how to read it.
+ *
+ * [v] is the mod's own wire vocabulary — a private enumeration it may renumber — and [label] is
+ * localized to whatever language the game runs in, so **neither is a safe thing to branch on**.
+ * [kind] is: a stable token naming what the value *means*, emitted by the mod so a consumer can
+ * group cells by meaning without either hardcoding the mod's numbers or matching on translated text.
+ *
+ * Deliberately coarser than [v]: every step of the growth plane's growing gradient is `growing`,
+ * every fertilizer level is `fertilized`, every weed severity is `weed`. Read [v] when the finer
+ * detail is wanted, [kind] when the question is "what is on this ground".
+ */
 @Serializable
 data class MapLayerLegendEntry(
   val v: Int = 0,
   val label: String = "",
   /** `#rrggbb`; null when the mod couldn't resolve a color for this value. */
   val color: String? = null,
-)
+  /**
+   * What this value means, as a stable token — `growing`, `harvest`, `cut`, `withered`, `plowed`,
+   * `cultivated`, `stubble`, `seedbed`, `topping` on the growth plane; `crop` on the crops plane;
+   * `weed`, `stone`, `needsPlowing`, `needsLime`, `fertilized` on the soil plane.
+   *
+   * Null on a plane the mod keeps no vocabulary for — every Precision Farming plane, where a value
+   * is a measurement (a pH, kg N/ha, a yield potential) whose meaning is the number itself — and on
+   * a value the mod produced but could not name. Null is therefore "no grouping available", never
+   * "nothing here"; treat it as its own bucket rather than folding it into a known one.
+   *
+   * Also null for a plane written by a mod older than `mapLayers` version 3, which predates this
+   * key. A consumer that needs it must cope with a whole legend of nulls, not just one.
+   *
+   * A string rather than a [LayerKind] on purpose — see that enum for why, and use [knownKind] to
+   * branch on it.
+   */
+  val kind: String? = null,
+) {
+  /**
+   * [kind] resolved to the vocabulary this build knows, or null when it names something newer (or
+   * nothing at all). Computed, so it stays out of the serialized form and out of `equals`.
+   *
+   * Branch on this; group and display by [kind]. That split is what keeps a token from a newer mod
+   * counted and named rather than quietly merged into a kind it isn't.
+   */
+  val knownKind: LayerKind? get() = LayerKind.of(kind)
+}
 
 /**
  * Typed model of `mapLayers/index.json`: which raster planes this map offers, and the grid geometry
@@ -199,8 +237,8 @@ data class MapLayerInfo(
 )
 
 /**
- * Opaque content version of one plane's raster: 64-bit FNV-1a over everything that affects the
- * rendered PNG, as hex. Call [MapLayerData.contentVersion] rather than this — it memoizes the
+ * Opaque content version of one plane's raster: 64-bit FNV-1a over everything that affects what is
+ * derived from this plane — the rendered PNG, and anything else keyed on this version — as hex. Call [MapLayerData.contentVersion] rather than this — it memoizes the
  * result, and this walk is not cheap.
  *
  * Not `hashCode()`: 32 bits is small enough that two different rasters can collide, and the PNG for
@@ -238,6 +276,10 @@ private fun MapLayerData.computeContentVersion(): String {
     mix(entry.v.toString())
     mix(entry.label)
     mix(entry.color)
+    // Mixed in even though it cannot change a pixel: this version is the cache key for everything
+    // derived from the plane, not only for the PNG, and a consumer that groups cells by
+    // MapLayerLegendEntry.kind would keep a stale grouping across a legend that changed only there.
+    mix(entry.kind)
   }
   mix(rows.size.toString())
   for (row in rows) {

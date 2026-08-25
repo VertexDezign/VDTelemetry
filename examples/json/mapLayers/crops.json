@@ -1,11 +1,11 @@
 {
-  "version": "2",
+  "version": "3",
   "terrainSize": 2048,
   "gridSize": 8,
   "id": "crops",
   "legend": [
-    { "v": 1, "label": "Weizen", "color": "#c8b262" },
-    { "v": 2, "label": "Mais", "color": "#f5d743" }
+    { "v": 1, "label": "Weizen", "color": "#c8b262", "kind": "crop" },
+    { "v": 2, "label": "Mais", "color": "#f5d743", "kind": "crop" }
   ],
   "rows": ["", "0101", "0202020202020202", "", "", "", "", ""]
 }
