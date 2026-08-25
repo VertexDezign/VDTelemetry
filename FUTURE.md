@@ -446,10 +446,6 @@ Each one is cheap to do while playing and settles something above.
   farm keeps its 361 bales in barns, where they cost nothing to count. The number that matters is a
   farm that leaves a season's worth lying on the ground. If it bites, the fix is a slower recompute
   for the two loose blocks, not a slower channel — silo fill levels want to stay at 2 s.
-- **Does the price board match the game's own Prices table (#112)?** Open the in-game menu beside the terminal and
-  compare a handful of rows: the same stations, the same numbers per 1000 l, the same climbing/falling arrows. The two
-  read the same fields, so a mismatch means the export picked the wrong one — most likely a station the game hides and
-  we do not, or a fill type it filters by `showOnPriceTable` at a level we kept.
 - **Does a great demand come through on a multiplayer client (#112)?** The premium and the countdown come from
   `economyManager.greatDemands`, which reaches a client only by `GreatDemandsEvent` on the in-game hour; the
   `greatDemand` flag itself rides in the synced price bits and should always be there. So the check is whether a client
@@ -535,24 +531,6 @@ engine load it wears the engine on, the service interval and system voltage. The
   decodes the shape with inline JSON and says so at the top. See the section below for the rule those follow.
 
 ---
-
-## Price board (#112)
-
-The `prices.json` channel is built (mod + shared model + parser + server broadcast); the **stock
-overview that consumes it is #118** and does not exist yet, so nothing in the app reads
-`TelemetryRepository.prices` today. What the channel leaves open:
-
-- **Nothing has looked at a real board in game.** See the in-game checks below for the two that matter.
-- **A pallet shop's price never moves**, because the game bakes the difficulty multiplier into
-  `pallet.price` once at load and never revisits it. That is the game's own behaviour, exported as-is
-  — worth knowing before someone reads a static number as a bug.
-- **`basePrice` is a reference, not a price anybody pays.** It is the fill type's own per-litre price
-  at seasonal factor 1, so a station whose XML sets a `priceScale` sells above or below it
-  permanently. The per-station base (`originalFillTypePrices`) was deliberately left out: it is not
-  synced to a multiplayer client, so exporting it would give the two a different column.
-- **No buy-side trend, because there is none.** A `BuyingStation`'s price is the fill type's base
-  times the station's scale times the difficulty multiplier — no dynamics, no seasonal factor. If the
-  app wants to show diesel getting dearer, that is a history the terminal would have to keep itself.
 
 ## Captures wanted as fixtures
 
