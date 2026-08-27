@@ -488,8 +488,15 @@ Each step is independently useful and independently testable.
    No fixture refresh: the three committed captures predate the key and are real captures, so the
    shape is pinned by inline JSON in `MapDataModelTest` and a re-capture is now asked for in
    `FUTURE.md` -> "Captures wanted as fixtures".
-6. **The app: list, filters, sorts, summary.** Read-only. This is the first point where the feature
-   is usable.
+6. ~~**The app: list, filters, sorts, summary.**~~ **Done.** `FieldsApp` (registered after `MapApp`,
+   available whenever `map.json` has fields) holds the `growth` subscription for as long as it is
+   composed and hands a row's position to `MapFocus`; `FieldsModel.kt` is the join and the rules
+   (`FieldRow`, the views, the sorts, the summary, `MIN_STATUS_CELLS`), `FieldsPanel.kt` the
+   master/detail. The headline follows the plan's stated intent — the raster leads when it has enough
+   cells, the point sample is the fallback — and the panel *says which*, since a reader deciding
+   whether to drive out there should know whether they are being told about the whole field or its
+   middle. Still open: `MIN_STATUS_CELLS` is a provisional 100 (~0.3 ha at 512²), which is exactly the
+   open question below.
 7. **Task attachment.** The `F<n>` parse, the per-field task list, the vocabulary.
 8. **Suggestions + prefilled create.** The write side, last, once the read side has been looked at in
    a real save.

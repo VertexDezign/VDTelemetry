@@ -97,6 +97,7 @@ fun main() {
       gpsCourse = repository.gpsCourse,
       mapLayers = repository.mapLayers,
       fieldInfo = repository.fieldInfo,
+      fieldStatus = repository.fieldStatus,
       production = repository.production,
       storage = repository.storage,
       husbandry = repository.husbandry,
