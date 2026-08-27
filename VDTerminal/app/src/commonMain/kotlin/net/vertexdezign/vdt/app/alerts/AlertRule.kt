@@ -1,5 +1,8 @@
 package net.vertexdezign.vdt.app.alerts
 
+import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.FieldStatusData
+import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
 
@@ -10,7 +13,16 @@ enum class AlertSeverity { Info, Warning, Critical }
  * tick of any channel. A `null` channel means "no data" (not connected yet, mod not installed) —
  * never "condition cleared" — and rules must freeze rather than fire or clear on it.
  */
-data class AlertInputs(val telemetry: VdtData? = null, val taskList: TaskListData? = null)
+data class AlertInputs(
+  val telemetry: VdtData? = null,
+  val taskList: TaskListData? = null,
+  /** The map's fields — geometry and ownership, which is what tells a rule whose land it is looking at. */
+  val mapData: MapData? = null,
+  /** Per-field agronomy, sampled at each field's centre. */
+  val fieldInfo: FieldInfoData? = null,
+  /** The per-field ground breakdown the server derives; null until the growth plane has been swept. */
+  val fieldStatus: FieldStatusData? = null,
+)
 
 /**
  * A declarative, edge-triggered alert an app contributes — the notification counterpart of

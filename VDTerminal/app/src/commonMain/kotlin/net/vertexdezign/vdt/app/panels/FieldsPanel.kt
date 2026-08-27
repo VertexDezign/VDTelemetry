@@ -740,3 +740,75 @@ private fun AddTaskChip(fieldId: Int, todayPeriod: Int?, onCreate: (TaskInput) -
     }
   }
 }
+
+// ---- The tile ------------------------------------------------------------------------------------
+
+/** How many fields the tile names before it stops listing and just counts. */
+private const val SUMMARY_FIELDS = 3
+
+/**
+ * The Fields tile: the fields asking for something, and what.
+ *
+ * A count plus the first few, because that is what a tile can hold and what the question needs — the
+ * full list, the filters and the chips are a screen's worth of work. Own fields only: a tile that
+ * counted the whole map would lead with a number nobody can act on.
+ */
+@Composable
+fun FieldsSummary(
+  map: MapData?,
+  info: FieldInfoData?,
+  status: FieldStatusData?,
+  tasks: TaskListData?,
+  playerFarmId: Int?,
+  modifier: Modifier = Modifier,
+) {
+  Panel(title = "Fields", icon = Icons.Filled.Grass, modifier = modifier) {
+    val rows = remember(map, info, status, tasks, playerFarmId) {
+      fieldRows(map, info, status, null, tasks, playerFarmId).filter { it.owned }
+    }
+    val needing = remember(rows) { rows.filter { fieldWork(it).isNotEmpty() } }
+    when {
+      map == null -> Centered("Waiting for map data…")
+
+      rows.isEmpty() -> Centered("No fields owned")
+
+      needing.isEmpty() -> Centered("${rows.size} fields, nothing outstanding")
+
+      else ->
+        Column(
+          Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          Text(
+            if (needing.size == 1) "1 FIELD NEEDS WORK" else "${needing.size} FIELDS NEED WORK",
+            color = VdtColors.Green,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+          )
+          needing.take(SUMMARY_FIELDS).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+              Text(
+                row.label,
+                color = VdtColors.TextDark,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+              )
+              Text(
+                fieldWork(row).joinToString(" · ") { it.label },
+                color = VdtColors.DarkGray,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
+          }
+          if (needing.size > SUMMARY_FIELDS) {
+            Text("+ ${needing.size - SUMMARY_FIELDS} more", color = VdtColors.DarkGray, fontSize = 10.sp)
+          }
+        }
+    }
+  }
+}

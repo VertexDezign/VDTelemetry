@@ -13,10 +13,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.LocalNavigator
 import net.vertexdezign.vdt.app.Screen
+import net.vertexdezign.vdt.app.alerts.AlertInputs
+import net.vertexdezign.vdt.app.alerts.AlertRule
+import net.vertexdezign.vdt.app.alerts.AlertSeverity
+import net.vertexdezign.vdt.app.alerts.KeyedAlertRule
+import net.vertexdezign.vdt.app.panels.FieldTaskType
 import net.vertexdezign.vdt.app.panels.FieldsPanel
+import net.vertexdezign.vdt.app.panels.fieldRows
+import net.vertexdezign.vdt.app.panels.fieldWork
 import net.vertexdezign.vdt.app.state.LayerSubscriptions
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.state.MapFocus
+import net.vertexdezign.vdt.app.widgets.FieldsWidget
+import net.vertexdezign.vdt.app.widgets.Widget
 
 /**
  * The plane the field breakdown is counted off, mirroring the server's `FIELD_STATUS_LAYER_ID`.
@@ -40,9 +49,43 @@ private const val GROWTH_LAYER = "growth"
  * not use the null-channel convention; the panel renders its own waiting state until the map arrives.
  */
 object FieldsApp : VdtApp {
+  const val WITHERED_ALERT_ID = "fields.withered"
+  const val HARVEST_ALERT_ID = "fields.harvest"
+
   override val id = "fields"
   override val title = "Fields"
   override val icon: ImageVector = Icons.Filled.Grass
+  override val widgets: List<Widget> = listOf(FieldsWidget)
+
+  /**
+   * Two rules, both keyed per field so a batch ripening together is one alert rather than twelve, and
+   * both scoped to **own** fields — the map is mostly somebody else's land, and an alert about it is
+   * noise by construction.
+   *
+   * Withered is a Warning: the crop is already lost and the only thing left to decide is when to
+   * clear it. Ready is Info, which stays silent by design — it is good news to act on when convenient,
+   * not something to chime at a driver mid-row.
+   *
+   * Both freeze while the map or the field channel is absent (null activeEntities), so a channel
+   * switched off never reads as "nothing is withered any more".
+   */
+  override val alerts: List<AlertRule> =
+    listOf(
+      KeyedAlertRule(
+        id = WITHERED_ALERT_ID,
+        severity = AlertSeverity.Warning,
+        title = "CROP WITHERED",
+        activeEntities = { inputs -> ownFieldsWhere(inputs, FieldTaskType.CULTIVATE) },
+        message = ::fieldAlertMessage,
+      ),
+      KeyedAlertRule(
+        id = HARVEST_ALERT_ID,
+        severity = AlertSeverity.Info,
+        title = "READY TO HARVEST",
+        activeEntities = { inputs -> ownFieldsWhere(inputs, FieldTaskType.HARVEST) },
+        message = ::fieldAlertMessage,
+      ),
+    )
 
   @Composable
   override fun isAvailable(): Boolean {
@@ -91,4 +134,27 @@ object FieldsApp : VdtApp {
       onCommand = store.onCommand,
     )
   }
+}
+
+/**
+ * The player's own fields currently asking for [type], as `id -> label`, or null to freeze the rule.
+ *
+ * Null on an absent map or field channel rather than an empty map: "I cannot see the fields" is not
+ * "nothing is wrong with them", and clearing an alert on missing data is how a dashboard tells its
+ * worst kind of lie.
+ */
+private fun ownFieldsWhere(inputs: AlertInputs, type: FieldTaskType): Map<String, String>? {
+  val map = inputs.mapData ?: return null
+  val info = inputs.fieldInfo ?: return null
+  val farmId = inputs.telemetry?.environment?.pda?.player?.farmId ?: return null
+  return fieldRows(map, info, inputs.fieldStatus, null, null, farmId)
+    .filter { it.owned && type in fieldWork(it) }
+    .associate { it.id.toString() to "Field ${it.label}" }
+}
+
+/** One field by name, several as a count and the first few — the same shape the task alert uses. */
+private fun fieldAlertMessage(labels: List<String>): String = if (labels.size == 1) {
+  labels.single()
+} else {
+  "${labels.size} fields: " + labels.take(3).joinToString(", ") + if (labels.size > 3) ", …" else ""
 }

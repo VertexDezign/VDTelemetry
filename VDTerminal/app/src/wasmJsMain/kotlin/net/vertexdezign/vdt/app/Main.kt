@@ -67,8 +67,20 @@ fun main() {
   // tick of any channel re-evaluates all rules against the latest snapshot of every channel.
   val alerts = AlertEngine(AppRegistry.apps.flatMap { it.alerts })
   scope.launch {
-    combine(repository.telemetry, repository.taskList) { telemetry, taskList ->
-      AlertInputs(telemetry = telemetry, taskList = taskList)
+    combine(
+      repository.telemetry,
+      repository.taskList,
+      repository.mapData,
+      repository.fieldInfo,
+      repository.fieldStatus,
+    ) { telemetry, taskList, mapData, fieldInfo, fieldStatus ->
+      AlertInputs(
+        telemetry = telemetry,
+        taskList = taskList,
+        mapData = mapData,
+        fieldInfo = fieldInfo,
+        fieldStatus = fieldStatus,
+      )
     }.collect { alerts.process(it) }
   }
 

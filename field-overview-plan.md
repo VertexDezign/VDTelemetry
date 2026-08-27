@@ -516,7 +516,15 @@ Each step is independently useful and independently testable.
    **Not built:** the fallback for "no plan matches" — ranking sowable crops by
    `CropRotationSlot.cropYields` against this field's history. It stays a guess without a field→plan
    link, so the sow task is offered without a crop instead; noted in `FUTURE.md`.
-9. **Widget + alerts.**
+9. ~~**Widget + alerts.**~~ **Done.** `FieldsWidget` is the "fields needing attention" tile — a count
+   plus the first three, own fields only, and deliberately holding **no** ground-layer subscription:
+   a tile can sit open all session, and making the mod sweep a 512² plane for three lines is not a
+   trade worth making, so it reads whatever the raster last said. Two `KeyedAlertRule`s keyed per
+   field id: withered as a Warning (the crop is already lost), ready-to-harvest as Info (silent by
+   design — good news, not something to chime at a driver mid-row). Both are scoped to own fields and
+   freeze on an absent map or field channel. `AlertInputs` gained `mapData`, `fieldInfo` and
+   `fieldStatus` — `mapData` beyond what the plan listed, because ownership is what keeps the rules
+   off the rest of the map.
 
 In-game validation, singleplayer **and** as a multiplayer client, before the branch merges — the
 raster path is the whole reason this design was chosen over the two server-only ones, and that claim
