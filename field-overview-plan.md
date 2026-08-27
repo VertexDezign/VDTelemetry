@@ -497,7 +497,12 @@ Each step is independently useful and independently testable.
    whether to drive out there should know whether they are being told about the whole field or its
    middle. Still open: `MIN_STATUS_CELLS` is a provisional 100 (~0.3 ha at 512²), which is exactly the
    open question below.
-7. **Task attachment.** The `F<n>` parse, the per-field task list, the vocabulary.
+7. ~~**Task attachment.**~~ **Done.** `FieldTasks.kt` holds the format — the `F<n> - <Type> - <note>`
+   regex, the eleven-word vocabulary plus `Other` for a detail typed in-game, `composeTaskDetail`
+   budgeting the *whole* string against the mod's 45-character cap, and `taskMonth` reusing the edit
+   form's own period arithmetic. Rows carry a task count (not the task names — a row is scanned), and
+   the detail lists them with what each is due. `fieldWork` now speaks the same vocabulary, so the
+   suggester and the parser cannot drift apart.
 8. **Suggestions + prefilled create.** The write side, last, once the read side has been looked at in
    a real save.
 9. **Widget + alerts.**

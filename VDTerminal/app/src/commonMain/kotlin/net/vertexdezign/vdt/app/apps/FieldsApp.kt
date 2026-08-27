@@ -57,6 +57,7 @@ object FieldsApp : VdtApp {
     val info by store.fieldInfo.collectAsState()
     val status by store.fieldStatus.collectAsState()
     val missions by store.missions.collectAsState()
+    val tasks by store.taskList.collectAsState()
     val telemetry by store.telemetry.collectAsState()
     val navigate = LocalNavigator.current
 
@@ -76,6 +77,7 @@ object FieldsApp : VdtApp {
       info = info,
       status = status,
       missions = missions,
+      tasks = tasks,
       playerFarmId = telemetry?.environment?.pda?.player?.farmId,
       modifier = modifier,
     ) { x, z ->

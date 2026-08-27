@@ -54,6 +54,7 @@ import net.vertexdezign.vdt.model.FieldStatusData
 import net.vertexdezign.vdt.model.LayerKind
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MissionsData
+import net.vertexdezign.vdt.model.TaskListData
 import kotlin.math.roundToInt
 
 /**
@@ -80,13 +81,14 @@ fun FieldsPanel(
   info: FieldInfoData?,
   status: FieldStatusData?,
   missions: MissionsData?,
+  tasks: TaskListData?,
   playerFarmId: Int?,
   modifier: Modifier = Modifier,
   onShowOnMap: (Float, Float) -> Unit = { _, _ -> },
 ) {
   Panel(title = "Fields", icon = Icons.Filled.Grass, modifier = modifier) {
-    val rows = remember(map, info, status, missions, playerFarmId) {
-      fieldRows(map, info, status, missions, playerFarmId)
+    val rows = remember(map, info, status, missions, tasks, playerFarmId) {
+      fieldRows(map, info, status, missions, tasks, playerFarmId)
     }
     when {
       map == null -> Centered("Waiting for map data…")
@@ -344,7 +346,10 @@ internal fun fieldBadges(row: FieldRow): List<String> = buildList {
     add("OTHER FARM")
   }
   row.mission?.let { add(if (it.isActive) "CONTRACT" else "CONTRACT OFFER") }
-  fieldWork(row).forEach { add(it.uppercase()) }
+  fieldWork(row).forEach { add(it.label.uppercase()) }
+  // The count, not the tasks: a row is scanned, and three task names would push everything else off
+  // it. What it has to answer is "is this one already on the list".
+  if (row.tasks.isNotEmpty()) add(if (row.tasks.size == 1) "1 TASK" else "${row.tasks.size} TASKS")
 }
 
 @Composable
@@ -483,7 +488,7 @@ private fun FieldDetail(row: FieldRow, status: FieldStatusData?, onShowOnMap: (F
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
-            work.forEach { FieldBadge(it.uppercase(), selected = false) }
+            work.forEach { FieldBadge(it.label.uppercase(), selected = false) }
           }
         }
       }
@@ -494,6 +499,14 @@ private fun FieldDetail(row: FieldRow, status: FieldStatusData?, onShowOnMap: (F
           if (rotation.prevCrop.isNotBlank()) DetailLine("Before that", rotation.prevCrop)
           rotation.yieldPercent?.let { DetailLine("Rotation yield", "$it %") }
           rotation.catchCrop?.let { DetailLine("Catch crop", it) }
+        }
+      }
+    }
+
+    if (row.tasks.isNotEmpty()) {
+      DetailSection("Tasks") {
+        row.tasks.forEach { ref ->
+          DetailLine(fieldTaskLabel(ref), if (ref.task.active) "due now" else MONTH_LABELS[taskMonth(ref.task) - 1])
         }
       }
     }

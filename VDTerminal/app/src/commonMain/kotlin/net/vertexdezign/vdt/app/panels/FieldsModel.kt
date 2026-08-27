@@ -9,6 +9,7 @@ import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapField
 import net.vertexdezign.vdt.model.Mission
 import net.vertexdezign.vdt.model.MissionsData
+import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.UNKNOWN_FIELD_KIND
 
 /**
@@ -33,6 +34,8 @@ data class FieldRow(
   val mission: Mission?,
   /** Whether the local player's farm owns it. False for unowned *and* for another farm's. */
   val owned: Boolean,
+  /** Tasks whose detail names this field — see [FieldTaskRef]. Empty when the mod isn't installed. */
+  val tasks: List<FieldTaskRef> = emptyList(),
 ) {
   val id: Int get() = mapField.id
 
@@ -72,7 +75,7 @@ fun kindLabel(kind: String): String = when (LayerKind.of(kind)) {
 
   LayerKind.SEEDBED -> "Seedbed"
 
-  LayerKind.PLOWED -> "Ploughed"
+  LayerKind.PLOWED -> "Plowed"
 
   LayerKind.GROWING -> "Growing"
 
@@ -142,17 +145,18 @@ fun fieldCrop(row: FieldRow): String = row.info?.crop.orEmpty()
  * game's own panel), so fertiliser, lime and weeds are absent rather than false. They are planned
  * ahead by hand instead of triggered off a reading.
  */
-fun fieldWork(row: FieldRow): List<String> = buildList {
+fun fieldWork(row: FieldRow): List<FieldTaskType> = buildList {
   val info = row.info
-  if (info?.needsPlowing == true) add("Plough")
-  if (info?.needsRolling == true) add("Roll")
+  if (info?.needsPlowing == true) add(FieldTaskType.PLOW)
+  if (info?.needsRolling == true) add(FieldTaskType.ROLL)
   val status = row.status
   val ready = status != null && status.cells >= MIN_STATUS_CELLS && status.fractionOf("harvest") >= HARVEST_SHARE
-  if (ready || info?.growth == "readyToHarvest") add("Harvest")
+  if (ready || info?.growth == "readyToHarvest") add(FieldTaskType.HARVEST)
   val withered = status != null && status.cells >= MIN_STATUS_CELLS && status.fractionOf("withered") >= WITHERED_SHARE
-  if (withered || info?.growth == "withered") add("Cultivate")
+  // The crop is lost either way; clearing it is the only honest advice left.
+  if (withered || info?.growth == "withered") add(FieldTaskType.CULTIVATE)
   // A bare owned field is work too — it is the one that earns nothing while it waits.
-  if (isEmpty() && row.owned && fieldCrop(row).isEmpty() && info != null) add("Sow")
+  if (isEmpty() && row.owned && fieldCrop(row).isEmpty() && info != null) add(FieldTaskType.SOW)
 }
 
 /** Enough of the field is standing to be worth taking the combine out for. */
@@ -186,10 +190,12 @@ fun fieldRows(
   info: FieldInfoData?,
   status: FieldStatusData?,
   missions: MissionsData?,
+  tasks: TaskListData?,
   playerFarmId: Int?,
 ): List<FieldRow> {
   if (map == null) return emptyList()
   val byId = info?.fields?.associateBy { it.id }.orEmpty()
+  val tasksByField = fieldTasks(tasks)
   // A field can carry more than one contract over a session; the active one is what the row is about,
   // and an offer is only worth showing while nothing is running on that ground.
   val missionByField =
@@ -207,6 +213,7 @@ fun fieldRows(
       // Null farm id (spectating, or no telemetry yet) means nothing is "mine" — which is right:
       // claiming ownership on missing data is the one direction this must not guess in.
       owned = playerFarmId != null && field.ownerFarmId == playerFarmId,
+      tasks = tasksByField[field.id].orEmpty(),
     )
   }
 }
@@ -220,7 +227,7 @@ fun fieldViews(rows: List<FieldRow>): List<FieldView> = buildList {
   if (rows.any { it.owned }) add(FieldView.MINE)
   if (rows.any { it.mapField.ownerFarmId == null }) add(FieldView.UNOWNED)
   if (rows.any { fieldWork(it).isNotEmpty() }) add(FieldView.WORK)
-  if (rows.any { "Harvest" in fieldWork(it) }) add(FieldView.HARVEST)
+  if (rows.any { FieldTaskType.HARVEST in fieldWork(it) }) add(FieldView.HARVEST)
   if (rows.any { it.mission != null }) add(FieldView.CONTRACT)
 }
 
@@ -230,7 +237,7 @@ fun fieldView(rows: List<FieldRow>, view: FieldView): List<FieldRow> = when (vie
   FieldView.MINE -> rows.filter { it.owned }
   FieldView.UNOWNED -> rows.filter { it.mapField.ownerFarmId == null }
   FieldView.WORK -> rows.filter { fieldWork(it).isNotEmpty() }
-  FieldView.HARVEST -> rows.filter { "Harvest" in fieldWork(it) }
+  FieldView.HARVEST -> rows.filter { FieldTaskType.HARVEST in fieldWork(it) }
   FieldView.CONTRACT -> rows.filter { it.mission != null }
 }
 

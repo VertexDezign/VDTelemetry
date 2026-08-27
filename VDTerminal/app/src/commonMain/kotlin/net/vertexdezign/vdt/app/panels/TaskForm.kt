@@ -39,7 +39,7 @@ private const val MAX_DETAIL = 45 // matches the mod's Task.MAX_DETAIL_LENGTH
 
 // recurMode indices (Task.RECUR_MODE): 0 Once, 1 Monthly, 2 Daily, 3 Every N months, 4 Every N days.
 private val RECUR_LABELS = listOf("Once", "Monthly", "Daily", "Every N months", "Every N days")
-private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+internal val MONTH_LABELS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 private fun usesMonth(recurMode: Int) = recurMode == 0 || recurMode == 1 || recurMode == 3
 private fun usesN(recurMode: Int) = recurMode == 3 || recurMode == 4
@@ -55,7 +55,7 @@ private val N_DAYS = (1..12).toList()
 private val N_MONTHS = N_DAYS + listOf(24, 36)
 
 /** period -> calendar month (1-12), the inverse of the mod's convertMonthNumberToPeriod (offset +2). */
-private fun periodToMonth(period: Int): Int {
+internal fun periodToMonth(period: Int): Int {
   var m = period + 2
   if (m > 12) m -= 12
   return m.coerceIn(1, 12)
@@ -118,7 +118,7 @@ fun TaskFormDialog(title: String, initial: TaskInput, onSave: (TaskInput) -> Uni
         Stepper("Effort", effort, 1..5) { effort = it }
         DropdownField("Repeat", RECUR_LABELS, recurMode) { recurMode = it }
         if (usesMonth(recurMode)) {
-          DropdownField(if (recurMode == 3) "Start month" else "Month", MONTHS, month - 1) { month = it + 1 }
+          DropdownField(if (recurMode == 3) "Start month" else "Month", MONTH_LABELS, month - 1) { month = it + 1 }
         }
         if (usesN(recurMode)) {
           // Union with the current n so a value outside the mod's vocabulary (a task authored by some
