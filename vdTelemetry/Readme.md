@@ -76,8 +76,8 @@ appears at all: **export switched off** (nothing is written, so every channel go
 `mapLayers` off that way.
 
 `map.json` carries the near-static map data: selling/loading stations, shops, productions and other
-placeable POIs (typed via the game's own hotspot enum), every field's number, ownership, area and
-border polygon, and the farms with their in-game map color (`Farm:getColor()`, converted to sRGB
+placeable POIs (typed via the game's own hotspot enum), every field's number, ownership, area, price
+and border polygon, and the farms with their in-game map color (`Farm:getColor()`, converted to sRGB
 `#rrggbb`) so the terminal tints ownership exactly like the game's own map. All coordinates are
 normalized `[0,1]` map coordinates in the same frame as the player marker; `terrainSize` converts them
 back to meters. Border polygons are thinned (5 m minimum spacing, capped at 256 points per field) to

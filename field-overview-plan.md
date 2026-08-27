@@ -482,7 +482,12 @@ Each step is independently useful and independently testable.
    `state/LayerSubscriptions.union(subscriber, selection)` — same keying, same "only touched from the
    composition" note, same call sites in `MapPanel`. The doc says what a subscriber is now that they
    are not all map panels: the field overview counts a plane it never draws.
-5. **`price` in `map.json`.** Mod + model + fixtures. Standalone; can land any time after step 1.
+5. ~~**`price` in `map.json`.**~~ **Done.** `MapExporter` reads it off `field:getFarmland()` (the
+   Field has no price of its own) and rounds it to whole currency; map channel **VERSION 2**;
+   `MapFieldModel.price` and `MapField.price: Int?` follow, null meaning unknown and never free.
+   No fixture refresh: the three committed captures predate the key and are real captures, so the
+   shape is pinned by inline JSON in `MapDataModelTest` and a re-capture is now asked for in
+   `FUTURE.md` -> "Captures wanted as fixtures".
 6. **The app: list, filters, sorts, summary.** Read-only. This is the first point where the feature
    is usable.
 7. **Task attachment.** The `F<n>` parse, the per-field task list, the vocabulary.

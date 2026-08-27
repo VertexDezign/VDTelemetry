@@ -85,6 +85,41 @@ class MapDataModelTest {
     assertRoundTrips(data)
   }
 
+  /**
+   * The farmland price, which arrived with map channel version 2 and is therefore in none of the
+   * committed captures — they are real game captures and are never edited to carry a key the run
+   * that produced them didn't write. `FUTURE.md` -> "Captures wanted as fixtures" asks for a
+   * re-capture; until then the shape is pinned here.
+   */
+  @Test
+  fun carriesTheFarmlandPrice() {
+    val data =
+      VdtParser.parseMap(
+        """
+        {
+          "version": "2",
+          "terrainSize": 2048,
+          "fields": [
+            { "id": 12, "name": "12", "farmlandId": 12, "areaHa": 4.5, "labelX": 0.62, "labelZ": 0.31, "price": 112500 },
+            { "id": 13, "name": "13", "farmlandId": 13, "areaHa": 2.0, "labelX": 0.4, "labelZ": 0.2 }
+          ]
+        }
+        """.trimIndent(),
+      )
+
+    // Priced on an owned field as much as an unowned one — it is what the farmland costs, not an
+    // offer, and the buy planner sorts by it and by price per hectare.
+    assertEquals(112500, data.fields[0].price)
+    // A field the mod couldn't read a price for reads as unknown, never as free: an unpriced field
+    // sorted to the top of a "cheapest first" list would be a lie the app told itself.
+    assertNull(data.fields[1].price)
+
+    // Every capture predates the key, so this is also what an older mod looks like to a newer app.
+    assertNull(VdtParser.parseMap(example("vanilla.json")).fields.first().price)
+
+    assertRoundTrips(data)
+  }
+
   @Test
   fun parsesEmptyMapWithOmittedArrays() {
     // The mod omits empty `pois`/`fields` arrays (the Json encoder can't distinguish [] from {}),

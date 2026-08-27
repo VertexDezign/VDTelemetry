@@ -27,7 +27,8 @@ VDT.MapExporter = {}
 VDT.MapExporter.CHANNEL = "map"
 VDT.MapExporter.FILE_NAME = "map.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin MapData.
-VDT.MapExporter.VERSION = 1
+-- 2: fields carry the farmland's `price`.
+VDT.MapExporter.VERSION = 2
 
 -- Polygon thinning: drop border points closer than this (meters) to the last kept one, then cap the
 -- total. 5 m is well below anything visible on a dashboard map; 256 points outlines even the most
@@ -325,6 +326,18 @@ local function collectFields(sizeX, sizeZ)
       local okArea, areaHa = pcall(field.getAreaHa, field)
       if okArea and type(areaHa) == "number" then
         entry.areaHa = math.floor(areaHa * 100 + 0.5) / 100
+      end
+
+      -- What this farmland costs. Static per farmland (a fixed #price from the map XML, or
+      -- pricePerHa * areaInHa * priceScale computed at load), so it rides the existing dirty
+      -- triggers with no cadence of its own -- and it is what turns the app's "unowned" filter from
+      -- a list of things you don't own into a buy planner sortable by price and price/ha.
+      -- Read off the Farmland rather than the Field because only the farmland has it. Safe on a
+      -- multiplayer client, unlike most of that object: FarmlandManager:loadFarmlandData is map
+      -- data, loaded everywhere, not behind a g_server guard.
+      local okFarmland, farmland = pcall(field.getFarmland, field)
+      if okFarmland and type(farmland) == "table" and type(farmland.price) == "number" then
+        entry.price = math.floor(farmland.price + 0.5)
       end
 
       entry.polygon = collectPolygon(field, sizeX, sizeZ)

@@ -116,8 +116,16 @@ describe("MapExporter.collect", function()
     }
   end
 
-  local function field(id, name, owner, areaHa, labelX, labelZ, polygonNodes)
+  local function field(id, name, owner, areaHa, labelX, labelZ, polygonNodes, price)
     return {
+      getFarmland = function()
+        -- Nil is the real case, not just an unset argument: a field whose farmland hasn't been
+        -- linked yet has no price to read, and the entry must simply omit the key.
+        if price == nil then
+          return nil
+        end
+        return { price = price }
+      end,
       getIndicatorPosition = function()
         return labelX, labelZ
       end,
@@ -171,7 +179,7 @@ describe("MapExporter.collect", function()
 
   it("omits empty poi/field/farm arrays (Json can't distinguish [] from {})", function()
     local model = VDT.MapExporter.collect()
-    assert.are.equal("1", model.version)
+    assert.are.equal("2", model.version)
     assert.are.equal(2048, model.terrainSize)
     assert.is_nil(model.pois)
     assert.is_nil(model.fields)
@@ -234,6 +242,20 @@ describe("MapExporter.collect", function()
       polygon = { 0, 0, 0.5, 0, 0.5, 0.5, 0, 0.5 },
     }, fields[1])
     assert.are.same({ id = 12, name = "12", farmlandId = 12, areaHa = 4.5, labelX = 0.75, labelZ = 0.75 }, fields[2])
+  end)
+
+  it("carries the farmland price, rounded to whole currency", function()
+    g_fieldManager.fields = {
+      field(7, "7", 1, 2.312, -512, -512, nil, 112499.6),
+      field(12, "12", 0, 4.5, 512, 512), -- no farmland linked -> no price at all
+    }
+
+    local fields = VDT.MapExporter.collect().fields
+    -- Priced whether owned or not: it is what the farmland costs, not an offer.
+    assert.are.equal(112500, fields[1].price)
+    -- Omitted rather than zeroed. A field priced 0 would sort to the top of a "cheapest first" buy
+    -- list, which is the one place an unknown must not be allowed to look like an answer.
+    assert.is_nil(fields[2].price)
   end)
 
   it("degrades a field to its label when a polygon node can't be resolved", function()

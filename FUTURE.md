@@ -545,6 +545,11 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   MP client** (does the history really stop at five?), and **one with notifications in the log** — the hook itself is
   confirmed working in singleplayer, so this is now wanted as a fixture rather than as proof. `FinanceModelTest` covers
   those three shapes with inline JSON meanwhile.
+- **A fresh `map.json` capture, carrying `price`.** The farmland price arrived with map channel
+  version 2 (issue #131), so none of the three committed captures has it — they are real captures and
+  are never edited to add a key the run that produced them didn't write. `MapDataModelTest` pins the
+  shape with inline JSON meanwhile. A re-capture of the same vanilla save would also let the
+  per-field status histogram assert against a map and a raster taken together.
 - **A real 512² `growth` raster**, captured on the same save as `examples/json/map/vanilla.json` (both
   are `terrainSize: 2048`, so they co-register). The committed `examples/json/mapLayers/*.json` are
   hand-authored 8×8 grids — fine for the decoder's padding/trimming rules, useless for anything that

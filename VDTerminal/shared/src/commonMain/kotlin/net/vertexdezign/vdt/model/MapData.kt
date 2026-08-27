@@ -65,6 +65,16 @@ data class MapField(
   /** Omitted (null) when the field is unowned. */
   val ownerFarmId: Int? = null,
   val areaHa: Float = 0f,
+  /**
+   * What this farmland costs, in whole currency units — the price the game would charge to buy it,
+   * on an owned field as much as on an unowned one.
+   *
+   * Static per farmland: a fixed `#price` from the map XML, or `pricePerHa * areaInHa * priceScale`
+   * computed once at load. Null when the mod couldn't read it, and — since the key arrived with map
+   * channel version 2 — for every field written by an older mod. Never 0, so a null is "unknown"
+   * rather than "free".
+   */
+  val price: Int? = null,
   /** Anchor of the field-number label (the game's own indicator node, or the polygon center). */
   val labelX: Float = 0f,
   val labelZ: Float = 0f,
