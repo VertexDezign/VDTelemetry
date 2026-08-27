@@ -301,7 +301,7 @@ private fun compareText(a: String, b: String, ascending: Boolean): Int = when {
  * the counts are the ones you can act on. A summary that counted the whole map would lead with a
  * number that never changes.
  */
-data class FieldsSummary(
+data class FieldTotals(
   val ownedFields: Int,
   val ownedHa: Float,
   /** Hectares of own ground the raster says are ready, or null when nothing has been sampled. */
@@ -312,7 +312,7 @@ data class FieldsSummary(
   val byCrop: List<Pair<String, Float>>,
 )
 
-fun fieldsSummary(rows: List<FieldRow>, status: FieldStatusData?): FieldsSummary {
+fun fieldTotals(rows: List<FieldRow>, status: FieldStatusData?): FieldTotals {
   val mine = rows.filter { it.owned }
   val ready =
     if (status == null) {
@@ -323,7 +323,7 @@ fun fieldsSummary(rows: List<FieldRow>, status: FieldStatusData?): FieldsSummary
         status.ha(cells).toDouble()
       }.toFloat()
     }
-  return FieldsSummary(
+  return FieldTotals(
     ownedFields = mine.size,
     ownedHa = mine.sumOf { it.mapField.areaHa.toDouble() }.toFloat(),
     readyHa = ready,

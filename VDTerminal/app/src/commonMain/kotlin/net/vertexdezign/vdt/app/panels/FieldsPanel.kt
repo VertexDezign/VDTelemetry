@@ -171,7 +171,7 @@ private fun FieldsMasterDetail(
   }
   val currentId = selectedId.takeIf { id -> shown.any { it.id == id } } ?: shown.firstOrNull()?.id
   val selected = shown.firstOrNull { it.id == currentId }
-  val summary = remember(rows, status) { fieldsSummary(rows, status) }
+  val summary = remember(rows, status) { fieldTotals(rows, status) }
 
   Column(Modifier.fillMaxSize()) {
     FieldsSummaryRow(summary)
@@ -222,7 +222,7 @@ private fun FieldsMasterDetail(
  * and "I haven't looked yet" are different statements, and only one of them should send anyone home.
  */
 @Composable
-private fun FieldsSummaryRow(summary: FieldsSummary) {
+private fun FieldsSummaryRow(summary: FieldTotals) {
   FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(16.dp),
