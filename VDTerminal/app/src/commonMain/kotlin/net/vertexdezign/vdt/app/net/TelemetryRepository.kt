@@ -19,6 +19,7 @@ import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.FieldStatusData
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.GpsCourseData
@@ -104,6 +105,13 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // rows back to the map geometry alone.
   private val _fieldInfo = MutableStateFlow<FieldInfoData?>(null)
   val fieldInfo: StateFlow<FieldInfoData?> = _fieldInfo.asStateFlow()
+
+  // What each field is actually in, counted off the growth raster rather than sampled at the field
+  // centre the way fieldInfo does. Derived by the server, so null means "no raster yet" — no map, the
+  // layer channel off, or nobody subscribed to the growth plane so the mod has never swept it — and
+  // never "mod not installed". A screen that reads this holds the growth subscription itself.
+  private val _fieldStatus = MutableStateFlow<FieldStatusData?>(null)
+  val fieldStatus: StateFlow<FieldStatusData?> = _fieldStatus.asStateFlow()
 
   // Production overview (own-farm production points + factories), on the mod's own ~2 s interval;
   // same null-when-absent contract as mapData (export off / no data yet clears the app view).
@@ -239,6 +247,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.FieldInfo -> {
                       _fieldInfo.value = msg.data
+                    }
+
+                    is ServerMessage.FieldStatus -> {
+                      _fieldStatus.value = msg.data
                     }
 
                     is ServerMessage.Production -> {

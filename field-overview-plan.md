@@ -468,8 +468,16 @@ Each step is independently useful and independently testable.
    bucket taking both an unlisted value and a `kind`-less legend entry, the gridSize/terrainSize
    refusals, and — against `map/vanilla.json` at 512² — zero overlaps across all 77 fields with the
    claimed area within 6 % of the `areaHa` the mod exported.
-3. **Server plumbing.** Cache keyed on `(raster.contentVersion, indexVersion)`, `ServerMessage.FieldStatus`,
-   broadcast beside the existing `mapLayersJob`. `:server:test` for the cache invalidation.
+3. ~~**Server plumbing.**~~ **Done.** `FieldStatusPublisher` holds two caches — the index grid keyed
+   on `(map, gridSize)`, the histogram on the growth raster's `contentVersion` — driven by a
+   `combine(mapState, mapLayerState)` on the app scope into a `fieldStatusState` flow, and broadcast
+   per session as `ServerMessage.FieldStatus` beside the existing `mapLayersJob`. The two caches are
+   split because the map moves when a farmland is bought and the raster on every sweep; the version
+   key is what makes a *soil* sweep — which re-emits the same keyed map — cost a string compare.
+   Returning the identical instance is load-bearing rather than tidy: the `MutableStateFlow` drops an
+   equal value, so an unchanged breakdown broadcasts nothing. `FieldStatusPublisherTest` covers all
+   four transitions, and `TelemetryRepository.fieldStatus` is the app-side flow (unconsumed until
+   step 6).
 4. **Subscription lift.** `liveLayerSelections` → `state/LayerSubscriptions.kt`; map panel keeps
    working unchanged.
 5. **`price` in `map.json`.** Mod + model + fixtures. Standalone; can land any time after step 1.
