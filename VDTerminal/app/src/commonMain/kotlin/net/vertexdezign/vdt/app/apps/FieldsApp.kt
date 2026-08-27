@@ -26,17 +26,24 @@ import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.state.MapFocus
 import net.vertexdezign.vdt.app.widgets.FieldsWidget
 import net.vertexdezign.vdt.app.widgets.Widget
+import net.vertexdezign.vdt.model.GROWTH_LAYER_ID
+import net.vertexdezign.vdt.model.SOIL_LAYER_ID
 
 /**
- * The plane the field breakdown is counted off, mirroring the server's `FIELD_STATUS_LAYER_ID`.
+ * The planes the field breakdowns are counted off, mirroring the server's `FIELD_STATUS_LAYER_IDS`.
  *
  * Held as a subscription for as long as this screen is composed, because the mod sweeps only what
- * something is subscribed to: without this, the histogram would be of a raster nobody is refreshing.
+ * something is subscribed to: without this, the histograms would be of rasters nobody is refreshing.
  * The consequence is worth designing for rather than hiding — opening the app makes the mod start
  * sweeping, and a full sweep takes seconds, so the first breakdown is *late*, not wrong. The panel
  * says "sampling…" for it.
+ *
+ * Both planes, and only from this screen. Adding soil to a growth subscription is close to free in
+ * the mod — `classifyCell` gates its reads per plane and the two share the ground-type read, so it is
+ * one cell walk either way — but a subscription is still a sweep the game would not otherwise run,
+ * which is why the map panel and the Fields *tile* hold none: a tile can sit open all session.
  */
-private const val GROWTH_LAYER = "growth"
+private val FIELD_PLANES = listOf(GROWTH_LAYER_ID, SOIL_LAYER_ID)
 
 /**
  * The Fields app: what is on the farm's land, and what each field is asking for (issue #131).
@@ -113,7 +120,7 @@ object FieldsApp : VdtApp {
     val token = remember { Any() }
     val send by rememberUpdatedState(store.onCommand)
     DisposableEffect(token) {
-      send(ClientMessage.SetMapLayers(LayerSubscriptions.union(token, listOf(GROWTH_LAYER))))
+      send(ClientMessage.SetMapLayers(LayerSubscriptions.union(token, FIELD_PLANES)))
       onDispose { send(ClientMessage.SetMapLayers(LayerSubscriptions.union(token, null))) }
     }
 

@@ -16,6 +16,29 @@ import kotlinx.serialization.Serializable
 const val UNKNOWN_FIELD_KIND = "unknown"
 
 /**
+ * The per-field breakdown of every plane the server counts — one [FieldStatusData] per raster.
+ *
+ * More than one plane answers a question about a field, and they answer different ones: `growth` says
+ * what stage the ground is at, `soil` what condition it is in. Both are counted off the same index
+ * grid in the same pass, so they arrive together rather than as two channels that could disagree
+ * about which map they are describing.
+ *
+ * A plane nobody has swept yet is simply absent from [planes] — never present with zeroed counts,
+ * which would read as "nothing there" instead of "not looked yet".
+ */
+@Serializable
+data class FieldStatuses(val planes: List<FieldStatusData> = emptyList()) {
+  /** Memoized, and delegated so it stays out of the serialized form and out of `equals`. */
+  val byLayer: Map<String, FieldStatusData> by lazy { planes.associateBy { it.layerId } }
+
+  /** What stage each field's ground is at; null until the growth plane has been swept. */
+  val growth: FieldStatusData? get() = byLayer[GROWTH_LAYER_ID]
+
+  /** What condition each field's ground is in; null until the soil plane has been swept. */
+  val soil: FieldStatusData? get() = byLayer[SOIL_LAYER_ID]
+}
+
+/**
  * What is actually on each field, counted off one ground-layer raster rather than sampled at a point.
  *
  * Derived by the **server** from data it already holds — `map.json`'s field polygons and one
@@ -99,6 +122,20 @@ data class FieldStatus(
 
   /** [count] as a share of [cells]; 0 when nothing was sampled, so a bar never divides by zero. */
   fun fraction(count: Int): Float = if (cells <= 0) 0f else count.toFloat() / cells
+
+  /**
+   * [count] as a share of the whole field ([polygonCells]) rather than of the sampled part.
+   *
+   * The right denominator for a plane whose 0 means "nothing to report" rather than "not field
+   * ground" — the soil plane, where a cell that is ploughed, limed and weed-free carries no value at
+   * all. Dividing those counts by [cells] would compare one condition against the other conditions
+   * instead of against the field, and a single weedy corner on an otherwise perfect field would read
+   * as 100 % weeds.
+   */
+  fun polygonFraction(count: Int): Float = if (polygonCells <= 0) 0f else count.toFloat() / polygonCells
+
+  /** Share of the whole field in one kind, `0..1` — see [polygonFraction]. */
+  fun polygonFractionOf(kind: String): Float = polygonFraction(cellsOf(kind))
 }
 
 /**

@@ -102,6 +102,19 @@ data class MapLayerData(
 const val COVERAGE_LAYER_ID = "coverage"
 
 /**
+ * The mod's two ground-state planes, named here because more than one consumer joins against them by
+ * id — the field histogram counts both, and the app subscribes to both to make the mod sweep them.
+ *
+ * `growth` says what stage the ground is at (cultivated, growing, ready, cut, withered); `soil` says
+ * what condition it is in (weeds, stones, needs plowing, needs lime, fertilized). The mod owns the
+ * ids; these constants are just the two this build reasons about by name rather than offers blindly.
+ */
+const val GROWTH_LAYER_ID = "growth"
+
+/** See [GROWTH_LAYER_ID]. */
+const val SOIL_LAYER_ID = "soil"
+
+/**
  * One value a plane's raster carries, and how to read it.
  *
  * [v] is the mod's own wire vocabulary — a private enumeration it may renumber — and [label] is

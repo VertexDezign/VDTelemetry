@@ -56,6 +56,7 @@ import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldStatusData
+import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.LayerKind
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MissionsData
@@ -70,11 +71,21 @@ import kotlin.math.roundToInt
  * its popup; what an overview adds is sorting and filtering *across* fields, which a popup cannot do.
  * The two cross-link instead: a row can put its field on the map ([onShowOnMap]).
  *
- * It also diverges from that popup on purpose. The popup mirrors the game's own FELDINFO panel and
- * should keep doing so; this is a working view for a Precision Farming save, where the vanilla
- * fertiliser and lime readings are withheld by the mod (it mirrors the game, which hides them under
- * PF) and the weed reading is not worth a row. So there are no fertiliser/lime/weed lines here, and
- * nothing is suggested off them.
+ * It also diverges from that popup on purpose, in two ways.
+ *
+ * **What it leaves out:** fertiliser and lime. Precision Farming replaces both with its own soil model
+ * and the mod already withholds the vanilla numbers while PF is active (mirroring the game, which
+ * hides them too), so a row that appeared on some saves and not others is a row nobody can learn to
+ * read. Nothing is suggested off them either.
+ *
+ * **What it reads differently:** plough and weeds come from the *soil raster* here, as a share of the
+ * field, where the popup keeps `fieldInfo`'s single density read at the field-number anchor. That one
+ * read answers for a ~4 m cell and calls the whole field after it — and on a multiplayer client it can
+ * be a stale cell, since a client's density maps arrive in bandwidth-limited batches, so a field
+ * nobody is standing near keeps answering with what it looked like some time ago. The popup keeps the
+ * point sample anyway, deliberately: reading the raster means holding a ground-layer subscription, and
+ * the map is often on screen all session — that is a sweep the game would run for a line in a popup.
+ * This screen is opened to answer the question, so it can afford the sweep.
  *
  * A null [status] is "no raster yet", not "no mod": the app holds the growth subscription while this
  * screen is open, and the mod's first full sweep after that takes seconds. The rows say so rather
@@ -84,7 +95,7 @@ import kotlin.math.roundToInt
 fun FieldsPanel(
   map: MapData?,
   info: FieldInfoData?,
-  status: FieldStatusData?,
+  status: FieldStatuses?,
   missions: MissionsData?,
   tasks: TaskListData?,
   rotation: CropRotationData?,
@@ -149,7 +160,7 @@ private const val TASK_GROUP_STANDARD = 1
 @Composable
 private fun FieldsMasterDetail(
   rows: List<FieldRow>,
-  status: FieldStatusData?,
+  status: FieldStatuses?,
   rotation: CropRotationData?,
   calendar: CropCalendarData?,
   canCreate: Boolean,
@@ -343,7 +354,7 @@ private fun FieldSortControl(
 // ---- The row -------------------------------------------------------------------------------------
 
 @Composable
-private fun FieldRowTile(row: FieldRow, status: FieldStatusData?, selected: Boolean, onClick: () -> Unit) {
+private fun FieldRowTile(row: FieldRow, status: FieldStatuses?, selected: Boolean, onClick: () -> Unit) {
   val fg = if (selected) VdtColors.White else VdtColors.TextDark
   val muted = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray
   Column(
@@ -448,7 +459,7 @@ private fun kindColor(kind: String): Color = when (LayerKind.of(kind)) {
 /** The stacked bar itself: one segment per slice, widths in proportion to their share. */
 @Composable
 private fun StatusBar(row: FieldRow, modifier: Modifier = Modifier) {
-  val status = row.status ?: return
+  val status = row.growth ?: return
   Row(modifier.height(6.dp).clip(RoundedCornerShape(3.dp)).background(VdtColors.PanelBorder)) {
     status.slices.forEach { slice ->
       // weight() on the share rather than a computed width: the segments then fill the row exactly,
@@ -461,7 +472,7 @@ private fun StatusBar(row: FieldRow, modifier: Modifier = Modifier) {
 /** The bar's legend — the half that carries the meaning. */
 @Composable
 private fun StatusLegend(row: FieldRow, status: FieldStatusData?) {
-  val breakdown = row.status ?: return
+  val breakdown = row.growth ?: return
   FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
     breakdown.slices.forEach { slice ->
       val share = (breakdown.fraction(slice.cells) * 100).roundToInt()
@@ -480,7 +491,7 @@ private fun StatusLegend(row: FieldRow, status: FieldStatusData?) {
 @Composable
 private fun FieldDetail(
   row: FieldRow,
-  status: FieldStatusData?,
+  status: FieldStatuses?,
   rotation: CropRotationData?,
   calendar: CropCalendarData?,
   canCreate: Boolean,
@@ -519,7 +530,7 @@ private fun FieldDetail(
       when {
         hasBreakdown(row) -> {
           StatusBar(row, Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp))
-          StatusLegend(row, status)
+          StatusLegend(row, status?.growth)
         }
 
         status == null ->
@@ -537,6 +548,8 @@ private fun FieldDetail(
           )
       }
     }
+
+    ConditionSection(row)
 
     val info = row.info
     if (info != null) {
@@ -757,7 +770,7 @@ private const val SUMMARY_FIELDS = 3
 fun FieldsSummary(
   map: MapData?,
   info: FieldInfoData?,
-  status: FieldStatusData?,
+  status: FieldStatuses?,
   tasks: TaskListData?,
   playerFarmId: Int?,
   modifier: Modifier = Modifier,
@@ -810,5 +823,61 @@ fun FieldsSummary(
           }
         }
     }
+  }
+}
+
+/**
+ * What condition the ground is in — the soil plane's answer, as shares of the field.
+ *
+ * Two readings only: plough and weeds. Fertilizer and lime are on the same plane and deliberately
+ * left off, because Precision Farming replaces both with its own soil model and the mod already
+ * withholds the vanilla numbers while PF is active — a row that appeared on some saves and not others
+ * is a row nobody can learn to read.
+ *
+ * The share is of the **whole field**, and it is a floor rather than a measurement: the mod classifies
+ * each soil cell by priority (weeds beat stones beat needs-plowing), so ground that is both weedy and
+ * unploughed is counted once, as weeds. Saying "at least" is the honest way to print that.
+ */
+@Composable
+private fun ConditionSection(row: FieldRow) {
+  val plow = plowShare(row)
+  val weeds = weedShare(row)
+  val info = row.info
+  val sampledWeed = info?.weed.orEmpty()
+  // Nothing measured and nothing sampled: the field has no condition worth a heading.
+  if (plow == null && weeds == null && info?.needsPlowing != true && sampledWeed.isEmpty()) return
+
+  DetailSection("Condition") {
+    when {
+      plow != null -> DetailLine("Needs plowing", shareLine(plow))
+
+      // The point sample is the fallback, and it is labelled as one: it is a single ~4 m cell at the
+      // field-number anchor, and on a multiplayer client it can be a stale one.
+      info?.needsPlowing == true -> DetailLine("Needs plowing", "at the field centre")
+
+      else -> Unit
+    }
+    when {
+      weeds != null -> DetailLine("Weeds", shareLine(weeds))
+      sampledWeed.isNotEmpty() -> DetailLine("Weeds", "$sampledWeed at the field centre")
+      else -> Unit
+    }
+    if (plow == null && weeds == null) {
+      Text(
+        "Sampling the soil — the first sweep takes a few seconds.",
+        color = VdtColors.DarkGray,
+        fontSize = 10.sp,
+      )
+    }
+  }
+}
+
+/** A soil share as a percentage, floored rather than quoted — see [ConditionSection]. */
+private fun shareLine(share: Float): String {
+  val percent = (share * 100).roundToInt()
+  return when {
+    percent <= 0 -> "none"
+    percent >= 99 -> "the whole field"
+    else -> "at least $percent %"
   }
 }

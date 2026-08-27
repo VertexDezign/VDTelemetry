@@ -1,7 +1,7 @@
 package net.vertexdezign.vdt.app.alerts
 
 import net.vertexdezign.vdt.model.FieldInfoData
-import net.vertexdezign.vdt.model.FieldStatusData
+import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.TaskListData
 import net.vertexdezign.vdt.model.VdtData
@@ -20,8 +20,8 @@ data class AlertInputs(
   val mapData: MapData? = null,
   /** Per-field agronomy, sampled at each field's centre. */
   val fieldInfo: FieldInfoData? = null,
-  /** The per-field ground breakdown the server derives; null until the growth plane has been swept. */
-  val fieldStatus: FieldStatusData? = null,
+  /** The per-field ground breakdowns the server derives; null until a plane has been swept. */
+  val fieldStatus: FieldStatuses? = null,
 )
 
 /**

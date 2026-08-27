@@ -34,7 +34,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.VdtParser
 import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
-import net.vertexdezign.vdt.model.FieldStatusData
+import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayerInfo
 import net.vertexdezign.vdt.model.MapLayersCatalog
@@ -213,12 +213,12 @@ fun main() {
     }
   }
 
-  // Per-field status: the other thing the server derives rather than reads. The mod sweeps the growth
-  // plane for the map overlay anyway, and map.json carries the field polygons in the same normalized
+  // Per-field status: the other thing the server derives rather than reads. The mod sweeps these
+  // planes for the map overlay anyway, and map.json carries the field polygons in the same normalized
   // frame, so counting one against the other costs the game nothing and — unlike every server-only
   // way to ask the game the same question — works on a multiplayer client. See FieldStatusPublisher.
   val fieldStatus = FieldStatusPublisher()
-  val fieldStatusState = MutableStateFlow<FieldStatusData?>(null)
+  val fieldStatusState = MutableStateFlow<FieldStatuses?>(null)
   appScope.launch {
     // Both inputs, because either can move first: the raster arrives after its sweep, and the map
     // after a farmland changes hands. The publisher's caches are what make a sweep of some OTHER plane

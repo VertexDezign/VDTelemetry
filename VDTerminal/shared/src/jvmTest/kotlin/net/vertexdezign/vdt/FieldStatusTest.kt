@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.model.FieldIndexGrid
 import net.vertexdezign.vdt.model.FieldStatusData
 import net.vertexdezign.vdt.model.FieldStatusSlice
+import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapField
 import net.vertexdezign.vdt.model.MapLayerData
@@ -271,6 +272,42 @@ class FieldStatusTest {
         GRID.toInt(),
       ).fieldCount,
     )
+  }
+
+  @Test
+  fun sharesTheWholeFieldForAPlaneWhoseZeroMeansNothingToReport() {
+    // A soil-shaped plane: only the cells with a condition carry a value, and 0 means "fine here"
+    // rather than "not field ground". Two of field 1's twenty cells need plowing.
+    val soil =
+      plane.copy(
+        id = "soil",
+        legend = listOf(MapLayerLegendEntry(v = 2, label = "Needs plowing", color = "#7b4b2a", kind = "needsPlowing")),
+        rows = listOf("020200000000", "", "", "", "", "", "", ""),
+      )
+    val one = assertNotNull(fieldStatus(uShapedMap, soil).byId[1])
+
+    assertEquals(2, one.cells)
+    assertEquals(18, one.blank)
+    assertEquals(20, one.polygonCells)
+    // Of the sampled cells it is everything, which is exactly the reading that would be wrong: two
+    // unploughed cells on a twenty-cell field is a tenth of the field, not all of it.
+    assertEquals(1f, one.fractionOf("needsPlowing"), 1e-6f)
+    assertEquals(0.1f, one.polygonFractionOf("needsPlowing"), 1e-6f)
+    assertEquals(0f, one.polygonFractionOf("weed"))
+  }
+
+  @Test
+  fun carriesEveryPlaneUnderOneMessage() {
+    val statuses =
+      FieldStatuses(listOf(fieldStatus(uShapedMap, plane), fieldStatus(uShapedMap, plane.copy(id = "soil"))))
+
+    assertEquals("growth", assertNotNull(statuses.growth).layerId)
+    assertEquals("soil", assertNotNull(statuses.soil).layerId)
+    // A plane nobody swept is absent, never zeroed — the two say different things to a reader.
+    assertNull(FieldStatuses(listOf(fieldStatus(uShapedMap, plane))).soil)
+
+    val encoded = json.encodeToString(FieldStatuses.serializer(), statuses)
+    assertEquals(statuses, json.decodeFromString(FieldStatuses.serializer(), encoded), "round-trip should be lossless")
   }
 
   @Test

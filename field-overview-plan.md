@@ -17,6 +17,18 @@ Scope decided with the user before writing this:
   uses PF, and on a multiplayer client it only arrives one farmland at a time via
   `RequestFarmlandStatisticsEvent` — whose receive handler force-opens PF's own dialog. Not worth the
   MP asterisk for a feature that would sit dark on most sessions. Noted in `FUTURE.md` instead.
+> **Amended after the first in-game look (MP client).** `needsPlowing` turned out to be the sharpest
+> case of the single-pixel problem this plan was written to solve, and the reason is multiplayer: a
+> client's density maps arrive in bandwidth-limited batches (the mod's own `MapLayersExporter`
+> already knows this — it runs a staleness audit on clients for exactly that), so the one cell at the
+> field-number anchor can answer with what it looked like some time ago. Observed twice: the flag was
+> set from a distance and cleared on the first resample (30 s, `FieldInfoExporter.REFRESH_MS`) after
+> teleporting to the field. So **plough and weed now come off the `soil` raster** in this app, on the
+> same mechanism as growth. The map popup keeps the point sample deliberately: reading the raster
+> means holding a subscription, and the map is often on screen all session. That reverses the "no weed
+> row" call below — as a *share of the field* it is worth reading; as a title from one cell it was not.
+> Fertiliser and lime stay out for the reason given below, which PF does not change.
+
 - **Out:** vanilla fertiliser, lime and weed *state*. The user plays with Precision Farming, which
   replaces the base soil model outright — and the mod already agrees: `FieldInfoExporter` withholds
   `sprayLevelPercent`, `needsLime` and `yieldBonusPercent` whenever PF is active, mirroring the game's
@@ -177,12 +189,24 @@ accident — the kind of coupling that breaks silently when someone inserts a va
 This also means the *labels* stay out of it — they are localized, and matching on them would work on
 a German client and not an English one.
 
-### Round 1 uses the `growth` plane only
+### Round 1 uses the `growth` and `soil` planes
 
-The `crops` plane would add "which crop, where" for a mixed field. It is a second subscription, a
-second histogram, and its values are fruit-type indices whose meaning the app would have to resolve —
-and `fieldInfo.crop` already names the dominant crop from the same source. Defer it; the mechanism
-generalises to it for free once round 1 is in.
+The `crops` plane stays out. It would add "which crop, where" for a mixed field, but its values are
+fruit-type indices whose meaning the app would have to resolve, and `fieldInfo.crop` already names the
+dominant crop from the same source. Defer it; the mechanism generalises to it for free.
+
+`soil` is in (see the amendment above). It costs less than it looks: the mod's `classifyCell` gates
+its reads per plane and growth and soil share the `GROUND_TYPE` read, so subscribing to both is one
+cell walk with a few more density reads, not two sweeps.
+
+**Its zero means something different, and that changes the denominator.** On the growth plane 0 is
+"not field ground"; on the soil plane it is "nothing to report here" — a cell that is ploughed, limed
+and weed-free carries no value at all. So a soil share is taken over the whole polygon
+(`polygonFraction`), not over the sampled cells: dividing by the latter would turn one weedy corner on
+an otherwise perfect field into 100 % weeds. And because the mod classifies a soil cell by **priority**
+(weeds beat stones beat needs-plowing beat needs-lime beat fertilizer), ground that is both weedy and
+unploughed is counted once, as weeds — so every soil share is a floor, and the app prints it as
+"at least N %".
 
 ### Subscription gating
 

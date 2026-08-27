@@ -12,7 +12,7 @@ import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
-import net.vertexdezign.vdt.model.FieldStatusData
+import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.GpsCourseData
@@ -52,12 +52,12 @@ class VdtStore(
   val mapLayers: StateFlow<MapLayersInfo?>,
   val fieldInfo: StateFlow<FieldInfoData?>,
   /**
-   * What each field is actually in, counted off the growth raster rather than sampled at its centre
-   * the way [fieldInfo] is. Derived by the server, so null is "no raster yet" — including "nobody is
-   * subscribed to the growth plane", which is why a screen that reads this registers with
-   * [LayerSubscriptions] while it is open.
+   * What each field is in and what condition it is in, counted off the growth and soil rasters rather
+   * than sampled at its centre the way [fieldInfo] is. Derived by the server, so null is "no raster
+   * yet" — including "nobody is subscribed to those planes", which is why a screen that reads this
+   * registers with [LayerSubscriptions] while it is open.
    */
-  val fieldStatus: StateFlow<FieldStatusData?>,
+  val fieldStatus: StateFlow<FieldStatuses?>,
   val production: StateFlow<ProductionData?>,
   val storage: StateFlow<StorageData?>,
   val husbandry: StateFlow<HusbandriesData?>,

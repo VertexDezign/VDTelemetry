@@ -3,7 +3,7 @@ package net.vertexdezign.vdt.app.panels
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldInfoEntry
 import net.vertexdezign.vdt.model.FieldStatus
-import net.vertexdezign.vdt.model.FieldStatusData
+import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.LayerKind
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapField
@@ -28,8 +28,10 @@ data class FieldRow(
   val mapField: MapField,
   /** Agronomy sampled at the field centre; null when the channel is off or the field isn't in it. */
   val info: FieldInfoEntry?,
-  /** The raster breakdown; null when nothing has been swept yet (see [FieldStatusData]). */
-  val status: FieldStatus?,
+  /** What stage the ground is at, off the growth raster; null until that plane has been swept. */
+  val growth: FieldStatus?,
+  /** What condition the ground is in, off the soil raster; null until that plane has been swept. */
+  val soil: FieldStatus?,
   /** A contract on this field, if the board carries one. */
   val mission: Mission?,
   /** Whether the local player's farm owns it. False for unowned *and* for another farm's. */
@@ -121,7 +123,7 @@ fun growthWord(growth: String): String = when (growth) {
 data class FieldHeadline(val text: String, val fromRaster: Boolean)
 
 fun fieldHeadline(row: FieldRow): FieldHeadline {
-  val dominant = row.status?.takeIf { it.cells >= MIN_STATUS_CELLS }?.dominant
+  val dominant = row.growth?.takeIf { it.cells >= MIN_STATUS_CELLS }?.dominant
   if (dominant != null) return FieldHeadline(kindLabel(dominant.kind), fromRaster = true)
   val info = row.info
   val word = growthWord(info?.growth.orEmpty())
@@ -132,7 +134,7 @@ fun fieldHeadline(row: FieldRow): FieldHeadline {
 }
 
 /** Whether the breakdown is worth drawing at all, rather than a bar made of four cells. */
-fun hasBreakdown(row: FieldRow): Boolean = (row.status?.cells ?: 0) >= MIN_STATUS_CELLS
+fun hasBreakdown(row: FieldRow): Boolean = (row.growth?.cells ?: 0) >= MIN_STATUS_CELLS
 
 /** The crop on the field, from the point sample — the raster's growth plane doesn't name one. */
 fun fieldCrop(row: FieldRow): String = row.info?.crop.orEmpty()
@@ -147,23 +149,66 @@ fun fieldCrop(row: FieldRow): String = row.info?.crop.orEmpty()
  */
 fun fieldWork(row: FieldRow): List<FieldTaskType> = buildList {
   val info = row.info
-  if (info?.needsPlowing == true) add(FieldTaskType.PLOW)
+  if (needsPlowing(row)) add(FieldTaskType.PLOW)
   if (info?.needsRolling == true) add(FieldTaskType.ROLL)
-  val status = row.status
-  val ready = status != null && status.cells >= MIN_STATUS_CELLS && status.fractionOf("harvest") >= HARVEST_SHARE
+  val status = row.growth
+  val ready = status != null && status.cells >= MIN_STATUS_CELLS && status.fractionOf("harvest") >= WORK_SHARE
   if (ready || info?.growth == "readyToHarvest") add(FieldTaskType.HARVEST)
-  val withered = status != null && status.cells >= MIN_STATUS_CELLS && status.fractionOf("withered") >= WITHERED_SHARE
+  val withered = status != null && status.cells >= MIN_STATUS_CELLS && status.fractionOf("withered") >= WORK_SHARE
   // The crop is lost either way; clearing it is the only honest advice left.
   if (withered || info?.growth == "withered") add(FieldTaskType.CULTIVATE)
   // A bare owned field is work too — it is the one that earns nothing while it waits.
   if (isEmpty() && row.owned && fieldCrop(row).isEmpty() && info != null) add(FieldTaskType.SOW)
 }
 
-/** Enough of the field is standing to be worth taking the combine out for. */
-private const val HARVEST_SHARE = 0.25f
+/**
+ * Whether the soil raster can be trusted for this field, which is the same "too few cells" question
+ * the growth plane answers — asked of the **whole polygon** rather than of the sampled part.
+ *
+ * The soil plane's 0 means "nothing to report here": a cell that is ploughed, limed and weed-free
+ * carries no value at all. So its sampled-cell count is a count of *problems*, not of field, and
+ * dividing by it would turn one weedy corner on an otherwise perfect field into 100 % weeds.
+ */
+fun hasSoilBreakdown(row: FieldRow): Boolean = (row.soil?.polygonCells ?: 0) >= MIN_STATUS_CELLS
 
-/** …and enough is lost that clearing it is the honest advice. */
-private const val WITHERED_SHARE = 0.25f
+/**
+ * How much of the field needs plowing, `0..1`, or null when the raster can't say.
+ *
+ * **Understated where another condition wins.** The mod classifies a soil cell by priority — weeds
+ * beat stones beat needs-plowing beat needs-lime beat fertilizer — so a cell that is both weedy and
+ * unploughed is counted as weeds. Read this as "at least this much", and read it beside [weedShare]:
+ * between them they account for the field.
+ */
+fun plowShare(row: FieldRow): Float? = if (!hasSoilBreakdown(row)) null else row.soil?.polygonFractionOf("needsPlowing")
+
+/** How much of the field is carrying weeds, `0..1`, or null when the raster can't say. */
+fun weedShare(row: FieldRow): Float? = if (!hasSoilBreakdown(row)) null else row.soil?.polygonFractionOf("weed")
+
+/**
+ * Whether this field wants the plough.
+ *
+ * The raster leads when it has the cells for it, and the point sample is the fallback — the same rule
+ * the headline follows, and for the same reason, only more sharply here. `fieldInfo.needsPlowing` is
+ * one density read at `field.posX/posZ` (the field-number label anchor), so it answers for a single
+ * ~4 m cell and calls the whole field after it. On a multiplayer client that one cell can also be
+ * *stale*: a client's density maps arrive in bandwidth-limited batches, so a field nobody is standing
+ * near can keep answering with what it looked like some time ago. The raster is the same data, but
+ * hundreds of cells of it, so one stale or unrepresentative cell no longer decides.
+ */
+fun needsPlowing(row: FieldRow): Boolean {
+  val share = plowShare(row)
+  return if (share != null) share >= WORK_SHARE else row.info?.needsPlowing == true
+}
+
+/**
+ * How much of a field has to be in some state before it is worth a trip out there.
+ *
+ * One bar for every kind of work rather than one per kind: enough of the crop standing to take the
+ * combine out, enough of it lost to be worth clearing, enough of the ground unploughed to hitch the
+ * plough — they are the same judgement, and three tunable numbers would only invite three different
+ * answers to it.
+ */
+private const val WORK_SHARE = 0.25f
 
 /** Which slice of the map is listed. Single-select: each answers one question, and ANDing them is noise. */
 enum class FieldView(val label: String) {
@@ -188,7 +233,7 @@ enum class FieldSort(val label: String) {
 fun fieldRows(
   map: MapData?,
   info: FieldInfoData?,
-  status: FieldStatusData?,
+  status: FieldStatuses?,
   missions: MissionsData?,
   tasks: TaskListData?,
   playerFarmId: Int?,
@@ -208,7 +253,8 @@ fun fieldRows(
     FieldRow(
       mapField = field,
       info = byId[field.id],
-      status = status?.byId?.get(field.id),
+      growth = status?.growth?.byId?.get(field.id),
+      soil = status?.soil?.byId?.get(field.id),
       mission = missionByField[field.id],
       // Null farm id (spectating, or no telemetry yet) means nothing is "mine" — which is right:
       // claiming ownership on missing data is the one direction this must not guess in.
@@ -312,15 +358,16 @@ data class FieldTotals(
   val byCrop: List<Pair<String, Float>>,
 )
 
-fun fieldTotals(rows: List<FieldRow>, status: FieldStatusData?): FieldTotals {
+fun fieldTotals(rows: List<FieldRow>, status: FieldStatuses?): FieldTotals {
   val mine = rows.filter { it.owned }
+  val growth = status?.growth
   val ready =
-    if (status == null) {
+    if (growth == null) {
       null
     } else {
       mine.sumOf { row ->
-        val cells = row.status?.takeIf { it.cells >= MIN_STATUS_CELLS }?.cellsOf("harvest") ?: 0
-        status.ha(cells).toDouble()
+        val cells = row.growth?.takeIf { it.cells >= MIN_STATUS_CELLS }?.cellsOf("harvest") ?: 0
+        growth.ha(cells).toDouble()
       }.toFloat()
     }
   return FieldTotals(
