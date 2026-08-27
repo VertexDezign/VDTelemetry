@@ -326,7 +326,8 @@ object TaskListWidget : Widget {
   override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val taskList by store.taskList.collectAsState()
-    TaskListPanel(taskList, modifier, onCommand = store.onCommand)
+    val calendar by store.cropCalendar.collectAsState()
+    TaskListPanel(taskList, modifier, todayPeriod = calendar?.today?.period, onCommand = store.onCommand)
   }
 }
 

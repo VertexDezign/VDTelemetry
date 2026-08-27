@@ -545,6 +545,13 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   MP client** (does the history really stop at five?), and **one with notifications in the log** — the hook itself is
   confirmed working in singleplayer, so this is now wanted as a fixture rather than as proof. `FinanceModelTest` covers
   those three shapes with inline JSON meanwhile.
+- **A sow-crop fallback when no rotation plan matches a field.** The Fields app's sow suggestion names
+  a crop by matching `FieldCropRotation`'s (prevCrop, lastCrop) pair against every
+  `CropRotationPlan.sequence` and taking the next slot. Where nothing matches it offers the task
+  without a crop, deliberately. The plan for issue #131 sketched a fallback — rank the calendar's
+  currently-sowable crops by `CropRotationSlot.cropYields` for this field's history — but those
+  previews are per slot of a plan, not per field, so it is a guess dressed as an answer until there
+  is a field→plan link. See "Assigning a CropRotation plan to a field", which is the real fix.
 - **A fresh `map.json` capture, carrying `price`.** The farmland price arrived with map channel
   version 2 (issue #131), so none of the three committed captures has it — they are real captures and
   are never edited to add a key the run that produced them didn't write. `MapDataModelTest` pins the

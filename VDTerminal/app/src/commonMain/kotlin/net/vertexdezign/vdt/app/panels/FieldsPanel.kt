@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -43,12 +44,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.TaskInput
 import net.vertexdezign.vdt.app.components.ActionIcon
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.FilterChip
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.CropCalendarData
+import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldStatusData
 import net.vertexdezign.vdt.model.LayerKind
@@ -82,24 +87,75 @@ fun FieldsPanel(
   status: FieldStatusData?,
   missions: MissionsData?,
   tasks: TaskListData?,
+  rotation: CropRotationData?,
+  calendar: CropCalendarData?,
   playerFarmId: Int?,
   modifier: Modifier = Modifier,
   onShowOnMap: (Float, Float) -> Unit = { _, _ -> },
+  onCommand: (ClientMessage) -> Unit = {},
 ) {
+  // A create needs a group, and nothing in the format names one. The first Standard group is the one
+  // the game's own list opens on; a task landing in the wrong group of several is a drag-and-drop
+  // away in-game, where an app-side group picker in a suggestion chip would be a question asked
+  // every single time to save that.
+  val groupId =
+    tasks?.groups?.firstOrNull { it.type == TASK_GROUP_STANDARD }?.id ?: tasks?.groups?.firstOrNull()?.id
+  var form by remember { mutableStateOf<TaskInput?>(null) }
+
   Panel(title = "Fields", icon = Icons.Filled.Grass, modifier = modifier) {
     val rows = remember(map, info, status, missions, tasks, playerFarmId) {
       fieldRows(map, info, status, missions, tasks, playerFarmId)
     }
     when {
       map == null -> Centered("Waiting for map data…")
+
       rows.isEmpty() -> Centered("This map has no fields")
-      else -> FieldsMasterDetail(rows, status, onShowOnMap)
+
+      else ->
+        FieldsMasterDetail(
+          rows = rows,
+          status = status,
+          rotation = rotation,
+          calendar = calendar,
+          canCreate = groupId != null,
+          onShowOnMap = onShowOnMap,
+          onCreate = { form = it },
+        )
+    }
+  }
+
+  val target = groupId
+  form?.let { initial ->
+    if (target == null) {
+      form = null
+    } else {
+      TaskFormDialog(
+        title = "New task",
+        initial = initial,
+        onSave = {
+          onCommand(ClientMessage.CreateTask(target, it))
+          form = null
+        },
+        onDismiss = { form = null },
+        todayPeriod = calendar?.today?.period,
+      )
     }
   }
 }
 
+/** `TaskGroup.GROUP_TYPE.Standard` — the ordinary group, as against a template or its instance. */
+private const val TASK_GROUP_STANDARD = 1
+
 @Composable
-private fun FieldsMasterDetail(rows: List<FieldRow>, status: FieldStatusData?, onShowOnMap: (Float, Float) -> Unit) {
+private fun FieldsMasterDetail(
+  rows: List<FieldRow>,
+  status: FieldStatusData?,
+  rotation: CropRotationData?,
+  calendar: CropCalendarData?,
+  canCreate: Boolean,
+  onShowOnMap: (Float, Float) -> Unit,
+  onCreate: (TaskInput) -> Unit,
+) {
   var query by remember { mutableStateOf("") }
   var view by remember { mutableStateOf(FieldView.ALL) }
   var sort by remember { mutableStateOf(FieldSort.NUMBER) }
@@ -148,7 +204,7 @@ private fun FieldsMasterDetail(rows: List<FieldRow>, status: FieldStatusData?, o
       Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
       Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
         if (selected != null) {
-          FieldDetail(selected, status, onShowOnMap)
+          FieldDetail(selected, status, rotation, calendar, canCreate, onShowOnMap, onCreate)
         } else {
           Centered("Select a field")
         }
@@ -422,7 +478,15 @@ private fun StatusLegend(row: FieldRow, status: FieldStatusData?) {
 // ---- The detail ----------------------------------------------------------------------------------
 
 @Composable
-private fun FieldDetail(row: FieldRow, status: FieldStatusData?, onShowOnMap: (Float, Float) -> Unit) {
+private fun FieldDetail(
+  row: FieldRow,
+  status: FieldStatusData?,
+  rotation: CropRotationData?,
+  calendar: CropCalendarData?,
+  canCreate: Boolean,
+  onShowOnMap: (Float, Float) -> Unit,
+  onCreate: (TaskInput) -> Unit,
+) {
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -481,14 +545,33 @@ private fun FieldDetail(row: FieldRow, status: FieldStatusData?, onShowOnMap: (F
         if (info.maxGrowthState > 0) DetailLine("Growth", "${info.growthState} / ${info.maxGrowthState}")
         info.yieldBonusPercent?.let { DetailLine("Yield bonus", "+ $it %") }
       }
+      val suggestions = fieldSuggestions(row, rotation, calendar)
       val work = fieldWork(row)
-      if (work.isNotEmpty()) {
+      if (work.isNotEmpty() || canCreate) {
         DetailSection("Asking for") {
           FlowRow(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
           ) {
-            work.forEach { FieldBadge(it.label.uppercase(), selected = false) }
+            work.forEach { type ->
+              val suggestion = suggestions.firstOrNull { it.type == type }
+              when {
+                // Already written down: the chip degrades to a plain label rather than offering the
+                // same work twice, which is the fastest way to make a suggester worth ignoring.
+                suggestion == null -> FieldBadge("${type.label.uppercase()} · ON THE LIST", selected = false)
+
+                canCreate ->
+                  SuggestionChip(suggestion) { onCreate(taskInputFor(suggestion, calendar?.today?.period)) }
+
+                else -> FieldBadge(type.label.uppercase(), selected = false)
+              }
+            }
+            if (canCreate) AddTaskChip(row.id, calendar?.today?.period, onCreate)
+          }
+          // Said where the sow chip is, rather than left for the reader to work out: outside seasonal
+          // growth the calendar answers "yes" to every period, so there is no best month to date it.
+          if (calendar?.isSeasonal == false && suggestions.any { it.type == FieldTaskType.SOW }) {
+            Text("No sowing window on this map — growth isn't seasonal.", color = VdtColors.DarkGray, fontSize = 10.sp)
           }
         }
       }
@@ -567,4 +650,93 @@ internal fun formatHa(ha: Float): String = if (ha <
   "${(ha * 10).roundToInt() / 10f} ha"
 } else {
   "${ha.roundToInt()} ha"
+}
+
+// ---- Creating a task -----------------------------------------------------------------------------
+
+/**
+ * The form's starting values for a suggestion.
+ *
+ * The month falls back to *now* rather than to January when the calendar has no window to offer: a
+ * task written while standing on the field is about this month far more often than it is about the
+ * turn of the year.
+ */
+internal fun taskInputFor(suggestion: FieldSuggestion, todayPeriod: Int?): TaskInput {
+  val month = suggestion.month ?: todayPeriod?.let { monthFromNow(it, 0) }
+  return if (month ==
+    null
+  ) {
+    TaskInput(detail = suggestion.detail)
+  } else {
+    TaskInput(detail = suggestion.detail, month = month)
+  }
+}
+
+/**
+ * A suggestion, as the control that acts on it.
+ *
+ * A chip that opens a prefilled dialog, not a button that writes silently: the same call the machine
+ * screen makes. What it says is the work and — where the calendar could date it — the month, because
+ * a suggestion that quietly picks a month the reader never saw is a surprise on the task list later.
+ */
+@Composable
+private fun SuggestionChip(suggestion: FieldSuggestion, onClick: () -> Unit) {
+  val month = suggestion.month?.let { " · ${MONTH_LABELS[it - 1]}" }.orEmpty()
+  Row(
+    Modifier
+      .clip(RoundedCornerShape(3.dp))
+      .background(VdtColors.Green)
+      .clickable(onClick = onClick)
+      .padding(horizontal = 5.dp, vertical = 3.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(3.dp),
+  ) {
+    Icon(Icons.Filled.Add, contentDescription = null, tint = VdtColors.White, modifier = Modifier.size(10.dp))
+    Text(
+      // The field number is the heading above these chips, so the chip drops it and keeps the work.
+      suggestion.detail.substringAfter(" - ") + month,
+      fontSize = 8.sp,
+      fontWeight = FontWeight.Bold,
+      color = VdtColors.White,
+    )
+  }
+}
+
+/**
+ * The manual side: any task type on this field, prefilled and left for the form to finish.
+ *
+ * This is where fertilize, lime, weed and spray live. Nothing suggests them — under Precision Farming
+ * the readings that would are withheld or meaningless — so they are planned forward by hand, which is
+ * exactly what the form's "from now" month chips are for.
+ */
+@Composable
+private fun AddTaskChip(fieldId: Int, todayPeriod: Int?, onCreate: (TaskInput) -> Unit) {
+  var open by remember { mutableStateOf(false) }
+  Box {
+    Row(
+      Modifier
+        .clip(RoundedCornerShape(3.dp))
+        .background(VdtColors.TrackGray)
+        .clickable { open = true }
+        .padding(horizontal = 5.dp, vertical = 3.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+      Icon(Icons.Filled.Add, contentDescription = null, tint = VdtColors.DarkGray, modifier = Modifier.size(10.dp))
+      Text("ADD TASK", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+    }
+    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+      FieldTaskType.entries.filter { it != FieldTaskType.OTHER }.forEach { type ->
+        DropdownMenuItem(
+          text = { Text(type.label, fontSize = 12.sp) },
+          onClick = {
+            open = false
+            val month = todayPeriod?.let { monthFromNow(it, 0) }
+            val detail = composeTaskDetail(fieldId, type)
+            onCreate(if (month == null) TaskInput(detail = detail) else TaskInput(detail = detail, month = month))
+          },
+        )
+      }
+    }
+  }
 }

@@ -503,8 +503,19 @@ Each step is independently useful and independently testable.
    form's own period arithmetic. Rows carry a task count (not the task names — a row is scanned), and
    the detail lists them with what each is due. `fieldWork` now speaks the same vocabulary, so the
    suggester and the parser cannot drift apart.
-8. **Suggestions + prefilled create.** The write side, last, once the read side has been looked at in
-   a real save.
+8. ~~**Suggestions + prefilled create.**~~ **Done.** A suggestion is a chip that opens
+   `TaskFormDialog` prefilled, and it is suppressed while a task of the same type is already on the
+   board for that field — the chip then degrades to a plain "on the list" label rather than offering
+   the same work twice. The sow suggestion carries a crop where `FieldCropRotation`'s (prevCrop,
+   lastCrop) pair matches a plan's sequence, and a month where the calendar has a window *and*
+   `isSeasonal` says the windows mean anything; the panel says so when it doesn't. `TaskFormDialog`
+   gained the "from now" month chips (`Now`, `+1`, `+2`, `+3`, `+6`), each echoing the month it
+   resolves to, shown only when the crop calendar can say what *now* is — and the Tasks app passes
+   the period too, since the shortcut is worth as much there. An "Add task" chip covers the manual
+   side, which is where fertilize/lime/weed/spray live.
+   **Not built:** the fallback for "no plan matches" — ranking sowable crops by
+   `CropRotationSlot.cropYields` against this field's history. It stays a guess without a field→plan
+   link, so the sow task is offered without a crop instead; noted in `FUTURE.md`.
 9. **Widget + alerts.**
 
 In-game validation, singleplayer **and** as a multiplayer client, before the branch merges — the

@@ -58,6 +58,8 @@ object FieldsApp : VdtApp {
     val status by store.fieldStatus.collectAsState()
     val missions by store.missions.collectAsState()
     val tasks by store.taskList.collectAsState()
+    val rotation by store.cropRotation.collectAsState()
+    val calendar by store.cropCalendar.collectAsState()
     val telemetry by store.telemetry.collectAsState()
     val navigate = LocalNavigator.current
 
@@ -78,11 +80,15 @@ object FieldsApp : VdtApp {
       status = status,
       missions = missions,
       tasks = tasks,
+      rotation = rotation,
+      calendar = calendar,
       playerFarmId = telemetry?.environment?.pda?.player?.farmId,
       modifier = modifier,
-    ) { x, z ->
-      MapFocus.request(x, z)
-      navigate(Screen.OpenApp(MapApp.id))
-    }
+      onShowOnMap = { x, z ->
+        MapFocus.request(x, z)
+        navigate(Screen.OpenApp(MapApp.id))
+      },
+      onCommand = store.onCommand,
+    )
   }
 }
