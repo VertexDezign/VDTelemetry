@@ -40,10 +40,7 @@ import kotlin.io.path.readText
  *
  * Ports + generalizes the old single-file `TelemetrySource` (`watcher.go` + `parser.go`).
  */
-class TelemetryWatcher(
-  private val dir: Path,
-  private val debounceMs: Long = 40L,
-) {
+class TelemetryWatcher(private val dir: Path, private val debounceMs: Long = 40L) {
   private val log = LoggerFactory.getLogger(TelemetryWatcher::class.java)
 
   private val channels = mutableListOf<WatchedFile<*>>()
@@ -56,11 +53,7 @@ class TelemetryWatcher(
    * The optional mod channels use `true`: the file's *absence is the "mod not installed" signal*, so
    * a delete must reset the flow to null and the app renders the not-installed state.
    */
-  private inner class WatchedFile<T>(
-    val fileName: String,
-    val nullOnAbsent: Boolean,
-    val parse: (String) -> T,
-  ) {
+  private inner class WatchedFile<T>(val fileName: String, val nullOnAbsent: Boolean, val parse: (String) -> T) {
     val flow = MutableStateFlow<T?>(null)
 
     // Observed write cadence for the diagnostics channel (see snapshotCadence). Only successful
@@ -106,10 +99,7 @@ class TelemetryWatcher(
    * editing the server every time that set changes, so this discovers them instead: the map gains an
    * entry when a file appears and loses it when the file goes.
    */
-  private inner class WatchedRest<T>(
-    val claimed: () -> Set<String>,
-    val parse: (String) -> T,
-  ) {
+  private inner class WatchedRest<T>(val claimed: () -> Set<String>, val parse: (String) -> T) {
     val flow = MutableStateFlow<Map<String, T>>(emptyMap())
 
     // One tracker per discovered file, created on first sight. Same duplicate-event guard as
@@ -184,11 +174,7 @@ class TelemetryWatcher(
    * Register a file to watch; returns the [StateFlow] carrying its latest parsed value (null until the
    * first successful parse, and — for [nullOnAbsent] files — again whenever the file is absent).
    */
-  fun <T> register(
-    fileName: String,
-    nullOnAbsent: Boolean,
-    parse: (String) -> T,
-  ): StateFlow<T?> {
+  fun <T> register(fileName: String, nullOnAbsent: Boolean, parse: (String) -> T): StateFlow<T?> {
     val channel = WatchedFile(fileName, nullOnAbsent, parse)
     channels.add(channel)
     return channel.flow.asStateFlow()
@@ -220,11 +206,10 @@ class TelemetryWatcher(
    * [nowMs] (server epoch ms) so the app can compute per-channel staleness against one consistent
    * clock. Broadcast to clients as [net.vertexdezign.vdt.ServerMessage.ChannelStats].
    */
-  fun snapshotCadence(nowMs: Long = System.currentTimeMillis()): ChannelStatsData =
-    ChannelStatsData(
-      serverNowEpochMs = nowMs,
-      channels = channels.map { it.cadence.snapshot() } + (rest?.trackerSnapshots() ?: emptyList()),
-    )
+  fun snapshotCadence(nowMs: Long = System.currentTimeMillis()): ChannelStatsData = ChannelStatsData(
+    serverNowEpochMs = nowMs,
+    channels = channels.map { it.cadence.snapshot() } + (rest?.trackerSnapshots() ?: emptyList()),
+  )
 
   /**
    * Watch until cancelled, restarting the [java.nio.file.WatchService] if it fails.
@@ -236,21 +221,20 @@ class TelemetryWatcher(
    * included, until the server was restarted; nothing else would report it. So a failure logs, waits,
    * and re-establishes the watch instead.
    */
-  fun launchIn(scope: CoroutineScope): Job =
-    scope.launch(Dispatchers.IO) {
-      reparseAll() // initial read of whatever is already present
+  fun launchIn(scope: CoroutineScope): Job = scope.launch(Dispatchers.IO) {
+    reparseAll() // initial read of whatever is already present
 
-      while (isActive) {
-        try {
-          watchOnce()
-        } catch (e: CancellationException) {
-          throw e // cooperative cancellation, not a failure
-        } catch (e: Exception) {
-          log.warn("Watch on {} failed; retrying in {} ms", dir, RETRY_MS, e)
-        }
-        if (isActive) delay(RETRY_MS)
+    while (isActive) {
+      try {
+        watchOnce()
+      } catch (e: CancellationException) {
+        throw e // cooperative cancellation, not a failure
+      } catch (e: Exception) {
+        log.warn("Watch on {} failed; retrying in {} ms", dir, RETRY_MS, e)
       }
+      if (isActive) delay(RETRY_MS)
     }
+  }
 
   /** One watch session: register, then dispatch events until the service or the directory fails. */
   private suspend fun watchOnce() {

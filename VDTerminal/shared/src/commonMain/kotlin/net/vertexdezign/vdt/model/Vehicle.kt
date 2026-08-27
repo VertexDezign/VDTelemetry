@@ -50,17 +50,10 @@ data class Vehicle(
  * *set to* is [Motor.direction], which does not.
  */
 @Serializable
-data class Speed(
-  val value: Float = 0f,
-  val unit: String = "",
-  val direction: DriveDirection = DriveDirection.STOPPED,
-)
+data class Speed(val value: Float = 0f, val unit: String = "", val direction: DriveDirection = DriveDirection.STOPPED)
 
 @Serializable
-data class Brand(
-  val name: String? = null,
-  val title: String? = null,
-)
+data class Brand(val name: String? = null, val title: String? = null)
 
 // ---------------------------------------------------------------------------
 // Steering (mod version 10)
@@ -138,10 +131,7 @@ enum class SteeringLayout {
 }
 
 @Serializable
-data class OperatingTime(
-  val value: String = "",
-  val unit: String = "",
-)
+data class OperatingTime(val value: String = "", val unit: String = "")
 
 // ---------------------------------------------------------------------------
 // Motor
@@ -185,12 +175,7 @@ data class Motor(
  * temperature), and the vanilla figure it replaces is never synced to a multiplayer client at all.
  */
 @Serializable
-data class Temperatur(
-  val value: Int = 0,
-  val min: Int = 0,
-  val max: Int = 0,
-  val unit: String = "",
-)
+data class Temperatur(val value: Int = 0, val min: Int = 0, val max: Int = 0, val unit: String = "")
 
 /**
  * Engine speed, and the face of the gauge it is read on.
@@ -202,20 +187,11 @@ data class Temperatur(
  * the scale's ends and keep describing it whatever the engine is doing.
  */
 @Serializable
-data class Rpm(
-  val value: Int = 0,
-  val min: Int = 0,
-  val max: Int = 0,
-)
+data class Rpm(val value: Int = 0, val min: Int = 0, val max: Int = 0)
 
 /** Engine load in percent. [value] is 0 on a stopped engine, on the same rule as [Rpm.value]. */
 @Serializable
-data class Load(
-  val value: Double = 0.0,
-  val min: Int = 0,
-  val max: Int = 0,
-  val unit: String = "",
-)
+data class Load(val value: Double = 0.0, val min: Int = 0, val max: Int = 0, val unit: String = "")
 
 /**
  * What the transmission is in.
@@ -230,25 +206,14 @@ data class Load(
  * its range lever out reports `"N"` here, which is a range like any other.
  */
 @Serializable
-data class Gear(
-  val value: String = "",
-  val isNeutral: Boolean = false,
-  val group: String = "",
-)
+data class Gear(val value: String = "", val isNeutral: Boolean = false, val group: String = "")
 
 @Serializable
-data class MaxSpeed(
-  val forward: Int? = null,
-  val backward: Int? = null,
-)
+data class MaxSpeed(val forward: Int? = null, val backward: Int? = null)
 
 /** Motor fill units use fixed, named children (`fuel`/`def`/`air`) — distinct from [FillUnits]. */
 @Serializable
-data class MotorFillUnits(
-  val fuel: FillUnit? = null,
-  val def: FillUnit? = null,
-  val air: FillUnit? = null,
-)
+data class MotorFillUnits(val fuel: FillUnit? = null, val def: FillUnit? = null, val air: FillUnit? = null)
 
 /**
  * Front / rear differential locks, from Enhanced Vehicle.
@@ -258,19 +223,14 @@ data class MotorFillUnits(
  * `front == null`. Same rule as [Motor.diffLock] itself — null is "unknown", not "unlocked".
  */
 @Serializable
-data class DiffLock(
-  val front: Boolean? = null,
-  val back: Boolean? = null,
-)
+data class DiffLock(val front: Boolean? = null, val back: Boolean? = null)
 
 // ---------------------------------------------------------------------------
 // Fill units (repeated `fillUnit` form, used by vehicle / implement / combined)
 // ---------------------------------------------------------------------------
 
 @Serializable
-data class FillUnits(
-  val fillUnit: List<FillUnit> = emptyList(),
-)
+data class FillUnits(val fillUnit: List<FillUnit> = emptyList())
 
 /**
  * Shared fill-unit shape: a fill level plus descriptive attributes.
@@ -316,23 +276,13 @@ data class Lights(
 )
 
 @Serializable
-data class Indicator(
-  val left: Boolean = false,
-  val right: Boolean = false,
-  val hazard: Boolean = false,
-)
+data class Indicator(val left: Boolean = false, val right: Boolean = false, val hazard: Boolean = false)
 
 @Serializable
-data class Light(
-  val lowBeam: Boolean = false,
-  val highBeam: Boolean = false,
-)
+data class Light(val lowBeam: Boolean = false, val highBeam: Boolean = false)
 
 @Serializable
-data class WorkLight(
-  val front: Boolean = false,
-  val back: Boolean = false,
-)
+data class WorkLight(val front: Boolean = false, val back: Boolean = false)
 
 // ---------------------------------------------------------------------------
 // GPS / AI / cruise control
@@ -401,15 +351,10 @@ data class GpsCourseState(
 }
 
 @Serializable
-data class Ai(
-  val active: Boolean = false,
-)
+data class Ai(val active: Boolean = false)
 
 @Serializable
-data class CruiseControl(
-  val targetSpeed: Float? = null,
-  val active: Boolean? = null,
-)
+data class CruiseControl(val targetSpeed: Float? = null, val active: Boolean? = null)
 
 // ---------------------------------------------------------------------------
 // Wear
@@ -424,12 +369,7 @@ data class CruiseControl(
  * instead, and only as far as an inspection has revealed it.
  */
 @Serializable
-data class Wearable(
-  val damage: Int = 0,
-  val wear: Int = 0,
-  val dirt: Int = 0,
-  val unit: String = "",
-)
+data class Wearable(val damage: Int = 0, val wear: Int = 0, val dirt: Int = 0, val unit: String = "")
 
 // ---------------------------------------------------------------------------
 // Pipe / cover
@@ -456,11 +396,7 @@ data class Pipe(
  * everything is closed, otherwise the 1-based index of the open one, out of [count].
  */
 @Serializable
-data class Cover(
-  val state: CoverType = CoverType.CLOSED,
-  val index: Int = 0,
-  val count: Int = 0,
-)
+data class Cover(val state: CoverType = CoverType.CLOSED, val index: Int = 0, val count: Int = 0)
 
 // ---------------------------------------------------------------------------
 // Schema (rig diagram) + selection
@@ -646,11 +582,7 @@ data class Harvest(
 
 /** The discrete mode a tool is switched to. [name] comes from the vehicle XML and may be absent. */
 @Serializable
-data class WorkMode(
-  val current: Int = 0,
-  val count: Int = 0,
-  val name: String? = null,
-)
+data class WorkMode(val current: Int = 0, val count: Int = 0, val name: String? = null)
 
 /**
  * Live working width of a tool with retractable sections — it changes as sections are switched off,
@@ -685,10 +617,7 @@ enum class SectionSide { LEFT, CENTER, RIGHT }
 
 /** One shutoff section of a boom. */
 @Serializable
-data class WorkSection(
-  val active: Boolean = false,
-  val side: SectionSide = SectionSide.CENTER,
-)
+data class WorkSection(val active: Boolean = false, val side: SectionSide = SectionSide.CENTER)
 
 /**
  * One work area of a tool: a parallelogram of ground it processes.
@@ -750,10 +679,7 @@ val WorkArea.coversGround: Boolean get() = type !in DEPOSIT_AREA_TYPES
 
 /** [session] is resettable from the vehicle's own action; [lifetime] is not. */
 @Serializable
-data class BaleCounter(
-  val session: Int = 0,
-  val lifetime: Int = 0,
-)
+data class BaleCounter(val session: Int = 0, val lifetime: Int = 0)
 
 /**
  * A sowing machine's hopper — which crop is selected, out of the list the machine itself declares.
@@ -1039,10 +965,7 @@ enum class MixState {
  * [empty] is null until the engine has run its first mass update on the machine.
  */
 @Serializable
-data class Mass(
-  val value: Double = 0.0,
-  val empty: Double? = null,
-)
+data class Mass(val value: Double = 0.0, val empty: Double? = null)
 
 // ---------------------------------------------------------------------------
 // Implements (recursive) + combined
@@ -1089,10 +1012,7 @@ data class Combined(
 )
 
 @Serializable
-data class CombinedImplement(
-  val front: CombinedImplementState? = null,
-  val back: CombinedImplementState? = null,
-)
+data class CombinedImplement(val front: CombinedImplementState? = null, val back: CombinedImplementState? = null)
 
 @Serializable
 data class CombinedImplementState(

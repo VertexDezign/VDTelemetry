@@ -10,6 +10,16 @@ plugins {
 }
 
 val ktlintVersion = libs.versions.ktlint.get()
+
+// The .editorconfig lives at the *repo* root, a directory above this build, because that is where
+// the IDE's own ktlint reads it from: the plugin takes the .editorconfig of the folder IntelliJ was
+// opened on and ignores one further down.
+//
+// Resolved through the parent rather than written as "../.editorconfig", and that is not cosmetic --
+// handed the `..` form, ktlint applies none of the file's properties and formats to its own defaults
+// instead. Silently: nothing warns, the build simply starts asking for different code. Whatever the
+// path is spelled as, it has to come out of here with the `..` already resolved.
+val repoEditorConfig = rootDir.parentFile.resolve(".editorconfig")
 val composeRulesRuleSet = "io.nlopez.compose.rules:ktlint:${libs.versions.composeRules.get()}"
 
 allprojects {
@@ -34,11 +44,16 @@ allprojects {
       targetExclude("**/build/**")
       val ktlintConfig =
         ktlint(ktlintVersion)
-          .setEditorConfigPath(rootProject.file(".editorconfig"))
+          .setEditorConfigPath(repoEditorConfig)
           .customRuleSets(listOf(composeRulesRuleSet))
       if (isComposeModule) {
         ktlintConfig.editorConfigOverride(
           mapOf(
+            // The repo's one code style, repeated from the .editorconfig because this module cannot
+            // read it from there: a step carrying an override formats to Spotless's own preset
+            // whatever the file says. Stated rather than inherited, so it survives Spotless changing
+            // what that preset is.
+            "ktlint_code_style" to "intellij_idea",
             "ktlint_standard_function-naming" to "disabled",
             // App-wide ambient state container, provided once at the root (see state/VdtStore.kt);
             // screen navigation, which user-placed widgets have no call chain to reach (Navigator.kt);
@@ -51,7 +66,10 @@ allprojects {
     }
     kotlinGradle {
       target("*.gradle.kts")
-      ktlint(ktlintVersion)
+      // Named here too, where it never had to be before: with the file inside this build ktlint found
+      // it for itself, and from the repo root it does not. Left unnamed, this step formats the build
+      // scripts to ktlint's defaults -- which is how the move was noticed, on app/build.gradle.kts.
+      ktlint(ktlintVersion).setEditorConfigPath(repoEditorConfig)
     }
   }
 }

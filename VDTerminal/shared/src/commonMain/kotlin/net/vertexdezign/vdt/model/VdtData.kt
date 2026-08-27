@@ -13,8 +13,4 @@ import kotlinx.serialization.Serializable
  * fields fall back to these defaults.
  */
 @Serializable
-data class VdtData(
-  val version: String = "",
-  val environment: Environment? = null,
-  val vehicle: Vehicle? = null,
-)
+data class VdtData(val version: String = "", val environment: Environment? = null, val vehicle: Vehicle? = null)

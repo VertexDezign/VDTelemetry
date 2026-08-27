@@ -13,12 +13,7 @@ import javax.imageio.ImageIO
  * than the source, centered.
  */
 object ImagePipeline {
-  fun process(
-    data: ByteArray,
-    filename: String,
-    pdaWidth: Int,
-    pdaHeight: Int,
-  ): Pair<ByteArray, String> {
+  fun process(data: ByteArray, filename: String, pdaWidth: Int, pdaHeight: Int): Pair<ByteArray, String> {
     val ext = filename.substringAfterLast('.', "").lowercase()
 
     val image: BufferedImage =
@@ -59,11 +54,7 @@ object ImagePipeline {
   }
 
   /** Center-crop to target size, but only if smaller than the source (port of `cropImage`). */
-  private fun crop(
-    img: BufferedImage,
-    targetWidth: Int,
-    targetHeight: Int,
-  ): BufferedImage {
+  private fun crop(img: BufferedImage, targetWidth: Int, targetHeight: Int): BufferedImage {
     val width = img.width
     val height = img.height
     if (targetWidth >= width && targetHeight >= height) return img

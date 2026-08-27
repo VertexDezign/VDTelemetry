@@ -37,10 +37,11 @@ Both subsystems are formatter-gated in CI (`.github/workflows/ci.yml`) — forma
 
 ## Design rules (the app)
 
-Two standing constraints on every panel, widget and mark — full version, with the worked answers, in `VDTerminal/README.md` → "Design rules":
+Three standing constraints on every panel, widget and mark — full version, with the worked answers, in `VDTerminal/README.md` → "Design rules":
 
 - **Hue never carries a state on its own.** Two states must differ in brightness, shape or a word; colour may reinforce, never decide. (The user is colour blind and could not read the cluster's amber-armed against its green-engaged.)
 - **A mark that carries meaning is an `Icon`, not a character.** The wasm build has no font fallback, so `▲ ▼ ✕ →` render as tofu; inside a sentence, host the `Icon` in an `InlineTextContent` so the line still ellipsizes as one `Text`.
+- **A machine drawn from the side faces left.** One driving direction, right to left, across art, glyphs and the rig diagram alike — a Material icon with a nose on it is mirrored when it is part of a side view. (Views with no driving direction — the section strip, the heading-up map, the top-down steering glyphs — are exempt.)
 
 ## The mod (`vdTelemetry/`)
 

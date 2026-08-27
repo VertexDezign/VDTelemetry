@@ -127,11 +127,7 @@ data class PfManual(
  * on their own.
  */
 @Serializable
-data class PfValue(
-  val level: Float = 0f,
-  val target: Float = 0f,
-  val unit: String? = null,
-) {
+data class PfValue(val level: Float = 0f, val target: Float = 0f, val unit: String? = null) {
   /** How far below target this reading is; 0 when it is at or above it. */
   val deficit: Float get() = (target - level).coerceAtLeast(0f)
 }
@@ -189,10 +185,7 @@ data class PfNozzles(
 
 /** The sub-sections of one work area, joined to [WorkArea.index] by [index]. */
 @Serializable
-data class PfWorkArea(
-  val index: Int = 0,
-  val subSections: List<PfSubSection> = emptyList(),
-)
+data class PfWorkArea(val index: Int = 0, val subSections: List<PfSubSection> = emptyList())
 
 /**
  * One ~2 m slice across the boom, left to right — PF's own sub-division of a work area, and the strip

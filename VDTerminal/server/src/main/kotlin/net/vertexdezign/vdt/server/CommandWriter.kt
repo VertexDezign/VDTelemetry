@@ -26,10 +26,7 @@ import kotlin.io.path.readText
  * without bound across sessions. On *server* startup (not per write) ids are seeded from the
  * existing file's max, so a server restart mid-session doesn't reissue ids the mod already ran.
  */
-class CommandWriter(
-  private val path: Path,
-  private val ringSize: Int = 16,
-) {
+class CommandWriter(private val path: Path, private val ringSize: Int = 16) {
   private val log = LoggerFactory.getLogger(CommandWriter::class.java)
 
   private var nextId = seedNextId()
@@ -54,239 +51,230 @@ class CommandWriter(
     log.info("Wrote command id={} {}", id, message)
   }
 
-  private fun render(
-    id: Int,
-    message: ClientMessage,
-  ): String =
-    when (message) {
-      // Tokens are fixed enum values and ids are ints, so the fixed-shape commands below need no
-      // escaping. The TaskList commands do — they carry user-typed ids/detail — so those attribute
-      // values go through esc() (the mod reads via XMLFile.load, which unescapes on its side).
-      is ClientMessage.SetLight -> {
-        """<command id="$id" type="setLight" light="${message.light.token}" on="${message.on}"/>"""
-      }
-
-      is ClientMessage.SetTurnLight -> {
-        """<command id="$id" type="setTurnLight" state="${message.state.token}"/>"""
-      }
-
-      is ClientMessage.SetLowered -> {
-        """<command id="$id" type="setLowered" target="${message.target.token}" on="${message.on}"/>"""
-      }
-
-      is ClientMessage.SetFolded -> {
-        """<command id="$id" type="setFolded" target="${message.target.token}" on="${message.on}"/>"""
-      }
-
-      is ClientMessage.SetActivated -> {
-        """<command id="$id" type="setActivated" target="${message.target.token}" on="${message.on}"/>"""
-      }
-
-      is ClientMessage.SetPipeState -> {
-        """<command id="$id" type="setPipeState" target="${message.target.token}" state="${message.state}"/>"""
-      }
-
-      is ClientMessage.SetCoverState -> {
-        """<command id="$id" type="setCoverState" target="${message.target.token}" state="${message.state}"/>"""
-      }
-
-      is ClientMessage.SetTipSide -> {
-        """<command id="$id" type="setTipSide" target="${message.target.token}" side="${message.side}"/>"""
-      }
-
-      is ClientMessage.SetDischarging -> {
-        """<command id="$id" type="setDischarging" target="${message.target.token}" on="${message.on}"/>"""
-      }
-
-      is ClientMessage.SetSelected -> {
-        // `node` is a path the app built out of array indices, so in practice it is digits and
-        // slashes -- but it is the one attribute here that arrives as free-form text over the
-        // WebSocket rather than as an enum token, so it is escaped like the task ids are.
-        val groupAttr = message.controlGroup?.let { " controlGroup=\"$it\"" } ?: ""
-        """<command id="$id" type="setSelected" node="${esc(message.node)}"$groupAttr/>"""
-      }
-
-      is ClientMessage.SetMotorState -> {
-        """<command id="$id" type="setMotorState" on="${message.on}"/>"""
-      }
-
-      is ClientMessage.SetSprayAmountAuto -> {
-        """<command id="$id" type="setSprayAmountAuto" auto="${message.auto}"/>"""
-      }
-
-      is ClientMessage.SetSprayAmountStep -> {
-        """<command id="$id" type="setSprayAmountStep" step="${message.step}"/>"""
-      }
-
-      is ClientMessage.SetCruiseControl -> {
-        val speedAttr = message.speed?.let { " speed=\"$it\"" } ?: ""
-        """<command id="$id" type="setCruiseControl" action="${message.action.token}"$speedAttr/>"""
-      }
-
-      is ClientMessage.SetGpsLinesVisible -> {
-        """<command id="$id" type="setGpsLinesVisible" on="${message.on}"/>"""
-      }
-
-      is ClientMessage.CompleteTask -> {
-        """<command id="$id" type="completeTask" groupId="${esc(message.groupId)}" taskId="${esc(message.taskId)}"/>"""
-      }
-
-      is ClientMessage.DeleteTask -> {
-        """<command id="$id" type="deleteTask" groupId="${esc(message.groupId)}" taskId="${esc(message.taskId)}"/>"""
-      }
-
-      is ClientMessage.CreateTask -> {
-        """<command id="$id" type="createTask" groupId="${esc(message.groupId)}"${taskAttrs(message.task)}/>"""
-      }
-
-      is ClientMessage.EditTask -> {
-        """<command id="$id" type="editTask" groupId="${esc(
-          message.groupId,
-        )}" taskId="${esc(message.taskId)}"${taskAttrs(message.task)}/>"""
-      }
-
-      // CropRotation writes. Only createRotation carries user text (name → escaped); the rest are ints.
-      is ClientMessage.SetRotationCrop -> {
-        """<command id="$id" type="setRotationCrop" rotationIndex="${message.rotationIndex}" slot="${message.slot}" state="${message.state}"/>"""
-      }
-
-      is ClientMessage.SetRotationCatchCrop -> {
-        """<command id="$id" type="setRotationCatchCrop" rotationIndex="${message.rotationIndex}" slot="${message.slot}" catchCropState="${message.catchCropState}"/>"""
-      }
-
-      is ClientMessage.AddRotationSlot -> {
-        """<command id="$id" type="addRotationSlot" rotationIndex="${message.rotationIndex}"/>"""
-      }
-
-      is ClientMessage.RemoveRotationSlot -> {
-        """<command id="$id" type="removeRotationSlot" rotationIndex="${message.rotationIndex}"/>"""
-      }
-
-      is ClientMessage.CreateRotation -> {
-        """<command id="$id" type="createRotation" name="${esc(message.name)}"/>"""
-      }
-
-      is ClientMessage.DeleteRotation -> {
-        """<command id="$id" type="deleteRotation" rotationIndex="${message.rotationIndex}"/>"""
-      }
-
-      // Productions writes. pointId is a placeable uniqueId and fillType an internal name (escaped for
-      // safety); productionId is likewise passed through esc(). enabled is a bool, mode a fixed token.
-      is ClientMessage.SetProductionEnabled -> {
-        """<command id="$id" type="setProductionEnabled" pointId="${esc(
-          message.pointId,
-        )}" productionId="${esc(message.productionId)}" enabled="${message.enabled}"/>"""
-      }
-
-      is ClientMessage.SetProductionOutputMode -> {
-        """<command id="$id" type="setProductionOutputMode" pointId="${esc(
-          message.pointId,
-        )}" fillType="${esc(message.fillType)}" mode="${message.mode.token}"/>"""
-      }
-
-      // storageId is a placeable uniqueId and title the object dialog text (both escaped); index and
-      // amount are ints.
-      // The ground-layer subscription -- the union across connected dashboards, computed by
-      // MapLayerSubscriptions. The ids come from the mod's own catalogue by way of the app, but they
-      // are still mod-authored strings, so they go through esc() like any other non-fixed value.
-      is ClientMessage.SetMapLayers -> {
-        """<command id="$id" type="setMapLayers" ids="${esc(message.ids.joinToString(","))}"/>"""
-      }
-
-      // Contract actions: the id is the mission's network object id, an int, so no escaping needed.
-      is ClientMessage.AcceptMission -> {
-        """<command id="$id" type="acceptMission" missionId="${message.missionId}" lease="${message.lease}"/>"""
-      }
-
-      is ClientMessage.CancelMission -> {
-        """<command id="$id" type="cancelMission" missionId="${message.missionId}"/>"""
-      }
-
-      is ClientMessage.DismissMission -> {
-        """<command id="$id" type="dismissMission" missionId="${message.missionId}"/>"""
-      }
-
-      is ClientMessage.UnloadObjectStorage -> {
-        """<command id="$id" type="unloadObjectStorage" storageId="${esc(
-          message.storageId,
-        )}" index="${message.index}" title="${esc(message.title)}" amount="${message.amount}"/>"""
-      }
-
-      // The target loan, a non-negative int (the type's own require), so no escaping needed. The mod
-      // turns it into the delta ChangeLoanEvent wants, and clamps/refuses against the live farm.
-      is ClientMessage.SetLoan -> {
-        """<command id="$id" type="setLoan" amount="${message.amount}"/>"""
-      }
-
-      // Enhanced Loan System writes. All ints (positives by the types' own requires, and loanId is a
-      // network object id), so nothing here needs escaping. Every bound is re-derived mod-side.
-      is ClientMessage.TakeLoan -> {
-        """<command id="$id" type="takeLoan" amount="${message.amount}" durationYears="${message.durationYears}"/>"""
-      }
-
-      is ClientMessage.RepayLoan -> {
-        """<command id="$id" type="repayLoan" loanId="${message.loanId}" amount="${message.amount}"/>"""
-      }
-
-      // FS25_Invoices writes. The four id-addressed ones are a single int; the mod re-derives who may
-      // do what from the live invoice, so nothing here needs to be trusted.
-      is ClientMessage.PayInvoice -> {
-        """<command id="$id" type="payInvoice" invoiceId="${message.invoiceId}"/>"""
-      }
-
-      is ClientMessage.CancelInvoice -> {
-        """<command id="$id" type="cancelInvoice" invoiceId="${message.invoiceId}"/>"""
-      }
-
-      is ClientMessage.ValidateProposal -> {
-        """<command id="$id" type="validateProposal" invoiceId="${message.invoiceId}"/>"""
-      }
-
-      is ClientMessage.RefuseProposal -> {
-        """<command id="$id" type="refuseProposal" invoiceId="${message.invoiceId}"/>"""
-      }
-
-      // The one command with children, and so the only one rendered as an open/close pair rather than
-      // a self-closing element. The mod's parse reads `<line/>` under its own key, so the nesting is
-      // private to that command — the envelope reader never looks inside.
-      is ClientMessage.CreateInvoice -> {
-        renderCreateInvoice(id, message)
-      }
+  private fun render(id: Int, message: ClientMessage): String = when (message) {
+    // Tokens are fixed enum values and ids are ints, so the fixed-shape commands below need no
+    // escaping. The TaskList commands do — they carry user-typed ids/detail — so those attribute
+    // values go through esc() (the mod reads via XMLFile.load, which unescapes on its side).
+    is ClientMessage.SetLight -> {
+      """<command id="$id" type="setLight" light="${message.light.token}" on="${message.on}"/>"""
     }
+
+    is ClientMessage.SetTurnLight -> {
+      """<command id="$id" type="setTurnLight" state="${message.state.token}"/>"""
+    }
+
+    is ClientMessage.SetLowered -> {
+      """<command id="$id" type="setLowered" target="${message.target.token}" on="${message.on}"/>"""
+    }
+
+    is ClientMessage.SetFolded -> {
+      """<command id="$id" type="setFolded" target="${message.target.token}" on="${message.on}"/>"""
+    }
+
+    is ClientMessage.SetActivated -> {
+      """<command id="$id" type="setActivated" target="${message.target.token}" on="${message.on}"/>"""
+    }
+
+    is ClientMessage.SetPipeState -> {
+      """<command id="$id" type="setPipeState" target="${message.target.token}" state="${message.state}"/>"""
+    }
+
+    is ClientMessage.SetCoverState -> {
+      """<command id="$id" type="setCoverState" target="${message.target.token}" state="${message.state}"/>"""
+    }
+
+    is ClientMessage.SetTipSide -> {
+      """<command id="$id" type="setTipSide" target="${message.target.token}" side="${message.side}"/>"""
+    }
+
+    is ClientMessage.SetDischarging -> {
+      """<command id="$id" type="setDischarging" target="${message.target.token}" on="${message.on}"/>"""
+    }
+
+    is ClientMessage.SetSelected -> {
+      // `node` is a path the app built out of array indices, so in practice it is digits and
+      // slashes -- but it is the one attribute here that arrives as free-form text over the
+      // WebSocket rather than as an enum token, so it is escaped like the task ids are.
+      val groupAttr = message.controlGroup?.let { " controlGroup=\"$it\"" } ?: ""
+      """<command id="$id" type="setSelected" node="${esc(message.node)}"$groupAttr/>"""
+    }
+
+    is ClientMessage.SetMotorState -> {
+      """<command id="$id" type="setMotorState" on="${message.on}"/>"""
+    }
+
+    is ClientMessage.SetSprayAmountAuto -> {
+      """<command id="$id" type="setSprayAmountAuto" auto="${message.auto}"/>"""
+    }
+
+    is ClientMessage.SetSprayAmountStep -> {
+      """<command id="$id" type="setSprayAmountStep" step="${message.step}"/>"""
+    }
+
+    is ClientMessage.SetCruiseControl -> {
+      val speedAttr = message.speed?.let { " speed=\"$it\"" } ?: ""
+      """<command id="$id" type="setCruiseControl" action="${message.action.token}"$speedAttr/>"""
+    }
+
+    is ClientMessage.SetGpsLinesVisible -> {
+      """<command id="$id" type="setGpsLinesVisible" on="${message.on}"/>"""
+    }
+
+    is ClientMessage.CompleteTask -> {
+      """<command id="$id" type="completeTask" groupId="${esc(message.groupId)}" taskId="${esc(message.taskId)}"/>"""
+    }
+
+    is ClientMessage.DeleteTask -> {
+      """<command id="$id" type="deleteTask" groupId="${esc(message.groupId)}" taskId="${esc(message.taskId)}"/>"""
+    }
+
+    is ClientMessage.CreateTask -> {
+      """<command id="$id" type="createTask" groupId="${esc(message.groupId)}"${taskAttrs(message.task)}/>"""
+    }
+
+    is ClientMessage.EditTask -> {
+      """<command id="$id" type="editTask" groupId="${esc(
+        message.groupId,
+      )}" taskId="${esc(message.taskId)}"${taskAttrs(message.task)}/>"""
+    }
+
+    // CropRotation writes. Only createRotation carries user text (name → escaped); the rest are ints.
+    is ClientMessage.SetRotationCrop -> {
+      """<command id="$id" type="setRotationCrop" rotationIndex="${message.rotationIndex}" slot="${message.slot}" state="${message.state}"/>"""
+    }
+
+    is ClientMessage.SetRotationCatchCrop -> {
+      """<command id="$id" type="setRotationCatchCrop" rotationIndex="${message.rotationIndex}" slot="${message.slot}" catchCropState="${message.catchCropState}"/>"""
+    }
+
+    is ClientMessage.AddRotationSlot -> {
+      """<command id="$id" type="addRotationSlot" rotationIndex="${message.rotationIndex}"/>"""
+    }
+
+    is ClientMessage.RemoveRotationSlot -> {
+      """<command id="$id" type="removeRotationSlot" rotationIndex="${message.rotationIndex}"/>"""
+    }
+
+    is ClientMessage.CreateRotation -> {
+      """<command id="$id" type="createRotation" name="${esc(message.name)}"/>"""
+    }
+
+    is ClientMessage.DeleteRotation -> {
+      """<command id="$id" type="deleteRotation" rotationIndex="${message.rotationIndex}"/>"""
+    }
+
+    // Productions writes. pointId is a placeable uniqueId and fillType an internal name (escaped for
+    // safety); productionId is likewise passed through esc(). enabled is a bool, mode a fixed token.
+    is ClientMessage.SetProductionEnabled -> {
+      """<command id="$id" type="setProductionEnabled" pointId="${esc(
+        message.pointId,
+      )}" productionId="${esc(message.productionId)}" enabled="${message.enabled}"/>"""
+    }
+
+    is ClientMessage.SetProductionOutputMode -> {
+      """<command id="$id" type="setProductionOutputMode" pointId="${esc(
+        message.pointId,
+      )}" fillType="${esc(message.fillType)}" mode="${message.mode.token}"/>"""
+    }
+
+    // storageId is a placeable uniqueId and title the object dialog text (both escaped); index and
+    // amount are ints.
+    // The ground-layer subscription -- the union across connected dashboards, computed by
+    // MapLayerSubscriptions. The ids come from the mod's own catalogue by way of the app, but they
+    // are still mod-authored strings, so they go through esc() like any other non-fixed value.
+    is ClientMessage.SetMapLayers -> {
+      """<command id="$id" type="setMapLayers" ids="${esc(message.ids.joinToString(","))}"/>"""
+    }
+
+    // Contract actions: the id is the mission's network object id, an int, so no escaping needed.
+    is ClientMessage.AcceptMission -> {
+      """<command id="$id" type="acceptMission" missionId="${message.missionId}" lease="${message.lease}"/>"""
+    }
+
+    is ClientMessage.CancelMission -> {
+      """<command id="$id" type="cancelMission" missionId="${message.missionId}"/>"""
+    }
+
+    is ClientMessage.DismissMission -> {
+      """<command id="$id" type="dismissMission" missionId="${message.missionId}"/>"""
+    }
+
+    is ClientMessage.UnloadObjectStorage -> {
+      """<command id="$id" type="unloadObjectStorage" storageId="${esc(
+        message.storageId,
+      )}" index="${message.index}" title="${esc(message.title)}" amount="${message.amount}"/>"""
+    }
+
+    // The target loan, a non-negative int (the type's own require), so no escaping needed. The mod
+    // turns it into the delta ChangeLoanEvent wants, and clamps/refuses against the live farm.
+    is ClientMessage.SetLoan -> {
+      """<command id="$id" type="setLoan" amount="${message.amount}"/>"""
+    }
+
+    // Enhanced Loan System writes. All ints (positives by the types' own requires, and loanId is a
+    // network object id), so nothing here needs escaping. Every bound is re-derived mod-side.
+    is ClientMessage.TakeLoan -> {
+      """<command id="$id" type="takeLoan" amount="${message.amount}" durationYears="${message.durationYears}"/>"""
+    }
+
+    is ClientMessage.RepayLoan -> {
+      """<command id="$id" type="repayLoan" loanId="${message.loanId}" amount="${message.amount}"/>"""
+    }
+
+    // FS25_Invoices writes. The four id-addressed ones are a single int; the mod re-derives who may
+    // do what from the live invoice, so nothing here needs to be trusted.
+    is ClientMessage.PayInvoice -> {
+      """<command id="$id" type="payInvoice" invoiceId="${message.invoiceId}"/>"""
+    }
+
+    is ClientMessage.CancelInvoice -> {
+      """<command id="$id" type="cancelInvoice" invoiceId="${message.invoiceId}"/>"""
+    }
+
+    is ClientMessage.ValidateProposal -> {
+      """<command id="$id" type="validateProposal" invoiceId="${message.invoiceId}"/>"""
+    }
+
+    is ClientMessage.RefuseProposal -> {
+      """<command id="$id" type="refuseProposal" invoiceId="${message.invoiceId}"/>"""
+    }
+
+    // The one command with children, and so the only one rendered as an open/close pair rather than
+    // a self-closing element. The mod's parse reads `<line/>` under its own key, so the nesting is
+    // private to that command — the envelope reader never looks inside.
+    is ClientMessage.CreateInvoice -> {
+      renderCreateInvoice(id, message)
+    }
+  }
 
   /**
    * `createInvoice` with one `<line/>` per line item. `note` is the only user-typed value on the whole
    * command, so it is the only one escaped; everything else is a number the types already constrained.
    */
-  private fun renderCreateInvoice(
-    id: Int,
-    message: ClientMessage.CreateInvoice,
-  ): String =
-    buildString {
-      append("""<command id="$id" type="createInvoice" farmId="${message.farmId}" proposal="${message.proposal}">""")
-      for (line in message.lines) {
-        append("\n        <line")
-        append(""" workTypeId="${line.workTypeId}"""")
-        append(""" quantity="${num(line.quantity)}"""")
-        line.price?.let { append(""" price="${num(it)}"""") }
-        line.discount?.let { append(""" discount="${num(it)}"""") }
-        line.fieldId?.let { append(""" fieldId="$it"""") }
-        line.note?.takeIf { it.isNotBlank() }?.let { append(""" note="${esc(it)}"""") }
-        append("/>")
-      }
-      append("\n    </command>")
+  private fun renderCreateInvoice(id: Int, message: ClientMessage.CreateInvoice): String = buildString {
+    append("""<command id="$id" type="createInvoice" farmId="${message.farmId}" proposal="${message.proposal}">""")
+    for (line in message.lines) {
+      append("\n        <line")
+      append(""" workTypeId="${line.workTypeId}"""")
+      append(""" quantity="${num(line.quantity)}"""")
+      line.price?.let { append(""" price="${num(it)}"""") }
+      line.discount?.let { append(""" discount="${num(it)}"""") }
+      line.fieldId?.let { append(""" fieldId="$it"""") }
+      line.note?.takeIf { it.isNotBlank() }?.let { append(""" note="${esc(it)}"""") }
+      append("/>")
     }
+    append("\n    </command>")
+  }
 
   /**
    * A double as plain digits. `Double.toString` switches to scientific notation past seven digits
    * (`1.0E7`), which the engine's XML reader would not parse back into the litre count somebody meant
    * — so this goes through BigDecimal, which also drops the `.0` off a whole number.
    */
-  private fun num(value: Double): String =
-    java.math.BigDecimal
-      .valueOf(value)
-      .stripTrailingZeros()
-      .toPlainString()
+  private fun num(value: Double): String = java.math.BigDecimal
+    .valueOf(value)
+    .stripTrailingZeros()
+    .toPlainString()
 
   /** The shared `TaskInput` attributes for createTask / editTask (detail is user text → escaped). */
   private fun taskAttrs(task: net.vertexdezign.vdt.TaskInput): String =
@@ -294,13 +282,12 @@ class CommandWriter(
       """ recurMode="${task.recurMode}" n="${task.n}" month="${task.month}""""
 
   /** XML-escape an attribute value. `&` first so the entities it introduces aren't re-escaped. */
-  private fun esc(value: String): String =
-    value
-      .replace("&", "&amp;")
-      .replace("<", "&lt;")
-      .replace(">", "&gt;")
-      .replace("\"", "&quot;")
-      .replace("'", "&apos;")
+  private fun esc(value: String): String = value
+    .replace("&", "&amp;")
+    .replace("<", "&lt;")
+    .replace(">", "&gt;")
+    .replace("\"", "&quot;")
+    .replace("'", "&apos;")
 
   private fun write() {
     path.parent?.createDirectories()
@@ -316,20 +303,19 @@ class CommandWriter(
     Files.move(tmp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
   }
 
-  private fun seedNextId(): Int =
-    try {
-      if (!path.exists()) {
-        1
-      } else {
-        val maxId =
-          Regex("""id="(\d+)"""")
-            .findAll(path.readText())
-            .mapNotNull { it.groupValues[1].toIntOrNull() }
-            .maxOrNull() ?: 0
-        maxId + 1
-      }
-    } catch (e: Exception) {
-      log.warn("Could not seed command id from {}; starting at 1", path, e)
+  private fun seedNextId(): Int = try {
+    if (!path.exists()) {
       1
+    } else {
+      val maxId =
+        Regex("""id="(\d+)"""")
+          .findAll(path.readText())
+          .mapNotNull { it.groupValues[1].toIntOrNull() }
+          .maxOrNull() ?: 0
+      maxId + 1
     }
+  } catch (e: Exception) {
+    log.warn("Could not seed command id from {}; starting at 1", path, e)
+    1
+  }
 }

@@ -17,10 +17,7 @@ import kotlinx.serialization.Serializable
  * model: omitted keys fall back to these defaults, so the mod can add fields ahead of the client.
  */
 @Serializable
-data class ProductionData(
-  val version: String = "",
-  val productionPoints: List<ProductionPoint> = emptyList(),
-)
+data class ProductionData(val version: String = "", val productionPoints: List<ProductionPoint> = emptyList())
 
 /** One owned production point (greenhouse, biogas plant, ...) or a factory. */
 @Serializable

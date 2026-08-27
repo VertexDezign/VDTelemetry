@@ -17,10 +17,7 @@ import kotlinx.serialization.Serializable
  * model: omitted keys fall back to these defaults, so the mod can add fields ahead of the client.
  */
 @Serializable
-data class FieldInfoData(
-  val version: String = "",
-  val fields: List<FieldInfoEntry> = emptyList(),
-)
+data class FieldInfoData(val version: String = "", val fields: List<FieldInfoEntry> = emptyList())
 
 /**
  * One field's agronomy state, sampled mod-side at the field's centre from the same density maps the

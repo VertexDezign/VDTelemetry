@@ -16,11 +16,10 @@ import kotlin.test.assertTrue
  * app, so these assertions run against the same bytes a user gets.
  */
 class DashboardRouteTest {
-  private fun withDashboard(block: suspend (io.ktor.client.HttpClient) -> Unit) =
-    testApplication {
-      application { routing { dashboardRoute() } }
-      block(client)
-    }
+  private fun withDashboard(block: suspend (io.ktor.client.HttpClient) -> Unit) = testApplication {
+    application { routing { dashboardRoute() } }
+    block(client)
+  }
 
   /**
    * The one thing Ktor doesn't get right on its own. A manifest served as `application/octet-stream`
@@ -28,31 +27,29 @@ class DashboardRouteTest {
    * producing a standalone window — the failure has no error message anywhere, hence the test.
    */
   @Test
-  fun servesTheWebManifestAsAJsonMediaType() =
-    withDashboard { client ->
-      val response = client.get("/manifest.webmanifest")
-      assertEquals(HttpStatusCode.OK, response.status)
-      assertEquals(
-        ContentType("application", "manifest+json"),
-        ContentType.parse(response.headers[HttpHeaders.ContentType]!!).withoutParameters(),
-      )
-      assertTrue(response.bodyAsText().contains("\"icons\""))
-    }
+  fun servesTheWebManifestAsAJsonMediaType() = withDashboard { client ->
+    val response = client.get("/manifest.webmanifest")
+    assertEquals(HttpStatusCode.OK, response.status)
+    assertEquals(
+      ContentType("application", "manifest+json"),
+      ContentType.parse(response.headers[HttpHeaders.ContentType]!!).withoutParameters(),
+    )
+    assertTrue(response.bodyAsText().contains("\"icons\""))
+  }
 
   /** The manifest's icons have to actually resolve, or an installed shortcut has no icon. */
   @Test
-  fun servesTheIconsTheManifestNames() =
-    withDashboard { client ->
-      for (icon in listOf("icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png")) {
-        val response = client.get("/icons/$icon")
-        assertEquals(HttpStatusCode.OK, response.status, icon)
-        assertEquals(
-          ContentType.Image.PNG,
-          ContentType.parse(response.headers[HttpHeaders.ContentType]!!).withoutParameters(),
-          icon,
-        )
-      }
+  fun servesTheIconsTheManifestNames() = withDashboard { client ->
+    for (icon in listOf("icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png")) {
+      val response = client.get("/icons/$icon")
+      assertEquals(HttpStatusCode.OK, response.status, icon)
+      assertEquals(
+        ContentType.Image.PNG,
+        ContentType.parse(response.headers[HttpHeaders.ContentType]!!).withoutParameters(),
+        icon,
+      )
     }
+  }
 
   /**
    * The wake-lock fallback plays these, and can only play what it can fetch. They exist for the
@@ -61,40 +58,38 @@ class DashboardRouteTest {
    * nobody is going to touch to wake up.
    */
   @Test
-  fun servesTheKeepAwakeClipsAsVideo() =
-    withDashboard { client ->
-      val clips =
-        mapOf(
-          "keep-awake.webm" to ContentType("video", "webm"),
-          "keep-awake.mp4" to ContentType("video", "mp4"),
-        )
-      for ((clip, type) in clips) {
-        val response = client.get("/media/$clip")
-        assertEquals(HttpStatusCode.OK, response.status, clip)
-        assertEquals(
-          type,
-          ContentType.parse(response.headers[HttpHeaders.ContentType]!!).withoutParameters(),
-          clip,
-        )
-      }
+  fun servesTheKeepAwakeClipsAsVideo() = withDashboard { client ->
+    val clips =
+      mapOf(
+        "keep-awake.webm" to ContentType("video", "webm"),
+        "keep-awake.mp4" to ContentType("video", "mp4"),
+      )
+    for ((clip, type) in clips) {
+      val response = client.get("/media/$clip")
+      assertEquals(HttpStatusCode.OK, response.status, clip)
+      assertEquals(
+        type,
+        ContentType.parse(response.headers[HttpHeaders.ContentType]!!).withoutParameters(),
+        clip,
+      )
     }
+  }
 
   /** Overriding one extension must not have replaced Ktor's table for the rest of the bundle. */
   @Test
-  fun stillTypesTheAppNormally() =
-    withDashboard { client ->
-      val index = client.get("/")
-      assertEquals(HttpStatusCode.OK, index.status)
-      assertEquals(
-        ContentType.Text.Html,
-        ContentType.parse(index.headers[HttpHeaders.ContentType]!!).withoutParameters(),
-      )
-      val script = client.get("/app.js")
-      assertEquals(HttpStatusCode.OK, script.status)
-      // text/javascript, not application/javascript: Ktor follows the type WHATWG settled on.
-      assertEquals(
-        ContentType.Text.JavaScript,
-        ContentType.parse(script.headers[HttpHeaders.ContentType]!!).withoutParameters(),
-      )
-    }
+  fun stillTypesTheAppNormally() = withDashboard { client ->
+    val index = client.get("/")
+    assertEquals(HttpStatusCode.OK, index.status)
+    assertEquals(
+      ContentType.Text.Html,
+      ContentType.parse(index.headers[HttpHeaders.ContentType]!!).withoutParameters(),
+    )
+    val script = client.get("/app.js")
+    assertEquals(HttpStatusCode.OK, script.status)
+    // text/javascript, not application/javascript: Ktor follows the type WHATWG settled on.
+    assertEquals(
+      ContentType.Text.JavaScript,
+      ContentType.parse(script.headers[HttpHeaders.ContentType]!!).withoutParameters(),
+    )
+  }
 }

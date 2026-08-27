@@ -113,10 +113,7 @@ object InvoiceTokens {
 
 /** A farm that can be billed. */
 @Serializable
-data class InvoiceFarm(
-  val id: Int = 0,
-  val name: String? = null,
-) {
+data class InvoiceFarm(val id: Int = 0, val name: String? = null) {
   /** What to print — the game does not always have a name. */
   val label: String get() = name ?: "Farm $id"
 }

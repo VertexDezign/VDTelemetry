@@ -17,9 +17,7 @@ import kotlin.math.min
  * Thread-safe: [recordWrite] runs on the watcher's IO coroutine while [snapshot] is read from the
  * stats-broadcast timer on another dispatcher.
  */
-internal class CadenceTracker(
-  private val name: String,
-) {
+internal class CadenceTracker(private val name: String) {
   private var writes = 0L
   private var lastWriteMs: Long? = null
   private var lastIntervalMs: Long? = null
@@ -48,16 +46,15 @@ internal class CadenceTracker(
   }
 
   @Synchronized
-  fun snapshot(): ChannelStat =
-    ChannelStat(
-      name = name,
-      writes = writes,
-      lastWriteEpochMs = lastWriteMs,
-      lastIntervalMs = lastIntervalMs,
-      meanIntervalMs = emaMs,
-      minIntervalMs = minIntervalMs,
-      maxIntervalMs = maxIntervalMs,
-    )
+  fun snapshot(): ChannelStat = ChannelStat(
+    name = name,
+    writes = writes,
+    lastWriteEpochMs = lastWriteMs,
+    lastIntervalMs = lastIntervalMs,
+    meanIntervalMs = emaMs,
+    minIntervalMs = minIntervalMs,
+    maxIntervalMs = maxIntervalMs,
+  )
 
   private companion object {
     // Same smoothing the app uses for its telemetry-tick estimate; rides out debounce/FS jitter.

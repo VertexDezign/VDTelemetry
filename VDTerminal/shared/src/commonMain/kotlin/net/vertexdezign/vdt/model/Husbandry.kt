@@ -11,10 +11,7 @@ import kotlinx.serialization.Serializable
  * Its own [version], independent of [VdtData.version]. Omitted keys fall back to these defaults.
  */
 @Serializable
-data class HusbandriesData(
-  val version: String = "",
-  val husbandries: List<Husbandry> = emptyList(),
-)
+data class HusbandriesData(val version: String = "", val husbandries: List<Husbandry> = emptyList())
 
 /** One owned animal husbandry (pen/barn). */
 @Serializable

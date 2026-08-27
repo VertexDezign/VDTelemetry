@@ -259,12 +259,11 @@ class MissionModelTest {
   @Test
   fun theFourWaysAContractCanEndAllDecode() {
     // The capture only holds a SUCCESS, so the other three are pinned against the wire directly.
-    fun finishState(token: String) =
-      VdtParser
-        .parseMissions("""{"version":"1","missions":[{"id":1,"status":"FINISHED","finishState":"$token"}]}""")
-        .missions
-        .single()
-        .finishState
+    fun finishState(token: String) = VdtParser
+      .parseMissions("""{"version":"1","missions":[{"id":1,"status":"FINISHED","finishState":"$token"}]}""")
+      .missions
+      .single()
+      .finishState
 
     assertEquals(MissionFinishState.SUCCESS, finishState("SUCCESS"))
     assertEquals(MissionFinishState.FAILED, finishState("FAILED"))
@@ -305,10 +304,7 @@ class MissionModelTest {
 
   @Test
   fun theContractCapIsReadableAsAPredicate() {
-    fun limit(
-      active: Int,
-      max: Int,
-    ) = assertNotNull(
+    fun limit(active: Int, max: Int) = assertNotNull(
       VdtParser.parseMissions("""{"version":"1","limit":{"active":$active,"max":$max}}""").limit,
     )
 

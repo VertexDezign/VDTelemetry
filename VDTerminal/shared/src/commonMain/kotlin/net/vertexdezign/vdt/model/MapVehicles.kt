@@ -15,10 +15,7 @@ import kotlinx.serialization.Serializable
  * model: omitted keys fall back to these defaults.
  */
 @Serializable
-data class MapVehiclesData(
-  val version: String = "",
-  val vehicles: List<MapVehicle> = emptyList(),
-)
+data class MapVehiclesData(val version: String = "", val vehicles: List<MapVehicle> = emptyList())
 
 @Serializable
 data class MapVehicle(

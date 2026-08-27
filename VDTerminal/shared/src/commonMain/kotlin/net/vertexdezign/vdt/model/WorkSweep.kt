@@ -13,10 +13,7 @@ private const val MAX_SWEEP_MS = 1000L
 private const val MAX_SWEEP_METERS = 40f
 
 /** A convex polygon of ground, as x/z pairs in the normalized `[0,1]` map frame. */
-class SweptArea(
-  val xs: FloatArray,
-  val zs: FloatArray,
-)
+class SweptArea(val xs: FloatArray, val zs: FloatArray)
 
 /**
  * Ground the rig has actually covered, from one telemetry sample to the next.
@@ -68,11 +65,7 @@ class SweptArea(
  */
 class WorkSweep {
   /** The four corners of one work area at one sample, wound as a ring. */
-  private class Footprint(
-    val xs: FloatArray,
-    val zs: FloatArray,
-    val atMs: Long,
-  )
+  private class Footprint(val xs: FloatArray, val zs: FloatArray, val atMs: Long)
 
   private var previous: Map<Int, Footprint> = emptyMap()
 
@@ -93,11 +86,7 @@ class WorkSweep {
    * changes when a tool is hitched or dropped, and a wrong pairing after *that* is what the distance
    * guard is really there for, since two tools on one machine are meters apart.
    */
-  fun advance(
-    vehicle: Vehicle?,
-    terrainSize: Float,
-    nowMs: Long,
-  ): List<SweptArea> {
+  fun advance(vehicle: Vehicle?, terrainSize: Float, nowMs: Long): List<SweptArea> {
     if (terrainSize <= 0f) return emptyList()
     val areas =
       vehicle
@@ -142,18 +131,15 @@ class WorkSweep {
    * The mod sends three and leaves the fourth — the one opposite the start, at `width + height -
    * start` — to be derived, as the map overlay also does.
    */
-  private fun WorkArea.footprint(atMs: Long) =
-    Footprint(
-      xs = floatArrayOf(shape[0], shape[2], shape[2] + shape[4] - shape[0], shape[4]),
-      zs = floatArrayOf(shape[1], shape[3], shape[3] + shape[5] - shape[1], shape[5]),
-      atMs = atMs,
-    )
+  private fun WorkArea.footprint(atMs: Long) = Footprint(
+    xs = floatArrayOf(shape[0], shape[2], shape[2] + shape[4] - shape[0], shape[4]),
+    zs = floatArrayOf(shape[1], shape[3], shape[3] + shape[5] - shape[1], shape[5]),
+    atMs = atMs,
+  )
 
   /** Measured at the start corner, the one the engine anchors the area to. */
-  private fun Footprint.near(
-    other: Footprint,
-    maxJump: Float,
-  ): Boolean = abs(xs[0] - other.xs[0]) <= maxJump && abs(zs[0] - other.zs[0]) <= maxJump
+  private fun Footprint.near(other: Footprint, maxJump: Float): Boolean =
+    abs(xs[0] - other.xs[0]) <= maxJump && abs(zs[0] - other.zs[0]) <= maxJump
 }
 
 /**
@@ -164,19 +150,12 @@ class WorkSweep {
  * folded one (a footprint with no area) produce; when too few survive to make a polygon the points are
  * handed back as they came, since a degenerate ring fills nothing either way.
  */
-internal fun hullOf(
-  xs: FloatArray,
-  zs: FloatArray,
-): SweptArea {
+internal fun hullOf(xs: FloatArray, zs: FloatArray): SweptArea {
   val n = xs.size
   if (n < 3) return SweptArea(xs, zs)
   val order = (0 until n).sortedWith(compareBy({ xs[it] }, { zs[it] }))
 
-  fun turn(
-    o: Int,
-    a: Int,
-    b: Int,
-  ): Float = (xs[a] - xs[o]) * (zs[b] - zs[o]) - (zs[a] - zs[o]) * (xs[b] - xs[o])
+  fun turn(o: Int, a: Int, b: Int): Float = (xs[a] - xs[o]) * (zs[b] - zs[o]) - (zs[a] - zs[o]) * (xs[b] - xs[o])
 
   val chain = IntArray(2 * n)
   var k = 0

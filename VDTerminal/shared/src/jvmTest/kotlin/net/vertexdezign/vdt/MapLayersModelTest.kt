@@ -177,15 +177,14 @@ class MapLayersModelTest {
     assertNull(assertNotNull(decoded as? ServerMessage.MapLayers).data)
   }
 
-  private fun info() =
-    MapLayersInfo.from(
-      VdtParser.parseMapLayerCatalog(example("index.json")),
-      mapOf(
-        "crops" to crops(),
-        "growth" to VdtParser.parseMapLayer(example("growth.json")),
-        "soil" to VdtParser.parseMapLayer(example("soil.json")),
-      ),
-    )
+  private fun info() = MapLayersInfo.from(
+    VdtParser.parseMapLayerCatalog(example("index.json")),
+    mapOf(
+      "crops" to crops(),
+      "growth" to VdtParser.parseMapLayer(example("growth.json")),
+      "soil" to VdtParser.parseMapLayer(example("soil.json")),
+    ),
+  )
 
   /**
    * The catalogue decides what the app is offered, and the rasters only fill in the details — so a
@@ -289,10 +288,8 @@ class MapLayersModelTest {
    */
   @Test
   fun contentVersionEncodesStructureNotJustValues() {
-    fun planeOf(
-      legend: List<MapLayerLegendEntry>,
-      rows: List<String>,
-    ) = MapLayerData(gridSize = 2, id = "crops", legend = legend, rows = rows)
+    fun planeOf(legend: List<MapLayerLegendEntry>, rows: List<String>) =
+      MapLayerData(gridSize = 2, id = "crops", legend = legend, rows = rows)
 
     val asLegend = planeOf(listOf(MapLayerLegendEntry(v = 1, label = "x", color = "c")), emptyList())
     val asRows = planeOf(emptyList(), listOf("1", "x", "c"))

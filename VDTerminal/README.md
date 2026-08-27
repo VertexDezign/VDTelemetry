@@ -307,8 +307,8 @@ thrown away and the storage key did not have to change.
 
 ## Design rules
 
-Two constraints that apply to **every** new panel, widget and mark. Both have cost a round of rework
-already, and neither is discoverable from the code you happen to be editing — so they live here.
+Three constraints that apply to **every** new panel, widget and mark. Each has cost a round of rework
+already, and none of them is discoverable from the code you happen to be editing — so they live here.
 
 ### Hue never carries a state on its own
 
@@ -351,6 +351,34 @@ rule existed.
 
 If a new glyph is genuinely needed as text, look at it in a browser before shipping it.
 
+### A machine drawn from the side faces left
+
+One driving direction across the whole app: **right to left**, the machine's nose at the left edge of
+whatever draws it. It is arbitrary in itself — what is not arbitrary is that two pictures of the same
+tractor, on screen at once, must point the same way. The tractor schematic under the Lighting panel's
+buttons faces left, so `ClusterIcons` draws its machines facing left, so the ISOBUS machine art does
+too; the rig diagram followed the *game's* schema instead, which faces right, and issue #129 is what a
+driver saw looking at both at once.
+
+- Art (`mb_trac.png`, `isobus_mixer_wagon.png`) is drawn or sourced already facing left.
+- Our own glyphs end up facing left. `ClusterIcons`' shared `TRACTOR` path is authored facing right,
+  and both lamps built on it (`WorkFront`, `WorkRear`) are wrapped in its `mirrored` helper — which is
+  a flip about the viewport, so a glyph that needs turning round costs one line and no re-tracing.
+- A Material icon with a nose on it — `Icons.Filled.Agriculture` is a tractor facing **right** — is
+  mirrored with `Modifier.scale(scaleX = -1f, scaleY = 1f)` wherever it is part of a side view. As a
+  header or app icon it is a label rather than a picture of a machine, and stays as it is.
+- An arrow that names a **position on the machine** points along it, not up and down it: `RigSlot.icon`
+  marks the front slot `West` and the rear one `East`. Up and down are left to what really does move
+  up and down — the raise/lower control, a sort direction, money in and out.
+- `RigSchema` keeps the game's frame in `layoutRig` (forward is +x) and mirrors once at the point of
+  drawing, in `drawnLeft` — which also flips the insets and the sign of any rotation. If the game's own
+  silhouette atlas is ever adopted for the boxes (see `FUTURE.md`), that art faces right and has to be
+  mirrored too.
+
+Not every picture has a driving direction, and those are left alone: the section strip runs across the
+boom, the map is heading-up, and the steering glyphs are drawn from above with the front axle at the
+top.
+
 ## Tests
 
 ```bash
@@ -373,7 +401,15 @@ them.
 over the Kotlin sources (`.kt`) and the Gradle build scripts (`*.gradle.kts`) in every module. The
 [compose-rules](https://mrmans0n.github.io/compose-rules/) ktlint ruleset adds Compose-specific
 checks and is applied to the `app` module's Compose UI (there its `compose:function-naming` replaces
-the standard `function-naming` rule). Rules are tuned in the root `.editorconfig`.
+the standard `function-naming` rule). Rules are tuned in the `.editorconfig` at the **repo**
+root, a directory above this one — which is where the IDE's own ktlint reads it from, so there is
+only ever one of them.
+
+The code style is `intellij_idea`, and it is pinned twice: in that `.editorconfig` for every ktlint
+that reads it, and in `build.gradle.kts` for `app`, whose step carries an `editorConfigOverride` and
+therefore formats to Spotless's own preset whatever the file says. That divergence is why the repo
+ran on two styles until August 2026 — `server` and `shared` on ktlint's `ktlint_official` default,
+`app` on `intellij_idea` — and why both places have to agree.
 
 ```bash
 ./gradlew spotlessCheck   # verify formatting (fails on violations)

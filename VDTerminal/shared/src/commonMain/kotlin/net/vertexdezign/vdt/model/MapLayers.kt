@@ -157,31 +157,25 @@ data class MapLayerCatalogEntry(
  * raster yet, which carry a null [MapLayerInfo.version] and simply draw nothing until selected.
  */
 @Serializable
-data class MapLayersInfo(
-  val layers: List<MapLayerInfo> = emptyList(),
-) {
+data class MapLayersInfo(val layers: List<MapLayerInfo> = emptyList()) {
   companion object {
     /**
      * Combine the catalogue with whichever plane files have been parsed so far, keyed by layer id.
      * A plane in [rasters] that the catalogue doesn't list is ignored: the catalogue is the mod's
      * statement of what this map has, and an unlisted file is last session's leftover.
      */
-    fun from(
-      catalog: MapLayersCatalog,
-      rasters: Map<String, MapLayerData>,
-    ): MapLayersInfo =
-      MapLayersInfo(
-        layers =
-          catalog.layers.map { entry ->
-            val raster = rasters[entry.id]
-            MapLayerInfo(
-              id = entry.id,
-              label = entry.label,
-              version = raster?.contentVersion,
-              legend = raster?.legend ?: emptyList(),
-            )
-          },
-      )
+    fun from(catalog: MapLayersCatalog, rasters: Map<String, MapLayerData>): MapLayersInfo = MapLayersInfo(
+      layers =
+      catalog.layers.map { entry ->
+        val raster = rasters[entry.id]
+        MapLayerInfo(
+          id = entry.id,
+          label = entry.label,
+          version = raster?.contentVersion,
+          legend = raster?.legend ?: emptyList(),
+        )
+      },
+    )
   }
 }
 

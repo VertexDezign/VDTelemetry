@@ -19,19 +19,19 @@ class ServerMessageTest {
       ChannelStatsData(
         serverNowEpochMs = 1_700_000_000_000,
         channels =
-          listOf(
-            ChannelStat(
-              name = "vdTelemetry.json",
-              writes = 42,
-              lastWriteEpochMs = 1_699_999_999_000,
-              lastIntervalMs = 100,
-              meanIntervalMs = 101.5,
-              minIntervalMs = 96,
-              maxIntervalMs = 140,
-            ),
-            // never written: every interval field defaults to null
-            ChannelStat(name = "husbandry.json", writes = 0),
+        listOf(
+          ChannelStat(
+            name = "vdTelemetry.json",
+            writes = 42,
+            lastWriteEpochMs = 1_699_999_999_000,
+            lastIntervalMs = 100,
+            meanIntervalMs = 101.5,
+            minIntervalMs = 96,
+            maxIntervalMs = 140,
           ),
+          // never written: every interval field defaults to null
+          ChannelStat(name = "husbandry.json", writes = 0),
+        ),
       ),
     )
 

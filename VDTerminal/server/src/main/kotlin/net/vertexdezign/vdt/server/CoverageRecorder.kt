@@ -77,9 +77,7 @@ private const val WORKED_COLOR = "#c026d3"
  * Thread-safe: recording happens on the telemetry collector, snapshotting on the publish timer, and
  * [reset] on a request thread.
  */
-class CoverageRecorder(
-  private val cellMeters: Float = CELL_METERS,
-) {
+class CoverageRecorder(private val cellMeters: Float = CELL_METERS) {
   private val sweep = WorkSweep()
 
   private var cells = ByteArray(0)
@@ -97,11 +95,7 @@ class CoverageRecorder(
    * a field on another map painted onto this one would be worse than none.
    */
   @Synchronized
-  fun record(
-    vehicle: Vehicle?,
-    terrainSize: Float,
-    nowMs: Long,
-  ) {
+  fun record(vehicle: Vehicle?, terrainSize: Float, nowMs: Long) {
     if (terrainSize <= 0f) return // no map yet: nothing to size a grid against
     resize(terrainSize)
     for (area in sweep.advance(vehicle, terrainSize, nowMs)) fill(area)

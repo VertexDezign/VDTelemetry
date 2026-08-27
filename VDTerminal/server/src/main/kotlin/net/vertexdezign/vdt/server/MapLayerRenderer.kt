@@ -23,10 +23,7 @@ object MapLayerRenderer {
    * leaves the others, which is exactly right now that each plane has its own version and they move
    * independently.
    */
-  private data class Rendered(
-    val version: String,
-    val png: ByteArray,
-  )
+  private data class Rendered(val version: String, val png: ByteArray)
 
   @Volatile private var cache: Map<String, Rendered> = emptyMap()
 
@@ -41,10 +38,7 @@ object MapLayerRenderer {
    * version's bytes under another's (the one thing an immutable-for-a-year cache URL cannot
    * survive).
    */
-  fun rendered(
-    data: MapLayerData,
-    version: String = data.contentVersion,
-  ): ByteArray? {
+  fun rendered(data: MapLayerData, version: String = data.contentVersion): ByteArray? {
     cache[data.id]?.let { if (it.version == version) return it.png }
 
     val bytes = render(data) ?: return null

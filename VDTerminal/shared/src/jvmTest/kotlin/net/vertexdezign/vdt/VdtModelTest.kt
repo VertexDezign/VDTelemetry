@@ -268,14 +268,13 @@ class VdtModelTest {
     // the whole BACK chain exposes both fill units — this recursive walk mirrors what the
     // Implements panel's collectFillUnits does (and what its "merged" toggle then sums).
     // `sumOf` has no Float overload, hence map/sum — same as mergeFillUnits.
-    fun totalFill(imp: Implement): Float =
-      (
-        imp.fillUnits
-          ?.fillUnit
-          ?.map { it.value }
-          ?.sum() ?: 0f
+    fun totalFill(imp: Implement): Float = (
+      imp.fillUnits
+        ?.fillUnit
+        ?.map { it.value }
+        ?.sum() ?: 0f
       ) +
-        imp.implement.map { totalFill(it) }.sum()
+      imp.implement.map { totalFill(it) }.sum()
     assertEquals(18268.602f, totalFill(back))
 
     assertJsonRoundTrips(data)
@@ -616,12 +615,11 @@ class VdtModelTest {
     // STARTING meant the key turned rather than the starter cranking. Inline because the committed
     // captures are all of a machine either off or running — the two states in the middle last a
     // second and no capture has ever caught one.
-    fun state(name: String) =
-      VdtParser
-        .parseJson("""{"version":"14","vehicle":{"motor":{"state":"$name"}}}""")
-        .vehicle
-        ?.motor
-        ?.state
+    fun state(name: String) = VdtParser
+      .parseJson("""{"version":"14","vehicle":{"motor":{"state":"$name"}}}""")
+      .vehicle
+      ?.motor
+      ?.state
 
     assertEquals(MotorState.OFF, state("OFF"))
     assertEquals(MotorState.IGNITION, state("IGNITION"))
@@ -833,14 +831,13 @@ class VdtModelTest {
     // Real v9 captures, and the first proof the five-way kind split works on actual machines rather
     // than on stubs. The same AgriSpread hopper appears twice — carrying fertilizer and carrying lime
     // — which is exactly the pair the split exists for: one machine, one `kind`, two `category`s.
-    fun spraying(name: String) =
-      assertNotNull(
-        capture("telemetry/precisionFarming/$name")
-          .vehicle
-          ?.implement
-          ?.first()
-          ?.spraying,
-      )
+    fun spraying(name: String) = assertNotNull(
+      capture("telemetry/precisionFarming/$name")
+        .vehicle
+        ?.implement
+        ?.first()
+        ?.spraying,
+    )
 
     val fertilizer = spraying("fertilizerSpreader.json")
     assertEquals(SprayerKind.SOLID_FERTILIZER, fertilizer.kind)
@@ -880,14 +877,13 @@ class VdtModelTest {
     // The same LEMKEN plough folded for transport and unfolded to work. Rotation is barred while it
     // is folded — which is the whole reason the two predicates are carried separately — and the side
     // survives the fold, because a folded plough is still turned whichever way it was left.
-    fun plow(name: String) =
-      assertNotNull(
-        capture("telemetry/precisionFarming/$name")
-          .vehicle
-          ?.implement
-          ?.first()
-          ?.plow,
-      )
+    fun plow(name: String) = assertNotNull(
+      capture("telemetry/precisionFarming/$name")
+        .vehicle
+        ?.implement
+        ?.first()
+        ?.plow,
+    )
 
     val transport = plow("plow_transportMode.json")
     assertEquals(false, transport.rotationAllowed)
@@ -902,14 +898,13 @@ class VdtModelTest {
 
   @Test
   fun decodesTheTillageCaptures() {
-    fun tillage(name: String) =
-      assertNotNull(
-        capture("telemetry/precisionFarming/$name")
-          .vehicle
-          ?.implement
-          ?.first()
-          ?.tillage,
-      )
+    fun tillage(name: String) = assertNotNull(
+      capture("telemetry/precisionFarming/$name")
+        .vehicle
+        ?.implement
+        ?.first()
+        ?.tillage,
+    )
 
     // A subsoiler that does not run in deep mode — the two flags are independent, which is why both
     // are carried. `isSubsoiler` is what the machine is; `useDeepMode` is what it leaves behind.
@@ -924,13 +919,12 @@ class VdtModelTest {
   fun combinationMachinesCarryTwoAspectsInTheRealCaptures() {
     // Three different shapes of combination machine, all from real captures — the case the aspect
     // dispatch exists for, and none of them expressible as a switch on `type`.
-    fun implement(name: String) =
-      assertNotNull(
-        capture("telemetry/precisionFarming/$name")
-          .vehicle
-          ?.implement
-          ?.first(),
-      )
+    fun implement(name: String) = assertNotNull(
+      capture("telemetry/precisionFarming/$name")
+        .vehicle
+        ?.implement
+        ?.first(),
+    )
 
     // Seed + fertilizer: a drill that also spreads.
     val drill = implement("sowingMachine.json")
@@ -955,10 +949,7 @@ class VdtModelTest {
     // Both captures taken mid-application. A dribble bar and an injecting disc harrow each carry
     // nothing of their own — their `fillUnits` is a single blank unit — yet both must name the
     // material, or a terminal shows an implement doing visible work with nothing to say about it.
-    fun applicator(
-      name: String,
-      index: Int,
-    ) = assertNotNull(
+    fun applicator(name: String, index: Int) = assertNotNull(
       capture("telemetry/precisionFarming/$name")
         .vehicle
         ?.implement
@@ -1004,14 +995,13 @@ class VdtModelTest {
     // The same rig captured with and without PF, which is the only way to see this field work: PF
     // hard-overrides the getter to (false, false) because its variable-rate control replaces doubling
     // outright, so every PF capture says false no matter the machine.
-    fun barrel(dir: String) =
-      assertNotNull(
-        capture("telemetry/$dir/liquidManure_dribbleBar.json")
-          .vehicle
-          ?.implement
-          ?.first()
-          ?.spraying,
-      )
+    fun barrel(dir: String) = assertNotNull(
+      capture("telemetry/$dir/liquidManure_dribbleBar.json")
+        .vehicle
+        ?.implement
+        ?.first()
+        ?.spraying,
+    )
 
     // Vanilla: a slurry tanker *does* offer doubling. This is the base-game rule and it reads the
     // opposite way round from how it sounds — the engine allows it when `not isFertilizerSprayer`,
@@ -1163,13 +1153,12 @@ class VdtModelTest {
     // PF quotes a rate in a different unit per kind of machine, and the mod mirrors that arithmetic
     // rather than inventing one, so the terminal and the in-game display agree instead of merely
     // both being plausible. These captures are the evidence, one machine per branch.
-    fun rates(name: String) =
-      assertNotNull(
-        capture("telemetry/precisionFarming/$name")
-          .vehicle
-          ?.implement
-          ?.first(),
-      )
+    fun rates(name: String) = assertNotNull(
+      capture("telemetry/precisionFarming/$name")
+        .vehicle
+        ?.implement
+        ?.first(),
+    )
 
     // Solid fertilizer: weighed in kilos. Auto is putting down three times what step 2 would cost,
     // because it is sizing the pass to a 90-against-120 deficit.
@@ -1382,10 +1371,8 @@ class VdtModelTest {
    * down and expired, a tub empty, loaded and being emptied, two different tip-side counts, and two
    * maps' recipes.
    */
-  private fun mixerCapture(
-    name: String,
-    folder: String = "vanilla",
-  ): Vehicle = assertNotNull(capture("telemetry/$folder/mixerWagon_$name.json").vehicle)
+  private fun mixerCapture(name: String, folder: String = "vanilla"): Vehicle =
+    assertNotNull(capture("telemetry/$folder/mixerWagon_$name.json").vehicle)
 
   /**
    * The three captures that are none of singleplayer, vanilla or version 16: one SILOKING

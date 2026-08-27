@@ -17,13 +17,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Agriculture
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.East
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.West
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -337,11 +337,25 @@ fun RigSlotPanel(
   }
 }
 
+/**
+ * The mark on a slot's header, beside the word it already carries.
+ *
+ * The two ends point **along the machine**, not up and down it: front is left and rear is right,
+ * because that is which way a machine faces everywhere in this app — see `VDTerminal/README.md` →
+ * "Design rules". They were `ArrowUpward` / `ArrowDownward` before, which is the map's frame rather
+ * than the rig's: fore-and-aft on a heading-up map, but read against the ISOBUS diagram or the
+ * Lighting panel's tractor beside them, an arrow pointing up means nothing on a machine seen from the
+ * side. [Icons.Filled.West] and [Icons.Filled.East] are the same arrow rotated, so the pair reads as
+ * one set with the raise / lower control's vertical arrows rather than competing with them.
+ *
+ * The vehicle keeps its tractor unmirrored: a slot header names the machine rather than drawing it,
+ * which is the label case the rule sets aside.
+ */
 private val RigSlot.icon: ImageVector
   get() = when (this) {
     RigSlot.VEHICLE -> Icons.Filled.Agriculture
-    RigSlot.FRONT -> Icons.Filled.ArrowUpward
-    RigSlot.REAR -> Icons.Filled.ArrowDownward
+    RigSlot.FRONT -> Icons.Filled.West
+    RigSlot.REAR -> Icons.Filled.East
   }
 
 @Composable

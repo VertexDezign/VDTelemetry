@@ -159,10 +159,10 @@ class CommandWriterTest {
       ClientMessage.CreateInvoice(
         farmId = 2,
         lines =
-          listOf(
-            InvoiceLineInput(workTypeId = 2, quantity = 3.5, fieldId = 12, note = "north field"),
-            InvoiceLineInput(workTypeId = 44, quantity = 2.0, price = 1320.0, discount = 0.1),
-          ),
+        listOf(
+          InvoiceLineInput(workTypeId = 2, quantity = 3.5, fieldId = 12, note = "north field"),
+          InvoiceLineInput(workTypeId = 44, quantity = 2.0, price = 1320.0, discount = 0.1),
+        ),
       ),
     )
     val xml = path.readText()

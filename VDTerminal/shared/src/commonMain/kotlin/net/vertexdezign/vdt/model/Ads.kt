@@ -76,10 +76,7 @@ enum class AdsLamp { OFF, COLD, WARN, CRIT }
  * the vehicle's reliability and the last maintenance it had), so it is not a constant to hard-code.
  */
 @Serializable
-data class AdsService(
-  val hours: Float = 0f,
-  val interval: Float = 0f,
-) {
+data class AdsService(val hours: Float = 0f, val interval: Float = 0f) {
   /** How far through the interval the machine is; over 1 is overdue, which is what lights the lamp. */
   val fraction: Float get() = if (interval > 0f) hours / interval else 0f
 }
@@ -93,11 +90,7 @@ data class AdsService(
  * would be quoting a guess as a measurement.
  */
 @Serializable
-data class AdsInspected(
-  val condition: Int? = null,
-  val service: Int? = null,
-  val complete: Boolean = false,
-)
+data class AdsInspected(val condition: Int? = null, val service: Int? = null, val complete: Boolean = false)
 
 /**
  * The load Advanced Damage System wears the engine on.
@@ -113,11 +106,7 @@ data class AdsInspected(
  * travels with the value because a player can move it in the mod's settings.
  */
 @Serializable
-data class AdsLoad(
-  val value: Double = 0.0,
-  val overloadAt: Double = 0.0,
-  val unit: String = "",
-) {
+data class AdsLoad(val value: Double = 0.0, val overloadAt: Double = 0.0, val unit: String = "") {
   /** Working the engine harder than ADS is willing to let you without wearing it for it. */
   val overloaded: Boolean get() = overloadAt > 0.0 && value > overloadAt
 }
@@ -128,7 +117,4 @@ data class AdsLoad(
  * the alternator cannot keep up with the load.
  */
 @Serializable
-data class AdsElectrical(
-  val systemVoltage: Float = 0f,
-  val unit: String = "",
-)
+data class AdsElectrical(val systemVoltage: Float = 0f, val unit: String = "")
