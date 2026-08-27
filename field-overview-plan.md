@@ -216,13 +216,22 @@ data class FieldStatusData(
 @Serializable
 data class FieldStatus(
   val id: Int = 0,                   // farmland id — MapField.id / FieldInfoEntry.id
-  val cells: Int = 0,                // cells inside the polygon; 0 => nothing sampled
+  val cells: Int = 0,                // cells inside the polygon carrying a value; 0 => nothing sampled
+  val blank: Int = 0,                // cells inside the polygon the plane recorded nothing for
   val slices: List<FieldStatusSlice> = emptyList(),  // descending by cells
 )
 
 @Serializable
 data class FieldStatusSlice(val kind: String = "", val cells: Int = 0)
 ```
+
+`blank` is the one addition to the shape sketched above, and it earns its place: a field polygon is
+the farmland border while the raster carries *ground state*, so meadow, a track, a yard or ground the
+plane has no word for sits inside the polygon carrying value 0 — which the planes use for "nothing
+here" and never list in a legend. Counting those into the denominator would dilute every percentage
+by however much of the title deed isn't farmed. Kept as its own number rather than dropped, because
+`cells == 0 && blank > 0` is "the field is there and the plane says nothing about it", which is a
+different thing to say than "too few cells to trust".
 
 with `fraction`/`ha` as derived (non-serialized) accessors on `FieldStatus`, the way `PfNozzles`
 does it. Put the histogram itself in **`shared`** as a pure function over
@@ -450,9 +459,15 @@ Each step is independently useful and independently testable.
    `MapLayerLegendEntry.kind` decodes it as a string, `LayerKind` resolves it for callers that want
    an exhaustive `when`, and `contentVersion` mixes it so a legend that changed only there
    invalidates anything keyed on the version. Fixtures and specs updated; nothing consumes it yet.
-2. **The histogram, in `shared`.** Even-odd polygon fill, index grid, counting pass, `FieldStatusData`.
-   Covered by `:shared:jvmTest` over the fixtures — including a deliberately concave field, which is
-   the case that would silently pass with a hull fill.
+2. ~~**The histogram, in `shared`.**~~ **Done.** `FieldIndexGrid.of(map, gridSize)` rasterizes the
+   field polygons by even-odd scanline into a cell→field-id grid, `histogram(layer)` walks the
+   decoded raster once and counts per field and per `kind`, and `fieldStatus(map, layer)` is the
+   convenience form for a caller with no reason to hold the grid. `FieldStatusTest` covers it:
+   a U-shaped field with a second field in its notch (the case a hull fill silently gets wrong),
+   cell-centre claiming at both edges, the gradient collapsing into one `growing` slice, the unknown
+   bucket taking both an unlisted value and a `kind`-less legend entry, the gridSize/terrainSize
+   refusals, and — against `map/vanilla.json` at 512² — zero overlaps across all 77 fields with the
+   claimed area within 6 % of the `areaHa` the mod exported.
 3. **Server plumbing.** Cache keyed on `(raster.contentVersion, indexVersion)`, `ServerMessage.FieldStatus`,
    broadcast beside the existing `mapLayersJob`. `:server:test` for the cache invalidation.
 4. **Subscription lift.** `liveLayerSelections` → `state/LayerSubscriptions.kt`; map panel keeps
