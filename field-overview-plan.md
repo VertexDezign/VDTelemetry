@@ -478,8 +478,10 @@ Each step is independently useful and independently testable.
    equal value, so an unchanged breakdown broadcasts nothing. `FieldStatusPublisherTest` covers all
    four transitions, and `TelemetryRepository.fieldStatus` is the app-side flow (unconsumed until
    step 6).
-4. **Subscription lift.** `liveLayerSelections` → `state/LayerSubscriptions.kt`; map panel keeps
-   working unchanged.
+4. ~~**Subscription lift.**~~ **Done.** `liveLayerSelections` / `layerUnion` are now
+   `state/LayerSubscriptions.union(subscriber, selection)` — same keying, same "only touched from the
+   composition" note, same call sites in `MapPanel`. The doc says what a subscriber is now that they
+   are not all map panels: the field overview counts a plane it never draws.
 5. **`price` in `map.json`.** Mod + model + fixtures. Standalone; can land any time after step 1.
 6. **The app: list, filters, sorts, summary.** Read-only. This is the first point where the feature
    is usable.

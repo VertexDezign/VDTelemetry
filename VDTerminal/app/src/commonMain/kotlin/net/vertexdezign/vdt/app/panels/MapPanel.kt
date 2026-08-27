@@ -110,6 +110,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.components.SectionStrip
 import net.vertexdezign.vdt.app.components.boomOf
+import net.vertexdezign.vdt.app.state.LayerSubscriptions
 import net.vertexdezign.vdt.app.state.MapFocus
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
@@ -209,22 +210,6 @@ private val mapImageCache = mutableMapOf<String, ImageBitmap>()
  * unboundedly across a session instead of just holding the one most-recently-shown layer.
  */
 private var layerImageCache: Pair<String, ImageBitmap>? = null
-
-/**
- * Every live map panel's ground-layer selection, keyed by panel instance, so what the app tells the
- * server is the union across them. A dashboard can hold two map widgets showing different planes, and
- * one of them leaving composition must not report "nobody is looking" while the other still is.
- *
- * Module-level for the same reason the caches above are: it has to outlive any one panel. Only touched
- * from the composition, which is single-threaded, so no synchronization is needed.
- */
-private val liveLayerSelections = mutableMapOf<Any, List<String>>()
-
-/** Record (or, with a null selection, drop) one panel's choice and return the union to report. */
-private fun layerUnion(panel: Any, selection: List<String>?): List<String> {
-  if (selection == null) liveLayerSelections.remove(panel) else liveLayerSelections[panel] = selection
-  return liveLayerSelections.values.flatten().distinct().sorted()
-}
 
 /**
  * Shared with the caches above: outliving the panel is the whole point, so it can't be `remember`ed.
@@ -437,10 +422,21 @@ fun MapPanel(
   // captured when the panel first composed.
   val showLayers by rememberUpdatedState(onShowLayers)
   LaunchedEffect(groundLayer) {
-    showLayers(layerUnion(panelToken, if (groundLayer == NO_GROUND_LAYER) emptyList() else listOf(groundLayer)))
+    showLayers(
+      LayerSubscriptions.union(
+        panelToken,
+        if (groundLayer ==
+          NO_GROUND_LAYER
+        ) {
+          emptyList()
+        } else {
+          listOf(groundLayer)
+        },
+      ),
+    )
   }
   DisposableEffect(panelToken) {
-    onDispose { showLayers(layerUnion(panelToken, null)) }
+    onDispose { showLayers(LayerSubscriptions.union(panelToken, null)) }
   }
 
   // The selected layer's slim info (legend + version), or null when unselected / not offered by the
