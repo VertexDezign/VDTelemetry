@@ -7,14 +7,18 @@ import net.vertexdezign.vdt.model.Schema
 import net.vertexdezign.vdt.model.SchemaJoint
 import net.vertexdezign.vdt.model.Selection
 import net.vertexdezign.vdt.model.Vehicle
+import kotlin.math.PI
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+/** Float arithmetic, so the angles are compared to within a whisker rather than exactly. */
+private const val TOLERANCE = 1e-6f
+
 /** A joint at the parent's edge — `x = 1` is what every machine in every capture exports. */
-private fun joint(invertX: Boolean = false, lift: Float = 0f) =
-  SchemaJoint(x = 1f, y = 0f, rotation = 0f, invertX = invertX, liftedOffsetX = 0f, liftedOffsetY = lift)
+private fun joint(invertX: Boolean = false, lift: Float = 0f, rotation: Float = 0f) =
+  SchemaJoint(x = 1f, y = 0f, rotation = rotation, invertX = invertX, liftedOffsetX = 0f, liftedOffsetY = lift)
 
 private fun schema(vararg joints: SchemaJoint) = Schema(name = "IMPLEMENT", attacherJoint = joints.toList())
 
@@ -504,6 +508,44 @@ class RigSchemaTest {
     // Real captures do this: the Bomech's `position` is the empty string, not FRONT or BACK.
     val rig = tractor(Implement(name = "Odd", position = "", schema = schema(), jointDescIndex = 1))
     assertNull(controlTargetOf(layoutRig(rig).first { !it.isRoot }))
+  }
+
+  @Test
+  fun aJointsRotationAccumulatesDownTheChainAndIsMirroredWhenDrawn() {
+    // The one arm of the layout no fixture exercises: every joint in every capture reads a rotation
+    // of 0, so a hand-built rig is the only way to pin it. Both halves fail silently — an
+    // unaccumulated angle draws a deep implement level when it should be cocked, and an unmirrored
+    // one leans it the wrong way — and both draw a perfectly plausible rig either way.
+    //
+    // Two joints, so the sum is visible, and an eighth turn under a quarter so neither could be
+    // mistaken for the other or for their sum.
+    val eighth = (PI / 4).toFloat()
+    val quarter = (PI / 2).toFloat()
+    val rig =
+      tractor(
+        Implement(
+          name = "Dolly",
+          schema = schema(joint(rotation = quarter)),
+          jointDescIndex = 1,
+          implement = listOf(Implement(name = "Trailer", schema = schema(), jointDescIndex = 1)),
+        ),
+        joints = arrayOf(joint(rotation = eighth)),
+      )
+    val nodes = layoutRig(rig)
+
+    assertEquals(0f, nodes.first { it.isRoot }.rotation, TOLERANCE, "the root machine is never rotated")
+    assertEquals(eighth, nodes.first { it.machine.name == "Dolly" }.rotation, TOLERANCE, "the tractor's joint alone")
+    assertEquals(
+      eighth + quarter,
+      nodes.first { it.machine.name == "Trailer" }.rotation,
+      TOLERANCE,
+      "and the dolly's on top of it",
+    )
+
+    // Radians in the game's frame, clockwise degrees out, negated: `drawnLeft` mirrors the diagram and
+    // a mirror reverses which way an angle turns. Sign in, opposite sign out is the whole assertion.
+    assertEquals(-45f, drawnRotationDegrees(eighth), TOLERANCE, "a positive angle draws the other way")
+    assertEquals(135f, drawnRotationDegrees(-(eighth + quarter)), TOLERANCE, "and so does a negative one")
   }
 
   @Test

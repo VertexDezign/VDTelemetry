@@ -34,6 +34,7 @@ import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Schema
 import net.vertexdezign.vdt.model.SchemaJoint
 import net.vertexdezign.vdt.model.Vehicle
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -425,6 +426,19 @@ private val SCHEMA_PADDING = 4.dp
 internal fun drawnLeft(x: Float, maxX: Float): Float = maxX - x - BOX_W
 
 /**
+ * The angle a node whose accumulated schema [rotation] is in radians gets drawn at, in Compose's
+ * clockwise degrees.
+ *
+ * Negated, because the diagram is mirrored: [drawnLeft] reverses the x axis, and a mirror reverses
+ * which way an angle turns. The other half of the same flip the box positions go through, kept beside
+ * them so the facing is pinned in one place rather than two.
+ *
+ * No capture has produced a non-zero rotation yet — every joint in every fixture reads 0 — so this is
+ * the same faithful-but-unverified arm as the rotated offsets in [layoutRig].
+ */
+internal fun drawnRotationDegrees(rotation: Float): Float = -rotation * 180f / PI.toFloat()
+
+/**
  * A ring of the panel's own ground drawn just outside each box, so a machine that sits **on** another
  * still reads as two machines.
  *
@@ -510,6 +524,12 @@ internal fun RigSchema(
         // invisible borders, so neighbours butted up against each other still read as two machines.
         // The two swap sides with the diagram: [drawnLeft] mirrors it, so what insets the box from
         // the screen's left is the machine's *right* border. The width is the same either way.
+        //
+        // Swapped once for the whole diagram and deliberately *not* again per node: [RigNode.invertX]
+        // mirrors the engine's silhouette sprite (`overlay:setInvertX`), and we draw no silhouette,
+        // only an identical rectangle per machine. The engine does not swap them either — the one
+        // asymmetric use it makes of the pair, the `offX` in `getSchemaDelimiters`, reads
+        // `invisibleBorderLeft` whatever the node's mirror state is.
         val insetLeft = scale * BOX_W * node.borderRight
         val insetRight = scale * BOX_W * node.borderLeft
         RigBox(
@@ -558,10 +578,8 @@ private fun RigBox(
       .padding(HALO)
       .width(width)
       .height(height)
-      // About the box's own centre, and negated: the diagram is mirrored, and a mirror reverses which
-      // way an angle turns. No capture has produced a non-zero rotation yet — every joint in every
-      // fixture reads 0 — so this is the same faithful-but-unverified arm as the offsets above.
-      .rotate(-node.rotation * 180f / kotlin.math.PI.toFloat())
+      // About the box's own centre. See [drawnRotationDegrees] for why it is negated.
+      .rotate(drawnRotationDegrees(node.rotation))
       .clip(shape)
       .background(
         when {
