@@ -571,6 +571,18 @@ early when `g_server == nil`), the rules in `app/.../panels/FieldsModel.kt`. Wha
   the same question is settled: the raster names it, because a centre cell that lands on a track said
   the field was growing nothing at all.)
 
+- **The soil plane drops the game's MULCHED state.** `MapOverlayGenerator` paints mulch on its *soil*
+  overlay — `SOIL_STATE_INDEX.MULCHED`, read off `FieldDensityMap.STUBBLE_SHRED_LEVEL`, with its own
+  colours and `ui_growthMapMulched` — and `classifySoil` has no branch for it, so nothing in the
+  pipeline can tell a mulched field from any other bare one. The Fields app now says "Bare" for it,
+  off the growth plane being entirely blank (`isBareByRaster`), which is true but coarser than the
+  game manages: a mulched field and a cultivated-then-left one read the same. Adding it is a new
+  `SOIL_MULCHED` value, a legend entry and a `mapLayers` version bump, plus a line in
+  `ConditionSection` — where it would be the third reading beside plough and weeds, and unlike
+  fertiliser and lime it has no Precision Farming conflict to argue about. Found from a real report:
+  a field read "Bare at the field centre" after mulching, because the growth raster is genuinely
+  blank there and the app took that for "the raster cannot say".
+
 - **Farmlands with no field are missing from the buy list.** They can be bought and never appear in
   `map.json`, which iterates `g_fieldManager.fields`. A complete buy planner needs a farmland sweep in
   `MapExporter` — a different channel shape, and arguably a different feature. Parked.

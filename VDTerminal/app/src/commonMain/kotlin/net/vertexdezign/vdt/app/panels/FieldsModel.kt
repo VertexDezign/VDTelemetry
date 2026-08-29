@@ -131,12 +131,37 @@ data class FieldHeadline(val text: String, val fromRaster: Boolean)
 fun fieldHeadline(row: FieldRow): FieldHeadline {
   val dominant = row.growth?.takeIf { it.cells >= MIN_STATUS_CELLS }?.dominant
   if (dominant != null) return FieldHeadline(kindLabel(dominant.kind), fromRaster = true)
+  // The raster answered, and the answer is "nothing" — see [isBareByRaster].
+  if (isBareByRaster(row)) return FieldHeadline("Bare", fromRaster = true)
   val info = row.info
   val word = growthWord(info?.growth.orEmpty())
   if (word.isNotEmpty()) return FieldHeadline(word, fromRaster = false)
   // No crop and nothing sampled. "Bare" is a statement about the field; "—" would be a statement
   // about the data, and the two are worth telling apart in a list that exists to be scanned.
   return FieldHeadline(if (info != null) "Bare" else "—", fromRaster = false)
+}
+
+/**
+ * Whether the growth raster resolved this field and found no growth anywhere on it.
+ *
+ * A distinction the [cells] count alone cannot make. The growth plane's 0 means "no growth state
+ * here", which on a field is an answer rather than a gap, so a field that is entirely 0 has `cells`
+ * of zero and a *full* [FieldStatus.polygonCells] — indistinguishable, if you only look at `cells`,
+ * from a field the raster could not resolve at all. Asking the polygon instead is the same question
+ * [hasSoilBreakdown] asks of the soil plane, for the same reason.
+ *
+ * **Mulching is the ordinary way to get here**, and it is not a mod gap: the game paints mulch on its
+ * *soil* overlay (`SOIL_STATE_INDEX.MULCHED`, off `FieldDensityMap.STUBBLE_SHRED_LEVEL`), never on the
+ * growth one, whose ground-type paints are only cultivated / plowed / stubble-tillage / seedbed. A
+ * mulched field is genuinely blank on the growth plane, in the game's own map as much as in ours. Any
+ * other bare ground the four ground types do not name lands here too.
+ *
+ * Without this the field fell through to `fieldInfo`'s centre sample and was labelled "at the field
+ * centre" — claiming the whole-field reading was unavailable when it was the reading we had.
+ */
+fun isBareByRaster(row: FieldRow): Boolean {
+  val growth = row.growth ?: return false
+  return growth.cells == 0 && growth.polygonCells >= MIN_STATUS_CELLS
 }
 
 /** Whether the breakdown is worth drawing at all, rather than a bar made of four cells. */

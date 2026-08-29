@@ -78,6 +78,46 @@ class FieldsModelTest {
     assertEquals("", fieldCrop(row(info = null)), "no fieldInfo channel and no raster")
   }
 
+  /** A growth breakdown in the histogram's shape; no slices at all is the all-blank field. */
+  private fun growthStatus(vararg slices: Pair<String, Int>, blank: Int = 0) = FieldStatus(
+    id = 1,
+    cells = slices.sumOf { it.second },
+    blank = blank,
+    slices = slices.map { (kind, cells) -> FieldStatusSlice(kind, cells) },
+  )
+
+  @Test
+  fun callsAFieldWithNoGrowthOnItBareAcrossTheField() {
+    // Mulch a field and its growth raster goes entirely blank: the game paints mulch on its soil
+    // overlay and never on the growth one, whose only ground-type paints are cultivated, plowed,
+    // stubble-tillage and seedbed. The raster has resolved every cell and every one of them says "no
+    // growth" -- an answer about the whole field, not a hole in the data.
+    val mulched = row(growth = growthStatus(blank = 500), crop = "")
+
+    assertTrue(isBareByRaster(mulched))
+    assertEquals(FieldHeadline("Bare", fromRaster = true), fieldHeadline(mulched))
+
+    // The bug this fixes: it used to fall through to the centre sample and label itself with it.
+    assertEquals("Bare", fieldHeadline(mulched).text)
+    assertTrue(fieldHeadline(mulched).fromRaster, "the raster answered; saying otherwise sends the reader out there")
+  }
+
+  @Test
+  fun doesNotCallAFieldBareWhenTheRasterSimplyCannotSeeIt() {
+    // Too few cells in the polygon to trust either way -- that really is the centre sample's question.
+    val thin = row(growth = growthStatus(blank = MIN_STATUS_CELLS - 1), crop = "")
+    assertTrue(!isBareByRaster(thin))
+    assertTrue(!fieldHeadline(thin).fromRaster)
+
+    // No raster yet is not a bare field either, however the app opens.
+    assertTrue(!isBareByRaster(row(growth = null)))
+
+    // And a field that has growth on it is answered by the growth, not by this.
+    val growing = row(growth = growthStatus("growing" to 400, blank = 30))
+    assertTrue(!isBareByRaster(growing))
+    assertEquals(FieldHeadline("Growing", fromRaster = true), fieldHeadline(growing))
+  }
+
   @Test
   fun onlyReportsAMixWhenThereIsOne() {
     assertEquals(listOf("Wheat" to 1f), fieldCropMix(row(crops = cropStatus("Wheat" to 400))))

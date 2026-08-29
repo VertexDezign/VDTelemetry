@@ -538,6 +538,15 @@ private fun FieldDetail(
           StatusLegend(row, status?.growth)
         }
 
+        // Ahead of the two below, because this field has a breakdown -- it is all one thing, and that
+        // thing is nothing. Calling it too small would be the same mistake in a second place.
+        isBareByRaster(row) ->
+          Text(
+            "Nothing growing on any of it — mulch and bare ground read the same here.",
+            color = VdtColors.DarkGray,
+            fontSize = 10.sp,
+          )
+
         status == null ->
           Text(
             "Sampling the ground — the first sweep takes a few seconds.",
