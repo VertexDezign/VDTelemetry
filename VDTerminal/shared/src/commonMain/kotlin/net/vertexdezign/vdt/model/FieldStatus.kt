@@ -153,8 +153,14 @@ data class FieldStatus(
   /** The largest slice, or null when nothing was sampled. What a one-word headline should read. */
   val dominant: FieldStatusSlice? get() = slices.firstOrNull()
 
-  /** Cells of one kind; 0 for a kind this field has none of, which is also what an absent kind reads as. */
-  fun cellsOf(kind: String): Int = slices.firstOrNull { it.kind == kind }?.cells ?: 0
+  /**
+   * Cells of one kind; 0 for a kind this field has none of, which is also what an absent kind reads as.
+   *
+   * Summed across slices, not taken from the first that matches: on a [SliceGrouping.VALUE] plane a
+   * kind spans several slices — every fruit on the crops plane is `crop` — so stopping at the largest
+   * one would answer with the dominant fruit and call it the planted ground.
+   */
+  fun cellsOf(kind: String): Int = slices.sumOf { if (it.kind == kind) it.cells else 0 }
 
   /** Share of the sampled ground in one kind, `0..1`. */
   fun fractionOf(kind: String): Float = fraction(cellsOf(kind))

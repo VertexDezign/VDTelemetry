@@ -361,7 +361,12 @@ class FieldStatusTest {
       one.slices,
     )
     assertEquals("Wheat", assertNotNull(one.dominant).label)
-    assertEquals(15f / 19f, one.fractionOf("crop"), 1e-6f, "fractionOf still counts the KIND, across its fruits")
+    // 15 wheat + 2 barley of the 19 sampled cells. Across the fruits, not the largest of them: the
+    // slices are per value here, so a kind spans several of them and the question "how much of this
+    // field is planted" is answered by all of them together.
+    assertEquals(17, one.cellsOf("crop"))
+    assertEquals(17f / 19f, one.fractionOf("crop"), 1e-6f, "fractionOf still counts the KIND, across its fruits")
+    assertEquals(2, one.cellsOf(UNKNOWN_FIELD_KIND), "the two unnamed values are one kind too")
 
     val two = assertNotNull(status.byId[2])
     assertEquals(listOf(FieldStatusSlice("crop", 3, "Canola")), two.slices)
