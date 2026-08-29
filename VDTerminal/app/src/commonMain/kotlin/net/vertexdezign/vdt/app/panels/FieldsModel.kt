@@ -59,8 +59,10 @@ data class FieldRow(
  * the ground it stands for doubles with the map: 0.16 ha on a 2 km map, 0.64 ha on a 4 km one. On
  * `map/vanilla.json` it silences nothing at all — the smallest of those 77 fields is 0.21 ha, about
  * 131 cells — so it is a guard against the odd sliver rather than a line anyone has seen bite.
- * Expressing it in hectares off `FieldStatusData.haPerCell` would at least make it mean the same thing
- * on every map; see `FUTURE.md` -> "Field overview (#131)".
+ * The committed 512² capture says the same thing louder: on `map/mp_modded.json` every one of its 85
+ * fields resolves, and the smallest — half a hectare — is 313 cells, three times this. So no committed
+ * data has ever reached the line. Expressing it in hectares off `FieldStatusData.haPerCell` would at
+ * least make it mean the same thing on every map; that change has its own issue.
  */
 const val MIN_STATUS_CELLS = 100
 

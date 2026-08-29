@@ -552,19 +552,6 @@ The mechanism is in `shared/.../model/FieldIndexGrid.kt` and `FieldStatus.kt` (w
 `field:getFieldState()` or `FieldGetInfoTask` — both live inside `FieldManager:update`, which returns
 early when `g_server == nil`), the rules in `app/.../panels/FieldsModel.kt`. What it left open:
 
-- **`MIN_STATUS_CELLS` is a provisional 100, and it is the wrong unit.** It is a cell count on a grid
-  that is 512² whatever the map measures, so the ground it guards doubles with the map: 0.16 ha on a
-  2 km map, 0.64 ha on a 4 km one. On `examples/json/map/vanilla.json` it silences nothing — the
-  smallest of those 77 fields is 0.21 ha, about 131 cells. The real capture committed since
-  (`map/mp_modded.json` with `mapLayers/mp_precisionFarming/`) says the same thing louder: at 512² on
-  its 2 km map every one of its 85 fields resolves, and the smallest — field 20, half a hectare — is
-  313 cells, three times the threshold. So no committed data has ever reached the line, and both maps
-  suggest it is set far below where it would bite. `FieldStatusData.haPerCell` crosses the wire
-  already, so expressing the threshold in hectares would at least make it mean the same thing on every
-  map; picking the *number* wants a map with a genuine sliver on it. One threshold currently serves two
-  questions that may not want the same answer: quoting "83 %" off forty cells is dishonest, but naming
-  the fruit that covers most of forty cells is still better than reading one cell at the centre.
-
 - **Does the raster or the point sample deserve the *stage* headline?** `fieldHeadline` currently lets
   the raster lead whenever it has enough cells and falls back to `fieldInfo`'s centre sample otherwise,
   and the row says which of the two it used. The two disagree exactly where the feature earns its
@@ -573,18 +560,6 @@ early when `g_server == nil`), the rules in `app/.../panels/FieldsModel.kt`. Wha
   the game tells the player everywhere else — worth settling in play, not on paper. (The *crop* half of
   the same question is settled: the raster names it, because a centre cell that lands on a track said
   the field was growing nothing at all.)
-
-- **The soil plane drops the game's MULCHED state.** `MapOverlayGenerator` paints mulch on its *soil*
-  overlay — `SOIL_STATE_INDEX.MULCHED`, read off `FieldDensityMap.STUBBLE_SHRED_LEVEL`, with its own
-  colours and `ui_growthMapMulched` — and `classifySoil` has no branch for it, so nothing in the
-  pipeline can tell a mulched field from any other bare one. The Fields app now says "Bare" for it,
-  off the growth plane being entirely blank (`isBareByRaster`), which is true but coarser than the
-  game manages: a mulched field and a cultivated-then-left one read the same. Adding it is a new
-  `SOIL_MULCHED` value, a legend entry and a `mapLayers` version bump, plus a line in
-  `ConditionSection` — where it would be the third reading beside plough and weeds, and unlike
-  fertiliser and lime it has no Precision Farming conflict to argue about. Found from a real report:
-  a field read "Bare at the field centre" after mulching, because the growth raster is genuinely
-  blank there and the app took that for "the raster cannot say".
 
 - **Farmlands with no field are missing from the buy list.** They can be bought and never appear in
   `map.json`, which iterates `g_fieldManager.fields`. A complete buy planner needs a farmland sweep in
