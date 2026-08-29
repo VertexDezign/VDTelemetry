@@ -452,6 +452,18 @@ Each one is cheap to do while playing and settles something above.
   `greatDemand` flag itself rides in the synced price bits and should always be there. So the check is whether a client
   ever shows the flag *without* the premium beside it, and for how long — the exporter reports the flag alone in that
   case by design, but nobody has seen how often it happens.
+- **Does a withered crop read as withered on the field list?** Let a crop go past harvest, then compare
+  the field's row against the game's own growth overlay. Two things ride on it. `withered` drives the
+  only **Warning** alert the Fields app raises and the only suggestion that destroys a crop
+  (`Cultivate`), so it is the one growth kind that costs something in both directions. And it is the
+  one where our classifier's order and the game's can part company: `MapOverlayGenerator:buildGrowthStateMapOverlay`
+  writes the withered colour **first** and lets later writes overwrite it, while
+  `classifyGrowthFromFruit` returns first-match-wins with withered checked second. For `cut` the two
+  agree (cut wins either way, which is why `harvestTransitions` is tested first). For harvest, topping
+  and growing they do not: a fruit whose `witheredState` fell inside one of those ranges would read
+  `withered` from us and that range's colour on the game's map. No base-game fruit does — witheredState
+  sits above the harvest range — but that is the collision the classifier's own comment says cannot be
+  proven from static source.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.
@@ -533,6 +545,41 @@ engine load it wears the engine on, the service interval and system voltage. The
 
 ---
 
+## Field overview (#131)
+
+Built and validated in singleplayer and on a multiplayer client, tasks created from the list included.
+The mechanism is in `shared/.../model/FieldIndexGrid.kt` and `FieldStatus.kt` (why the raster and not
+`field:getFieldState()` or `FieldGetInfoTask` — both live inside `FieldManager:update`, which returns
+early when `g_server == nil`), the rules in `app/.../panels/FieldsModel.kt`. What it left open:
+
+- **`MIN_STATUS_CELLS` is a provisional 100, and it is the wrong unit.** It is a cell count on a grid
+  that is 512² whatever the map measures, so the ground it guards doubles with the map: 0.16 ha on a
+  2 km map, 0.64 ha on a 4 km one. On `examples/json/map/vanilla.json` it silences nothing — the
+  smallest of those 77 fields is 0.21 ha, about 131 cells — so no committed data says where the line
+  belongs. `FieldStatusData.haPerCell` crosses the wire already, so expressing the threshold in
+  hectares would at least make it mean the same thing on every map; picking the *number* still wants a
+  real 512² raster to look at (see "Captures wanted as fixtures").
+
+- **Does the raster or the point sample deserve the headline?** `fieldHeadline` currently lets the
+  raster lead whenever it has enough cells and falls back to `fieldInfo`'s centre sample otherwise,
+  and the row says which of the two it used. The two disagree exactly where the feature earns its
+  keep: a field 70 % cut with standing crop in the middle reads **Cut** from the raster and **Ready to
+  harvest** from the game's own FELDINFO popup. Truthful about the whole field versus matching what
+  the game tells the player everywhere else — worth settling in play, not on paper.
+
+- **Farmlands with no field are missing from the buy list.** They can be bought and never appear in
+  `map.json`, which iterates `g_fieldManager.fields`. A complete buy planner needs a farmland sweep in
+  `MapExporter` — a different channel shape, and arguably a different feature. Parked.
+
+- **A sow-crop fallback when no rotation plan matches a field.** The sow suggestion names a crop by
+  matching `FieldCropRotation`'s (prevCrop, lastCrop) pair against every `CropRotationPlan.sequence`
+  and taking the next slot. Where nothing matches it offers the task without a crop, deliberately. The
+  sketched fallback — rank the calendar's currently-sowable crops by `CropRotationSlot.cropYields` for
+  this field's history — is a guess dressed as an answer, because those previews are per slot of a
+  plan and not per field. See "Assigning a CropRotation plan to a field", which is the real fix.
+
+---
+
 ## Captures wanted as fixtures
 
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
@@ -545,13 +592,6 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   MP client** (does the history really stop at five?), and **one with notifications in the log** — the hook itself is
   confirmed working in singleplayer, so this is now wanted as a fixture rather than as proof. `FinanceModelTest` covers
   those three shapes with inline JSON meanwhile.
-- **A sow-crop fallback when no rotation plan matches a field.** The Fields app's sow suggestion names
-  a crop by matching `FieldCropRotation`'s (prevCrop, lastCrop) pair against every
-  `CropRotationPlan.sequence` and taking the next slot. Where nothing matches it offers the task
-  without a crop, deliberately. The plan for issue #131 sketched a fallback — rank the calendar's
-  currently-sowable crops by `CropRotationSlot.cropYields` for this field's history — but those
-  previews are per slot of a plan, not per field, so it is a guess dressed as an answer until there
-  is a field→plan link. See "Assigning a CropRotation plan to a field", which is the real fix.
 - **A fresh `map.json` capture, carrying `price`.** The farmland price arrived with map channel
   version 2 (issue #131), so none of the three committed captures has it — they are real captures and
   are never edited to add a key the run that produced them didn't write. `MapDataModelTest` pins the
@@ -563,7 +603,6 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   joins a raster against field polygons: 77 fields over 64 cells. Wanted by the per-field status
   histogram (issue #131), whose whole claim is that the raster resolves a field better than a
   single centre sample does, and which cannot be shown to at that grid size.
-
 - **A capture with Advanced Damage System installed**, for the `ads` block — ideally a CVT machine (so
   `transmissionTemperatur` is present) that is a little overdue for service and carrying a breakdown or two, so the
   lamps, the interval and the load are all non-trivial in the one file.

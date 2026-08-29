@@ -48,13 +48,17 @@ data class FieldRow(
 /**
  * How many cells a field must have before its percentages are quoted.
  *
- * At 512² on a 2 km map a cell is about 4 m square, so this is roughly a third of a hectare of
- * sampled ground. Below it the raster is answering with too few pixels to round honestly — "83 %" off
- * forty cells is a number with two significant figures and none of them earned — and the row falls
- * back to the point sample the game's own panel would show.
+ * At 512² on a 2 km map a cell is 4 m square, so this is 0.16 ha of sampled ground. Below it the
+ * raster is answering with too few pixels to round honestly — "83 %" off forty cells is a number with
+ * two significant figures and none of them earned — and the row falls back to the point sample the
+ * game's own panel would show.
  *
- * **Provisional.** The plan flags picking this properly as an open question: it wants a real 512²
- * capture to look at, and none has been taken yet (`FUTURE.md` -> "Captures wanted as fixtures").
+ * **Provisional**, and note it is a *cell* count on a grid that is 512² whatever the map measures, so
+ * the ground it stands for doubles with the map: 0.16 ha on a 2 km map, 0.64 ha on a 4 km one. On
+ * `map/vanilla.json` it silences nothing at all — the smallest of those 77 fields is 0.21 ha, about
+ * 131 cells — so it is a guard against the odd sliver rather than a line anyone has seen bite.
+ * Expressing it in hectares off `FieldStatusData.haPerCell` would at least make it mean the same thing
+ * on every map; see `FUTURE.md` -> "Field overview (#131)".
  */
 const val MIN_STATUS_CELLS = 100
 

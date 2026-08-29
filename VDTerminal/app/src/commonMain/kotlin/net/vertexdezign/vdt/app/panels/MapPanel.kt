@@ -422,18 +422,8 @@ fun MapPanel(
   // captured when the panel first composed.
   val showLayers by rememberUpdatedState(onShowLayers)
   LaunchedEffect(groundLayer) {
-    showLayers(
-      LayerSubscriptions.union(
-        panelToken,
-        if (groundLayer ==
-          NO_GROUND_LAYER
-        ) {
-          emptyList()
-        } else {
-          listOf(groundLayer)
-        },
-      ),
-    )
+    val selection = if (groundLayer == NO_GROUND_LAYER) emptyList() else listOf(groundLayer)
+    showLayers(LayerSubscriptions.union(panelToken, selection))
   }
   DisposableEffect(panelToken) {
     onDispose { showLayers(LayerSubscriptions.union(panelToken, null)) }
