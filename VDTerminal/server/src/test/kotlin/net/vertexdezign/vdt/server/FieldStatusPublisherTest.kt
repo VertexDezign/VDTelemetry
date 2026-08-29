@@ -204,6 +204,33 @@ class FieldStatusPublisherTest {
   }
 
   @Test
+  fun countsAMalformedRasterAsBlankRatherThanCallingItAFailure() {
+    val publisher = FieldStatusPublisher()
+
+    // Geometry the index accepts, content it cannot make sense of: junk hex, a row that stops early,
+    // a row missing altogether. There is no decode failure to report here -- decodeCells is total for
+    // an accepted grid size, and blank is its documented answer for junk, which is also how an
+    // ordinary empty row arrives. So this is a plane that was swept and found nothing, and the
+    // publisher is right to serve it: refusing it would withhold the answer "the field is bare".
+    val malformed = growth("zzzz", "15")
+    val status = assertNotNull(publisher.update(map, mapOf(GROWTH_LAYER_ID to malformed)))
+    val field = assertNotNull(status.growth).fields.single()
+
+    // One cell survived -- the readable half of the short row -- and the rest of the polygon is blank.
+    assertEquals(listOf(FieldStatusSlice("harvest", 1)), field.slices)
+    assertEquals(1, field.cells)
+    assertEquals(3, field.blank)
+    assertEquals(4, field.polygonCells, "every cell is accounted for; none was lost to the junk")
+
+    // And the wholly unreadable raster is the all-blank field, which the app reads as bare rather
+    // than as an absence -- the distinction fieldHeadline's isBareByRaster rests on.
+    val unreadable = assertNotNull(publisher.update(map, mapOf(GROWTH_LAYER_ID to growth("zzzz", "zzzz"))))
+    val bare = assertNotNull(unreadable.growth).fields.single()
+    assertEquals(0, bare.cells)
+    assertEquals(4, bare.polygonCells)
+  }
+
+  @Test
   fun dropsTheGridWithTheMap() {
     val publisher = FieldStatusPublisher()
     publisher.update(map, mapOf(GROWTH_LAYER_ID to ready))
