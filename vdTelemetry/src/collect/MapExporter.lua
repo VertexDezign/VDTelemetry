@@ -337,7 +337,13 @@ local function collectFields(sizeX, sizeZ)
       -- data, loaded everywhere, not behind a g_server guard.
       local okFarmland, farmland = pcall(field.getFarmland, field)
       if okFarmland and type(farmland) == "table" and type(farmland.price) == "number" then
-        entry.price = math.floor(farmland.price + 0.5)
+        -- Only a positive price is a price. A zero (or negative) reading is a farmland the game
+        -- never priced, and emitting it would tell the app "for sale, free" where the truth is
+        -- "unknown" -- the key stays unset instead, which is what a null already means there.
+        local price = math.floor(farmland.price + 0.5)
+        if price > 0 then
+          entry.price = price
+        end
       end
 
       entry.polygon = collectPolygon(field, sizeX, sizeZ)
