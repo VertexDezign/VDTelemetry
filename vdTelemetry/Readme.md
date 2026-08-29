@@ -327,11 +327,12 @@ version renames costs you that panel, never a Lua error.
     * Differential
     * AWD
     * Parking Brake
-* [FS25_AdvancedDamageSystem](https://github.com/id577/FS25_AdvancedDamageSystem) **0.9.2.7-beta** —
+* [FS25_AdvancedDamageSystem](https://github.com/id577/FS25_AdvancedDamageSystem) **0.9.2.8-beta** —
   replaces the vanilla damage model, and drives the cluster's warning lamps
   (`src/integrations/AdvancedDamageSystem.lua`, `vehicle.ads`). Still a beta, so its internals move
-  faster than the others': the version above is the one this was written against. **Read only:** every
-  workshop procedure stays in game, as with vanilla repair.
+  faster than the others': the version above is the one this was written against, and an older ADS
+  reports no `vehicle.ads` at all rather than a plausible wrong one. **Read only:** every workshop
+  procedure stays in game, as with vanilla repair.
     * The six dashboard lamps ADS drives, each with its severity — and only the lamps a machine of
       that production year actually has
     * The engine temperature, which **replaces** `motor.temperatur.value`. ADS's thermal model is the
@@ -366,7 +367,7 @@ version renames costs you that panel, never a Lua error.
   base-game loan block on the finance channel and adds an `enhancedLoans` block in its place
   (`src/integrations/EnhancedLoanSystem.lua`). **Read and write:** VDTerminal can take a loan and make
   a special redemption payment against one (`src/command/EnhancedLoanControl.lua`).
-* [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) `1.2.0.0` —
+* [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) `1.2.1.0` —
   invoices raised between farms, in its own `invoices.json` channel
   (`src/integrations/Invoices.lua`), together with the work-type catalogue priced for this server and
   the farms that can be billed. **Read and write:** VDTerminal can pay, withdraw, validate and refuse

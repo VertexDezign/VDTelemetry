@@ -394,14 +394,24 @@ describe("Invoices integration", function()
   describe("penalty countdown", function()
     local terms = { enabled = true, gracePeriods = 1, daysPerPeriod = 3 }
 
-    it("counts down to the first accrual, two whole periods after creation", function()
-      -- created day 10, 3-day months, 1 month grace => first penalty at day 16.
-      assert.equals(6, VDT.Invoices.daysUntilPenalty(makeInvoice({ createdDay = 10 }), terms, STATE, 10))
-      assert.equals(1, VDT.Invoices.daysUntilPenalty(makeInvoice({ createdDay = 10 }), terms, STATE, 15))
+    it("counts down to the first accrual, the day after the grace window runs out", function()
+      -- created day 10, 3-day months, 1 month grace => grace covers days 11-13, first penalty day 14.
+      assert.equals(4, VDT.Invoices.daysUntilPenalty(makeInvoice({ createdDay = 10 }), terms, STATE, 10))
+      assert.equals(1, VDT.Invoices.daysUntilPenalty(makeInvoice({ createdDay = 10 }), terms, STATE, 13))
+    end)
+
+    it("counts grace in whole periods but the wait in days, as 1.2.1.0 does", function()
+      -- The pre-1.2.1.0 rule counted in periods throughout and put this a whole period later, at day
+      -- 16. Only a multi-day period can tell the two apart, so a one-day period pins nothing.
+      local monthly = { enabled = true, gracePeriods = 1, daysPerPeriod = 6 }
+      assert.equals(7, VDT.Invoices.daysUntilPenalty(makeInvoice({ createdDay = 10 }), monthly, STATE, 10))
+      local daily = { enabled = true, gracePeriods = 1, daysPerPeriod = 1 }
+      assert.equals(2, VDT.Invoices.daysUntilPenalty(makeInvoice({ createdDay = 10 }), daily, STATE, 10))
     end)
 
     it("floors at zero rather than going negative", function()
-      -- Accrual only runs on the last day of a period, so an invoice can sit due for a few days.
+      -- The mod polls on a timer rather than on the day rollover, and a penalty that rounds to 0 on a
+      -- small invoice never makes penaltyAmount positive at all -- so "due" outlasts the countdown.
       assert.equals(0, VDT.Invoices.daysUntilPenalty(makeInvoice({ createdDay = 10 }), terms, STATE, 20))
     end)
 
