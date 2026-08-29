@@ -334,7 +334,7 @@ version renames costs you that panel, never a Lua error.
   (`src/integrations/AdvancedDamageSystem.lua`, `vehicle.ads`). Still a beta, so its internals move
   faster than the others': the version above is the one this was written against, and an older ADS
   reports no `vehicle.ads` at all rather than a plausible wrong one. **Read only:** every workshop
-  procedure stays in game, as with vanilla repair.
+  procedure stays in-game, as with vanilla repair.
     * The six dashboard lamps ADS drives, each with its severity — and only the lamps a machine of
       that production year actually has
     * The engine temperature, which **replaces** `motor.temperatur.value`. ADS's thermal model is the
