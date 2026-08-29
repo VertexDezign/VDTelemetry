@@ -114,10 +114,16 @@ end
 
 ---A motorized vehicle carrying ADS's spec. `motorState` is the engine's own enum (OFF 1, IGNITION 2,
 ---STARTING 3, ON 4).
+---
+---`excluded` is asked through `getIsADSExcluded`, which is how 0.9.2.8 answers it. `noExclusionMethod`
+---builds a machine from an ADS too old to have that method, and `exclusionThrows` one whose method is
+---there but blows up in third-party code.
 local function makeVehicle(over)
   over = over or {}
   local spec = {
-    isExcludedVehicle = over.excluded or false,
+    -- 0.9.2.7's flag, planted on the old shape only. The integration must not read it even there: it
+    -- is here to show that a spec carrying the old field and nothing else still reports nothing.
+    isExcludedVehicle = over.noExclusionMethod and (over.excluded or false) or nil,
     year = over.year or 2020,
     engineTemperature = over.engineTemperature or 88,
     transmissionTemperature = over.transmissionTemperature or -99,
@@ -129,6 +135,14 @@ local function makeVehicle(over)
     activeIndicators = over.activeIndicators or {},
   }
   local vehicle = { spec_AdvancedDamageSystem = spec }
+  if not over.noExclusionMethod then
+    function vehicle:getIsADSExcluded()
+      if over.exclusionThrows then
+        error("ADS threw")
+      end
+      return over.excluded or false
+    end
+  end
   function vehicle:getMotorState()
     return over.motorState or 4
   end
@@ -188,6 +202,30 @@ describe("AdvancedDamageSystem integration", function()
     it("contributes nothing to a vehicle ADS excludes", function()
       local vehicle = makeVehicle({ excluded = true })
       assert.is_nil(contribute(vehicle).ads)
+    end)
+
+    it("asks ADS whether the machine is excluded rather than reading a flag off the spec", function()
+      -- 0.9.2.8 dropped `spec.isExcludedVehicle` for `getIsADSExcluded()`. A reader still looking for
+      -- the field sees nothing there and lets an electric machine through -- one whose spec ADS never
+      -- populated, so `engineTemperature` is still the -99 its onLoad left, and that would land on the
+      -- cluster's temperature gauge as a reading.
+      local vehicle = makeVehicle({ excluded = true, engineTemperature = -99 })
+      local model = contribute(vehicle)
+      assert.is_nil(model.ads)
+      assert.equals(20, model.motor.temperatur.value)
+    end)
+
+    it("reports nothing at all on an ADS too old to answer the exclusion question", function()
+      -- Pre-0.9.2.8, which had the field and no method. One version is tracked, so the answer to an
+      -- ADS we have not read is silence rather than a guess -- for the INCLUDED machine too, which is
+      -- the half that costs something and the half that keeps the fiction out.
+      assert.is_nil(contribute(makeVehicle({ excluded = true, noExclusionMethod = true })).ads)
+      assert.is_nil(contribute(makeVehicle({ noExclusionMethod = true })).ads)
+    end)
+
+    it("reports nothing when ADS's own method throws", function()
+      -- Third-party code inside a pcall, like every other ADS call here: a throw is not a "no".
+      assert.is_nil(contribute(makeVehicle({ exclusionThrows = true })).ads)
     end)
   end)
 
@@ -586,6 +624,10 @@ describe("AdvancedDamageSystem integration", function()
     it("contributes nothing to an implement or an excluded machine", function()
       assert.is_nil(fleetRow({}).ads)
       assert.is_nil(fleetRow(makeFleetVehicle({ excluded = true })).ads)
+      -- The fleet row is the one that would look plausible if the gate missed: ADS's onLoad leaves
+      -- `currentState` at READY, so an excluded machine would file a maintenance record saying it is
+      -- ready for work.
+      assert.is_nil(fleetRow(makeFleetVehicle({ excluded = true, noExclusionMethod = true })).ads)
     end)
 
     it("carries the inspection record and the service interval, the same blocks the cluster has", function()

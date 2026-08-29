@@ -39,9 +39,21 @@
 -- functions ADS registers on the vehicle type are on the vehicle itself, so those are called
 -- directly.
 --
--- **Written against FS25_AdvancedDamageSystem 0.9.2.7-beta** — everything here reads that mod's
--- internals, which it is free to rename in any release. So fail soft, never throw: a missing field
--- means "no ADS data", because a throw in a collector takes the whole telemetry write down with it.
+-- **Written against FS25_AdvancedDamageSystem 0.9.2.8-beta** — everything here reads that mod's
+-- internals, which it is free to rename in any release, and 0.9.2.7 already proves it does: the
+-- exclusion flag `spec.isExcludedVehicle` became the method `getIsADSExcluded()` (see spec below).
+-- One version is tracked rather than several, as with every other integration here; a player on an
+-- older ADS gets no `vehicle.ads` block rather than a plausible wrong one.
+--
+-- So fail soft, never throw: a missing field means "no ADS data", because a throw in a collector takes
+-- the whole telemetry write down with it.
+--
+-- Two more 0.9.2.8 changes, neither of which needs anything from us. Its other renames
+-- (`setADSUserExcluded` -> `setADSPlayerExcluded`, the savegame's `isExcludedByUser` ->
+-- `isExcludedByPlayer`) are on the write side, which we never touch. And contract vehicles stopped
+-- accruing service hours (its new `isMissionVehicle` gate zeroes getHoursSinceLastMaintenance), so
+-- `service.hours` reads 0 on one -- ADS's own answer, and its own menu shows the same, so it travels
+-- unaltered.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
@@ -175,13 +187,32 @@ local function env()
 end
 
 ---ADS's spec on an object, or nil when there is nothing to read: no ADS, not a motorized vehicle
----(ADS attaches to those only), or a vehicle ADS excludes outright (electric machines and the bikes,
----which get the spec table but never a populated one).
+---(ADS attaches to those only), or a vehicle ADS excludes (electric machines and the bikes by
+---default, plus anything the player has switched off).
+---
+---The exclusion question goes to ADS's own `getIsADSExcluded`, and a machine that cannot answer it is
+---one we report nothing for. That is stricter than it looks, and deliberately so:
+---
+---  * An excluded machine still CARRIES the spec table -- ADS's `onPostLoad` returns before populating
+---    it -- so its fields sit at their `onLoad` defaults rather than at nothing: `engineTemperature`
+---    is -99 and `year` is 2000. A gate that lets one through does not export a gap, it exports
+---    fiction: -99 °C on the cluster's temperature gauge, a coolant lamp latched cold, and the full
+---    lamp band lit on an electric loader.
+---  * The answer stopped being a stored flag in 0.9.2.8, so there is nothing to fall back TO. A
+---    machine excluded by default can be brought back in by a Used Equipment Yard item, which only ADS
+---    can see; the method is the only place that composition happens.
+---  * A missing method means an ADS older than the one above, whose fields we would be reading by
+---    their old names anyway. Silence is the honest answer to a version we have not read.
 ---@param object table a vehicle or implement
 ---@return table|nil
 function VDT.AdvancedDamageSystem.spec(object)
   local spec = object ~= nil and object.spec_AdvancedDamageSystem or nil
-  if spec == nil or spec.isExcludedVehicle then
+  if spec == nil or type(object.getIsADSExcluded) ~= "function" then
+    return nil
+  end
+  -- Third-party code, so contained like every other ADS call (see [call]); a throw is not a "no".
+  local ok, excluded = pcall(object.getIsADSExcluded, object)
+  if not ok or excluded ~= false then
     return nil
   end
   return spec
