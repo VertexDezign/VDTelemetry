@@ -168,13 +168,18 @@ private fun FieldsMasterDetail(
   onCreate: (TaskInput) -> Unit,
 ) {
   var query by remember { mutableStateOf("") }
-  var view by remember { mutableStateOf(FieldView.ALL) }
+  // Opens on your own fields, not on the map's. The list exists to answer "what does my land need",
+  // and on a vanilla map ALL is 77 rows of which a handful are yours — the reader would filter every
+  // time. Buying land is the deliberate act, so the buy planner is one chip away rather than the
+  // greeting.
+  var view by remember { mutableStateOf(FieldView.MINE) }
   var sort by remember { mutableStateOf(FieldSort.NUMBER) }
   var ascending by remember { mutableStateOf(true) }
   var selectedId by remember { mutableStateOf<Int?>(null) }
 
   // The offered views follow the data, so buying the last unowned field drops the reader back to ALL
-  // rather than leaving them on an empty list they cannot explain.
+  // rather than leaving them on an empty list they cannot explain. It is also what makes MINE a safe
+  // default: a farm that owns nothing yet is not offered the chip, and opens on ALL.
   val views = remember(rows) { fieldViews(rows) }
   val activeView = if (view in views) view else FieldView.ALL
   val shown = remember(rows, query, activeView, sort, ascending) {
