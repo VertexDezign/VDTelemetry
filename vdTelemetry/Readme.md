@@ -367,7 +367,7 @@ version renames costs you that panel, never a Lua error.
   base-game loan block on the finance channel and adds an `enhancedLoans` block in its place
   (`src/integrations/EnhancedLoanSystem.lua`). **Read and write:** VDTerminal can take a loan and make
   a special redemption payment against one (`src/command/EnhancedLoanControl.lua`).
-* [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) `1.2.0.0` —
+* [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) `1.2.1.0` —
   invoices raised between farms, in its own `invoices.json` channel
   (`src/integrations/Invoices.lua`), together with the work-type catalogue priced for this server and
   the farms that can be billed. **Read and write:** VDTerminal can pay, withdraw, validate and refuse

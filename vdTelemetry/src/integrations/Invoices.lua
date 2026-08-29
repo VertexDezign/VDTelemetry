@@ -5,10 +5,15 @@
 -- isn't present the channel is registered but never writes, and a file left over from a session where
 -- it *was* installed is deleted at startup.
 --
--- **Written against FS25_Invoices 1.2.0.0** -- everything here reads that mod's *internals*, which it
+-- **Written against FS25_Invoices 1.2.1.0** -- everything here reads that mod's *internals*, which it
 -- is free to rename in any release. So fail soft, never throw: a missing field means "no data",
 -- because a throw in a collector takes the whole telemetry write down with it. Same contract on the
 -- write side (src/command/InvoiceControl.lua).
+--
+-- 1.2.1.0 renamed nothing, but it did rewrite one RULE we mirror -- when a late-payment penalty first
+-- lands (see daysUntilPenalty). A rule is the more dangerous kind of change: a rename takes the field
+-- away and the fail-soft path shows a gap, where a rewritten rule keeps answering, plausibly, with
+-- the old number.
 --
 -- REACHING THE MOD. Unusually, the main handle is not in the mod's Lua environment at all:
 -- `g_currentMission.invoicesManager` is set on the MISSION, which is shared, so the repository and the
@@ -244,10 +249,17 @@ end
 ---In-game days until this invoice starts accruing a penalty, or nil when the question does not apply
 ---(penalties off, already accruing, or a state that never accrues).
 ---
----The mod's rule (InvoiceService:processPenalties): penaltyMonths = floor(elapsedDays / daysPerPeriod)
----- gracePeriods, and a penalty lands once that is positive. So the first one is due after
----(grace + 1) whole periods. Floored at 0 rather than going negative: accrual only runs on the LAST
----day of a period, so an invoice can sit "due" for a few days before the number moves.
+---The mod's rule (InvoiceService:processPenalties): overdueDays = elapsedDays - gracePeriods *
+---daysPerPeriod, and a penalty lands once that is positive. So the first one is due the day AFTER the
+---grace window runs out -- grace is counted in whole periods, but the wait is then counted in days.
+---1.2.0.0 counted in periods throughout (floor(elapsedDays / daysPerPeriod) - gracePeriods) and only
+---ever accrued on the last day of one, which on a multi-day period put the first penalty a whole
+---period later than it now lands.
+---
+---Floored at 0 rather than going negative, for two reasons that both survive that change: the mod
+---polls on a timer rather than on the day rollover, so there is a window where the day has passed and
+---the penalty has not been written yet; and a penalty that rounds to 0 on a small invoice never makes
+---`penaltyAmount` positive at all, so the countdown below would otherwise run negative forever.
 ---@param invoice table
 ---@param terms table the PenaltyTermsModel already collected
 ---@param states table Invoice.STATE
@@ -266,7 +278,7 @@ function VDT.Invoices.daysUntilPenalty(invoice, terms, states, currentDay)
     return nil
   end
   local daysPerPeriod = math.max(1, math.floor(num(terms.daysPerPeriod)))
-  local due = createdDay + (math.floor(num(terms.gracePeriods)) + 1) * daysPerPeriod
+  local due = createdDay + math.floor(num(terms.gracePeriods)) * daysPerPeriod + 1
   return math.max(due - currentDay, 0)
 end
 
