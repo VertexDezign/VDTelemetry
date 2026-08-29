@@ -248,14 +248,19 @@ describe("MapExporter.collect", function()
     g_fieldManager.fields = {
       field(7, "7", 1, 2.312, -512, -512, nil, 112499.6),
       field(12, "12", 0, 4.5, 512, 512), -- no farmland linked -> no price at all
+      field(13, "13", 0, 4.5, 512, 512, nil, 0), -- a farmland the map never priced
+      field(14, "14", 0, 4.5, 512, 512, nil, 0.4), -- rounds to 0, which is not a price either
     }
 
     local fields = VDT.MapExporter.collect().fields
     -- Priced whether owned or not: it is what the farmland costs, not an offer.
     assert.are.equal(112500, fields[1].price)
-    -- Omitted rather than zeroed. A field priced 0 would sort to the top of a "cheapest first" buy
-    -- list, which is the one place an unknown must not be allowed to look like an answer.
+    -- Omitted rather than zeroed, and the same for a farmland that reads 0 or rounds to it. A field
+    -- priced 0 would sort to the top of a "cheapest first" buy list, which is the one place an
+    -- unknown must not be allowed to look like an answer.
     assert.is_nil(fields[2].price)
+    assert.is_nil(fields[3].price)
+    assert.is_nil(fields[4].price)
   end)
 
   it("degrades a field to its label when a polygon node can't be resolved", function()
