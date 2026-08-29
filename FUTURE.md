@@ -545,35 +545,6 @@ engine load it wears the engine on, the service interval and system voltage. The
 
 ---
 
-## Field overview (#131)
-
-Built and validated in singleplayer and on a multiplayer client, tasks created from the list included.
-The mechanism is in `shared/.../model/FieldIndexGrid.kt` and `FieldStatus.kt` (why the raster and not
-`field:getFieldState()` or `FieldGetInfoTask` — both live inside `FieldManager:update`, which returns
-early when `g_server == nil`), the rules in `app/.../panels/FieldsModel.kt`. What it left open:
-
-- **Does the raster or the point sample deserve the *stage* headline?** `fieldHeadline` currently lets
-  the raster lead whenever it has enough cells and falls back to `fieldInfo`'s centre sample otherwise,
-  and the row says which of the two it used. The two disagree exactly where the feature earns its
-  keep: a field 70 % cut with standing crop in the middle reads **Cut** from the raster and **Ready to
-  harvest** from the game's own FELDINFO popup. Truthful about the whole field versus matching what
-  the game tells the player everywhere else — worth settling in play, not on paper. (The *crop* half of
-  the same question is settled: the raster names it, because a centre cell that lands on a track said
-  the field was growing nothing at all.)
-
-- **Farmlands with no field are missing from the buy list.** They can be bought and never appear in
-  `map.json`, which iterates `g_fieldManager.fields`. A complete buy planner needs a farmland sweep in
-  `MapExporter` — a different channel shape, and arguably a different feature. Parked.
-
-- **A sow-crop fallback when no rotation plan matches a field.** The sow suggestion names a crop by
-  matching `FieldCropRotation`'s (prevCrop, lastCrop) pair against every `CropRotationPlan.sequence`
-  and taking the next slot. Where nothing matches it offers the task without a crop, deliberately. The
-  sketched fallback — rank the calendar's currently-sowable crops by `CropRotationSlot.cropYields` for
-  this field's history — is a guess dressed as an answer, because those previews are per slot of a
-  plan and not per field. See "Assigning a CropRotation plan to a field", which is the real fix.
-
----
-
 ## Captures wanted as fixtures
 
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
