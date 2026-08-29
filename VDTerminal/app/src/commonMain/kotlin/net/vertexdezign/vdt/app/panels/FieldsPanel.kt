@@ -571,44 +571,50 @@ private fun FieldDetail(
         if (info.maxGrowthState > 0) DetailLine("Growth", "${info.growthState} / ${info.maxGrowthState}")
         info.yieldBonusPercent?.let { DetailLine("Yield bonus", "+ $it %") }
       }
-      val suggestions = fieldSuggestions(row, rotation, calendar)
-      val work = fieldWork(row)
-      if (work.isNotEmpty() || canCreate) {
-        DetailSection("Asking for") {
-          FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-          ) {
-            work.forEach { type ->
-              val suggestion = suggestions.firstOrNull { it.type == type }
-              when {
-                // Already written down: the chip degrades to a plain label rather than offering the
-                // same work twice, which is the fastest way to make a suggester worth ignoring.
-                suggestion == null -> FieldBadge("${type.label.uppercase()} · ON THE LIST", selected = false)
+    }
 
-                canCreate ->
-                  SuggestionChip(suggestion) { onCreate(taskInputFor(suggestion, calendar?.today?.period)) }
+    // Outside the fieldInfo guard, unlike everything above it: plough, harvest and cultivate are all
+    // read off the rasters, so a field the channel never named can still be asking for work -- and its
+    // row in the list already says so in its badges, which is the worst place to disagree with. Only
+    // the sow chip needs the point sample, and fieldWork withholds it by itself.
+    val suggestions = fieldSuggestions(row, rotation, calendar)
+    val work = fieldWork(row)
+    if (work.isNotEmpty() || canCreate) {
+      DetailSection("Asking for") {
+        FlowRow(
+          horizontalArrangement = Arrangement.spacedBy(4.dp),
+          verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+          work.forEach { type ->
+            val suggestion = suggestions.firstOrNull { it.type == type }
+            when {
+              // Already written down: the chip degrades to a plain label rather than offering the
+              // same work twice, which is the fastest way to make a suggester worth ignoring.
+              suggestion == null -> FieldBadge("${type.label.uppercase()} · ON THE LIST", selected = false)
 
-                else -> FieldBadge(type.label.uppercase(), selected = false)
-              }
+              canCreate ->
+                SuggestionChip(suggestion) { onCreate(taskInputFor(suggestion, calendar?.today?.period)) }
+
+              else -> FieldBadge(type.label.uppercase(), selected = false)
             }
-            if (canCreate) AddTaskChip(row.id, calendar?.today?.period, onCreate)
           }
-          // Said where the sow chip is, rather than left for the reader to work out: outside seasonal
-          // growth the calendar answers "yes" to every period, so there is no best month to date it.
-          if (calendar?.isSeasonal == false && suggestions.any { it.type == FieldTaskType.SOW }) {
-            Text("No sowing window on this map — growth isn't seasonal.", color = VdtColors.DarkGray, fontSize = 10.sp)
-          }
+          if (canCreate) AddTaskChip(row.id, calendar?.today?.period, onCreate)
+        }
+        // Said where the sow chip is, rather than left for the reader to work out: outside seasonal
+        // growth the calendar answers "yes" to every period, so there is no best month to date it.
+        if (calendar?.isSeasonal == false && suggestions.any { it.type == FieldTaskType.SOW }) {
+          Text("No sowing window on this map — growth isn't seasonal.", color = VdtColors.DarkGray, fontSize = 10.sp)
         }
       }
-      val rotation = info.cropRotation
-      if (rotation != null) {
-        DetailSection("Rotation") {
-          if (rotation.lastCrop.isNotBlank()) DetailLine("Last crop", rotation.lastCrop)
-          if (rotation.prevCrop.isNotBlank()) DetailLine("Before that", rotation.prevCrop)
-          rotation.yieldPercent?.let { DetailLine("Rotation yield", "$it %") }
-          rotation.catchCrop?.let { DetailLine("Catch crop", it) }
-        }
+    }
+
+    val cropRotation = info?.cropRotation
+    if (cropRotation != null) {
+      DetailSection("Rotation") {
+        if (cropRotation.lastCrop.isNotBlank()) DetailLine("Last crop", cropRotation.lastCrop)
+        if (cropRotation.prevCrop.isNotBlank()) DetailLine("Before that", cropRotation.prevCrop)
+        cropRotation.yieldPercent?.let { DetailLine("Rotation yield", "$it %") }
+        cropRotation.catchCrop?.let { DetailLine("Catch crop", it) }
       }
     }
 
