@@ -63,25 +63,37 @@ class FieldStatusPublisher(private val planes: Map<String, SliceGrouping> = FIEL
     // Compared by value, not by identity: the watcher happens to keep the previous instance when a
     // reparse produces an equal one, but a cache that silently depends on that would be wrong the day
     // it stops being true, and the compare is a few thousand floats against rebuilding the grid.
-    if (grid == null || gridMap != map || gridSize != size) {
+    var index = grid
+    if (index == null || gridMap != map || gridSize != size) {
       gridMap = map
       gridSize = size
-      grid = FieldIndexGrid.of(map, size)
+      index = FieldIndexGrid.of(map, size)
+      grid = index
       // The grid moved under them, so no cached histogram describes this map any more.
       versions.clear()
       histograms.clear()
     }
 
     var changed = false
+    // The planes that could actually be laid over this index. A plane that disagrees with it about
+    // resolution or terrain size counts as nothing here rather than as a swept plane full of zeroes:
+    // histogram returns the same empty result either way, and publishing that as a breakdown is how
+    // "we cannot tell yet" reaches the app as "0 ha ready to harvest" (see fieldTotals, which asks
+    // whether the plane is there and not whether it said anything).
+    val counted = mutableSetOf<String>()
     for ((id, layer) in present) {
+      if (!index.accepts(layer)) continue
+      counted += id
       val version = layer.contentVersion
       if (versions[id] == version && histograms.containsKey(id)) continue
       versions[id] = version
-      histograms[id] = grid?.histogram(layer, planes[id] ?: SliceGrouping.KIND) ?: continue
+      histograms[id] = index.histogram(layer, planes[id] ?: SliceGrouping.KIND)
       changed = true
     }
-    // A plane that stopped being written (channel switched off mid-session) leaves rather than lingers.
-    val gone = histograms.keys - present.map { it.first }.toSet()
+    // A plane that stopped being counted leaves rather than lingers — the channel switched off
+    // mid-session, or the raster it now writes no longer fits this map's grid. Either way what is
+    // cached describes a sweep that has been superseded.
+    val gone = histograms.keys - counted
     if (gone.isNotEmpty()) {
       gone.forEach {
         histograms.remove(it)
@@ -91,7 +103,10 @@ class FieldStatusPublisher(private val planes: Map<String, SliceGrouping> = FIEL
     }
 
     if (changed || statuses == null) {
-      statuses = FieldStatuses(planes.keys.mapNotNull { histograms[it] })
+      val kept = planes.keys.mapNotNull { histograms[it] }
+      // No plane fits the map: the same "no raster yet" the app already knows how to say, rather than
+      // a FieldStatuses carrying nothing, which reads as a breakdown that came back blank.
+      statuses = if (kept.isEmpty()) null else FieldStatuses(kept)
     }
     return statuses
   }

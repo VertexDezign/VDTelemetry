@@ -77,12 +77,26 @@ class FieldIndexGrid private constructor(
     }
 
   /**
+   * Whether [layer] can be laid over this index at all.
+   *
+   * The check [histogram] makes before counting, named and exposed because "counted, and the answer
+   * is nothing" and "could not be counted" are the same empty result to a caller reading the return
+   * value — and a caller that caches or publishes one as the other turns an unknown into a zero. The
+   * post-decode length check stays inside [histogram], where the decode happens.
+   */
+  fun accepts(layer: MapLayerData): Boolean {
+    if (gridSize <= 0 || layer.gridSize != gridSize) return false
+    // A terrain size either side does not know is not a disagreement; only two stated ones can differ.
+    return terrainSize <= 0f || layer.terrainSize <= 0f || layer.terrainSize == terrainSize
+  }
+
+  /**
    * Count [layer]'s cells per field, bucketed as [grouping] says.
    *
    * One walk over the raster: an array read for the owner, an array read for the bucket, an increment.
    * Returns an empty result — never a partial or a wrong one — when the raster can't be trusted to
    * line up: a different [MapLayerData.gridSize], a [MapLayerData.terrainSize] from another map, or a
-   * raster that failed to decode.
+   * raster that failed to decode. Ask [accepts] first to tell that apart from a genuine nothing.
    *
    * Under [SliceGrouping.KIND] cells group by [MapLayerLegendEntry.kind], so every step of the growth
    * plane's growing gradient counts as `growing`. Under [SliceGrouping.VALUE] each legend value is its
@@ -92,12 +106,10 @@ class FieldIndexGrid private constructor(
    */
   fun histogram(layer: MapLayerData, grouping: SliceGrouping = SliceGrouping.KIND): FieldStatusData {
     val empty = FieldStatusData(layerId = layer.id)
-    if (gridSize <= 0) return empty
     // A plane sampled at another resolution or on another map cannot be laid over this index. Both are
     // real: the mod may bump GRID_SIZE, and a map load replaces the geometry a beat before or after the
     // raster it belongs with.
-    if (layer.gridSize != gridSize) return empty
-    if (terrainSize > 0f && layer.terrainSize > 0f && layer.terrainSize != terrainSize) return empty
+    if (!accepts(layer)) return empty
     val raster = layer.decodeCells(gridSize)
     if (raster.size != owner.size) return empty
 

@@ -164,6 +164,46 @@ class FieldStatusPublisherTest {
   }
 
   @Test
+  fun leavesOutAPlaneThatCannotBeLaidOverTheGrid() {
+    val publisher = FieldStatusPublisher()
+    val first = assertNotNull(publisher.update(map, mapOf(GROWTH_LAYER_ID to ready)))
+    assertNotNull(first.growth)
+
+    // A map load replaces the geometry a beat away from the raster it belongs with, and the histogram
+    // refuses the pair. What it returns then is a plane with no fields in it -- indistinguishable from
+    // a plane that was swept and found nothing -- so the publisher has to leave it out rather than
+    // pass the refusal on as a breakdown. Present-and-empty reads downstream as "0 ha ready to
+    // harvest", where the honest answer is that we cannot tell.
+    assertNull(publisher.update(map, mapOf(GROWTH_LAYER_ID to ready.copy(terrainSize = 2048f))), "another map")
+    // And the histogram it used to hold goes with it: it describes a sweep this raster has replaced,
+    // so serving it on would answer with the previous grid's numbers.
+    assertNull(publisher.current())
+
+    // The other way a plane can fail to fit is disagreeing with the plane that sized the index -- one
+    // raster alone always fits, because it is what the grid was built to. Registry order puts growth
+    // first, so soil at another resolution is the one refused, and the plane that does fit is counted
+    // beside it as usual.
+    val soil =
+      MapLayerData(
+        version = "3",
+        terrainSize = 1024f,
+        gridSize = 4,
+        id = SOIL_LAYER_ID,
+        legend = listOf(MapLayerLegendEntry(v = 2, label = "Needs plowing", color = "#7b4b2a", kind = "needsPlowing")),
+        rows = listOf("0200", "0200", "", ""),
+      )
+    val mixed =
+      assertNotNull(publisher.update(map, mapOf(GROWTH_LAYER_ID to ready, SOIL_LAYER_ID to soil.copy(gridSize = 8))))
+    assertNotNull(mixed.growth, "the plane the grid was built to is counted")
+    assertNull(mixed.soil, "the plane that does not fit is absent, not present and zeroed")
+
+    // Both come back on their own once the two agree again.
+    val agreed = assertNotNull(publisher.update(map, mapOf(GROWTH_LAYER_ID to ready, SOIL_LAYER_ID to soil)))
+    assertNotNull(agreed.growth)
+    assertNotNull(agreed.soil)
+  }
+
+  @Test
   fun dropsTheGridWithTheMap() {
     val publisher = FieldStatusPublisher()
     publisher.update(map, mapOf(GROWTH_LAYER_ID to ready))
