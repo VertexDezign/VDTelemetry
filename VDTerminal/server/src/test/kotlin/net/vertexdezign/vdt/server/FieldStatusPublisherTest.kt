@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.server
 
+import net.vertexdezign.vdt.model.CROPS_LAYER_ID
 import net.vertexdezign.vdt.model.FieldStatusSlice
 import net.vertexdezign.vdt.model.GROWTH_LAYER_ID
 import net.vertexdezign.vdt.model.MapData
@@ -55,8 +56,10 @@ class FieldStatusPublisherTest {
 
     assertNull(publisher.update(null, emptyMap()), "no map")
     assertNull(publisher.update(map, emptyMap()), "no raster")
-    // The plane it counts is a specific one; another plane's raster is not a substitute for it.
-    assertNull(publisher.update(map, mapOf("crops" to growth("1515").copy(id = "crops"))), "no counted plane")
+    // The planes it counts are a specific set; a plane outside it is not a substitute for one in it.
+    // A Precision Farming plane is the real example: a value there is a measurement, not a state, so
+    // its legend carries no kind and there is nothing to bucket cells into.
+    assertNull(publisher.update(map, mapOf("pfPh" to growth("1515").copy(id = "pfPh"))), "no counted plane")
     assertNull(publisher.update(MapData(terrainSize = 1024f), mapOf(GROWTH_LAYER_ID to ready)), "no fields")
     assertNull(publisher.current())
 
@@ -70,12 +73,12 @@ class FieldStatusPublisherTest {
     val publisher = FieldStatusPublisher()
     val first = assertNotNull(publisher.update(map, mapOf(GROWTH_LAYER_ID to ready)))
 
-    // A crops sweep re-emits the whole keyed map with a new instance in it. Nothing this publisher
-    // counts has moved, so it must not rebuild anything — and returning the same instance is what
-    // makes the StateFlow drop it instead of broadcasting an identical breakdown to every dashboard
-    // on every sweep of every plane.
-    val withCrops = mapOf(GROWTH_LAYER_ID to ready, "crops" to growth("0101").copy(id = "crops"))
-    assertSame(first, publisher.update(map, withCrops))
+    // A Precision Farming sweep re-emits the whole keyed map with a new instance in it. Nothing this
+    // publisher counts has moved, so it must not rebuild anything — and returning the same instance is
+    // what makes the StateFlow drop it instead of broadcasting an identical breakdown to every
+    // dashboard on every sweep of every plane.
+    val withPf = mapOf(GROWTH_LAYER_ID to ready, "pfPh" to growth("0101").copy(id = "pfPh"))
+    assertSame(first, publisher.update(map, withPf))
 
     // An equal-but-different growth instance is the same raster, and the content version says so
     // without walking it twice.
@@ -132,6 +135,32 @@ class FieldStatusPublisherTest {
     val growthOnly = assertNotNull(publisher.update(map, mapOf(GROWTH_LAYER_ID to ready)))
     assertNull(growthOnly.soil)
     assertNotNull(growthOnly.growth)
+  }
+
+  @Test
+  fun countsTheCropsPlanePerFruit() {
+    val publisher = FieldStatusPublisher()
+    val crops =
+      MapLayerData(
+        version = "3",
+        terrainSize = 1024f,
+        gridSize = 4,
+        id = CROPS_LAYER_ID,
+        legend =
+        listOf(
+          MapLayerLegendEntry(v = 1, label = "Wheat", color = "#d8c15a", kind = "crop"),
+          MapLayerLegendEntry(v = 2, label = "Barley", color = "#c8b44a", kind = "crop"),
+        ),
+        rows = listOf("0101", "0102", "", ""),
+      )
+
+    val status = assertNotNull(publisher.update(map, mapOf(CROPS_LAYER_ID to crops)))
+    // The grouping is per plane, and the publisher takes it from the same FIELD_STATUS_PLANES the app
+    // subscribes off — so a plane cannot be swept under one rule and counted under another.
+    assertEquals(
+      listOf(FieldStatusSlice("crop", 3, "Wheat"), FieldStatusSlice("crop", 1, "Barley")),
+      assertNotNull(status.crops).fields.single().slices,
+    )
   }
 
   @Test

@@ -77,20 +77,20 @@ class FieldIndexGrid private constructor(
     }
 
   /**
-   * Count [layer]'s cells per field and per [MapLayerLegendEntry.kind].
+   * Count [layer]'s cells per field, bucketed as [grouping] says.
    *
    * One walk over the raster: an array read for the owner, an array read for the bucket, an increment.
    * Returns an empty result — never a partial or a wrong one — when the raster can't be trusted to
    * line up: a different [MapLayerData.gridSize], a [MapLayerData.terrainSize] from another map, or a
    * raster that failed to decode.
    *
-   * Cells are grouped by kind rather than by value, so every step of the growth plane's growing
-   * gradient counts as `growing` and a value the legend doesn't name counts as [UNKNOWN_FIELD_KIND].
-   * On a plane whose entries share one kind — every crops-plane entry is `crop` — that means one slice
-   * covering the whole field; the finer question ("which crop, where") is a different pass over the
-   * same grid, and `fieldInfo.crop` already answers the coarse version of it.
+   * Under [SliceGrouping.KIND] cells group by [MapLayerLegendEntry.kind], so every step of the growth
+   * plane's growing gradient counts as `growing`. Under [SliceGrouping.VALUE] each legend value is its
+   * own slice, carrying that entry's label — the crops plane, where every entry is `crop` and grouping
+   * by kind would say only "planted". Either way a value the legend doesn't name counts as
+   * [UNKNOWN_FIELD_KIND], and never as a share of a kind it isn't.
    */
-  fun histogram(layer: MapLayerData): FieldStatusData {
+  fun histogram(layer: MapLayerData, grouping: SliceGrouping = SliceGrouping.KIND): FieldStatusData {
     val empty = FieldStatusData(layerId = layer.id)
     if (gridSize <= 0) return empty
     // A plane sampled at another resolution or on another map cannot be laid over this index. Both are
@@ -103,23 +103,34 @@ class FieldIndexGrid private constructor(
 
     // Bucket 0 is always the unknown one so the counting loop never has to create a bucket mid-walk;
     // it is dropped below when nothing landed in it, which is the normal case.
-    val bucketNames = mutableListOf(UNKNOWN_FIELD_KIND)
+    val bucketKinds = mutableListOf(UNKNOWN_FIELD_KIND)
+    val bucketLabels = mutableListOf<String?>(null)
     val bucketOfKind = HashMap<String, Int>()
     bucketOfKind[UNKNOWN_FIELD_KIND] = 0
     val bucketOfValue = IntArray(CELL_VALUES) // every value starts unknown; the legend names the rest
     for (entry in layer.legend) {
       if (entry.v <= NOTHING || entry.v >= CELL_VALUES) continue
       val kind = entry.kind ?: UNKNOWN_FIELD_KIND
+      if (grouping == SliceGrouping.VALUE) {
+        // One bucket per value, so two entries that share a kind (and even a label) stay apart. An
+        // entry with no kind still lands in its own bucket rather than in the shared unknown one: on a
+        // value-grouped plane "a fruit this build has no token for" is a fruit, not a mystery.
+        bucketOfValue[entry.v] = bucketKinds.size
+        bucketKinds.add(kind)
+        bucketLabels.add(entry.label.ifBlank { null })
+        continue
+      }
       var bucket = bucketOfKind[kind]
       if (bucket == null) {
-        bucket = bucketNames.size
-        bucketNames.add(kind)
+        bucket = bucketKinds.size
+        bucketKinds.add(kind)
+        bucketLabels.add(null)
         bucketOfKind[kind] = bucket
       }
       bucketOfValue[entry.v] = bucket
     }
 
-    val counts = Array(ids.size) { IntArray(bucketNames.size) }
+    val counts = Array(ids.size) { IntArray(bucketKinds.size) }
     val sampled = IntArray(ids.size)
     val blank = IntArray(ids.size)
     for (cell in raster.indices) {
@@ -144,11 +155,14 @@ class FieldIndexGrid private constructor(
         val row = counts[slot]
         val slices = mutableListOf<FieldStatusSlice>()
         for (bucket in row.indices) {
-          if (row[bucket] > 0) slices.add(FieldStatusSlice(bucketNames[bucket], row[bucket]))
+          if (row[bucket] > 0) slices.add(FieldStatusSlice(bucketKinds[bucket], row[bucket], bucketLabels[bucket]))
         }
-        // Ties broken by kind, so the same raster always produces the same order — the app draws these
-        // in order, and a stacked bar whose segments swap places between sweeps reads as movement.
-        slices.sortWith(compareByDescending<FieldStatusSlice> { it.cells }.thenBy { it.kind })
+        // Ties broken by kind and then label, so the same raster always produces the same order — the
+        // app draws these in order, and a stacked bar whose segments swap places between sweeps reads
+        // as movement. On a value-grouped plane the kind is shared, which is what the label settles.
+        slices.sortWith(
+          compareByDescending<FieldStatusSlice> { it.cells }.thenBy { it.kind }.thenBy { it.label.orEmpty() },
+        )
         FieldStatus(id = ids[slot], cells = sampled[slot], blank = blank[slot], slices = slices)
       },
     )
@@ -277,5 +291,8 @@ class FieldIndexGrid private constructor(
  * sweep should keep the [FieldIndexGrid] instead — it depends only on the map, and rebuilding it for
  * every raster does the same work twice.
  */
-fun fieldStatus(map: MapData, layer: MapLayerData): FieldStatusData =
-  FieldIndexGrid.of(map, layer.gridSize).histogram(layer)
+fun fieldStatus(
+  map: MapData,
+  layer: MapLayerData,
+  grouping: SliceGrouping = FIELD_STATUS_PLANES[layer.id] ?: SliceGrouping.KIND,
+): FieldStatusData = FieldIndexGrid.of(map, layer.gridSize).histogram(layer, grouping)

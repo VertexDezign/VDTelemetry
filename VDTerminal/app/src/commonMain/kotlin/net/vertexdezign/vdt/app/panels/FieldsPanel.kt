@@ -553,8 +553,16 @@ private fun FieldDetail(
 
     val info = row.info
     if (info != null) {
+      val mix = fieldCropMix(row)
       DetailSection("Crop") {
-        DetailLine("Crop", info.crop.ifBlank { "none" })
+        DetailLine("Crop", fieldCrop(row).ifBlank { "none" })
+        // Only when the field really carries more than one; a single-crop field would just be told its
+        // own crop is 100 % of itself. The share is of the planted ground -- see fieldCropMix.
+        if (mix.size > 1) {
+          DetailLine("Mix", mix.joinToString(", ") { (crop, share) -> "$crop ${(share * 100).roundToInt()} %" })
+        }
+        // Both of these are the centre reading and only make sense there: a growth state is a number
+        // for one point, and averaging it across a half-cut field would invent a stage nothing is at.
         if (info.maxGrowthState > 0) DetailLine("Growth", "${info.growthState} / ${info.maxGrowthState}")
         info.yieldBonusPercent?.let { DetailLine("Yield bonus", "+ $it %") }
       }

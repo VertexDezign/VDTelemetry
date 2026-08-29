@@ -1,30 +1,12 @@
 package net.vertexdezign.vdt.server
 
+import net.vertexdezign.vdt.model.FIELD_STATUS_PLANES
 import net.vertexdezign.vdt.model.FieldIndexGrid
 import net.vertexdezign.vdt.model.FieldStatusData
 import net.vertexdezign.vdt.model.FieldStatuses
-import net.vertexdezign.vdt.model.GROWTH_LAYER_ID
 import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapLayerData
-import net.vertexdezign.vdt.model.SOIL_LAYER_ID
-
-/**
- * The planes the per-field breakdown is counted off.
- *
- * **Growth** answers "what stage is this field at" — which part of it is ready, cut, growing,
- * ploughed or withered. **Soil** answers "what condition is it in" — weeds, stones, needs plowing,
- * needs lime, fertilizer. Both matter to the same question ("what does this field need next"), and
- * both are the same shape of answer: a share of the field rather than a reading at one point.
- *
- * Counting a second plane is cheap where it matters, which is the mod: `classifyCell` gates its reads
- * per plane and growth and soil share the `GROUND_TYPE` read, so a subscription to both is one cell
- * walk with a few more density reads, not two sweeps.
- *
- * The crops plane stays out. Its entries are fruit types the app would have to resolve, and
- * `fieldInfo.crop` already names the dominant one; the mechanism generalises to it for free if that
- * ever stops being enough.
- */
-val FIELD_STATUS_LAYER_IDS = listOf(GROWTH_LAYER_ID, SOIL_LAYER_ID)
+import net.vertexdezign.vdt.model.SliceGrouping
 
 /**
  * Keeps the per-field status histograms up to date without recomputing them for nothing.
@@ -45,7 +27,7 @@ val FIELD_STATUS_LAYER_IDS = listOf(GROWTH_LAYER_ID, SOIL_LAYER_ID)
  *
  * Thread-safe — it is updated from a collector and could be read from anywhere.
  */
-class FieldStatusPublisher(private val layerIds: List<String> = FIELD_STATUS_LAYER_IDS) {
+class FieldStatusPublisher(private val planes: Map<String, SliceGrouping> = FIELD_STATUS_PLANES) {
   private var gridMap: MapData? = null
   private var gridSize = 0
   private var grid: FieldIndexGrid? = null
@@ -69,7 +51,7 @@ class FieldStatusPublisher(private val layerIds: List<String> = FIELD_STATUS_LAY
    */
   @Synchronized
   fun update(map: MapData?, rasters: Map<String, MapLayerData>): FieldStatuses? {
-    val present = layerIds.mapNotNull { id -> rasters[id]?.takeIf { it.gridSize > 0 }?.let { id to it } }
+    val present = planes.keys.mapNotNull { id -> rasters[id]?.takeIf { it.gridSize > 0 }?.let { id to it } }
     if (map == null || map.fields.isEmpty() || present.isEmpty()) {
       reset()
       return null
@@ -95,7 +77,7 @@ class FieldStatusPublisher(private val layerIds: List<String> = FIELD_STATUS_LAY
       val version = layer.contentVersion
       if (versions[id] == version && histograms.containsKey(id)) continue
       versions[id] = version
-      histograms[id] = grid?.histogram(layer) ?: continue
+      histograms[id] = grid?.histogram(layer, planes[id] ?: SliceGrouping.KIND) ?: continue
       changed = true
     }
     // A plane that stopped being written (channel switched off mid-session) leaves rather than lingers.
@@ -109,7 +91,7 @@ class FieldStatusPublisher(private val layerIds: List<String> = FIELD_STATUS_LAY
     }
 
     if (changed || statuses == null) {
-      statuses = FieldStatuses(layerIds.mapNotNull { histograms[it] })
+      statuses = FieldStatuses(planes.keys.mapNotNull { histograms[it] })
     }
     return statuses
   }

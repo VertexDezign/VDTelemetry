@@ -558,14 +558,18 @@ early when `g_server == nil`), the rules in `app/.../panels/FieldsModel.kt`. Wha
   smallest of those 77 fields is 0.21 ha, about 131 cells — so no committed data says where the line
   belongs. `FieldStatusData.haPerCell` crosses the wire already, so expressing the threshold in
   hectares would at least make it mean the same thing on every map; picking the *number* still wants a
-  real 512² raster to look at (see "Captures wanted as fixtures").
+  real 512² raster to look at (see "Captures wanted as fixtures"). One threshold currently serves two
+  questions that may not want the same answer: quoting "83 %" off forty cells is dishonest, but naming
+  the fruit that covers most of forty cells is still better than reading one cell at the centre.
 
-- **Does the raster or the point sample deserve the headline?** `fieldHeadline` currently lets the
-  raster lead whenever it has enough cells and falls back to `fieldInfo`'s centre sample otherwise,
+- **Does the raster or the point sample deserve the *stage* headline?** `fieldHeadline` currently lets
+  the raster lead whenever it has enough cells and falls back to `fieldInfo`'s centre sample otherwise,
   and the row says which of the two it used. The two disagree exactly where the feature earns its
   keep: a field 70 % cut with standing crop in the middle reads **Cut** from the raster and **Ready to
   harvest** from the game's own FELDINFO popup. Truthful about the whole field versus matching what
-  the game tells the player everywhere else — worth settling in play, not on paper.
+  the game tells the player everywhere else — worth settling in play, not on paper. (The *crop* half of
+  the same question is settled: the raster names it, because a centre cell that lands on a track said
+  the field was growing nothing at all.)
 
 - **Farmlands with no field are missing from the buy list.** They can be bought and never appear in
   `map.json`, which iterates `g_fieldManager.fields`. A complete buy planner needs a farmland sweep in

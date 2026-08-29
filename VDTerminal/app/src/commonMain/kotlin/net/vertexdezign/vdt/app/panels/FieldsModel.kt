@@ -32,6 +32,8 @@ data class FieldRow(
   val growth: FieldStatus?,
   /** What condition the ground is in, off the soil raster; null until that plane has been swept. */
   val soil: FieldStatus?,
+  /** Which fruit covers it, off the crops raster; null until that plane has been swept. */
+  val crops: FieldStatus?,
   /** A contract on this field, if the board carries one. */
   val mission: Mission?,
   /** Whether the local player's farm owns it. False for unowned *and* for another farm's. */
@@ -140,8 +142,42 @@ fun fieldHeadline(row: FieldRow): FieldHeadline {
 /** Whether the breakdown is worth drawing at all, rather than a bar made of four cells. */
 fun hasBreakdown(row: FieldRow): Boolean = (row.growth?.cells ?: 0) >= MIN_STATUS_CELLS
 
-/** The crop on the field, from the point sample — the raster's growth plane doesn't name one. */
-fun fieldCrop(row: FieldRow): String = row.info?.crop.orEmpty()
+/**
+ * The crop on the field: the fruit covering most of it, off the crops raster.
+ *
+ * The one place the whole app asks "what is on this field" — the row, the search, the crop sort, the
+ * hectares-by-crop summary and the gate on suggesting a sow all read this — so the raster reaches all
+ * of them by being answered here.
+ *
+ * `fieldInfo.crop` is the fallback, and it is a **single cell at the field's centre**
+ * (`MathUtil.getPolygonLabel`, so inside the polygon but not otherwise meaningful). That one cell is
+ * empty for every ordinary reason a spot can be: a track or a headland through the middle, ground a
+ * machine drove over, the part of a half-sown field that is not drilled yet. The field then read as
+ * growing nothing while most of it stood in wheat, which is the bug this exists to fix.
+ *
+ * Empty means empty here too — a bare field, with the raster and the sample agreeing or the raster
+ * absent. [fieldCropMix] is the same question answered in full for a field carrying more than one.
+ */
+fun fieldCrop(row: FieldRow): String {
+  val dominant = row.crops?.takeIf { it.cells >= MIN_STATUS_CELLS }?.dominant?.label
+  if (dominant != null) return dominant
+  return row.info?.crop.orEmpty()
+}
+
+/**
+ * Every fruit on the field with its share of the planted ground, biggest first.
+ *
+ * Empty when the raster is absent or too thin, and a single entry for the ordinary field — so the
+ * detail can say "Wheat 71 %, Barley 29 %" exactly when that is the truth and stay quiet otherwise.
+ * The share is of the *planted* part, not of the title deed: a field two thirds sown and one third
+ * bare reads 100 % of what is on it, and the bare third is the growth plane's business.
+ */
+fun fieldCropMix(row: FieldRow): List<Pair<String, Float>> {
+  val crops = row.crops?.takeIf { it.cells >= MIN_STATUS_CELLS } ?: return emptyList()
+  return crops.slices.mapNotNull { slice ->
+    slice.label?.let { it to crops.fraction(slice.cells) }
+  }
+}
 
 /**
  * Work this field is asking for, in the words the suggestion chips will use.
@@ -259,6 +295,7 @@ fun fieldRows(
       info = byId[field.id],
       growth = status?.growth?.byId?.get(field.id),
       soil = status?.soil?.byId?.get(field.id),
+      crops = status?.crops?.byId?.get(field.id),
       mission = missionByField[field.id],
       // Null farm id (spectating, or no telemetry yet) means nothing is "mine" — which is right:
       // claiming ownership on missing data is the one direction this must not guess in.
@@ -358,7 +395,13 @@ data class FieldTotals(
   val readyHa: Float?,
   val needsWork: Int,
   val forSale: Int,
-  /** Crop -> own hectares, biggest first. Point-sampled, so it is the dominant crop per field. */
+  /**
+   * Crop -> own hectares, biggest first.
+   *
+   * A field counts whole under its dominant crop (see [fieldCrop]) rather than split across the two it
+   * carries, because the number this feeds is "how much of my land is in wheat" at a glance and a
+   * mixed field is rare enough that splitting it would cost more clarity than it buys.
+   */
   val byCrop: List<Pair<String, Float>>,
 )
 

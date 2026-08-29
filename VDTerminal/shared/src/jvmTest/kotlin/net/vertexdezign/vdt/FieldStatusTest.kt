@@ -9,6 +9,7 @@ import net.vertexdezign.vdt.model.MapData
 import net.vertexdezign.vdt.model.MapField
 import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayerLegendEntry
+import net.vertexdezign.vdt.model.SliceGrouping
 import net.vertexdezign.vdt.model.UNKNOWN_FIELD_KIND
 import net.vertexdezign.vdt.model.fieldStatus
 import java.io.File
@@ -294,6 +295,98 @@ class FieldStatusTest {
     assertEquals(1f, one.fractionOf("needsPlowing"), 1e-6f)
     assertEquals(0.1f, one.polygonFractionOf("needsPlowing"), 1e-6f)
     assertEquals(0f, one.polygonFractionOf("weed"))
+  }
+
+  /**
+   * A crops plane over [uShapedMap] — the case kind-grouping cannot answer.
+   *
+   * Every entry is a fruit type, so every entry's kind is `crop`; what tells them apart is the label.
+   * Values here are fruit-type indices (1 wheat, 2 barley, 7 canola), plus one the legend never listed
+   * (99) and one it listed with no kind (5).
+   *
+   * ```
+   *  z=0  W W W W W B . .
+   *  z=1  W W W W W W . .
+   *  z=2  W W C C W B . .        C is field 2's notch
+   *  z=3  W . C . ? n . .        ? unlisted, n listed-but-nameless
+   * ```
+   */
+  private val cropsPlane =
+    MapLayerData(
+      version = "3",
+      terrainSize = TERRAIN,
+      gridSize = GRID.toInt(),
+      id = "crops",
+      legend =
+      listOf(
+        MapLayerLegendEntry(v = 1, label = "Wheat", color = "#d8c15a", kind = "crop"),
+        MapLayerLegendEntry(v = 2, label = "Barley", color = "#c8b44a", kind = "crop"),
+        MapLayerLegendEntry(v = 5, label = "Nameless", color = "#000000", kind = null),
+        MapLayerLegendEntry(v = 7, label = "Canola", color = "#e8d24a", kind = "crop"),
+      ),
+      rows =
+      listOf(
+        "010101010102", // W W W W W B .  .
+        "010101010101", // W W W W W W .  .
+        "010107070102", // W W C C W B .  .
+        "010007006305", // W .  C .  ?  n .  .
+        "",
+        "",
+        "",
+        "",
+      ),
+    )
+
+  @Test
+  fun countsCropsPerFruitRatherThanPerKind() {
+    // No grouping passed: FIELD_STATUS_PLANES routes the crops plane to VALUE, so the server and the
+    // app cannot disagree about how this plane is counted.
+    val status = fieldStatus(uShapedMap, cropsPlane)
+
+    val one = assertNotNull(status.byId[1])
+    assertEquals(20, one.polygonCells)
+    assertEquals(19, one.cells)
+    assertEquals(1, one.blank)
+    assertEquals(
+      listOf(
+        // One slice per fruit, named. The kind rides along for code to branch on; the label is what a
+        // reader sees, and it is localized exactly like the fieldInfo.crop it stands in for.
+        FieldStatusSlice("crop", 15, "Wheat"),
+        FieldStatusSlice("crop", 2, "Barley"),
+        // Equal counts and the same kind, so the label breaks the tie and the order is stable across
+        // sweeps. The unlisted value has no label at all, which sorts first.
+        FieldStatusSlice(UNKNOWN_FIELD_KIND, 1, null),
+        FieldStatusSlice(UNKNOWN_FIELD_KIND, 1, "Nameless"),
+      ),
+      one.slices,
+    )
+    assertEquals("Wheat", assertNotNull(one.dominant).label)
+    assertEquals(15f / 19f, one.fractionOf("crop"), 1e-6f, "fractionOf still counts the KIND, across its fruits")
+
+    val two = assertNotNull(status.byId[2])
+    assertEquals(listOf(FieldStatusSlice("crop", 3, "Canola")), two.slices)
+  }
+
+  @Test
+  fun kindGroupingWouldSayOnlyThatSomethingIsPlanted() {
+    // The reason SliceGrouping exists, stated as a test: counted by kind, a field carrying two fruits
+    // and two unnamed values collapses to "planted, 17 cells" and the crop is gone.
+    val byKind = FieldIndexGrid.of(uShapedMap, GRID.toInt()).histogram(cropsPlane, SliceGrouping.KIND)
+
+    val one = assertNotNull(byKind.byId[1])
+    assertEquals(listOf(FieldStatusSlice("crop", 17), FieldStatusSlice(UNKNOWN_FIELD_KIND, 2)), one.slices)
+    assertTrue(one.slices.all { it.label == null }, "a kind-grouped slice has nothing finer to name")
+  }
+
+  @Test
+  fun roundTripsAValueGroupedPlane() {
+    val status = fieldStatus(uShapedMap, cropsPlane)
+    val encoded = json.encodeToString(FieldStatusData.serializer(), status)
+    assertEquals(
+      status,
+      json.decodeFromString(FieldStatusData.serializer(), encoded),
+      "the label has to survive the wire, or the app falls back to the point sample forever",
+    )
   }
 
   @Test
