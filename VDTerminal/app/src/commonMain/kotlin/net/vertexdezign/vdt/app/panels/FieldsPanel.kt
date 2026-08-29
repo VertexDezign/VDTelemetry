@@ -891,12 +891,18 @@ private fun ConditionSection(row: FieldRow) {
   }
 }
 
-/** A soil share as a percentage, floored rather than quoted — see [ConditionSection]. */
+/**
+ * A soil share as a percentage, floored rather than quoted — see [ConditionSection].
+ *
+ * Truncated, not rounded, because the sentence it builds says *at least*: rounding 42.6 % up would
+ * print a lower bound the measurement does not support. For the same reason "the whole field" waits
+ * for a real 100 % — every cell classified — rather than settling for a rounded one.
+ */
 private fun shareLine(share: Float): String {
-  val percent = (share * 100).roundToInt()
+  val percent = (share * 100).toInt()
   return when {
     percent <= 0 -> "none"
-    percent >= 99 -> "the whole field"
+    percent >= 100 -> "the whole field"
     else -> "at least $percent %"
   }
 }
