@@ -32,8 +32,8 @@ import kotlin.test.assertTrue
  * fixtures still get their own test below, at the two things they *can* answer: that the real map's
  * fields never overlap, and that the claimed area matches the areas the mod exported.
  *
- * `FUTURE.md` -> "Captures wanted as fixtures" carries the 512² `growth` capture this would rather be
- * asserting against.
+ * The synthetic grids below are for the rules that need a cell named by hand; `holdsAgainstTheRealRaster`
+ * is the same mechanism against the committed 512² capture and the map it was taken with.
  */
 class FieldStatusTest {
   private val json = Json { encodeDefaults = true }
@@ -420,7 +420,7 @@ class FieldStatusTest {
   }
 
   @Test
-  fun holdsAgainstTheRealMap() {
+  fun holdsAgainstTheRealVanillaMap() {
     val map = VdtParser.parseMap(example("map/vanilla.json"))
     val grid = FieldIndexGrid.of(map, 512)
 
@@ -442,17 +442,53 @@ class FieldStatusTest {
       if (error > worst) worst = error
     }
     assertTrue(worst < 0.10f, "worst per-field area error was ${(worst * 100).toInt()}%")
+  }
 
-    // The committed planes are 8x8, so this is a smoke test of the join and nothing more: every id it
-    // reports has to be a field on this map, and every count has to fit inside its polygon.
-    val layer = VdtParser.parseMapLayer(example("mapLayers/growth.json"))
+  /**
+   * The join against a real map and the real raster **taken from the same save**, which is the only
+   * way its central claim can be shown at all: that counting a field off the raster beats sampling
+   * its centre. `mp_modded.json` and `mapLayers/mp_precisionFarming/` are one multiplayer capture,
+   * a 512² sweep over the 2 km map those 85 fields sit on.
+   */
+  @Test
+  fun holdsAgainstTheRealRaster() {
+    val map = VdtParser.parseMap(example("map/mp_modded.json"))
+    val layer = VdtParser.parseMapLayer(example("mapLayers/mp_precisionFarming/growth.json"))
+
+    // The two co-register, which is what makes the rest of this meaningful rather than arithmetic on
+    // unrelated numbers: same terrain, same grid, and the raster's own geometry agrees with the map's.
+    assertEquals(map.terrainSize, layer.terrainSize)
+    assertEquals(512, layer.gridSize)
+
     val status = fieldStatus(map, layer)
     val ids = map.fields.map { it.id }.toSet()
+    assertTrue(status.fields.isNotEmpty())
     for (field in status.fields) {
       assertTrue(field.id in ids, "field ${field.id} is not on this map")
       assertEquals(field.polygonCells, field.cells + field.blank)
       assertEquals(field.cells, field.slices.sumOf { it.cells })
     }
+
+    // A cell is 4 m square here, so an ordinary field is thousands of cells and MIN_STATUS_CELLS
+    // silences none of them -- the threshold guards slivers, and this map has none.
+    assertEquals(4f, map.terrainSize / layer.gridSize)
+    assertTrue(
+      status.fields.all { it.polygonCells >= 100 },
+      "every field on this map resolves well past the threshold the app quotes percentages above",
+    )
+
+    // The claim itself: most of this map's farmed ground carries a growth state, so the raster has a
+    // real answer for a real field -- not the empty histogram an 8x8 grid over 85 fields produced.
+    val sampled = status.fields.sumOf { it.cells }
+    val polygon = status.fields.sumOf { it.polygonCells }
+    assertTrue(sampled > polygon / 2, "counted $sampled of $polygon polygon cells")
+
+    // And the field the whole feature is for: one carrying more than one state at once, which is
+    // exactly what a centre sample reports as whichever state its middle happens to be in.
+    assertTrue(
+      status.fields.any { it.slices.size > 1 },
+      "a real map has fields part-worked; that is the case the point sample cannot describe",
+    )
   }
 
   private companion object {

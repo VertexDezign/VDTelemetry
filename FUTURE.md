@@ -555,10 +555,13 @@ early when `g_server == nil`), the rules in `app/.../panels/FieldsModel.kt`. Wha
 - **`MIN_STATUS_CELLS` is a provisional 100, and it is the wrong unit.** It is a cell count on a grid
   that is 512² whatever the map measures, so the ground it guards doubles with the map: 0.16 ha on a
   2 km map, 0.64 ha on a 4 km one. On `examples/json/map/vanilla.json` it silences nothing — the
-  smallest of those 77 fields is 0.21 ha, about 131 cells — so no committed data says where the line
-  belongs. `FieldStatusData.haPerCell` crosses the wire already, so expressing the threshold in
-  hectares would at least make it mean the same thing on every map; picking the *number* still wants a
-  real 512² raster to look at (see "Captures wanted as fixtures"). One threshold currently serves two
+  smallest of those 77 fields is 0.21 ha, about 131 cells. The real capture committed since
+  (`map/mp_modded.json` with `mapLayers/mp_precisionFarming/`) says the same thing louder: at 512² on
+  its 2 km map every one of its 85 fields resolves, and the smallest — field 20, half a hectare — is
+  313 cells, three times the threshold. So no committed data has ever reached the line, and both maps
+  suggest it is set far below where it would bite. `FieldStatusData.haPerCell` crosses the wire
+  already, so expressing the threshold in hectares would at least make it mean the same thing on every
+  map; picking the *number* wants a map with a genuine sliver on it. One threshold currently serves two
   questions that may not want the same answer: quoting "83 %" off forty cells is dishonest, but naming
   the fruit that covers most of forty cells is still better than reading one cell at the centre.
 
@@ -608,17 +611,6 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   MP client** (does the history really stop at five?), and **one with notifications in the log** — the hook itself is
   confirmed working in singleplayer, so this is now wanted as a fixture rather than as proof. `FinanceModelTest` covers
   those three shapes with inline JSON meanwhile.
-- **A fresh `map.json` capture, carrying `price`.** The farmland price arrived with map channel
-  version 2 (issue #131), so none of the three committed captures has it — they are real captures and
-  are never edited to add a key the run that produced them didn't write. `MapDataModelTest` pins the
-  shape with inline JSON meanwhile. A re-capture of the same vanilla save would also let the
-  per-field status histogram assert against a map and a raster taken together.
-- **A real 512² `growth` raster**, captured on the same save as `examples/json/map/vanilla.json` (both
-  are `terrainSize: 2048`, so they co-register). The committed `examples/json/mapLayers/*.json` are
-  hand-authored 8×8 grids — fine for the decoder's padding/trimming rules, useless for anything that
-  joins a raster against field polygons: 77 fields over 64 cells. Wanted by the per-field status
-  histogram (issue #131), whose whole claim is that the raster resolves a field better than a
-  single centre sample does, and which cannot be shown to at that grid size.
 - **A capture with Advanced Damage System installed**, for the `ads` block — ideally a CVT machine (so
   `transmissionTemperatur` is present) that is a little overdue for service and carrying a breakdown or two, so the
   lamps, the interval and the load are all non-trivial in the one file.
