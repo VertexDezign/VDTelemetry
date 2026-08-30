@@ -312,6 +312,30 @@ class IsoBusTest {
   }
 
   // -------------------------------------------------------------------------
+  // Why the straw control is dead
+  // -------------------------------------------------------------------------
+
+  @Test
+  fun theStrawRefusalIsOnlyGivenWhenTheEngineActuallyRefuses() {
+    val both = Harvest(swathAvailable = true, chopperAvailable = true)
+
+    // The one case with an explanation: the machine offers both and the engine still says no, which
+    // can only be the crop.
+    assertEquals("This crop leaves no straw", strawRefusal(both.copy(canToggleSwath = false)))
+    assertNull(strawRefusal(both.copy(canToggleSwath = true)))
+
+    // **Null is not false.** An export from before mod version 22 never answered the question, so the
+    // control is inert for want of an answer rather than because the crop was refused — claiming a
+    // reason there would be inventing one.
+    assertNull(strawRefusal(both))
+
+    // A machine that offers only one of the two never had a choice to explain.
+    assertNull(strawRefusal(Harvest(swathAvailable = true, canToggleSwath = false)))
+    assertNull(strawRefusal(Harvest(chopperAvailable = true, canToggleSwath = false)))
+    assertNull(strawRefusal(null))
+  }
+
+  // -------------------------------------------------------------------------
   // Formatting
   // -------------------------------------------------------------------------
 

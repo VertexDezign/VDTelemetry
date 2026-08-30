@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -186,8 +187,8 @@ private const val ART_SHARE = 0.55f
 /** What [TankLine] comes to, reserved out of the height before the art is given its cap. */
 private val TANK_LINE_HEIGHT = 30.dp
 
-/** What [HeaderStrip] comes to, likewise: it is a sibling of the columns, not part of them. */
-private val HEADER_STRIP_HEIGHT = 25.dp
+/** What [BottomStrip] comes to, likewise: it is a sibling of the columns, not part of them. */
+private val BOTTOM_STRIP_HEIGHT = 25.dp
 
 /**
  * Below this the flanks give up their figures' sub-lines and drop a type size.
@@ -234,7 +235,7 @@ internal fun CombineSection(
 
     // The columns share what is left once the header strip has taken its row along the bottom; every
     // height decision below is against that, not against the whole section.
-    val columnHeight = bodyHeight - HEADER_STRIP_HEIGHT
+    val columnHeight = bodyHeight - BOTTOM_STRIP_HEIGHT
     // Short tiles thin the figures out rather than letting the column overflow. A Column that is
     // handed more content than it has room for does not scroll or shrink — it pushes the last
     // children off the bottom, and the last children here are the load bar and the straw control.
@@ -289,7 +290,7 @@ internal fun CombineSection(
         }
       }
 
-      HeaderStrip(rig)
+      BottomStrip(rig, strawRefusal(rig.harvest), Modifier.fillMaxWidth())
     }
   }
 }
@@ -655,6 +656,8 @@ private fun StrawControl(
   onCommand: (ClientMessage) -> Unit,
   compact: Boolean = false,
 ) {
+  // The refusal that goes with this control is drawn on the bottom strip, not here — see
+  // [strawRefusal].
   if (harvest == null) return
   val hasSwath = harvest.swathAvailable == true
   val hasChopper = harvest.chopperAvailable == true
@@ -680,18 +683,28 @@ private fun StrawControl(
         StrawOption("Chop", Icons.Filled.ContentCut, !harvest.swathActive, send?.let { { it(false) } })
       }
     }
-    // Both halves present and still refused leaves exactly one explanation, and it is the useful one.
-    // Dropped on a short tile: the control is visibly dead there either way, and two lines of prose is
-    // the most expensive thing in this column.
-    if (hasChopper && harvest.canToggleSwath == false && !compact) {
-      Text(
-        "This crop leaves no straw",
-        color = VdtColors.DarkGray,
-        fontSize = 9.sp,
-        maxLines = 2,
-      )
-    }
   }
+}
+
+/**
+ * Why the straw control is dead, when it is — or null when it is not.
+ *
+ * Both halves of the choice present and the engine still refusing leaves exactly one explanation, and
+ * it is the useful one: the crop in the tank drops no windrow. See [Harvest.canToggleSwath].
+ *
+ * Computed apart from the control it explains because it is **drawn apart from it**, along the bottom
+ * strip rather than under the buttons. It is a sentence, and a sentence under a control in a 200dp
+ * column is the most expensive thing on the screen — it was clipped on the first 3-row tile it met.
+ * The bottom strip is a row with nothing in its right half, which is where a sentence goes.
+ *
+ * Internal so it can be tested directly: the difference between `false` and **null** here is the
+ * difference between an engine that refuses and an export from before mod version 22 that was never
+ * asked, and only the first of those has a reason to give.
+ */
+internal fun strawRefusal(harvest: Harvest?): String? {
+  if (harvest == null) return null
+  if (harvest.swathAvailable != true || harvest.chopperAvailable != true) return null
+  return if (harvest.canToggleSwath == false) "This crop leaves no straw" else null
 }
 
 /**
@@ -732,12 +745,13 @@ private fun RowScope.StrawOption(label: String, icon: ImageVector, active: Boole
 // ---------------------------------------------------------------------------
 
 /**
- * The machine at the front, along the bottom of the section — its name, how wide it cuts, and whether
- * it is actually taking crop.
+ * The strip along the bottom: the header on the left, and on the right whatever the column above had
+ * no room to say.
  *
- * Full width rather than in a column because it is the *other* machine: it has its own name, its own
- * condition and its own row on the rig diagram, and burying it in a flank would read as one more
- * figure about the combine.
+ * The header is here rather than in a column because it is the *other* machine — it has its own name,
+ * its own condition and its own row on the rig diagram, and burying it in a flank would read as one
+ * more figure about the combine. It never fills the row, which is what makes the right half the
+ * natural home for a sentence: see [strawRefusal].
  *
  * "Cutting" here is the engine's own 300 ms window, not this frame. The underlying flag is written and
  * cleared inside work-area processing, so a poll lands on a false frame often enough to matter — the
@@ -745,11 +759,34 @@ private fun RowScope.StrawOption(label: String, icon: ImageVector, active: Boole
  * idle.
  */
 @Composable
-private fun HeaderStrip(rig: CombineRig) {
-  val header = rig.header ?: return
-  val cutter = header.cutter ?: return
+private fun BottomStrip(rig: CombineRig, note: String?, modifier: Modifier = Modifier) {
+  val header = rig.header
+  val cutter = header?.cutter
+  if (cutter == null && note == null) return
+  Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    if (cutter != null) {
+      HeaderRow(rig, header, cutter, Modifier.weight(1f, fill = note == null))
+    } else {
+      Spacer(Modifier.weight(1f))
+    }
+    if (note != null) {
+      Text(
+        note,
+        color = VdtColors.DarkGray,
+        fontSize = 9.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.End,
+      )
+    }
+  }
+}
+
+/** The header's own half of [BottomStrip]: what it is called, how wide it cuts, and what it is doing. */
+@Composable
+private fun HeaderRow(rig: CombineRig, header: IsoBusMachine, cutter: Cutter, modifier: Modifier = Modifier) {
   FlowRow(
-    Modifier.fillMaxWidth(),
+    modifier,
     horizontalArrangement = Arrangement.spacedBy(6.dp),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
