@@ -764,8 +764,12 @@ private fun BottomStrip(rig: CombineRig, note: String?, modifier: Modifier = Mod
   val cutter = header?.cutter
   if (cutter == null && note == null) return
   Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+    // The header FILLS its weight, which is what puts the note against the far edge of the row rather
+    // than against the last chip of the header. A non-filling weight sizes the header to its content
+    // and leaves the note trailing it in the middle of the strip, reading as one more thing about the
+    // header — which it is not: it is about the control diagonally above it.
     if (cutter != null) {
-      HeaderRow(rig, header, cutter, Modifier.weight(1f, fill = note == null))
+      HeaderRow(rig, header, cutter, Modifier.weight(1f))
     } else {
       Spacer(Modifier.weight(1f))
     }
@@ -776,7 +780,6 @@ private fun BottomStrip(rig: CombineRig, note: String?, modifier: Modifier = Mod
         fontSize = 9.sp,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        textAlign = TextAlign.End,
       )
     }
   }
