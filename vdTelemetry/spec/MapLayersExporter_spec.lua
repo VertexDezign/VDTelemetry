@@ -78,6 +78,7 @@ describe("MapLayers.classifyCell growth", function()
       plowingRequiredEnabled = false,
       limeRequired = false,
       maxSprayLevel = 0,
+      maxStubbleShredLevel = 0,
       weedAvailable = false,
       stoneAvailable = false,
       weedTitle = "Weeds",
@@ -111,7 +112,11 @@ describe("MapLayers.classifyCell growth", function()
         return state
       end,
     }
-    rawset(_G, "FieldDensityMap", { GROUND_TYPE = 1, SPRAY_LEVEL = 4, LIME_LEVEL = 5, PLOW_LEVEL = 6 })
+    rawset(
+      _G,
+      "FieldDensityMap",
+      { GROUND_TYPE = 1, SPRAY_LEVEL = 4, LIME_LEVEL = 5, PLOW_LEVEL = 6, STUBBLE_SHRED_LEVEL = 7 }
+    )
     rawset(_G, "g_fruitTypeManager", {
       getFruitTypeByDensityTypeIndex = function()
         return desc
@@ -306,6 +311,7 @@ describe("MapLayers.classifyCell soil", function()
       plowingRequiredEnabled = true,
       limeRequired = true,
       maxSprayLevel = 3,
+      maxStubbleShredLevel = 1,
       weedAvailable = false,
       stoneAvailable = false,
       weedTitle = "Weeds",
@@ -319,7 +325,11 @@ describe("MapLayers.classifyCell soil", function()
   end
 
   before_each(function()
-    rawset(_G, "FieldDensityMap", { GROUND_TYPE = 1, SPRAY_LEVEL = 4, LIME_LEVEL = 5, PLOW_LEVEL = 6 })
+    rawset(
+      _G,
+      "FieldDensityMap",
+      { GROUND_TYPE = 1, SPRAY_LEVEL = 4, LIME_LEVEL = 5, PLOW_LEVEL = 6, STUBBLE_SHRED_LEVEL = 7 }
+    )
   end)
 
   after_each(function()
@@ -509,6 +519,77 @@ describe("MapLayers.classifyCell soil", function()
     assert.are.equal(21, soilV) -- SOIL_NEEDS_LIME
   end)
 
+  -- Mulch sits between plowing and lime because that is the order the game paints the soil overlay
+  -- in; the three cases below pin that position from both sides.
+  it("flags mulched once plowing is satisfied, ahead of lime", function()
+    local c = ctx({
+      fieldGroundSystem = {
+        getValueAtWorldPos = function(_, densityType)
+          if densityType == FieldDensityMap.GROUND_TYPE then
+            return 3
+          elseif densityType == FieldDensityMap.PLOW_LEVEL then
+            return 5
+          elseif densityType == FieldDensityMap.STUBBLE_SHRED_LEVEL then
+            return 1
+          elseif densityType == FieldDensityMap.LIME_LEVEL then
+            return 0
+          end
+          return 0
+        end,
+      },
+    })
+    local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+    assert.are.equal(22, soilV) -- SOIL_MULCHED, not the 21 the same cell would read unmulched
+    assert.are.equal("mulched", c.seen.soil[22].kind)
+    assert.are.equal("Mulched", c.seen.soil[22].label) -- no g_i18n in the spec, so the fallback
+  end)
+
+  it("leaves the plough ahead of mulch, as the game's overlay does", function()
+    -- The default ctx reads plow level 0, so this cell is both unploughed and mulched.
+    local c = ctx({
+      fieldGroundSystem = {
+        getValueAtWorldPos = function(_, densityType)
+          if densityType == FieldDensityMap.GROUND_TYPE then
+            return 3
+          elseif densityType == FieldDensityMap.STUBBLE_SHRED_LEVEL then
+            return 1
+          end
+          return 0
+        end,
+      },
+    })
+    local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+    assert.are.equal(20, soilV) -- SOIL_NEEDS_PLOWING
+  end)
+
+  it("reads no stubble map on a save that has none", function()
+    -- getMaxValue is nil for a density map FieldGroundSystem never loaded (no Platform stubble
+    -- shred), which startSweep carries as a cap of 0 -- and a cap of 0 must not consult the map,
+    -- whatever it would answer.
+    local reads = 0
+    local c = ctx({
+      maxStubbleShredLevel = 0,
+      fieldGroundSystem = {
+        getValueAtWorldPos = function(_, densityType)
+          if densityType == FieldDensityMap.GROUND_TYPE then
+            return 3
+          elseif densityType == FieldDensityMap.PLOW_LEVEL then
+            return 5
+          elseif densityType == FieldDensityMap.STUBBLE_SHRED_LEVEL then
+            reads = reads + 1
+            return 1
+          elseif densityType == FieldDensityMap.LIME_LEVEL then
+            return 0
+          end
+          return 0
+        end,
+      },
+    })
+    local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+    assert.are.equal(21, soilV) -- SOIL_NEEDS_LIME, the next state down
+    assert.are.equal(0, reads)
+  end)
+
   it("falls back to the fertilized level once plowing and lime are satisfied", function()
     local c = ctx({
       fieldGroundSystem = {
@@ -571,6 +652,26 @@ describe("MapLayers.classifyCell soil", function()
     })
     local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
     assert.are.equal(0, soilV)
+  end)
+
+  it("keeps mulch under Precision Farming, which leaves stubble alone", function()
+    local c = ctx({
+      precisionFarming = true,
+      fieldGroundSystem = {
+        getValueAtWorldPos = function(_, densityType)
+          if densityType == FieldDensityMap.GROUND_TYPE then
+            return 3
+          elseif densityType == FieldDensityMap.PLOW_LEVEL then
+            return 5
+          elseif densityType == FieldDensityMap.STUBBLE_SHRED_LEVEL then
+            return 1
+          end
+          return 0
+        end,
+      },
+    })
+    local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+    assert.are.equal(22, soilV) -- SOIL_MULCHED: PF replaces lime + fertilizer, not the stubble map
   end)
 
   it("skips every soil density read off-field, including weeds/stones", function()
@@ -639,7 +740,11 @@ describe("MapLayers.tick sweep", function()
       markedByChannel[name] = (markedByChannel[name] or 0) + 1
     end
 
-    rawset(_G, "FieldDensityMap", { GROUND_TYPE = 1, SPRAY_LEVEL = 4, LIME_LEVEL = 5, PLOW_LEVEL = 6 })
+    rawset(
+      _G,
+      "FieldDensityMap",
+      { GROUND_TYPE = 1, SPRAY_LEVEL = 4, LIME_LEVEL = 5, PLOW_LEVEL = 6, STUBBLE_SHRED_LEVEL = 7 }
+    )
     rawset(_G, "FieldGroundType", {
       NONE = 1,
       STUBBLE_TILLAGE = 2,
