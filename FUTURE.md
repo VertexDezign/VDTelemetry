@@ -51,9 +51,14 @@ What those two left is under their own headings below. What is still untouched f
 - **The stepped fill bar.** `fillUnit.display == STEP` marks consumables, where capacity is a slot count: the game draws
   one segment per slot with the part-used roll's fraction inside the next one, and labels it `"2 / 2"` (a `ceil`, not a
   percentage). `components/FillUnitsDisplay.kt` carries the note and renders a continuous bar.
-- **The work aspects that are still undrawn:** `harvest`, `workMode` and `baleCounter`. `workWidth` was drawn by the
-  section view, and `discharge` and `tipping` by #116 — `discharge.reason`, the engine's own verdict on why unloading
-  is refused, turned out to be exactly the pick of them it looked like.
+- **The work aspects that are still undrawn:** `harvest`, `cutter`, `workMode` and `baleCounter`. `workWidth` was drawn
+  by the section view, and `discharge` and `tipping` by #116 — `discharge.reason`, the engine's own verdict on why
+  unloading is refused, turned out to be exactly the pick of them it looked like.
+  The harvest pair grew a lot in export v21 and is the obvious next machine screen: the combine's `harvest` (what it is
+  threshing, whether crop is flowing in, worked hectares, the straw choice, and the two rain states), the header's
+  `cutter` beside it, and `harvest.combineXp` — throughput, yield and drum load — wherever FS25_CombineXP is installed.
+  None of it is in the Kotlin model yet: the mod-side export landed on its own branch on the *export first, UI later*
+  rule, so the shared model, the parser and the panel are all still to do.
 
 ### Two open calls on the mod side
 
@@ -550,6 +555,12 @@ engine load it wears the engine on, the service interval and system voltage. The
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
 them. (The schema and selection aspects were in this list until #116 and #119 captured them.)
 
+- **A combine mid-pass, with its header still attached.** One file would cover the whole harvest side: `harvest` on the
+  machine and `cutter` on the implement beside it, with a crop that converts (maize into chaff) so the fruit type and
+  the fill type actually differ. Wanted twice — **singleplayer**, where `cutter.load` is exported, and **an MP client**,
+  where it is absent and `working` has to come off the streamed area flag instead. **With FS25_CombineXP installed** it
+  also brings `harvest.combineXp`, and that half only means anything mid-pass: the mod's measurement resets to zero the
+  moment the drum stops being fed, so a capture taken on the headland shows nothing.
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`, the `STEP`
   consumable bar, and they would give `jointDescIndex` its first real chain.
 - **More finance captures.** `examples/json/finance/vanilla.json` is a fresh singleplayer save, so it has one period and

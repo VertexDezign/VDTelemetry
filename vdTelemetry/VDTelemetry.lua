@@ -99,6 +99,7 @@ local sourceFiles = {
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
   "src/integrations/AdvancedDamageSystem.lua",
+  "src/integrations/CombineXP.lua",
   "src/integrations/registry.lua",
   "src/integrations/TaskList.lua",
   "src/integrations/CropRotation.lua",
@@ -263,7 +264,9 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     for the session, the buffer-combine flag, and the two rain states -- the one that stops
 --     threshing and the earlier warning that it is about to. Plus a new `cutter` aspect for the
 --     header: what it is cutting or picking up, what it hands on, whether it is taking crop, and its
---     load where that number is real. See issue #139.
+--     load where that number is real. Plus `harvest.combineXp` when FS25_CombineXP is installed:
+--     throughput, yield and drum load off the mod's own measurement, its high-moisture flag, and the
+--     speed its limiter is allowing. See issue #139.
 VDTelemetry.VERSION = 21
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3

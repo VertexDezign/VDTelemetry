@@ -353,6 +353,17 @@ version renames costs you that panel, never a Lua error.
       The pre-shift chores (radiator, air intake, lubrication) are left out for the same reason, even
       though ADS reports them in coarse bands — you learn them by getting out and walking round the
       machine, and a dashboard that printed them would hand you that walk
+* [FS25_CombineXP](https://github.com/yumi-modding/FS25_CombineXP) `1.0.2.0` — the combine
+  capacity model: the mod measures what the drum is actually taking and caps the harvesting speed when it is over-fed.
+  Its three HUD numbers land on `vehicle.harvest.combineXp` (`src/integrations/CombineXP.lua`). **Read only** — the
+  limiter is the mod's own business.
+    * Throughput in tonnes per hour and yield in tonnes per hectare, both off the mod's own rolling measurement
+    * The drum load as a fraction of the machine's rated capacity, scaled by the moisture/time penalty exactly as its
+      HUD scales it — the number that reads past 1.0 when you are driving faster than the machine can thresh
+    * Its high-moisture flag: the crop is too damp right now to run at full speed
+    * The speed the limiter is currently allowing, **in singleplayer and on the host only** — the mod computes it
+      server-side and never streams it, so a multiplayer client gets no `speedLimit` rather than the default it would
+      otherwise read
 * [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) `1.2.0.1`
   ([source](https://github.com/Ozz-Modding/FS25_TaskList)) — the farm task list, in its own
   `taskList.json` channel (`src/integrations/TaskList.lua`). **Read and write:** VDTerminal can

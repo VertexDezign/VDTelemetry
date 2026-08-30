@@ -28,6 +28,8 @@ VDT.Integrations.all = {
   -- because it is the one integration that *corrects* a core-collected value rather than only adding
   -- to it — the engine temperature, which is ADS's under ADS.
   VDT.AdvancedDamageSystem,
+  -- Combine XP: the mod's own measurement of what the drum is taking, hung off the harvest aspect.
+  VDT.CombineXP,
 }
 
 ---Run a named stage hook for every integration that implements it.
