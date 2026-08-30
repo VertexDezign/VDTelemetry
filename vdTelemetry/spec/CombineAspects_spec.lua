@@ -9,7 +9,8 @@
 -- what decided which field each one reads:
 --   * the header's `working` comes from `lastAreaBiggerZero` (streamed) and NOT from `isWorking`
 --     (written only inside server-side work-area processing), so a client that sees crop being taken
---     still reports it;
+--     still reports it -- read over the engine's own 300 ms window, because the flag itself is
+--     per-frame and the first real capture of a chopper mid-pass landed on a false frame;
 --   * `load` is exported only on the server, and absent -- not zero -- everywhere else;
 --   * the combine's session hectares are a difference the collector takes, not a field it reads.
 
@@ -72,6 +73,7 @@ end
 local function cutter(over, extra)
   local spec = {
     lastAreaBiggerZero = false,
+    lastAreaBiggerZeroTime = -1,
     useWindrow = false,
     allowCuttingWhileRaised = false,
     currentInputFruitType = 1,
@@ -109,6 +111,8 @@ local function stubManagers()
       return FILL_TYPES[index]
     end,
   }
+  -- The mission clock the collecting window is measured against.
+  _G.g_currentMission = { time = 100000 }
 end
 
 describe("Harvest.collect", function()
@@ -175,6 +179,23 @@ describe("Cutter.collect", function()
     local model = VDT.Cutter.collect(cutter({ lastAreaBiggerZero = true, isWorking = false }))
     assert.is_true(model.working)
     assert.is_false(VDT.Cutter.collect(cutter({ lastAreaBiggerZero = false, isWorking = true })).working)
+  end)
+
+  it("holds 'working' across the frames between crop, over the engine's own 300 ms window", function()
+    -- The captured failure: the poll lands on a frame where the flag has been cleared again, 100 ms
+    -- after the header last took crop. The engine calls that still collecting, and so must this.
+    local recent = cutter({ lastAreaBiggerZero = false, lastAreaBiggerZeroTime = 99900 })
+    assert.is_true(VDT.Cutter.collect(recent).working)
+
+    local stale = cutter({ lastAreaBiggerZero = false, lastAreaBiggerZeroTime = 99600 })
+    assert.is_false(VDT.Cutter.collect(stale).working)
+  end)
+
+  it("does not read a header that has never cut as collecting", function()
+    -- lastAreaBiggerZeroTime starts at -1 and the mission clock starts near 0, so the bare window
+    -- comparison is true for the first fraction of a second of every save.
+    _G.g_currentMission = { time = 50 }
+    assert.is_false(VDT.Cutter.collect(cutter()).working)
   end)
 
   it("exports the header load on the server and leaves it absent on a client", function()

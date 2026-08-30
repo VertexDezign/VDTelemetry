@@ -14,7 +14,14 @@
 -- runs server-side. On a joined client they keep whatever Cutter:onLoad left (false / 0) forever.
 --   * For "is it cutting" the engine has a synced answer and that is what is used here:
 --     `lastAreaBiggerZero` rides Cutter:onWriteStream and every onWriteUpdateStream, so `working`
---     below is true on a client.
+--     below is true on a client -- but it is a PER-FRAME flag, written from work-area processing and
+--     cleared again in onEndWorkAreaProcessing, so an export poll lands on a false frame often enough
+--     to matter (the first capture of a chopper mid-pass caught exactly that: `filling` true on the
+--     machine, `working` false on the header feeding it). The engine never reads it bare either: its
+--     effects, its client-side branch and getIsWorkAreaActive all gate on a WINDOW over
+--     `lastAreaBiggerZeroTime` -- 300 ms for "is collecting", 150 ms for the work area. `working`
+--     uses the engine's own 300 ms, and the timestamp is set on the streamed path too
+--     (Cutter:onReadStream / onReadUpdateStream), so the window survives on a client.
 --   * For the load there is no synced equivalent, so it is exported only where it is real
 --     (`object.isServer`, which covers single player and the host) and left ABSENT on a client
 --     rather than reported as an idle header. Absent means unknown throughout this model; a hard
@@ -32,6 +39,26 @@ VDT.Cutter = {}
 -- The engine's "no fruit / no fill type" sentinel; both managers use index 1 for it.
 local FRUIT_TYPE_UNKNOWN = 1
 local FILL_TYPE_UNKNOWN = 1
+
+-- How long after the last crop-bearing frame the header still counts as collecting. The engine's own
+-- figure for that question (Cutter:onUpdateTick's isCollecting, and its client-side effect gate).
+local COLLECTING_WINDOW_MS = 300
+
+---Whether the header is taking crop, over the engine's own 300 ms window rather than this frame.
+---@param spec table spec_cutter
+---@return boolean
+local function isCollecting(spec)
+  if spec.lastAreaBiggerZero == true then
+    return true
+  end
+  -- The timestamp starts at -1 and the mission clock starts near 0, so a bare comparison would report
+  -- a header that has never cut as collecting for the first fraction of a second of the save.
+  local since = spec.lastAreaBiggerZeroTime
+  if since == nil or since <= 0 or g_currentMission == nil or g_currentMission.time == nil then
+    return false
+  end
+  return g_currentMission.time < since + COLLECTING_WINDOW_MS
+end
 
 ---Resolve a fill type index onto its engine name and localized title.
 ---@param fillTypeIndex number|nil
@@ -57,7 +84,7 @@ function VDT.Cutter.collect(object)
 
   ---@type CutterModel
   local model = {
-    working = spec.lastAreaBiggerZero == true,
+    working = isCollecting(spec),
     windrow = spec.useWindrow == true,
     -- Why a header can keep cutting with the hydraulics up: draper and pickup headers declare it, and
     -- without the flag a raised header that is still taking crop looks like a bug in the readout.

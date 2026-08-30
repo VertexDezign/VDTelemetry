@@ -115,8 +115,9 @@
 ---@field rainBlocked boolean? rain is stopping the threshing now
 ---@field rainWarning boolean? the engine's earlier warning that it is about to
 
--- The header. `working` is the engine's own synced "took crop this frame"; `load` is absent on a
--- multiplayer client, where the number it comes from is never sent (see collect/aspects/Cutter.lua).
+-- The header. `working` is the engine's own "is collecting" -- crop taken within the last 300 ms,
+-- not within this frame; `load` is absent on a multiplayer client, where the number it comes from is
+-- never sent (see collect/aspects/Cutter.lua).
 ---@class CutterModel
 ---@field working boolean
 ---@field windrow boolean picking up a windrow rather than cutting standing crop
