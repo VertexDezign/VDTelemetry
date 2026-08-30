@@ -24,9 +24,13 @@ import net.vertexdezign.vdt.app.widgets.Widget
  * "nothing on the bus" state, exactly as an empty rig position does.
  *
  * Controls: the lower / fold / activate trio, shared with `RigSlotPanel` and addressed at whatever the
- * diagram has selected — where the command channel can name it. Pipe, cover, tip side and unloading
- * are settable too, through commands of their own: they have no counterpart in FS25_additionalInputs,
- * so the mod calls the engine setter directly.
+ * diagram has selected — where the command channel can name it. Pipe, cover, tip side, unloading and a
+ * combine's straw choice are settable too, through commands of their own: they have no counterpart in
+ * FS25_additionalInputs, so the mod calls the engine setter directly.
+ *
+ * The straw toggle is the one control that is *not* aimed at the selection. It belongs to the machine
+ * that threshes, and on a harvesting rig the game usually has the header selected instead — see
+ * `CombineSection`.
  */
 object IsoBusApp : VdtApp {
   override val id = "isobus"

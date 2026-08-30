@@ -51,14 +51,10 @@ What those two left is under their own headings below. What is still untouched f
 - **The stepped fill bar.** `fillUnit.display == STEP` marks consumables, where capacity is a slot count: the game draws
   one segment per slot with the part-used roll's fraction inside the next one, and labels it `"2 / 2"` (a `ceil`, not a
   percentage). `components/FillUnitsDisplay.kt` carries the note and renders a continuous bar.
-- **The work aspects that are still undrawn:** `harvest`, `cutter`, `workMode` and `baleCounter`. `workWidth` was drawn
-  by the section view, and `discharge` and `tipping` by #116 — `discharge.reason`, the engine's own verdict on why
-  unloading is refused, turned out to be exactly the pick of them it looked like.
-  The harvest pair grew a lot in export v21 and is the obvious next machine screen: the combine's `harvest` (what it is
-  threshing, whether crop is flowing in, worked hectares, the straw choice, and the two rain states), the header's
-  `cutter` beside it, and `harvest.combineXp` — throughput, yield and drum load — wherever FS25_CombineXP is installed.
-  None of it is in the Kotlin model yet: the mod-side export landed on its own branch on the *export first, UI later*
-  rule, so the shared model, the parser and the panel are all still to do.
+- **The work aspects that are still undrawn:** `workMode` and `baleCounter`. `workWidth` was drawn by the section view,
+  `discharge` and `tipping` by #116 — `discharge.reason`, the engine's own verdict on why unloading is refused, turned
+  out to be exactly the pick of them it looked like — and the `harvest` / `cutter` pair by **#141**, which took the whole
+  of export v21 into the Kotlin model and built the combine screen on it.
 
 ### Two open calls on the mod side
 
@@ -172,8 +168,8 @@ but **none of round 1's four aspects has a section yet**.
   runtime in the wasm build was never verified** — only accessor generation was. The mixer's art is a
   PNG and sidesteps it, so the question is still open and blocks that branch, not this one.
 - **Round 2 classes**, in rough value order: baler + wrapper (bale in progress, bale type, auto-drop —
-  `Baler.lua` carries all of it), trailer / forage wagon, then harvesters, as the issue suggests. The
-  mixer wagon is done (#113).
+  `Baler.lua` carries all of it), then trailer / forage wagon. The mixer wagon is done (#113) and the
+  harvesters are done (#141).
 - **Round 2 controls.** Seed index (`setSeedIndex` / `changeSeedIndex` already send `SetSeedIndexEvent`), plough
   rotation (`setRotationMax` / `setRotationCenter`, both take `noEventSend` and own their event), the sprayer's
   doubled-amount toggle. None of them needs an MP event of our own.
@@ -550,6 +546,26 @@ engine load it wears the engine on, the service interval and system voltage. The
 
 ---
 
+## The combine screen (#141), what it left
+
+- **Nothing of it has been seen in a game.** The layout was reviewed with ImageMagick mockups off the two committed
+  captures, which is the only way to see a Compose layout from inside the sandbox, and the mod half — `canToggleSwath`
+  and the `setSwath` command — has never round-tripped through a real machine. Both want one pass in the field: a wheat
+  combine (the toggle works), a maize one (the toggle is refused and the panel says why), and a forage harvester.
+- **`canToggleSwath` has no capture.** Both committed harvester fixtures are export v21 and predate it, so every test
+  of it is a stub of the engine's two lookups. The field is what the straw control gates on, so a capture with it
+  present — ideally one of each verdict — is what would turn that from argued to shown.
+- **The header's cut width is read off its `CUTTER` work area**, which is the only place it appears. A header that
+  reports no work areas at all shows no width; no capture has one, and whether that machine exists is unknown.
+- **No swath *size* anywhere.** `cutter.strawRatio` is a machine constant and the panel prints it as a percentage while
+  the swath is on, which says how one header compares with another and not how much straw is actually on the ground.
+  The engine's `workAreaParameters.droppedLiters` is the real figure and it is written inside server-side work-area
+  processing, so it would be another `isServer` field with nothing behind it on a client.
+- **The two rain states are drawn but never seen.** Both captures are dry. The wording ("Rain coming" at the engine's
+  early warning, "Rain — stopped" once it bites) is a guess at what reads best in a cab and wants one rainy harvest.
+
+---
+
 ## Captures wanted as fixtures
 
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
@@ -560,7 +576,9 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   silage maize into chaff, so the fruit type and the fill type differ), both taken on a dedicated server's client with
   FS25_CombineXP installed — between them they pin `harvest`, `cutter`, `harvest.combineXp` and, by their absence,
   the `isServer` gate on `cutter.load` and `combineXp.speedLimit`. What no committed file has is those two fields
-  *present*, which needs a singleplayer or host capture. Mid-pass either way: CombineXP's measurement resets to zero the
+  *present*, which needs a singleplayer or host capture — and since #141 that is a visible gap rather than a
+  theoretical one: the combine screen's load bar falls back from the drum to the header where Combine XP is absent, and
+  on a client neither number exists, so the bar is simply not drawn. Mid-pass either way: CombineXP's measurement resets to zero the
   moment the drum stops being fed, so a headland capture shows nothing.
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`, the `STEP`
   consumable bar, and they would give `jointDescIndex` its first real chain.

@@ -1,13 +1,19 @@
 package net.vertexdezign.vdt.app.panels
 
 import net.vertexdezign.vdt.model.ControlGroup
+import net.vertexdezign.vdt.model.Cutter
 import net.vertexdezign.vdt.model.DischargeReason
+import net.vertexdezign.vdt.model.FillUnit
+import net.vertexdezign.vdt.model.FillUnits
+import net.vertexdezign.vdt.model.Harvest
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Mixer
 import net.vertexdezign.vdt.model.MixerIngredient
 import net.vertexdezign.vdt.model.Vehicle
+import net.vertexdezign.vdt.model.WorkArea
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -197,6 +203,112 @@ class IsoBusTest {
     // and the group together — so stepping from nowhere has to land somewhere real.
     val group = ControlGroup(current = 0, names = listOf("Boom", "Grab"), available = listOf(1, 2))
     assertEquals(1, nextControlGroup(group))
+  }
+
+  // -------------------------------------------------------------------------
+  // Which two machines make up a harvesting rig
+  // -------------------------------------------------------------------------
+
+  @Test
+  fun theCombineScreenIsResolvedFromTheWholeRigNotFromTheSelection() {
+    // The forage-harvester capture's shape: the game has the HEADER selected mid-pass, not the
+    // machine pulling it. Resolving off the selected node alone would leave the screen blank on
+    // exactly the rig it exists for.
+    val header = Implement(position = "FRONT", name = "JD 390 Plus", cutter = Cutter(working = true))
+    val rig = Vehicle(name = "JD 9900", harvest = Harvest(filling = true), implement = listOf(header))
+
+    val resolved = assertNotNull(combineRigOf(rigMachines(rig)))
+    assertEquals("JD 9900", resolved.combine?.name)
+    assertEquals("JD 390 Plus", resolved.header?.name)
+    // And both nodes carry a section, so tapping between them keeps the same screen up.
+    assertTrue(rigMachines(rig).all { it.hasSection })
+  }
+
+  @Test
+  fun aHeaderWithNoCombineBehindItStillOpensTheScreen() {
+    // A header parked on its own, or a rig whose combine the walk has not reached: half a pair is
+    // still worth a screen, and every readout on it is independently nullable.
+    val rig = Vehicle(name = "Tractor", implement = listOf(Implement(name = "Header", cutter = Cutter())))
+    val resolved = assertNotNull(combineRigOf(rigMachines(rig)))
+    assertNull(resolved.combine)
+    assertNull(resolved.harvest)
+    assertNull(resolved.tank)
+    assertEquals("Header", resolved.header?.name)
+  }
+
+  @Test
+  fun aRigWithNothingHarvestingHasNoCombineScreen() {
+    assertNull(combineRigOf(rigMachines(Vehicle(name = "Tractor"))))
+  }
+
+  @Test
+  fun theGrainTankIsFoundByWhatTheCombineSaysItIsTaking() {
+    // A harvester carries more than one fill unit, and only one of them is the grain bin. Taking the
+    // first would have drawn whichever the mod happened to list first as the load.
+    val additive = FillUnit(type = "SILAGE_ADDITIVE", value = 13f, capacity = 20, fillLevelPercentage = 67)
+    val grain = FillUnit(type = "SOYBEAN", value = 9525f, capacity = 11000, fillLevelPercentage = 87)
+    val rig =
+      Vehicle(
+        name = "T670",
+        harvest = Harvest(fillType = "SOYBEAN"),
+        fillUnits = FillUnits(listOf(additive, grain)),
+      )
+    assertEquals("SOYBEAN", combineRigOf(rigMachines(rig))?.tank?.type)
+  }
+
+  @Test
+  fun aBufferCombineHasNoTankAtAll() {
+    // The 9900i's only fill unit is its silage-additive tank. Drawing that as the grain level would
+    // be a picture of the wrong thing — and a full additive tank on an empty machine reads as a
+    // machine that cannot unload.
+    val rig =
+      Vehicle(
+        name = "JD 9900",
+        harvest = Harvest(bufferCombine = true, fillType = "CHAFF"),
+        fillUnits = FillUnits(listOf(FillUnit(type = "SILAGE_ADDITIVE", capacity = 20, fillLevelPercentage = 67))),
+      )
+    assertNull(combineRigOf(rigMachines(rig))?.tank)
+  }
+
+  @Test
+  fun everythingTheMachineCarriesBesidesTheGrainIsStillShown() {
+    // The panel's generic fill-unit block stands down on any machine with a section, so whatever the
+    // section does not draw itself has to be drawn here or it leaves the screen. The forage harvester
+    // is the sharp case: its silage-additive tank is its ONLY unit, and the section draws no bin.
+    val additive = FillUnit(type = "SILAGE_ADDITIVE", value = 13f, capacity = 20, fillLevelPercentage = 67)
+    val forage =
+      Vehicle(
+        name = "JD 9900",
+        harvest = Harvest(bufferCombine = true, fillType = "CHAFF"),
+        fillUnits = FillUnits(listOf(additive)),
+      )
+    assertEquals(listOf("SILAGE_ADDITIVE"), combineRigOf(rigMachines(forage))?.otherUnits?.map { it.type })
+
+    // And on a combine it is everything except the bin the section already drew.
+    val grain = FillUnit(type = "SOYBEAN", value = 9525f, capacity = 11000, fillLevelPercentage = 87)
+    val combine =
+      Vehicle(name = "T670", harvest = Harvest(fillType = "SOYBEAN"), fillUnits = FillUnits(listOf(additive, grain)))
+    assertEquals(listOf("SILAGE_ADDITIVE"), combineRigOf(rigMachines(combine))?.otherUnits?.map { it.type })
+  }
+
+  @Test
+  fun theCutWidthComesOffTheHeaderNotOffTheStrawBehindTheMachine() {
+    // The combine's own areas are the swath and the chopper spread — one a fraction of the cut, the
+    // other deliberately wider than it. Neither is the width of anything the machine cut.
+    val header =
+      Implement(
+        name = "Cressoni CRX 7.20",
+        cutter = Cutter(),
+        workAreas = listOf(WorkArea(type = "CUTTER", width = 7.2f)),
+      )
+    val rig =
+      Vehicle(
+        name = "T670",
+        harvest = Harvest(),
+        workAreas = listOf(WorkArea(type = "COMBINESWATH", width = 1f), WorkArea(type = "COMBINECHOPPER", width = 7f)),
+        implement = listOf(header),
+      )
+    assertEquals(7.2f, combineRigOf(rigMachines(rig))?.cutWidth)
   }
 
   // -------------------------------------------------------------------------

@@ -75,11 +75,13 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.ControlGroup
 import net.vertexdezign.vdt.model.Cover
 import net.vertexdezign.vdt.model.CoverType
+import net.vertexdezign.vdt.model.Cutter
 import net.vertexdezign.vdt.model.Discharge
 import net.vertexdezign.vdt.model.DischargeReason
 import net.vertexdezign.vdt.model.DischargeState
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FoldableState
+import net.vertexdezign.vdt.model.Harvest
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Mass
 import net.vertexdezign.vdt.model.MixState
@@ -90,6 +92,7 @@ import net.vertexdezign.vdt.model.PipeState
 import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.Tipping
 import net.vertexdezign.vdt.model.Vehicle
+import net.vertexdezign.vdt.model.WorkArea
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.roundToInt
 
@@ -230,12 +233,25 @@ internal data class IsoBusMachine(
   val cover: Cover?,
   val mass: Mass?,
   val mixer: Mixer?,
+  /** The combine, on the machine that threshes. Never on the same node as [cutter]. */
+  val harvest: Harvest?,
+  /** The header, on the machine at the front. Never on the same node as [harvest]. */
+  val cutter: Cutter?,
+  /**
+   * This machine's own work areas. Carried for one thing only: a header's `CUTTER` area is where its
+   * working width comes from, and no other aspect reports it.
+   */
+  val workAreas: List<WorkArea>,
 ) {
   /**
    * Whether this machine has anything the panel knows how to draw. The dispatch list, and the one
    * place it grows when a section is added.
+   *
+   * Both halves of a harvesting rig are on it. They draw the *same* section — [CombineSection] takes
+   * the combine and its header together, because a header on its own says nothing a driver wants and
+   * the game frequently has it selected rather than the machine pulling it.
    */
-  val hasSection: Boolean get() = mixer != null
+  val hasSection: Boolean get() = mixer != null || harvest != null || cutter != null
 }
 
 internal fun Vehicle.isoBus() = IsoBusMachine(
@@ -257,6 +273,9 @@ internal fun Vehicle.isoBus() = IsoBusMachine(
   cover = cover,
   mass = mass,
   mixer = mixer,
+  harvest = harvest,
+  cutter = cutter,
+  workAreas = workAreas,
 )
 
 internal fun Implement.isoBus() = IsoBusMachine(
@@ -277,6 +296,9 @@ internal fun Implement.isoBus() = IsoBusMachine(
   cover = cover,
   mass = mass,
   mixer = mixer,
+  harvest = harvest,
+  cutter = cutter,
+  workAreas = workAreas,
 )
 
 /** Every machine on the rig, the vehicle first, then its implements depth-first in hitch order. */
@@ -377,6 +399,21 @@ fun IsoBusPanel(
   val machine = if (nodes.isEmpty()) isoBusMachine(vehicle, slot) else selected?.machine
   val mixer = machine?.mixer
 
+  // The harvesting rig is resolved from the WHOLE rig rather than from the selected node, because its
+  // two halves are two machines: the combine threshes and the header cuts, and the game very often has
+  // the header selected — the forage-harvester capture does. Either node opens the same section, so
+  // tapping between them on the diagram changes which machine the generic controls address without the
+  // screen under them changing.
+  val combine = combineRigOf(if (nodes.isEmpty()) listOfNotNull(machine) else nodes.map { it.machine })
+  // The straw command is aimed at the machine that threshes, never at whatever the diagram has
+  // selected: on a rig whose header is selected, the target below names the header, which has no
+  // swath to set.
+  val combineTarget = when {
+    combine == null -> null
+    nodes.isEmpty() -> slot?.target ?: ControlTarget.VEHICLE
+    else -> nodes.firstOrNull { it.machine === combine.combine }?.let(::controlTargetOf)
+  }
+
   BoxWithConstraints(modifier) {
     // Narrow, the machine's name and the mix state cannot both sit in the header without one running
     // over the other. The state is the thing you glance at, so it moves into the body's status strip
@@ -391,7 +428,15 @@ fun IsoBusPanel(
       title = machine?.name ?: "ISOBUS",
       icon = if (bareHeader) null else Icons.Filled.Memory,
       modifier = Modifier.fillMaxSize(),
-      headerActions = { if (mixer != null && !bareHeader) MixStateChip(mixer) },
+      headerActions = {
+        if (!bareHeader) {
+          when {
+            mixer != null -> MixStateChip(mixer)
+            combine != null -> HarvestChip(combine)
+            else -> Unit
+          }
+        }
+      },
     ) {
       if (machine == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -456,6 +501,13 @@ fun IsoBusPanel(
 
           if (mixer != null) {
             MixerSection(machine, mixer, showStateInBody = bareHeader, modifier = Modifier.weight(1f).fillMaxWidth())
+          } else if (combine != null) {
+            CombineSection(
+              rig = combine,
+              target = combineTarget,
+              onCommand = onCommand,
+              modifier = Modifier.weight(1f).fillMaxWidth(),
+            )
           }
         }
       }
@@ -1020,7 +1072,7 @@ private fun TubReadout(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier)
 }
 
 @Composable
-private fun Figure(label: String, value: String, sub: String?) {
+internal fun Figure(label: String, value: String, sub: String?) {
   Column {
     Text(label.uppercase(), color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     Text(value, color = VdtColors.TextDark, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -1133,7 +1185,7 @@ internal fun refusalOf(reason: DischargeReason): String = when (reason) {
 }
 
 @Composable
-private fun Chip(icon: ImageVector, label: String, tint: Color, onClick: (() -> Unit)? = null) {
+internal fun Chip(icon: ImageVector, label: String, tint: Color, onClick: (() -> Unit)? = null) {
   val shape = RoundedCornerShape(3.dp)
   // Actionable chips are told apart by weight and outline, never by hue: a raised, outlined, taller
   // chip against a flat grey one. The extra height is not decoration — it is what makes the tap
