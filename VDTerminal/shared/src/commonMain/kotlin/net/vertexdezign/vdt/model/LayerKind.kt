@@ -45,6 +45,7 @@ enum class LayerKind(val token: String) {
   STONE("stone"),
   NEEDS_PLOWING("needsPlowing"),
   NEEDS_LIME("needsLime"),
+  MULCHED("mulched"),
   FERTILIZED("fertilized"),
   ;
 

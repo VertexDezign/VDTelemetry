@@ -25,6 +25,11 @@ import kotlin.test.assertTrue
  * PF planes beside the mod's own three, the labels are the German client's, and the soil plane has
  * neither a `fertilized` nor a `needsLime` entry, because the mod withholds both while PF is active.
  * That last one is a rule several comments assert and no fixture could show until now.
+ *
+ * `soil.json` is a **second sweep of the same save**, taken a day later to capture the mulch (#135),
+ * so it is at `mapLayers` version 4 where its siblings are at 3 and its ground has moved on from
+ * theirs. Both facts are asserted below rather than smoothed over: a plane is its own file with its
+ * own version by design, and nothing here pairs one plane's cells against another's.
  */
 class MapLayersModelTest {
   private val json = Json { encodeDefaults = true }
@@ -91,13 +96,24 @@ class MapLayersModelTest {
     assertEquals(listOf(10, 13), growth.legend.filter { it.kind == "growing" }.map { it.v })
 
     // Precision Farming is active on this save, so the mod withholds the vanilla fertiliser and lime
-    // readings exactly as the game's own panel does — weeds and the plough are all that is left.
+    // readings exactly as the game's own panel does — weeds, the plough and the mulch are all that is
+    // left.
     val soil = VdtParser.parseMapLayer(example("soil.json"))
-    assertEquals(listOf("weed", "weed", "weed", "weed", "weed", "needsPlowing"), soil.legend.map { it.kind })
+    assertEquals(
+      listOf("weed", "weed", "weed", "weed", "weed", "needsPlowing", "mulched"),
+      soil.legend.map { it.kind },
+    )
     assertTrue(
       soil.legend.none { it.kind == "fertilized" || it.kind == "needsLime" },
       "PF replaces both, and the mod reports neither rather than reporting them wrong",
     )
+    // The soil plane is a **later sweep of the same save** (see the class note), so it alone carries
+    // the version this repo's mod writes; a plane owning its own version is the whole point of the
+    // one-file-per-plane split, and this is the first capture to show two of them side by side.
+    assertEquals("4", soil.version)
+    // Mulch, the state added with that version. Its colour is the game's own MULCHED entry in the
+    // *colourblind* palette, which is the palette this whole capture was taken in.
+    assertEquals(MapLayerLegendEntry(22, "Gemulcht", "#3d3e45", "mulched"), soil.legend.last())
 
     assertRoundTrips(data)
     assertRoundTrips(growth)
@@ -185,6 +201,7 @@ class MapLayersModelTest {
     assertEquals(LayerKind.HARVEST, LayerKind.of("harvest"))
     assertEquals(LayerKind.NEEDS_PLOWING, LayerKind.of("needsPlowing"))
     assertEquals(LayerKind.CROP, LayerKind.of("crop"))
+    assertEquals(LayerKind.MULCHED, LayerKind.of("mulched"))
     // Case-sensitive, and deliberately so: "HARVEST" is not a token the mod ever writes, and
     // accepting it would be inventing a second spelling of the contract.
     assertNull(LayerKind.of("HARVEST"))

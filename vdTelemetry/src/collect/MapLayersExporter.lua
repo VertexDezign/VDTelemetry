@@ -68,7 +68,8 @@ VDT.MapLayers.FILE_NAME = VDT.MapLayers.SUBDIR .. "index.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin MapLayersData.
 -- 2: one file per plane + the catalogue (was a single mapLayers.json holding all three).
 -- 3: every legend entry carries a semantic `kind` token (see LEGEND_KIND).
-VDT.MapLayers.VERSION = 3
+-- 4: the soil plane reports the game's MULCHED state (wire value 22, kind `mulched`).
+VDT.MapLayers.VERSION = 4
 
 -- The planes this channel exports, in wire order. `label` mirrors the game's own map overlay selector
 -- (InGameMenuMapFrame's mapSelectorTexts), so the app can name a plane it has never heard of -- which
@@ -191,6 +192,7 @@ local SOIL_STONE_BASE = 10 -- + stone color group index (1-based) => 10..19
 local SOIL_STONE_MAX_GROUPS = 10
 local SOIL_NEEDS_PLOWING = 20
 local SOIL_NEEDS_LIME = 21
+local SOIL_MULCHED = 22
 local SOIL_FERTILIZED_BASE = 30 -- + spray level (1..maxSprayLevel) => 31..
 
 -- Semantic kind per legend entry -- what a value MEANS, as opposed to what it is called (`label`,
@@ -225,6 +227,7 @@ local LEGEND_KIND = {
   STONE = "stone",
   NEEDS_PLOWING = "needsPlowing",
   NEEDS_LIME = "needsLime",
+  MULCHED = "mulched",
   FERTILIZED = "fertilized",
 }
 
@@ -267,6 +270,11 @@ local COLOR_SEEDBED = { [false] = { 0.0815, 0.6584, 0.4198 }, [true] = { 0.6795,
 local COLOR_PLOWED = { [false] = { 0.0908, 0.0467, 0.0865 }, [true] = { 0.0469, 0.0484, 0.0597 } }
 local COLOR_NEEDS_PLOWING = { [false] = { 0.6172, 0.051, 0.051 }, [true] = { 1, 0.8632, 0.0232 } }
 local COLOR_NEEDS_LIME = { [false] = { 0.0815, 0.6584, 0.4198 }, [true] = { 0.6795, 0.6867, 0.7231 } }
+-- The game ships MULCHED and PLOWED the same triplet in both palettes (FRUIT_COLOR_MULCHED ==
+-- FRUIT_COLOR_PLOWED), which costs it nothing: plowed is a growth-plane state and mulched a
+-- soil-plane one, so the two never appear on the same overlay. Transcribed as it is, duplication and
+-- all, rather than picked apart -- the overlay is supposed to look like the game's.
+local COLOR_MULCHED = { [false] = { 0.0908, 0.0467, 0.0865 }, [true] = { 0.0469, 0.0484, 0.0597 } }
 local FERTILIZED_COLORS = {
   [false] = {
     { 0.0595, 0.2086, 0.8227 },
@@ -345,6 +353,12 @@ local SOIL_LABELS = {
     fallback = "Needs lime",
     color = COLOR_NEEDS_LIME,
     kind = LEGEND_KIND.NEEDS_LIME,
+  },
+  [SOIL_MULCHED] = {
+    key = "ui_growthMapMulched",
+    fallback = "Mulched",
+    color = COLOR_MULCHED,
+    kind = LEGEND_KIND.MULCHED,
   },
 }
 
@@ -567,10 +581,10 @@ local function classifyGrowthFromGround(ctx, groundTypeValue)
   return GROWTH_NONE
 end
 
----Soil-state bucket for one cell, priority high->low: weeds > stones > needs-plowing > needs-lime >
----fertilized (MapOverlayGenerator:buildSoilStateMapOverlay's gating, lines 161-227). Weed/stone use the
----raw density STATE (not the "level" FieldState reads) since that's what the game's color groups key
----on.
+---Soil-state bucket for one cell, priority high->low: weeds > stones > needs-plowing > mulched >
+---needs-lime > fertilized -- the order MapOverlayGenerator:buildSoilStateMapOverlay paints them in.
+---Weed/stone use the raw density STATE (not the "level" FieldState reads) since that's what the
+---game's color groups key on.
 ---@param ctx table sweep context
 ---@param x number world x
 ---@param z number world z
@@ -622,6 +636,22 @@ local function classifySoil(ctx, x, z, groundTypeValue)
     local plowLevel = getValueAtWorldPos(fgs, FDM.PLOW_LEVEL, x, 0, z)
     if plowLevel == 0 then
       return SOIL_NEEDS_PLOWING
+    end
+  end
+
+  -- Mulch sits here because that is where the game paints it: after plowing (and rolling, which we
+  -- don't carry) and before lime, so a field that is both mulched and unplowed reads as needs-plowing
+  -- in our overlay exactly as it does in the game's. Precision Farming leaves stubble alone, so
+  -- unlike the two below this one is not gated on it.
+  --
+  -- The game paints state 1 exactly; we take anything above 0, which is the same thing on a stock map
+  -- (the density map is one bit, so getMaxValue is 1) and the honest read on a mod that made it
+  -- deeper -- partly-shredded stubble is still shredded, which is how the engine itself totals it
+  -- (FSDensityMapUtil.getStubbleFactor filters on GREATER 0).
+  if ctx.maxStubbleShredLevel > 0 then
+    local mulchLevel = getValueAtWorldPos(fgs, FDM.STUBBLE_SHRED_LEVEL, x, 0, z)
+    if type(mulchLevel) == "number" and mulchLevel >= 1 then
+      return SOIL_MULCHED
     end
   end
 
@@ -771,7 +801,7 @@ end
 function VDT.MapLayers.classifyCell(ctx, x, z)
   -- Which planes this cell is being classified FOR (see VDT.MapLayers.subscribedLayers). Skipping a
   -- plane skips its engine reads, which is where the cost is: crops/growth share the fruit reads and
-  -- soil pays for weed/stone/plow/lime/spray on its own. A ctx with no set classifies everything --
+  -- soil pays for weed/stone/plow/mulch/lime/spray on its own. A ctx with no set classifies everything --
   -- startSweep always sets one, so that's the direct callers (the specs).
   local wanted = ctx.wanted or ALL_LAYERS
   local wantCrops, wantGrowth, wantSoil = wanted.crops == true, wanted.growth == true, wanted.soil == true
@@ -957,8 +987,8 @@ local function samplePf(pf, x, z)
 end
 
 ---Snapshot everything a sweep needs once, up front: world size, ground-type values, weed/stone
----availability + color groups, spray-level cap. nil when the world size can't be resolved yet (the
----caller retries next tick).
+---availability + color groups, spray-level and stubble-shred caps. nil when the world size can't be
+---resolved yet (the caller retries next tick).
 ---@return table|nil
 local function startSweep()
   local sizeX, sizeZ = VDT.MapExporter.resolveWorldSize()
@@ -1013,6 +1043,16 @@ local function startSweep()
     maxSprayLevel = value
   end
 
+  -- Whether this save has a stubble-shred (mulch) density map at all, asked the only way that
+  -- matters: FieldGroundSystem loads it only where Platform.gameplay.useStubbleShred is set, and
+  -- getMaxValue is nil for a map it never loaded -- so one read answers both the platform question
+  -- and "does this map define the layer", the way maxSprayLevel does above.
+  local maxStubbleShredLevel = 0
+  local mulchOk, mulchMax = pcall(fieldGroundSystem.getMaxValue, fieldGroundSystem, FieldDensityMap.STUBBLE_SHRED_LEVEL)
+  if mulchOk and type(mulchMax) == "number" then
+    maxStubbleShredLevel = mulchMax
+  end
+
   local ctx = {
     sizeX = sizeX,
     sizeZ = sizeZ,
@@ -1032,6 +1072,7 @@ local function startSweep()
     plowingRequiredEnabled = missionInfo.plowingRequiredEnabled == true,
     limeRequired = missionInfo.limeRequired == true,
     maxSprayLevel = maxSprayLevel,
+    maxStubbleShredLevel = maxStubbleShredLevel,
     -- Precision Farming replaces the base lime + fertilizer model with its own soil maps, so drop
     -- those two soil layers when it's installed (see VDT.PrecisionFarming). Captured once per sweep.
     precisionFarming = VDT.PrecisionFarming.isActive(),

@@ -32,3 +32,18 @@ kotlin {
     }
   }
 }
+
+// The JVM tests parse the committed captures in `examples/json/` — the mod↔Kotlin contract, checked
+// against real game output rather than hand-written JSON. Those files live outside this module (the
+// tests find them by walking up from the working directory), so Gradle cannot infer them from the
+// task graph: re-capturing a fixture left `jvmTest` UP-TO-DATE and the suite went on reporting a
+// pass against the previous bytes, which is the one failure mode a fixture-driven suite must not
+// have. Declaring the directory makes a new capture re-run the tests that read it.
+tasks.named<Test>("jvmTest") {
+  inputs
+    .dir(layout.settingsDirectory.dir("../examples/json"))
+    .withPropertyName("exampleCaptures")
+    // The tests locate a fixture by path from the repo root, so where the checkout sits does not
+    // matter but what a file is called does.
+    .withPathSensitivity(PathSensitivity.RELATIVE)
+}

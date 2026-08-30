@@ -334,8 +334,8 @@ Both remaining items were declined on 2026-07-25. They are kept as the record of
   alternative — raster rows to the app, which draws and filters the bitmap itself — is a big shift away from the
   deliberate "PNG server-side, legends-only over the WebSocket" design.
 - **Independent soil toggles need the data de-collapsed first.** `classifySoil` returns *one* value per cell by priority
-  (weeds > stones > needs-plow > needs-lime > fertilized), mirroring the game, so a cell that is both weedy and needs
-  plowing stores only "weeds" — the plough state underneath was never captured, and hiding weeds cannot reveal it. Doing
+  (weeds > stones > needs-plow > mulched > needs-lime > fertilized), mirroring the game, so a cell that is both weedy and
+  needs plowing stores only "weeds" — the plough state underneath was never captured, and hiding weeds cannot reveal it. Doing
   it properly means promoting each soil sub-state to its own single-value plane: mod classification, wire model, and
   stacking order in the app. Only if independent soil visibility is actually wanted; if it is picked up, fold it into
   one coherent re-model of the layer set rather than two passes.

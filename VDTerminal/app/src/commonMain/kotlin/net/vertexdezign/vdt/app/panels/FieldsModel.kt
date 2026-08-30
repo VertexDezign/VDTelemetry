@@ -99,7 +99,11 @@ fun kindLabel(kind: String): String = when (LayerKind.of(kind)) {
 
   LayerKind.CROP -> "Planted"
 
-  LayerKind.WEED, LayerKind.STONE, LayerKind.NEEDS_PLOWING, LayerKind.NEEDS_LIME, LayerKind.FERTILIZED,
+  // The soil plane's kinds all read correctly as their own capitalised token — "Mulched", "Weed",
+  // "Fertilized" — and this ladder is for the growth and crops breakdowns, so none of them earns a
+  // word of its own here.
+  LayerKind.WEED, LayerKind.STONE, LayerKind.NEEDS_PLOWING, LayerKind.MULCHED, LayerKind.NEEDS_LIME,
+  LayerKind.FERTILIZED,
   null,
   -> if (kind == UNKNOWN_FIELD_KIND) "Unknown" else kind.replaceFirstChar { it.uppercase() }
 }
@@ -158,12 +162,31 @@ fun fieldHeadline(row: FieldRow): FieldHeadline {
  * mulched field is genuinely blank on the growth plane, in the game's own map as much as in ours. Any
  * other bare ground the four ground types do not name lands here too.
  *
+ * Which of the two it is comes from the *soil* plane, where the mod reports mulch as of `mapLayers`
+ * version 4 — [mulchShare], and [bareGroundNote] for the sentence that uses it.
+ *
  * Without this the field fell through to `fieldInfo`'s centre sample and was labelled "at the field
  * centre" — claiming the whole-field reading was unavailable when it was the reading we had.
  */
 fun isBareByRaster(row: FieldRow): Boolean {
   val growth = row.growth ?: return false
   return growth.cells == 0 && growth.polygonCells >= MIN_STATUS_CELLS
+}
+
+/**
+ * What to say about a field the growth raster resolved as entirely blank — see [isBareByRaster].
+ *
+ * The growth plane cannot tell mulched ground from bare, but the soil plane can, so the sentence
+ * names the mulch when the soil raster carries enough of it and stays with the plain statement
+ * otherwise. "Otherwise" covers three different situations on purpose — an unmulched field, a soil
+ * plane nobody is subscribed to (the share is null, not zero), and a mod too old to report the state
+ * — because none of them is a claim this app can make about the ground, and the honest sentence for
+ * all three is the one that says only what the growth plane saw.
+ */
+fun bareGroundNote(row: FieldRow): String = if ((mulchShare(row) ?: 0f) >= WORK_SHARE) {
+  "Nothing growing on any of it — the ground is mulched."
+} else {
+  "Nothing growing on any of it."
 }
 
 /** Whether the breakdown is worth drawing at all, rather than a bar made of four cells. */
@@ -242,14 +265,27 @@ fun hasSoilBreakdown(row: FieldRow): Boolean = (row.soil?.polygonCells ?: 0) >= 
  * How much of the field needs plowing, `0..1`, or null when the raster can't say.
  *
  * **Understated where another condition wins.** The mod classifies a soil cell by priority — weeds
- * beat stones beat needs-plowing beat needs-lime beat fertilizer — so a cell that is both weedy and
- * unploughed is counted as weeds. Read this as "at least this much", and read it beside [weedShare]:
- * between them they account for the field.
+ * beat stones beat needs-plowing beat mulched beat needs-lime beat fertilizer — so a cell that is
+ * both weedy and unploughed is counted as weeds. Read this as "at least this much", and read it
+ * beside [weedShare] and [mulchShare]: between them they account for the field.
  */
 fun plowShare(row: FieldRow): Float? = if (!hasSoilBreakdown(row)) null else row.soil?.polygonFractionOf("needsPlowing")
 
 /** How much of the field is carrying weeds, `0..1`, or null when the raster can't say. */
 fun weedShare(row: FieldRow): Float? = if (!hasSoilBreakdown(row)) null else row.soil?.polygonFractionOf("weed")
+
+/**
+ * How much of the field has been mulched, `0..1`, or null when the raster can't say.
+ *
+ * The one soil reading that is not a complaint — shredded stubble is work already done — and the one
+ * that explains a field the growth plane calls blank (see [isBareByRaster]). Unlike lime and
+ * fertiliser it survives a Precision Farming save, because PF replaces neither the stubble map nor
+ * the game's own mulch overlay.
+ *
+ * Understated for the same reason as [plowShare]: a mulched cell that also wants the plough is
+ * counted as needing the plough, which is the order the game's overlay paints them in.
+ */
+fun mulchShare(row: FieldRow): Float? = if (!hasSoilBreakdown(row)) null else row.soil?.polygonFractionOf("mulched")
 
 /**
  * Whether this field wants the plough.
@@ -273,7 +309,8 @@ fun needsPlowing(row: FieldRow): Boolean {
  * One bar for every kind of work rather than one per kind: enough of the crop standing to take the
  * combine out, enough of it lost to be worth clearing, enough of the ground unploughed to hitch the
  * plough — they are the same judgement, and three tunable numbers would only invite three different
- * answers to it.
+ * answers to it. [bareGroundNote] borrows it for a sentence rather than a chip, which is the same
+ * question once more: enough of the field in one state to speak for the whole of it.
  */
 private const val WORK_SHARE = 0.25f
 

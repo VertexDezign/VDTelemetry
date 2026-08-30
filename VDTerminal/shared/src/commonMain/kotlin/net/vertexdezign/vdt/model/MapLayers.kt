@@ -139,7 +139,7 @@ data class MapLayerLegendEntry(
   /**
    * What this value means, as a stable token — `growing`, `harvest`, `cut`, `withered`, `plowed`,
    * `cultivated`, `stubble`, `seedbed`, `topping` on the growth plane; `crop` on the crops plane;
-   * `weed`, `stone`, `needsPlowing`, `needsLime`, `fertilized` on the soil plane.
+   * `weed`, `stone`, `needsPlowing`, `mulched`, `needsLime`, `fertilized` on the soil plane.
    *
    * Null on a plane the mod keeps no vocabulary for — every Precision Farming plane, where a value
    * is a measurement (a pH, kg N/ha, a yield potential) whose meaning is the number itself — and on
