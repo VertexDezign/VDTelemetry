@@ -186,6 +186,29 @@ private const val ART_SHARE = 0.55f
 /** What [TankLine] comes to, reserved out of the height before the art is given its cap. */
 private val TANK_LINE_HEIGHT = 30.dp
 
+/** What [HeaderStrip] comes to, likewise: it is a sibling of the columns, not part of them. */
+private val HEADER_STRIP_HEIGHT = 25.dp
+
+/**
+ * Below this the flanks give up their figures' sub-lines and drop a type size.
+ *
+ * Set by the right column at its fullest — two figures, the load bar and the straw control come to
+ * about 145dp with the gaps — plus the headroom a third figure needs. A 3-row widget tile lands just
+ * under it, which is the case that found this: the drum bar and the straw switch were being pushed
+ * out of the bottom of the column and clipped.
+ */
+private val COMPACT_BELOW = 190.dp
+
+/**
+ * Between the readouts in a flank.
+ *
+ * The compact figure is the tighter of the two and still buys back about 9dp over the column, which
+ * is roughly what the straw control costs — so the thing at the bottom of the stack keeps its room
+ * rather than being the one pushed off the end.
+ */
+private val FLANK_GAP = 8.dp
+private val FLANK_GAP_COMPACT = 5.dp
+
 /**
  * The combine screen: the machine in the middle, what it is taking on the left, how it is going on
  * the right, and the header along the bottom.
@@ -209,15 +232,30 @@ internal fun CombineSection(
     val bodyWidth = maxWidth
     val bodyHeight = maxHeight
 
+    // The columns share what is left once the header strip has taken its row along the bottom; every
+    // height decision below is against that, not against the whole section.
+    val columnHeight = bodyHeight - HEADER_STRIP_HEIGHT
+    // Short tiles thin the figures out rather than letting the column overflow. A Column that is
+    // handed more content than it has room for does not scroll or shrink — it pushes the last
+    // children off the bottom, and the last children here are the load bar and the straw control.
+    val compact = columnHeight < COMPACT_BELOW
+
     // The machine is sized from BOTH axes rather than given a fixed share of the width. It is 3:1, so
     // past the width that makes it as tall as the section there is nothing more to see — a wider
     // picture would only push the readouts thinner. Whichever of the two bounds binds first is the
     // one that decides, and the flanks take what is left.
-    val budget = bodyWidth - COLUMN_GAP * 2
-    val artWidth = minOf(budget * ART_SHARE, (bodyHeight - TANK_LINE_HEIGHT) * COMBINE_ART_ASPECT)
-    val flank = (budget - artWidth) / 2
-    // Three columns only while the flanks are wide enough to hold a figure's value on one line. That
-    // is a stricter test than the width alone, and it is the one that actually decides.
+    val artWidth = minOf(
+      (bodyWidth - COLUMN_GAP * 2) * ART_SHARE,
+      (columnHeight - TANK_LINE_HEIGHT) * COMBINE_ART_ASPECT,
+    )
+    // Below its floor the picture is **dropped, not shrunk**, and its width goes back to the readouts
+    // — the same call the mixer wagon's section makes, for the same reason: the machine is orientation
+    // and the figures are the reason to look. A shrunk 3:1 machine is a green smear either way.
+    val showArt = artWidth / COMBINE_ART_ASPECT >= MIN_ART_HEIGHT
+    val flank =
+      if (showArt) (bodyWidth - COLUMN_GAP * 2 - artWidth) / 2 else (bodyWidth - COLUMN_GAP) / 2
+    // Two or three columns only while the flanks are wide enough to hold a figure's value on one line.
+    // That is a stricter test than the width alone, and it is the one that actually decides.
     val threeColumn = bodyWidth >= THREE_COLUMN_FROM && flank >= FLANK_MIN
 
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -227,22 +265,27 @@ internal fun CombineSection(
         // always more height here than content — spent at the bottom it reads as a screen that failed
         // to finish, and split above and below it reads as a screen laid out for the space it has.
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(COLUMN_GAP)) {
-          CropColumn(rig, Modifier.width(flank).fillMaxHeight())
-          MachineColumn(rig, bodyHeight - TANK_LINE_HEIGHT, Modifier.width(artWidth).fillMaxHeight())
-          WorkColumn(rig, target, onCommand, Modifier.width(flank).fillMaxHeight())
+          CropColumn(rig, compact, Modifier.width(flank).fillMaxHeight())
+          if (showArt) {
+            MachineColumn(rig, columnHeight - TANK_LINE_HEIGHT, Modifier.width(artWidth).fillMaxHeight())
+          } else {
+            // No picture, so the tank's figures still need a home; they lead the readouts instead.
+            TankLine(rig)
+          }
+          WorkColumn(rig, target, onCommand, compact, Modifier.width(flank).fillMaxHeight())
         }
       } else {
         // Narrow: the same three groups, stacked. The machine keeps its place between them — it is
         // still the thing the two readouts are about — but gives up its height first, and then the
         // picture entirely.
         Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          CropColumn(rig, Modifier.fillMaxWidth())
+          CropColumn(rig, compact, Modifier.fillMaxWidth())
           if (bodyHeight >= MIN_ART_HEIGHT * 3) {
             MachineColumn(rig, bodyHeight * 0.45f, Modifier.fillMaxWidth())
           } else {
             TankLine(rig)
           }
-          WorkColumn(rig, target, onCommand, Modifier.fillMaxWidth())
+          WorkColumn(rig, target, onCommand, compact, Modifier.fillMaxWidth())
         }
       }
 
@@ -286,7 +329,7 @@ internal fun RowScope.HarvestChip(rig: CombineRig) {
  * since "Häckselgut" alone does not say what is being chopped.
  */
 @Composable
-private fun CropFigure(rig: CombineRig) {
+private fun CropFigure(rig: CombineRig, compact: Boolean) {
   val harvest = rig.harvest
   // The header knows the crop under it *now*; the combine keeps the last valid one. Preferring the
   // header means the readout names the new crop as the machine drives into it, and falls back to what
@@ -298,15 +341,42 @@ private fun CropFigure(rig: CombineRig) {
   Figure(
     label = "Crop",
     value = title ?: fruit ?: "—",
-    sub = if (converted) "from $fruit" else null,
+    // The conversion is the first thing to go on a short tile: the material in the tank is named
+    // either way, and what it was cut from is context rather than a reading.
+    sub = if (converted && !compact) "from $fruit" else null,
+    compact = compact,
   )
 }
 
-/** The left column: the crop, then the states that say whether it is moving and whether it can. */
+/**
+ * The left column: **the field** — what is coming off it, how much of it has been done, and whether
+ * anything is stopping the pass.
+ *
+ * Worked hectares sit here rather than with the performance figures on the right, which is where they
+ * started. Two reasons, and the second is why they moved. They belong here on the merits — a count of
+ * ground covered is a fact about the field, where throughput and yield are facts about the machine —
+ * and the right column had four things stacked on it while this one had two, so on a short tile the
+ * *controls* at the bottom of that stack were the ones pushed off the end.
+ */
 @Composable
-private fun CropColumn(rig: CombineRig, modifier: Modifier = Modifier) {
-  Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)) {
-    CropFigure(rig)
+private fun CropColumn(rig: CombineRig, compact: Boolean, modifier: Modifier = Modifier) {
+  val harvest = rig.harvest
+  Column(
+    modifier,
+    verticalArrangement = Arrangement.spacedBy(
+      if (compact) FLANK_GAP_COMPACT else FLANK_GAP,
+      Alignment.CenterVertically,
+    ),
+  ) {
+    CropFigure(rig, compact)
+    harvest?.hectares?.let { total ->
+      Figure(
+        "Worked",
+        "${format2(total.toFloat())} ha",
+        harvest.hectaresSession?.takeIf { !compact }?.let { "+${format2(it.toFloat())} this session" },
+        compact,
+      )
+    }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
       FlowChip(rig)
       RainChip(rig.harvest)
@@ -509,20 +579,20 @@ private fun WorkColumn(
   rig: CombineRig,
   target: ControlTarget?,
   onCommand: (ClientMessage) -> Unit,
+  compact: Boolean,
   modifier: Modifier = Modifier,
 ) {
   val harvest = rig.harvest
   val xp = harvest?.combineXp
-  Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)) {
-    xp?.throughput?.let { Figure("Throughput", "${format2(it.toFloat())} t/h", null) }
-    xp?.yield?.let { Figure("Yield", "${format2(it.toFloat())} t/ha", null) }
-    harvest?.hectares?.let { total ->
-      Figure(
-        "Worked",
-        "${format2(total.toFloat())} ha",
-        harvest.hectaresSession?.let { "+${format2(it.toFloat())} this session" },
-      )
-    }
+  Column(
+    modifier,
+    verticalArrangement = Arrangement.spacedBy(
+      if (compact) FLANK_GAP_COMPACT else FLANK_GAP,
+      Alignment.CenterVertically,
+    ),
+  ) {
+    xp?.throughput?.let { Figure("Throughput", "${format2(it.toFloat())} t/h", null, compact) }
+    xp?.yield?.let { Figure("Yield", "${format2(it.toFloat())} t/ha", null, compact) }
 
     LoadBar(rig)
 
@@ -532,7 +602,7 @@ private fun WorkColumn(
       Chip(Icons.Filled.Speed, "Limit ${format2(it.toFloat())} km/h", VdtColors.DarkGray)
     }
 
-    StrawControl(harvest, target, onCommand)
+    StrawControl(harvest, target, onCommand, compact)
   }
 }
 
@@ -579,7 +649,12 @@ private fun LoadBar(rig: CombineRig) {
  * be, and the control says so.
  */
 @Composable
-private fun StrawControl(harvest: Harvest?, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
+private fun StrawControl(
+  harvest: Harvest?,
+  target: ControlTarget?,
+  onCommand: (ClientMessage) -> Unit,
+  compact: Boolean = false,
+) {
   if (harvest == null) return
   val hasSwath = harvest.swathAvailable == true
   val hasChopper = harvest.chopperAvailable == true
@@ -594,7 +669,11 @@ private fun StrawControl(harvest: Harvest?, target: ControlTarget?, onCommand: (
     }
 
   Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-    Text("STRAW", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    // The caption goes first on a short tile: the two buttons already say "Swath" and "Chop", which
+    // is the only place in this panel where a label repeats what the control under it reads.
+    if (!compact) {
+      Text("STRAW", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
       StrawOption("Swath", Icons.Filled.Grass, harvest.swathActive, send?.let { { it(true) } })
       if (hasChopper) {
@@ -602,7 +681,9 @@ private fun StrawControl(harvest: Harvest?, target: ControlTarget?, onCommand: (
       }
     }
     // Both halves present and still refused leaves exactly one explanation, and it is the useful one.
-    if (hasChopper && harvest.canToggleSwath == false) {
+    // Dropped on a short tile: the control is visibly dead there either way, and two lines of prose is
+    // the most expensive thing in this column.
+    if (hasChopper && harvest.canToggleSwath == false && !compact) {
       Text(
         "This crop leaves no straw",
         color = VdtColors.DarkGray,

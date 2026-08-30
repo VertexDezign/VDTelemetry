@@ -1071,14 +1071,42 @@ private fun TubReadout(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier)
   }
 }
 
+/**
+ * A labelled number: what it is, what it reads, and an optional line under it.
+ *
+ * **Each line gets a line box as tall as its own type.** Material 3's default text style carries an
+ * *absolute* 24sp `lineHeight`, so a `Text` given only a `fontSize` keeps 24dp-tall lines however
+ * small the type is — a three-line figure came to 72dp of which 27dp was ink, and a column of three
+ * of them overran a 3-row widget tile and quietly clipped the controls under it. Same treatment, and
+ * the same reason, as the mixer wagon's tub block and `ProgressBar`'s labels.
+ *
+ * [compact] drops the value a size and is for a tile that has not got the height for the full form;
+ * the caller decides that from the room it measured, and drops [sub] itself when it does.
+ */
 @Composable
-internal fun Figure(label: String, value: String, sub: String?) {
+internal fun Figure(label: String, value: String, sub: String?, compact: Boolean = false) {
+  val size = if (compact) 15.sp else 18.sp
   Column {
-    Text(label.uppercase(), color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-    Text(value, color = VdtColors.TextDark, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-    if (sub != null) Text(sub, color = VdtColors.DarkGray, fontSize = 10.sp, maxLines = 1)
+    Text(label.uppercase(), style = figureStyle(9.sp, VdtColors.DarkGray, FontWeight.Bold), maxLines = 1)
+    Text(value, style = figureStyle(size, VdtColors.TextDark, FontWeight.Bold), maxLines = 1)
+    if (sub != null) {
+      Text(sub, style = figureStyle(10.sp, VdtColors.DarkGray, FontWeight.Normal), maxLines = 1)
+    }
   }
 }
+
+/** A line box exactly as tall as its type, centred and trimmed. See [Figure]. */
+private fun figureStyle(size: TextUnit, color: Color, weight: FontWeight) = TextStyle(
+  color = color,
+  fontSize = size,
+  fontWeight = weight,
+  lineHeight = size * 1.2f,
+  lineHeightStyle =
+  LineHeightStyle(
+    alignment = LineHeightStyle.Alignment.Center,
+    trim = LineHeightStyle.Trim.Both,
+  ),
+)
 
 /**
  * The drum, the discharge and the fold, as a row of chips.
