@@ -550,6 +550,27 @@ private fun FieldDetail(
             fontSize = 10.sp,
           )
 
+        // The raster did answer -- it named the state above, and the line beside that headline says
+        // "across the field". It just has too few cells to round a percentage off (MIN_QUOTE_CELLS),
+        // which is a different sentence from the one below, and saying that one here would send the
+        // reader looking for a centre reading the row is not showing.
+        //
+        // Which of the two sentences depends on whether the raster found one state or several: the
+        // headline is the *dominant* slice, so on a field of 60 ready cells and 20 cut ones "the whole
+        // field" would be a claim the raster never made -- and the bar that would have shown the rest
+        // is exactly what MIN_QUOTE_CELLS withheld. Only a field the raster resolved as one state
+        // keeps the flat sentence.
+        headline.fromRaster ->
+          Text(
+            if ((row.growth?.slices?.size ?: 0) > 1) {
+              "Too few cells to break down; the field is mixed and the state above is its largest part."
+            } else {
+              "Too few cells to break down; the state above is the whole field."
+            },
+            color = VdtColors.DarkGray,
+            fontSize = 10.sp,
+          )
+
         else ->
           Text(
             "Too small to break down; showing the reading at the field centre.",

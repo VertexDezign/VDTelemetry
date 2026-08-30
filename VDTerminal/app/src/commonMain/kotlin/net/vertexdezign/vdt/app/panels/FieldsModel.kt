@@ -40,6 +40,16 @@ data class FieldRow(
   val owned: Boolean,
   /** Tasks whose detail names this field — see [FieldTaskRef]. Empty when the mod isn't installed. */
   val tasks: List<FieldTaskRef> = emptyList(),
+  /**
+   * Ground one raster cell stands for, in hectares — `FieldStatusData.haPerCell`, and the unit
+   * [MIN_READING_HA] is measured in.
+   *
+   * One number for all three planes because all three are counted off one index grid, so a cell is the
+   * same square of ground on every one of them. 0 means nobody has said how big a cell is — no plane
+   * swept yet, or neither the map nor the raster stated a terrain size — which reads as unknown rather
+   * than as no ground; see [resolves] for what that does to the threshold.
+   */
+  val haPerCell: Float = 0f,
 ) {
   val id: Int get() = mapField.id
 
@@ -48,23 +58,47 @@ data class FieldRow(
 }
 
 /**
- * How many cells a field must have before its percentages are quoted.
+ * How many cells a share must be counted off before it is printed as an exact percentage.
  *
- * At 512² on a 2 km map a cell is 4 m square, so this is 0.16 ha of sampled ground. Below it the
- * raster is answering with too few pixels to round honestly — "83 %" off forty cells is a number with
- * two significant figures and none of them earned — and the row falls back to the point sample the
- * game's own panel would show.
+ * A **cell** count on purpose, and the one question here whose unit really is cells: the honesty of a
+ * percentage is a function of how many samples it was rounded off, not of how much ground they cover.
+ * A hundred of them is exactly the line where one cell is worth one percentage point, which is what
+ * the two-figure numbers this app prints need. Below it "83 %" has two significant figures and none of
+ * them earned, so the breakdown is withheld and the row says the word instead of the number.
  *
- * **Provisional**, and note it is a *cell* count on a grid that is 512² whatever the map measures, so
- * the ground it stands for doubles with the map: 0.16 ha on a 2 km map, 0.64 ha on a 4 km one. On
- * `map/vanilla.json` it silences nothing at all — the smallest of those 77 fields is 0.21 ha, about
- * 131 cells — so it is a guard against the odd sliver rather than a line anyone has seen bite.
- * The committed 512² capture says the same thing louder: on `map/mp_modded.json` every one of its 85
- * fields resolves, and the smallest — half a hectare — is 313 cells, three times this. So no committed
- * data has ever reached the line. Expressing it in hectares off `FieldStatusData.haPerCell` would at
- * least make it mean the same thing on every map; that change has its own issue.
+ * A gate on *quoting*, never on knowing. Naming the state or the fruit, and deciding whether a field
+ * is asking for work, sit on the far lower [MIN_READING_HA] — see there for why that one is ground and
+ * not cells. A share the app prints as a **floor** ("at least 42 %", [plowShare] and its two
+ * neighbours) belongs with them rather than here: the sentence is already a bound the reading
+ * understates, so one cell's worth of rounding is inside what it claims.
  */
-const val MIN_STATUS_CELLS = 100
+const val MIN_QUOTE_CELLS = 100
+
+/**
+ * How much ground the raster must resolve on a field before the app will speak for it.
+ *
+ * In **hectares**, off [FieldRow.haPerCell], because this one is a question about ground rather than
+ * about sampling — and because the grid is 512² whatever the map measures, so a cell is 4 m square on
+ * a 2 km map and 8 m square on a 4 km one. A cell count here would mean two different things on two
+ * saves: the 100 cells this used to be is 0.16 ha of ground on the small map and 0.64 ha on the big
+ * one, silencing half-hectare fields on the map whose fields are the same size as the other's.
+ *
+ * 0.05 ha is less ground than one pass of a nine-metre header — 9 m by 55 m — so below it the polygon
+ * is a sliver rather than a field and a word about it would not be about the field. Deliberately far
+ * under the smallest field anyone has captured (0.21 ha on `map/vanilla.json`, 0.5 ha on
+ * `map/mp_modded.json`, which is 313 cells): naming the fruit covering most of a small field still
+ * beats the single cell at its centre, which is what the fallback reads.
+ */
+const val MIN_READING_HA = 0.05f
+
+/**
+ * Whether [cells] of this row's raster is ground enough to speak for the field — [MIN_READING_HA].
+ *
+ * An unknown cell size passes. [FieldRow.haPerCell] of 0 means nobody stated a terrain size, and the
+ * raster having resolved the field is no evidence that the cells it resolved are few; refusing there
+ * would silence every field on the save rather than the slivers this guards against.
+ */
+private fun FieldRow.resolves(cells: Int): Boolean = haPerCell <= 0f || cells * haPerCell >= MIN_READING_HA
 
 /**
  * A ground state in the words this app uses.
@@ -128,14 +162,16 @@ fun growthWord(growth: String): String = when (growth) {
 /**
  * The one-word answer for a row, and whether it came from the raster.
  *
- * The raster leads when it has enough cells, because it is the more truthful of the two about a field
- * half-worked — the whole reason the histogram exists. The point sample is the fallback, and it is
- * also the honest answer for a field too small for the raster to resolve.
+ * The raster leads when it has resolved enough ground, because it is the more truthful of the two
+ * about a field half-worked — the whole reason the histogram exists. The point sample is the fallback,
+ * and it is also the honest answer for a field too small for the raster to resolve. Naming a state
+ * needs a plurality rather than a rounded percentage, so this sits on [MIN_READING_HA] and a field can
+ * be named across the field while its breakdown stays unquoted.
  */
 data class FieldHeadline(val text: String, val fromRaster: Boolean)
 
 fun fieldHeadline(row: FieldRow): FieldHeadline {
-  val dominant = row.growth?.takeIf { it.cells >= MIN_STATUS_CELLS }?.dominant
+  val dominant = row.growth?.takeIf { row.resolves(it.cells) }?.dominant
   if (dominant != null) return FieldHeadline(kindLabel(dominant.kind), fromRaster = true)
   // The raster answered, and the answer is "nothing" — see [isBareByRaster].
   if (isBareByRaster(row)) return FieldHeadline("Bare", fromRaster = true)
@@ -154,7 +190,7 @@ fun fieldHeadline(row: FieldRow): FieldHeadline {
  * here", which on a field is an answer rather than a gap, so a field that is entirely 0 has `cells`
  * of zero and a *full* [FieldStatus.polygonCells] — indistinguishable, if you only look at `cells`,
  * from a field the raster could not resolve at all. Asking the polygon instead is the same question
- * [hasSoilBreakdown] asks of the soil plane, for the same reason.
+ * [hasSoilReading] asks of the soil plane, for the same reason.
  *
  * **Mulching is the ordinary way to get here**, and it is not a mod gap: the game paints mulch on its
  * *soil* overlay (`SOIL_STATE_INDEX.MULCHED`, off `FieldDensityMap.STUBBLE_SHRED_LEVEL`), never on the
@@ -170,7 +206,7 @@ fun fieldHeadline(row: FieldRow): FieldHeadline {
  */
 fun isBareByRaster(row: FieldRow): Boolean {
   val growth = row.growth ?: return false
-  return growth.cells == 0 && growth.polygonCells >= MIN_STATUS_CELLS
+  return growth.cells == 0 && row.resolves(growth.polygonCells)
 }
 
 /**
@@ -189,8 +225,14 @@ fun bareGroundNote(row: FieldRow): String = if ((mulchShare(row) ?: 0f) >= WORK_
   "Nothing growing on any of it."
 }
 
-/** Whether the breakdown is worth drawing at all, rather than a bar made of four cells. */
-fun hasBreakdown(row: FieldRow): Boolean = (row.growth?.cells ?: 0) >= MIN_STATUS_CELLS
+/**
+ * Whether the breakdown is worth drawing at all, rather than a bar made of four cells.
+ *
+ * [MIN_QUOTE_CELLS] rather than [MIN_READING_HA]: the bar's widths and its legend's "62 %" are exact
+ * shares, and this is the gate on quoting one. A field under the line still gets its headline off the
+ * raster — the panel says so rather than sending the reader to the field centre.
+ */
+fun hasBreakdown(row: FieldRow): Boolean = (row.growth?.cells ?: 0) >= MIN_QUOTE_CELLS
 
 /**
  * The crop on the field: the fruit covering most of it, off the crops raster.
@@ -209,7 +251,7 @@ fun hasBreakdown(row: FieldRow): Boolean = (row.growth?.cells ?: 0) >= MIN_STATU
  * absent. [fieldCropMix] is the same question answered in full for a field carrying more than one.
  */
 fun fieldCrop(row: FieldRow): String {
-  val dominant = row.crops?.takeIf { it.cells >= MIN_STATUS_CELLS }?.dominant?.label
+  val dominant = row.crops?.takeIf { row.resolves(it.cells) }?.dominant?.label
   if (dominant != null) return dominant
   return row.info?.crop.orEmpty()
 }
@@ -219,11 +261,13 @@ fun fieldCrop(row: FieldRow): String {
  *
  * Empty when the raster is absent or too thin, and a single entry for the ordinary field — so the
  * detail can say "Wheat 71 %, Barley 29 %" exactly when that is the truth and stay quiet otherwise.
+ * Those are quoted percentages, so this is the one crops reading gated on [MIN_QUOTE_CELLS]: a field
+ * the raster can name ([fieldCrop]) is not always one whose mix is worth two significant figures.
  * The share is of the *planted* part, not of the title deed: a field two thirds sown and one third
  * bare reads 100 % of what is on it, and the bare third is the growth plane's business.
  */
 fun fieldCropMix(row: FieldRow): List<Pair<String, Float>> {
-  val crops = row.crops?.takeIf { it.cells >= MIN_STATUS_CELLS } ?: return emptyList()
+  val crops = row.crops?.takeIf { it.cells >= MIN_QUOTE_CELLS } ?: return emptyList()
   return crops.slices.mapNotNull { slice ->
     slice.label?.let { it to crops.fraction(slice.cells) }
   }
@@ -242,9 +286,9 @@ fun fieldWork(row: FieldRow): List<FieldTaskType> = buildList {
   if (needsPlowing(row)) add(FieldTaskType.PLOW)
   if (info?.needsRolling == true) add(FieldTaskType.ROLL)
   val status = row.growth
-  val ready = status != null && status.cells >= MIN_STATUS_CELLS && status.fractionOf("harvest") >= WORK_SHARE
+  val ready = status != null && row.resolves(status.cells) && status.fractionOf("harvest") >= WORK_SHARE
   if (ready || info?.growth == "readyToHarvest") add(FieldTaskType.HARVEST)
-  val withered = status != null && status.cells >= MIN_STATUS_CELLS && status.fractionOf("withered") >= WORK_SHARE
+  val withered = status != null && row.resolves(status.cells) && status.fractionOf("withered") >= WORK_SHARE
   // The crop is lost either way; clearing it is the only honest advice left.
   if (withered || info?.growth == "withered") add(FieldTaskType.CULTIVATE)
   // A bare owned field is work too — it is the one that earns nothing while it waits.
@@ -252,14 +296,21 @@ fun fieldWork(row: FieldRow): List<FieldTaskType> = buildList {
 }
 
 /**
- * Whether the soil raster can be trusted for this field, which is the same "too few cells" question
- * the growth plane answers — asked of the **whole polygon** rather than of the sampled part.
+ * Whether the soil raster resolved enough of this field to read off it — the same question the growth
+ * plane's [resolves] asks, put to the **whole polygon** rather than to the sampled part.
  *
  * The soil plane's 0 means "nothing to report here": a cell that is ploughed, limed and weed-free
  * carries no value at all. So its sampled-cell count is a count of *problems*, not of field, and
  * dividing by it would turn one weedy corner on an otherwise perfect field into 100 % weeds.
+ *
+ * [MIN_READING_HA] and not [MIN_QUOTE_CELLS], although the three shares below are printed: they are
+ * printed as **floors** ("at least 42 %"), which is a bound the classification already understates, so
+ * a coarser raster moves the bound rather than overstating it. The half of this that is not printed at
+ * all — [needsPlowing], and the plough chip that follows it — is the half that would suffer most from
+ * the stricter line, because its fallback is one density read at the field-number anchor, stale on a
+ * multiplayer client.
  */
-fun hasSoilBreakdown(row: FieldRow): Boolean = (row.soil?.polygonCells ?: 0) >= MIN_STATUS_CELLS
+fun hasSoilReading(row: FieldRow): Boolean = row.soil != null && row.resolves(row.soil.polygonCells)
 
 /**
  * How much of the field needs plowing, `0..1`, or null when the raster can't say.
@@ -269,10 +320,10 @@ fun hasSoilBreakdown(row: FieldRow): Boolean = (row.soil?.polygonCells ?: 0) >= 
  * both weedy and unploughed is counted as weeds. Read this as "at least this much", and read it
  * beside [weedShare] and [mulchShare]: between them they account for the field.
  */
-fun plowShare(row: FieldRow): Float? = if (!hasSoilBreakdown(row)) null else row.soil?.polygonFractionOf("needsPlowing")
+fun plowShare(row: FieldRow): Float? = if (!hasSoilReading(row)) null else row.soil?.polygonFractionOf("needsPlowing")
 
 /** How much of the field is carrying weeds, `0..1`, or null when the raster can't say. */
-fun weedShare(row: FieldRow): Float? = if (!hasSoilBreakdown(row)) null else row.soil?.polygonFractionOf("weed")
+fun weedShare(row: FieldRow): Float? = if (!hasSoilReading(row)) null else row.soil?.polygonFractionOf("weed")
 
 /**
  * How much of the field has been mulched, `0..1`, or null when the raster can't say.
@@ -285,18 +336,19 @@ fun weedShare(row: FieldRow): Float? = if (!hasSoilBreakdown(row)) null else row
  * Understated for the same reason as [plowShare]: a mulched cell that also wants the plough is
  * counted as needing the plough, which is the order the game's overlay paints them in.
  */
-fun mulchShare(row: FieldRow): Float? = if (!hasSoilBreakdown(row)) null else row.soil?.polygonFractionOf("mulched")
+fun mulchShare(row: FieldRow): Float? = if (!hasSoilReading(row)) null else row.soil?.polygonFractionOf("mulched")
 
 /**
  * Whether this field wants the plough.
  *
- * The raster leads when it has the cells for it, and the point sample is the fallback — the same rule
- * the headline follows, and for the same reason, only more sharply here. `fieldInfo.needsPlowing` is
- * one density read at `field.posX/posZ` (the field-number label anchor), so it answers for a single
- * ~4 m cell and calls the whole field after it. On a multiplayer client that one cell can also be
- * *stale*: a client's density maps arrive in bandwidth-limited batches, so a field nobody is standing
- * near can keep answering with what it looked like some time ago. The raster is the same data, but
- * hundreds of cells of it, so one stale or unrepresentative cell no longer decides.
+ * The raster leads when it has resolved the ground for it, and the point sample is the fallback — the
+ * same rule the headline follows, and for the same reason, only more sharply here.
+ * `fieldInfo.needsPlowing` is one density read at `field.posX/posZ` (the field-number label anchor),
+ * so it answers for a single ~4 m cell and calls the whole field after it. On a multiplayer client
+ * that one cell can also be *stale*: a client's density maps arrive in bandwidth-limited batches, so a
+ * field nobody is standing near can keep answering with what it looked like some time ago. The raster
+ * is the same data, but hundreds of cells of it, so one stale or unrepresentative cell no longer
+ * decides.
  */
 fun needsPlowing(row: FieldRow): Boolean {
   val share = plowShare(row)
@@ -344,6 +396,10 @@ fun fieldRows(
 ): List<FieldRow> {
   if (map == null) return emptyList()
   val byId = info?.fields?.associateBy { it.id }.orEmpty()
+  // One cell size for the row, off whichever plane has been swept: all three are counted on the same
+  // index grid, so they agree, and a plane that never learned its terrain size reports 0 rather than a
+  // wrong number — hence the first one that actually knows.
+  val haPerCell = status?.planes?.firstOrNull { it.haPerCell > 0f }?.haPerCell ?: 0f
   val tasksByField = fieldTasks(tasks)
   // A field can carry more than one contract over a session; the active one is what the row is about,
   // and an offer is only worth showing while nothing is running on that ground.
@@ -365,6 +421,7 @@ fun fieldRows(
       // claiming ownership on missing data is the one direction this must not guess in.
       owned = playerFarmId != null && field.ownerFarmId == playerFarmId,
       tasks = tasksByField[field.id].orEmpty(),
+      haPerCell = haPerCell,
     )
   }
 }
@@ -477,7 +534,7 @@ fun fieldTotals(rows: List<FieldRow>, status: FieldStatuses?): FieldTotals {
       null
     } else {
       mine.sumOf { row ->
-        val cells = row.growth?.takeIf { it.cells >= MIN_STATUS_CELLS }?.cellsOf("harvest") ?: 0
+        val cells = row.growth?.takeIf { row.resolves(it.cells) }?.cellsOf("harvest") ?: 0
         growth.ha(cells).toDouble()
       }.toFloat()
     }
