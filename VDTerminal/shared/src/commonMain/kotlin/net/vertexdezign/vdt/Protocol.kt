@@ -379,6 +379,22 @@ sealed interface ClientMessage {
   data class SetCoverState(val target: ControlTarget, val state: Int) : ClientMessage
 
   /**
+   * Lay the combine's straw in a swath (`on = true`) or chop it back onto the field.
+   *
+   * Absolute where the game's own `TOGGLE_CHOPPER` key toggles, which is what a lossy channel needs:
+   * a resent or doubled command lands on the same state. Mod-side this is a direct
+   * `Combine:setIsSwathActive` — additionalInputs has no counterpart — and that setter owns its
+   * multiplayer event, so a client's command reaches the server as the player's own keypress does.
+   *
+   * Offer it only where [net.vertexdezign.vdt.model.Harvest.canToggleSwath] is true. The mod asks the
+   * same question again at command time and drops the command otherwise, because the crop in the tank
+   * can change between the export and the command answering it.
+   */
+  @Serializable
+  @SerialName("setSwath")
+  data class SetSwath(val target: ControlTarget, val on: Boolean) : ClientMessage
+
+  /**
    * Choose which tip side the [target]'s next tip will use — `Tipping.preferredSide`, 1-based.
    *
    * The mod gates this on the engine's own `getCanTogglePreferdTipSide`, which requires the trough to
