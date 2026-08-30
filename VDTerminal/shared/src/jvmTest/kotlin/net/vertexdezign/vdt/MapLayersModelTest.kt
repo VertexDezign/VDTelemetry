@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.LayerKind
 import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayerLegendEntry
 import net.vertexdezign.vdt.model.MapLayersInfo
@@ -14,10 +15,16 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Decodes the committed `examples/json/mapLayers` fixtures through the real server path
- * ([VdtParser.parseMapLayer] / [VdtParser.parseMapLayerCatalog]), asserts a lossless JSON round-trip,
- * [MapLayerData.decodeCells]'s padding/junk tolerance, and [MapLayersInfo.from]'s version
+ * Decodes the committed `examples/json/mapLayers/mp_precisionFarming` capture through the real server
+ * path ([VdtParser.parseMapLayer] / [VdtParser.parseMapLayerCatalog]), asserts a lossless JSON
+ * round-trip, [MapLayerData.decodeCells]'s padding/junk tolerance, and [MapLayersInfo.from]'s version
  * stability/sensitivity — the ground-layer channel's half of the mod↔Kotlin contract.
+ *
+ * A real 512² sweep from a joined multiplayer save with **Precision Farming installed**, which is
+ * what makes it worth more than the synthetic 8×8 grids it replaced: the catalogue carries the five
+ * PF planes beside the mod's own three, the labels are the German client's, and the soil plane has
+ * neither a `fertilized` nor a `needsLime` entry, because the mod withholds both while PF is active.
+ * That last one is a rule several comments assert and no fixture could show until now.
  */
 class MapLayersModelTest {
   private val json = Json { encodeDefaults = true }
@@ -25,14 +32,18 @@ class MapLayersModelTest {
   private fun example(name: String): String {
     var dir: File? = File(".").absoluteFile
     while (dir != null) {
-      val candidate = File(dir, "examples/json/mapLayers/$name")
+      val candidate = File(dir, "examples/json/mapLayers/mp_precisionFarming/$name")
       if (candidate.exists()) return candidate.readText()
       dir = dir.parentFile
     }
-    error("Could not locate examples/json/mapLayers/$name from ${File(".").absolutePath}")
+    error("Could not locate examples/json/mapLayers/mp_precisionFarming/$name from ${File(".").absolutePath}")
   }
 
   private fun crops() = VdtParser.parseMapLayer(example("crops.json"))
+
+  /** Every plane this capture's catalogue offers: the mod's own three, then Precision Farming's five. */
+  private val catalogued =
+    listOf("crops", "growth", "soil", "pfSoilType", "pfPh", "pfNitrogen", "pfYield", "pfSeedRate")
 
   private fun assertRoundTrips(data: MapLayerData) {
     val encoded = json.encodeToString(MapLayerData.serializer(), data)
@@ -44,20 +55,49 @@ class MapLayersModelTest {
   fun parsesOneRasterPlanePerFile() {
     val data = crops()
 
-    assertEquals("2", data.version)
+    assertEquals("3", data.version)
     assertEquals(2048f, data.terrainSize)
-    assertEquals(8, data.gridSize)
+    assertEquals(512, data.gridSize)
     assertEquals("crops", data.id)
-    assertEquals(2, data.legend.size)
-    assertEquals(MapLayerLegendEntry(1, "Weizen", "#c8b262"), data.legend[0])
-    assertEquals(MapLayerLegendEntry(2, "Mais", "#f5d743"), data.legend[1])
-    assertEquals(8, data.rows.size)
+    assertEquals(512, data.rows.size)
+
+    // Every entry on the crops plane is a fruit type, so they share one kind and differ by label —
+    // which is exactly the case where branching on `v` (a map-order-dependent fruit index) would be
+    // wrong and branching on `label` (localized: this capture is a German client) would be worse.
+    assertEquals(14, data.legend.size)
+    assertTrue(data.legend.all { it.kind == "crop" })
+    assertEquals(MapLayerLegendEntry(1, "Sommerweizen", "#93a1da", "crop"), data.legend[0])
+    assertEquals(MapLayerLegendEntry(24, "Gras", "#fff936", "crop"), data.legend.single { it.v == 24 })
+    // `v` is not dense — it is the fruit-type index, so a map that loads a subset leaves gaps.
+    assertEquals(listOf(1, 3, 5, 6, 7, 11, 24, 27, 28, 29, 30, 31, 32, 33), data.legend.map { it.v })
+    // And colour is not the identity either: four of this map's fruits are drawn in one hex. Telling
+    // them apart by colour would merge them, which is why the slice keeps the label and the value.
+    assertEquals(
+      listOf("Sommerweizen", "Triticale", "Dinkel", "Grünroggen"),
+      data.legend.filter { it.color == "#93a1da" }.map { it.label },
+    )
 
     // Each plane file repeats the geometry, so it decodes without reference to the catalogue.
     val growth = VdtParser.parseMapLayer(example("growth.json"))
     assertEquals("growth", growth.id)
-    assertEquals(8, growth.gridSize)
+    assertEquals(512, growth.gridSize)
     assertEquals(2048f, growth.terrainSize)
+    assertEquals(
+      listOf("cultivated", "seedbed", "growing", "growing", "topping", "harvest", "cut", "withered"),
+      growth.legend.map { it.kind },
+    )
+    // Two entries, one kind, one label, two colours: the growing gradient, which is the whole reason
+    // the growth plane is grouped by KIND and the crops plane by VALUE.
+    assertEquals(listOf(10, 13), growth.legend.filter { it.kind == "growing" }.map { it.v })
+
+    // Precision Farming is active on this save, so the mod withholds the vanilla fertiliser and lime
+    // readings exactly as the game's own panel does — weeds and the plough are all that is left.
+    val soil = VdtParser.parseMapLayer(example("soil.json"))
+    assertEquals(listOf("weed", "weed", "weed", "weed", "weed", "needsPlowing"), soil.legend.map { it.kind })
+    assertTrue(
+      soil.legend.none { it.kind == "fertilized" || it.kind == "needsLime" },
+      "PF replaces both, and the mod reports neither rather than reporting them wrong",
+    )
 
     assertRoundTrips(data)
     assertRoundTrips(growth)
@@ -67,28 +107,109 @@ class MapLayersModelTest {
   fun parsesTheCatalogue() {
     val catalog = VdtParser.parseMapLayerCatalog(example("index.json"))
 
-    assertEquals("2", catalog.version)
+    assertEquals("3", catalog.version)
     assertEquals(2048f, catalog.terrainSize)
-    assertEquals(8, catalog.gridSize)
-    assertEquals(listOf("crops", "growth", "soil"), catalog.layers.map { it.id })
-    assertEquals("Crops", catalog.layers[0].label)
+    assertEquals(512, catalog.gridSize)
+    // The mod's own three, then the five Precision Farming adds. The catalogue is the map's statement
+    // of what it offers, so an installed mod widens it with nothing to maintain terminal-side.
+    assertEquals(catalogued, catalog.layers.map { it.id })
+    // Localized, because the label is the game's own and this is a German client — a label is a thing
+    // to show, never a thing to branch on. The id beside it is the contract.
+    assertEquals("Feldfrüchte", catalog.layers[0].label)
+    assertEquals("Bodenbeschaffenheit", catalog.layers.single { it.id == "soil" }.label)
     // Which planes the mod is actually sweeping -- what the server reconciles the dashboards' union
     // against, since the command that carries the subscription can be lost with the command file.
-    assertEquals(listOf(true, false, false), catalog.layers.map { it.active })
+    // Nothing was subscribed when this was captured, which is the state a fresh session starts in.
+    assertTrue(catalog.layers.none { it.active })
   }
 
   /** Every field is optional on the wire — the mod writes only what it has. */
   @Test
   fun parsesAPlaneWithOmittedFields() {
-    val data = VdtParser.parseMapLayer("""{"version":"2"}""")
+    val data = VdtParser.parseMapLayer("""{"version":"3"}""")
 
-    assertEquals("2", data.version)
+    assertEquals("3", data.version)
     assertEquals(0f, data.terrainSize)
     assertEquals(0, data.gridSize)
     assertEquals("", data.id)
     assertTrue(data.legend.isEmpty())
     assertTrue(data.rows.isEmpty())
     assertRoundTrips(data)
+  }
+
+  /**
+   * A plane written before `mapLayers` version 3 has no `kind` anywhere, and a Precision Farming
+   * plane never has one at all — its values are measurements, not states. Both decode to null, which
+   * is "no grouping available" and must stay distinguishable from a known kind rather than
+   * collapsing into one.
+   */
+  @Test
+  fun legendKindIsNullWhereTheModEmitsNone() {
+    val old = VdtParser.parseMapLayer(
+      """{"version":"2","id":"growth","legend":[{"v":21,"label":"Ready to harvest","color":"#c68b1f"}]}""",
+    )
+    assertNull(old.legend.single().kind)
+    assertRoundTrips(old)
+
+    val pf = VdtParser.parseMapLayer(
+      """{"version":"3","id":"pfNitrogen","legend":[{"v":1,"label":"30 kg/ha","color":"#1a4dd1"}]}""",
+    )
+    assertNull(pf.legend.single().kind)
+    assertRoundTrips(pf)
+  }
+
+  /**
+   * Why [MapLayerLegendEntry.kind] is a string and [LayerKind] is resolved from it rather than being
+   * the wire type.
+   *
+   * The parser runs with `coerceInputValues = true`, so an enumerator kotlinx doesn't recognise is
+   * NOT an error — it is silently replaced by the property's default, taking the actual token with
+   * it. A `kind` the mod adds later would then reach the app as null with nothing left to log, count
+   * or name. As a string it survives, and [MapLayerLegendEntry.knownKind] reports honestly that this
+   * build doesn't know it.
+   */
+  @Test
+  fun anUnknownKindSurvivesAsItsRawToken() {
+    val data = VdtParser.parseMapLayer(
+      """{"version":"4","id":"growth","legend":[{"v":40,"label":"Ridge","kind":"ridge"}]}""",
+    )
+    val entry = data.legend.single()
+    assertEquals("ridge", entry.kind, "the token must reach the app intact, not be coerced away")
+    assertNull(entry.knownKind, "and must not be resolved to some kind this build does know")
+    assertRoundTrips(data)
+  }
+
+  /** The tokens are camelCase, which is exactly what no Kotlin enum member name can be. */
+  @Test
+  fun layerKindResolvesEveryTokenTheModEmits() {
+    assertEquals(LayerKind.HARVEST, LayerKind.of("harvest"))
+    assertEquals(LayerKind.NEEDS_PLOWING, LayerKind.of("needsPlowing"))
+    assertEquals(LayerKind.CROP, LayerKind.of("crop"))
+    // Case-sensitive, and deliberately so: "HARVEST" is not a token the mod ever writes, and
+    // accepting it would be inventing a second spelling of the contract.
+    assertNull(LayerKind.of("HARVEST"))
+    assertNull(LayerKind.of(null))
+    // Every member is reachable from its own token — no entry can drift out of the lookup.
+    assertEquals(LayerKind.entries, LayerKind.entries.map { LayerKind.of(it.token) })
+  }
+
+  /**
+   * The content version is the cache key for everything derived from a plane, not only for the PNG —
+   * so a legend that differs only in `kind` must not reuse the previous version, or a consumer that
+   * grouped cells by kind would keep the grouping it built before the meaning changed.
+   */
+  @Test
+  fun contentVersionSeparatesLegendsThatDifferOnlyInKind() {
+    fun plane(kind: String?) = MapLayerData(
+      version = "3",
+      gridSize = 2,
+      id = "growth",
+      legend = listOf(MapLayerLegendEntry(21, "Ready to harvest", "#c68b1f", kind)),
+      rows = listOf("15"),
+    )
+    assertNotEquals(plane("harvest").contentVersion, plane("cut").contentVersion)
+    assertNotEquals(plane("harvest").contentVersion, plane(null).contentVersion)
+    assertEquals(plane("harvest").contentVersion, plane("harvest").contentVersion)
   }
 
   @Test
@@ -195,8 +316,8 @@ class MapLayersModelTest {
     val catalog = VdtParser.parseMapLayerCatalog(example("index.json"))
     val info = MapLayersInfo.from(catalog, mapOf("crops" to crops()))
 
-    assertEquals(listOf("crops", "growth", "soil"), info.layers.map { it.id })
-    assertEquals(listOf("Crops", "Growth", "Soil"), info.layers.map { it.label })
+    assertEquals(catalogued, info.layers.map { it.id })
+    assertEquals(listOf("Feldfrüchte", "Wachstum", "Bodenbeschaffenheit"), info.layers.take(3).map { it.label })
 
     val crops = info.layers.first { it.id == "crops" }
     assertNotNull(crops.version)
@@ -213,7 +334,7 @@ class MapLayersModelTest {
     val catalog = VdtParser.parseMapLayerCatalog(example("index.json"))
     val info = MapLayersInfo.from(catalog, mapOf("nutrients" to crops().copy(id = "nutrients")))
 
-    assertEquals(listOf("crops", "growth", "soil"), info.layers.map { it.id })
+    assertEquals(catalogued, info.layers.map { it.id })
   }
 
   /**

@@ -60,7 +60,13 @@ private data class FormRequest(val groupId: String, val taskId: String?, val ini
  * means the mod isn't installed, rendered distinctly from an installed-but-groupless list.
  */
 @Composable
-fun TaskListPanel(data: TaskListData?, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
+fun TaskListPanel(
+  data: TaskListData?,
+  modifier: Modifier = Modifier,
+  /** The current game period, for the form's "from now" month chips; null hides them. */
+  todayPeriod: Int? = null,
+  onCommand: (ClientMessage) -> Unit = {},
+) {
   var form by remember { mutableStateOf<FormRequest?>(null) }
   var pendingDelete by remember { mutableStateOf<Pair<String, Task>?>(null) }
 
@@ -111,6 +117,7 @@ fun TaskListPanel(data: TaskListData?, modifier: Modifier = Modifier, onCommand:
         form = null
       },
       onDismiss = { form = null },
+      todayPeriod = todayPeriod,
     )
   }
 

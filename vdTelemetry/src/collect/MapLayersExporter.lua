@@ -67,7 +67,8 @@ VDT.MapLayers.SUBDIR = "mapLayers/" -- created from ExportChannels.subDirs(); se
 VDT.MapLayers.FILE_NAME = VDT.MapLayers.SUBDIR .. "index.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin MapLayersData.
 -- 2: one file per plane + the catalogue (was a single mapLayers.json holding all three).
-VDT.MapLayers.VERSION = 2
+-- 3: every legend entry carries a semantic `kind` token (see LEGEND_KIND).
+VDT.MapLayers.VERSION = 3
 
 -- The planes this channel exports, in wire order. `label` mirrors the game's own map overlay selector
 -- (InGameMenuMapFrame's mapSelectorTexts), so the app can name a plane it has never heard of -- which
@@ -192,6 +193,41 @@ local SOIL_NEEDS_PLOWING = 20
 local SOIL_NEEDS_LIME = 21
 local SOIL_FERTILIZED_BASE = 30 -- + spray level (1..maxSprayLevel) => 31..
 
+-- Semantic kind per legend entry -- what a value MEANS, as opposed to what it is called (`label`,
+-- which is localized) or which number carries it (`v`, which is this module's private vocabulary and
+-- renumbering it must stay a mod-internal matter).
+--
+-- This exists so a consumer can group a plane's cells by meaning without hardcoding our wire values.
+-- Reading them from the other side would make an internal enumeration a cross-subsystem contract by
+-- accident: inserting a value between two existing ones is a one-line change here and a silent
+-- misclassification there. Matching on `label` is worse still -- it is whatever language the player
+-- runs the game in.
+--
+-- The tokens are OURS, not the game's: they name the states a field can be in, deliberately coarser
+-- than the wire values (the eight growing-gradient steps are all `growing`, every fertilized level is
+-- `fertilized`). A consumer that wants the finer detail still has `v`.
+--
+-- There is no token for "nothing here": wire value 0 is never recorded as `seen`, so it never gets a
+-- legend entry to carry one. A consumer reads the absence of a cell's value from the legend, not a
+-- kind.
+local LEGEND_KIND = {
+  CULTIVATED = "cultivated",
+  STUBBLE = "stubble",
+  SEEDBED = "seedbed",
+  PLOWED = "plowed",
+  GROWING = "growing",
+  TOPPING = "topping",
+  HARVEST = "harvest",
+  CUT = "cut",
+  WITHERED = "withered",
+  CROP = "crop", -- the crops plane: every entry is a fruit type, told apart by `label`
+  WEED = "weed",
+  STONE = "stone",
+  NEEDS_PLOWING = "needsPlowing",
+  NEEDS_LIME = "needsLime",
+  FERTILIZED = "fertilized",
+}
+
 -- Color constants transcribed from MapOverlayGenerator.lua (linear RGB), keyed [false]/[true] exactly
 -- as the game keys them: the game ships a second palette for its colorblind mode, and the overlay is
 -- supposed to look like the in-game map whichever the player has chosen. Which set a sweep uses is
@@ -248,26 +284,68 @@ local FERTILIZED_COLORS = {
 -- for when g_i18n can't resolve it, and the color. Gradient/fertilized/weed/stone entries are built
 -- separately since their color (and, for weed/stone, label) depends on sweep context.
 local GROWTH_LABELS = {
-  [GROWTH_CULTIVATED] = { key = "ui_growthMapCultivated", fallback = "Cultivated", color = COLOR_CULTIVATED },
+  [GROWTH_CULTIVATED] = {
+    key = "ui_growthMapCultivated",
+    fallback = "Cultivated",
+    color = COLOR_CULTIVATED,
+    kind = LEGEND_KIND.CULTIVATED,
+  },
   [GROWTH_STUBBLE_TILLAGE] = {
     key = "ui_growthMapStubbleTillage",
     fallback = "Stubble tillage",
     color = COLOR_STUBBLE_TILLAGE,
+    kind = LEGEND_KIND.STUBBLE,
   },
-  [GROWTH_SEEDBED] = { key = "ui_growthMapSeedbed", fallback = "Seedbed", color = COLOR_SEEDBED },
-  [GROWTH_PLOWED] = { key = "ui_growthMapPlowed", fallback = "Plowed", color = COLOR_PLOWED },
+  [GROWTH_SEEDBED] = {
+    key = "ui_growthMapSeedbed",
+    fallback = "Seedbed",
+    color = COLOR_SEEDBED,
+    kind = LEGEND_KIND.SEEDBED,
+  },
+  [GROWTH_PLOWED] = {
+    key = "ui_growthMapPlowed",
+    fallback = "Plowed",
+    color = COLOR_PLOWED,
+    kind = LEGEND_KIND.PLOWED,
+  },
   [GROWTH_TOPPING] = {
     key = "ui_growthMapReadyToPrepareForHarvest",
     fallback = "Ready to prepare",
     color = COLOR_TOPPING,
+    kind = LEGEND_KIND.TOPPING,
   },
-  [GROWTH_HARVEST] = { key = "ui_growthMapReadyToHarvest", fallback = "Ready to harvest", color = COLOR_HARVEST_READY },
-  [GROWTH_CUT] = { key = "ui_growthMapCut", fallback = "Harvested", color = COLOR_CUT },
-  [GROWTH_WITHERED] = { key = "ui_growthMapWithered", fallback = "Withered", color = COLOR_WITHERED },
+  [GROWTH_HARVEST] = {
+    key = "ui_growthMapReadyToHarvest",
+    fallback = "Ready to harvest",
+    color = COLOR_HARVEST_READY,
+    kind = LEGEND_KIND.HARVEST,
+  },
+  [GROWTH_CUT] = {
+    key = "ui_growthMapCut",
+    fallback = "Harvested",
+    color = COLOR_CUT,
+    kind = LEGEND_KIND.CUT,
+  },
+  [GROWTH_WITHERED] = {
+    key = "ui_growthMapWithered",
+    fallback = "Withered",
+    color = COLOR_WITHERED,
+    kind = LEGEND_KIND.WITHERED,
+  },
 }
 local SOIL_LABELS = {
-  [SOIL_NEEDS_PLOWING] = { key = "ui_growthMapNeedsPlowing", fallback = "Needs plowing", color = COLOR_NEEDS_PLOWING },
-  [SOIL_NEEDS_LIME] = { key = "ui_growthMapNeedsLime", fallback = "Needs lime", color = COLOR_NEEDS_LIME },
+  [SOIL_NEEDS_PLOWING] = {
+    key = "ui_growthMapNeedsPlowing",
+    fallback = "Needs plowing",
+    color = COLOR_NEEDS_PLOWING,
+    kind = LEGEND_KIND.NEEDS_PLOWING,
+  },
+  [SOIL_NEEDS_LIME] = {
+    key = "ui_growthMapNeedsLime",
+    fallback = "Needs lime",
+    color = COLOR_NEEDS_LIME,
+    kind = LEGEND_KIND.NEEDS_LIME,
+  },
 }
 
 ---sRGB hex for one of this module's linear-RGB triplet constants.
@@ -608,13 +686,28 @@ local function growthLegendEntry(ctx, value)
   local gradient = GROWTH_GRADIENT_COLORS[ctx.colorBlind == true]
   if value > GROWTH_GRADIENT_BASE and value <= GROWTH_GRADIENT_BASE + #gradient then
     local index = value - GROWTH_GRADIENT_BASE
-    return { v = value, label = l10nText("ui_growthMapGrowing", "Growing"), color = hex(gradient[index]) }
+    -- Every step of the gradient is one class: how far along it is lives in `v`, and the palette in
+    -- use decides how many steps there are (4 in colorblind mode, 8 otherwise) -- so the step index is
+    -- not a stable unit to group by across two players' captures. "Growing" is.
+    return {
+      v = value,
+      label = l10nText("ui_growthMapGrowing", "Growing"),
+      color = hex(gradient[index]),
+      kind = LEGEND_KIND.GROWING,
+    }
   end
   local entry = GROWTH_LABELS[value]
   if entry == nil then
+    -- A value we produced but cannot name. No kind either: guessing one would be worse than the
+    -- consumer's own "unknown" bucket, which is at least visibly unknown.
     return { v = value, label = "?" }
   end
-  return { v = value, label = l10nText(entry.key, entry.fallback), color = modeHex(entry.color, ctx.colorBlind) }
+  return {
+    v = value,
+    label = l10nText(entry.key, entry.fallback),
+    color = modeHex(entry.color, ctx.colorBlind),
+    kind = entry.kind,
+  }
 end
 
 ---Legend entry for a soil wire value: weed/stone groups take their label from the system's title
@@ -627,10 +720,12 @@ local function soilLegendEntry(ctx, value)
   if value >= SOIL_WEED_BASE and value < SOIL_STONE_BASE then
     local group = value - SOIL_WEED_BASE + 1
     local color = ctx.weedGroupColors and ctx.weedGroupColors[group]
+    -- Severity stays in `v` (and in the label's group suffix); the class says only "this is weed".
     return {
       v = value,
       label = ctx.weedTitle .. " " .. group,
       color = color and VDT.MapExporter.linearToSrgbHex(color[1], color[2], color[3]) or nil,
+      kind = LEGEND_KIND.WEED,
     }
   end
   if value >= SOIL_STONE_BASE and value < SOIL_NEEDS_PLOWING then
@@ -640,19 +735,30 @@ local function soilLegendEntry(ctx, value)
       v = value,
       label = ctx.stoneTitle .. " " .. group,
       color = color and VDT.MapExporter.linearToSrgbHex(color[1], color[2], color[3]) or nil,
+      kind = LEGEND_KIND.STONE,
     }
   end
   if value >= SOIL_FERTILIZED_BASE then
     local level = value - SOIL_FERTILIZED_BASE
     local fertilized = FERTILIZED_COLORS[ctx.colorBlind == true]
     local color = fertilized[math.min(level, #fertilized)]
-    return { v = value, label = l10nText("ui_growthMapFertilized", "Fertilized"), color = hex(color) }
+    return {
+      v = value,
+      label = l10nText("ui_growthMapFertilized", "Fertilized"),
+      color = hex(color),
+      kind = LEGEND_KIND.FERTILIZED,
+    }
   end
   local entry = SOIL_LABELS[value]
   if entry == nil then
     return { v = value, label = "?" }
   end
-  return { v = value, label = l10nText(entry.key, entry.fallback), color = modeHex(entry.color, ctx.colorBlind) }
+  return {
+    v = value,
+    label = l10nText(entry.key, entry.fallback),
+    color = modeHex(entry.color, ctx.colorBlind),
+    kind = entry.kind,
+  }
 end
 
 ---Classify one world cell into (crops, growth, soil) wire values, and record any newly-seen legend
@@ -743,7 +849,15 @@ function VDT.MapLayers.classifyCell(ctx, x, z)
 
   local seen = ctx.seen
   if cropsV ~= 0 and seen.crops[cropsV] == nil then
-    seen.crops[cropsV] = { v = cropsV, label = fruitLabel(desc), color = fruitColorHex(desc, ctx.colorBlind) }
+    -- Every entry on this plane is the same KIND of thing -- a fruit type -- so they share one kind
+    -- and are told apart by `label`. (`v` is the fruit-type index, which is map- and mod-order
+    -- dependent and means nothing to a consumer.)
+    seen.crops[cropsV] = {
+      v = cropsV,
+      label = fruitLabel(desc),
+      color = fruitColorHex(desc, ctx.colorBlind),
+      kind = LEGEND_KIND.CROP,
+    }
   end
   if growthV ~= GROWTH_NONE and seen.growth[growthV] == nil then
     seen.growth[growthV] = growthLegendEntry(ctx, growthV)
@@ -827,6 +941,10 @@ local function samplePf(pf, x, z)
   if value ~= 0 and pf.seen[value] == nil then
     local entry = pf.legend[value]
     local color = entry ~= nil and entry.color or nil
+    -- No `kind`, deliberately. LEGEND_KIND names the states a FIELD can be in; a PF plane is a
+    -- measurement -- pH, kg N/ha, a yield potential, a seed rate -- where the meaning is the number
+    -- itself and the useful grouping is the scale, not a handful of buckets we would have to invent.
+    -- A consumer reads `v` and `label` here, which is what PF's own overview does.
     pf.seen[value] = {
       v = value,
       -- A value with no legend entry is data PF knows and we don't (a soil mod's extra type, say):

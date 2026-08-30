@@ -12,6 +12,7 @@ object AppRegistry {
       VehicleApp,
       IsoBusApp,
       MapApp,
+      FieldsApp,
       FleetApp,
       ProductionApp,
       StorageApp,

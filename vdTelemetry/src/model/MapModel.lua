@@ -21,6 +21,7 @@
 ---@field farmlandId number? same value as id, kept explicit for the app
 ---@field ownerFarmId number? omitted when unowned
 ---@field areaHa number?
+---@field price number? what the farmland costs, rounded to whole currency; absent when unresolvable
 ---@field labelX number position of the field-number label (the game's own indicator node)
 ---@field labelZ number
 ---@field polygon number[]? flat border outline [x1,z1,x2,z2,...]; omitted when unresolvable

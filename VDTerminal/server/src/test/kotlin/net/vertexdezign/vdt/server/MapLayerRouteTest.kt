@@ -6,9 +6,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
-import net.vertexdezign.vdt.VdtParser
 import net.vertexdezign.vdt.model.MapLayerData
-import java.io.File
+import net.vertexdezign.vdt.model.MapLayerLegendEntry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -19,17 +18,21 @@ import kotlin.test.assertTrue
  * cached immutably, so the route must only ever serve the version that was actually asked for.
  */
 class MapLayerRouteTest {
-  private fun example(name: String): String {
-    var dir: File? = File(".").absoluteFile
-    while (dir != null) {
-      val candidate = File(dir, "examples/json/mapLayers/$name")
-      if (candidate.exists()) return candidate.readText()
-      dir = dir.parentFile
-    }
-    error("Could not locate examples/json/mapLayers/$name from ${File(".").absolutePath}")
-  }
+  /**
+   * Synthetic, like the renderer's: what this asserts is the caching contract, so the plane only has
+   * to be a plane with a stable content version — a real capture would be 500 KB of raster to test a
+   * URL query parameter with.
+   */
+  private fun plane(id: String, cell: String) = MapLayerData(
+    version = "3",
+    terrainSize = 2048f,
+    gridSize = 8,
+    id = id,
+    legend = listOf(MapLayerLegendEntry(1, "Weizen", "#c8b262", "crop")),
+    rows = listOf("", cell),
+  )
 
-  private val data: MapLayerData = VdtParser.parseMapLayer(example("crops.json"))
+  private val data: MapLayerData = plane("crops", "0101")
   private val layers = mapOf("crops" to data)
 
   private fun withRoute(current: () -> Map<String, MapLayerData>, block: suspend (io.ktor.client.HttpClient) -> Unit) =
@@ -79,7 +82,7 @@ class MapLayerRouteTest {
   /** Each plane is versioned on its own, so another plane's version must not open this one's URL. */
   @Test
   fun aVersionFromAnotherPlaneIsRejected() {
-    val growth = VdtParser.parseMapLayer(example("growth.json"))
+    val growth = plane("growth", "0202")
     withRoute({ mapOf("crops" to data, "growth" to growth) }) { client ->
       val response = client.get("/api/map-layer/crops?v=${growth.contentVersion}")
       assertEquals(HttpStatusCode.Conflict, response.status)

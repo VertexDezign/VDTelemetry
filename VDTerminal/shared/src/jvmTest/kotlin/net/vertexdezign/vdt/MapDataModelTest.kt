@@ -85,6 +85,51 @@ class MapDataModelTest {
     assertRoundTrips(data)
   }
 
+  /**
+   * The farmland price, which arrived with map channel version 2.
+   *
+   * `mp_modded.json` is a version 2 capture and carries one on every field, so the real shape is
+   * asserted below off that; the inline pair here is for the half a capture cannot show — a field
+   * whose price the mod could not read, which is a key that is simply absent.
+   */
+  @Test
+  fun carriesTheFarmlandPrice() {
+    val data =
+      VdtParser.parseMap(
+        """
+        {
+          "version": "2",
+          "terrainSize": 2048,
+          "fields": [
+            { "id": 12, "name": "12", "farmlandId": 12, "areaHa": 4.5, "labelX": 0.62, "labelZ": 0.31, "price": 112500 },
+            { "id": 13, "name": "13", "farmlandId": 13, "areaHa": 2.0, "labelX": 0.4, "labelZ": 0.2 }
+          ]
+        }
+        """.trimIndent(),
+      )
+
+    // Priced on an owned field as much as an unowned one — it is what the farmland costs, not an
+    // offer, and the buy planner sorts by it and by price per hectare.
+    assertEquals(112500, data.fields[0].price)
+    // A field the mod couldn't read a price for reads as unknown, never as free: an unpriced field
+    // sorted to the top of a "cheapest first" list would be a lie the app told itself.
+    assertNull(data.fields[1].price)
+
+    // A version 1 capture has no price anywhere, which is what an older mod looks like to a newer
+    // app: unknown on every field, never free.
+    val old = VdtParser.parseMap(example("vanilla.json"))
+    assertEquals("1", old.version)
+    assertTrue(old.fields.all { it.price == null })
+
+    // And the real thing, off the version 2 capture: every one of its 85 farmlands is priced, none
+    // of them at zero, on owned and unowned land alike.
+    val captured = VdtParser.parseMap(example("mp_modded.json"))
+    assertTrue(captured.fields.all { (it.price ?: 0) > 0 }, "every field in a v2 capture carries a real price")
+    assertEquals(133608, captured.fields.single { it.id == 13 }.price, "priced although farm 1 already owns it")
+
+    assertRoundTrips(data)
+  }
+
   @Test
   fun parsesEmptyMapWithOmittedArrays() {
     // The mod omits empty `pois`/`fields` arrays (the Json encoder can't distinguish [] from {}),
@@ -176,10 +221,10 @@ class MapDataModelTest {
   fun parsesTheModdedMultiplayerCapture() {
     val data = VdtParser.parseMap(example("mp_modded.json"))
 
-    assertEquals("1", data.version)
+    assertEquals("2", data.version)
     assertEquals(2048f, data.terrainSize)
     assertEquals(85, data.fields.size)
-    assertEquals(63, data.pois.size)
+    assertEquals(45, data.pois.size)
 
     // The marker vocabulary is `PlaceableHotspot.TYPE`'s own key camelCased, so a modded map widens
     // it with nothing to maintain mod-side: this map puts an `exclamationMark` on a fire station,
@@ -187,9 +232,11 @@ class MapDataModelTest {
     assertEquals("Moderne Deutsche Feuerwehr", data.pois.single { it.type == "exclamationMark" }.name)
     assertEquals(0, data.pois.count { it.type == "bee" || it.type == "train" })
 
-    // Twelve markers called "Hof". A POI name is a label and never a key — the vanilla capture makes
-    // the same point with two "Depot" markers, this one makes it twelve times over.
-    assertEquals(12, data.pois.count { it.name == "Hof" })
+    // Eleven markers called "Hof", on twelve farmyards — the twelfth calls itself "Bauernhaus". A POI
+    // name is a label and never a key: the vanilla capture makes that point with two "Depot" markers,
+    // this one makes it eleven times over, and the odd one out shows the label is not the type either.
+    assertEquals(11, data.pois.count { it.name == "Hof" })
+    assertEquals(12, data.pois.count { it.type == "farm" })
 
     // Same field invariants as the vanilla map, at a different scale: flat [x1,z1,...] outlines, the
     // smallest a four-corner farmland and the largest 33 points, all far under MAX_POLYGON_POINTS.
@@ -211,42 +258,26 @@ class MapDataModelTest {
   /**
    * What only a multiplayer capture can say about farm colour. In singleplayer `Farm:getColor()`
    * hands every farm the same green; in multiplayer it hands out `Farm.COLORS` by the index chosen
-   * when the farm was created — and `FarmManager:createFarm` takes that index as given, with nothing
-   * refusing one another farm already wears. So the app may use a farm's colour to tint, never to
-   * identify: two farms in one save can be the same hex, and a legend that differed only by hue
-   * would then show them as one. (The design rule from the data side — and why the id, not the
-   * colour, is what joins.)
+   * when the farm was created — so a real palette is a thing only a joined save produces.
    *
-   * This capture is that case, one step removed: farm 3's `#2e00fa` is also farm 14's — the game's
-   * own guided-tour farm (`FarmManager.GUIDED_TOUR_FARM_ID`, created beside the spectator farm on
-   * every save, unnamed, owning nothing, and not a spectator, so the original filter kept it).
-   * `collectFarms` skips it now; both captures predate that and still carry it, and they stay as
-   * captured because fixtures are never hand-edited.
+   * It also pins the guided-tour farm's **absence**. `FarmManager.GUIDED_TOUR_FARM_ID` is created
+   * beside the spectator farm on every save — unnamed, owning nothing, and not a spectator, so the
+   * original filter kept it and the previous capture carried it as farm 14. `collectFarms` skips it
+   * now, and this capture is the first taken after that fix, which makes this the only place the fix
+   * is asserted against real data rather than a stub.
    */
   @Test
-  fun multiplayerHandsOutAPaletteThatCanStillRepeat() {
+  fun multiplayerHandsOutARealPalette() {
     val data = VdtParser.parseMap(example("mp_modded.json"))
 
     assertEquals(
-      listOf(14, 1, 2, 3),
+      listOf(1, 2, 3),
       data.farms.map { it.id },
-      "the game's own farm order, not sorted — and the tour farm leads, because the game makes it first",
+      "the game's own farm order, not sorted — and no farm 14, because the tour farm is filtered out",
     )
-    assertEquals(listOf("", "Lindenhof Agrar GmbH", "Komune", "Rela Industries"), data.farms.map { it.name })
-    assertEquals(
-      data.farms.single { it.id == 3 }.color,
-      data.farms.single { it.id == 14 }.color,
-      "one hex on two farms: #2e00fa is farm 3's and the guided-tour farm's alike",
-    )
-    assertEquals(
-      3,
-      data.farms
-        .mapNotNull { it.color }
-        .distinct()
-        .size,
-      "four farms wearing three colours",
-    )
-    assertEquals(listOf("#fff200", "#ff0000"), listOf(1, 2).map { id -> data.farms.single { it.id == id }.color })
+    assertEquals(listOf("Lindenhof Agrar GmbH", "Komune", "Rela Industries"), data.farms.map { it.name })
+    assertTrue(data.farms.none { it.name.isBlank() }, "the unnamed tour farm is exactly what should not be here")
+    assertEquals(listOf("#fff200", "#ff0000", "#2e00fa"), data.farms.map { it.color })
 
     // Two farms own land, which is the case singleplayer cannot produce: an owner id is not "mine",
     // so the app has to be able to render someone else's field as someone else's.
@@ -265,6 +296,40 @@ class MapDataModelTest {
         .eachCount(),
     )
     assertEquals("Händlergebäude mit Werkstatt", data.pois.single { it.ownerFarmId == 3 }.name)
+  }
+
+  /**
+   * Colour tints, it never identifies — the rule the committed capture can no longer demonstrate.
+   *
+   * `FarmManager:createFarm` takes the palette index as given, with nothing refusing one another farm
+   * already wears, so two farms in one save can be the same hex and a legend that told them apart by
+   * hue would show them as one. The previous `mp_modded.json` happened to contain that case (farm 3
+   * and the guided-tour farm shared `#2e00fa`); filtering the tour farm out took the example with it,
+   * and the rule outlived the example, so it is stated here rather than lost.
+   *
+   * The id is what joins. This is the same rule the app's design constraints state from the other
+   * side, where hue may reinforce a distinction and never carry it.
+   */
+  @Test
+  fun twoFarmsCanWearOneColour() {
+    val data =
+      VdtParser.parseMap(
+        """
+        {
+          "version": "2",
+          "terrainSize": 2048,
+          "farms": [
+            { "id": 1, "name": "Alpha", "color": "#2e00fa" },
+            { "id": 4, "name": "Beta",  "color": "#2e00fa" }
+          ]
+        }
+        """.trimIndent(),
+      )
+
+    assertEquals(2, data.farms.size)
+    assertEquals(1, data.farms.mapNotNull { it.color }.distinct().size, "two farms, one hex — and both are real")
+    assertEquals(listOf(1, 4), data.farms.map { it.id }, "the ids still tell them apart, which is why they are the key")
+    assertRoundTrips(data)
   }
 
   @Test

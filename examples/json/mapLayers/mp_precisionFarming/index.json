@@ -1,0 +1,47 @@
+{
+  "gridSize": 512,
+  "layers": [
+    {
+      "id": "crops",
+      "active": false,
+      "label": "Feldfrüchte"
+    },
+    {
+      "id": "growth",
+      "active": false,
+      "label": "Wachstum"
+    },
+    {
+      "id": "soil",
+      "active": false,
+      "label": "Bodenbeschaffenheit"
+    },
+    {
+      "id": "pfSoilType",
+      "active": false,
+      "label": "Bodenarten"
+    },
+    {
+      "id": "pfPh",
+      "active": false,
+      "label": "pH"
+    },
+    {
+      "id": "pfNitrogen",
+      "active": false,
+      "label": "Stickstoff"
+    },
+    {
+      "id": "pfYield",
+      "active": false,
+      "label": "Ertrag"
+    },
+    {
+      "id": "pfSeedRate",
+      "active": false,
+      "label": "Saatstärke"
+    }
+  ],
+  "version": "3",
+  "terrainSize": 2048
+}

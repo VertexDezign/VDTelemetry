@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
+import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.GpsCourseData
@@ -250,6 +251,20 @@ sealed interface ServerMessage {
   @Serializable
   @SerialName("mapLayers")
   data class MapLayers(val data: MapLayersInfo? = null) : ServerMessage
+
+  /**
+   * What is actually on each field, counted off the ground-layer rasters — see [FieldStatuses].
+   *
+   * Derived by the **server** from `map.json`'s polygons and the planes the mod sweeps, so, like the
+   * coverage layer, it has no channel file behind it. [data] is therefore null for "no raster yet"
+   * and never for "mod not installed": the map hasn't loaded, the layer channel is off, or nobody is
+   * subscribed to the planes so they have never been swept. A dashboard showing the field list holds
+   * those subscriptions itself, which is what makes the mod sweep for them — and a full sweep takes
+   * seconds, so the first breakdown after a cold open is late rather than wrong.
+   */
+  @Serializable
+  @SerialName("fieldStatus")
+  data class FieldStatus(val data: FieldStatuses? = null) : ServerMessage
 
   @Serializable
   @SerialName("error")

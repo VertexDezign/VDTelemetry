@@ -76,12 +76,14 @@ appears at all: **export switched off** (nothing is written, so every channel go
 `mapLayers` off that way.
 
 `map.json` carries the near-static map data: selling/loading stations, shops, productions and other
-placeable POIs (typed via the game's own hotspot enum), every field's number, ownership, area and
-border polygon, and the farms with their in-game map color (`Farm:getColor()`, converted to sRGB
-`#rrggbb`) so the terminal tints ownership exactly like the game's own map. All coordinates are
-normalized `[0,1]` map coordinates in the same frame as the player marker; `terrainSize` converts them
-back to meters. Border polygons are thinned (5 m minimum spacing, capped at 256 points per field) to
-keep the file small.
+placeable POIs (typed via the game's own hotspot enum), every field's number, ownership, area, price
+and border polygon, and the farms with their in-game map color (`Farm:getColor()`, converted to sRGB
+`#rrggbb`) so the terminal tints ownership exactly like the game's own map. `price` is the one field
+key that may be missing: it is written only where the farmland actually carries a positive price, and
+it arrived with channel version 2, so every field in an older capture has none at all — absent means
+"unknown", never "free". All coordinates are normalized `[0,1]` map coordinates in the same frame as
+the player marker; `terrainSize` converts them back to meters. Border polygons are thinned (5 m
+minimum spacing, capped at 256 points per field) to keep the file small.
 
 `mapVehicles.json` carries one marker per vehicle rig the game's own map would show (root vehicles
 with `mapHotspotAvailable`, typed via `VehicleHotspot.TYPE`): position/heading in the same normalized
@@ -332,7 +334,7 @@ version renames costs you that panel, never a Lua error.
   (`src/integrations/AdvancedDamageSystem.lua`, `vehicle.ads`). Still a beta, so its internals move
   faster than the others': the version above is the one this was written against, and an older ADS
   reports no `vehicle.ads` at all rather than a plausible wrong one. **Read only:** every workshop
-  procedure stays in game, as with vanilla repair.
+  procedure stays in-game, as with vanilla repair.
     * The six dashboard lamps ADS drives, each with its severity — and only the lamps a machine of
       that production year actually has
     * The engine temperature, which **replaces** `motor.temperatur.value`. ADS's thermal model is the

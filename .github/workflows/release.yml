@@ -103,7 +103,7 @@ jobs:
       #
       # v0.2.0 is the floor: `--mod-version` arrived there, and without it the mod would ship with
       # the placeholder that modDesc.xml now carries on disk.
-      FSTOOLS: git+https://github.com/VertexDezign/FSTools@v0.2.0
+      FSTOOLS: git+https://github.com/VertexDezign/FSTools@v0.2.1
     steps:
       - uses: actions/checkout@v7
         with:

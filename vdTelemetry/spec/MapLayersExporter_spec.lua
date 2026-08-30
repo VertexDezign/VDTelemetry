@@ -211,6 +211,73 @@ describe("MapLayers.classifyCell growth", function()
     assert.are.equal(0, cropsV)
     assert.are.equal(1, growthV) -- GROWTH_CULTIVATED
   end)
+
+  -- The semantic kind token (VERSION 3). It is what lets a consumer group cells by meaning without
+  -- hardcoding our wire values or matching on a localized label, so what matters in these tests is
+  -- that the class is stable where `v` is not: across the growing gradient's steps, across weed and
+  -- stone severities, and across fertilizer levels.
+  describe("legend kind", function()
+    local function growthKindFor(state)
+      rawset(_G, "getDensityStatesAtWorldPos", function()
+        return state
+      end)
+      local c = ctx()
+      local _, growthV = VDT.MapLayers.classifyCell(c, 0, 0)
+      return c.seen.growth[growthV].kind, growthV
+    end
+
+    it("labels a harvest-ready cell 'harvest' and a cut one 'cut'", function()
+      assert.are.equal("harvest", growthKindFor(6))
+      assert.are.equal("cut", growthKindFor(8))
+    end)
+
+    it("labels a withered cell 'withered'", function()
+      assert.are.equal("withered", growthKindFor(9))
+    end)
+
+    it("gives every step of the growing gradient the same class but a different value", function()
+      -- Two different growth states inside the growing range: distinct wire values (the gradient
+      -- carries the progress), one class. A consumer summing "how much of this field is growing"
+      -- must not have to know how many steps the active palette has.
+      local kindA, valueA = growthKindFor(1)
+      local kindB, valueB = growthKindFor(4)
+      assert.are.equal("growing", kindA)
+      assert.are.equal("growing", kindB)
+      assert.are_not.equal(valueA, valueB)
+    end)
+
+    it("classifies ground-type states without a fruit", function()
+      desc.shownOnMap = false
+      rawset(_G, "getDensityStatesAtWorldPos", function()
+        return 6
+      end)
+      local function groundKind(groundValue)
+        local c = ctx({
+          fieldGroundSystem = {
+            getValueAtWorldPos = function(_, densityType)
+              return densityType == FieldDensityMap.GROUND_TYPE and groundValue or 0
+            end,
+          },
+        })
+        local _, growthV = VDT.MapLayers.classifyCell(c, 0, 0)
+        return c.seen.growth[growthV].kind
+      end
+      assert.are.equal("cultivated", groundKind(3))
+      assert.are.equal("plowed", groundKind(5))
+      assert.are.equal("stubble", groundKind(2))
+      assert.are.equal("seedbed", groundKind(4))
+    end)
+
+    it("gives every crops entry the class 'crop', told apart by label", function()
+      rawset(_G, "getDensityStatesAtWorldPos", function()
+        return 6
+      end)
+      local c = ctx()
+      local cropsV = VDT.MapLayers.classifyCell(c, 0, 0)
+      assert.are.equal("crop", c.seen.crops[cropsV].kind)
+      assert.are.equal("Wheat", c.seen.crops[cropsV].label)
+    end)
+  end)
 end)
 
 describe("MapLayers.classifyCell soil", function()
@@ -257,6 +324,106 @@ describe("MapLayers.classifyCell soil", function()
 
   after_each(function()
     rawset(_G, "FieldDensityMap", nil)
+  end)
+
+  -- The semantic kind token (VERSION 3): severity and level live in `v`, the class says only what
+  -- KIND of thing the cell is -- so a consumer can total "weedy ground" without knowing how many
+  -- color groups the weed system on this map happens to define.
+  describe("legend kind", function()
+    it("shares one class across weed severities", function()
+      local function weedKind(group)
+        local c = ctx({
+          weedAvailable = true,
+          weedSystem = {
+            getWeedStateAtWorldPos = function()
+              return 2
+            end,
+          },
+          weedStateToGroup = { [2] = group },
+        })
+        local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+        return c.seen.soil[soilV].kind
+      end
+      assert.are.equal("weed", weedKind(1))
+      assert.are.equal("weed", weedKind(3))
+    end)
+
+    it("shares one class across stone severities", function()
+      local function stoneKind(group)
+        local c = ctx({
+          stoneAvailable = true,
+          stoneSystem = {
+            getStoneStateAtWorldPos = function()
+              return 4
+            end,
+          },
+          stoneStateToGroup = { [4] = group },
+        })
+        local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+        return c.seen.soil[soilV].kind
+      end
+      assert.are.equal("stone", stoneKind(1))
+      assert.are.equal("stone", stoneKind(2))
+    end)
+
+    it("shares one class across fertilizer levels", function()
+      -- Plowing and lime outrank fertilized in classifySoil, so both are turned off to reach it.
+      local function fertilizedKind(level)
+        local c = ctx({
+          plowingRequiredEnabled = false,
+          limeRequired = false,
+          fieldGroundSystem = {
+            getValueAtWorldPos = function(_, densityType)
+              if densityType == FieldDensityMap.GROUND_TYPE then
+                return 3
+              elseif densityType == FieldDensityMap.SPRAY_LEVEL then
+                return level
+              end
+              return 0
+            end,
+          },
+        })
+        local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+        return c.seen.soil[soilV].kind, soilV
+      end
+      local kindA, valueA = fertilizedKind(1)
+      local kindB, valueB = fertilizedKind(3)
+      assert.are.equal("fertilized", kindA)
+      assert.are.equal("fertilized", kindB)
+      assert.are_not.equal(valueA, valueB)
+    end)
+
+    it("classifies needs-plowing and needs-lime", function()
+      local function plainKind(sprayLevel)
+        local c = ctx({
+          fieldGroundSystem = {
+            getValueAtWorldPos = function(_, densityType)
+              if densityType == FieldDensityMap.GROUND_TYPE then
+                return 3
+              elseif densityType == FieldDensityMap.SPRAY_LEVEL then
+                return sprayLevel
+              end
+              return 0 -- plow and lime level 0 -> both required
+            end,
+          },
+        })
+        local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+        return c.seen.soil[soilV].kind
+      end
+      -- Plowing outranks lime in classifySoil, so this is the needs-plowing branch.
+      assert.are.equal("needsPlowing", plainKind(0))
+
+      local c = ctx({
+        plowingRequiredEnabled = false,
+        fieldGroundSystem = {
+          getValueAtWorldPos = function(_, densityType)
+            return densityType == FieldDensityMap.GROUND_TYPE and 3 or 0
+          end,
+        },
+      })
+      local _, _, soilV = VDT.MapLayers.classifyCell(c, 0, 0)
+      assert.are.equal("needsLime", c.seen.soil[soilV].kind)
+    end)
   end)
 
   it("prioritizes weeds over stones/plowing/lime/fertilized", function()

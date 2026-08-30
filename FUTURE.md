@@ -452,6 +452,18 @@ Each one is cheap to do while playing and settles something above.
   `greatDemand` flag itself rides in the synced price bits and should always be there. So the check is whether a client
   ever shows the flag *without* the premium beside it, and for how long — the exporter reports the flag alone in that
   case by design, but nobody has seen how often it happens.
+- **Does a withered crop read as withered on the field list?** Let a crop go past harvest, then compare
+  the field's row against the game's own growth overlay. Two things ride on it. `withered` drives the
+  only **Warning** alert the Fields app raises and the only suggestion that destroys a crop
+  (`Cultivate`), so it is the one growth kind that costs something in both directions. And it is the
+  one where our classifier's order and the game's can part company: `MapOverlayGenerator:buildGrowthStateMapOverlay`
+  writes the withered colour **first** and lets later writes overwrite it, while
+  `classifyGrowthFromFruit` returns first-match-wins with withered checked second. For `cut` the two
+  agree (cut wins either way, which is why `harvestTransitions` is tested first). For harvest, topping
+  and growing they do not: a fruit whose `witheredState` fell inside one of those ranges would read
+  `withered` from us and that range's colour on the game's map. No base-game fruit does — witheredState
+  sits above the harvest range — but that is the collision the classifier's own comment says cannot be
+  proven from static source.
 - Does borrowing from the terminal land without waiting out the 5 s interval? It should: the mod subscribes to
   `ChangeLoanEvent`, which the engine publishes on both sides of the wire. Note it is about the *base-game* loan, so an
   ELS save cannot answer it.

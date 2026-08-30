@@ -1,9 +1,9 @@
 package net.vertexdezign.vdt.server
 
-import net.vertexdezign.vdt.VdtParser
+import net.vertexdezign.vdt.model.MapLayerData
+import net.vertexdezign.vdt.model.MapLayerLegendEntry
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
-import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,22 +12,56 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 
 /**
- * Renders the committed `examples/json/mapLayers` plane fixtures and asserts exact ARGB pixel
- * values: a legend-mapped cell gets its color at the fixed alpha, a zero/trimmed-tail cell is fully
- * transparent, and an unusable grid renders nothing.
+ * Renders small synthetic planes and asserts exact ARGB pixel values: a legend-mapped cell gets its
+ * color at the fixed alpha, a zero/trimmed-tail cell is fully transparent, and an unusable grid
+ * renders nothing.
+ *
+ * Synthetic on purpose, unlike the channel-contract tests in `:shared`. What is asserted here is a
+ * pixel at a coordinate, so the grid has to be small enough to name cells by hand and stable enough
+ * that a re-capture cannot move them — the committed capture is a real 512² sweep and is neither.
+ * These grids are the shape the fixtures had when they were 8×8, kept for the same reason.
  */
 class MapLayerRendererTest {
-  private fun example(name: String): String {
-    var dir: File? = File(".").absoluteFile
-    while (dir != null) {
-      val candidate = File(dir, "examples/json/mapLayers/$name")
-      if (candidate.exists()) return candidate.readText()
-      dir = dir.parentFile
-    }
-    error("Could not locate examples/json/mapLayers/$name from ${File(".").absolutePath}")
-  }
+  private fun plane(id: String) = when (id) {
+    "crops" -> MapLayerData(
+      version = "3",
+      terrainSize = 2048f,
+      gridSize = 8,
+      id = "crops",
+      legend = listOf(
+        MapLayerLegendEntry(1, "Weizen", "#c8b262", "crop"),
+        MapLayerLegendEntry(2, "Mais", "#f5d743", "crop"),
+      ),
+      // Row 0 is entirely trimmed away, row 1 stops after two cells, row 2 is full.
+      rows = listOf("", "0101", "0202020202020202"),
+    )
 
-  private fun plane(id: String) = VdtParser.parseMapLayer(example("$id.json"))
+    "growth" -> MapLayerData(
+      version = "3",
+      terrainSize = 2048f,
+      gridSize = 8,
+      id = "growth",
+      legend = listOf(
+        MapLayerLegendEntry(1, "Cultivated", "#4d78b8", "cultivated"),
+        MapLayerLegendEntry(11, "Growing", "#2b7a06", "growing"),
+      ),
+      rows = listOf("", "01", "0b"),
+    )
+
+    "soil" -> MapLayerData(
+      version = "3",
+      terrainSize = 2048f,
+      gridSize = 8,
+      id = "soil",
+      legend = listOf(
+        MapLayerLegendEntry(21, "Needs lime", "#15a86c", "needsLime"),
+        MapLayerLegendEntry(31, "Fertilized", "#1a4dd1", "fertilized"),
+      ),
+      rows = listOf("", "15", "1f"),
+    )
+
+    else -> error("no synthetic plane for $id")
+  }
 
   private fun decode(bytes: ByteArray): BufferedImage =
     ImageIO.read(ByteArrayInputStream(bytes)) ?: error("failed to decode rendered PNG")

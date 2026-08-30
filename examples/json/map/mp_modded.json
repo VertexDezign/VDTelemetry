@@ -11,6 +11,7 @@
         0.99502,
         0.8883
       ],
+      "price": 79056,
       "name": "1",
       "areaHa": 0.91,
       "id": 1,
@@ -33,6 +34,7 @@
         0.96332,
         0.90209
       ],
+      "price": 135336,
       "name": "2",
       "areaHa": 1.98,
       "id": 2,
@@ -63,6 +65,7 @@
         0.88789,
         0.87919
       ],
+      "price": 181824,
       "name": "3",
       "areaHa": 2.86,
       "id": 3,
@@ -87,6 +90,7 @@
         0.82096,
         0.87383
       ],
+      "price": 117120,
       "name": "4",
       "areaHa": 1.78,
       "id": 4,
@@ -109,6 +113,7 @@
         0.78535,
         0.87146
       ],
+      "price": 126120,
       "name": "5",
       "areaHa": 1.87,
       "id": 5,
@@ -131,6 +136,7 @@
         0.76682,
         0.94549
       ],
+      "price": 144312,
       "name": "6",
       "areaHa": 2.11,
       "id": 6,
@@ -153,6 +159,7 @@
         0.66788,
         0.8625
       ],
+      "price": 185184,
       "name": "7",
       "areaHa": 1.97,
       "id": 7,
@@ -173,6 +180,7 @@
         0.60166,
         0.85775
       ],
+      "price": 202248,
       "name": "8",
       "areaHa": 2.98,
       "id": 8,
@@ -199,6 +207,7 @@
         0.52871,
         0.85236
       ],
+      "price": 272280,
       "name": "9",
       "areaHa": 4.28,
       "id": 9,
@@ -253,6 +262,7 @@
         0.51932,
         0.99498
       ],
+      "price": 262464,
       "name": "10",
       "areaHa": 4.11,
       "id": 10,
@@ -271,6 +281,7 @@
         0.98021,
         0.75451
       ],
+      "price": 100944,
       "name": "11",
       "areaHa": 1.35,
       "id": 11,
@@ -301,6 +312,7 @@
         0.8851,
         0.75781
       ],
+      "price": 596256,
       "name": "12",
       "areaHa": 9.22,
       "id": 12,
@@ -309,6 +321,10 @@
       "labelX": 0.8643
     },
     {
+      "id": 13,
+      "labelZ": 0.79541,
+      "farmlandId": 13,
+      "name": "13",
       "polygon": [
         0.74201,
         0.75237,
@@ -321,13 +337,10 @@
         0.69624,
         0.75238
       ],
-      "areaHa": 2.02,
-      "name": "13",
       "ownerFarmId": 1,
-      "id": 13,
-      "labelZ": 0.79541,
-      "farmlandId": 13,
-      "labelX": 0.72525
+      "labelX": 0.72525,
+      "price": 133608,
+      "areaHa": 2.02
     },
     {
       "polygon": [
@@ -352,6 +365,7 @@
         0.63596,
         0.75271
       ],
+      "price": 257880,
       "name": "14",
       "areaHa": 3.91,
       "id": 14,
@@ -370,6 +384,7 @@
         0.94133,
         0.67725
       ],
+      "price": 113280,
       "name": "15",
       "areaHa": 1.62,
       "id": 15,
@@ -388,6 +403,7 @@
         0.74166,
         0.71019
       ],
+      "price": 311472,
       "name": "16",
       "areaHa": 4.56,
       "id": 16,
@@ -406,6 +422,7 @@
         0.8701,
         0.63866
       ],
+      "price": 80040,
       "name": "17",
       "areaHa": 1.08,
       "id": 17,
@@ -430,6 +447,7 @@
         0.83634,
         0.64189
       ],
+      "price": 86088,
       "name": "18",
       "areaHa": 1.22,
       "id": 18,
@@ -450,6 +468,7 @@
         0.73692,
         0.65097
       ],
+      "price": 84792,
       "name": "19",
       "areaHa": 1.11,
       "id": 19,
@@ -484,6 +503,7 @@
         0.7258,
         0.65827
       ],
+      "price": 43704,
       "name": "20",
       "areaHa": 0.5,
       "id": 20,
@@ -510,6 +530,7 @@
         0.71732,
         0.71522
       ],
+      "price": 87864,
       "name": "21",
       "areaHa": 1.18,
       "id": 21,
@@ -540,6 +561,7 @@
         0.67774,
         0.70253
       ],
+      "price": 275352,
       "name": "22",
       "areaHa": 4.25,
       "id": 22,
@@ -568,6 +590,7 @@
         0.52774,
         0.68525
       ],
+      "price": 262056,
       "name": "23",
       "areaHa": 3.99,
       "id": 23,
@@ -586,6 +609,7 @@
         0.42613,
         0.75663
       ],
+      "price": 109344,
       "name": "24",
       "areaHa": 0.77,
       "id": 24,
@@ -638,6 +662,7 @@
         0.3737,
         0.76039
       ],
+      "price": 103056,
       "name": "25",
       "areaHa": 1,
       "id": 25,
@@ -656,6 +681,7 @@
         0.37716,
         0.70384
       ],
+      "price": 153240,
       "name": "26",
       "areaHa": 2.1,
       "id": 26,
@@ -684,6 +710,7 @@
         0.34337,
         0.73909
       ],
+      "price": 112848,
       "name": "27",
       "areaHa": 0.88,
       "id": 27,
@@ -716,6 +743,7 @@
         0.33072,
         0.94222
       ],
+      "price": 125088,
       "name": "28",
       "areaHa": 1.84,
       "id": 28,
@@ -742,6 +770,7 @@
         0.21826,
         0.94399
       ],
+      "price": 196248,
       "name": "29",
       "areaHa": 2.94,
       "id": 29,
@@ -766,6 +795,7 @@
         0.10991,
         0.94615
       ],
+      "price": 100344,
       "name": "30",
       "areaHa": 1.07,
       "id": 30,
@@ -796,6 +826,7 @@
         0.08672,
         0.94223
       ],
+      "price": 179304,
       "name": "31",
       "areaHa": 2.67,
       "id": 31,
@@ -828,6 +859,7 @@
         0.0984,
         0.81898
       ],
+      "price": 60768,
       "name": "32",
       "areaHa": 0.77,
       "id": 32,
@@ -854,6 +886,7 @@
         0.21602,
         0.82606
       ],
+      "price": 303936,
       "name": "33",
       "areaHa": 4.73,
       "id": 33,
@@ -892,6 +925,7 @@
         0.35079,
         0.90594
       ],
+      "price": 276432,
       "name": "34",
       "areaHa": 4.39,
       "id": 34,
@@ -900,6 +934,10 @@
       "labelX": 0.2638
     },
     {
+      "id": 35,
+      "labelZ": 0.76834,
+      "farmlandId": 35,
+      "name": "35",
       "polygon": [
         0.35522,
         0.82884,
@@ -950,13 +988,10 @@
         0.35073,
         0.81635
       ],
-      "areaHa": 8.85,
-      "name": "35",
       "ownerFarmId": 1,
-      "id": 35,
-      "labelZ": 0.76834,
-      "farmlandId": 35,
-      "labelX": 0.20887
+      "labelX": 0.20887,
+      "price": 567600,
+      "areaHa": 8.85
     },
     {
       "polygon": [
@@ -989,6 +1024,7 @@
         0.13013,
         0.76106
       ],
+      "price": 65760,
       "name": "36",
       "areaHa": 0.87,
       "id": 36,
@@ -1045,6 +1081,7 @@
         0.17981,
         0.72162
       ],
+      "price": 138288,
       "name": "37",
       "areaHa": 1.89,
       "id": 37,
@@ -1085,6 +1122,7 @@
         0.0524,
         0.65542
       ],
+      "price": 95088,
       "name": "38",
       "areaHa": 1.17,
       "id": 38,
@@ -1137,6 +1175,7 @@
         0.06924,
         0.54764
       ],
+      "price": 122928,
       "name": "39",
       "areaHa": 1.66,
       "id": 39,
@@ -1195,6 +1234,7 @@
         0.07653,
         0.65512
       ],
+      "price": 78312,
       "name": "40",
       "areaHa": 0.98,
       "id": 40,
@@ -1251,6 +1291,7 @@
         0.24358,
         0.61902
       ],
+      "price": 85608,
       "name": "41",
       "areaHa": 0.87,
       "id": 41,
@@ -1293,6 +1334,7 @@
         0.30817,
         0.58038
       ],
+      "price": 84840,
       "name": "42",
       "areaHa": 1.18,
       "id": 42,
@@ -1301,6 +1343,10 @@
       "labelX": 0.29553
     },
     {
+      "id": 43,
+      "labelZ": 0.63616,
+      "farmlandId": 43,
+      "name": "43",
       "polygon": [
         0.31274,
         0.5804,
@@ -1327,13 +1373,10 @@
         0.3129,
         0.67676
       ],
-      "areaHa": 2.28,
-      "name": "43",
       "ownerFarmId": 1,
-      "id": 43,
-      "labelZ": 0.63616,
-      "farmlandId": 43,
-      "labelX": 0.3421
+      "labelX": 0.3421,
+      "price": 150288,
+      "areaHa": 2.28
     },
     {
       "polygon": [
@@ -1366,6 +1409,7 @@
         0.43971,
         0.64081
       ],
+      "price": 101760,
       "name": "44",
       "areaHa": 0.77,
       "id": 44,
@@ -1396,6 +1440,7 @@
         0.51819,
         0.64515
       ],
+      "price": 83664,
       "name": "45",
       "areaHa": 1.13,
       "id": 45,
@@ -1428,6 +1473,7 @@
         0.42781,
         0.62425
       ],
+      "price": 271776,
       "name": "46",
       "areaHa": 4.25,
       "id": 46,
@@ -1436,6 +1482,10 @@
       "labelX": 0.47434
     },
     {
+      "id": 47,
+      "labelZ": 0.49446,
+      "farmlandId": 47,
+      "name": "47",
       "polygon": [
         0.37322,
         0.54305,
@@ -1470,15 +1520,16 @@
         0.38092,
         0.41442
       ],
-      "areaHa": 7.88,
-      "name": "47",
       "ownerFarmId": 1,
-      "id": 47,
-      "labelZ": 0.49446,
-      "farmlandId": 47,
-      "labelX": 0.30976
+      "labelX": 0.30976,
+      "price": 503784,
+      "areaHa": 7.88
     },
     {
+      "id": 48,
+      "labelZ": 0.51455,
+      "farmlandId": 48,
+      "name": "48",
       "polygon": [
         0.38088,
         0.54541,
@@ -1505,15 +1556,16 @@
         0.41828,
         0.54525
       ],
-      "areaHa": 3.02,
-      "name": "48",
       "ownerFarmId": 1,
-      "id": 48,
-      "labelZ": 0.51455,
-      "farmlandId": 48,
-      "labelX": 0.46826
+      "labelX": 0.46826,
+      "price": 257376,
+      "areaHa": 3.02
     },
     {
+      "id": 49,
+      "labelZ": 0.43581,
+      "farmlandId": 49,
+      "name": "49",
       "polygon": [
         0.62627,
         0.45021,
@@ -1536,13 +1588,10 @@
         0.61231,
         0.38465
       ],
-      "areaHa": 5.4,
-      "name": "49",
       "ownerFarmId": 1,
-      "id": 49,
-      "labelZ": 0.43581,
-      "farmlandId": 49,
-      "labelX": 0.50873
+      "labelX": 0.50873,
+      "price": 402384,
+      "areaHa": 5.4
     },
     {
       "polygon": [
@@ -1563,6 +1612,7 @@
         0.64428,
         0.52833
       ],
+      "price": 696168,
       "name": "50",
       "areaHa": 11.03,
       "id": 50,
@@ -1585,6 +1635,7 @@
         0.76737,
         0.56266
       ],
+      "price": 58704,
       "name": "51",
       "areaHa": 0.73,
       "id": 51,
@@ -1613,6 +1664,7 @@
         0.80471,
         0.57084
       ],
+      "price": 129312,
       "name": "53",
       "areaHa": 1.97,
       "id": 53,
@@ -1635,6 +1687,7 @@
         0.84133,
         0.50457
       ],
+      "price": 71160,
       "name": "54",
       "areaHa": 0.93,
       "id": 54,
@@ -1659,6 +1712,7 @@
         0.86283,
         0.50082
       ],
+      "price": 235416,
       "name": "55",
       "areaHa": 3.56,
       "id": 55,
@@ -1683,6 +1737,7 @@
         0.9301,
         0.57653
       ],
+      "price": 89232,
       "name": "56",
       "areaHa": 1.34,
       "id": 56,
@@ -1701,6 +1756,7 @@
         0.91733,
         0.49374
       ],
+      "price": 165072,
       "name": "57",
       "areaHa": 2.53,
       "id": 57,
@@ -1735,6 +1791,7 @@
         0.95794,
         0.41209
       ],
+      "price": 160776,
       "name": "58",
       "areaHa": 2.27,
       "id": 58,
@@ -1759,6 +1816,7 @@
         0.89781,
         0.31407
       ],
+      "price": 211896,
       "name": "59",
       "areaHa": 3.2,
       "id": 59,
@@ -1777,6 +1835,7 @@
         0.90176,
         0.38885
       ],
+      "price": 148056,
       "name": "60",
       "areaHa": 2.31,
       "id": 60,
@@ -1805,6 +1864,7 @@
         0.88924,
         0.31745
       ],
+      "price": 128712,
       "name": "61",
       "areaHa": 1.98,
       "id": 61,
@@ -1831,6 +1891,7 @@
         0.80968,
         0.32706
       ],
+      "price": 226416,
       "name": "62",
       "areaHa": 3.36,
       "id": 62,
@@ -1857,6 +1918,7 @@
         0.71404,
         0.45588
       ],
+      "price": 122952,
       "name": "64",
       "areaHa": 1.81,
       "id": 64,
@@ -1883,6 +1945,7 @@
         0.65724,
         0.35725
       ],
+      "price": 232056,
       "name": "65",
       "areaHa": 3.37,
       "id": 65,
@@ -1901,6 +1964,7 @@
         0.18636,
         0.32699
       ],
+      "price": 121320,
       "name": "66",
       "areaHa": 1.7,
       "id": 66,
@@ -1921,6 +1985,7 @@
         0.38829,
         0.30539
       ],
+      "price": 411504,
       "name": "67",
       "areaHa": 6.38,
       "id": 67,
@@ -1929,6 +1994,10 @@
       "labelX": 0.3197
     },
     {
+      "id": 68,
+      "labelZ": 0.37602,
+      "farmlandId": 68,
+      "name": "68",
       "polygon": [
         0.49164,
         0.3346,
@@ -1947,13 +2016,10 @@
         0.39287,
         0.35012
       ],
-      "areaHa": 3.12,
-      "name": "68",
       "ownerFarmId": 1,
-      "id": 68,
-      "labelZ": 0.37602,
-      "farmlandId": 68,
-      "labelX": 0.4382
+      "labelX": 0.4382,
+      "price": 213072,
+      "areaHa": 3.12
     },
     {
       "polygon": [
@@ -1970,6 +2036,7 @@
         0.41751,
         0.26751
       ],
+      "price": 158064,
       "name": "69",
       "areaHa": 2.51,
       "id": 69,
@@ -1990,6 +2057,7 @@
         0.40379,
         0.17995
       ],
+      "price": 203160,
       "name": "70",
       "areaHa": 3.16,
       "id": 70,
@@ -2048,6 +2116,7 @@
         0.37785,
         0.20802
       ],
+      "price": 198624,
       "name": "71",
       "areaHa": 2.39,
       "id": 71,
@@ -2078,6 +2147,7 @@
         0.22348,
         0.19905
       ],
+      "price": 254544,
       "name": "72",
       "areaHa": 3.89,
       "id": 72,
@@ -2138,6 +2208,7 @@
         0.18542,
         0.21057
       ],
+      "price": 193632,
       "name": "73",
       "areaHa": 2.53,
       "id": 73,
@@ -2156,6 +2227,7 @@
         0.52125,
         0.08211
       ],
+      "price": 172008,
       "name": "76",
       "areaHa": 2.34,
       "id": 76,
@@ -2190,6 +2262,7 @@
         0.48037,
         0.16923
       ],
+      "price": 593784,
       "name": "77",
       "areaHa": 9.49,
       "id": 77,
@@ -2198,6 +2271,10 @@
       "labelX": 0.53449
     },
     {
+      "id": 78,
+      "labelZ": 0.15944,
+      "farmlandId": 78,
+      "name": "78",
       "polygon": [
         0.7182,
         0.13705,
@@ -2208,13 +2285,10 @@
         0.62404,
         0.15007
       ],
-      "areaHa": 1.33,
-      "name": "78",
       "ownerFarmId": 3,
-      "id": 78,
-      "labelZ": 0.15944,
-      "farmlandId": 78,
-      "labelX": 0.66218
+      "labelX": 0.66218,
+      "price": 145392,
+      "areaHa": 1.33
     },
     {
       "polygon": [
@@ -2235,6 +2309,7 @@
         0.61836,
         0.02482
       ],
+      "price": 287352,
       "name": "79",
       "areaHa": 4.35,
       "id": 79,
@@ -2259,6 +2334,7 @@
         0.7336,
         0.02483
       ],
+      "price": 369768,
       "name": "80",
       "areaHa": 5.36,
       "id": 80,
@@ -2285,6 +2361,7 @@
         0.72441,
         0.13885
       ],
+      "price": 489768,
       "name": "81",
       "areaHa": 7.62,
       "id": 81,
@@ -2319,6 +2396,7 @@
         0.58209,
         0.21853
       ],
+      "price": 335880,
       "name": "82",
       "areaHa": 5.2,
       "id": 82,
@@ -2351,6 +2429,7 @@
         0.86646,
         0.24586
       ],
+      "price": 318240,
       "name": "83",
       "areaHa": 4.88,
       "id": 83,
@@ -2379,6 +2458,7 @@
         0.93545,
         0.16488
       ],
+      "price": 428424,
       "name": "84",
       "areaHa": 6.43,
       "id": 84,
@@ -2401,6 +2481,7 @@
         0.34873,
         0.1362
       ],
+      "price": 63144,
       "name": "86",
       "areaHa": 0.78,
       "id": 86,
@@ -2431,6 +2512,7 @@
         0.31805,
         0.02183
       ],
+      "price": 254568,
       "name": "87",
       "areaHa": 3.79,
       "id": 87,
@@ -2457,6 +2539,7 @@
         0.2194,
         0.02727
       ],
+      "price": 136440,
       "name": "88",
       "areaHa": 1.72,
       "id": 88,
@@ -2477,6 +2560,7 @@
         0.66581,
         0.52297
       ],
+      "price": 42528,
       "name": "89",
       "areaHa": 0.5,
       "id": 89,
@@ -2553,6 +2637,7 @@
         0.38447,
         0.8949
       ],
+      "price": 191760,
       "name": "90",
       "areaHa": 0.78,
       "id": 90,
@@ -2561,12 +2646,8 @@
       "labelX": 0.37131
     }
   ],
-  "version": "1",
+  "version": "2",
   "farms": [
-    {
-      "id": 14,
-      "color": "#2e00fa"
-    },
     {
       "id": 1,
       "name": "Lindenhof Agrar GmbH",
@@ -2592,112 +2673,29 @@
       "posZ": 0.50187
     },
     {
-      "posZ": 0.46709,
+      "posZ": 0.8207,
       "type": "unloading",
-      "name": "BGA - Gärreste",
-      "posX": 0.41297
+      "name": "Viehhändler",
+      "posX": 0.37167
     },
     {
-      "posZ": 0.2944,
+      "posZ": 0.61986,
       "type": "unloading",
-      "name": "Tankstelle Agraria",
-      "posX": 0.26618
+      "name": "Getreidesilo",
+      "posX": 0.17447
     },
     {
-      "posZ": 0.27426,
+      "posZ": 0.63962,
       "type": "unloading",
-      "name": "Einkauf Gülle",
-      "posX": 0.29244
+      "name": "Futtermarkt",
+      "posX": 0.04433
     },
     {
-      "posZ": 0.47799,
       "type": "unloading",
-      "name": "F60.S",
-      "posX": 0.86834
-    },
-    {
-      "posZ": 0.27417,
-      "type": "unloading",
-      "name": "Verkauf Agraria Markt - Getrei",
-      "posX": 0.26886
-    },
-    {
-      "posZ": 0.17037,
-      "type": "unloading",
-      "name": "Rela Industries",
-      "posX": 0.57915
-    },
-    {
-      "posZ": 0.87554,
-      "type": "unloading",
-      "name": "F3.E",
-      "posX": 0.86222
-    },
-    {
-      "posZ": 0.85255,
-      "type": "unloading",
-      "name": "Shop",
-      "posX": 0.41299
-    },
-    {
-      "posZ": 0.51305,
-      "type": "unloading",
-      "name": "Hof",
-      "posX": 0.38772
-    },
-    {
-      "posZ": 0.16307,
-      "type": "unloading",
-      "name": "F77.F",
-      "posX": 0.53198
-    },
-    {
-      "posZ": 0.68193,
-      "type": "unloading",
-      "name": "F50.S",
-      "posX": 0.67183
-    },
-    {
-      "posZ": 0.67338,
-      "type": "unloading",
-      "name": "F50.F",
-      "posX": 0.65694
-    },
-    {
-      "posZ": 0.8135,
-      "type": "unloading",
-      "name": "F35.F",
-      "posX": 0.16814
-    },
-    {
-      "posZ": 0.11011,
-      "type": "unloading",
-      "name": "F80.E",
-      "posX": 0.86433
-    },
-    {
-      "posZ": 0.29316,
-      "type": "unloading",
-      "name": "Einkauf Kalk/Dünger",
-      "posX": 0.29296
-    },
-    {
-      "posZ": 0.81809,
-      "type": "unloading",
-      "name": "F35.E",
-      "posX": 0.14395
-    },
-    {
-      "posZ": 0.67075,
-      "type": "unloading",
-      "name": "Verkauf - Getreidemühle",
-      "posX": 0.24383
-    },
-    {
-      "posZ": 0.49791,
-      "type": "unloading",
-      "name": "F55.S",
-      "posX": 0.86712
+      "name": "Betriebshalle mit Silo",
+      "posX": 0.39428,
+      "ownerFarmId": 1,
+      "posZ": 0.51261
     },
     {
       "posZ": 0.27439,
@@ -2725,43 +2723,11 @@
       "posZ": 0.53692
     },
     {
-      "posZ": 0.61986,
-      "type": "unloading",
-      "name": "Getreidesilo",
-      "posX": 0.17447
-    },
-    {
-      "type": "unloading",
-      "name": "Betriebshalle mit Silo",
-      "posX": 0.39428,
-      "ownerFarmId": 1,
-      "posZ": 0.51261
-    },
-    {
-      "posZ": 0.8207,
-      "type": "unloading",
-      "name": "Viehhändler",
-      "posX": 0.37167
-    },
-    {
-      "posZ": 0.63962,
-      "type": "unloading",
-      "name": "Futtermarkt",
-      "posX": 0.04433
-    },
-    {
       "type": "loading",
       "name": "Offene Garage aus Holz",
       "posX": 0.39621,
       "ownerFarmId": 1,
       "posZ": 0.49278
-    },
-    {
-      "type": "loading",
-      "name": "Ballenlager 350",
-      "posX": 0.41773,
-      "ownerFarmId": 1,
-      "posZ": 0.50894
     },
     {
       "type": "loading",
@@ -2771,23 +2737,23 @@
       "posZ": 0.5094
     },
     {
-      "type": "loading",
-      "name": "Palettenregal",
-      "posX": 0.39429,
-      "ownerFarmId": 1,
-      "posZ": 0.51024
-    },
-    {
       "posZ": 0.29391,
       "type": "loading",
       "name": "Händler für Saatgut und Dünger",
       "posX": 0.29291
     },
     {
-      "posZ": 0.27461,
+      "posZ": 0.28897,
+      "type": "fuel",
+      "name": "Tankstelle",
+      "posX": 0.26564
+    },
+    {
       "type": "loading",
-      "name": "Gülle",
-      "posX": 0.29847
+      "name": "Palettenregal",
+      "posX": 0.39429,
+      "ownerFarmId": 1,
+      "posZ": 0.51024
     },
     {
       "type": "loading",
@@ -2797,29 +2763,23 @@
       "posZ": 0.53583
     },
     {
-      "posZ": 0.28897,
-      "type": "fuel",
-      "name": "Tankstelle",
-      "posX": 0.26564
-    },
-    {
       "posZ": 0.26943,
       "type": "loading",
       "name": "Mist",
       "posX": 0.29261
     },
     {
-      "type": "productionPoint",
-      "name": "Großer Nachgärer 200K",
-      "posX": 0.42884,
+      "type": "loading",
+      "name": "Ballenlager 350",
+      "posX": 0.41773,
       "ownerFarmId": 1,
-      "posZ": 0.47498
+      "posZ": 0.50894
     },
     {
-      "posZ": 0.58348,
-      "type": "productionPoint",
-      "name": "Sägemühle",
-      "posX": 0.70204
+      "posZ": 0.27461,
+      "type": "loading",
+      "name": "Gülle",
+      "posX": 0.29847
     },
     {
       "type": "productionPoint",
@@ -2829,31 +2789,11 @@
       "posZ": 0.49001
     },
     {
-      "posZ": 0.56789,
-      "type": "productionPoint",
-      "name": "Molkerei",
-      "posX": 0.2559
-    },
-    {
-      "type": "productionPoint",
-      "name": "Fermenter 300",
-      "posX": 0.40842,
-      "ownerFarmId": 1,
-      "posZ": 0.47621
-    },
-    {
       "type": "productionPoint",
       "name": "Lindenhof Molkerei",
       "posX": 0.37206,
       "ownerFarmId": 1,
       "posZ": 0.52157
-    },
-    {
-      "type": "productionPoint",
-      "name": "Bunker Mittel",
-      "posX": 0.4031,
-      "ownerFarmId": 1,
-      "posZ": 0.47028
     },
     {
       "posZ": 0.84691,
@@ -2862,11 +2802,16 @@
       "posX": 0.38212
     },
     {
+      "posZ": 0.56789,
       "type": "productionPoint",
-      "name": "Zentrales Güllelager",
-      "posX": 0.40889,
-      "ownerFarmId": 1,
-      "posZ": 0.46929
+      "name": "Molkerei",
+      "posX": 0.2559
+    },
+    {
+      "posZ": 0.58348,
+      "type": "productionPoint",
+      "name": "Sägemühle",
+      "posX": 0.70204
     },
     {
       "type": "productionPoint",
@@ -2880,6 +2825,34 @@
       "type": "productionPoint",
       "name": "Getreidemühle",
       "posX": 0.25119
+    },
+    {
+      "type": "productionPoint",
+      "name": "Bunker Mittel",
+      "posX": 0.4031,
+      "ownerFarmId": 1,
+      "posZ": 0.47028
+    },
+    {
+      "type": "productionPoint",
+      "name": "Fermenter 300",
+      "posX": 0.40842,
+      "ownerFarmId": 1,
+      "posZ": 0.47621
+    },
+    {
+      "type": "productionPoint",
+      "name": "Großer Nachgärer 200K",
+      "posX": 0.42884,
+      "ownerFarmId": 1,
+      "posZ": 0.47498
+    },
+    {
+      "type": "productionPoint",
+      "name": "Zentrales Güllelager",
+      "posX": 0.40889,
+      "ownerFarmId": 1,
+      "posZ": 0.46929
     },
     {
       "posZ": 0.85196,
@@ -2907,10 +2880,41 @@
       "posX": 0.45394
     },
     {
-      "posZ": 0.19277,
+      "posZ": 0.1789,
       "type": "farm",
       "name": "Hof",
-      "posX": 0.38499
+      "posX": 0.59375
+    },
+    {
+      "posZ": 0.9742,
+      "type": "farm",
+      "name": "Hof",
+      "posX": 0.05648
+    },
+    {
+      "type": "farm",
+      "name": "Bauernhaus",
+      "posX": 0.38905,
+      "ownerFarmId": 1,
+      "posZ": 0.53561
+    },
+    {
+      "posZ": 0.87514,
+      "type": "farm",
+      "name": "Hof",
+      "posX": 0.68422
+    },
+    {
+      "posZ": 0.84651,
+      "type": "farm",
+      "name": "Hof",
+      "posX": 0.35767
+    },
+    {
+      "posZ": 0.51387,
+      "type": "farm",
+      "name": "Hof",
+      "posX": 0.38813
     },
     {
       "type": "exclamationMark",
@@ -2920,34 +2924,10 @@
       "posZ": 0.81787
     },
     {
-      "posZ": 0.84651,
-      "type": "farm",
-      "name": "Hof",
-      "posX": 0.35767
-    },
-    {
       "posZ": 0.45871,
       "type": "farm",
       "name": "Hof",
       "posX": 0.40056
-    },
-    {
-      "posZ": 0.1789,
-      "type": "farm",
-      "name": "Hof",
-      "posX": 0.59375
-    },
-    {
-      "posZ": 0.87514,
-      "type": "farm",
-      "name": "Hof",
-      "posX": 0.68422
-    },
-    {
-      "posZ": 0.90385,
-      "type": "farm",
-      "name": "Hof",
-      "posX": 0.43974
     },
     {
       "posZ": 0.73397,
@@ -2956,29 +2936,22 @@
       "posX": 0.32631
     },
     {
-      "posZ": 0.9742,
-      "type": "farm",
-      "name": "Hof",
-      "posX": 0.05648
-    },
-    {
-      "posZ": 0.51387,
-      "type": "farm",
-      "name": "Hof",
-      "posX": 0.38813
-    },
-    {
       "posZ": 0.673,
       "type": "farm",
       "name": "Hof",
       "posX": 0.38595
     },
     {
+      "posZ": 0.19277,
       "type": "farm",
-      "name": "Bauernhaus",
-      "posX": 0.38905,
-      "ownerFarmId": 1,
-      "posZ": 0.53561
+      "name": "Hof",
+      "posX": 0.38499
+    },
+    {
+      "posZ": 0.90385,
+      "type": "farm",
+      "name": "Hof",
+      "posX": 0.43974
     }
   ],
   "terrainSize": 2048

@@ -34,6 +34,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.VdtParser
 import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
+import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayerInfo
 import net.vertexdezign.vdt.model.MapLayersCatalog
@@ -210,6 +211,20 @@ fun main() {
       delay(COVERAGE_PUBLISH_INTERVAL_MS)
       coverage.snapshotIfChanged()?.let { coverageState.value = it }
     }
+  }
+
+  // Per-field status: the other thing the server derives rather than reads. The mod sweeps these
+  // planes for the map overlay anyway, and map.json carries the field polygons in the same normalized
+  // frame, so counting one against the other costs the game nothing and — unlike every server-only
+  // way to ask the game the same question — works on a multiplayer client. See FieldStatusPublisher.
+  val fieldStatus = FieldStatusPublisher()
+  val fieldStatusState = MutableStateFlow<FieldStatuses?>(null)
+  appScope.launch {
+    // Both inputs, because either can move first: the raster arrives after its sweep, and the map
+    // after a farmland changes hands. The publisher's caches are what make a sweep of some OTHER plane
+    // — which re-emits this same keyed map — cost a string compare.
+    combine(mapState, mapLayerState) { map, rasters -> fieldStatus.update(map, rasters) }
+      .collect { fieldStatusState.value = it }
   }
 
   // Diagnostics: sample every channel's observed write cadence on a slow timer (independent of the
@@ -413,6 +428,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val fieldStatusJob =
+          launch {
+            fieldStatusState.collect { data ->
+              val message: ServerMessage = ServerMessage.FieldStatus(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         // The raster rows never cross the WebSocket -- only legends + a content-derived version, so
         // the app knows when to refetch the PNG from /api/map-layer/{id}.
         val mapLayersJob =
@@ -473,6 +495,7 @@ fun main() {
           cropCalendarJob.cancel()
           weatherJob.cancel()
           channelStatsJob.cancel()
+          fieldStatusJob.cancel()
           mapLayersJob.cancel()
         }
       }

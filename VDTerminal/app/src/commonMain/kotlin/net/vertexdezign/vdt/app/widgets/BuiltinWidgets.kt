@@ -26,6 +26,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
+import net.vertexdezign.vdt.app.panels.FieldsSummary
 import net.vertexdezign.vdt.app.panels.FinanceSummary
 import net.vertexdezign.vdt.app.panels.InvoicesSummary
 import net.vertexdezign.vdt.app.panels.IsoBusPanel
@@ -316,6 +317,32 @@ object LightingWidget : Widget {
   }
 }
 
+/**
+ * The farm's fields that are asking for something — the overview's headline, tile-sized.
+ *
+ * Like the Fields app it holds no ground-layer subscription: a tile is placed on a page that may sit
+ * open all session, and making the mod sweep a 512² plane for a three-line summary is not a trade
+ * worth making. It reads whatever the raster last said, and falls back to the point sample the same
+ * way the full screen does.
+ */
+object FieldsWidget : Widget {
+  override val id = "fields"
+  override val title = "Fields"
+  override val icon: ImageVector = Icons.Filled.Grass
+  override val defaultColSpan = 3
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val store = LocalVdtStore.current
+    val map by store.mapData.collectAsState()
+    val info by store.fieldInfo.collectAsState()
+    val status by store.fieldStatus.collectAsState()
+    val tasks by store.taskList.collectAsState()
+    val telemetry by store.telemetry.collectAsState()
+    FieldsSummary(map, info, status, tasks, telemetry?.environment?.pda?.player?.farmId, modifier)
+  }
+}
+
 /** FS25_TaskList tasks (its own channel); the panel renders its own empty state. */
 object TaskListWidget : Widget {
   override val id = "tasks"
@@ -326,7 +353,8 @@ object TaskListWidget : Widget {
   override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val taskList by store.taskList.collectAsState()
-    TaskListPanel(taskList, modifier, onCommand = store.onCommand)
+    val calendar by store.cropCalendar.collectAsState()
+    TaskListPanel(taskList, modifier, todayPeriod = calendar?.today?.period, onCommand = store.onCommand)
   }
 }
 
