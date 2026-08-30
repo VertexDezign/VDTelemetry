@@ -555,12 +555,13 @@ engine load it wears the engine on, the service interval and system voltage. The
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
 them. (The schema and selection aspects were in this list until #116 and #119 captured them.)
 
-- **A combine mid-pass, with its header still attached.** One file would cover the whole harvest side: `harvest` on the
-  machine and `cutter` on the implement beside it, with a crop that converts (maize into chaff) so the fruit type and
-  the fill type actually differ. Wanted twice — **singleplayer**, where `cutter.load` is exported, and **an MP client**,
-  where it is absent and `working` has to come off the streamed area flag instead. **With FS25_CombineXP installed** it
-  also brings `harvest.combineXp`, and that half only means anything mid-pass: the mod's measurement resets to zero the
-  moment the drum stops being fed, so a capture taken on the headland shows nothing.
+- **A combine mid-pass captured on the HOST**, for the two server-only fields. The client half is committed:
+  `examples/json/combine_combineXP.json` (a T670 in soybean) and `forageHarvester_combineXP.json` (a 9900i chopping
+  silage maize into chaff, so the fruit type and the fill type differ), both taken on a dedicated server's client with
+  FS25_CombineXP installed — between them they pin `harvest`, `cutter`, `harvest.combineXp` and, by their absence,
+  the `isServer` gate on `cutter.load` and `combineXp.speedLimit`. What no committed file has is those two fields
+  *present*, which needs a singleplayer or host capture. Mid-pass either way: CombineXP's measurement resets to zero the
+  moment the drum stops being fed, so a headland capture shows nothing.
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`, the `STEP`
   consumable bar, and they would give `jointDescIndex` its first real chain.
 - **More finance captures.** `examples/json/finance/vanilla.json` is a fresh singleplayer save, so it has one period and
