@@ -550,6 +550,17 @@ private fun FieldDetail(
             fontSize = 10.sp,
           )
 
+        // The raster did answer -- it named the state above, and the line beside that headline says
+        // "across the field". It just has too few cells to round a percentage off (MIN_QUOTE_CELLS),
+        // which is a different sentence from the one below, and saying that one here would send the
+        // reader looking for a centre reading the row is not showing.
+        headline.fromRaster ->
+          Text(
+            "Too few cells to break down; the state above is the whole field.",
+            color = VdtColors.DarkGray,
+            fontSize = 10.sp,
+          )
+
         else ->
           Text(
             "Too small to break down; showing the reading at the field centre.",

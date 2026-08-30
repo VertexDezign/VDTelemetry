@@ -470,8 +470,8 @@ class FieldStatusTest {
       assertEquals(field.cells, field.slices.sumOf { it.cells })
     }
 
-    // A cell is 4 m square here, so an ordinary field is thousands of cells and MIN_STATUS_CELLS
-    // silences none of them -- the threshold guards slivers, and this map has none.
+    // A cell is 4 m square here, so an ordinary field is thousands of cells and neither of the app's
+    // two thresholds silences one -- they guard slivers, and this map has none.
     assertEquals(4f, map.terrainSize / layer.gridSize)
     assertTrue(
       status.fields.all { it.polygonCells >= 100 },
