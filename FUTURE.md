@@ -409,12 +409,6 @@ Each one is cheap to do while playing and settles something above.
   `environment.daylight.latitude < 0` and should label period 1 September rather than March. This is the whole reason
   the labels cross the wire instead of being a lookup table in the app.
 
-- **Does a mulched field come back as mulched?** The soil plane reports the game's MULCHED state as of `mapLayers`
-  version 4 (#135), classified off `FieldDensityMap.STUBBLE_SHRED_LEVEL` and read from the same source the game's
-  overlay reads. What no one has done is shred a field's stubble and hold our soil overlay against the game's own — in
-  particular whether a freshly mulched field is already unploughed, in which case both maps say needs-plowing and the
-  mulch is only visible once the plough state is satisfied. That priority is the game's, not ours, but it has only been
-  read off `MapOverlayGenerator`, never watched.
 - Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? It is visible in the exported JSON as
   `display`, so this is just a matter of looking. Decides whether the stepped bar is worth building.
 - Does a multi-state pipe report sensibly — an auger wagon should give `pipe.numStates > 2`? Read the JSON; nothing
@@ -594,10 +588,6 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   (no twelve-month curve at all) is still missing too — every fill type on both boards has one, the modded chain
   commodities included, they just have not been priced in most months. `PricesModelTest` covers both with inline JSON
   meanwhile, and says so at the top.
-- **A soil plane with mulch on it.** `examples/json/mapLayers/mp_precisionFarming/soil.json` is a version-3 capture, so
-  it predates the mulch reading and its legend carries weeds and the plough only — no committed raster has ever held the
-  `mulched` token. `MapLayersModelTest` asserts the token resolves, and `MapLayersExporter_spec` pins the
-  classification, but nothing yet shows the state coming out of a real save.
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.

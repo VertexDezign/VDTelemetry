@@ -133,7 +133,9 @@ class FieldsModelTest {
   @Test
   fun namesTheMulchBehindAFieldTheGrowthPlaneCallsBlank() {
     // The pair the whole reading exists for: the growth raster is blank either way, and only the soil
-    // plane can say which of the two blank fields this is.
+    // plane can say which of the two blank fields this is. Both halves are real -- field 13 of the
+    // committed capture is 87 % mulched and fields 24, 44 and 90 are blank with no mulch at all; see
+    // FieldStatusTest.countsMulchPerFieldOffTheRealSoilRaster, which is where the raster can be read.
     val mulched = row(growth = growthStatus(blank = 500), soil = soilStatus("mulched" to 300, blank = 200))
     assertEquals(0.6f, mulchShare(mulched))
     assertEquals("Nothing growing on any of it — the ground is mulched.", bareGroundNote(mulched))
