@@ -96,11 +96,37 @@
 ---@field count number?
 ---@field sides string[]? the sides' localized names, index-aligned with side / preferredSide
 
--- Straw handling on a combine: swath it for baling, or chop it back onto the field.
+-- The combine: what it is threshing, whether crop is flowing in, what it does with the straw, and how
+-- much ground it has covered. `hectaresSession` counts from the savegame's figure on the host but
+-- from the join on a client -- see collect/aspects/Harvest.lua.
+-- `fillType`/`title` describe the material reaching the tank; `fruitType` is the crop that went in,
+-- and the two differ on every converting machine (maize into chaff).
 ---@class HarvestModel
 ---@field swathActive boolean
 ---@field swathAvailable boolean?
 ---@field chopperAvailable boolean?
+---@field filling boolean crop is entering the tank right now
+---@field bufferCombine boolean?
+---@field hectares number?
+---@field hectaresSession number?
+---@field fruitType string?
+---@field fillType string?
+---@field title string?
+---@field rainBlocked boolean? rain is stopping the threshing now
+---@field rainWarning boolean? the engine's earlier warning that it is about to
+
+-- The header. `working` is the engine's own synced "took crop this frame"; `load` is absent on a
+-- multiplayer client, where the number it comes from is never sent (see collect/aspects/Cutter.lua).
+---@class CutterModel
+---@field working boolean
+---@field windrow boolean picking up a windrow rather than cutting standing crop
+---@field cutWhileRaised boolean
+---@field fruitType string? the crop under the header right now, absent over bare ground
+---@field fillType string? what the header hands to the machine behind it
+---@field title string?
+---@field inputFillType string? what a windrow pickup is lifting
+---@field strawRatio number?
+---@field load number? 0..1
 
 ---@class WorkModeModel
 ---@field current number

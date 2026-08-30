@@ -41,6 +41,7 @@ local sourceFiles = {
   "src/collect/aspects/Discharge.lua",
   "src/collect/aspects/Tipping.lua",
   "src/collect/aspects/Harvest.lua",
+  "src/collect/aspects/Cutter.lua",
   "src/collect/aspects/Work.lua",
   -- Work areas read MapExporter's normalization at runtime (for the footprint), which is sourced
   -- further down; the call is inside the collector, so the order between the two does not matter.
@@ -257,7 +258,13 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     sub-selection to reach it by. Both exist because selection became WRITABLE: setSelectedVehicle
 --     silently selects a different machine when handed one that fails the first test, and no
 --     argument reaches a group that fails the second. See issue #119.
-VDTelemetry.VERSION = 20
+-- 21: the combine gained everything but the straw toggle it already had: `harvest.filling` (crop is
+--     entering the tank right now), the crop and fill type being threshed, worked hectares total and
+--     for the session, the buffer-combine flag, and the two rain states -- the one that stops
+--     threshing and the earlier warning that it is about to. Plus a new `cutter` aspect for the
+--     header: what it is cutting or picking up, what it hands on, whether it is taking crop, and its
+--     load where that number is real. See issue #139.
+VDTelemetry.VERSION = 21
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
