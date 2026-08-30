@@ -541,11 +541,7 @@ private fun FieldDetail(
         // Ahead of the two below, because this field has a breakdown -- it is all one thing, and that
         // thing is nothing. Calling it too small would be the same mistake in a second place.
         isBareByRaster(row) ->
-          Text(
-            "Nothing growing on any of it — mulch and bare ground read the same here.",
-            color = VdtColors.DarkGray,
-            fontSize = 10.sp,
-          )
+          Text(bareGroundNote(row), color = VdtColors.DarkGray, fontSize = 10.sp)
 
         status == null ->
           Text(
@@ -857,19 +853,26 @@ fun FieldsSummary(
 /**
  * What condition the ground is in — the soil plane's answer, as shares of the field.
  *
- * Two readings only: plough and weeds. Fertilizer and lime are on the same plane and deliberately
+ * Three readings: plough, weeds and mulch. Fertilizer and lime are on the same plane and deliberately
  * left off, because Precision Farming replaces both with its own soil model and the mod already
  * withholds the vanilla numbers while PF is active — a row that appeared on some saves and not others
- * is a row nobody can learn to read.
+ * is a row nobody can learn to read. Mulch survives that test where they do not: PF leaves the
+ * stubble map alone, so the reading means the same thing on every save.
  *
  * The share is of the **whole field**, and it is a floor rather than a measurement: the mod classifies
- * each soil cell by priority (weeds beat stones beat needs-plowing), so ground that is both weedy and
- * unploughed is counted once, as weeds. Saying "at least" is the honest way to print that.
+ * each soil cell by priority (weeds beat stones beat needs-plowing beat mulched), so ground that is
+ * both weedy and unploughed is counted once, as weeds. Saying "at least" is the honest way to print
+ * that.
+ *
+ * All three print even at "none", including the mulch row, which is the only one where "none" is not
+ * a complaint. A row that came and went with its own value would be a row nobody could learn to read
+ * — the same objection that keeps lime and fertiliser off this section.
  */
 @Composable
 private fun ConditionSection(row: FieldRow) {
   val plow = plowShare(row)
   val weeds = weedShare(row)
+  val mulch = mulchShare(row)
   val info = row.info
   val sampledWeed = info?.weed.orEmpty()
   // Nothing measured and nothing sampled: the field has no condition worth a heading.
@@ -890,6 +893,9 @@ private fun ConditionSection(row: FieldRow) {
       sampledWeed.isNotEmpty() -> DetailLine("Weeds", "$sampledWeed at the field centre")
       else -> Unit
     }
+    // No point-sample fallback: `fieldInfo` carries no mulch reading, so this row is the raster's or
+    // it is absent. Nothing to add — a field with no soil breakdown has already said so above.
+    if (mulch != null) DetailLine("Mulched", shareLine(mulch))
     if (plow == null && weeds == null) {
       Text(
         "Sampling the soil — the first sweep takes a few seconds.",

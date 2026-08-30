@@ -185,6 +185,9 @@ class MapLayersModelTest {
     assertEquals(LayerKind.HARVEST, LayerKind.of("harvest"))
     assertEquals(LayerKind.NEEDS_PLOWING, LayerKind.of("needsPlowing"))
     assertEquals(LayerKind.CROP, LayerKind.of("crop"))
+    // The soil plane's mulch reading, added in `mapLayers` version 4 — newer than the committed
+    // captures, which is why no fixture above carries it.
+    assertEquals(LayerKind.MULCHED, LayerKind.of("mulched"))
     // Case-sensitive, and deliberately so: "HARVEST" is not a token the mod ever writes, and
     // accepting it would be inventing a second spelling of the contract.
     assertNull(LayerKind.of("HARVEST"))

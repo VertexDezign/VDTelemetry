@@ -22,12 +22,13 @@ class FieldsModelTest {
     crop: String = "",
     owned: Boolean = true,
     growth: FieldStatus? = null,
+    soil: FieldStatus? = null,
     info: FieldInfoEntry? = FieldInfoEntry(id = 1, crop = crop),
   ) = FieldRow(
     mapField = MapField(id = 1, name = "12", areaHa = 4.8f, ownerFarmId = if (owned) 1 else null),
     info = info,
     growth = growth,
-    soil = null,
+    soil = soil,
     crops = crops,
     mission = null,
     owned = owned,
@@ -116,6 +117,47 @@ class FieldsModelTest {
     val growing = row(growth = growthStatus("growing" to 400, blank = 30))
     assertTrue(!isBareByRaster(growing))
     assertEquals(FieldHeadline("Growing", fromRaster = true), fieldHeadline(growing))
+  }
+
+  /**
+   * A soil breakdown, whose blank cells are the ordinary case: the plane's 0 means "nothing to report
+   * here", so a clean field is all blank and every share is of the polygon rather than of the sample.
+   */
+  private fun soilStatus(vararg slices: Pair<String, Int>, blank: Int = 0) = FieldStatus(
+    id = 1,
+    cells = slices.sumOf { it.second },
+    blank = blank,
+    slices = slices.map { (kind, cells) -> FieldStatusSlice(kind, cells) },
+  )
+
+  @Test
+  fun namesTheMulchBehindAFieldTheGrowthPlaneCallsBlank() {
+    // The pair the whole reading exists for: the growth raster is blank either way, and only the soil
+    // plane can say which of the two blank fields this is.
+    val mulched = row(growth = growthStatus(blank = 500), soil = soilStatus("mulched" to 300, blank = 200))
+    assertEquals(0.6f, mulchShare(mulched))
+    assertEquals("Nothing growing on any of it — the ground is mulched.", bareGroundNote(mulched))
+
+    val bare = row(growth = growthStatus(blank = 500), soil = soilStatus(blank = 500))
+    assertEquals(0f, mulchShare(bare))
+    assertEquals("Nothing growing on any of it.", bareGroundNote(bare))
+
+    // Both are still "Bare" in one word: the headline is the growth plane's answer, and it has not
+    // changed. The mulch is the explanation underneath it.
+    assertEquals(FieldHeadline("Bare", fromRaster = true), fieldHeadline(mulched))
+  }
+
+  @Test
+  fun saysNothingAboutMulchWithoutASoilRasterToSayItFrom() {
+    // No soil plane subscribed: null, not zero -- and the sentence falls back to what the growth plane
+    // alone can support rather than claiming the field is unmulched.
+    val unswept = row(growth = growthStatus(blank = 500))
+    assertEquals(null, mulchShare(unswept))
+    assertEquals("Nothing growing on any of it.", bareGroundNote(unswept))
+
+    // Too few cells in the polygon to quote a share off, exactly as for the plough and the weeds.
+    val thin = row(soil = soilStatus("mulched" to MIN_STATUS_CELLS - 1))
+    assertEquals(null, mulchShare(thin))
   }
 
   @Test
