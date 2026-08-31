@@ -187,6 +187,16 @@ private const val ART_SHARE = 0.55f
 /** What [TankLine] comes to, reserved out of the height before the art is given its cap. */
 private val TANK_LINE_HEIGHT = 30.dp
 
+/**
+ * What [TankLine] is given where it stands in for the picture, as the middle of the three columns.
+ *
+ * Reserved out of the *width* there, exactly as [TANK_LINE_HEIGHT] is out of the height: it is a
+ * sibling of the two flanks, and a middle column with no width of its own would either push the
+ * flanks off the end of the row or be squeezed to nothing. Set by its own fullest line — "100%" at
+ * 18sp beside "12,000 of 12,000 l" at 10sp — and it ellipsizes below that rather than overflowing.
+ */
+private val TANK_LINE_WIDTH = 150.dp
+
 /** What [BottomStrip] comes to, likewise: it is a sibling of the columns, not part of them. */
 private val BOTTOM_STRIP_HEIGHT = 25.dp
 
@@ -253,8 +263,13 @@ internal fun CombineSection(
     // — the same call the mixer wagon's section makes, for the same reason: the machine is orientation
     // and the figures are the reason to look. A shrunk 3:1 machine is a green smear either way.
     val showArt = artWidth / COMBINE_ART_ASPECT >= MIN_ART_HEIGHT
-    val flank =
-      if (showArt) (bodyWidth - COLUMN_GAP * 2 - artWidth) / 2 else (bodyWidth - COLUMN_GAP) / 2
+    // What the middle column costs the flanks. Dropping the picture does not empty that column — the
+    // tank's figures take its place — so the row still spends two gaps and a middle on the way to the
+    // flanks, and only the middle's width changes. Charging it one gap and nothing else was worth
+    // about 160dp of flank the row did not have, and a Row whose fixed children overrun it does not
+    // shrink them: it runs the last one off the end.
+    val middle = if (showArt) artWidth else TANK_LINE_WIDTH
+    val flank = (bodyWidth - COLUMN_GAP * 2 - middle) / 2
     // Two or three columns only while the flanks are wide enough to hold a figure's value on one line.
     // That is a stricter test than the width alone, and it is the one that actually decides.
     val threeColumn = bodyWidth >= THREE_COLUMN_FROM && flank >= FLANK_MIN
@@ -270,8 +285,9 @@ internal fun CombineSection(
           if (showArt) {
             MachineColumn(rig, columnHeight - TANK_LINE_HEIGHT, Modifier.width(artWidth).fillMaxHeight())
           } else {
-            // No picture, so the tank's figures still need a home; they lead the readouts instead.
-            TankLine(rig)
+            // No picture, so the tank's figures still need a home; they lead the readouts instead —
+            // in the width the flanks were measured against, so the row adds up.
+            Box(Modifier.width(TANK_LINE_WIDTH), contentAlignment = Alignment.Center) { TankLine(rig) }
           }
           WorkColumn(rig, target, onCommand, compact, Modifier.width(flank).fillMaxHeight())
         }
