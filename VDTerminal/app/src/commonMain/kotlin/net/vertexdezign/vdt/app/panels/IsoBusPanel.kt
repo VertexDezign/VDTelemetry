@@ -399,19 +399,45 @@ fun IsoBusPanel(
   val machine = if (nodes.isEmpty()) isoBusMachine(vehicle, slot) else selected?.machine
   val mixer = machine?.mixer
 
-  // The harvesting rig is resolved from the WHOLE rig rather than from the selected node, because its
-  // two halves are two machines: the combine threshes and the header cuts, and the game very often has
-  // the header selected — the forage-harvester capture does. Either node opens the same section, so
-  // tapping between them on the diagram changes which machine the generic controls address without the
-  // screen under them changing.
-  val combine = combineRigOf(if (nodes.isEmpty()) listOfNotNull(machine) else nodes.map { it.machine })
+  // The harvesting rig is resolved from the WHOLE rig rather than from the machine this tile is
+  // showing, because its two halves are two machines: the combine threshes and the header cuts, and
+  // the game very often has the header selected — the forage-harvester capture does. Either node opens
+  // the same section, so tapping between them on the diagram changes which machine the generic controls
+  // address without the screen under them changing.
+  //
+  // With no diagram there is no tapping between them, but the halves are still two machines and the
+  // pinned one is as likely to be the header: resolving from it alone gave a header tile a screen with
+  // no tank, no throughput and no straw switch, and a combine tile one with no cut width. What the pin
+  // decides is only *whether* the screen opens — a tile pinned to a trailer must not sprout the
+  // harvester's screen because there is a harvester somewhere behind it.
+  val pinnedHalf = machine != null && (machine.harvest != null || machine.cutter != null)
+  val combine = when {
+    nodes.isNotEmpty() -> combineRigOf(nodes.map { it.machine })
+    pinnedHalf && vehicle != null -> combineRigOf(rigMachines(vehicle))
+    else -> null
+  }
   // The straw command is aimed at the machine that threshes, never at whatever the diagram has
   // selected: on a rig whose header is selected, the target below names the header, which has no
   // swath to set.
   val combineTarget = when {
     combine == null -> null
-    nodes.isEmpty() -> slot?.target ?: ControlTarget.VEHICLE
-    else -> nodes.firstOrNull { it.machine === combine.combine }?.let(::controlTargetOf)
+
+    nodes.isNotEmpty() -> nodes.firstOrNull { it.machine === combine.combine }?.let(::controlTargetOf)
+
+    // Pinned, so there is no node path to name the other half by. The tile's own target is right only
+    // where the tile IS the thresher; past that only the two addresses that need no path are left —
+    // the vehicle itself (a self-propelled harvester with the header pinned in front of it), and the
+    // game's own selection. A thresher neither names is left unaddressed rather than aimed at the
+    // header, which is the machine the tile's target would otherwise have named.
+    machine?.harvest != null -> slot?.target ?: ControlTarget.VEHICLE
+
+    combine.combine == null -> null
+
+    combine.combine.position.isEmpty() -> ControlTarget.VEHICLE
+
+    combine.combine.selected -> ControlTarget.SELECTED
+
+    else -> null
   }
 
   BoxWithConstraints(modifier) {
