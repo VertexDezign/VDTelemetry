@@ -20,6 +20,7 @@
 ---@field discharge DischargeModel?
 ---@field tipping TippingModel?
 ---@field harvest HarvestModel?
+---@field cutter CutterModel?
 ---@field workMode WorkModeModel?
 ---@field workWidth WorkWidthModel?
 ---@field workAreas WorkAreaModel[]?

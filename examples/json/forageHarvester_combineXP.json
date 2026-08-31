@@ -1,0 +1,330 @@
+{
+  "vehicle": {
+    "ai": {
+      "active": true
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 168,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "implement": [
+      {
+        "brand": {
+          "name": "JOHNDEERE",
+          "title": "John Deere"
+        },
+        "type": "cutter",
+        "workAreas": [
+          {
+            "type": "CUTTER",
+            "index": 1,
+            "active": true,
+            "processing": false,
+            "unit": "m",
+            "shape": [
+              0.60891,
+              0.40637,
+              0.60461,
+              0.40728,
+              0.60887,
+              0.40618
+            ],
+            "width": 9
+          }
+        ],
+        "isTurnedOn": true,
+        "foldable": "EXTENDED",
+        "cutter": {
+          "fillType": "CHAFF",
+          "cutWhileRaised": false,
+          "fruitType": "SILAGEMAIZE",
+          "title": "Häckselgut",
+          "strawRatio": 1,
+          "windrow": false,
+          "working": false
+        },
+        "lowered": true,
+        "mass": {
+          "value": 4,
+          "empty": 4
+        },
+        "name": "John Deere 390 Plus | John Deere",
+        "position": "FRONT",
+        "schema": {
+          "name": "COMBINE_HEADER",
+          "attacherJoint": [
+            {
+              "y": 0,
+              "x": 1,
+              "liftedOffsetY": 5,
+              "liftedOffsetX": 0,
+              "rotation": 0,
+              "invertX": false
+            }
+          ],
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "selection": {
+          "selectable": true,
+          "selected": true
+        },
+        "jointDescIndex": 1,
+        "wearable": {
+          "wear": 38,
+          "damage": 5,
+          "dirt": 33,
+          "unit": "%"
+        }
+      }
+    ],
+    "fillUnits": {
+      "fillUnit": [
+        {
+          "type": "SILAGE_ADDITIVE",
+          "title": "Siliermittel",
+          "fillLevelPercentage": 67,
+          "value": 13.364,
+          "precision": 2,
+          "capacity": 20,
+          "unit": "l"
+        }
+      ]
+    },
+    "mass": {
+      "value": 27.002,
+      "empty": 20.3
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "speed": {
+      "value": 4.76,
+      "direction": "FORWARD",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": true,
+      "targetSpeed": 41
+    },
+    "operatingTime": {
+      "value": "5.27",
+      "unit": "h"
+    },
+    "harvest": {
+      "hectares": 23.23,
+      "fruitType": "SILAGEMAIZE",
+      "chopperAvailable": false,
+      "swathActive": false,
+      "fillType": "CHAFF",
+      "swathAvailable": false,
+      "combineXp": {
+        "highMoisture": false,
+        "throughput": 64.87,
+        "yield": 43.45,
+        "load": 0.39
+      },
+      "title": "Häckselgut",
+      "rainWarning": false,
+      "bufferCombine": true,
+      "hectaresSession": 0.01,
+      "filling": true,
+      "rainBlocked": false
+    },
+    "isTurnedOn": true,
+    "type": "combineDrivable",
+    "discharge": {
+      "fillUnitIndex": 1,
+      "canToggle": false,
+      "hasObject": false,
+      "allowed": true,
+      "state": "OBJECT",
+      "nodeIndex": 3,
+      "hitTerrain": false
+    },
+    "motor": {
+      "rpm": {
+        "value": 1598,
+        "max": 1860,
+        "min": 0
+      },
+      "direction": "FORWARD",
+      "parkingBrake": false,
+      "temperatur": {
+        "value": 88,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "state": "ON",
+      "maxSpeed": {
+        "backward": 20,
+        "forward": 41
+      },
+      "awd": true,
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "diffLock": {
+        "front": false,
+        "back": false
+      },
+      "load": {
+        "value": 64.42,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "fillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 90,
+          "capacity": 90,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 64,
+          "value": 956,
+          "usage": 351.07,
+          "capacity": 1500,
+          "unit": "l"
+        }
+      }
+    },
+    "selection": {
+      "selectable": true,
+      "selected": false
+    },
+    "pipe": {
+      "state": "EXTENDED",
+      "current": 2,
+      "numStates": 2,
+      "target": 2
+    },
+    "name": "John Deere 9900 (KI-Helfer G)",
+    "ads": {
+      "electrical": {
+        "unit": "V",
+        "systemVoltage": 14.2
+      },
+      "transmissionTemperatur": {
+        "value": 73,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "inspected": {
+        "service": 100,
+        "condition": 100,
+        "complete": false
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "warning": "OFF",
+        "battery": "OFF",
+        "service": "OFF",
+        "engine": "OFF",
+        "brakes": "OFF"
+      },
+      "load": {
+        "value": 62,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 12.5,
+        "hours": 5.3
+      }
+    },
+    "brand": {
+      "name": "JOHNDEERE",
+      "title": "John Deere"
+    },
+    "wearable": {
+      "wear": 63,
+      "damage": 0,
+      "dirt": 32,
+      "unit": "%"
+    },
+    "schema": {
+      "name": "HARVESTER",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    }
+  },
+  "version": "21",
+  "environment": {
+    "date": "01.10.2025",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 16,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "time": "13:29",
+    "pda": {
+      "height": 2048,
+      "player": {
+        "heading": 168,
+        "posX": 0.60624071955681,
+        "farmId": 1,
+        "posZ": 0.40446656942368,
+        "headingUnit": "°"
+      },
+      "filename": "C:/users/steamuser/Documents/My Games/FarmingSimulator2025/mods/FS25_Mindenerwald/maps/overview.dds",
+      "width": 2048
+    }
+  }
+}

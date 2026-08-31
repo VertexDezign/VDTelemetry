@@ -1,0 +1,346 @@
+{
+  "vehicle": {
+    "ai": {
+      "active": true
+    },
+    "workAreas": [
+      {
+        "type": "COMBINESWATH",
+        "index": 1,
+        "active": true,
+        "processing": false,
+        "unit": "m",
+        "shape": [
+          0.96589,
+          0.3533,
+          0.96582,
+          0.35282,
+          0.96632,
+          0.35325
+        ],
+        "width": 1
+      },
+      {
+        "type": "COMBINECHOPPER",
+        "index": 2,
+        "active": true,
+        "processing": false,
+        "unit": "m",
+        "shape": [
+          0.96654,
+          0.35297,
+          0.96904,
+          0.35093,
+          0.96947,
+          0.35432
+        ],
+        "width": 7
+      }
+    ],
+    "fillUnits": {
+      "fillUnit": [
+        {
+          "type": "SOYBEAN",
+          "title": "Sojabohnen",
+          "fillLevelPercentage": 87,
+          "value": 9525.478,
+          "capacity": 11000,
+          "unit": "l"
+        }
+      ]
+    },
+    "selection": {
+      "selectable": true,
+      "selected": true
+    },
+    "speed": {
+      "value": 9.92,
+      "direction": "FORWARD",
+      "unit": "km/h"
+    },
+    "discharge": {
+      "fillUnitIndex": 1,
+      "canToggle": true,
+      "hasObject": false,
+      "allowed": true,
+      "state": "OFF",
+      "nodeIndex": 1,
+      "hitTerrain": false
+    },
+    "wearable": {
+      "wear": 100,
+      "damage": 0,
+      "dirt": 86,
+      "unit": "%"
+    },
+    "harvest": {
+      "hectares": 90.36,
+      "fruitType": "SOYBEAN",
+      "chopperAvailable": true,
+      "swathActive": false,
+      "fillType": "SOYBEAN",
+      "swathAvailable": true,
+      "combineXp": {
+        "highMoisture": false,
+        "throughput": 43.83,
+        "yield": 6.22,
+        "load": 0.55
+      },
+      "title": "Sojabohnen",
+      "rainWarning": false,
+      "bufferCombine": false,
+      "hectaresSession": 0.1,
+      "filling": true,
+      "rainBlocked": false
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 262,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "type": "combineDrivable",
+    "cruiseControl": {
+      "active": true,
+      "targetSpeed": 10
+    },
+    "brand": {
+      "name": "JOHNDEERE",
+      "title": "John Deere"
+    },
+    "implement": [
+      {
+        "brand": {
+          "name": "CRESSONI",
+          "title": "Cressoni"
+        },
+        "type": "cutter",
+        "workAreas": [
+          {
+            "type": "CUTTER",
+            "index": 1,
+            "active": true,
+            "processing": false,
+            "unit": "m",
+            "shape": [
+              0.96225,
+              0.3553,
+              0.9618,
+              0.35181,
+              0.96244,
+              0.35528
+            ],
+            "width": 7.2
+          }
+        ],
+        "isTurnedOn": true,
+        "foldable": "EXTENDED",
+        "cutter": {
+          "fillType": "SOYBEAN",
+          "cutWhileRaised": false,
+          "fruitType": "SOYBEAN",
+          "title": "Sojabohnen",
+          "strawRatio": 1,
+          "windrow": false,
+          "working": true
+        },
+        "lowered": true,
+        "mass": {
+          "value": 2.85,
+          "empty": 2.85
+        },
+        "name": "Cressoni CRX 7.20",
+        "position": "FRONT",
+        "schema": {
+          "name": "COMBINE_HEADER",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "selection": {
+          "selectable": true,
+          "selected": false
+        },
+        "jointDescIndex": 1,
+        "wearable": {
+          "wear": 97,
+          "damage": 33,
+          "dirt": 100,
+          "unit": "%"
+        }
+      }
+    ],
+    "motor": {
+      "rpm": {
+        "value": 2159,
+        "max": 2200,
+        "min": 0
+      },
+      "direction": "FORWARD",
+      "parkingBrake": false,
+      "temperatur": {
+        "value": 90,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "state": "ON",
+      "maxSpeed": {
+        "backward": 15,
+        "forward": 42
+      },
+      "awd": true,
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "diffLock": {
+        "front": false,
+        "back": false
+      },
+      "load": {
+        "value": 69.6,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "fillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 33,
+          "capacity": 33,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 64,
+          "value": 515,
+          "usage": 219.91,
+          "capacity": 800,
+          "unit": "l"
+        }
+      }
+    },
+    "foldable": "EXTENDED",
+    "mass": {
+      "value": 25.244,
+      "empty": 13.945
+    },
+    "pipe": {
+      "state": "RETRACTED",
+      "current": 1,
+      "numStates": 2,
+      "target": 1
+    },
+    "name": "John Deere T670 (KI-Helfer F)",
+    "ads": {
+      "electrical": {
+        "unit": "V",
+        "systemVoltage": 14.1
+      },
+      "transmissionTemperatur": {
+        "value": 74,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "inspected": {
+        "service": 100,
+        "condition": 90,
+        "complete": false
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "warning": "OFF",
+        "battery": "OFF",
+        "service": "WARN",
+        "engine": "OFF",
+        "brakes": "OFF"
+      },
+      "load": {
+        "value": 63,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 12.5,
+        "hours": 13.5
+      }
+    },
+    "operatingTime": {
+      "value": "27.96",
+      "unit": "h"
+    },
+    "lights": {
+      "beaconLight": true,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "schema": {
+      "name": "HARVESTER",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    },
+    "isTurnedOn": true
+  },
+  "version": "21",
+  "environment": {
+    "date": "01.10.2025",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 16,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "time": "13:26",
+    "pda": {
+      "height": 2048,
+      "player": {
+        "heading": 262,
+        "posX": 0.96452271938324,
+        "farmId": 1,
+        "posZ": 0.35323178768158,
+        "headingUnit": "°"
+      },
+      "filename": "C:/users/steamuser/Documents/My Games/FarmingSimulator2025/mods/FS25_Mindenerwald/maps/overview.dds",
+      "width": 2048
+    }
+  }
+}

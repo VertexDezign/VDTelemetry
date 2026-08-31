@@ -7,6 +7,10 @@
 -- cover, wearable, schema, selection, discharge, tipping, harvest, workMode, workWidth, workAreas,
 -- baleCounter, sowing, spraying, plow, tillage, mixer); JSON is key-addressed so order is cosmetic.
 --
+-- harvest/cutter are the two halves of a harvest: the combine says what reaches the tank, the header
+-- says what comes off the field, and a machine can carry either without the other (a header lying on
+-- the ground is a cutter with no combine; a stationary thresher is the reverse).
+--
 -- sowing/spraying/plow/tillage/mixer are the per-class ISOBUS aspects (issues #58, #113). They are
 -- what the panel dispatches on: a section is drawn iff its aspect is present, which is why they must
 -- stay nil-when-absent like everything else here. A machine can carry more than one -- a fertilizing
@@ -34,6 +38,7 @@ function VDT.Aspects.apply(object, model)
   model.discharge = VDT.Discharge.collect(object)
   model.tipping = VDT.Tipping.collect(object)
   model.harvest = VDT.Harvest.collect(object)
+  model.cutter = VDT.Cutter.collect(object)
   model.workMode = VDT.Work.collectMode(object)
   model.workWidth = VDT.Work.collectWidth(object)
   model.workAreas = VDT.WorkAreas.collect(object)
