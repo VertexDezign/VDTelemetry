@@ -125,6 +125,9 @@ local sourceFiles = {
   "src/command/TargetResolver.lua",
   "src/command/PipeCoverControl.lua",
   "src/command/TrailerControl.lua",
+  -- The combine's straw toggle; asks aspects/Harvest.lua for the engine's own verdict on whether the
+  -- toggle is allowed, so it is sourced after the aspects.
+  "src/command/CombineControl.lua",
   -- Drives the game's own machine selection (and, in the same call, the Cylindered control group).
   -- Addresses a machine by the rig diagram's node path rather than by a target token, so it resolves
   -- its own walk and does not use TargetResolver.
@@ -267,7 +270,7 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     load where that number is real. Plus `harvest.combineXp` when FS25_CombineXP is installed:
 --     throughput, yield and drum load off the mod's own measurement, its high-moisture flag, and the
 --     speed its limiter is allowing. See issue #139.
-VDTelemetry.VERSION = 21
+VDTelemetry.VERSION = 22
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

@@ -17,6 +17,8 @@
 -- but from the join stream on a client (Combine:onReadStream calls setWorkedHectars(_, true)), so on
 -- a client the session counts from when that player joined, not from when the machine was loaded.
 -- Both numbers are exported rather than only the difference, so a consumer can say which it means.
+-- `canToggleSwath` survives too: both availability flags are read from the XML at load, and the fill
+-- type behind its crop test is the fill unit's, which syncs like any other.
 --
 -- Deliberately NOT collected:
 --   * `getCombineLoadPercentage()` -- it averages `cutter:getCutterLoad()` over the attached cutters,
@@ -35,6 +37,48 @@ VDT.Harvest = {}
 -- reports it whenever it has not threshed anything yet this session.
 local FRUIT_TYPE_UNKNOWN = 1
 local FILL_TYPE_UNKNOWN = 1
+
+-- Whether the engine would accept the straw toggle right now -- the same three tests the game's own
+-- TOGGLE_CHOPPER key passes before it flips the swath, in the same order.
+--
+-- Two of them are the machine: `Combine:onRegisterActionEvents` only binds the key when the swath AND
+-- the chopper are both available, so a machine that can only do one of the two offers no choice to
+-- make. The third is the CROP, and it is the one no consumer could work out for itself:
+-- `Combine:actionEventToggleChopper` looks up the fruit behind whatever is in the tank and refuses --
+-- with a blinking warning, having changed nothing -- when that fruit has no windrow. Maize is the
+-- everyday case. An empty tank names no fruit and is allowed, which is how a combine starting a pass
+-- can be set up either way.
+--
+-- Exported as one boolean rather than left to the app to assemble, for the reason `discharge.reason`
+-- is: the refusal is the engine's own verdict, and re-deriving it here from `hasWindrow` would be a
+-- second implementation of a rule that lives in exactly one place. Public because the write side asks
+-- it again at command time (command/CombineControl.lua) -- state moves between an export and the
+-- command answering it.
+---@param object table a vehicle or implement
+---@return boolean false on anything that is not a combine
+function VDT.Harvest.canToggleSwath(object)
+  local spec = object.spec_combine
+  if spec == nil then
+    return false
+  end
+  if spec.swath == nil or spec.swath.isAvailable ~= true then
+    return false
+  end
+  if spec.chopper == nil or spec.chopper.isAvailable ~= true then
+    return false
+  end
+  local fillUnitIndex = spec.bufferFillUnitIndex or spec.fillUnitIndex
+  if fillUnitIndex == nil or object.getFillUnitFillType == nil then
+    return true
+  end
+  local fruitTypeIndex = g_fruitTypeManager:getFruitTypeIndexByFillTypeIndex(object:getFillUnitFillType(fillUnitIndex))
+  if fruitTypeIndex == nil or fruitTypeIndex == FRUIT_TYPE_UNKNOWN then
+    -- Nothing in the tank names no fruit, and the engine lets the toggle through.
+    return true
+  end
+  local fruitType = g_fruitTypeManager:getFruitTypeByIndex(fruitTypeIndex)
+  return fruitType ~= nil and fruitType.hasWindrow == true
+end
 
 ---@param object table
 ---@return HarvestModel|nil nil when the object is not a combine
@@ -58,6 +102,7 @@ function VDT.Harvest.collect(object)
   if spec.chopper ~= nil then
     model.chopperAvailable = spec.chopper.isAvailable
   end
+  model.canToggleSwath = VDT.Harvest.canToggleSwath(object)
 
   -- A buffer combine (forage harvester, beet/potato harvester) has an infinite fill unit: it holds
   -- what it cuts only until the pipe passes it on, so its "tank level" is not a level at all.

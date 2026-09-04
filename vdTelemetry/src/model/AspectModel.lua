@@ -105,6 +105,9 @@
 ---@field swathActive boolean
 ---@field swathAvailable boolean?
 ---@field chopperAvailable boolean?
+---@field canToggleSwath boolean the engine's own verdict on the straw toggle: the machine offers both
+---  a swath and a chopper, AND the crop in the tank drops a windrow. False is why the game's own key
+---  would refuse, so a consumer offering the toggle gates on this rather than on the two flags above
 ---@field filling boolean crop is entering the tank right now
 ---@field bufferCombine boolean?
 ---@field hectares number?

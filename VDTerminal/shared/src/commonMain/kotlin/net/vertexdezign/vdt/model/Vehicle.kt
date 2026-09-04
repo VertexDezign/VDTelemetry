@@ -28,6 +28,7 @@ data class Vehicle(
   val discharge: Discharge? = null,
   val tipping: Tipping? = null,
   val harvest: Harvest? = null,
+  val cutter: Cutter? = null,
   val workMode: WorkMode? = null,
   val workWidth: WorkWidth? = null,
   val workAreas: List<WorkArea> = emptyList(),
@@ -569,15 +570,145 @@ data class Tipping(
 enum class TipState { CLOSED, OPENING, OPEN, CLOSING }
 
 /**
- * Combine straw handling: drop a swath to bale later, or chop it back onto the field. The
- * `*Available` flags say whether this machine offers the choice at all, which is what tells a
- * consumer whether to show a toggle or nothing.
+ * The combine: what it is threshing, whether crop is flowing into the tank, how much ground it has
+ * covered, what it does with the straw, and whether the weather is about to stop it.
+ *
+ * Present on the machine carrying the `Combine` specialization — self-propelled harvesters, but also
+ * towed and stationary ones — which is **not** the machine that carries [Cutter]. The header is its
+ * own node on the rig, and the two aspects answer different questions: this one says what is going
+ * into the tank, the header says what is coming off the field, and on a converting machine (maize
+ * into chaff) those are different materials.
+ *
+ * The straw pair is what a harvester operator actually changes mid-field. [swathActive] is the live
+ * state; [swathAvailable] and [chopperAvailable] say whether the machine offers each at all. Neither
+ * of those is the gate for a *control*, though — [canToggleSwath] is; see its own note.
+ *
+ * [hectares] is the machine's lifetime figure and [hectaresSession] the difference from where it
+ * started. Both are exported rather than only the difference, because "started" means different
+ * things in multiplayer: on the host it comes from the savegame, on a joined client from the join
+ * stream, so a client's session counts from when that player joined.
  */
 @Serializable
 data class Harvest(
   val swathActive: Boolean = false,
   val swathAvailable: Boolean? = null,
   val chopperAvailable: Boolean? = null,
+  /**
+   * Whether the engine would accept the straw toggle right now — the machine offers both a swath and
+   * a chopper **and** the crop in the tank drops a windrow.
+   *
+   * The gate a control uses, rather than the two `*Available` flags: the game binds its own
+   * `TOGGLE_CHOPPER` key only when both are true, and then refuses anyway — with a blinking warning,
+   * having changed nothing — on a crop with no windrow. Maize is the everyday case. An empty tank
+   * names no crop and is allowed.
+   *
+   * Null on an export from before mod version 22, where the question had no answer.
+   */
+  val canToggleSwath: Boolean? = null,
+  /** Crop is entering the tank right now — not the same as the header being over crop. */
+  val filling: Boolean = false,
+  /**
+   * A buffer combine — a forage harvester, a beet or potato harvester — holds what it cuts only until
+   * the pipe passes it on, so its fill unit is not a tank and its level is not a level. What such a
+   * machine *does* report a level for is something else entirely: the 9900i's only fill unit is its
+   * silage-additive tank.
+   */
+  val bufferCombine: Boolean? = null,
+  /** Lifetime worked area, in hectares. */
+  val hectares: Double? = null,
+  /** Worked area since the machine's counter was last based — see the class note. */
+  val hectaresSession: Double? = null,
+  /** The crop token being threshed (`SOYBEAN`, `SILAGEMAIZE`), kept from the last valid input. */
+  val fruitType: String? = null,
+  /** What the tank is taking — `CHAFF` where the machine converts. Joins this to the matching [FillUnit]. */
+  val fillType: String? = null,
+  /** Localized name of [fillType], the one name here that can be printed as-is. */
+  val title: String? = null,
+  /** Rain is stopping the threshing now. */
+  val rainBlocked: Boolean? = null,
+  /**
+   * The engine's earlier warning that rain is about to stop it — it fires at a tenth of the rainfall
+   * the stop needs, which is roughly half an hour of notice. A machine whose XML allows threshing in
+   * the rain answers false to both.
+   */
+  val rainWarning: Boolean? = null,
+  /** Combine XP's own measure of the machine, when that mod is installed. See [CombineXp]. */
+  val combineXp: CombineXp? = null,
+)
+
+/**
+ * FS25_CombineXP's model of the harvester: it measures what the drum is actually taking, compares it
+ * against a rated performance derived from the machine's power, and caps the harvesting speed when
+ * the drum is over-fed. These are the three numbers the mod's own HUD prints beside the speedometer,
+ * plus the two states behind them.
+ *
+ * The mod's estimates, not game state read back — which is why they are nested here rather than sat
+ * flat beside the engine's own fields, and why [load] does not collide with [Cutter.load]. Every
+ * field is nullable: the mod divides by measured quantities that can be zero, and a measurement it
+ * could not make is dropped rather than encoded as a number.
+ */
+@Serializable
+data class CombineXp(
+  /** Tonnes per hour, as the mod's HUD prints it. */
+  val throughput: Double? = null,
+  /** Tonnes per hectare over the measured window. */
+  val yield: Double? = null,
+  /** `0..1` of the machine's rated capacity. The mod's HUD shows this ×100 as a percentage. */
+  val load: Double? = null,
+  /** The crop is too damp for full speed right now. */
+  val highMoisture: Boolean? = null,
+  /**
+   * km/h the limiter is currently allowing. **Absent on a multiplayer client** — the mod computes it
+   * server-side and never streams it, so a client would read the load-time default rather than the
+   * real limit.
+   */
+  val speedLimit: Double? = null,
+)
+
+/**
+ * The header — what the machine at the front is cutting or picking up, and how hard it is working.
+ *
+ * Sits on combine headers, on forage-harvester headers (which convert their crop into `CHAFF`) and on
+ * the pickups that feed both, so it is an aspect of the *implement*, next to [Harvest] on the machine
+ * pulling it. It is also the only aspect that answers "am I actually cutting anything": the work areas
+ * say the header is over ground and [Vehicle.isTurnedOn] says the drum is spinning, and neither says
+ * crop is being taken.
+ */
+@Serializable
+data class Cutter(
+  /**
+   * Crop taken within the last 300 ms, which is the engine's own window rather than this frame.
+   * The underlying flag is per-frame and cleared again at the end of work-area processing, so an
+   * export poll lands on a false frame often enough to matter.
+   */
+  val working: Boolean = false,
+  /** Picking up a windrow rather than cutting standing crop. */
+  val windrow: Boolean = false,
+  /**
+   * The header keeps cutting with the hydraulics up. Draper and pickup headers declare it, and without
+   * it a raised header that is still taking crop looks like a fault in the readout.
+   */
+  val cutWhileRaised: Boolean = false,
+  /** The crop under the header right now. Null over bare ground — [Harvest.fruitType] keeps the last one. */
+  val fruitType: String? = null,
+  /** What the header hands to the machine behind it. Not the crop's own fill type on a converting header. */
+  val fillType: String? = null,
+  /** Localized name of [fillType]. */
+  val title: String? = null,
+  /** What a windrow pickup is lifting — the only thing that identifies a pass with no standing crop. */
+  val inputFillType: String? = null,
+  /**
+   * How much straw this header leaves behind, as a share of what the crop would drop. A machine
+   * constant from the XML, and what explains why two headers on the same field produce different
+   * swaths.
+   */
+  val strawRatio: Double? = null,
+  /**
+   * How hard the header is working, `0..1`. **Absent on a multiplayer client**, where the number it
+   * comes from is written inside server-side work-area processing and never sent — absent meaning
+   * unknown, where a hard zero would mean "not loaded", which is a different and wrong claim.
+   */
+  val load: Double? = null,
 )
 
 /** The discrete mode a tool is switched to. [name] comes from the vehicle XML and may be absent. */
@@ -989,6 +1120,7 @@ data class Implement(
   val discharge: Discharge? = null,
   val tipping: Tipping? = null,
   val harvest: Harvest? = null,
+  val cutter: Cutter? = null,
   val workMode: WorkMode? = null,
   val workWidth: WorkWidth? = null,
   val workAreas: List<WorkArea> = emptyList(),

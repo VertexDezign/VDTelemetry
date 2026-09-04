@@ -22,6 +22,7 @@ import net.vertexdezign.vdt.model.Vehicle
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -154,6 +155,107 @@ class VdtModelTest {
     assertEquals("cutter", v.implement[0].type)
 
     assertJsonRoundTrips(data)
+  }
+
+  @Test
+  fun parsesACombineMidPass() {
+    // A T670 threshing soybean with Combine XP installed, captured on a joined multiplayer client.
+    val v = assertNotNull(capture("combine_combineXP.json").vehicle)
+    val harvest = assertNotNull(v.harvest)
+
+    // What is going into the tank. Soybean does not convert, so the crop and the material match —
+    // which is the case the forage-harvester capture below is the counterexample to.
+    assertEquals("SOYBEAN", harvest.fruitType)
+    assertEquals("SOYBEAN", harvest.fillType)
+    assertEquals("Sojabohnen", harvest.title)
+    assertTrue(harvest.filling)
+    assertEquals(false, harvest.bufferCombine)
+
+    // Straw: this machine offers both, and it is set to chop.
+    assertFalse(harvest.swathActive)
+    assertEquals(true, harvest.swathAvailable)
+    assertEquals(true, harvest.chopperAvailable)
+    // Absent, not false: the capture predates mod version 22, where the question first had an answer.
+    // Null is what tells a control to stay out of the way rather than to draw itself disabled.
+    assertNull(harvest.canToggleSwath)
+
+    // A lifetime figure and the difference from where this client's session started. Both are
+    // exported because "started" means different things on a host and on a client.
+    assertEquals(90.36, harvest.hectares)
+    assertEquals(0.1, harvest.hectaresSession)
+
+    // Neither rain state is set; the field is dry.
+    assertEquals(false, harvest.rainBlocked)
+    assertEquals(false, harvest.rainWarning)
+
+    val xp = assertNotNull(harvest.combineXp)
+    assertEquals(43.83, xp.throughput)
+    assertEquals(6.22, xp.yield)
+    assertEquals(0.55, xp.load)
+    assertEquals(false, xp.highMoisture)
+    // Server-side only, and this is a client: absent rather than the mod's load-time default of 15.
+    assertNull(xp.speedLimit)
+
+    // The header is a SEPARATE machine, and it carries the whole of the cutter aspect.
+    val header = v.implement.single()
+    assertNull(header.harvest)
+    val cutter = assertNotNull(header.cutter)
+    assertTrue(cutter.working)
+    assertFalse(cutter.windrow)
+    assertFalse(cutter.cutWhileRaised)
+    assertEquals("SOYBEAN", cutter.fruitType)
+    assertEquals("SOYBEAN", cutter.fillType)
+    assertEquals("Sojabohnen", cutter.title)
+    assertEquals(1.0, cutter.strawRatio)
+    // Written inside server-side work-area processing and never streamed, so absent on this client.
+    assertNull(cutter.load)
+    // The cut width lives on the header's own work area; the combine's two areas are the straw
+    // behind it, which is a different width in both directions.
+    assertEquals(7.2f, header.workAreas.single { it.type == "CUTTER" }.width)
+    assertEquals(setOf("COMBINESWATH", "COMBINECHOPPER"), v.workAreas.mapNotNull { it.type }.toSet())
+  }
+
+  @Test
+  fun parsesAForageHarvesterMidPass() {
+    // A 9900i chopping silage maize, same session and same client as the combine above. It is the
+    // counterexample on both of the things that capture could not show.
+    val v = assertNotNull(capture("forageHarvester_combineXP.json").vehicle)
+    val harvest = assertNotNull(v.harvest)
+
+    // One: the machine CONVERTS, so what it cuts and what it carries are different materials — and
+    // only the second of the two has a name that can be printed.
+    assertEquals("SILAGEMAIZE", harvest.fruitType)
+    assertEquals("CHAFF", harvest.fillType)
+    assertEquals("Häckselgut", harvest.title)
+
+    // Two: it is a BUFFER combine, so its fill unit is not a tank. What it does report a level for is
+    // the silage-additive tank, which a grain readout must never draw as the load.
+    assertEquals(true, harvest.bufferCombine)
+    assertEquals("SILAGE_ADDITIVE", v.fillUnits?.fillUnit?.single()?.type)
+
+    // No swath and no chopper: a forage harvester places no straw, so there is no choice to offer.
+    assertEquals(false, harvest.swathAvailable)
+    assertEquals(false, harvest.chopperAvailable)
+    assertFalse(harvest.swathActive)
+
+    val xp = assertNotNull(harvest.combineXp)
+    assertEquals(64.87, xp.throughput)
+    assertEquals(43.45, xp.yield)
+    assertEquals(0.39, xp.load)
+
+    // The game has the HEADER selected, not the machine pulling it — which is why the app resolves
+    // its combine screen from the whole rig rather than from whatever node is selected.
+    val header = v.implement.single()
+    assertEquals(true, header.selection?.selected)
+    assertEquals(false, v.selection?.selected)
+
+    val cutter = assertNotNull(header.cutter)
+    assertEquals("SILAGEMAIZE", cutter.fruitType)
+    assertEquals("CHAFF", cutter.fillType)
+    // `working` is the engine's own 300 ms window and this poll still landed between crop frames,
+    // with the machine itself reading `filling`. Both are correct; they answer different questions.
+    assertFalse(cutter.working)
+    assertTrue(harvest.filling)
   }
 
   @Test

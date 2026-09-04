@@ -28,6 +28,15 @@ end
 
 -- Index 1 is the engine's UNKNOWN sentinel in both managers.
 local FRUIT_NAMES = { [1] = "UNKNOWN", [4] = "WHEAT", [9] = "MAIZE" }
+-- Only what `canToggleSwath` reads: whether the crop drops a windrow. Wheat does, maize does not,
+-- which is the split the engine's own straw toggle refuses on.
+local FRUIT_TYPES = {
+  [1] = { hasWindrow = false },
+  [4] = { hasWindrow = true },
+  [9] = { hasWindrow = false },
+}
+-- Fill type -> the fruit behind it, the lookup Combine's own action event makes off the tank.
+local FRUIT_BY_FILL = { [4] = 4, [9] = 9 }
 local FILL_TYPES = {
   [1] = { name = "UNKNOWN", title = "Unbekannt" },
   [4] = { name = "WHEAT", title = "Weizen" },
@@ -41,6 +50,7 @@ local function combine(over, extra)
     isSwathActive = false,
     isFilling = false,
     isBufferCombine = false,
+    fillUnitIndex = 1,
     workedHectars = 0,
     workedHectarsInitial = 0,
     lastValidInputFruitType = 1,
@@ -53,6 +63,9 @@ local function combine(over, extra)
 
   local object = {
     spec_combine = spec,
+    getFillUnitFillType = function()
+      return spec.tankFillType or 1
+    end,
     getCombineLastValidFillType = function()
       return spec.lastValidInputFillType or 1
     end,
@@ -105,6 +118,12 @@ local function stubManagers()
     getFruitTypeNameByIndex = function(_, index)
       return FRUIT_NAMES[index]
     end,
+    getFruitTypeByIndex = function(_, index)
+      return FRUIT_TYPES[index]
+    end,
+    getFruitTypeIndexByFillTypeIndex = function(_, fillTypeIndex)
+      return FRUIT_BY_FILL[fillTypeIndex]
+    end,
   }
   _G.g_fillTypeManager = {
     getFillTypeByIndex = function(_, index)
@@ -132,6 +151,55 @@ describe("Harvest.collect", function()
     assert.is_true(model.swathActive)
     assert.is_true(model.swathAvailable)
     assert.is_nil(model.chopperAvailable)
+  end)
+
+  describe("canToggleSwath", function()
+    -- The engine's own verdict on the straw toggle, reproduced here rather than left to the app: the
+    -- game binds TOGGLE_CHOPPER only on a machine with both halves, and its handler then refuses on a
+    -- crop that drops no windrow.
+
+    it("is true on a machine with both halves and an empty tank", function()
+      -- Nothing in the tank names no fruit, and the engine lets the toggle through -- which is how a
+      -- combine can be set up either way before the pass starts.
+      assert.is_true(VDT.Harvest.collect(combine()).canToggleSwath)
+    end)
+
+    it("is true while the tank holds a crop that drops a windrow", function()
+      assert.is_true(VDT.Harvest.collect(combine({ tankFillType = 4 })).canToggleSwath)
+    end)
+
+    it("is false while the tank holds a crop that drops none", function()
+      -- Maize. The machine offers both, the key is bound, and pressing it shows a blinking warning
+      -- and changes nothing -- so a terminal that offered the control here would be lying.
+      assert.is_false(VDT.Harvest.collect(combine({ tankFillType = 9 })).canToggleSwath)
+    end)
+
+    it("is false on a machine missing either half", function()
+      local noChopper = combine()
+      noChopper.spec_combine.chopper = nil
+      assert.is_false(VDT.Harvest.collect(noChopper).canToggleSwath)
+
+      local noSwath = combine()
+      noSwath.spec_combine.swath = { isAvailable = false }
+      assert.is_false(VDT.Harvest.collect(noSwath).canToggleSwath)
+    end)
+
+    it("is false for anything that is not a combine", function()
+      assert.is_false(VDT.Harvest.canToggleSwath({}))
+    end)
+
+    it("reads the BUFFER fill unit where the machine has one", function()
+      -- A buffer combine threshes out of a different unit, and the engine's own lookup prefers it.
+      -- Reading `fillUnitIndex` on such a machine would ask the wrong tank what the crop is.
+      local object = combine({ bufferFillUnitIndex = 2, fillUnitIndex = 1 })
+      local asked
+      object.getFillUnitFillType = function(_, index)
+        asked = index
+        return 9
+      end
+      assert.is_false(VDT.Harvest.collect(object).canToggleSwath)
+      assert.equals(2, asked)
+    end)
   end)
 
   it("reports crop flowing into the tank separately from the machine running", function()
