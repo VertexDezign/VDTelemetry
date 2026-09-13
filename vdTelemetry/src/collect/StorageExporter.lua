@@ -5,6 +5,9 @@
 --     storages (PlaceableObjectStorage — bales/pallets put away). This is the app's Storage view.
 --     A placeable a husbandry has taken over as its own store — the manure heap behind the barn, an
 --     `isExtension` slurry tank — is NOT here: those liters are husbandry.json's (see feedsHusbandry).
+--     Nor is a Pumps & Hoses biogas plant's BUNKER, for the same reason in a different building: it is
+--     the plant's input hopper and nothing comes back out of it (see integrations/PumpsAndHoses.lua).
+--     The plant's digestate tank does stay, tagged with the plant it belongs to.
 --   * `bunkerSilos` — silage bunkers (PlaceableBunkerSilo / PlaceableMultiBunkerSilo).
 --   * `looseBales` / `loosePallets` — the bales and pallets lying around the farm, aggregated.
 --
@@ -33,7 +36,10 @@ VDT.StorageExporter.FILE_NAME = "storage.json"
 -- 2: added bunkerSilos / looseBales / loosePallets, and type+level on an object storage's rows.
 -- 3: a storage a husbandry counts as its own is no longer exported (see feedsHusbandry) -- its
 --    liters live in husbandry.json instead, which carries a fill type on its bars from ITS v2.
-VDT.StorageExporter.VERSION = 3
+-- 4: a Pumps & Hoses biogas plant's BUNKERS are no longer exported (they are the plant's input
+--    hopper, not a store -- see integrations/PumpsAndHoses.lua), and what remains of a plant here,
+--    the digestate tank, carries a `construction` saying which plant it belongs to.
+VDT.StorageExporter.VERSION = 4
 -- Write cadence in ms; matches ProductionExporter — fill levels/counts change on the order of seconds
 -- at most, so a 2 s refresh keeps the overview live without churn.
 VDT.StorageExporter.INTERVAL_MS = 2000
@@ -106,6 +112,10 @@ local function collectFillStorage(placeable, storages, farmId, fallbackIndex)
     id = VDT.ProductionExporter.placeableId(placeable, "storage" .. fallbackIndex),
     name = placeableName(placeable),
     kind = "fill",
+    -- The digestate tank of a Pumps & Hoses biogas plant reaches this list like any other silo, and
+    -- stays on it: it is a store the farm pumps out of. The tag says which plant it stands in, so the
+    -- app can file it under that plant's name instead of loose among the farm's own silos.
+    construction = VDT.PumpsAndHoses ~= nil and VDT.PumpsAndHoses.reference(placeable) or nil,
     fills = rows,
   }
 end
@@ -541,7 +551,12 @@ local function collectStorages(farmId)
 
   for _, placeable in ipairs(placeables) do
     local okOwner, owner = pcall(placeable.getOwnerFarmId, placeable)
-    if okOwner and owner == farmId then
+    -- A biogas plant's bunker is a PlaceableSilo and would otherwise land here beside the farm's own
+    -- silos, which is what it looked like before anyone went and read what it does: material driven
+    -- into it is pumped on into the fermenters at a fixed rate and cannot be taken back out. It is an
+    -- input on its way into a machine, so it is out of the stock overview by the same rule that keeps
+    -- a production point's inputs out of it, and reported as part of the plant instead.
+    if okOwner and owner == farmId and not (VDT.PumpsAndHoses ~= nil and VDT.PumpsAndHoses.isPlantInput(placeable)) then
       local entry
       local fillStorages
       if placeable.spec_silo ~= nil and type(placeable.spec_silo.storages) == "table" then
