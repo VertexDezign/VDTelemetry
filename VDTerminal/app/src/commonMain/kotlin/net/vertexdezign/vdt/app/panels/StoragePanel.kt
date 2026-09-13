@@ -54,6 +54,11 @@ import kotlin.math.roundToInt
  * list); selecting one shows its detail on the right — a silo's per-fill-type levels, or an object
  * storage's count/capacity plus its per-type breakdown with an unload action.
  *
+ * A storage that stands inside a construction — a Pumps & Hoses biogas plant's digestate tank — is
+ * listed under that plant's name rather than loose among the farm's own silos. The plant's *bunkers*
+ * never reach this channel: material driven into one is pumped on into the fermenters and cannot be
+ * taken back out, so they are reported as part of the plant on the production channel instead.
+ *
  * Object storages can be unloaded via [onCommand] (the same action as the in-game trigger dialog). A
  * null [data] means the channel is absent (export off / no data yet) — distinct from an owned-nothing
  * farm, which shows the empty state. Production points live on the sibling [ProductionPanel].
@@ -76,19 +81,38 @@ private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) ->
   var selectedId by remember { mutableStateOf<String?>(null) }
   val ids = remember(data) { data.storages.map { it.id } }
   val currentId = selectedId.takeIf { it in ids } ?: ids.firstOrNull()
+  val loose = remember(data) { data.storages.filter { it.construction == null } }
+  // Keyed by the plant's NAME, which the ref carries precisely so this channel can title a section
+  // without the production channel being present at all.
+  val grouped = remember(data) {
+    data.storages.filter { it.construction != null }.groupBy { it.construction?.name.orEmpty() }
+  }
 
   Row(Modifier.fillMaxSize()) {
     Column(
       Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 10.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-      data.storages.forEach { storage ->
+      loose.forEach { storage ->
         OwnedRow(
           name = storage.name,
           subtitle = storageSubtitle(storage),
           selected = storage.id == currentId,
           onClick = { selectedId = storage.id },
         )
+      }
+      // One titled section per construction, after the farm's own stores — see ProductionPanel, which
+      // orders its master list by the same rule.
+      grouped.forEach { (plant, members) ->
+        GroupHeader(plant)
+        members.forEach { storage ->
+          OwnedRow(
+            name = storage.name,
+            subtitle = storageSubtitle(storage),
+            selected = storage.id == currentId,
+            onClick = { selectedId = storage.id },
+          )
+        }
       }
     }
     Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
