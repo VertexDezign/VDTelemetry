@@ -18,6 +18,9 @@ end
 if VDT.ProductionExporter == nil then
   dofile("src/collect/ProductionExporter.lua")
 end
+if VDT.PumpsAndHoses == nil then
+  dofile("src/integrations/PumpsAndHoses.lua")
+end
 dofile("src/command/ProductionControl.lua")
 
 local debugger = { warn = function() end, debug = function() end }
@@ -45,6 +48,31 @@ local function makePoint(opts)
   return pp
 end
 
+-- A Pumps & Hoses fermenter: the same reading surface plus the set its getOutputDistributionMode
+-- consults first. `accepts` is the mode value it recognises as "distribute across biogas plant" —
+-- the control has to discover that number, so the stub is free to pick any, and a stub that accepts
+-- NOTHING is how the wrong-guess path is tested.
+local function makeSandboxPoint(opts)
+  local pp = makePoint(opts)
+  pp.outputFillTypeIdsAutoDistribution = opts.distributing or {}
+  local accepts = opts.accepts
+  function pp:setOutputDistributionMode(ft, mode)
+    self.calls[#self.calls + 1] = { "setOutputDistributionMode", ft, mode }
+    if accepts ~= nil and mode == accepts then
+      self.outputFillTypeIdsAutoDistribution[ft] = true
+    else
+      self.outputFillTypeIdsAutoDistribution[ft] = nil
+    end
+  end
+  function pp:getOutputDistributionMode(ft)
+    if self.outputFillTypeIdsAutoDistribution[ft] ~= nil then
+      return accepts
+    end
+    return OUTPUT_MODE.KEEP
+  end
+  return pp
+end
+
 local function installWorld(points, farmId)
   _G.ProductionPoint = { OUTPUT_MODE = OUTPUT_MODE }
   _G.g_localPlayer = farmId ~= nil and { farmId = farmId } or nil
@@ -53,7 +81,19 @@ local function installWorld(points, farmId)
       return FILL_INDEX[name]
     end,
   }
-  _G.g_currentMission = { productionChainManager = { productionPoints = points } }
+  -- Same shape the exporter's spec stubs: the resolver asks the chain manager's per-farm function,
+  -- not the raw list, so that the two walk the same points in the same order.
+  local manager = { productionPoints = points }
+  function manager:getProductionPointsForFarmId(id)
+    local out = {}
+    for _, pp in ipairs(self.productionPoints) do
+      if pp:getOwnerFarmId() == id then
+        out[#out + 1] = pp
+      end
+    end
+    return out
+  end
+  _G.g_currentMission = { productionChainManager = manager }
 end
 
 local function run(cmdType, params)
@@ -104,6 +144,64 @@ describe("setProductionOutputMode", function()
     installWorld({ pp }, 1)
     run("setProductionOutputMode", { pointId = "biogas-1", fillType = "FERMENTERMANURE", mode = "autoDeliver" })
     assert.are.same({ "setOutputDistributionMode", 11, OUTPUT_MODE.AUTO_DELIVER }, pp.calls[1])
+  end)
+
+  it("resolves the DLC's distribute-in-plant mode from its registration rule", function()
+    -- The DLC registers its mode as one past the highest the base game defines, and that value is a
+    -- global in ITS environment. With nothing already distributing, the rule is all there is to go on.
+    local pp = makeSandboxPoint({
+      owner = 1,
+      owningPlaceable = { uniqueId = "bga-1" },
+      outputFillTypeIds = { [11] = true },
+      accepts = OUTPUT_MODE.AUTO_DELIVER + 1,
+    })
+    installWorld({ pp }, 1)
+    run("setProductionOutputMode", { pointId = "bga-1", fillType = "FERMENTERMANURE", mode = "autoDistribution" })
+
+    assert.are.same({ "setOutputDistributionMode", 11, OUTPUT_MODE.AUTO_DELIVER + 1 }, pp.calls[1])
+    assert.are.equal(1, #pp.calls, "no rollback: the point took it")
+    assert.is_true(pp.outputFillTypeIdsAutoDistribution[11])
+  end)
+
+  it("asks the point for the mode when one of its outputs already distributes", function()
+    -- Exact beats derived: a point already in that mode can be asked what the number is, whatever the
+    -- DLC happened to register it as.
+    local pp = makeSandboxPoint({
+      owner = 1,
+      owningPlaceable = { uniqueId = "bga-1" },
+      outputFillTypeIds = { [10] = true, [11] = true },
+      distributing = { [10] = true },
+      accepts = 42,
+    })
+    installWorld({ pp }, 1)
+    run("setProductionOutputMode", { pointId = "bga-1", fillType = "FERMENTERMANURE", mode = "autoDistribution" })
+
+    assert.are.same({ "setOutputDistributionMode", 11, 42 }, pp.calls[1])
+  end)
+
+  it("puts the old mode back when the point refuses the distribute-in-plant guess", function()
+    -- The wrong-guess path matters because it is NOT a no-op in the game: the base setter reads an
+    -- unrecognised value as "neither sell nor deliver", which is KEEP, so a plant would quietly stop
+    -- distributing rather than refuse the command.
+    local pp = makeSandboxPoint({
+      owner = 1,
+      owningPlaceable = { uniqueId = "bga-1" },
+      outputFillTypeIds = { [11] = true },
+      accepts = nil,
+    })
+    installWorld({ pp }, 1)
+    run("setProductionOutputMode", { pointId = "bga-1", fillType = "FERMENTERMANURE", mode = "autoDistribution" })
+
+    assert.are.equal(2, #pp.calls)
+    assert.are.same({ "setOutputDistributionMode", 11, OUTPUT_MODE.AUTO_DELIVER + 1 }, pp.calls[1])
+    assert.are.same({ "setOutputDistributionMode", 11, OUTPUT_MODE.KEEP }, pp.calls[2])
+  end)
+
+  it("refuses the distribute-in-plant mode on a point that has none", function()
+    local pp = makePoint({ owner = 1, owningPlaceable = { uniqueId = "dairy" }, outputFillTypeIds = { [11] = true } })
+    installWorld({ pp }, 1)
+    run("setProductionOutputMode", { pointId = "dairy", fillType = "FERMENTERMANURE", mode = "autoDistribution" })
+    assert.are.equal(0, #pp.calls)
   end)
 
   it("ignores a fill type that is not a buffered output (e.g. direct-sell)", function()

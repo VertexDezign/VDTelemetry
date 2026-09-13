@@ -59,7 +59,12 @@ local function resolvePoint(pointId, debugger, label)
     debugger:warn("%s: no local farm resolved, refusing to mutate production %s", label, tostring(pointId))
     return nil
   end
-  for index, pp in ipairs(manager.productionPoints or {}) do
+  -- The same list, walked in the same order, as ProductionExporter.collect -- the chain manager's own
+  -- per-farm one. It has to be: the ids are positional when a placeable has no uniqueId, and under the
+  -- Pumps & Hoses DLC the raw `manager.productionPoints` also holds the unmerged sibling fermenters,
+  -- whose ids the app never saw and whose production the merged entry speaks for.
+  local okList, farmPoints = pcall(manager.getProductionPointsForFarmId, manager, farmId)
+  for index, pp in ipairs(okList and farmPoints or {}) do
     local id = VDT.ProductionExporter.placeableId(pp.owningPlaceable, "point" .. index)
     if id == pointId then
       local okOwner, owner = pcall(pp.getOwnerFarmId, pp)
@@ -139,12 +144,33 @@ VDT.CommandRegistry.register("setProductionOutputMode", {
       )
       return
     end
-    local mode = outputModeValue(params.mode)
+    -- The Pumps & Hoses fourth mode ("distribute across biogas plant") is not a key of the base enum:
+    -- the DLC registers its value at load time, so it has to be discovered rather than looked up.
+    local isAutoDistribution = VDT.PumpsAndHoses ~= nil and params.mode == VDT.PumpsAndHoses.AUTO_DISTRIBUTION
+    local mode = isAutoDistribution and VDT.PumpsAndHoses.autoDistributionMode(pp) or outputModeValue(params.mode)
     if mode == nil then
       debugger:warn("setProductionOutputMode: unknown mode %s", tostring(params.mode))
       return
     end
+
+    -- Verify that one, because a wrong guess is NOT a no-op: the base setter reads any value it does
+    -- not recognise as "neither sell nor deliver", which is KEEP -- so a plant would quietly stop
+    -- distributing instead of refusing the command. Remember what it was, set, ask whether it took,
+    -- and put it back if it did not.
+    local okBefore, before = pcall(pp.getOutputDistributionMode, pp, fillTypeId)
     pp:setOutputDistributionMode(fillTypeId, mode)
+    if isAutoDistribution and not VDT.PumpsAndHoses.isAutoDistribution(pp, fillTypeId) then
+      debugger:warn(
+        "setProductionOutputMode: production %s refused the distribute-in-plant mode (tried %s) -- restoring",
+        tostring(params.pointId),
+        tostring(mode)
+      )
+      if okBefore and before ~= nil then
+        pp:setOutputDistributionMode(fillTypeId, before)
+      end
+      return
+    end
+
     debugger:debug(
       "setProductionOutputMode %s[%s] = %s",
       tostring(params.pointId),

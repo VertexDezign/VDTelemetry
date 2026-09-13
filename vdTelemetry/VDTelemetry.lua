@@ -72,6 +72,11 @@ local sourceFiles = {
   -- Production channel: own-farm production points + factories (own interval, base-game state only,
   -- self-registers into the channel registry)
   "src/collect/ProductionExporter.lua",
+  -- Pumps & Hoses biogas plants: reads the DLC's sandbox placeables so the production and storage
+  -- channels can group a plant's parts. Sourced after ProductionExporter (whose id / storage-row
+  -- helpers it reuses) and before StorageExporter; both call it at runtime, so the order only has to
+  -- put it after the helpers it uses.
+  "src/integrations/PumpsAndHoses.lua",
   -- Storage channel: own-farm standalone silos + object storages (reuses ProductionExporter's id /
   -- storage-row helpers, so it is sourced after it)
   "src/collect/StorageExporter.lua",

@@ -37,9 +37,19 @@
 ---@field id string stable id for app selection (placeable uniqueId, else a synthesized fallback)
 ---@field name string display name (ProductionPoint:getName())
 ---@field isFactory boolean? true for a PlaceableFactory (read-only: no on/off, no output-mode control)
+---@field construction ConstructionRefModel? the construction this point is one part of, when a mod
+---  builds points out of several placeables -- today only a Pumps & Hoses biogas plant, whose
+---  fermenter and power-plant entries are two points of one plant. Absent for a point that stands on
+---  its own, which is every point in a base game. Defined in integrations/PumpsAndHoses.lua.
 ---@field lines ProductionLineModel[]
----@field storage ProductionFillModel[] the point's shared internal storage, one row per fill type
+---@field storage ProductionFillModel[] the point's shared internal storage, one row per fill type.
+---  Read through the POINT's getters, not the storage's, so a point whose stations reach further than
+---  its own tank (a merged biogas plant, a storage extension in range) reports what the game's own
+---  production menu prints for it.
 
 ---@class ProductionModel
 ---@field version string channel version, independent of VDTelemetry.VERSION
 ---@field productionPoints ProductionPointModel[]?
+---@field constructions ConstructionModel[]? the farm's multi-placeable constructions -- today only
+---  Pumps & Hoses biogas plants. Each names a group the points above join by id, and describes the
+---  parts of it that are not production points.
