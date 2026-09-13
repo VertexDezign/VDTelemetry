@@ -1,0 +1,860 @@
+{
+  "productionPoints": [
+    {
+      "name": "Lindenhof Molkerei",
+      "id": "placeableca3005190843cc79fbd84074eea6f57d",
+      "storage": [
+        {
+          "capacity": 15000,
+          "type": "BUFFALOMILK",
+          "title": "Büffelmilch",
+          "level": 0
+        },
+        {
+          "capacity": 30000,
+          "type": "BUFFALOMILK_BOTTLED",
+          "title": "Büffelmilch (abgefüllt)",
+          "level": 0
+        },
+        {
+          "capacity": 10000,
+          "type": "BUFFALOMOZZARELLA",
+          "title": "Büffelmozzarella",
+          "level": 0
+        },
+        {
+          "capacity": 70000,
+          "type": "BUTTER",
+          "title": "Butter",
+          "level": 2086
+        },
+        {
+          "capacity": 40000,
+          "type": "CHEESE",
+          "title": "Käse",
+          "level": 1597
+        },
+        {
+          "capacity": 30000,
+          "type": "CHOCOLATE",
+          "title": "Schokolade",
+          "level": 0
+        },
+        {
+          "capacity": 40000,
+          "type": "GOATCHEESE",
+          "title": "Ziegenkäse",
+          "level": 0
+        },
+        {
+          "capacity": 29000,
+          "type": "GOATMILK",
+          "title": "Ziegenmilch",
+          "level": 0
+        },
+        {
+          "capacity": 30000,
+          "type": "GOATMILK_BOTTLED",
+          "title": "Ziegenmilch (abgefüllt)",
+          "level": 0
+        },
+        {
+          "capacity": 26000,
+          "type": "HONEY",
+          "title": "Honig",
+          "level": 0
+        },
+        {
+          "capacity": 40000,
+          "type": "ICECREAMCHOCOLATE",
+          "title": "Schokoladen-Eiscreme",
+          "level": 0
+        },
+        {
+          "capacity": 40000,
+          "type": "ICECREAMHONEY",
+          "title": "Honig-Eiscreme",
+          "level": 0
+        },
+        {
+          "capacity": 40000,
+          "type": "ICECREAMJOGURT",
+          "title": "Jogurt-Eiscreme",
+          "level": 3079
+        },
+        {
+          "capacity": 40000,
+          "type": "ICECREAMRASPBERRYJOGURT",
+          "title": "Himbeerjogurt-Eiscreme",
+          "level": 0
+        },
+        {
+          "capacity": 40000,
+          "type": "ICECREAMSTRAWBERRY",
+          "title": "Erdbeer-Eiscreme",
+          "level": 0
+        },
+        {
+          "capacity": 40000,
+          "type": "ICECREAMVANILLA",
+          "title": "Vanille-Eiscreme",
+          "level": 1188
+        },
+        {
+          "capacity": 40000,
+          "type": "JOGURTBUFFALO",
+          "title": "Büffel-Jogurt",
+          "level": 0
+        },
+        {
+          "capacity": 40000,
+          "type": "JOGURTCOW",
+          "title": "Jogurt",
+          "level": 1050
+        },
+        {
+          "capacity": 40000,
+          "type": "JOGURTGOAT",
+          "title": "Ziegenmilch-Jogurt",
+          "level": 0
+        },
+        {
+          "capacity": 72000,
+          "type": "MILK",
+          "title": "Milch",
+          "level": 1906
+        },
+        {
+          "capacity": 96000,
+          "type": "MILK_BOTTLED",
+          "title": "Milch (abgefüllt)",
+          "level": 2942
+        },
+        {
+          "capacity": 40000,
+          "type": "RASPBERRY_PALLET",
+          "title": "Himbeere",
+          "level": 0
+        },
+        {
+          "capacity": 40000,
+          "type": "STRAWBERRY",
+          "title": "Erdbeeren",
+          "level": 0
+        },
+        {
+          "capacity": 26000,
+          "type": "SUGAR",
+          "title": "Zucker",
+          "level": 4066
+        }
+      ],
+      "lines": [
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "MILK",
+              "title": "Milch",
+              "amount": 15
+            }
+          ],
+          "name": "Butter (Milch)",
+          "status": "running",
+          "id": "butter_milk",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 480,
+          "outputs": [
+            {
+              "type": "BUTTER",
+              "title": "Butter",
+              "amount": 13,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "GOATMILK",
+              "title": "Ziegenmilch",
+              "amount": 3
+            }
+          ],
+          "name": "Butter (Ziegenmilch)",
+          "status": "inactive",
+          "id": "butter_goatMilk",
+          "costsPerMonth": 96,
+          "cyclesPerMonth": 744,
+          "outputs": [
+            {
+              "type": "BUTTER",
+              "title": "Butter",
+              "amount": 10,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "BUFFALOMILK",
+              "title": "Büffelmilch",
+              "amount": 3
+            }
+          ],
+          "name": "Butter (Büffelmilch)",
+          "status": "inactive",
+          "id": "butter_buffaloMilk",
+          "costsPerMonth": 192,
+          "cyclesPerMonth": 52,
+          "outputs": [
+            {
+              "type": "BUTTER",
+              "title": "Butter",
+              "amount": 45,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "MILK",
+              "title": "Milch",
+              "amount": 3
+            }
+          ],
+          "name": "Käse",
+          "status": "running",
+          "id": "cheese",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 1320,
+          "outputs": [
+            {
+              "type": "CHEESE",
+              "title": "Käse",
+              "amount": 2,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "GOATMILK",
+              "title": "Ziegenmilch",
+              "amount": 3
+            }
+          ],
+          "name": "Ziegenkäse",
+          "status": "inactive",
+          "id": "goatcheese",
+          "costsPerMonth": 96,
+          "cyclesPerMonth": 960,
+          "outputs": [
+            {
+              "type": "GOATCHEESE",
+              "title": "Ziegenkäse",
+              "amount": 6,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "BUFFALOMILK",
+              "title": "Büffelmilch",
+              "amount": 3
+            }
+          ],
+          "name": "Büffelmozzarella",
+          "status": "inactive",
+          "id": "buffalomozzarella",
+          "costsPerMonth": 192,
+          "cyclesPerMonth": 480,
+          "outputs": [
+            {
+              "type": "BUFFALOMOZZARELLA",
+              "title": "Büffelmozzarella",
+              "amount": 2,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "MILK",
+              "title": "Milch",
+              "amount": 1
+            },
+            {
+              "type": "SUGAR",
+              "title": "Zucker",
+              "amount": 1
+            }
+          ],
+          "name": "Schokolade",
+          "status": "inactive",
+          "id": "chocolate",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 2520,
+          "outputs": [
+            {
+              "type": "CHOCOLATE",
+              "title": "Schokolade",
+              "amount": 1,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "MILK",
+              "title": "Milch",
+              "amount": 10
+            }
+          ],
+          "name": "Milch (abgefüllt)",
+          "status": "running",
+          "id": "milkBottled",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 480,
+          "outputs": [
+            {
+              "type": "MILK_BOTTLED",
+              "title": "Milch (abgefüllt)",
+              "amount": 20,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "GOATMILK",
+              "title": "Ziegenmilch",
+              "amount": 10
+            }
+          ],
+          "name": "Ziegenmilch (abgefüllt)",
+          "status": "inactive",
+          "id": "goatmilkBottled",
+          "costsPerMonth": 96,
+          "cyclesPerMonth": 144,
+          "outputs": [
+            {
+              "type": "GOATMILK_BOTTLED",
+              "title": "Ziegenmilch (abgefüllt)",
+              "amount": 20,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "BUFFALOMILK",
+              "title": "Büffelmilch",
+              "amount": 10
+            }
+          ],
+          "name": "Büffelmilch (abgefüllt)",
+          "status": "inactive",
+          "id": "buffalomilkBottled",
+          "costsPerMonth": 192,
+          "cyclesPerMonth": 144,
+          "outputs": [
+            {
+              "type": "BUFFALOMILK_BOTTLED",
+              "title": "Büffelmilch (abgefüllt)",
+              "amount": 20,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "MILK",
+              "title": "Milch",
+              "amount": 10
+            }
+          ],
+          "name": "Jogurt",
+          "status": "running",
+          "id": "jogurtCow",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 720,
+          "outputs": [
+            {
+              "type": "JOGURTCOW",
+              "title": "Jogurt",
+              "amount": 10,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "BUFFALOMILK",
+              "title": "Büffelmilch",
+              "amount": 10
+            }
+          ],
+          "name": "Büffel-Jogurt",
+          "status": "inactive",
+          "id": "jogurtBuffalo",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 360,
+          "outputs": [
+            {
+              "type": "JOGURTBUFFALO",
+              "title": "Büffel-Jogurt",
+              "amount": 10,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "GOATMILK",
+              "title": "Ziegenmilch",
+              "amount": 10
+            }
+          ],
+          "name": "Ziegenmilch-Jogurt",
+          "status": "inactive",
+          "id": "jogurtGoat",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 360,
+          "outputs": [
+            {
+              "type": "JOGURTGOAT",
+              "title": "Ziegenmilch-Jogurt",
+              "amount": 10,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "MILK",
+              "title": "Milch",
+              "amount": 12
+            },
+            {
+              "type": "CHOCOLATE",
+              "title": "Schokolade",
+              "amount": 2
+            }
+          ],
+          "name": "Schokoladen-Eiscreme",
+          "status": "inactive",
+          "id": "iceCreamChocolate",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 240,
+          "outputs": [
+            {
+              "type": "ICECREAMCHOCOLATE",
+              "title": "Schokoladen-Eiscreme",
+              "amount": 14,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "MILK",
+              "title": "Milch",
+              "amount": 10
+            },
+            {
+              "type": "HONEY",
+              "title": "Honig",
+              "amount": 4
+            }
+          ],
+          "name": "Honig-Eiscreme",
+          "status": "inactive",
+          "id": "iceCreamHoney",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 240,
+          "outputs": [
+            {
+              "type": "ICECREAMHONEY",
+              "title": "Honig-Eiscreme",
+              "amount": 14,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "MILK",
+              "title": "Milch",
+              "amount": 8
+            },
+            {
+              "type": "STRAWBERRY",
+              "title": "Erdbeeren",
+              "amount": 6
+            }
+          ],
+          "name": "Erdbeer-Eiscreme",
+          "status": "inactive",
+          "id": "iceCreamStrawberry",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 240,
+          "outputs": [
+            {
+              "type": "ICECREAMSTRAWBERRY",
+              "title": "Erdbeer-Eiscreme",
+              "amount": 14,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "MILK",
+              "title": "Milch",
+              "amount": 10
+            },
+            {
+              "type": "SUGAR",
+              "title": "Zucker",
+              "amount": 4
+            }
+          ],
+          "name": "Vanille-Eiscreme",
+          "status": "running",
+          "id": "iceCreamVanilla",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 240,
+          "outputs": [
+            {
+              "type": "ICECREAMVANILLA",
+              "title": "Vanille-Eiscreme",
+              "amount": 14,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "JOGURTCOW",
+              "title": "Jogurt",
+              "amount": 10
+            },
+            {
+              "type": "SUGAR",
+              "title": "Zucker",
+              "amount": 4
+            }
+          ],
+          "name": "Jogurt-Eiscreme",
+          "status": "running",
+          "id": "iceCreamJogurt",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 240,
+          "outputs": [
+            {
+              "type": "ICECREAMJOGURT",
+              "title": "Jogurt-Eiscreme",
+              "amount": 14,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        },
+        {
+          "enabled": false,
+          "inputs": [
+            {
+              "type": "JOGURTCOW",
+              "title": "Jogurt",
+              "amount": 10
+            },
+            {
+              "type": "SUGAR",
+              "title": "Zucker",
+              "amount": 2
+            },
+            {
+              "type": "RASPBERRY_PALLET",
+              "title": "Himbeere",
+              "amount": 6
+            }
+          ],
+          "name": "Himbeerjogurt-Eiscreme",
+          "status": "inactive",
+          "id": "iceCreamRaspberryJogurt",
+          "costsPerMonth": 24,
+          "cyclesPerMonth": 240,
+          "outputs": [
+            {
+              "type": "ICECREAMRASPBERRYJOGURT",
+              "title": "Himbeerjogurt-Eiscreme",
+              "amount": 14,
+              "mode": "keep",
+              "sellDirectly": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BGA (1) : Fermenter 30m",
+      "id": "placeabledb182320549ce48031e69d922ab35daa",
+      "construction": {
+        "id": "placeabledb182320549ce48031e69d922ab35daa",
+        "role": "FERMENTER",
+        "name": "BGA (1)"
+      },
+      "storage": [
+        {
+          "capacity": 7770,
+          "type": "DIGESTATE",
+          "title": "Gärreste",
+          "level": 0
+        },
+        {
+          "capacity": 112100,
+          "type": "LIQUIDMANURE",
+          "title": "Gülle",
+          "level": 232
+        },
+        {
+          "capacity": 112100,
+          "type": "MANURE",
+          "title": "Mist",
+          "level": 11327
+        },
+        {
+          "capacity": 1600,
+          "type": "METHANE",
+          "title": "Methan",
+          "level": 0
+        },
+        {
+          "capacity": 469500,
+          "type": "SILAGE",
+          "title": "Silage",
+          "level": 28065
+        },
+        {
+          "capacity": 56100,
+          "type": "SUGARBEET_CUT",
+          "title": "Zuckerrübenschnitzel",
+          "level": 0
+        }
+      ],
+      "lines": [
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "SILAGE",
+              "title": "Silage",
+              "amount": 10200
+            },
+            {
+              "type": "LIQUIDMANURE",
+              "title": "Gülle",
+              "amount": 2430
+            },
+            {
+              "type": "MANURE",
+              "title": "Mist",
+              "amount": 2430
+            }
+          ],
+          "name": "Line 1",
+          "status": "running",
+          "id": "FERMENTER",
+          "costsPerMonth": 60,
+          "cyclesPerMonth": 24,
+          "outputs": [
+            {
+              "type": "METHANE",
+              "title": "Methan",
+              "amount": 2360,
+              "mode": "autoDistribution",
+              "sellDirectly": false
+            },
+            {
+              "type": "DIGESTATE",
+              "title": "Gärreste",
+              "amount": 11520,
+              "mode": "autoDistribution",
+              "sellDirectly": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BGA (1) : avus 800 B",
+      "id": "placeable82f237b64b5d579c345654af20fa7e62",
+      "construction": {
+        "id": "placeabledb182320549ce48031e69d922ab35daa",
+        "role": "POWERPLANT",
+        "name": "BGA (1)"
+      },
+      "storage": [
+        {
+          "capacity": 1000,
+          "type": "METHANE",
+          "title": "Methan",
+          "level": 70
+        }
+      ],
+      "lines": [
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "METHANE",
+              "title": "Methan",
+              "amount": 2603
+            }
+          ],
+          "name": "Line 1",
+          "status": "running",
+          "id": "POWERPLANT",
+          "costsPerMonth": 60,
+          "cyclesPerMonth": 24,
+          "outputs": [
+            {
+              "type": "ELECTRICCHARGE",
+              "title": "Elektrische Ladung",
+              "amount": 18680,
+              "mode": "keep",
+              "sellDirectly": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "constructions": [
+    {
+      "id": "placeabledb182320549ce48031e69d922ab35daa",
+      "kind": "bga",
+      "name": "BGA (1)",
+      "parts": [
+        {
+          "fills": [
+            {
+              "capacity": 175000,
+              "type": "MANURE",
+              "title": "Mist",
+              "level": 8559
+            },
+            {
+              "capacity": 175000,
+              "type": "SILAGE",
+              "title": "Silage",
+              "level": 0
+            },
+            {
+              "capacity": 175000,
+              "type": "SUGARBEET_CUT",
+              "title": "Zuckerrübenschnitzel",
+              "level": 0
+            }
+          ],
+          "role": "BUNKER",
+          "count": 2,
+          "utilization": 5
+        },
+        {
+          "role": "FERMENTER",
+          "count": 2,
+          "utilization": 52
+        },
+        {
+          "role": "POWERPLANT",
+          "count": 3,
+          "utilization": 91
+        },
+        {
+          "fills": [
+            {
+              "capacity": 1697000,
+              "type": "DIGESTATE",
+              "title": "Gärreste",
+              "level": 114688
+            },
+            {
+              "capacity": 1697000,
+              "type": "LIQUIDMANURE",
+              "title": "Gülle",
+              "level": 0
+            },
+            {
+              "capacity": 1697000,
+              "type": "WATER",
+              "title": "Wasser",
+              "level": 0
+            }
+          ],
+          "role": "SILO",
+          "count": 1,
+          "utilization": 0
+        },
+        {
+          "role": "TORCH",
+          "count": 1,
+          "utilization": 0
+        }
+      ]
+    }
+  ],
+  "version": "2"
+}

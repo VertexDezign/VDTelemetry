@@ -1,28 +1,28 @@
 {
-  "version": "3",
+  "version": "4",
   "looseBales": [
     {
       "type": "DRYGRASS_WINDROW",
       "title": "Heu",
-      "level": 75000,
+      "level": 19683,
       "kind": "BALE",
       "shape": "ROUND",
-      "count": 15
+      "count": 4
     },
     {
       "type": "STRAW",
       "title": "Stroh",
-      "level": 50178,
+      "level": 16395,
       "kind": "BALE",
       "shape": "ROUND",
-      "count": 7
+      "count": 3
     }
   ],
   "storages": [
     {
-      "id": "placeable74cc4d12305cfeb2001b7b314a135ba6",
-      "kind": "fill",
       "name": "Betriebshalle mit Silo",
+      "id": "placeable669fa44875aac3876682fd52a5471d56",
+      "kind": "fill",
       "fills": [
         {
           "capacity": 5000000,
@@ -64,7 +64,7 @@
           "capacity": 5000000,
           "type": "RYE",
           "title": "Roggen",
-          "level": 75251
+          "level": 0
         },
         {
           "capacity": 5000000,
@@ -88,13 +88,13 @@
           "capacity": 5000000,
           "type": "SUNFLOWER",
           "title": "Sonnenblumen",
-          "level": 0
+          "level": 45440
         },
         {
           "capacity": 5000000,
           "type": "TRITICALE",
           "title": "Triticale",
-          "level": 62191
+          "level": 0
         },
         {
           "capacity": 5000000,
@@ -122,37 +122,29 @@
           "type": "FERTILIZER",
           "index": 1,
           "kind": "BIGBAG",
-          "count": 1,
-          "level": 240,
-          "title": "Bigbag (Mineraldünger 240 l)"
-        },
-        {
-          "type": "FERTILIZER",
-          "index": 2,
-          "kind": "BIGBAG",
           "count": 6,
           "level": 1000,
           "title": "Bigbag (Mineraldünger 1.000 l)"
         },
         {
-          "type": "FERTILIZER",
-          "index": 3,
+          "type": "SEEDS",
+          "index": 2,
           "kind": "BIGBAG",
           "count": 1,
-          "level": 843,
-          "title": "Bigbag (Mineraldünger 843 l)"
+          "level": 249,
+          "title": "Bigbag (Saatgut 249 l)"
+        },
+        {
+          "type": "SEEDS",
+          "index": 3,
+          "kind": "PALLET",
+          "count": 1,
+          "level": 250,
+          "title": "Palette (Saatgut 250 l)"
         },
         {
           "type": "SEEDS",
           "index": 4,
-          "kind": "PALLET",
-          "count": 1,
-          "level": 500,
-          "title": "Palette (Saatgut 500 l)"
-        },
-        {
-          "type": "SEEDS",
-          "index": 5,
           "kind": "BIGBAG",
           "count": 1,
           "level": 922,
@@ -161,60 +153,76 @@
       ],
       "name": "Offene Garage aus Holz",
       "maxUnloadAmount": 25,
-      "id": "placeablefc779468ae2f9d0ed22359af1e8881d4",
+      "id": "placeable2d87fae940f9916fd38489990c856a12",
       "kind": "object",
       "capacity": 250,
-      "count": 10
+      "count": 9
     },
     {
       "objects": [
         {
-          "type": "SILAGE_ADDITIVE",
+          "type": "BALE_NET",
           "index": 1,
           "kind": "PALLET",
           "count": 1,
-          "level": 17,
-          "title": "Palette (Siliermittel 17 l)"
+          "level": 5,
+          "title": "Palette (Rundballennetz 5 l) - John Deere XtraCover™"
         },
         {
-          "type": "BALE_NET",
+          "type": "BALE_WRAP",
           "index": 2,
           "kind": "PALLET",
           "count": 1,
-          "level": 1,
-          "title": "Palette (Rundballennetz 1 l) - John Deere XtraCover™"
+          "level": 29,
+          "title": "Palette (Wickelfolie 29 l) - RaniWrap Naturgrün"
         },
         {
-          "type": "LIQUIDFERTILIZER",
+          "type": "SILAGE_ADDITIVE",
           "index": 3,
           "kind": "PALLET",
           "count": 1,
-          "level": 1791,
-          "title": "Palette (Flüssigdünger 1.791 l)"
+          "level": 60,
+          "title": "Palette (Siliermittel 60 l)"
+        },
+        {
+          "type": "BALE_NET",
+          "index": 4,
+          "kind": "PALLET",
+          "count": 1,
+          "level": 2,
+          "title": "Palette (Rundballennetz 2 l) - John Deere XtraCover™"
         },
         {
           "type": "LIQUIDFERTILIZER",
-          "index": 4,
+          "index": 5,
           "kind": "PALLET",
           "count": 1,
           "level": 2000,
           "title": "Palette (Flüssigdünger 2.000 l)"
         },
         {
-          "type": "HERBICIDE",
-          "index": 5,
+          "type": "LIQUIDFERTILIZER",
+          "index": 6,
           "kind": "PALLET",
           "count": 1,
-          "level": 1649,
-          "title": "Palette (Herbizid 1.649 l)"
+          "level": 533,
+          "title": "Palette (Flüssigdünger 533 l)"
+        },
+        {
+          "type": "HERBICIDE",
+          "index": 7,
+          "kind": "PALLET",
+          "count": 1,
+          "level": 1395,
+          "title": "Palette (Herbizid 1.395 l)"
         }
       ],
       "name": "Palettenregal",
       "maxUnloadAmount": 25,
-      "id": "placeable0ac0cabbbe8155cc2f3565b5685ff4a8",
+      "id": "placeabled15cdf29621e5af2fac0df06cb1c2950",
       "kind": "object",
       "capacity": 40,
-      "count": 5
+      "count": 7
     },
     {
       "objects": [
@@ -222,7 +230,25 @@
           "type": "GRASS_FERMENTED",
           "index": 1,
           "kind": "BALE",
-          "count": 50,
+          "count": 30,
+          "level": 3000,
+          "shape": "ROUND",
+          "title": "Rundballen (Grassilage 3.000 l)"
+        },
+        {
+          "type": "GRASS_FERMENTED",
+          "index": 2,
+          "kind": "BALE",
+          "count": 103,
+          "level": 3000,
+          "shape": "ROUND",
+          "title": "Rundballen (Grassilage 3.000 l)"
+        },
+        {
+          "type": "GRASS_FERMENTED",
+          "index": 3,
+          "kind": "BALE",
+          "count": 4,
           "level": 3000,
           "shape": "ROUND",
           "title": "Rundballen (Grassilage 3.000 l)"
@@ -230,10 +256,10 @@
       ],
       "name": "Ballenlager 350",
       "maxUnloadAmount": 25,
-      "id": "placeable593d14be6eeae8a831660de4eca15f0d",
+      "id": "placeable8c0963d896ff9b2d54018551f710c79d",
       "kind": "object",
       "capacity": 350,
-      "count": 50
+      "count": 137
     },
     {
       "objects": [
@@ -241,82 +267,167 @@
           "type": "DRYGRASS_WINDROW",
           "index": 1,
           "kind": "BALE",
-          "count": 183,
-          "level": 5000,
-          "shape": "ROUND",
-          "title": "Rundballen (Heu 5.000 l)"
-        },
-        {
-          "type": "GRASS_FERMENTED",
-          "index": 2,
-          "kind": "BALE",
-          "count": 17,
-          "level": 3000,
-          "shape": "ROUND",
-          "title": "Rundballen (Grassilage 3.000 l)"
-        },
-        {
-          "type": "DRYGRASS_WINDROW",
-          "index": 3,
-          "kind": "BALE",
-          "count": 5,
+          "count": 225,
           "level": 5000,
           "shape": "ROUND",
           "title": "Rundballen (Heu 5.000 l)"
         },
         {
           "type": "STRAW",
-          "index": 4,
+          "index": 2,
           "kind": "BALE",
-          "count": 105,
+          "count": 77,
           "level": 7500,
           "shape": "ROUND",
           "title": "Rundballen (Stroh 7.500 l)"
         },
         {
           "type": "DRYGRASS_WINDROW",
-          "index": 5,
+          "index": 3,
           "kind": "BALE",
-          "count": 1,
-          "level": 3245,
+          "count": 3,
+          "level": 5000,
           "shape": "ROUND",
-          "title": "Rundballen (Heu 3.245 l)"
+          "title": "Rundballen (Heu 5.000 l)"
+        },
+        {
+          "type": "GRASS_FERMENTED",
+          "index": 4,
+          "kind": "BALE",
+          "count": 17,
+          "level": 3000,
+          "shape": "ROUND",
+          "title": "Rundballen (Grassilage 3.000 l)"
         }
       ],
       "name": "Futterhalle",
       "maxUnloadAmount": 25,
-      "id": "placeable6fe8bb012f08e2540e02da702f5d3aa2",
+      "id": "placeable5fd1bedd7218c28f5ff7764bba2c5bca",
       "kind": "object",
       "capacity": 1000,
-      "count": 311
+      "count": 322
+    },
+    {
+      "name": "Güllebehälter",
+      "id": "placeable23bebd19786e979bcb595658c544c3c7",
+      "kind": "fill",
+      "fills": [
+        {
+          "capacity": 3610000,
+          "type": "DIGESTATE",
+          "title": "Gärreste",
+          "level": 2000289
+        },
+        {
+          "capacity": 3610000,
+          "type": "LIQUIDMANURE",
+          "title": "Gülle",
+          "level": 0
+        },
+        {
+          "capacity": 3610000,
+          "type": "WATER",
+          "title": "Wasser",
+          "level": 0
+        }
+      ]
+    },
+    {
+      "name": "BGA (1) : Güllebehälter",
+      "id": "placeablefbf06d941f90e037534c323c7725690f",
+      "kind": "fill",
+      "fills": [
+        {
+          "capacity": 1697000,
+          "type": "DIGESTATE",
+          "title": "Gärreste",
+          "level": 69912
+        },
+        {
+          "capacity": 1697000,
+          "type": "LIQUIDMANURE",
+          "title": "Gülle",
+          "level": 0
+        },
+        {
+          "capacity": 1697000,
+          "type": "WATER",
+          "title": "Wasser",
+          "level": 0
+        }
+      ],
+      "construction": {
+        "id": "placeable0dc069c59637c3e275f1c03c3c1f1ccc",
+        "role": "SILO",
+        "name": "BGA (1)"
+      }
     }
   ],
   "loosePallets": [
     {
+      "type": "BUTTER",
+      "title": "Butter",
+      "kind": "PALLET",
+      "level": 2000,
+      "count": 2
+    },
+    {
+      "type": "JOGURTCOW",
+      "title": "Jogurt",
+      "kind": "PALLET",
+      "level": 2000,
+      "count": 2
+    },
+    {
       "type": "MILK_BOTTLED",
       "title": "Milch (abgefüllt)",
       "kind": "PALLET",
-      "level": 1000,
+      "level": 3000,
+      "count": 3
+    },
+    {
+      "type": "WOOL",
+      "title": "Wolle",
+      "kind": "PALLET",
+      "level": 14,
       "count": 1
     }
   ],
   "bunkerSilos": [
     {
-      "state": "FILL",
-      "type": "CHAFF",
+      "state": "FERMENTED",
+      "type": "SILAGE",
       "name": "Bunkersilo",
-      "id": "placeablec49ac0374e4e3d6b8d23b6b38f12d8b9",
-      "level": 0,
-      "title": "Häckselgut",
-      "compacted": 0
+      "id": "placeabledf9444ab50f6c26a13fb6dbfd2c8c97b",
+      "level": 381521,
+      "fermenting": 100,
+      "title": "Silage"
     },
     {
       "state": "DRAIN",
       "type": "SILAGE",
       "name": "Großes Bunkersilo 25m x 34m",
-      "id": "placeable82de1955875f4f80d4799f06e4f358c0",
-      "level": 520486,
+      "id": "placeable1848d6e69840f8fcdcfe50ced697ca4b",
+      "level": 56831,
       "title": "Silage"
+    },
+    {
+      "state": "FILL",
+      "type": "CHAFF",
+      "name": "Fahrsilo 40m x 16m",
+      "id": "placeableeebbe237af4500ac018755bd20415aa2",
+      "level": 0,
+      "title": "Häckselgut",
+      "compacted": 0
+    },
+    {
+      "state": "FILL",
+      "type": "CHAFF",
+      "name": "Fahrsilo 40m x 16m",
+      "id": "placeable5c952ef97a1652b00fbb6dce2f193016",
+      "level": 0,
+      "title": "Häckselgut",
+      "compacted": 0
     }
   ]
 }
