@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +46,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -191,6 +193,21 @@ private const val LAYER_FETCH_RETRY_MS = 750L
 
 /** A non-2xx from `/api/map-layer`; carries the status so the fetch can tell a 409 from the rest. */
 private class LayerFetchFailed(val status: HttpStatusCode) : Exception("map-layer fetch failed: $status")
+
+/**
+ * A map-image request the server answered with an error. Carries the server's own body, which is
+ * written to be read by whoever is standing in front of the screen: it names the path the mod
+ * reported and every place the server looked for it.
+ */
+private class MapImageFetchFailed(status: HttpStatusCode, detail: String) :
+  Exception(if (detail.isBlank()) "$status" else "$status — $detail")
+
+/** Attempts at the base map image, and the wait between them. One transient miss must not be final. */
+private const val MAP_IMAGE_FETCH_ATTEMPTS = 3
+private const val MAP_IMAGE_RETRY_MS = 2_000L
+
+/** How much of an error body to keep. The server's is a handful of lines; anything longer is a page. */
+private const val MAP_IMAGE_ERROR_CHARS = 600
 
 /**
  * Decoded map images, held outside composition and keyed by request URL + PDA filename.
@@ -382,14 +399,45 @@ fun MapPanel(
     }
   }
 
+  // Why the map is blank, when it is. The fetch used to swallow everything it caught: a 404 for a
+  // path the server couldn't reach, a 500 for a DDS format it can't decode and a decoder that ran
+  // out of room on a phone all ended as the same silent nothing, on a machine we don't have. It is
+  // held in state so the panel can say it out loud — that sentence is the bug report.
+  var imageError by remember(cacheKey) { mutableStateOf<String?>(null) }
   LaunchedEffect(cacheKey) {
     if (cacheKey == null || bitmap != null) return@LaunchedEffect // already cached, or no PDA image
-    runCatching {
-      val bytes = mapImageClient.get(mapUrl).readRawBytes()
-      Image.makeFromEncoded(bytes).toComposeImageBitmap()
-    }.onSuccess {
-      mapImageCache[cacheKey] = it
-      bitmap = it
+    for (attempt in 0 until MAP_IMAGE_FETCH_ATTEMPTS) {
+      if (attempt > 0) delay(MAP_IMAGE_RETRY_MS)
+      val outcome =
+        runCatching {
+          val response = mapImageClient.get(mapUrl)
+          val bytes = response.readRawBytes()
+          // Checked here rather than left to the decoder: an error body would otherwise reach
+          // makeFromEncoded and fail as though the PNG itself were corrupt, throwing away the one
+          // message that explains the failure.
+          if (!response.status.isSuccess()) {
+            throw MapImageFetchFailed(response.status, bytes.decodeToString().take(MAP_IMAGE_ERROR_CHARS))
+          }
+          Image.makeFromEncoded(bytes).toComposeImageBitmap()
+        }
+      outcome.onSuccess {
+        mapImageCache[cacheKey] = it
+        bitmap = it
+        imageError = null
+        return@LaunchedEffect
+      }
+      val error = outcome.exceptionOrNull()
+      // runCatching catches Throwable, so leaving composition mid-fetch lands here as a plain
+      // failure. Retrying that would be wrong, and reporting it would be a lie.
+      if (error is CancellationException) throw error
+      imageError = error?.message ?: error.toString()
+      // Also in the browser console, where it is copy-pasteable and survives the panel closing.
+      println("VDT: map image fetch failed (attempt ${attempt + 1}/$MAP_IMAGE_FETCH_ATTEMPTS): $imageError")
+      // Retry only what a second attempt could answer differently. A status from the server is a
+      // verdict about a path on disk, and an Error is the decoder out of room: neither changes in two
+      // seconds, and decoding a too-large image again only allocates it again. Both are still
+      // reported — the banner is the whole point — but at once, rather than four seconds late.
+      if (error is MapImageFetchFailed || error is Error) break
     }
   }
   // Only the contracts this farm has taken on: the board's offers are shopping, and the map is for
@@ -794,6 +842,43 @@ fun MapPanel(
                 // straight up the screen the way the machine points up the field.
               }.rotate(animHeading + projection.rotationDeg),
           )
+        }
+      }
+
+      // The map's own explanation of itself. Only when there is nothing to draw and a reason for it:
+      // a fetch still in flight says nothing, and a map that loaded says nothing either. Overlays
+      // keep drawing underneath, because fields and markers over bare background is precisely the
+      // picture that gets reported as "the map is broken" — this is the caption that picture needed.
+      if (bitmap == null) {
+        imageError?.let { message ->
+          Row(
+            Modifier
+              .align(Alignment.TopCenter)
+              .padding(8.dp)
+              .widthIn(max = 420.dp)
+              .clip(RoundedCornerShape(4.dp))
+              .background(VdtColors.White)
+              .border(1.dp, VdtColors.Amber, RoundedCornerShape(4.dp))
+              .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+          ) {
+            Icon(
+              Icons.Filled.Warning,
+              contentDescription = null,
+              tint = VdtColors.Amber,
+              modifier = Modifier.size(16.dp),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+              Text(
+                "Map image unavailable",
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = VdtColors.Amber,
+              )
+              Text(message, fontSize = 10.sp, lineHeight = 13.sp, color = VdtColors.DarkGray)
+            }
+          }
         }
       }
 

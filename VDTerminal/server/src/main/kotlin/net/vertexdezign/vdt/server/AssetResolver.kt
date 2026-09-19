@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.server
 
+import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Path
 import java.util.zip.ZipFile
@@ -8,7 +9,24 @@ import kotlin.io.path.exists
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.readBytes
 
-class ResolvedAsset(val bytes: ByteArray, val path: Path)
+/**
+ * A found asset, and where it was found: [path] is the file that was opened, which for a zipped mod
+ * is the archive rather than the asset, and [entry] then names the entry inside it.
+ */
+class ResolvedAsset(val bytes: ByteArray, val path: Path, val entry: String? = null) {
+  /** One line naming the actual origin, for a log or an error body. */
+  val source: String get() = if (entry == null) path.toString() else "$path!$entry"
+}
+
+/**
+ * The outcome of a lookup: the asset, plus every place that was looked at on the way.
+ *
+ * [tried] exists because this is the failure the user cannot debug: the path was chosen by the game,
+ * on the far side of a file, and "Image not found" on its own says nothing about whether we looked
+ * for the zip, where we looked for it, or whether we ever got as far as the game folder. It is
+ * logged *and* returned to the browser, so a screenshot of an empty map carries its own diagnosis.
+ */
+class AssetLookup(val asset: ResolvedAsset?, val tried: List<String>)
 
 /**
  * Resolves a map/PDA asset path to bytes:
@@ -23,22 +41,41 @@ class ResolvedAsset(val bytes: ByteArray, val path: Path)
  * a game folder that isn't the one this server is pointed at.
  */
 object AssetResolver {
+  private val log = LoggerFactory.getLogger(AssetResolver::class.java)
+
   private val driveLetterPath = Regex("""^([A-Za-z]):[\\/](.*)$""")
 
-  fun resolve(gameDir: Path, filename: String): ResolvedAsset? {
-    val resolved: Path =
-      translateDrivePath(filename, gameDir)
-        ?: Path(filename).let { if (it.isAbsolute) it else gameDir.resolve(filename) }
+  fun resolve(gameDir: Path, filename: String): ResolvedAsset? = lookup(gameDir, filename).asset
 
-    lookUp(resolved)?.let { return it }
-    return reanchorInGameMods(gameDir, resolved.toString())?.let { lookUp(it) }
+  /** [resolve], keeping the trail of everything it looked at. */
+  fun lookup(gameDir: Path, filename: String): AssetLookup {
+    val tried = mutableListOf<String>()
+    val translated = translateDrivePath(filename, gameDir)
+    if (translated != null) log.debug("drive-letter path {} translated to {}", filename, translated)
+    val resolved: Path =
+      translated ?: Path(filename).let { if (it.isAbsolute) it else gameDir.resolve(filename) }
+
+    lookUp(resolved, tried)?.let { return AssetLookup(it, tried) }
+
+    val reanchored = reanchorInGameMods(gameDir, resolved.toString())
+    if (reanchored == null) {
+      log.debug("{} is not under a mods/ folder, so there is nothing to re-anchor onto {}", resolved, gameDir)
+      return AssetLookup(null, tried)
+    }
+    log.debug("re-anchoring {} onto this install as {}", resolved, reanchored)
+    return AssetLookup(lookUp(reanchored, tried), tried)
   }
 
   /** The file itself if it is one, else the zipped mod it pretends to be a folder in. */
-  private fun lookUp(path: Path): ResolvedAsset? {
+  private fun lookUp(path: Path, tried: MutableList<String>): ResolvedAsset? {
     // A real file at the path wins: nothing else can be more right than the path itself.
-    if (path.isRegularFile()) return ResolvedAsset(path.readBytes(), path)
-    return zipAncestorAsset(path)
+    tried += path.toString()
+    if (path.isRegularFile()) {
+      log.debug("found {} as a plain file", path)
+      return ResolvedAsset(path.readBytes(), path)
+    }
+    log.debug("no plain file at {}; looking for a zipped mod around it", path)
+    return zipAncestorAsset(path, tried)
   }
 
   /**
@@ -61,17 +98,24 @@ object AssetResolver {
    * first one that is (or has beside it) a readable zip, returns the remainder as an entry —
    * whatever directory the mod was loaded from, `mods/` or not.
    */
-  private fun zipAncestorAsset(resolved: Path): ResolvedAsset? {
+  private fun zipAncestorAsset(resolved: Path, tried: MutableList<String>): ResolvedAsset? {
     var dir = resolved.parent
     while (dir != null) {
       val name = dir.fileName // null on a filesystem root, which is never a mod folder
       val entryName = runCatching { dir.relativize(resolved).toString() }.getOrNull()
       if (name != null && !entryName.isNullOrEmpty()) {
+        val entry = entryName.replace('\\', '/')
         // Both spellings the engine can hand us: the zip named like the folder it pretends to be,
         // and — should it ever report the archive itself as a directory — the `.zip` segment as-is.
         for (zip in listOf(dir.resolveSibling("$name.zip"), dir)) {
           if (!zip.isRegularFile()) continue
-          readZipEntry(zip, entryName.replace('\\', '/'))?.let { return ResolvedAsset(it, zip) }
+          tried += "$zip!$entry"
+          val bytes = readZipEntry(zip, entry)
+          if (bytes != null) {
+            log.debug("found {} inside {}", entry, zip)
+            return ResolvedAsset(bytes, zip, entry)
+          }
+          log.debug("{} is a readable zip but holds no entry {}", zip, entry)
         }
       }
       dir = dir.parent
@@ -89,7 +133,7 @@ object AssetResolver {
           .firstOrNull { it.name.replace('\\', '/') == entryName }
       entry?.let { zip.getInputStream(it).use { stream -> stream.readBytes() } }
     }
-  }.getOrNull()
+  }.onFailure { log.debug("{} could not be read as a zip: {}", zipPath, it.toString()) }.getOrNull()
 
   private fun markerIn(path: String): String? = when {
     path.contains("mods${File.separatorChar}") -> "mods${File.separatorChar}"

@@ -424,7 +424,7 @@ function VDTelemetry:loadMap(filename)
     self.debugger:debug("Telemetry + command channel disabled (dedicated server / not available)")
   end
 
-  self.pda = MapUtil.getMapPDAFile()
+  self.pda = MapUtil.getMapPDAFile(self.debugger)
 
   -- add the export toggle + write-interval selector to the in-game General Settings page
   VDT.SettingsFrame.install()

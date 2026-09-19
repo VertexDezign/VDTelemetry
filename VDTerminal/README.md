@@ -19,19 +19,19 @@ The shell is a launcher of **apps** and a set of **pages**. An app owns one full
 contributes tiles (**widgets**) that any page can place; a page is a grid you arrange yourself. An app
 whose mod isn't installed is not listed at all, rather than showing an empty screen.
 
-| App | What it covers |
-|---|---|
-| **Vehicle** | the machine you're driving: engine and transmission, lighting, and a rig laid out the way it sits — front, machine, rear — with each slot's fill units, sections and rates |
-| **Map** | the PDA map: the DDS map image, POIs, fields, vehicle markers, the steering course, and the ground-layer overlays below |
-| **Fields** | what is on the farm's land: every field as a row with its crop, its area, its price if it is for sale, what state the ground is in and what condition it is in (plough, weeds) — all three counted across the whole field off the crops, growth and soil rasters rather than sampled at its centre, so a field half cut reads as half cut, a field whose middle is a track still names its crop, and a multiplayer client's one stale cell no longer decides — filterable to what is yours, what is for sale, what needs work and what is ready, and cross-linked to the map |
-| **Fleet** | every machine the farm owns, the way the game's own vehicle overview lists them — condition, operating hours, age, what each is worth — searchable and sortable, with Advanced Damage System's maintenance record (state, service interval, faults found, what is in the workshop) where that mod is installed, and a row that puts itself on the map |
-| **Production** / **Storage** / **Animals** | the farm's production points and factories, its silos and object storages, and its animal pens |
-| **Market** | the map's price board and what the farm is sitting on: every commodity with the stations that buy and sell it and its twelve-month curve, and a sortable stock table joining silos, bunkers, bales, pallets, what the production points have made and what the pens are waiting to be emptied of against it — one line per commodity however many containers it is spread over, with what it is worth now, where it sells best, and what the year's peak would make of it; both tabs filter through a type-ahead box that takes several tokens at once |
-| **Contracts** | the farm's missions — on offer, running, waiting to be collected — with accept / cancel / collect |
-| **Calendar** | the game's crop calendar — the sowing and harvest periods of every crop, with a today line — searchable by name and filterable to what can be sown or harvested *now*, over the weather forecast (now, twelve two-hourly steps, six days) |
-| **Finance** | the balance, the month-by-month table and the money log, borrow and repay; Enhanced Loan System's annuity loans stand in for the base loan where it is installed, and FS25_Invoices adds an Invoices tab |
-| **Tasks** / **Crop Rotation** | FS25_TaskList and FS25_CropRotation, both read *and* write |
-| **Diagnostics** | what the mod is actually writing: each channel's observed cadence and staleness, measured server-side |
+| App                                        | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Vehicle**                                | the machine you're driving: engine and transmission, lighting, and a rig laid out the way it sits — front, machine, rear — with each slot's fill units, sections and rates                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Map**                                    | the PDA map: the DDS map image, POIs, fields, vehicle markers, the steering course, and the ground-layer overlays below                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Fields**                                 | what is on the farm's land: every field as a row with its crop, its area, its price if it is for sale, what state the ground is in and what condition it is in (plough, weeds) — all three counted across the whole field off the crops, growth and soil rasters rather than sampled at its centre, so a field half cut reads as half cut, a field whose middle is a track still names its crop, and a multiplayer client's one stale cell no longer decides — filterable to what is yours, what is for sale, what needs work and what is ready, and cross-linked to the map |
+| **Fleet**                                  | every machine the farm owns, the way the game's own vehicle overview lists them — condition, operating hours, age, what each is worth — searchable and sortable, with Advanced Damage System's maintenance record (state, service interval, faults found, what is in the workshop) where that mod is installed, and a row that puts itself on the map                                                                                                                                                                                                                        |
+| **Production** / **Storage** / **Animals** | the farm's production points and factories, its silos and object storages, and its animal pens                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Market**                                 | the map's price board and what the farm is sitting on: every commodity with the stations that buy and sell it and its twelve-month curve, and a sortable stock table joining silos, bunkers, bales, pallets, what the production points have made and what the pens are waiting to be emptied of against it — one line per commodity however many containers it is spread over, with what it is worth now, where it sells best, and what the year's peak would make of it; both tabs filter through a type-ahead box that takes several tokens at once                       |
+| **Contracts**                              | the farm's missions — on offer, running, waiting to be collected — with accept / cancel / collect                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Calendar**                               | the game's crop calendar — the sowing and harvest periods of every crop, with a today line — searchable by name and filterable to what can be sown or harvested *now*, over the weather forecast (now, twelve two-hourly steps, six days)                                                                                                                                                                                                                                                                                                                                    |
+| **Finance**                                | the balance, the month-by-month table and the money log, borrow and repay; Enhanced Loan System's annuity loans stand in for the base loan where it is installed, and FS25_Invoices adds an Invoices tab                                                                                                                                                                                                                                                                                                                                                                     |
+| **Tasks** / **Crop Rotation**              | FS25_TaskList and FS25_CropRotation, both read *and* write                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Diagnostics**                            | what the mod is actually writing: each channel's observed cadence and staleness, measured server-side                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 Alerts (low fuel, tasks due, …) are raised by the apps but evaluated shell-wide, so one fires whatever
 is on screen.
@@ -83,13 +83,15 @@ Then open <http://localhost:8080>. Editing `vdTelemetry.json` updates the dashbo
 
 ## Configuration (environment variables)
 
-| Variable       | Default                                             | Meaning                          |
-|----------------|-----------------------------------------------------|----------------------------------|
-| `VDT_PORT`     | `3001`                                              | server port                      |
-| `VDT_GAME_DIR` | OS-specific FS25 profile dir (Windows / Linux+Proton) | game directory                 |
-| `VDT_FILE`     | `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json` | telemetry file to watch; its folder is where every other channel file is read from, and where the command file is derived from — see below |
-| `VDT_COMMAND_FILE` | `<the same mod folder>/commands/commands.xml`    | command file the server writes; derived from `VDT_FILE` unless set |
-| `VDT_DEBOUNCE_MS` | `40`                                             | debounce window for file writes  |
+| Variable            | Default                                                             | Meaning                                                                                                                                    |
+|---------------------|---------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| `VDT_PORT`          | `3001`                                                              | server port                                                                                                                                |
+| `VDT_GAME_DIR`      | OS-specific FS25 profile dir (Windows / Linux+Proton)               | game directory                                                                                                                             |
+| `VDT_FILE`          | `<gameDir>/modSettings/FS25_vdTelemetry/telemetry/vdTelemetry.json` | telemetry file to watch; its folder is where every other channel file is read from, and where the command file is derived from — see below |
+| `VDT_COMMAND_FILE`  | `<the same mod folder>/commands/commands.xml`                       | command file the server writes; derived from `VDT_FILE` unless set                                                                         |
+| `VDT_DEBOUNCE_MS`   | `40`                                                                | debounce window for file writes                                                                                                            |
+| `VDT_LOG_LEVEL`     | `INFO`                                                              | log level for everything the server prints                                                                                                 |
+| `VDT_LOG_LEVEL_MAP` | `DEBUG`                                                             | log level for the map-image path (`AssetResolver`, `ImagePipeline`, `Dds`)                                                                 |
 
 `VDT_COMMAND_FILE` is derived from `VDT_FILE` by stepping out of its `telemetry/` folder:
 `<mod>/telemetry/vdTelemetry.json` becomes `<mod>/commands/commands.xml`, which is the layout the mod
@@ -98,6 +100,14 @@ beside the telemetry file instead — `/tmp/vdTelemetry.json` gives `/tmp/comman
 the server warns at startup, because the mod polls only its own folder. So off that layout, set
 `VDT_COMMAND_FILE` explicitly. Getting it wrong breaks one direction only, which is what makes it
 worth a warning: the panels keep updating, but nothing you press reaches the game.
+
+The map-image path logs at `DEBUG` out of the box while everything else logs at `INFO`. It is the one
+asset the server fetches from outside its own folders, at a path the *game* chose on a machine we may
+never see, and when it fails the only symptom is an empty square in someone's browser — there is no
+second chance to reproduce it with the level turned up. The console therefore always carries the
+reported path, every place the resolver looked, the DDS format and the decoded size. The app shows the
+server's reason in the panel too, so a screenshot is a usable report on its own. Set
+`VDT_LOG_LEVEL_MAP=INFO` to quieten it, or `VDT_LOG_LEVEL=DEBUG` to make the rest as loud.
 
 ## Production (single artifact)
 
@@ -174,8 +184,8 @@ secure-context clause. Both routes install the same `window.__vdtWake*` pair, so
 visibility re-acquire and the first-gesture retry don't know which is running, and `AWAKE` in the
 header means the mechanism is running, not that a request was sent. What that is worth differs by
 route: on the real API it is the spec's guarantee, while on the fallback it says the clip is playing
-and leaves the idle timer to the platform — which held on an iPad, and is unverified on Android
-(`FUTURE.md`). The fallback needs the tab in the foreground, exactly as the real API does.
+and leaves the idle timer to the platform — which held on an iPad, and is unverified on Android (`FUTURE.md`). The
+fallback needs the tab in the foreground, exactly as the real API does.
 
 **The clip must not stay muted, and that is the whole subtlety.** iOS yields the idle timer to media
 playback that holds an audio session; a *muted* video plays perfectly and the screen dims on
@@ -192,8 +202,8 @@ listening to. Hence the guides' device-level alternative.
 **To leave display mode on the device itself**, press and hold anywhere for two seconds: a small bar
 appears with the wake-lock state and EXIT DISPLAY, and hides itself again if you ignore it.
 
-**Add to Home Screen** gives a display its own icon and no browser chrome at all
-(`manifest.webmanifest` plus the iOS `apple-mobile-web-app-*` tags). The manifest deliberately
+**Add to Home Screen** gives a display its own icon and no browser chrome at all (`manifest.webmanifest` plus the iOS
+`apple-mobile-web-app-*` tags). The manifest deliberately
 declares no `start_url`, so a shortcut launches the URL it was made from — install from
 `/?display=vehicle` on the phone and from `/` on the tablet, and the two icons stay different.
 
@@ -246,7 +256,8 @@ tractor puts between the windscreen and the right-hand window:
 - **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, a CVT's own
   transmission temperature where Advanced Damage System reports one, then the engine's fuel, DEF and
   air. The two temperatures are told apart by their glyphs — a thermometer over water, and one over a
-  gear — because the strip is read by icon alone. Each is an open-topped frame — green over the working range, red across
+  gear — because the strip is read by icon alone. Each is an open-topped frame — green over the working range, red
+  across
   the tenth where the gauge is in trouble — with a light, ten-band level standing in it, so where the
   trouble *starts* is visible before you are in it. Engine gauges only; what's in the hopper changes
   shape as you hitch things up and belongs to the rig-slot tiles, which name it and give figures.
