@@ -15,6 +15,10 @@ end
 if VDT.ProductionExporter == nil then
   dofile("src/collect/ProductionExporter.lua")
 end
+-- The exporter asks it at runtime for the plant tag and the DLC's fourth output mode; nil without it.
+if VDT.PumpsAndHoses == nil then
+  dofile("src/integrations/PumpsAndHoses.lua")
+end
 if Json == nil then
   dofile("src/utils/Json.lua")
 end
@@ -66,6 +70,23 @@ local function makePoint(opts)
   function pp:getOutputDistributionMode(ft)
     return self._modes[ft] or OUTPUT_MODE.KEEP
   end
+  -- A Pumps & Hoses fermenter carries this set; a base-game point has no such field at all.
+  pp.outputFillTypeIdsAutoDistribution = opts.distributing
+  -- A point that claims fill types of its own also answers for them: these are the station-resolving
+  -- getters the game's production menu prints, and on a merged biogas plant they see every machine's
+  -- storage where `pp.storage` sees only the one tank.
+  if opts.pointLevels ~= nil then
+    pp.inputFillTypeIds = opts.inputFillTypeIds or {}
+    pp.outputFillTypeIds = opts.outputFillTypeIds or {}
+    pp._pointLevels = opts.pointLevels
+    pp._pointCaps = opts.pointCaps or {}
+    function pp:getFillLevel(ft)
+      return self._pointLevels[ft] or 0
+    end
+    function pp:getCapacity(ft)
+      return self._pointCaps[ft] or 0
+    end
+  end
   return pp
 end
 
@@ -86,6 +107,9 @@ local function makeFactory(name, owner, uniqueId, opts)
   }
 end
 
+-- The chain manager stub. getProductionPointsForFarmId is the function the collector asks -- the base
+-- game's own body, "the points of that farm" -- because a DLC is free to answer it differently (see
+-- the collector's collect()). `productionPoints` stays on the stub as the raw list it filters.
 local function setupWorld(points, farmId, factories)
   _G.ProductionPoint = { PROD_STATUS = PROD_STATUS, OUTPUT_MODE = OUTPUT_MODE }
   _G.g_fillTypeManager = {
@@ -94,9 +118,17 @@ local function setupWorld(points, farmId, factories)
     end,
   }
   _G.g_localPlayer = farmId ~= nil and { farmId = farmId } or nil
-  _G.g_currentMission = {
-    productionChainManager = { productionPoints = points, factories = factories or {} },
-  }
+  local manager = { productionPoints = points, factories = factories or {} }
+  function manager:getProductionPointsForFarmId(id)
+    local out = {}
+    for _, pp in ipairs(self.productionPoints) do
+      if pp:getOwnerFarmId() == id then
+        out[#out + 1] = pp
+      end
+    end
+    return out
+  end
+  _G.g_currentMission = { productionChainManager = manager }
 end
 
 describe("ProductionExporter.statusToken", function()
@@ -156,7 +188,7 @@ describe("ProductionExporter.collect", function()
 
     local model = VDT.ProductionExporter.collect()
 
-    assert.are.equal("1", model.version)
+    assert.are.equal("2", model.version)
     assert.are.equal(1, #model.productionPoints)
     local p = model.productionPoints[1]
     assert.are.equal("biogas-1", p.id)
@@ -181,6 +213,74 @@ describe("ProductionExporter.collect", function()
     assert.are.equal(5000, p.storage[1].level)
     assert.are.equal("MANURE", p.storage[2].type)
     assert.are.equal(20000, p.storage[2].capacity)
+  end)
+
+  it("reads a point's storage rows through the point, not its own tank", function()
+    -- The merged-plant case reduced to its essentials: the point's stations reach further than the
+    -- storage does, so the storage's own answer would under-report every row.
+    local point = makePoint({
+      name = "Plant",
+      owner = 1,
+      owningPlaceable = { uniqueId = "plant-1" },
+      storage = makeStorage({ [10] = 1000, [11] = 2000 }, { [10] = 5000, [11] = 5000 }),
+      inputFillTypeIds = { [10] = true },
+      outputFillTypeIds = { [11] = true },
+      pointLevels = { [10] = 9000, [11] = 7000 },
+      pointCaps = { [10] = 30000, [11] = 20000 },
+    })
+    setupWorld({ point }, 1)
+
+    local rows = VDT.ProductionExporter.collect().productionPoints[1].storage
+    assert.are.equal("FERMENTERMANURE", rows[1].type)
+    assert.are.equal(7000, rows[1].level)
+    assert.are.equal(20000, rows[1].capacity)
+    assert.are.equal("MANURE", rows[2].type)
+    assert.are.equal(9000, rows[2].level)
+    assert.are.equal(30000, rows[2].capacity)
+  end)
+
+  it("falls back to the storage for a fill type the point does not claim", function()
+    -- getFillLevel/getCapacity answer a flat 0 for anything that is neither an input nor an output of
+    -- the point, which would read as "empty" rather than "not mine".
+    local point = makePoint({
+      name = "Plant",
+      owner = 1,
+      owningPlaceable = { uniqueId = "plant-1" },
+      storage = makeStorage({ [12] = 4000 }, { [12] = 8000 }),
+      inputFillTypeIds = { [10] = true },
+      pointLevels = { [10] = 9000 },
+      pointCaps = { [10] = 30000 },
+    })
+    setupWorld({ point }, 1)
+
+    local rows = VDT.ProductionExporter.collect().productionPoints[1].storage
+    assert.are.equal("LIQUIDMANURE", rows[1].type)
+    assert.are.equal(4000, rows[1].level)
+    assert.are.equal(8000, rows[1].capacity)
+  end)
+
+  it("names the Pumps & Hoses distribute-in-plant mode on an output that has it", function()
+    -- The DLC registers its output mode at load time, so its value is not a key of the enum the token
+    -- map is built from -- outputModeToken would answer "keep", which is wrong and looks right.
+    local point = makePoint({
+      name = "BGA (1) : Fermenter 30m",
+      owner = 1,
+      owningPlaceable = { uniqueId = "ferm-a" },
+      productions = {
+        {
+          id = "FERMENTER",
+          status = PROD_STATUS.RUNNING,
+          outputs = { { type = 11, amount = 400 }, { type = 12, amount = 100 } },
+        },
+      },
+      -- what the sandbox point's own getOutputDistributionMode consults before the base class
+      distributing = { [11] = true },
+    })
+    setupWorld({ point }, 1)
+
+    local outputs = VDT.ProductionExporter.collect().productionPoints[1].lines[1].outputs
+    assert.are.equal("autoDistribution", outputs[1].mode)
+    assert.are.equal("keep", outputs[2].mode)
   end)
 
   it("excludes other farms' production points", function()
@@ -253,7 +353,7 @@ describe("ProductionExporter.collect", function()
     setupWorld({ makePoint({ name = "X", owner = 1 }) }, nil)
 
     local model = VDT.ProductionExporter.collect()
-    assert.are.equal("1", model.version)
+    assert.are.equal("2", model.version)
     assert.is_nil(model.productionPoints)
   end)
 end)

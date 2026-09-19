@@ -833,6 +833,18 @@ enum class OutputMode(val token: String) {
   KEEP("keep"),
   DIRECT_SELL("directSell"),
   AUTO_DELIVER("autoDeliver"),
+
+  /**
+   * "Distribute across biogas plant" — a **fourth** mode the Pumps & Hoses DLC adds, which routes a
+   * fermenter's output into the plant's own parts instead of keeping, selling or shipping it. It only
+   * exists on a production point that is part of a [Construction], and offering it anywhere else would
+   * ask the mod for something the game would refuse, so the app offers it only there.
+   *
+   * The DLC registers its numeric value at load time rather than declaring a constant, which is why
+   * this crosses the wire as a token like the rest and the mod discovers the number (see the mod's
+   * `src/integrations/PumpsAndHoses.lua`).
+   */
+  AUTO_DISTRIBUTION("autoDistribution"),
   ;
 
   companion object {

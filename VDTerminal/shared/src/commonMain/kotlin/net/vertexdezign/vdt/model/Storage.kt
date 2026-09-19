@@ -49,6 +49,14 @@ data class StandaloneStorage(
   val id: String = "",
   val name: String = "",
   val kind: String = "fill",
+  /**
+   * Set on a storage standing inside a [Construction] — a biogas plant's **digestate tank** is the
+   * only one there is, and it stays on this list because it really is a store the farm pumps out of.
+   * That plant's *bunkers* are not on this list at all: they are its input hopper, material goes in
+   * and is pumped on into the fermenters, and nothing comes back out. They are reported as part of
+   * the plant instead ([ConstructionPart.fills]).
+   */
+  val construction: ConstructionRef? = null,
   val fills: List<ProductionFill> = emptyList(),
   val objects: List<StoredObject> = emptyList(),
   val count: Int = 0,

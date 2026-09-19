@@ -85,6 +85,100 @@ class ProductionModelTest {
     assertRoundTrips(data)
   }
 
+  /**
+   * The Pumps & Hoses biogas plant capture — a dedicated-server CLIENT, which is the half that could
+   * only be reasoned about before it existed: the DLC syncs its merged-placeable map by a dirty flag
+   * and rebuilds it in `onReadUpdateStream`, and this file is the proof that a client therefore sees
+   * the same two entries, the same summed recipe and the same utilization readings the host does.
+   *
+   * The plant in it: two fermenters merged into ONE entry, three cogeneration units merged into
+   * another, two bunkers, a digestate tank and a gas torch. Beside it in the same file is an ordinary
+   * dairy, which is what pins that a base-game point still carries no construction at all.
+   */
+  @Test
+  fun parsesTheBiogasPlantCapture() {
+    val data = VdtParser.parseProduction(example("mp_modded.json"))
+
+    assertEquals("2", data.version)
+    assertEquals(3, data.productionPoints.size)
+
+    // Seven machines, three entries: the dairy, and the plant's two merged points.
+    val dairy = data.productionPoints.first { it.construction == null }
+    assertEquals("Lindenhof Molkerei", dairy.name)
+
+    val plant = data.constructions.single()
+    assertEquals("BGA (1)", plant.name)
+    assertEquals("bga", plant.kind)
+    val members = data.productionPoints.filter { it.construction?.id == plant.id }
+    assertEquals(listOf("FERMENTER", "POWERPLANT"), members.mapNotNull { it.construction?.role })
+    // The plant's root is its fermenter — the only role the DLC lets be one — so the id it groups
+    // under is that placeable's, and the fermenter entry's own id is the same string.
+    assertEquals(plant.id, members[0].id)
+
+    assertEquals(listOf("BUNKER", "FERMENTER", "POWERPLANT", "SILO", "TORCH"), plant.parts.map { it.role })
+    val byRole = plant.parts.associateBy { it.role }
+    assertEquals(2, byRole.getValue("BUNKER").count)
+    assertEquals(2, byRole.getValue("FERMENTER").count)
+    // Three cogeneration units behind one entry — the case that started all of this.
+    assertEquals(3, byRole.getValue("POWERPLANT").count)
+    assertEquals(91, byRole.getValue("POWERPLANT").utilization)
+    assertEquals(52, byRole.getValue("FERMENTER").utilization)
+
+    // What the bunkers hold, summed across both of them; the fermenters hold nothing of their own
+    // (their liters are their production point's storage, reported there and only there).
+    assertEquals(
+      listOf("MANURE", "SILAGE", "SUGARBEET_CUT"),
+      byRole.getValue("BUNKER").fills.map { it.type },
+    )
+    assertEquals(8559, byRole.getValue("BUNKER").fills.first { it.type == "MANURE" }.level)
+    assertTrue(byRole.getValue("FERMENTER").fills.isEmpty())
+
+    // The digestate tank: a real fill, and the flat 0 utilization the DLC never implemented for it.
+    val tank = byRole.getValue("SILO")
+    assertEquals(114688, tank.fills.first { it.type == "DIGESTATE" }.level)
+    assertEquals(0, tank.utilization)
+
+    // A working plant whose torch reads zero: it burns the surplus, and this one has none to burn.
+    assertEquals(0, byRole.getValue("TORCH").utilization)
+
+    // The plant's production has no name in the game — the DLC keys it by sandbox type — so the
+    // mod's generic fallback is what lands here, and the app titles the card by the role instead.
+    val fermenter = members[0].lines.single()
+    assertEquals("FERMENTER", fermenter.id)
+    assertEquals("Line 1", fermenter.name)
+    assertEquals("running", fermenter.status)
+    assertTrue(fermenter.enabled)
+
+    // The merged recipe: three inputs on one fermenter entry, and the point's storage read through
+    // its stations rather than off its own tank.
+    assertEquals(listOf("SILAGE", "LIQUIDMANURE", "MANURE"), fermenter.inputs.map { it.type })
+    assertEquals(28065, members[0].storage.first { it.type == "SILAGE" }.level)
+
+    // The DLC's FOURTH output mode, which is not a key of the base enum at all — it registers its
+    // value at load time, and naming it off that enum answered "keep", a wrong answer that looked
+    // right. Both fermenter outputs are on it here, and nothing outside the plant is.
+    assertEquals(listOf("autoDistribution", "autoDistribution"), fermenter.outputs.map { it.mode })
+    assertEquals(OutputMode.AUTO_DISTRIBUTION, OutputMode.fromToken(fermenter.outputs[0].mode))
+    assertTrue(dairy.lines.flatMap { it.outputs }.all { it.mode == "keep" })
+
+    // The cogeneration unit sells its charge outright, so it is never buffered and carries no bar.
+    val power = members[1].lines.single().outputs.single()
+    assertEquals("ELECTRICCHARGE", power.type)
+    assertTrue(power.sellDirectly)
+
+    assertRoundTrips(data)
+  }
+
+  @Test
+  fun productionWithoutADlcCarriesNoConstruction() {
+    val data = VdtParser.parseProduction(example("basic.json"))
+    assertNull(data.productionPoints[0].construction)
+    assertTrue(data.constructions.isEmpty())
+    // An output mode token the app does not know stays null rather than collapsing onto a neighbour —
+    // the guard that matters now that a DLC can add a fourth one the app may not have heard of.
+    assertNull(OutputMode.fromToken("somethingElse"))
+  }
+
   @Test
   fun parsesEmptyProductionWithOmittedArrays() {
     // Own-farm-with-nothing / spectator: the mod writes just the version, so the Kotlin defaults must

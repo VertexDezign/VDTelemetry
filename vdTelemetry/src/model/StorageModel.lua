@@ -37,6 +37,10 @@
 ---@field id string stable id for app selection (placeable uniqueId, else a synthesized fallback)
 ---@field name string display name (owning placeable's name)
 ---@field kind string "fill" (liter silo) or "object" (object storage: bales/pallets, count-based)
+---@field construction ConstructionRefModel? set on a storage that stands inside a construction -- a
+---  Pumps & Hoses biogas plant's digestate tank is the only one there is, and it is here rather than
+---  only on the production channel because it IS a store the farm pumps out of. That plant's BUNKERS
+---  are not on this list at all (see integrations/PumpsAndHoses.lua).
 ---@field fills ProductionFillModel[]? kind=="fill": one row per stored fill type
 ---@field objects StoredObjectModel[]? kind=="object": per-type item counts (may be partial on MP clients)
 ---@field count number? kind=="object": total number of objects currently stored

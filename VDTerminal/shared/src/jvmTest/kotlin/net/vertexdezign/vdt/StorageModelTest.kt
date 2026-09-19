@@ -19,7 +19,8 @@ import kotlin.test.assertTrue
  * capture is whatever the game wrote that day. `basic.json` is a singleplayer farm mid-silage-season,
  * recaptured at version 3, and `fermented_silo.json` the same farm once its covered bunker has
  * finished, still at version 2; `mp_modded.json` is a played-in **multiplayer client** on a modded
- * map, also recaptured at version 3; `empty.json` is the own-farm-with-nothing document. Between them
+ * map, recaptured at version 4 once that farm had a Pumps & Hoses biogas plant standing;
+ * `empty.json` is the own-farm-with-nothing document. Between them
  * they carry every state the channel has ever written. The two shapes no capture can hold — a channel
  * version 1 file, and a stored row the mod could not read at all — are asserted inline.
  */
@@ -234,68 +235,107 @@ class StorageModelTest {
   fun parsesTheMultiplayerCapture() {
     val data = VdtParser.parseStorage(example("mp_modded.json"))
 
-    assertEquals("3", data.version)
-    assertEquals(5, data.storages.size)
+    assertEquals("4", data.version)
+    assertEquals(7, data.storages.size)
 
-    // Two bunkers, in two different states, and each carries only the percentage its own state
-    // maintains — the other defaults to zero rather than arriving stale.
-    assertEquals(2, data.bunkerSilos.size)
-    val filling = data.bunkerSilos.single { it.state == "FILL" }
+    // Four bunkers across three states, and each carries only the percentage its own state maintains
+    // — the others default to zero rather than arriving stale.
+    assertEquals(4, data.bunkerSilos.size)
+    val filling = data.bunkerSilos.filter { it.state == "FILL" }
     // An empty bunker is still reported: it is a building the farm owns, at zero.
-    assertEquals("CHAFF", filling.type)
-    assertEquals(0, filling.level)
-    assertEquals(0, filling.fermenting)
+    assertEquals(2, filling.size)
+    assertTrue(filling.all { it.type == "CHAFF" && it.level == 0 && it.fermenting == 0 })
     val draining = data.bunkerSilos.single { it.state == "DRAIN" }
     // Opened, the game names the output type, and so does the export.
     assertEquals("SILAGE", draining.type)
-    assertEquals(520486, draining.level)
+    assertEquals(56831, draining.level)
     assertEquals(0, draining.compacted)
     assertEquals(0, draining.fermenting)
+    val fermented = data.bunkerSilos.single { it.state == "FERMENTED" }
+    assertEquals("SILAGE", fermented.type)
+    assertEquals(381521, fermented.level)
 
     // Loose stock: sorted by fill type, every bale round on this farm, and a pallet never carries the
     // bale-only `shape`.
     assertEquals(listOf("DRYGRASS_WINDROW", "STRAW"), data.looseBales.map { it.type })
     assertTrue(data.looseBales.all { it.shape == "ROUND" })
-    assertEquals(15, data.looseBales[0].count)
-    assertEquals(75000, data.looseBales[0].level)
-    val milk = data.loosePallets.single()
-    assertEquals("MILK_BOTTLED", milk.type)
+    assertEquals(4, data.looseBales[0].count)
+    assertEquals(19683, data.looseBales[0].level)
+    val milk = data.loosePallets.single { it.type == "MILK_BOTTLED" }
     assertEquals("PALLET", milk.kind)
     assertEquals("", milk.shape)
 
     // The form fields, from real game data: a storage of pallets resolves each row to what it is, and
-    // it does NOT do it off the title — the two SEEDS rows below hold the same fill type and split
+    // it does NOT do it off the title — the three SEEDS rows below hold the same fill type and split
     // PALLET from BIGBAG on `palletAttributes.isBigBag`, which is the game's own test.
     val garage = data.storages.single { it.name == "Offene Garage aus Holz" }
-    assertEquals(10, garage.count)
+    assertEquals(9, garage.count)
     assertEquals(garage.count, garage.objects.sumOf { it.count })
     val seeds = garage.objects.filter { it.type == "SEEDS" }
-    assertEquals(listOf("PALLET", "BIGBAG"), seeds.map { it.kind })
+    assertEquals(listOf("BIGBAG", "PALLET", "BIGBAG"), seeds.map { it.kind })
     assertTrue(garage.objects.all { it.shape == "" }, "a pallet carries no bale shape")
 
     // A stored group's `level` is ONE object's liters, so the group holds level * count, and the
     // groups add up to the storage's own total.
     val feedBarn = data.storages.single { it.name == "Futterhalle" }
-    assertEquals(311, feedBarn.count)
+    assertEquals(322, feedBarn.count)
     assertEquals(feedBarn.count, feedBarn.objects.sumOf { it.count })
     val straw = feedBarn.objects.single { it.type == "STRAW" }
     assertEquals(7500, straw.level)
-    assertEquals(787500, straw.level * straw.count)
+    assertEquals(577500, straw.level * straw.count)
 
     // The trap for anything totalling this up: ONE fill type can span SEVERAL groups. The game splits
     // on more than type and level (the bale's xml file, its variation, whether it is wrapped), so the
-    // hay in this barn arrives as three rows, two of them holding 5000 l bales either way. A consumer
-    // has to sum by type rather than expect a row per type.
+    // hay in this barn arrives as two rows of identical 5000 l bales. A consumer has to sum by type
+    // rather than expect a row per type — the bale store next door makes the same point harder, with
+    // three separate rows of the same 3000 l grass silage.
     val hay = feedBarn.objects.filter { it.type == "DRYGRASS_WINDROW" }
-    assertEquals(3, hay.size)
-    assertEquals(2, hay.count { it.level == 5000 })
-    assertEquals(943245, hay.sumOf { it.level * it.count })
+    assertEquals(2, hay.size)
+    assertTrue(hay.all { it.level == 5000 })
+    assertEquals(1140000, hay.sumOf { it.level * it.count })
+    val baleStore = data.storages.single { it.name == "Ballenlager 350" }
+    assertEquals(3, baleStore.objects.size)
+    assertTrue(baleStore.objects.all { it.type == "GRASS_FERMENTED" && it.level == 3000 })
 
     // Every bale row — stored and loose alike — says BALE and refines it with a shape.
     assertTrue(feedBarn.objects.all { it.kind == "BALE" && it.shape == "ROUND" })
     assertTrue(data.looseBales.all { it.kind == "BALE" })
 
     assertRoundTrips(data)
+  }
+
+  /**
+   * The biogas-plant half of the same capture, and the reason this fixture was retaken: what a plant
+   * leaves on the storage channel, and what it takes off it.
+   *
+   * Two slurry tanks stand on this farm and both hold digestate. One is the plant's and says so; the
+   * other is the farm's own, outside the plant, and carries no construction at all — which is the
+   * pair that proves the tag is read from the placeable's live membership rather than guessed from
+   * what is in it. The plant's two BUNKERS are on neither list: they are its input hopper, material
+   * driven in is pumped on into the fermenters and nothing comes back out, so they are reported as
+   * part of the plant on the production channel instead (see [ProductionModelTest]). The four
+   * `bunkerSilos` here are the farm's own drive-in silos — a different thing that shares a word, and
+   * a `PlaceableBunkerSilo` rather than the `PlaceableSilo` a plant's bunker really is.
+   */
+  @Test
+  fun theCaptureShowsWhatABiogasPlantLeavesHere() {
+    val data = VdtParser.parseStorage(example("mp_modded.json"))
+
+    val tanks = data.storages.filter { it.fills.any { fill -> fill.type == "DIGESTATE" } }
+    assertEquals(2, tanks.size)
+
+    val farmTank = tanks.single { it.construction == null }
+    assertEquals("Güllebehälter", farmTank.name)
+    assertEquals(2000289, farmTank.fills.single { it.type == "DIGESTATE" }.level)
+
+    val plantTank = tanks.single { it.construction != null }
+    val ref = assertNotNull(plantTank.construction)
+    assertEquals("BGA (1)", ref.name)
+    assertEquals("SILO", ref.role)
+    assertEquals(69912, plantTank.fills.single { it.type == "DIGESTATE" }.level)
+
+    // No storage on this channel is a plant bunker, by either name or role.
+    assertTrue(data.storages.none { it.construction?.role == "BUNKER" })
   }
 
   /**
