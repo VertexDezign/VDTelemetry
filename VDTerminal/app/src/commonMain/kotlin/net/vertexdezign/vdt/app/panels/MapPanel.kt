@@ -433,6 +433,11 @@ fun MapPanel(
       imageError = error?.message ?: error.toString()
       // Also in the browser console, where it is copy-pasteable and survives the panel closing.
       println("VDT: map image fetch failed (attempt ${attempt + 1}/$MAP_IMAGE_FETCH_ATTEMPTS): $imageError")
+      // Retry only what a second attempt could answer differently. A status from the server is a
+      // verdict about a path on disk, and an Error is the decoder out of room: neither changes in two
+      // seconds, and decoding a too-large image again only allocates it again. Both are still
+      // reported — the banner is the whole point — but at once, rather than four seconds late.
+      if (error is MapImageFetchFailed || error is Error) break
     }
   }
   // Only the contracts this farm has taken on: the board's offers are shopping, and the map is for
