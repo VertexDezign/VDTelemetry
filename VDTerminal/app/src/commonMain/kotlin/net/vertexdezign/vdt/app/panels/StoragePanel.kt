@@ -82,10 +82,11 @@ private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) ->
   val ids = remember(data) { data.storages.map { it.id } }
   val currentId = selectedId.takeIf { it in ids } ?: ids.firstOrNull()
   val loose = remember(data) { data.storages.filter { it.construction == null } }
-  // Keyed by the plant's NAME, which the ref carries precisely so this channel can title a section
+  // Keyed by the plant's ID, so two plants that happen to share a display name stay two sections. The
+  // title then comes off the ref's NAME, which it carries precisely so this channel can name a plant
   // without the production channel being present at all.
   val grouped = remember(data) {
-    data.storages.filter { it.construction != null }.groupBy { it.construction?.name.orEmpty() }
+    data.storages.filter { it.construction != null }.groupBy { it.construction?.id.orEmpty() }
   }
 
   Row(Modifier.fillMaxSize()) {
@@ -103,8 +104,8 @@ private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) ->
       }
       // One titled section per construction, after the farm's own stores — see ProductionPanel, which
       // orders its master list by the same rule.
-      grouped.forEach { (plant, members) ->
-        GroupHeader(plant)
+      grouped.forEach { (_, members) ->
+        GroupHeader(members.first().construction?.name.orEmpty())
         members.forEach { storage ->
           OwnedRow(
             name = storage.name,
