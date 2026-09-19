@@ -136,6 +136,16 @@ local function plantName(root)
   return "BGA"
 end
 
+---The plant's id, and the ONE place it is derived. Both sides of the join compute it from the same
+---root: the reference hung on a point or a storage, and the `constructions[]` entry it points at. The
+---fallback matters for that reason -- an index ("bga1") would differ between the two callers, so it is
+---the root's own identity that stands in when the engine gives neither a uniqueId nor a rootNode.
+---@param root table
+---@return string
+local function plantId(root)
+  return VDT.ProductionExporter.placeableId(root, "bga" .. tostring(root))
+end
+
 ---The construction reference to hang on a production point or a storage, or nil when the placeable is
 ---not part of a BGA (no DLC, not a member, or a member with no plant around it yet).
 ---@param placeable table|nil
@@ -150,7 +160,7 @@ function VDT.PumpsAndHoses.reference(placeable)
     return nil
   end
   return {
-    id = VDT.ProductionExporter.placeableId(root, "bga"),
+    id = plantId(root),
     name = plantName(root),
     role = role,
   }
@@ -356,7 +366,7 @@ function VDT.PumpsAndHoses.collect(farmId)
         end
       end
       out[#out + 1] = {
-        id = VDT.ProductionExporter.placeableId(placeable, "bga" .. #out + 1),
+        id = plantId(placeable),
         kind = "bga",
         name = plantName(placeable),
         parts = #parts > 0 and parts or nil,
