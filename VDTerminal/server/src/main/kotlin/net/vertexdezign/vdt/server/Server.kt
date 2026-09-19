@@ -518,6 +518,10 @@ fun main() {
         call.respondText("OK")
       }
 
+      // The PDA overview: the only asset served from outside our own folders, at a path the *game*
+      // chose on a machine we know nothing about. Every branch therefore says what it saw, and says
+      // the same thing back to the browser — the failure looks like an empty map on someone else's
+      // screen, and whoever is looking at it has neither this console nor the file.
       get("/api/map-image") {
         val filename =
           telemetryState.value
@@ -525,22 +529,43 @@ fun main() {
             ?.pda
             ?.filename
         if (filename.isNullOrBlank()) {
-          log.warn("PDA / filename not available")
-          call.respondText("PDA / filename not available", status = HttpStatusCode.NotFound)
+          log.warn("Map image requested, but the mod has reported no PDA image for this map")
+          call.respondText(
+            "The mod reported no PDA image for this map. Its own log says why: look for 'PDA:' in log.txt.",
+            status = HttpStatusCode.NotFound,
+          )
           return@get
         }
-        val asset = AssetResolver.resolve(Config.gameDir(), filename)
+        val gameDir = Config.gameDir()
+        // INFO, not DEBUG: this is the line a bug report needs, and the request happens once a session.
+        log.info("Map image requested: the mod reports {} (game folder {})", filename, gameDir)
+        val lookup = AssetResolver.lookup(gameDir, filename)
+        val asset = lookup.asset
         if (asset == null) {
-          log.warn("Image not found: $filename")
-          call.respondText("Image not found: $filename", status = HttpStatusCode.NotFound)
+          log.warn("Map image not found: {}. Looked at: {}", filename, lookup.tried.joinToString(" | "))
+          call.respondText(
+            buildString {
+              appendLine("Map image not found.")
+              appendLine("The mod reported: $filename")
+              appendLine("Game folder:     $gameDir")
+              appendLine("Looked at:")
+              lookup.tried.forEach { appendLine("  $it") }
+              append("If the game or its mods live somewhere else, point the server there with VDT_GAME_DIR.")
+            },
+            status = HttpStatusCode.NotFound,
+          )
           return@get
         }
         try {
           val (bytes, contentType) = ImagePipeline.process(asset.bytes, filename)
+          log.info("Map image served from {} as {} ({} bytes)", asset.source, contentType, bytes.size)
           call.respondBytes(bytes, ContentType.parse(contentType))
         } catch (e: Exception) {
-          log.error("Failed to process map image {}", filename, e)
-          call.respondText("Error processing image", status = HttpStatusCode.InternalServerError)
+          log.error("Failed to process map image {} from {}", filename, asset.source, e)
+          call.respondText(
+            "Map image could not be decoded: ${e.message}\nSource: ${asset.source}",
+            status = HttpStatusCode.InternalServerError,
+          )
         }
       }
 

@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.server
 
+import org.slf4j.LoggerFactory
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -8,10 +9,18 @@ import javax.imageio.ImageIO
 /**
  * Decode → PNG. DDS goes through [Dds]; PNG/JPG through ImageIO; anything else passes through as
  * `application/octet-stream`.
+ *
+ * Every step says what it did, at DEBUG. A map overview is the one asset here whose size is set by
+ * whoever built the map rather than by us — a 4x map's 4096² overview re-encodes to tens of
+ * megabytes — so the numbers in these lines (source bytes, pixels, PNG bytes, milliseconds) are what
+ * separates "the server never found it" from "the tablet could not hold it".
  */
 object ImagePipeline {
+  private val log = LoggerFactory.getLogger(ImagePipeline::class.java)
+
   fun process(data: ByteArray, filename: String): Pair<ByteArray, String> {
     val ext = filename.substringAfterLast('.', "").lowercase()
+    val started = System.nanoTime()
 
     val image: BufferedImage =
       when (ext) {
@@ -24,13 +33,25 @@ object ImagePipeline {
         }
 
         else -> {
+          log.debug("{} ({} bytes) has no image extension we decode; passing it through", filename, data.size)
           return data to "application/octet-stream"
         }
       }
 
     val out = ByteArrayOutputStream()
     ImageIO.write(image, "png", out)
-    return out.toByteArray() to "image/png"
+    val png = out.toByteArray()
+    log.debug(
+      "{}: {} bytes {} -> {}x{} -> {} bytes png in {} ms",
+      filename,
+      data.size,
+      ext,
+      image.width,
+      image.height,
+      png.size,
+      (System.nanoTime() - started) / 1_000_000,
+    )
+    return png to "image/png"
   }
 
   private fun toBufferedImage(decoded: DecodedImage): BufferedImage {

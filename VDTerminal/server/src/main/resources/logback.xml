@@ -5,10 +5,20 @@
         </encoder>
     </appender>
 
-    <root level="INFO">
+    <!-- Overridable without a rebuild: VDT_LOG_LEVEL=DEBUG in the environment turns the whole
+         server verbose, which is what to ask someone for when their dashboard misbehaves. -->
+    <root level="${VDT_LOG_LEVEL:-INFO}">
         <appender-ref ref="STDOUT"/>
     </root>
 
     <logger name="io.netty" level="WARN"/>
     <logger name="org.eclipse.jetty" level="WARN"/>
+
+    <!-- The map-image path is DEBUG by default, alone among everything here. It runs once per
+         session, on a path the game chose on the user's machine, and when it fails the only symptom
+         is an empty square in someone else's browser: there is no second chance to reproduce it with
+         the level turned up. Three lines at startup cost nothing; a support round-trip costs days. -->
+    <logger name="net.vertexdezign.vdt.server.AssetResolver" level="${VDT_LOG_LEVEL_MAP:-DEBUG}"/>
+    <logger name="net.vertexdezign.vdt.server.ImagePipeline" level="${VDT_LOG_LEVEL_MAP:-DEBUG}"/>
+    <logger name="net.vertexdezign.vdt.server.Dds" level="${VDT_LOG_LEVEL_MAP:-DEBUG}"/>
 </configuration>
