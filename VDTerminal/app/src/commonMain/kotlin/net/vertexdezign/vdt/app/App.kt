@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -147,7 +148,16 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
 
         if (connection != ConnectionState.Connected) {
           Box(
-            Modifier.fillMaxSize().background(VdtColors.Black.copy(alpha = 0.55f)),
+            Modifier
+              .fillMaxSize()
+              .background(VdtColors.Black.copy(alpha = 0.55f))
+              // Swallows every touch. A background alone lets them through to the controls it dims,
+              // and a command tapped there has nowhere to go: it waits, and CommandQueue drops it.
+              .pointerInput(Unit) {
+                awaitPointerEventScope {
+                  while (true) awaitPointerEvent().changes.forEach { it.consume() }
+                }
+              },
             contentAlignment = Alignment.Center,
           ) {
             Text(
