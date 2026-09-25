@@ -26,15 +26,38 @@ import kotlin.time.TimeSource
  *
  * The ground-layer subscription is not lost by this: it is session state, which [TelemetryRepository]
  * remembers and restates at the top of every session on its own.
+ *
+ * The age is checked once, as a command leaves this queue, and never again. Past that point the wasm
+ * client cannot hold a command back: Ktor's outgoing channel is unbounded, so `send` does not suspend,
+ * and its pump hands each frame straight to the browser's `WebSocket.send`, which buffers without
+ * limit and cannot take a frame back. A frame stuck there on a dead socket dies with that socket --
+ * a new session never replays it -- so all that remains is a connection that stalls and then recovers
+ * as the *same* session, delivering late what it was given in time. Guarding that would take the
+ * server judging a command's age, against a client clock it does not share; accepted instead.
  */
 internal class CommandQueue(
   private val timeSource: TimeSource = TimeSource.Monotonic,
   private val maxAge: Duration = MAX_AGE,
-  private val onDropped: (ClientMessage) -> Unit = {},
+  private val onDropped: (ClientMessage, DropReason) -> Unit = { _, _ -> },
 ) {
+  enum class DropReason {
+    /** Waited longer than [maxAge]. */
+    Expired,
+
+    /** Pushed out by a burst past [CAPACITY], or taken by a session that ended before sending it. */
+    Lost,
+  }
+
   private class Queued(val message: ClientMessage, val queuedAt: TimeMark)
 
-  private val channel = Channel<Queued>(capacity = CAPACITY, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+  // DROP_OLDEST hands the element it pushes out to onUndeliveredElement, as does a receive cancelled
+  // after taking one, so a lost command is reported rather than vanishing.
+  private val channel =
+    Channel<Queued>(
+      capacity = CAPACITY,
+      onBufferOverflow = BufferOverflow.DROP_OLDEST,
+      onUndeliveredElement = { onDropped(it.message, DropReason.Lost) },
+    )
 
   /** Enqueue a command (non-blocking; safe to call from the UI). */
   fun offer(message: ClientMessage) {
@@ -58,7 +81,7 @@ internal class CommandQueue(
 
   private fun fresh(queued: Queued): ClientMessage? {
     if (queued.queuedAt.elapsedNow() <= maxAge) return queued.message
-    onDropped(queued.message)
+    onDropped(queued.message, DropReason.Expired)
     return null
   }
 

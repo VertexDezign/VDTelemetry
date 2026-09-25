@@ -8,6 +8,7 @@ local NAMES = { "EnhancedVehicle", "PrecisionFarming", "AdvancedDamageSystem", "
 
 describe("VDT.Integrations.run", function()
   local saved
+  local savedTelemetry
   local logged
 
   before_each(function()
@@ -21,6 +22,7 @@ describe("VDT.Integrations.run", function()
     end
     VDT.Integrations.resetReported()
     logged = {}
+    savedTelemetry = _G.g_vdTelemetry
     _G.g_vdTelemetry = {
       debugger = {
         error = function(_, message)
@@ -34,7 +36,7 @@ describe("VDT.Integrations.run", function()
     for _, name in ipairs(NAMES) do
       VDT[name] = saved[name]
     end
-    _G.g_vdTelemetry = nil
+    _G.g_vdTelemetry = savedTelemetry
   end)
 
   it("runs every integration that implements the stage, in list order", function()

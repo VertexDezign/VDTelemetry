@@ -52,7 +52,15 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
   // Outbound app -> server commands. A command that could not be sent within a few seconds is
   // dropped rather than replayed on reconnect -- see CommandQueue for why.
-  private val commandQueue = CommandQueue(onDropped = { println("VDT: dropped command queued too long ago: $it") })
+  private val commandQueue =
+    CommandQueue(
+      onDropped = { message, reason ->
+        when (reason) {
+          CommandQueue.DropReason.Expired -> println("VDT: dropped command queued too long ago: $message")
+          CommandQueue.DropReason.Lost -> println("VDT: lost command before it could be sent: $message")
+        }
+      },
+    )
 
   private val decoder = FrameDecoder(json)
 
@@ -218,6 +226,9 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
                 }
                 while (true) {
                   val message = commandQueue.receive()
+                  // A subscription since replaced is skipped: sent after the restate above, it would
+                  // put the server back on an older set of layers until the newer one came through.
+                  if (message is ClientMessage.SetMapLayers && message !== layerSubscription) continue
                   send(Frame.Text(json.encodeToString(ClientMessage.serializer(), message)))
                 }
               }

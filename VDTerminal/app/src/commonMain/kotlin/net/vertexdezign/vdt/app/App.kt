@@ -146,35 +146,6 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
           )
         }
 
-        if (connection != ConnectionState.Connected) {
-          Box(
-            Modifier
-              .fillMaxSize()
-              .background(VdtColors.Black.copy(alpha = 0.55f))
-              // Swallows every touch. A background alone lets them through to the controls it dims,
-              // and a command tapped there has nowhere to go: it waits, and CommandQueue drops it.
-              .pointerInput(Unit) {
-                awaitPointerEventScope {
-                  while (true) awaitPointerEvent().changes.forEach { it.consume() }
-                }
-              },
-            contentAlignment = Alignment.Center,
-          ) {
-            Text(
-              if (connection ==
-                ConnectionState.Connecting
-              ) {
-                "CONNECTING…"
-              } else {
-                "CONNECTION LOST — RECONNECTING…"
-              },
-              color = VdtColors.White,
-              fontSize = 22.sp,
-              fontWeight = FontWeight.Bold,
-            )
-          }
-        }
-
         if (notificationsOpen) {
           NotificationCenter(
             history = store.alerts.history.collectAsState().value,
@@ -211,6 +182,37 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
             canPinMore = favourites.size < FavouritesStore.MAX,
             onTogglePin = { store.favourites.toggle(Favourite.of(it)) },
           )
+        }
+
+        // Last, so it sits above the launcher and the notification centre as well: nothing outranks
+        // "connection lost", and an overlay drawn over it would take the taps it is there to swallow.
+        if (connection != ConnectionState.Connected) {
+          Box(
+            Modifier
+              .fillMaxSize()
+              .background(VdtColors.Black.copy(alpha = 0.55f))
+              // Swallows every touch. A background alone lets them through to the controls it dims,
+              // and a command tapped there has nowhere to go: it waits, and CommandQueue drops it.
+              .pointerInput(Unit) {
+                awaitPointerEventScope {
+                  while (true) awaitPointerEvent().changes.forEach { it.consume() }
+                }
+              },
+            contentAlignment = Alignment.Center,
+          ) {
+            Text(
+              if (connection ==
+                ConnectionState.Connecting
+              ) {
+                "CONNECTING…"
+              } else {
+                "CONNECTION LOST — RECONNECTING…"
+              },
+              color = VdtColors.White,
+              fontSize = 22.sp,
+              fontWeight = FontWeight.Bold,
+            )
+          }
         }
       }
     }

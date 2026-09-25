@@ -11,7 +11,14 @@ import kotlin.time.TestTimeSource
 class CommandQueueTest {
   private val clock = TestTimeSource()
   private val dropped = mutableListOf<ClientMessage>()
-  private val queue = CommandQueue(clock, maxAge = 3.seconds, onDropped = { dropped += it })
+  private val lost = mutableListOf<ClientMessage>()
+  private val queue =
+    CommandQueue(clock, maxAge = 3.seconds) { message, reason ->
+      when (reason) {
+        CommandQueue.DropReason.Expired -> dropped += message
+        CommandQueue.DropReason.Lost -> lost += message
+      }
+    }
 
   @Test
   fun sendsWhatWasQueuedInOrder() {
@@ -56,5 +63,7 @@ class CommandQueueTest {
   fun aBurstPastCapacityKeepsTheNewest() {
     repeat(CommandQueue.CAPACITY + 1) { queue.offer(ClientMessage.PayInvoice(it)) }
     assertEquals(ClientMessage.PayInvoice(1), queue.poll())
+    assertEquals(listOf<ClientMessage>(ClientMessage.PayInvoice(0)), lost)
+    assertEquals(emptyList(), dropped)
   }
 }
