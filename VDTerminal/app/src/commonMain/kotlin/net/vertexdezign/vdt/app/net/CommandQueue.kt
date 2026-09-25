@@ -24,8 +24,11 @@ import kotlin.time.TimeSource
  * scrim keeps taps from landing while the app *knows* it is offline; this covers the stretch where the
  * socket has died and nobody has noticed yet.
  *
- * The ground-layer subscription is not lost by this: it is session state, which [TelemetryRepository]
- * remembers and restates at the top of every session on its own.
+ * The ground-layer subscription is exempt from the age limit. It states the whole set of layers on
+ * screen, so it is never wrong late, only wrong missing: dropped on a connection that was slow but never
+ * dropped, it would leave the server sweeping the old layers with no reconnect coming to restate it.
+ * [TelemetryRepository] restates it at the top of every session and skips a queued one that has since
+ * been replaced, so the exemption can only ever deliver the newest.
  *
  * The age is checked once, as a command leaves this queue, and never again. Past that point the wasm
  * client cannot hold a command back: Ktor's outgoing channel is unbounded, so `send` does not suspend,
@@ -80,7 +83,7 @@ internal class CommandQueue(
   }
 
   private fun fresh(queued: Queued): ClientMessage? {
-    if (queued.queuedAt.elapsedNow() <= maxAge) return queued.message
+    if (queued.message is ClientMessage.SetMapLayers || queued.queuedAt.elapsedNow() <= maxAge) return queued.message
     onDropped(queued.message, DropReason.Expired)
     return null
   }

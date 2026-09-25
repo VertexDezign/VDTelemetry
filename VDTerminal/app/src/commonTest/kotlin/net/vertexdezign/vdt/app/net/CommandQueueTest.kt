@@ -49,6 +49,16 @@ class CommandQueueTest {
     assertEquals(listOf<ClientMessage>(ClientMessage.PayInvoice(1)), dropped)
   }
 
+  // Absolute session state: late is still right, missing is not.
+  @Test
+  fun keepsTheLayerSubscriptionPastTheAgeLimit() {
+    val layers = ClientMessage.SetMapLayers(emptyList())
+    queue.offer(layers)
+    clock += 30.seconds
+    assertEquals(layers, queue.poll())
+    assertEquals(emptyList(), dropped)
+  }
+
   @Test
   fun theAgeLimitIsInclusive() {
     queue.offer(ClientMessage.PayInvoice(1))
