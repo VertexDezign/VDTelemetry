@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -106,10 +107,12 @@ private fun CropCalendarSection(data: CropCalendarData?, modifier: Modifier = Mo
   val rows = remember(data, query, sowNow, harvestNow) { filterCrops(data, query, sowNow, harvestNow) }
 
   Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    Row(
+    // Wraps on a narrow screen: the legend drops to its own line rather than running off the edge.
+    FlowRow(
       Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(8.dp),
-      verticalAlignment = Alignment.CenterVertically,
+      verticalArrangement = Arrangement.spacedBy(6.dp),
+      itemVerticalAlignment = Alignment.CenterVertically,
     ) {
       SearchField(
         value = query,

@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.FilterChip
+import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -247,37 +248,45 @@ private fun FleetMasterDetail(data: FleetData, onShowOnMap: (FleetVehicle) -> Un
       onDirection = { ascending = !ascending },
     )
     Spacer(Modifier.height(8.dp))
-    Row(Modifier.fillMaxSize()) {
-      Box(Modifier.width(300.dp).fillMaxHeight().padding(end = 10.dp)) {
-        if (shown.isEmpty()) {
-          Centered("Nothing matches")
-        } else {
-          // The one list in the app that can run to a hundred rows on a played-in farm, which is why
-          // it is lazy where the others are a plain scrolling column.
-          LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            items(shown, key = { it.id }) { vehicle ->
-              FleetRow(
-                vehicle = vehicle,
-                rig = vehicle.attachedTo?.let { byId[it] },
-                selected = vehicle.id == currentId,
-                onClick = { selectedId = vehicle.id },
-              )
+    var detailOpen by remember { mutableStateOf(false) }
+    ListDetail(
+      listWidth = 300.dp,
+      detailOpen = detailOpen,
+      backLabel = "Machines",
+      onBack = { detailOpen = false },
+      list = { listModifier ->
+        Box(listModifier) {
+          if (shown.isEmpty()) {
+            Centered("Nothing matches")
+          } else {
+            // The one list in the app that can run to a hundred rows on a played-in farm, which is why
+            // it is lazy where the others are a plain scrolling column.
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+              items(shown, key = { it.id }) { vehicle ->
+                FleetRow(
+                  vehicle = vehicle,
+                  rig = vehicle.attachedTo?.let { byId[it] },
+                  selected = vehicle.id == currentId,
+                  onClick = {
+                    selectedId = vehicle.id
+                    detailOpen = true
+                  },
+                )
+              }
             }
           }
         }
-      }
-      Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
-      Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
-        if (selected != null) {
-          FleetVehicleDetail(
-            vehicle = selected,
-            today = data.date,
-            rig = selected.attachedTo?.let { byId[it] },
-            onShowOnMap = onShowOnMap,
-          )
-        } else {
-          Centered("Select a machine")
-        }
+      },
+    ) {
+      if (selected != null) {
+        FleetVehicleDetail(
+          vehicle = selected,
+          today = data.date,
+          rig = selected.attachedTo?.let { byId[it] },
+          onShowOnMap = onShowOnMap,
+        )
+      } else {
+        Centered("Select a machine")
       }
     }
   }
@@ -295,10 +304,13 @@ private fun FleetControls(
   onSort: (FleetSort) -> Unit,
   onDirection: () -> Unit,
 ) {
-  Row(
+  // Wraps rather than squeezing: on a phone the search and the sort take a line, and the chips the
+  // next, where a Row would have left the chips a sliver between them.
+  FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(8.dp),
-    verticalAlignment = Alignment.CenterVertically,
+    verticalArrangement = Arrangement.spacedBy(6.dp),
+    itemVerticalAlignment = Alignment.CenterVertically,
   ) {
     SearchField(query, "Search machines", onQuery, Modifier.width(170.dp))
     FlowRow(

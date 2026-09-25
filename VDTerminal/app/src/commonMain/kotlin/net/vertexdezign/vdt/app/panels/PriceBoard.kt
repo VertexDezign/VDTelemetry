@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.FilterOption
 import net.vertexdezign.vdt.app.components.FilterSelect
+import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.CropCalendarData
@@ -104,30 +105,38 @@ internal fun PriceBoard(data: PricesData, periods: List<String>) {
       )
     }
     Spacer(Modifier.height(8.dp))
-    Row(Modifier.fillMaxSize()) {
-      Box(Modifier.width(230.dp).fillMaxHeight().padding(end = 10.dp)) {
-        if (shown.isEmpty()) {
-          Centered("Nothing matches")
-        } else {
-          LazyColumn(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            items(shown, key = { it.type }) { fillType ->
-              CommodityRow(
-                fillType = fillType,
-                sale = sales[fillType.type],
-                selected = fillType.type == currentType,
-                onClick = { selectedType = fillType.type },
-              )
+    var detailOpen by remember { mutableStateOf(false) }
+    ListDetail(
+      listWidth = 230.dp,
+      detailOpen = detailOpen,
+      backLabel = "Commodities",
+      onBack = { detailOpen = false },
+      list = { listModifier ->
+        Box(listModifier) {
+          if (shown.isEmpty()) {
+            Centered("Nothing matches")
+          } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+              items(shown, key = { it.type }) { fillType ->
+                CommodityRow(
+                  fillType = fillType,
+                  sale = sales[fillType.type],
+                  selected = fillType.type == currentType,
+                  onClick = {
+                    selectedType = fillType.type
+                    detailOpen = true
+                  },
+                )
+              }
             }
           }
         }
-      }
-      Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
-      Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
-        if (selected == null) {
-          Centered("Select a commodity")
-        } else {
-          CommodityDetail(selected, data, sales[selected.type], periods)
-        }
+      },
+    ) {
+      if (selected == null) {
+        Centered("Select a commodity")
+      } else {
+        CommodityDetail(selected, data, sales[selected.type], periods)
       }
     }
   }

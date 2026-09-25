@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.ConfirmDialog
+import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -93,30 +94,37 @@ fun MissionsPanel(
         val currentId = (selectedId ?: ownSelection)?.takeIf { it in ids } ?: ids.first()
         val current = shown.first { it.id == currentId }
 
-        Row(Modifier.fillMaxSize()) {
-          MissionList(
-            missions = shown,
-            limit = data.limit,
-            kinds = kinds,
-            activeFilter = activeFilter,
-            onFilter = { typeFilter = if (it == activeFilter) null else it },
-            currentId = currentId,
-            onSelect = {
-              ownSelection = it
-              onSelect(it)
-            },
-          )
-          Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
-          Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
-            MissionDetailView(
-              mission = current,
-              canManage = data.canManage,
-              limitReached = data.limit?.isReached == true,
-              onAccept = { lease -> onCommand(ClientMessage.AcceptMission(current.id, lease)) },
-              onCollect = { onCommand(ClientMessage.DismissMission(current.id)) },
-              onCancel = { pendingCancel = current },
+        var detailOpen by remember { mutableStateOf(false) }
+        ListDetail(
+          listWidth = 250.dp,
+          detailOpen = detailOpen,
+          backLabel = "Contracts",
+          onBack = { detailOpen = false },
+          list = { listModifier ->
+            MissionList(
+              modifier = listModifier,
+              missions = shown,
+              limit = data.limit,
+              kinds = kinds,
+              activeFilter = activeFilter,
+              onFilter = { typeFilter = if (it == activeFilter) null else it },
+              currentId = currentId,
+              onSelect = {
+                ownSelection = it
+                detailOpen = true
+                onSelect(it)
+              },
             )
-          }
+          },
+        ) {
+          MissionDetailView(
+            mission = current,
+            canManage = data.canManage,
+            limitReached = data.limit?.isReached == true,
+            onAccept = { lease -> onCommand(ClientMessage.AcceptMission(current.id, lease)) },
+            onCollect = { onCommand(ClientMessage.DismissMission(current.id)) },
+            onCancel = { pendingCancel = current },
+          )
         }
       }
     }
@@ -146,13 +154,14 @@ private fun MissionList(
   onFilter: (String) -> Unit,
   currentId: Int,
   onSelect: (Int) -> Unit,
+  modifier: Modifier = Modifier,
 ) {
   // The game's own two sections: on offer, and everything this farm has taken on (running or done).
   val offered = missions.filter { it.isOffered }
   val taken = missions.filterNot { it.isOffered }
 
   Column(
-    Modifier.width(250.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 10.dp),
+    modifier.verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     if (limit != null) {

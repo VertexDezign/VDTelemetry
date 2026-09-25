@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.ActionIcon
 import net.vertexdezign.vdt.app.components.Centered
+import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -89,38 +90,49 @@ private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) ->
     data.storages.filter { it.construction != null }.groupBy { it.construction?.id.orEmpty() }
   }
 
-  Row(Modifier.fillMaxSize()) {
-    Column(
-      Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 10.dp),
-      verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-      loose.forEach { storage ->
-        OwnedRow(
-          name = storage.name,
-          subtitle = storageSubtitle(storage),
-          selected = storage.id == currentId,
-          onClick = { selectedId = storage.id },
-        )
-      }
-      // One titled section per construction, after the farm's own stores — see ProductionPanel, which
-      // orders its master list by the same rule.
-      grouped.forEach { (_, members) ->
-        GroupHeader(members.first().construction?.name.orEmpty())
-        members.forEach { storage ->
+  var detailOpen by remember { mutableStateOf(false) }
+  ListDetail(
+    listWidth = 240.dp,
+    detailOpen = detailOpen,
+    backLabel = "Storage",
+    onBack = { detailOpen = false },
+    list = { listModifier ->
+      Column(
+        listModifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+      ) {
+        loose.forEach { storage ->
           OwnedRow(
             name = storage.name,
             subtitle = storageSubtitle(storage),
             selected = storage.id == currentId,
-            onClick = { selectedId = storage.id },
+            onClick = {
+              selectedId = storage.id
+              detailOpen = true
+            },
           )
         }
+        // One titled section per construction, after the farm's own stores — see ProductionPanel, which
+        // orders its master list by the same rule.
+        grouped.forEach { (_, members) ->
+          GroupHeader(members.first().construction?.name.orEmpty())
+          members.forEach { storage ->
+            OwnedRow(
+              name = storage.name,
+              subtitle = storageSubtitle(storage),
+              selected = storage.id == currentId,
+              onClick = {
+                selectedId = storage.id
+                detailOpen = true
+              },
+            )
+          }
+        }
       }
-    }
-    Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
-    Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
-      val storage = data.storages.firstOrNull { it.id == currentId }
-      if (storage != null) StandaloneStorageDetail(storage, onCommand) else Centered("Select an entry")
-    }
+    },
+  ) {
+    val storage = data.storages.firstOrNull { it.id == currentId }
+    if (storage != null) StandaloneStorageDetail(storage, onCommand) else Centered("Select an entry")
   }
 }
 

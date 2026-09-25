@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.OutputMode
 import net.vertexdezign.vdt.app.components.Centered
+import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -91,45 +92,56 @@ private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessa
   val grouped = remember(data) { data.productionPoints.groupBy { it.construction?.id } }
   val loose = remember(grouped) { grouped[null].orEmpty() }
 
-  Row(Modifier.fillMaxSize()) {
-    Column(
-      Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 10.dp),
-      verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-      loose.forEach { point ->
-        OwnedRow(
-          name = point.name,
-          subtitle = lineCountLabel(point.lines.size),
-          selected = point.id == currentId,
-          onClick = { selectedId = point.id },
-        )
-      }
-      data.constructions.forEach { construction ->
-        val members = grouped[construction.id].orEmpty()
-        if (members.isNotEmpty()) {
-          GroupHeader(construction.name)
-          members.forEach { point ->
-            OwnedRow(
-              // The point's own name is the machine's ("BGA (1): Fermenter 30m"), which under the
-              // header would repeat the plant and then name one of the three machines the entry
-              // actually speaks for. Its role is the honest label.
-              name = point.construction?.role?.let { roleLabel(it) } ?: point.name,
-              subtitle = lineCountLabel(point.lines.size),
-              selected = point.id == currentId,
-              onClick = { selectedId = point.id },
-            )
+  var detailOpen by remember { mutableStateOf(false) }
+  ListDetail(
+    listWidth = 240.dp,
+    detailOpen = detailOpen,
+    backLabel = "Productions",
+    onBack = { detailOpen = false },
+    list = { listModifier ->
+      Column(
+        listModifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+      ) {
+        loose.forEach { point ->
+          OwnedRow(
+            name = point.name,
+            subtitle = lineCountLabel(point.lines.size),
+            selected = point.id == currentId,
+            onClick = {
+              selectedId = point.id
+              detailOpen = true
+            },
+          )
+        }
+        data.constructions.forEach { construction ->
+          val members = grouped[construction.id].orEmpty()
+          if (members.isNotEmpty()) {
+            GroupHeader(construction.name)
+            members.forEach { point ->
+              OwnedRow(
+                // The point's own name is the machine's ("BGA (1): Fermenter 30m"), which under the
+                // header would repeat the plant and then name one of the three machines the entry
+                // actually speaks for. Its role is the honest label.
+                name = point.construction?.role?.let { roleLabel(it) } ?: point.name,
+                subtitle = lineCountLabel(point.lines.size),
+                selected = point.id == currentId,
+                onClick = {
+                  selectedId = point.id
+                  detailOpen = true
+                },
+              )
+            }
           }
         }
       }
-    }
-    Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
-    Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
-      val point = data.productionPoints.firstOrNull { it.id == currentId }
-      if (point != null) {
-        ProductionPointDetail(point, byId[point.construction?.id], onCommand)
-      } else {
-        Centered("Select an entry")
-      }
+    },
+  ) {
+    val point = data.productionPoints.firstOrNull { it.id == currentId }
+    if (point != null) {
+      ProductionPointDetail(point, byId[point.construction?.id], onCommand)
+    } else {
+      Centered("Select an entry")
     }
   }
 }
