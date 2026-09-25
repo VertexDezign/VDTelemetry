@@ -28,7 +28,9 @@ import kotlin.time.TimeSource
  * screen, so it is never wrong late, only wrong missing: dropped on a connection that was slow but never
  * dropped, it would leave the server sweeping the old layers with no reconnect coming to restate it.
  * [TelemetryRepository] restates it at the top of every session and skips a queued one that has since
- * been replaced, so the exemption can only ever deliver the newest.
+ * been replaced, so the exemption can only ever deliver the newest. For the same reason it survives
+ * overflow: a burst that pushes the newest one out puts it straight back at the tail, displacing the
+ * next-oldest command instead.
  *
  * The age is checked once, as a command leaves this queue, and never again. Past that point the wasm
  * client cannot hold a command back: Ktor's outgoing channel is unbounded, so `send` does not suspend,
@@ -53,18 +55,43 @@ internal class CommandQueue(
 
   private class Queued(val message: ClientMessage, val queuedAt: TimeMark)
 
+  // The newest layer subscription offered, and one an offer just pushed out of the buffer while it
+  // still was the newest. Requeued after the trySend returns rather than from inside the callback,
+  // which runs in the middle of the channel's own send.
+  private var latestLayers: ClientMessage.SetMapLayers? = null
+  private var displacedLayers: Queued? = null
+  private var offering = false
+
   // DROP_OLDEST hands the element it pushes out to onUndeliveredElement, as does a receive cancelled
-  // after taking one, so a lost command is reported rather than vanishing.
+  // after taking one, so a lost command is reported rather than vanishing. A subscription taken by a
+  // session that then ended is not requeued: TelemetryRepository restates it on the next one.
   private val channel =
     Channel<Queued>(
       capacity = CAPACITY,
       onBufferOverflow = BufferOverflow.DROP_OLDEST,
-      onUndeliveredElement = { onDropped(it.message, DropReason.Lost) },
+      onUndeliveredElement = {
+        if (offering && it.message === latestLayers) {
+          displacedLayers = it
+        } else {
+          onDropped(it.message, DropReason.Lost)
+        }
+      },
     )
 
   /** Enqueue a command (non-blocking; safe to call from the UI). */
   fun offer(message: ClientMessage) {
-    channel.trySend(Queued(message, timeSource.markNow()))
+    if (message is ClientMessage.SetMapLayers) latestLayers = message
+    offering = true
+    try {
+      var next: Queued? = Queued(message, timeSource.markNow())
+      while (next != null) {
+        channel.trySend(next)
+        next = displacedLayers
+        displacedLayers = null
+      }
+    } finally {
+      offering = false
+    }
   }
 
   /** The next command still fresh enough to send, suspending until there is one. */

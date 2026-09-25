@@ -49,6 +49,30 @@ class CommandQueueTest {
     assertEquals(listOf<ClientMessage>(ClientMessage.PayInvoice(1)), dropped)
   }
 
+  // Same reason as the age limit: with no reconnect coming, a subscription pushed out would never be
+  // restated.
+  @Test
+  fun theNewestLayerSubscriptionSurvivesABurst() {
+    val layers = ClientMessage.SetMapLayers(listOf("soil"))
+    queue.offer(layers)
+    repeat(CommandQueue.CAPACITY) { queue.offer(ClientMessage.PayInvoice(it)) }
+    val sent = generateSequence { queue.poll() }.toList()
+    assertEquals(CommandQueue.CAPACITY, sent.size)
+    assertEquals(layers, sent.last())
+    assertEquals(listOf<ClientMessage>(ClientMessage.PayInvoice(0)), lost)
+  }
+
+  @Test
+  fun aReplacedLayerSubscriptionIsNotKeptThroughABurst() {
+    val old = ClientMessage.SetMapLayers(listOf("soil"))
+    val new = ClientMessage.SetMapLayers(listOf("growth"))
+    queue.offer(old)
+    queue.offer(new)
+    repeat(CommandQueue.CAPACITY - 1) { queue.offer(ClientMessage.PayInvoice(it)) }
+    assertEquals(new, queue.poll())
+    assertEquals(listOf<ClientMessage>(old), lost)
+  }
+
   // Absolute session state: late is still right, missing is not.
   @Test
   fun keepsTheLayerSubscriptionPastTheAgeLimit() {
