@@ -86,7 +86,7 @@ fun ProgressBar(
         clipRect(right = size.width * frac) { this@drawWithContent.drawContent() }
       },
     ) {
-      Labels(leftLabel, rightLabel, VdtColors.White)
+      Labels(leftLabel, rightLabel, VdtColors.OnFill)
     }
   }
 }

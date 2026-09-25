@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.MoneyEvent
 
@@ -82,10 +83,10 @@ internal fun groupDigits(digits: String): String {
  * Ink for a signed amount. A plain zero stays muted rather than green — most of the table is zeroes
  * in any given month, and colouring them all would drown the rows that actually moved.
  */
-fun moneyColor(value: Long): Color = when {
-  value > 0 -> VdtColors.AccentText
-  value < 0 -> VdtColors.Red
-  else -> VdtColors.DarkGray
+fun moneyColor(value: Long, palette: VdtPalette): Color = when {
+  value > 0 -> palette.accentText
+  value < 0 -> palette.red
+  else -> palette.textSecondary
 }
 
 // ---- Headline ------------------------------------------------------------------------------------
@@ -109,7 +110,7 @@ fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
     modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.6f))
+      .background(VdtColors.Surface.copy(alpha = 0.6f))
       .padding(horizontal = 12.dp, vertical = 8.dp),
     horizontalArrangement = Arrangement.spacedBy(20.dp),
     verticalAlignment = Alignment.CenterVertically,
@@ -185,7 +186,7 @@ private fun MoneyLogRow(event: MoneyEvent) {
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.6f))
+      .background(VdtColors.Surface.copy(alpha = 0.6f))
       .padding(horizontal = 8.dp, vertical = 6.dp),
     horizontalArrangement = Arrangement.spacedBy(8.dp),
     verticalAlignment = Alignment.CenterVertically,
@@ -207,7 +208,7 @@ private fun MoneyLogRow(event: MoneyEvent) {
     }
     Text(
       formatMoney(event.amount, withSign = true),
-      color = moneyColor(event.amount),
+      color = moneyColor(event.amount, VdtColors.palette),
       fontSize = 12.sp,
       fontWeight = FontWeight.Bold,
       textAlign = TextAlign.End,
@@ -243,7 +244,7 @@ fun FinanceSummary(data: FinanceData?, modifier: Modifier = Modifier) {
             FinanceFigure(
               label = current.label,
               value = formatMoney(current.total, withSign = true),
-              color = moneyColor(current.total),
+              color = moneyColor(current.total, VdtColors.palette),
             )
           }
           // Whichever loan system is in play, if either owes anything.
@@ -274,7 +275,7 @@ internal fun FinanceButton(
   enabled: Boolean = true,
 ) {
   val bg = if (enabled) color else VdtColors.TrackGray
-  val fg = if (enabled) VdtColors.White else VdtColors.TextDisabled
+  val fg = if (enabled) VdtColors.OnFill else VdtColors.TextDisabled
   Box(
     modifier
       .clip(RoundedCornerShape(4.dp))
@@ -332,7 +333,7 @@ internal fun AmountField(
     modifier = modifier
       .width(110.dp)
       .clip(RoundedCornerShape(4.dp))
-      .background(if (enabled) VdtColors.White else VdtColors.TrackGray)
+      .background(if (enabled) VdtColors.Surface else VdtColors.TrackGray)
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
       .padding(horizontal = 8.dp, vertical = 7.dp),
   )

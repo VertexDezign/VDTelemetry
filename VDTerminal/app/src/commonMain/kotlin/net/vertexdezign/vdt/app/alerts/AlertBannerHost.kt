@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,7 @@ private const val BANNER_SHOW_MS = 10_000L
 private const val MAX_BANNERS = 4
 
 private val AlertSeverity.color: Color
+  @Composable @ReadOnlyComposable
   get() = when (this) {
     AlertSeverity.Info -> VdtColors.ProgressBlue
     AlertSeverity.Warning -> VdtColors.Amber

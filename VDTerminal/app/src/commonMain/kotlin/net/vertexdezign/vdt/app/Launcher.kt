@@ -126,7 +126,7 @@ private fun RestoreDefaultsRow(onClick: () -> Unit) {
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(6.dp))
-      .background(VdtColors.White.copy(alpha = 0.5f))
+      .background(VdtColors.Surface.copy(alpha = 0.5f))
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(6.dp))
       .clickable(onClick = onClick)
       .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -252,7 +252,7 @@ private fun TileBody(icon: ImageVector, title: String, active: Boolean, onClick:
         ) {
           VdtColors.Green.copy(alpha = 0.12f)
         } else {
-          VdtColors.White.copy(alpha = 0.5f)
+          VdtColors.Surface.copy(alpha = 0.5f)
         },
       )
       .border(if (highlighted) 2.dp else 1.dp, borderColor, RoundedCornerShape(6.dp))

@@ -17,8 +17,8 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 /**
  * A list filter's on/off chip — "incoming", "sow now", "harvest now".
  *
- * The on state does **not** shift hue: it fills the chip and knocks the label out in [VdtColors.White],
- * so off-vs-on differs in ink brightness (5.0:1 grey on grey vs white on green) as well as in the fill.
+ * The on state does **not** shift hue: it fills the chip and knocks the label out in [VdtColors.OnFill],
+ * so off-vs-on differs in ink brightness (5.0:1 grey on grey vs fill ink on green) as well as in the fill.
  * That is the sanctioned mechanism for a two-state mark on a light panel (see `VDTerminal/README.md` →
  * "Design rules"), and the padding is spent in both states so nothing shifts when it toggles.
  *
@@ -37,7 +37,7 @@ fun FilterChip(
 ) {
   Text(
     label.uppercase(),
-    color = if (active) VdtColors.White else VdtColors.DarkGray,
+    color = if (active) VdtColors.OnFill else VdtColors.DarkGray,
     fontSize = 10.sp,
     fontWeight = FontWeight.Bold,
     modifier =

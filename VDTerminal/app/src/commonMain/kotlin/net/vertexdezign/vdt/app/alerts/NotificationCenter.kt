@@ -71,7 +71,7 @@ fun NotificationCenter(
       Row(
         Modifier
           .fillMaxWidth()
-          .background(VdtColors.White.copy(alpha = 0.5f))
+          .background(VdtColors.Surface.copy(alpha = 0.5f))
           .padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -137,7 +137,7 @@ private fun NotificationRow(alert: ActiveAlert, stillActive: Boolean) {
             "ACTIVE",
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
-            color = VdtColors.White,
+            color = VdtColors.OnFill,
             modifier = Modifier
               .clip(RoundedCornerShape(100.dp))
               .background(severityColor)

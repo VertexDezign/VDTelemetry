@@ -365,8 +365,8 @@ private fun SortControl(sort: FleetSort, ascending: Boolean, onSort: (FleetSort)
 
 @Composable
 private fun FleetRow(vehicle: FleetVehicle, rig: FleetVehicle?, selected: Boolean, onClick: () -> Unit) {
-  val fg = if (selected) VdtColors.White else VdtColors.TextDark
-  val muted = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray
+  val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
+  val muted = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray
   Column(
     Modifier
       .fillMaxWidth()
@@ -463,10 +463,10 @@ private fun RowBadge(label: String, selected: Boolean) {
     label,
     fontSize = 8.sp,
     fontWeight = FontWeight.Bold,
-    color = if (selected) VdtColors.Green else VdtColors.White,
+    color = if (selected) VdtColors.Green else VdtColors.OnFill,
     modifier = Modifier
       .clip(RoundedCornerShape(3.dp))
-      .background(if (selected) VdtColors.White else VdtColors.DarkGray)
+      .background(if (selected) VdtColors.OnFill else VdtColors.DarkGray)
       .padding(horizontal = 4.dp, vertical = 2.dp),
   )
 }

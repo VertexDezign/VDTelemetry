@@ -115,6 +115,7 @@ import net.vertexdezign.vdt.app.components.boomOf
 import net.vertexdezign.vdt.app.state.LayerSubscriptions
 import net.vertexdezign.vdt.app.state.MapFocus
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
 import net.vertexdezign.vdt.model.FieldCropRotation
@@ -857,7 +858,7 @@ fun MapPanel(
               .padding(8.dp)
               .widthIn(max = 420.dp)
               .clip(RoundedCornerShape(4.dp))
-              .background(VdtColors.White)
+              .background(VdtColors.Surface)
               .border(1.dp, VdtColors.Amber, RoundedCornerShape(4.dp))
               .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1114,6 +1115,8 @@ private fun BoxScope.CourseOverlay(
       if (near == null) paths else paths.filter { (segment, _) -> polylineWithin(segment.p, near, window) }
     }
 
+  // Read out here: the draw lambda runs outside composition.
+  val palette = VdtColors.palette
   Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
     val factor = projection.factor
     withTransform({
@@ -1129,11 +1132,11 @@ private fun BoxScope.CourseOverlay(
       // The field the course was generated against — the detected boundary, so it hugs the crop edge
       // rather than the farmland square map.json draws.
       if (course.boundary.size >= 6) {
-        drawPath(flatPath(course.boundary, close = true), VdtColors.Accent.copy(alpha = 0.5f), style = Stroke(hairline))
+        drawPath(flatPath(course.boundary, close = true), palette.accent.copy(alpha = 0.5f), style = Stroke(hairline))
       }
       for (island in course.islands) {
         if (island.size >= 6) {
-          drawPath(flatPath(island, close = true), VdtColors.Amber.copy(alpha = 0.5f), style = Stroke(hairline))
+          drawPath(flatPath(island, close = true), palette.amber.copy(alpha = 0.5f), style = Stroke(hairline))
         }
       }
 
@@ -1145,16 +1148,16 @@ private fun BoxScope.CourseOverlay(
           // rest as a faint one — the same "where have I been" the reference terminals paint.
           drawPath(
             path,
-            if (worked) VdtColors.Green.copy(alpha = 0.35f) else VdtColors.White.copy(alpha = 0.12f),
+            if (worked) palette.green.copy(alpha = 0.35f) else VdtColors.White.copy(alpha = 0.12f),
             style = Stroke(width = swathWidth),
           )
         }
         val tint =
           when {
-            current -> VdtColors.Red
-            segment.kind == "headland" -> VdtColors.ProgressBlue
-            segment.kind == "island" -> VdtColors.Amber
-            worked -> VdtColors.Green
+            current -> palette.red
+            segment.kind == "headland" -> palette.progressBlue
+            segment.kind == "island" -> palette.amber
+            worked -> palette.green
             else -> VdtColors.White
           }
         drawPath(path, tint, style = Stroke(width = if (current) currentLine else hairline))
@@ -1184,6 +1187,8 @@ private fun BoxScope.WorkOverlay(vehicle: Vehicle, projection: MapProjection) {
   val areas = workFootprints(vehicle)
   if (areas.isEmpty()) return
 
+  // Read out here: the draw lambda runs outside composition.
+  val palette = VdtColors.palette
   Canvas(Modifier.size(with(density) { projection.side.toDp() }).align(Alignment.Center)) {
     val factor = projection.factor
     withTransform({
@@ -1195,9 +1200,9 @@ private fun BoxScope.WorkOverlay(vehicle: Vehicle, projection: MapProjection) {
       for (area in areas) {
         val path = quadPath(area.shape)
         if (area.processing) {
-          drawPath(path, VdtColors.Accent.copy(alpha = 0.45f))
+          drawPath(path, palette.accent.copy(alpha = 0.45f))
         }
-        drawPath(path, VdtColors.Accent, style = Stroke(hairline))
+        drawPath(path, palette.accent, style = Stroke(hairline))
       }
     }
   }
@@ -1285,6 +1290,8 @@ private fun BoxScope.MapDataOverlay(
 ) {
   val density = LocalDensity.current
   val textMeasurer = rememberTextMeasurer()
+  // Read out here: the draw lambda below runs outside composition.
+  val palette = VdtColors.palette
 
   // farmId -> the farm's in-game map color, parsed once per channel update. Also colors the
   // vehicle markers, so ownership reads the same for land and machines.
@@ -1300,8 +1307,8 @@ private fun BoxScope.MapDataOverlay(
   // so the forestry and rock contracts tint their land too. Recomputed with the channel, not per
   // frame.
   val missionFieldTints =
-    remember(accepted) {
-      accepted.mapNotNull { mission -> mission.fieldId?.let { it to missionColor(mission) } }.toMap()
+    remember(accepted, palette) {
+      accepted.mapNotNull { mission -> mission.fieldId?.let { it to missionColor(mission, palette) } }.toMap()
     }
 
   // The game marks a contract with a blinking circle, so this one blinks too — one transition for
@@ -1396,7 +1403,7 @@ private fun BoxScope.MapDataOverlay(
           // A contract's colour wins over the ownership tint: a field on offer is unowned, so the
           // ownership tint has nothing to say about it, and the contract does.
           val contractTint = missionFieldTints[field.id]
-          val tint = contractTint ?: fieldTint(field, playerFarmId, farmColors)
+          val tint = contractTint ?: fieldTint(field, playerFarmId, farmColors, palette)
           drawPath(path, tint.copy(alpha = if (contractTint != null) 0.22f else 0.10f))
           drawPath(path, tint, style = Stroke(width = if (contractTint != null) strokeWidth * 2f else strokeWidth))
         }
@@ -1463,7 +1470,7 @@ private fun BoxScope.MapDataOverlay(
         // stays readable on top of it, and kept when either end is on screen: a contract whose field
         // is off-canvas may still be delivering to a station that is on it.
         if (stationPos != null && (onCanvas(pos) || onCanvas(stationPos))) {
-          val tint = missionColor(mission)
+          val tint = missionColor(mission, palette)
           // Dashed, so it reads as a run between two places rather than another field border, and at
           // a steady alpha: on the blink it bottomed out near 0.1 and all but vanished twice a
           // second. The pulse belongs to the two ends, which are what you are looking for.
@@ -1492,7 +1499,7 @@ private fun BoxScope.MapDataOverlay(
         // The circle's own cull has to allow for its radius, or a contract just off screen loses the
         // arc that should still be reaching onto it.
         if (!projection.isVisible(pos, worldRadiusPx + OVERLAY_CULL_MARGIN)) continue
-        val tint = missionColor(mission)
+        val tint = missionColor(mission, palette)
         drawCircle(tint.copy(alpha = 0.18f * blink), radius = worldRadiusPx, center = pos)
         drawCircle(
           tint.copy(alpha = blink),
@@ -1516,7 +1523,7 @@ private fun BoxScope.MapDataOverlay(
         if (vehicleStateOf(v) !in vehStates) continue
         val pos = toScreen(v.posX, v.posZ)
         if (!onCanvas(pos)) continue
-        val tint = vehicleTint(v, playerFarmId, farmColors)
+        val tint = vehicleTint(v, playerFarmId, farmColors, palette)
         if (v.type in DrivableVehicleTypes) {
           // Drivables: a heading arrow.
           withTransform({
@@ -1549,7 +1556,7 @@ private fun BoxScope.MapDataOverlay(
     // Search-hit ring, always on top of the markers it points at.
     highlight?.let {
       drawCircle(
-        VdtColors.Red,
+        palette.red,
         radius = 11.dp.toPx(),
         center = toScreen(it.x, it.y),
         style = Stroke(width = 2.dp.toPx()),
@@ -1606,10 +1613,15 @@ private fun BoxScope.GroundLayerLegend(legend: List<MapLayerLegendEntry>, side: 
  * machines read consistently; the own/other fallback applies when the color table is missing, and
  * an unowned vehicle stays gray.
  */
-private fun vehicleTint(vehicle: MapVehicle, playerFarmId: Int?, farmColors: Map<Int, Color>): Color {
-  val owner = vehicle.farmId ?: return VdtColors.DarkGray
+private fun vehicleTint(
+  vehicle: MapVehicle,
+  playerFarmId: Int?,
+  farmColors: Map<Int, Color>,
+  palette: VdtPalette,
+): Color {
+  val owner = vehicle.farmId ?: return palette.textSecondary
   farmColors[owner]?.let { return it }
-  return if (playerFarmId == null || owner == playerFarmId) VdtColors.Green else VdtColors.Red
+  return if (playerFarmId == null || owner == playerFarmId) palette.green else palette.red
 }
 
 private fun DrawScope.drawCenteredText(measurer: TextMeasurer, text: String, center: Offset, style: TextStyle) {
@@ -1623,10 +1635,10 @@ private fun DrawScope.drawCenteredText(measurer: TextMeasurer, text: String, cen
  * When the owner's color isn't in the table (telemetry from a mod version without `farms`), fall
  * back to own-green / other-red, and to green for every owner when the player's farm is unknown too.
  */
-private fun fieldTint(field: MapField, playerFarmId: Int?, farmColors: Map<Int, Color>): Color {
-  val owner = field.ownerFarmId ?: return VdtColors.DarkGray
+private fun fieldTint(field: MapField, playerFarmId: Int?, farmColors: Map<Int, Color>, palette: VdtPalette): Color {
+  val owner = field.ownerFarmId ?: return palette.textSecondary
   farmColors[owner]?.let { return it }
-  return if (playerFarmId == null || owner == playerFarmId) VdtColors.Green else VdtColors.Red
+  return if (playerFarmId == null || owner == playerFarmId) palette.green else palette.red
 }
 
 /**
@@ -1634,10 +1646,10 @@ private fun fieldTint(field: MapField, playerFarmId: Int?, farmColors: Map<Int, 
  * offer that is still open, green is money waiting to be collected, blue is work under way. Keyed on
  * status rather than mission type — the type set is open-ended.
  */
-internal fun missionColor(mission: Mission): Color = when {
-  mission.isFinished -> VdtColors.Green
-  mission.isActive -> VdtColors.ProgressBlue
-  else -> VdtColors.Amber
+internal fun missionColor(mission: Mission, palette: VdtPalette): Color = when {
+  mission.isFinished -> palette.green
+  mission.isActive -> palette.progressBlue
+  else -> palette.amber
 }
 
 /**
@@ -1864,7 +1876,7 @@ private fun BoxScope.MapFilterPanel(
           FilterRow(
             missionFilterLabel(mission),
             checked = isMissionShown(mission, missionChoices),
-            dot = missionColor(mission),
+            dot = missionColor(mission, VdtColors.palette),
             indent = 22.dp,
           ) { on -> onShowMission(mission.id, on) }
         }

@@ -1,6 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
-import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Mission
 import net.vertexdezign.vdt.model.MissionFinishState
 import net.vertexdezign.vdt.model.MissionStatus
@@ -68,38 +68,64 @@ class MissionsPanelTest {
   @Test
   fun theColourFlagsAnOfferAboutToLapse() {
     // Under an hour of game time is the point at which taking it on becomes urgent.
-    assertEquals(VdtColors.Amber, statusColor(mission(minutesLeft = 30), selected = false))
-    assertEquals(VdtColors.DarkGray, statusColor(mission(minutesLeft = 600), selected = false))
+    assertEquals(VdtPalette.Light.amber, statusColor(mission(minutesLeft = 30), selected = false, VdtPalette.Light))
+    assertEquals(
+      VdtPalette.Light.textSecondary,
+      statusColor(mission(minutesLeft = 600), selected = false, VdtPalette.Light),
+    )
     // A contract with no deadline at all must not read as urgent.
-    assertEquals(VdtColors.DarkGray, statusColor(mission(), selected = false))
+    assertEquals(VdtPalette.Light.textSecondary, statusColor(mission(), selected = false, VdtPalette.Light))
     // …and a running one is not an offer about to lapse, however little time is left.
     assertEquals(
-      VdtColors.DarkGray,
-      statusColor(mission(status = MissionStatus.RUNNING, minutesLeft = 10), selected = false),
+      VdtPalette.Light.textSecondary,
+      statusColor(mission(status = MissionStatus.RUNNING, minutesLeft = 10), selected = false, VdtPalette.Light),
     )
   }
 
   @Test
   fun theColourSeparatesASuccessFromTheOtherThreeOutcomes() {
     val done = MissionStatus.FINISHED
-    assertEquals(VdtColors.Green, statusColor(mission(done, MissionFinishState.SUCCESS), selected = false))
-    assertEquals(VdtColors.Red, statusColor(mission(done, MissionFinishState.FAILED), selected = false))
-    assertEquals(VdtColors.Red, statusColor(mission(done, MissionFinishState.CANCELED), selected = false))
-    // On the selected row the green fill is the background, so the text goes white regardless.
-    assertEquals(VdtColors.White, statusColor(mission(done, MissionFinishState.FAILED), selected = true))
+    assertEquals(
+      VdtPalette.Light.green,
+      statusColor(mission(done, MissionFinishState.SUCCESS), selected = false, VdtPalette.Light),
+    )
+    assertEquals(
+      VdtPalette.Light.red,
+      statusColor(mission(done, MissionFinishState.FAILED), selected = false, VdtPalette.Light),
+    )
+    assertEquals(
+      VdtPalette.Light.red,
+      statusColor(mission(done, MissionFinishState.CANCELED), selected = false, VdtPalette.Light),
+    )
+    // On the selected row the green fill is the background, so the text is the fill's ink regardless —
+    // white on the light palette, and near-black under the dark palette's light green.
+    assertEquals(
+      VdtPalette.Light.onFill,
+      statusColor(mission(done, MissionFinishState.FAILED), selected = true, VdtPalette.Light),
+    )
+    assertEquals(
+      VdtPalette.Dark.onFill,
+      statusColor(mission(done, MissionFinishState.FAILED), selected = true, VdtPalette.Dark),
+    )
   }
 
   @Test
   fun theMapColoursAContractByWhatYouCanDoAboutIt() {
     // Amber: still open. Blue: under way. Green: money waiting. The same colour tints the contract's
     // field, so marker and field agree — and it is keyed off status, never off the mission type.
-    assertEquals(VdtColors.Amber, missionColor(mission()))
-    assertEquals(VdtColors.ProgressBlue, missionColor(mission(status = MissionStatus.RUNNING)))
-    assertEquals(VdtColors.ProgressBlue, missionColor(mission(status = MissionStatus.PREPARING)))
-    assertEquals(VdtColors.Green, missionColor(mission(status = MissionStatus.FINISHED)))
+    assertEquals(VdtPalette.Light.amber, missionColor(mission(), VdtPalette.Light))
+    assertEquals(VdtPalette.Light.progressBlue, missionColor(mission(status = MissionStatus.RUNNING), VdtPalette.Light))
+    assertEquals(
+      VdtPalette.Light.progressBlue,
+      missionColor(mission(status = MissionStatus.PREPARING), VdtPalette.Light),
+    )
+    assertEquals(VdtPalette.Light.green, missionColor(mission(status = MissionStatus.FINISHED), VdtPalette.Light))
     // A failed contract is still waiting to be cleared off the list, so it stays in the finished
     // colour rather than becoming an offer again.
-    assertEquals(VdtColors.Green, missionColor(mission(MissionStatus.FINISHED, MissionFinishState.FAILED)))
+    assertEquals(
+      VdtPalette.Light.green,
+      missionColor(mission(MissionStatus.FINISHED, MissionFinishState.FAILED), VdtPalette.Light),
+    )
   }
 
   @Test

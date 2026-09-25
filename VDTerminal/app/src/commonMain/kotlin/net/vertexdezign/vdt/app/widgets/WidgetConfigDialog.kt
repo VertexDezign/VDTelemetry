@@ -150,7 +150,7 @@ private fun ChoiceRow(choice: ConfigOption.Choice, selected: Boolean, onClick: (
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(6.dp))
-      .background(if (selected) VdtColors.Green.copy(alpha = 0.14f) else VdtColors.White.copy(alpha = 0.5f))
+      .background(if (selected) VdtColors.Green.copy(alpha = 0.14f) else VdtColors.Surface.copy(alpha = 0.5f))
       .border(1.dp, if (selected) VdtColors.Green else VdtColors.PanelBorder, RoundedCornerShape(6.dp))
       .clickable(onClick = onClick)
       .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -180,11 +180,11 @@ private fun DialogButton(label: String, accent: Color, filled: Boolean, onClick:
     label.uppercase(),
     fontSize = 11.sp,
     fontWeight = FontWeight.Bold,
-    color = if (filled) VdtColors.White else accent,
+    color = if (filled) VdtColors.OnFill else accent,
     modifier =
     Modifier
       .clip(RoundedCornerShape(4.dp))
-      .background(if (filled) accent else VdtColors.White)
+      .background(if (filled) accent else VdtColors.Surface)
       .border(1.dp, if (filled) accent else VdtColors.PanelBorder, RoundedCornerShape(4.dp))
       .clickable(interactionSource = null, indication = null, onClick = onClick)
       .padding(horizontal = 14.dp, vertical = 7.dp),

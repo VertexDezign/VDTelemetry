@@ -83,7 +83,7 @@ private fun WidgetRow(widget: Widget, onClick: () -> Unit) {
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(6.dp))
-      .background(VdtColors.White.copy(alpha = 0.5f))
+      .background(VdtColors.Surface.copy(alpha = 0.5f))
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(6.dp))
       .clickable(onClick = onClick)
       .padding(horizontal = 12.dp, vertical = 10.dp),

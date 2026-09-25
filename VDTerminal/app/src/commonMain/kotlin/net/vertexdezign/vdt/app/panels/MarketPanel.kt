@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.TrendingFlat
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -139,4 +140,6 @@ internal fun TrendMark(trend: String, modifier: Modifier = Modifier) {
 }
 
 /** Ink for a projection: the same green the app uses for money earned, muted when there is none. */
+@Composable
+@ReadOnlyComposable
 internal fun projectionColor(gain: Boolean): Color = if (gain) VdtColors.AccentText else VdtColors.DarkGray

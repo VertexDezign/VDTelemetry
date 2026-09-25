@@ -45,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1246,7 +1247,7 @@ internal fun Chip(icon: ImageVector, label: String, tint: Color, onClick: (() ->
   // target reachable in a moving cab, where a 19dp chip is not.
   var box = Modifier.clip(shape)
   box = if (onClick != null) {
-    box.background(VdtColors.White)
+    box.background(VdtColors.Surface)
       .border(1.dp, VdtColors.PanelBorder, shape)
       .clickable(onClick = onClick)
       .padding(horizontal = 8.dp, vertical = 6.dp)
@@ -1290,6 +1291,8 @@ private fun mixStateLabel(mixer: Mixer): String = when (mixer.state) {
 }
 
 /** The glyph that carries the verdict, so hue is never the only thing saying it. */
+@Composable
+@ReadOnlyComposable
 private fun mixStateMark(mixer: Mixer): Pair<ImageVector, Color> = when (mixer.state) {
   MixState.READY -> Icons.Filled.Check to VdtColors.AccentText
   MixState.OUT_OF_RATIO -> Icons.Filled.Sync to VdtColors.Amber

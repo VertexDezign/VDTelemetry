@@ -278,7 +278,7 @@ internal fun GuidanceLamp(
   onClick: (() -> Unit)? = null,
 ) {
   val tint = when {
-    active -> VdtColors.White
+    active -> VdtColors.OnFill
     enabled -> VdtColors.DarkGray
     else -> VdtColors.TextDisabled
   }

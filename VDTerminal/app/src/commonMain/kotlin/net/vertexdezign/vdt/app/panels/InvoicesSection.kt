@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -180,7 +181,7 @@ private fun InvoicesHeadline(data: InvoicesData) {
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.6f))
+      .background(VdtColors.Surface.copy(alpha = 0.6f))
       .padding(horizontal = 12.dp, vertical = 8.dp),
     horizontalArrangement = Arrangement.spacedBy(20.dp),
     verticalAlignment = Alignment.CenterVertically,
@@ -218,6 +219,8 @@ private fun InvoicesHeadline(data: InvoicesData) {
 }
 
 /** The status word the mod's own list prints, and the ink for it. */
+@Composable
+@ReadOnlyComposable
 private fun statusOf(invoice: Invoice): Pair<String, Color> = when {
   invoice.isPaid -> "Paid" to VdtColors.DarkGray
 
@@ -247,7 +250,7 @@ private fun InvoiceRow(
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = if (expanded) 0.9f else 0.6f)),
+      .background(VdtColors.Surface.copy(alpha = if (expanded) 0.9f else 0.6f)),
   ) {
     Row(
       Modifier

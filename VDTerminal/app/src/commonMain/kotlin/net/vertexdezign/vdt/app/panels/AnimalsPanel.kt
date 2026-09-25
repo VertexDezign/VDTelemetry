@@ -106,7 +106,7 @@ private fun AnimalsMasterDetail(data: HusbandriesData) {
 @Composable
 private fun PenRow(name: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
   val bg = if (selected) VdtColors.Green else VdtColors.TrackGray
-  val fg = if (selected) VdtColors.White else VdtColors.TextDark
+  val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   Column(
     Modifier
       .fillMaxWidth()
@@ -123,7 +123,7 @@ private fun PenRow(name: String, subtitle: String, selected: Boolean, onClick: (
       maxLines = 1,
       overflow = TextOverflow.Ellipsis,
     )
-    Text(subtitle, color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray, fontSize = 10.sp)
+    Text(subtitle, color = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray, fontSize = 10.sp)
   }
 }
 
@@ -276,7 +276,7 @@ private fun AnimalTable(groups: List<HusbandryAnimalGroup>, sort: AnimalSort?, o
       Row(
         Modifier
           .fillMaxWidth()
-          .background(if (index % 2 == 0) VdtColors.White.copy(alpha = 0.6f) else Color.Transparent),
+          .background(if (index % 2 == 0) VdtColors.Surface.copy(alpha = 0.6f) else Color.Transparent),
         verticalAlignment = Alignment.CenterVertically,
       ) {
         AnimalColumn.entries.forEach { column ->

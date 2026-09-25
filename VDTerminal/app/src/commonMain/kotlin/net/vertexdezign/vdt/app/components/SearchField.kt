@@ -40,7 +40,7 @@ fun SearchField(
     modifier =
     modifier
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White)
+      .background(VdtColors.Surface)
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
       .padding(horizontal = 8.dp, vertical = 6.dp),
     decorationBox = { inner ->

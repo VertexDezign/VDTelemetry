@@ -62,7 +62,7 @@ fun EnhancedLoansSection(
     modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.6f))
+      .background(VdtColors.Surface.copy(alpha = 0.6f))
       .padding(horizontal = 12.dp, vertical = 8.dp),
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
@@ -134,7 +134,7 @@ private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) 
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(if (expanded) VdtColors.TrackGray else VdtColors.White.copy(alpha = 0.5f))
+      .background(if (expanded) VdtColors.TrackGray else VdtColors.Surface.copy(alpha = 0.5f))
       .clickable(onClick = onClick)
       .padding(horizontal = 8.dp, vertical = 6.dp),
     verticalArrangement = Arrangement.spacedBy(4.dp),

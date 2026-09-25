@@ -81,7 +81,7 @@ internal fun ConstructionCard(construction: Construction) {
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.6f))
+      .background(VdtColors.Surface.copy(alpha = 0.6f))
       .padding(10.dp),
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {

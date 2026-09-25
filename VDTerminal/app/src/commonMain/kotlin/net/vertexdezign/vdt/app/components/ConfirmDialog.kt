@@ -76,11 +76,11 @@ private fun DialogButton(label: String, accent: Color, filled: Boolean, onClick:
     label.uppercase(),
     fontSize = 11.sp,
     fontWeight = FontWeight.Bold,
-    color = if (filled) VdtColors.White else accent,
+    color = if (filled) VdtColors.OnFill else accent,
     modifier =
     Modifier
       .clip(RoundedCornerShape(4.dp))
-      .background(if (filled) accent else VdtColors.White)
+      .background(if (filled) accent else VdtColors.Surface)
       .border(1.dp, if (filled) accent else VdtColors.PanelBorder, RoundedCornerShape(4.dp))
       .clickable(interactionSource = null, indication = null, onClick = onClick)
       .padding(horizontal = 14.dp, vertical = 7.dp),

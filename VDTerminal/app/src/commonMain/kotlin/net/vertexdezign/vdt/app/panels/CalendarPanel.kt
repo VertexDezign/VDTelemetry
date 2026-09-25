@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -405,6 +406,10 @@ private fun Lane(periods: List<Int>, periodWidth: Dp, color: Color, shape: Shape
  */
 @Composable
 private fun GridLines(todayFraction: Float?, modifier: Modifier = Modifier) {
+  // Read out here: the draw lambda runs outside composition.
+  val rule = GRID_RULE
+  val ruleSeason = GRID_RULE_SEASON
+  val today = VdtColors.TextDark
   Canvas(modifier) {
     val step = size.width / CropCalendarData.PERIODS
     for (index in 1 until CropCalendarData.PERIODS) {
@@ -412,20 +417,20 @@ private fun GridLines(todayFraction: Float?, modifier: Modifier = Modifier) {
       // Season boundaries every third period get the heavier rule, as the game's grid does.
       val seasonBoundary = index % SEASON_PERIODS == 0
       drawLine(
-        color = if (seasonBoundary) GRID_RULE_SEASON else GRID_RULE,
+        color = if (seasonBoundary) ruleSeason else rule,
         start = Offset(x, 0f),
         end = Offset(x, size.height),
         strokeWidth = if (seasonBoundary) 1.5f else 1f,
       )
     }
-    if (todayFraction != null) drawTodayLine(todayFraction)
+    if (todayFraction != null) drawTodayLine(todayFraction, today)
   }
 }
 
-private fun DrawScope.drawTodayLine(fraction: Float) {
+private fun DrawScope.drawTodayLine(fraction: Float, color: Color) {
   val x = size.width * fraction
   drawLine(
-    color = VdtColors.TextDark,
+    color = color,
     start = Offset(x, 0f),
     end = Offset(x, size.height),
     strokeWidth = 1.5f,
@@ -472,7 +477,7 @@ private fun WeatherSection(data: WeatherForecastData?, modifier: Modifier = Modi
       .fillMaxWidth()
       .height(WEATHER_HEIGHT)
       .clip(RoundedCornerShape(3.dp))
-      .background(VdtColors.White.copy(alpha = 0.6f)),
+      .background(VdtColors.Surface.copy(alpha = 0.6f)),
   ) {
     if (data == null) {
       Centered("Waiting for the forecast…")
@@ -717,7 +722,7 @@ private const val SEASON_PERIODS = 3
  * the panel's own `#F0F0F2` the steps are `+15` and `-31` per channel, roughly twice the separation
  * the first cut used, which was too timid to follow across twelve columns.
  *
- * The stripe is plain [VdtColors.White] rather than an alpha over the panel, and the selection is
+ * The stripe is plain [VdtColors.Surface] rather than an alpha over the panel, and the selection is
  * [VdtColors.PanelBorder]: both are palette tokens. The palette has nothing between `PanelBorder` and
  * `TrackGray`, so the selection lands slightly past a literal doubling rather than being given an
  * invented tone — [VdtColors.Gray] beyond it is the "unlit mark" tone and too dark to read a row on.
@@ -725,9 +730,11 @@ private const val SEASON_PERIODS = 3
  * Selection also carries the leading edge bar (see [CropNameCell]) and the darker ink below, so three
  * things say which row is picked, not one.
  */
+@Composable
+@ReadOnlyComposable
 private fun rowShade(striped: Boolean, selected: Boolean): Color = when {
   selected -> VdtColors.PanelBorder
-  striped -> VdtColors.White
+  striped -> VdtColors.Surface
   else -> Color.Transparent
 }
 
@@ -739,6 +746,8 @@ private fun rowShade(striped: Boolean, selected: Boolean): Color = when {
  * the [quiet] distinction falls back to weight and size. That is the palette's own instruction anyway:
  * quieter text is made with size and weight, never with a paler grey.
  */
+@Composable
+@ReadOnlyComposable
 private fun rowInk(selected: Boolean, quiet: Boolean): Color =
   if (quiet && !selected) VdtColors.DarkGray else VdtColors.TextDark
 
@@ -749,8 +758,12 @@ private fun rowInk(selected: Boolean, quiet: Boolean): Color =
  * the season rule in [VdtColors.PanelBorder] vanished entirely on a selected row, which is painted in
  * that exact colour. A translucent dark line stays a line on all three.
  */
-private val GRID_RULE = VdtColors.TextDark.copy(alpha = 0.10f)
-private val GRID_RULE_SEASON = VdtColors.TextDark.copy(alpha = 0.22f)
+private val GRID_RULE: Color
+  @Composable @ReadOnlyComposable
+  get() = VdtColors.TextDark.copy(alpha = 0.10f)
+private val GRID_RULE_SEASON: Color
+  @Composable @ReadOnlyComposable
+  get() = VdtColors.TextDark.copy(alpha = 0.22f)
 
 /** The selected row's leading edge bar. */
 private val SELECTION_EDGE_WIDTH = 3.dp

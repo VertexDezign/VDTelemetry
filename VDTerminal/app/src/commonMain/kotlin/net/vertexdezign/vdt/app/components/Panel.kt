@@ -49,7 +49,7 @@ fun Panel(
     Row(
       Modifier
         .fillMaxWidth()
-        .background(VdtColors.White.copy(alpha = 0.5f))
+        .background(VdtColors.Surface.copy(alpha = 0.5f))
         .padding(horizontal = 12.dp, vertical = 6.dp),
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
