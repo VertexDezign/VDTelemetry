@@ -49,6 +49,7 @@ import net.vertexdezign.vdt.CruiseAction
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SimpleGauge
+import net.vertexdezign.vdt.app.components.ToolButton
 import net.vertexdezign.vdt.app.components.format2
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CruiseControl
@@ -86,15 +87,11 @@ fun EngineTransmission(
       // ever be able to say.
       if (motor != null) {
         val running = motor.state.isRunning
-        Icon(
+        ToolButton(
           if (motor.state == MotorState.OFF) Icons.Filled.KeyOff else Icons.Filled.Key,
-          contentDescription = "engine start/stop",
-          tint = if (running) VdtColors.Green else VdtColors.DarkGray,
-          modifier =
-          Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .clickable { onCommand(ClientMessage.SetMotorState(on = !running)) }
-            .padding(2.dp),
+          "engine running",
+          active = running,
+          onClick = { onCommand(ClientMessage.SetMotorState(on = !running)) },
         )
       }
     },
@@ -253,12 +250,7 @@ private fun CruiseAdjuster(cruise: CruiseControl, onCommand: (ClientMessage) -> 
 /** Small round ± icon button for the cruise adjuster. */
 @Composable
 private fun AdjustButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-  Icon(
-    icon,
-    contentDescription = null,
-    tint = VdtColors.DarkGray,
-    modifier = Modifier.size(22.dp).clip(CircleShape).clickable(onClick = onClick).padding(2.dp),
-  )
+  ToolButton(icon, if (icon == Icons.Filled.Add) "cruise faster" else "cruise slower", onClick = onClick)
 }
 
 /**

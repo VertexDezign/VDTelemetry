@@ -47,6 +47,7 @@ import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.ImplementControls
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SectionView
+import net.vertexdezign.vdt.app.components.ToolButton
 import net.vertexdezign.vdt.app.components.ownRates
 import net.vertexdezign.vdt.app.components.sectionMember
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -259,11 +260,11 @@ fun RigSlotPanel(
         // The vehicle keeps the toggle too. Merging groups by fill type, so on a machine with one
         // unit of each it simply changes nothing — not worth a second, conditional header layout.
         if (!bareHeader) {
-          Icon(
+          ToolButton(
             if (merged) Icons.AutoMirrored.Filled.ViewList else Icons.Filled.Layers,
-            contentDescription = "toggle merge",
-            tint = VdtColors.DarkGray,
-            modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable { merged = !merged }.padding(2.dp),
+            "merge by fill type",
+            active = merged,
+            onClick = { merged = !merged },
           )
         }
       },

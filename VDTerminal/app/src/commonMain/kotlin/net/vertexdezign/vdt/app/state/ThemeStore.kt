@@ -6,15 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /** Which palette this device asked for. [System] follows the browser's `prefers-color-scheme`. */
-enum class ThemeMode {
-  System,
-  Light,
-  Dark,
-  ;
-
-  /** The next mode in the header toggle's cycle. */
-  fun next(): ThemeMode = entries[(ordinal + 1) % entries.size]
-}
+enum class ThemeMode { System, Light, Dark }
 
 /**
  * Light or dark, per device. Every tablet in a cab has its own room to answer to, so the choice is
@@ -38,8 +30,6 @@ class ThemeStore(private val settings: Settings, val systemDark: StateFlow<Boole
     _mode.value = mode
     if (mode == ThemeMode.System) settings.remove(KEY) else settings.putString(KEY, mode.name)
   }
-
-  fun cycle() = set(_mode.value.next())
 
   companion object {
     const val KEY = "vdt.theme"

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.ConfirmDialog
+import net.vertexdezign.vdt.app.components.ToolButton
 import net.vertexdezign.vdt.app.pages.AutoShow
 import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.pages.PageIcon
@@ -230,13 +231,13 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
         .padding(horizontal = 6.dp, vertical = 4.dp),
     )
 
-    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
       for (option in PageIcon.entries) {
-        Icon(
+        ToolButton(
           option.vector,
           "icon ${option.name}",
-          tint = if (page.icon == option) VdtColors.Green else VdtColors.DarkGray,
-          modifier = Modifier.size(18.dp).clickableNoRipple { store.update(page.copy(icon = option)) },
+          active = page.icon == option,
+          onClick = { store.update(page.copy(icon = option)) },
         )
       }
     }
@@ -266,12 +267,7 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
 
     Spacer(Modifier.weight(1f))
 
-    Icon(
-      Icons.Filled.Delete,
-      "delete page",
-      tint = VdtColors.Red,
-      modifier = Modifier.size(20.dp).clickableNoRipple(onClick = onDeleteRequest),
-    )
+    ToolButton(Icons.Filled.Delete, "delete page", tint = VdtColors.Red, onClick = onDeleteRequest)
   }
 }
 

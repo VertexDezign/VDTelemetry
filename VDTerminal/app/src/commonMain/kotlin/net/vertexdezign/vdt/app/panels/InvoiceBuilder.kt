@@ -316,8 +316,8 @@ private fun DraftLineRow(line: DraftLine, onRemove: () -> Unit) {
         modifier = Modifier
           .clip(RoundedCornerShape(4.dp))
           .clickable(role = Role.Button, onClick = onRemove)
-          .padding(horizontal = 6.dp, vertical = 2.dp)
-          .size(14.dp),
+          .padding(horizontal = 6.dp, vertical = 4.dp)
+          .size(18.dp),
       )
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {

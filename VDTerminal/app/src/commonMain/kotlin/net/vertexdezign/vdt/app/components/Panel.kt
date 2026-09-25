@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -46,11 +47,14 @@ fun Panel(
       .background(VdtColors.Panel)
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp)),
   ) {
+    // One height for every header, actions or not, so tiles side by side line their bodies up: a
+    // [ToolButton] at header size plus a little air.
     Row(
       Modifier
         .fillMaxWidth()
+        .heightIn(min = HEADER_HEIGHT)
         .background(VdtColors.Surface.copy(alpha = 0.5f))
-        .padding(horizontal = 12.dp, vertical = 6.dp),
+        .padding(start = 12.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -75,7 +79,7 @@ fun Panel(
           overflow = TextOverflow.Ellipsis,
         )
       }
-      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         headerActions()
         Box(
           Modifier
@@ -89,3 +93,6 @@ fun Panel(
     Box(Modifier.fillMaxSize().padding(8.dp)) { content() }
   }
 }
+
+/** A panel header's height: a header-size [ToolButton] and 4dp either side. */
+private val HEADER_HEIGHT = 40.dp
