@@ -5,7 +5,6 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,11 +50,19 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   private val json = Json { ignoreUnknownKeys = true }
   private val client = HttpClient { install(ClientWebSockets) }
 
-  // Outbound app -> server commands. Buffered + conflating overflow so a UI click never suspends and
-  // a burst while briefly disconnected can't grow unbounded; queued commands flush on (re)connect.
-  // Commands are absolute-state (idempotent), so sending a slightly stale one on reconnect is safe.
+  // Outbound app -> server commands. A command that could not be sent within a few seconds is
+  // dropped rather than replayed on reconnect -- see CommandQueue for why.
   private val commandQueue =
-    Channel<ClientMessage>(capacity = 64, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+    CommandQueue(
+      onDropped = { message, reason ->
+        when (reason) {
+          CommandQueue.DropReason.Expired -> println("VDT: dropped command queued too long ago: $message")
+          CommandQueue.DropReason.Lost -> println("VDT: lost command before it could be sent: $message")
+        }
+      },
+    )
+
+  private val decoder = FrameDecoder(json)
 
   // The ground-layer subscription is the one piece of SESSION state the server holds for us: it
   // unions what each connected dashboard is showing and tells the mod to sweep only that, so a
@@ -67,7 +74,7 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   /** Enqueue a command for delivery to the server (non-blocking; safe to call from the UI). */
   fun send(message: ClientMessage) {
     if (message is ClientMessage.SetMapLayers) layerSubscription = message
-    commandQueue.trySend(message)
+    commandQueue.offer(message)
   }
 
   private val _telemetry = MutableStateFlow<VdtData?>(null)
@@ -199,6 +206,8 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
     }
   }
 
+  private var outageLogged = false
+
   fun start() {
     scope.launch {
       while (isActive) {
@@ -206,6 +215,8 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
           _connection.value = ConnectionState.Connecting
           client.webSocket(wsUrl) {
             _connection.value = ConnectionState.Connected
+            outageLogged = false
+            decoder.newSession()
             // Drain queued outbound commands for the life of this session, after restating the
             // session-scoped subscription this new server session knows nothing about.
             val sendJob =
@@ -213,14 +224,23 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
                 layerSubscription?.let {
                   send(Frame.Text(json.encodeToString(ClientMessage.serializer(), it)))
                 }
-                for (message in commandQueue) {
+                while (true) {
+                  val message = commandQueue.receive()
+                  // A subscription since replaced is skipped: sent after the restate above, it would
+                  // put the server back on an older set of layers until the newer one came through.
+                  if (message is ClientMessage.SetMapLayers && message !== layerSubscription) continue
                   send(Frame.Text(json.encodeToString(ClientMessage.serializer(), message)))
                 }
               }
             try {
               for (frame in incoming) {
                 if (frame is Frame.Text) {
-                  when (val msg = json.decodeFromString(ServerMessage.serializer(), frame.readText())) {
+                  // A frame that does not decode is skipped, not fatal: letting it end the session
+                  // meant a reconnect, the server restating every channel's current value -- the bad
+                  // one included -- and the same failure again, every 2 s, for good.
+                  when (val msg = decoder.decode(frame.readText())) {
+                    null -> {}
+
                     is ServerMessage.Telemetry -> {
                       recordSampleInterval()
                       _telemetry.value = msg.data
@@ -312,8 +332,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
               sendJob.cancel()
             }
           }
-        } catch (_: Throwable) {
-          // fall through to reconnect
+        } catch (e: Throwable) {
+          // Fall through to reconnect -- but say why, since the scrim is all the user sees. Once per
+          // outage: with the server down this runs every 2 s, and the first one is the one that says why.
+          if (!outageLogged) println("VDT: connection to $wsUrl ended: $e")
+          outageLogged = true
         }
         _connection.value = ConnectionState.Disconnected
         lastSampleMark = null // don't measure across the reconnect gap

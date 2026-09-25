@@ -91,19 +91,29 @@ function VDT.CommandChannel.poll(filePath, lastCommandId, registry, handler, deb
     if cmdHandler == nil then
       debugger:warn("unknown command type: %s", tostring(entry.type))
     else
-      -- delegate payload parsing to the control that owns this type
-      local params = cmdHandler.parse(xml, entry.key)
-      -- requiresVehicle defaults to true: only a handler that explicitly opts out (== false) runs
-      -- when there's no current vehicle.
-      handler({
-        id = entry.id,
-        type = entry.type,
-        params = params,
-        execute = cmdHandler.execute,
-        requiresVehicle = cmdHandler.requiresVehicle ~= false,
-      })
+      -- Parse and dispatch are contained per command. Both run a control's code, and the controls
+      -- drive the engine and other mods' internals; an escaping error would leave the watermark
+      -- behind this command and the XML handle undeleted -- so the same command would be re-read,
+      -- re-run and re-thrown on every poll, leaking a handle each time, with every later command
+      -- stuck behind it for the rest of the session. A failed command is dropped like an unknown one.
+      local ok, err = pcall(function()
+        -- delegate payload parsing to the control that owns this type
+        local params = cmdHandler.parse(xml, entry.key)
+        -- requiresVehicle defaults to true: only a handler that explicitly opts out (== false) runs
+        -- when there's no current vehicle.
+        handler({
+          id = entry.id,
+          type = entry.type,
+          params = params,
+          execute = cmdHandler.execute,
+          requiresVehicle = cmdHandler.requiresVehicle ~= false,
+        })
+      end)
+      if not ok then
+        debugger:error("command id=%d type=%s failed (%s)", entry.id, tostring(entry.type), tostring(err))
+      end
     end
-    -- advance past every pending id, including unknown ones, so we don't re-warn each poll
+    -- advance past every pending id, including unknown and failed ones, so none is retried each poll
     if entry.id > newLast then
       newLast = entry.id
     end

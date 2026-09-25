@@ -264,12 +264,9 @@ function VDT.FleetExporter.collectVehicle(vehicle, sizeX, sizeZ)
   end
 
   -- Optional third-party mods decorate the row -- today that is Advanced Damage System's maintenance
-  -- block, which is the whole point of the channel for anyone running it.
-  --
-  -- Guarded, unlike the other stages (VehicleExporter runs its hooks bare): this one runs once per
-  -- machine the farm owns, so a hook that throws on one of them would otherwise cost the whole fleet
-  -- list its tick rather than that one machine its decoration.
-  pcall(VDT.Integrations.run, "contributeFleetVehicle", vehicle, row)
+  -- block, which is the whole point of the channel for anyone running it. run() contains each hook,
+  -- so one that throws costs this machine its decoration rather than the fleet list its tick.
+  VDT.Integrations.run("contributeFleetVehicle", vehicle, row)
 
   return row
 end

@@ -74,20 +74,27 @@ local function installXmlStub()
   rawset(_G, "XMLFile", stub)
 end
 
--- swallow the debug/warn logging poll emits
-local debugger = { debug = function() end, warn = function() end }
+-- swallow the debug/warn logging poll emits; errors are kept so the containment tests can see them
+local errors = {}
+local debugger = {
+  debug = function() end,
+  warn = function() end,
+  error = function(_, txt, ...)
+    errors[#errors + 1] = string.format(txt, ...)
+  end,
+}
 
 -- Write XML to a temp file and poll it, collecting dispatched commands. Installs the XMLFile stub
 -- right before use (busted's per-block insulation restores _G between blocks, wiping file-level
 -- globals, so we (re)install imperatively rather than relying on a before_each).
-local function pollXml(xml, lastId)
+local function pollXml(xml, lastId, handler)
   installXmlStub()
   local path = os.tmpname()
   local f = assert(io.open(path, "w"))
   f:write(xml)
   f:close()
   local got = {}
-  local newLast = VDT.CommandChannel.poll(path, lastId, VDT.CommandRegistry, function(cmd)
+  local newLast = VDT.CommandChannel.poll(path, lastId, VDT.CommandRegistry, handler or function(cmd)
     got[#got + 1] = cmd
   end, debugger)
   os.remove(path)
@@ -179,5 +186,66 @@ describe("CommandChannel.poll", function()
     local last2, got2 = pollXml(xml, last1)
     assert.are.equal(5, last2)
     assert.are.equal(0, #got2)
+  end)
+
+  -- A control that throws (engine or another mod's internals changed under it) must not wedge the
+  -- channel: the watermark still advances past it, the handle is still released, and the commands
+  -- after it still run.
+  describe("when a command throws", function()
+    local function pollThrowing(xml, throwOnId)
+      errors = {}
+      local ran = {}
+      local newLast = pollXml(xml, 0, function(cmd)
+        if cmd.id == throwOnId then
+          error("control blew up")
+        end
+        ran[#ran + 1] = cmd.id
+      end)
+      return newLast, ran
+    end
+
+    it("advances the watermark past it and still runs the commands after it", function()
+      local newLast, ran = pollThrowing(
+        [[<commands>
+          <command id="1" type="setLight" light="beacon" on="true"/>
+          <command id="2" type="setLight" light="beacon" on="false"/>
+          <command id="3" type="setTurnLight" state="left"/>
+        </commands>]],
+        2
+      )
+      assert.are.equal(3, newLast)
+      assert.are.same({ 1, 3 }, ran)
+    end)
+
+    it("logs the failure with the command's id and type", function()
+      pollThrowing([[<commands><command id="7" type="setLight" light="beacon" on="true"/></commands>]], 7)
+      assert.are.equal(1, #errors)
+      assert.truthy(errors[1]:find("id=7 type=setLight", 1, true))
+      assert.truthy(errors[1]:find("control blew up", 1, true))
+    end)
+
+    it("releases the XML handle", function()
+      local released = 0
+      installXmlStub()
+      local realLoad = XMLFile.loadIfExists
+      XMLFile.loadIfExists = function(...)
+        local xml = realLoad(...)
+        if xml ~= nil then
+          xml.delete = function()
+            released = released + 1
+          end
+        end
+        return xml
+      end
+      local path = os.tmpname()
+      local f = assert(io.open(path, "w"))
+      f:write([[<commands><command id="1" type="setLight" light="beacon" on="true"/></commands>]])
+      f:close()
+      VDT.CommandChannel.poll(path, 0, VDT.CommandRegistry, function()
+        error("control blew up")
+      end, debugger)
+      os.remove(path)
+      assert.are.equal(1, released)
+    end)
   end)
 end)
