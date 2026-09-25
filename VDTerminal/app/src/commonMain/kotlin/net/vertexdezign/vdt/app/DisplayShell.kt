@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +40,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -165,15 +167,20 @@ private fun DisplayControls(onExit: () -> Unit, onEdit: (() -> Unit)?, modifier:
       WakeLockStatus.Unsupported -> Icons.Filled.Bedtime to "NO WAKE LOCK"
     }
 
-  Row(
+  // Wraps rather than squeezing: a phone held upright is too narrow for all four on one line, and a
+  // Row gave the last button whatever was left — EXIT DISPLAY broke into six lines of two letters.
+  // As a flow the buttons drop to a second line together, and no label ever breaks.
+  FlowRow(
     modifier
+      .padding(horizontal = 12.dp)
       .clip(RoundedCornerShape(10.dp))
       .background(VdtColors.Black.copy(alpha = 0.85f))
       .padding(horizontal = 14.dp, vertical = 10.dp),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.spacedBy(16.dp),
+    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+    verticalArrangement = Arrangement.spacedBy(10.dp),
+    itemVerticalAlignment = Alignment.CenterVertically,
   ) {
-    Text("DISPLAY MODE", color = VdtColors.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text("DISPLAY MODE", color = VdtColors.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, softWrap = false)
 
     Row(
       // Tappable whenever the API exists, so a lock the browser refused without a gesture can be
@@ -189,7 +196,7 @@ private fun DisplayControls(onExit: () -> Unit, onEdit: (() -> Unit)?, modifier:
     ) {
       val tint = VdtColors.White.copy(alpha = if (wakeLock == WakeLockStatus.On) 1f else 0.55f)
       Icon(wakeIcon, "screen wake lock: $wakeLabel", tint = tint, modifier = Modifier.size(16.dp))
-      Text(wakeLabel, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+      Text(wakeLabel, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold, softWrap = false)
     }
 
     if (onEdit != null) ShellButton(Icons.Filled.Edit, "EDIT LAYOUT", onEdit)
@@ -211,13 +218,23 @@ private fun DisplayControls(onExit: () -> Unit, onEdit: (() -> Unit)?, modifier:
 private fun DisplayEditBar(atTop: Boolean, onMove: () -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
   Row(
     modifier
+      .padding(horizontal = 12.dp)
       .clip(RoundedCornerShape(24.dp))
       .background(VdtColors.Black.copy(alpha = 0.85f))
       .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(12.dp),
   ) {
-    Text("EDITING LAYOUT", color = VdtColors.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    // The label gives way first on a narrow screen: the two buttons are what the pill is for.
+    Text(
+      "EDITING LAYOUT",
+      color = VdtColors.Accent,
+      fontSize = 11.sp,
+      fontWeight = FontWeight.Bold,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f, fill = false),
+    )
     ShellButton(
       if (atTop) Icons.Filled.VerticalAlignBottom else Icons.Filled.VerticalAlignTop,
       "MOVE",
@@ -241,7 +258,7 @@ private fun ShellButton(icon: ImageVector, label: String, onClick: () -> Unit) {
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
     Icon(icon, null, tint = VdtColors.White, modifier = Modifier.size(16.dp))
-    Text(label, color = VdtColors.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    Text(label, color = VdtColors.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, softWrap = false)
   }
 }
 
