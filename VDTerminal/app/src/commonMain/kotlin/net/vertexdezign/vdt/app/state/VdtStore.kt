@@ -106,6 +106,8 @@ class VdtStore(
   val favourites: FavouritesStore,
   /** Whether this device is a chrome-free display, and what it is pinned to; see [DisplayStore]. */
   val display: DisplayStore,
+  /** Light or dark on this device; see [ThemeStore]. */
+  val theme: ThemeStore,
   val onToggleWakeLock: () -> Unit,
   val onCommand: (ClientMessage) -> Unit,
 )

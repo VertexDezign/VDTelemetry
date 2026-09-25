@@ -10,10 +10,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Coffee
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material3.Icon
@@ -29,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.WakeLockStatus
+import net.vertexdezign.vdt.app.state.ThemeMode
 import net.vertexdezign.vdt.app.theme.brandAccentFor
 import net.vertexdezign.vdt.model.Environment
 import net.vertexdezign.vdt.model.Vehicle
@@ -51,6 +55,8 @@ fun Header(
   canEdit: Boolean = true,
   onToggleWakeLock: () -> Unit = {},
   onToggleEdit: () -> Unit = {},
+  theme: ThemeMode = ThemeMode.System,
+  onCycleTheme: () -> Unit = {},
 ) {
   val accent = brandAccentFor(vehicle?.brand?.name)
   val brandName = vehicle?.brand?.title?.takeIf { it.isNotBlank() } ?: "VDTerminal"
@@ -102,6 +108,7 @@ fun Header(
       horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End),
       verticalAlignment = Alignment.CenterVertically,
     ) {
+      ThemeButton(theme, onCycleTheme, accent.text)
       WakeLockButton(wakeLock, onToggleWakeLock, accent.text)
       if (canEdit) {
         Icon(
@@ -134,6 +141,28 @@ private fun WakeLockButton(status: WakeLockStatus, onToggle: () -> Unit, tint: C
   Column(modifier = mod, horizontalAlignment = Alignment.CenterHorizontally) {
     Icon(icon, "screen wake lock: $label", tint = color, modifier = Modifier.size(20.dp))
     Text(label, color = color, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+  }
+}
+
+/**
+ * Light/dark toggle: cycles AUTO → LIGHT → DARK. AUTO follows the device's own setting, so a tablet
+ * that goes dark at sunset takes the terminal with it. The word names the mode, so the three are told
+ * apart without reading the icon.
+ */
+@Composable
+private fun ThemeButton(mode: ThemeMode, onCycle: () -> Unit, tint: Color) {
+  val (icon, label) =
+    when (mode) {
+      ThemeMode.System -> Icons.Filled.BrightnessAuto to "AUTO"
+      ThemeMode.Light -> Icons.Filled.LightMode to "LIGHT"
+      ThemeMode.Dark -> Icons.Filled.DarkMode to "DARK"
+    }
+  Column(
+    modifier = Modifier.padding(horizontal = 2.dp).clickable(onClick = onCycle),
+    horizontalAlignment = Alignment.CenterHorizontally,
+  ) {
+    Icon(icon, "theme: $label", tint = tint, modifier = Modifier.size(20.dp))
+    Text(label, color = tint, fontSize = 8.sp, fontWeight = FontWeight.Bold)
   }
 }
 

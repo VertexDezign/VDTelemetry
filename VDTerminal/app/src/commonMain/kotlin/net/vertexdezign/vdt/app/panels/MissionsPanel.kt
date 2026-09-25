@@ -36,6 +36,7 @@ import net.vertexdezign.vdt.app.components.ConfirmDialog
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Mission
 import net.vertexdezign.vdt.model.MissionDetail
 import net.vertexdezign.vdt.model.MissionFinishState
@@ -212,14 +213,14 @@ private fun TypeChip(label: String, count: Int, selected: Boolean, onClick: () -
   ) {
     Text(
       label,
-      color = if (selected) VdtColors.White else VdtColors.TextDark,
+      color = if (selected) VdtColors.OnFill else VdtColors.TextDark,
       fontSize = 10.sp,
       fontWeight = FontWeight.SemiBold,
       maxLines = 1,
     )
     Text(
       count.toString(),
-      color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray,
+      color = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray,
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
     )
@@ -240,8 +241,8 @@ private fun ListLabel(text: String) {
 @Composable
 private fun MissionRow(mission: Mission, selected: Boolean, onClick: () -> Unit) {
   val bg = if (selected) VdtColors.Green else VdtColors.TrackGray
-  val fg = if (selected) VdtColors.White else VdtColors.TextDark
-  val subFg = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray
+  val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
+  val subFg = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray
 
   Column(
     Modifier
@@ -264,7 +265,7 @@ private fun MissionRow(mission: Mission, selected: Boolean, onClick: () -> Unit)
       // A finished contract shows what it pays out, not what it was advertised at.
       Text(
         money(mission.totalReward ?: mission.reward),
-        color = if (selected) VdtColors.White else VdtColors.DarkGray,
+        color = if (selected) VdtColors.OnFill else VdtColors.DarkGray,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
       )
@@ -278,7 +279,12 @@ private fun MissionRow(mission: Mission, selected: Boolean, onClick: () -> Unit)
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f, fill = false),
       )
-      Text(statusLine(mission), color = statusColor(mission, selected), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+      Text(
+        statusLine(mission),
+        color = statusColor(mission, selected, VdtColors.palette),
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+      )
     }
   }
 }
@@ -389,7 +395,7 @@ private fun MissionActions(
 @Composable
 private fun ActionButton(label: String, color: Color, enabled: Boolean = true, onClick: () -> Unit) {
   val bg = if (enabled) color else VdtColors.TrackGray
-  val fg = if (enabled) VdtColors.White else VdtColors.TextDisabled
+  val fg = if (enabled) VdtColors.OnFill else VdtColors.TextDisabled
   Box(
     Modifier
       .clip(RoundedCornerShape(4.dp))
@@ -539,17 +545,17 @@ internal fun statusLine(mission: Mission): String {
   }
 }
 
-internal fun statusColor(mission: Mission, selected: Boolean): Color = when {
-  selected -> VdtColors.White
+internal fun statusColor(mission: Mission, selected: Boolean, palette: VdtPalette): Color = when {
+  selected -> palette.onFill
 
-  mission.finishState == MissionFinishState.SUCCESS -> VdtColors.Green
+  mission.finishState == MissionFinishState.SUCCESS -> palette.green
 
-  mission.finishState != null -> VdtColors.Red
+  mission.finishState != null -> palette.red
 
   // Under an hour of game time left is the point at which a contract is worth hurrying for.
-  mission.isOffered && (mission.minutesLeft ?: Int.MAX_VALUE) < 60 -> VdtColors.Amber
+  mission.isOffered && (mission.minutesLeft ?: Int.MAX_VALUE) < 60 -> palette.amber
 
-  else -> VdtColors.DarkGray
+  else -> palette.textSecondary
 }
 
 /** In-game minutes as the contract list prints them: days and hours, down to minutes near the end. */

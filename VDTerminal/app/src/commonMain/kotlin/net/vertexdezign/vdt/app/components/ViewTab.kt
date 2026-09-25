@@ -37,7 +37,7 @@ fun ViewTab(
 ) {
   Text(
     label.uppercase(),
-    color = if (active) VdtColors.White else VdtColors.DarkGray,
+    color = if (active) VdtColors.OnFill else VdtColors.DarkGray,
     fontSize = 9.sp,
     fontWeight = FontWeight.Bold,
     modifier = modifier

@@ -32,6 +32,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -360,8 +361,8 @@ private fun FieldSortControl(
 
 @Composable
 private fun FieldRowTile(row: FieldRow, status: FieldStatuses?, selected: Boolean, onClick: () -> Unit) {
-  val fg = if (selected) VdtColors.White else VdtColors.TextDark
-  val muted = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray
+  val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
+  val muted = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray
   Column(
     Modifier
       .fillMaxWidth()
@@ -430,10 +431,10 @@ private fun FieldBadge(label: String, selected: Boolean) {
     label,
     fontSize = 8.sp,
     fontWeight = FontWeight.Bold,
-    color = if (selected) VdtColors.Green else VdtColors.White,
+    color = if (selected) VdtColors.Green else VdtColors.OnFill,
     modifier = Modifier
       .clip(RoundedCornerShape(3.dp))
-      .background(if (selected) VdtColors.White else VdtColors.DarkGray)
+      .background(if (selected) VdtColors.OnFill else VdtColors.DarkGray)
       .padding(horizontal = 4.dp, vertical = 2.dp),
   )
 }
@@ -448,6 +449,8 @@ private fun FieldBadge(label: String, selected: Boolean) {
  * standing rule for this app (see VDTerminal/README.md -> "Design rules"). The tones are chosen to
  * differ in brightness as well as hue for the same reason.
  */
+@Composable
+@ReadOnlyComposable
 private fun kindColor(kind: String): Color = when (LayerKind.of(kind)) {
   LayerKind.HARVEST -> VdtColors.Amber
   LayerKind.GROWING -> VdtColors.Green
@@ -749,13 +752,13 @@ private fun SuggestionChip(suggestion: FieldSuggestion, onClick: () -> Unit) {
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(3.dp),
   ) {
-    Icon(Icons.Filled.Add, contentDescription = null, tint = VdtColors.White, modifier = Modifier.size(10.dp))
+    Icon(Icons.Filled.Add, contentDescription = null, tint = VdtColors.OnFill, modifier = Modifier.size(10.dp))
     Text(
       // The field number is the heading above these chips, so the chip drops it and keeps the work.
       suggestion.detail.substringAfter(" - ") + month,
       fontSize = 8.sp,
       fontWeight = FontWeight.Bold,
-      color = VdtColors.White,
+      color = VdtColors.OnFill,
     )
   }
 }

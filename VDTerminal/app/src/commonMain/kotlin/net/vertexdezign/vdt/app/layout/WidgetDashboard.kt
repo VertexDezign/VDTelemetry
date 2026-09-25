@@ -225,7 +225,7 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
       Modifier
         .width(120.dp)
         .clip(RoundedCornerShape(4.dp))
-        .background(VdtColors.White)
+        .background(VdtColors.Surface)
         .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
         .padding(horizontal = 6.dp, vertical = 4.dp),
     )
@@ -291,11 +291,11 @@ private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
     text.uppercase(),
     fontSize = 10.sp,
     fontWeight = FontWeight.Bold,
-    color = if (selected) VdtColors.White else VdtColors.DarkGray,
+    color = if (selected) VdtColors.OnFill else VdtColors.DarkGray,
     modifier =
     Modifier
       .clip(RoundedCornerShape(3.dp))
-      .background(if (selected) VdtColors.Green else VdtColors.White)
+      .background(if (selected) VdtColors.Green else VdtColors.Surface)
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(3.dp))
       .clickableNoRipple(onClick = onClick)
       .padding(horizontal = 6.dp, vertical = 3.dp),

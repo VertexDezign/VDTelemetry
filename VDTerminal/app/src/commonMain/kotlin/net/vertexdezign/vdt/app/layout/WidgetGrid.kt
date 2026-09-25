@@ -294,7 +294,7 @@ private fun AddSlot(onClick: () -> Unit, modifier: Modifier = Modifier) {
   Box(
     modifier
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.22f))
+      .background(VdtColors.Surface.copy(alpha = 0.22f))
       .border(1.dp, VdtColors.PanelBorder.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
       .clickable(onClick = onClick),
     contentAlignment = Alignment.Center,

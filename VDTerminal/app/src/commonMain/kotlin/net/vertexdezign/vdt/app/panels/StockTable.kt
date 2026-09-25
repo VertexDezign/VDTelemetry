@@ -433,7 +433,7 @@ private fun WordBadge(label: String) {
     label,
     fontSize = 8.sp,
     fontWeight = FontWeight.Bold,
-    color = VdtColors.White,
+    color = VdtColors.OnFill,
     modifier = Modifier
       .clip(RoundedCornerShape(3.dp))
       .background(VdtColors.DarkGray)

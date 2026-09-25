@@ -268,7 +268,7 @@ private fun FieldLabel(text: String) {
 private fun ModeChip(label: String, active: Boolean, onClick: () -> Unit) {
   Text(
     label,
-    color = if (active) VdtColors.White else VdtColors.DarkGray,
+    color = if (active) VdtColors.OnFill else VdtColors.DarkGray,
     fontSize = 10.sp,
     fontWeight = FontWeight.Bold,
     maxLines = 1,
@@ -287,7 +287,7 @@ private fun DraftLineRow(line: DraftLine, onRemove: () -> Unit) {
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.6f))
+      .background(VdtColors.Surface.copy(alpha = 0.6f))
       .padding(horizontal = 8.dp, vertical = 6.dp),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
@@ -358,7 +358,7 @@ private fun NumberField(value: String, onChange: (String) -> Unit, suffix: Strin
       modifier = Modifier
         .widthIn(min = width.dp, max = width.dp)
         .clip(RoundedCornerShape(4.dp))
-        .background(VdtColors.White)
+        .background(VdtColors.Surface)
         .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
         .padding(horizontal = 6.dp, vertical = 5.dp),
     )
@@ -385,7 +385,7 @@ private fun NoteField(value: String, onChange: (String) -> Unit) {
     modifier = Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White)
+      .background(VdtColors.Surface)
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
       .padding(horizontal = 6.dp, vertical = 5.dp),
   )

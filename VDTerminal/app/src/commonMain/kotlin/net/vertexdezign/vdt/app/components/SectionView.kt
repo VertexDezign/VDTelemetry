@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PfManual
 import net.vertexdezign.vdt.model.PfMode
@@ -122,7 +123,7 @@ fun SectionView(
   Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
     if (status != null) {
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(status.color))
+        Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(status.color(VdtColors.palette)))
         Text(
           status.label,
           fontSize = 9.sp,
@@ -562,7 +563,7 @@ internal fun RateStrip(subSections: List<PfSubSection>, mode: PfMode, modifier: 
               .align(Alignment.BottomCenter)
               .fillMaxWidth()
               .fillMaxHeight(fill)
-              .background(sliceColor(slice, mode)),
+              .background(sliceColor(slice, mode, VdtColors.palette)),
           )
         }
       }
@@ -598,7 +599,14 @@ private const val MIN_SLICE_FILL = 0.2f
  * a lamp with and the wrong thing to lay a row out with: a spot sprayer over clean crop, or any tool
  * passing over ground it already worked, flips it several times a second.
  */
-internal data class WorkStatus(val label: String, val color: Color, val active: Boolean, val working: Boolean)
+internal data class WorkStatus(val label: String, val active: Boolean, val working: Boolean) {
+  /** The status dot's colour: green working, amber ready, disabled off. A second cue — [label] says it. */
+  fun color(palette: VdtPalette): Color = when {
+    working -> palette.green
+    active -> palette.amber
+    else -> palette.textDisabled
+  }
+}
 
 /**
  * The status line's two facts, from the engine's own predicates: is any part of this tool able to
@@ -620,13 +628,7 @@ internal fun workAreaStatus(areas: List<WorkArea>): WorkStatus? {
       active > 0 -> "${type ?: "Tool"} · ready"
       else -> "${type ?: "Tool"} · off"
     }
-  val color =
-    when {
-      working > 0 -> VdtColors.Green
-      active > 0 -> VdtColors.Amber
-      else -> VdtColors.TextDisabled
-    }
-  return WorkStatus(label, color, active = active > 0, working = working > 0)
+  return WorkStatus(label, active = active > 0, working = working > 0)
 }
 
 /**
@@ -639,18 +641,18 @@ internal fun workAreaStatus(areas: List<WorkArea>): WorkStatus? {
  * state. The grey no-data case is kept for callers that ask about a slice directly — [RateStrip] never
  * reaches it, since a slice PF has no reading for draws no column at all.
  */
-internal fun sliceColor(slice: PfSubSection, mode: PfMode): Color {
-  if (!slice.valid) return VdtColors.Gray
+internal fun sliceColor(slice: PfSubSection, mode: PfMode, palette: VdtPalette): Color {
+  if (!slice.valid) return palette.unlit
   val level = if (mode == PfMode.LIME) slice.ph else slice.n
   val target = if (mode == PfMode.LIME) slice.phTarget else slice.nTarget
-  if (level == null || target == null || target <= 0f) return VdtColors.Green
+  if (level == null || target == null || target <= 0f) return palette.green
   val ratio = (level / target).coerceIn(0f, 1f)
   // Two stops rather than one: a straight red->green lerp passes through a muddy olive that reads as
   // "fine" at a glance, and the middle of this scale is the part that matters.
   return if (ratio < 0.5f) {
-    lerp(VdtColors.Red, VdtColors.Amber, ratio * 2f)
+    lerp(palette.red, palette.amber, ratio * 2f)
   } else {
-    lerp(VdtColors.Amber, VdtColors.Green, (ratio - 0.5f) * 2f)
+    lerp(palette.amber, palette.green, (ratio - 0.5f) * 2f)
   }
 }
 
@@ -813,7 +815,7 @@ internal fun BoxScope.SectionStrip(boom: Boom, modifier: Modifier = Modifier, on
       // working at all. The bar below cannot: a shutoff section reads "on" on a raised implement, and
       // every nozzle reads "off" on a lowered boom that has simply found no weeds.
       boom.status?.let { status ->
-        Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(status.color))
+        Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(status.color(VdtColors.palette)))
       }
       boom.nozzles?.let { nozzles ->
         Text(

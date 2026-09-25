@@ -123,7 +123,7 @@ fun FilterSelect(
       Modifier
         .fillMaxWidth()
         .clip(RoundedCornerShape(4.dp))
-        .background(VdtColors.White)
+        .background(VdtColors.Surface)
         .border(1.dp, if (focused) VdtColors.Green else VdtColors.PanelBorder, RoundedCornerShape(4.dp))
         .clickable(role = Role.Button) {
           focusRequester.requestFocus()
@@ -275,7 +275,7 @@ private fun Token(option: FilterOption, onRemove: () -> Unit) {
   ) {
     Text(
       option.label,
-      color = VdtColors.White,
+      color = VdtColors.OnFill,
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
       maxLines = 1,
@@ -286,7 +286,7 @@ private fun Token(option: FilterOption, onRemove: () -> Unit) {
     Icon(
       Icons.Filled.Close,
       contentDescription = "remove ${option.label}",
-      tint = VdtColors.White,
+      tint = VdtColors.OnFill,
       modifier = Modifier
         .padding(start = 2.dp)
         .size(14.dp)

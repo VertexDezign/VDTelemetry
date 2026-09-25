@@ -39,8 +39,8 @@ fun SimpleGauge(
 ) {
   val range = (max - min)
   val percentage = if (range > 0f) ((value.coerceIn(min, max) - min) / range) else 0f
-  val trackColor = Color(0xFFE2E8F0)
-  val activeColor = if (isActive) VdtColors.Green else Color(0xFF94A3B8)
+  val trackColor = VdtColors.TrackGray
+  val activeColor = if (isActive) VdtColors.Green else VdtColors.TextDisabled
 
   val boxModifier = modifier.size(size).let { if (onClick != null) it.clickable(onClick = onClick) else it }
   Box(boxModifier, contentAlignment = Alignment.Center) {

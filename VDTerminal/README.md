@@ -319,7 +319,7 @@ thrown away and the storage key did not have to change.
 
 ## Design rules
 
-Three constraints that apply to **every** new panel, widget and mark. Each has cost a round of rework
+Four constraints that apply to **every** new panel, widget and mark. Each has cost a round of rework
 already, and none of them is discoverable from the code you happen to be editing — so they live here.
 
 ### Hue never carries a state on its own
@@ -334,9 +334,9 @@ may reinforce that; it may never be the only cue. The two worked answers, both d
 - **On the black cluster — one colour, two alphas.** `ClusterReadout.ARMED_ALPHA` (0.45) against full
   brightness, which `guidanceMark` and the cruise line share. `GHOST_ALPHA` (0.09) is the *unlit*
   level, far too faint to stand for a live state.
-- **On the light panels — fill the chip.** A live lamp is a solid colour chip with its mark knocked
-  out in white: dark-on-light against light-on-dark, which is what `GuidanceLamp` and
-  `StatusIconButton` do. Spend the chip's padding in every state, so nothing shifts when it lights.
+- **On the panels — fill the chip.** A live lamp is a solid colour chip with its mark knocked out in
+  `VdtColors.OnFill`: a fill against no fill, and the ink flipping with it, which is what
+  `GuidanceLamp` and `StatusIconButton` do. Spend the chip's padding in every state, so nothing shifts when it lights.
 
 Where a ladder has more than two rungs, add a second channel — the ADS telltales flash at critical as
 well as reddening, so the severity survives without hue.
@@ -344,6 +344,24 @@ well as reddening, so the severity survives without hue.
 The trap to check for: `VdtColors.DarkGray` (5.0:1) and `AccentText` (5.3:1) are the *same* contrast,
 so a lamp using those two for idle/active differs in nothing but hue. Put the state in the
 `contentDescription` too — a map overlay with its labels hidden has no other reading.
+
+### A colour is a role, never a hex
+
+The app has a light and a dark palette (`theme/Theme.kt`), switched per device from the header
+(AUTO follows the browser's `prefers-color-scheme`). A colour written as a literal, or as Compose's
+`Color.White`, stays the same in both — and the panel under it doesn't. So ask `VdtColors` for a
+**role**:
+
+- A raised surface on a panel — an input, a card, a list stripe — is `Surface`, not white.
+- Text or an icon on a coloured fill (`Green`, `Amber`, `Red`, `ProgressBlue`, or an inverted
+  `TextDark`/`DarkGray` chip) is `OnFill`: white on the light palette, near-black on the dark one,
+  whose hues are light enough to be ink on a dark panel and therefore too light to carry white.
+- `White`, `Black` and the `OnBlack*` inks are constants, for the black shell (footer, display mode,
+  scrims) and for marks drawn over the map image or the machine art, which don't change with the theme.
+
+The role getters are `@Composable`. A draw lambda or a pure helper reads `VdtColors.palette` once and
+works from that (`missionColor(mission, palette)`), which is also what keeps the helper testable.
+`PaletteContrastTest` holds both palettes to their AA ratios, so tune a tone there, not by eye.
 
 ### A mark that carries meaning is an `Icon`, not a character
 

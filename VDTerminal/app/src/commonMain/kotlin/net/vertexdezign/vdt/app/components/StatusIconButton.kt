@@ -41,9 +41,6 @@ fun StatusIconButton(
   onClick: (() -> Unit)? = null,
 ) {
   val shape = if (round) CircleShape else RoundedCornerShape(4.dp)
-  val gray100 = Color(0xFFF3F4F6)
-  val gray200 = Color(0xFFE5E7EB)
-  val gray300 = Color(0xFFD1D5DB)
 
   val background: Brush
   val contentColor: Color
@@ -51,20 +48,20 @@ fun StatusIconButton(
   when {
     active && color == StatusColor.Green -> {
       background = Brush.verticalGradient(listOf(VdtColors.Accent, VdtColors.Green))
-      contentColor = VdtColors.White
+      contentColor = VdtColors.OnFill
       borderColor = VdtColors.Green
     }
 
     active -> {
-      background = Brush.verticalGradient(listOf(VdtColors.White, VdtColors.White))
+      background = Brush.verticalGradient(listOf(VdtColors.Surface, VdtColors.Surface))
       contentColor = VdtColors.Green
-      borderColor = gray300
+      borderColor = VdtColors.PanelBorder
     }
 
     else -> {
-      background = Brush.verticalGradient(listOf(gray100, gray200))
+      background = Brush.verticalGradient(listOf(VdtColors.Panel, VdtColors.TrackGray))
       contentColor = VdtColors.DarkGray
-      borderColor = gray300
+      borderColor = VdtColors.PanelBorder
     }
   }
 

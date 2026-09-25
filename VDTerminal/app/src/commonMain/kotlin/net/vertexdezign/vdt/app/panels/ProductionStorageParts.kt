@@ -24,7 +24,7 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 @Composable
 internal fun OwnedRow(name: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
   val bg = if (selected) VdtColors.Green else VdtColors.TrackGray
-  val fg = if (selected) VdtColors.White else VdtColors.TextDark
+  val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   Column(
     Modifier
       .fillMaxWidth()
@@ -43,7 +43,7 @@ internal fun OwnedRow(name: String, subtitle: String, selected: Boolean, onClick
     )
     Text(
       subtitle,
-      color = if (selected) VdtColors.White.copy(alpha = 0.85f) else VdtColors.DarkGray,
+      color = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray,
       fontSize = 10.sp,
     )
   }

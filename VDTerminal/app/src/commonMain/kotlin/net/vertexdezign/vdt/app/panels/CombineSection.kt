@@ -735,7 +735,7 @@ internal fun strawRefusal(harvest: Harvest?): String? {
 private fun RowScope.StrawOption(label: String, icon: ImageVector, active: Boolean, onClick: (() -> Unit)?) {
   val shape = RoundedCornerShape(3.dp)
   val ink = when {
-    active -> VdtColors.White
+    active -> VdtColors.OnFill
     onClick == null -> VdtColors.TextDisabled
     else -> VdtColors.DarkGray
   }
@@ -743,7 +743,7 @@ private fun RowScope.StrawOption(label: String, icon: ImageVector, active: Boole
   box = if (active) {
     box.background(VdtColors.TextDark)
   } else {
-    box.background(VdtColors.White).border(1.dp, VdtColors.PanelBorder, shape)
+    box.background(VdtColors.Surface).border(1.dp, VdtColors.PanelBorder, shape)
   }
   if (onClick != null) box = box.clickable(onClick = onClick)
   Row(

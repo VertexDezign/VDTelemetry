@@ -60,10 +60,6 @@ import net.vertexdezign.vdt.model.WorkArea
 import net.vertexdezign.vdt.model.WorkWidth
 import kotlin.math.roundToInt
 
-private val Green600 = Color(0xFF16A34A)
-private val Gray300 = Color(0xFFD1D5DB)
-private val Gray400 = Color(0xFF9CA3AF)
-
 /**
  * The merge toggle's persistence name, scoped per placed tile by [WidgetSettings] — like the map's
  * zoom and filters. Whether a chain reads as one load per fill type is a view preference about *this*
@@ -288,7 +284,7 @@ fun RigSlotPanel(
             Icon(
               Icons.Filled.Link,
               null,
-              tint = if (state != null) Green600 else Gray400,
+              tint = if (state != null) VdtColors.AccentText else VdtColors.TextDisabled,
               modifier = Modifier.height(16.dp),
             )
           }
@@ -368,13 +364,13 @@ private fun NameBox(state: RigSlotState?, empty: String) {
       .fillMaxWidth()
       .heightIn(min = 34.dp)
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White)
-      .border(1.dp, Gray300, RoundedCornerShape(4.dp))
+      .background(VdtColors.Surface)
+      .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
       .padding(vertical = 2.dp),
     contentAlignment = Alignment.Center,
   ) {
     if (state == null) {
-      Text(empty, fontSize = 10.sp, color = Gray300)
+      Text(empty, fontSize = 10.sp, color = VdtColors.TextDisabled)
     } else {
       // Name plus (optional) type. The type is only rendered when present, so something without a
       // type shows a single, vertically-centred name instead of a name with an empty line below it.
@@ -393,7 +389,7 @@ private fun NameBox(state: RigSlotState?, empty: String) {
             state.type,
             fontSize = 8.sp,
             lineHeight = 10.sp,
-            color = Gray400,
+            color = VdtColors.DarkGray,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
           )

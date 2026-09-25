@@ -23,6 +23,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -183,7 +184,7 @@ private fun LineCard(
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.6f))
+      .background(VdtColors.Surface.copy(alpha = 0.6f))
       .padding(10.dp),
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
@@ -298,7 +299,7 @@ private fun IoRow(
 @Composable
 private fun EnableToggle(enabled: Boolean, onToggle: (Boolean) -> Unit) {
   val bg = if (enabled) VdtColors.Green else VdtColors.TrackGray
-  val fg = if (enabled) VdtColors.White else VdtColors.DarkGray
+  val fg = if (enabled) VdtColors.OnFill else VdtColors.DarkGray
   Text(
     if (enabled) "ON" else "OFF",
     color = fg,
@@ -354,7 +355,7 @@ private fun StatusBadge(status: String) {
   val (color, text) = statusStyle(status)
   Text(
     text.uppercase(),
-    color = VdtColors.White,
+    color = VdtColors.OnFill,
     fontSize = 9.sp,
     fontWeight = FontWeight.Bold,
     modifier = Modifier.clip(RoundedCornerShape(3.dp)).background(color).padding(horizontal = 6.dp, vertical = 2.dp),
@@ -389,6 +390,8 @@ private fun ModeTag(mode: String) {
   )
 }
 
+@Composable
+@ReadOnlyComposable
 private fun statusStyle(status: String): Pair<Color, String> = when (status) {
   "running" -> VdtColors.Green to "Running"
   "missingInputs" -> VdtColors.Amber to "Missing input"

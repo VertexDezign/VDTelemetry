@@ -44,6 +44,7 @@ import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.FilterOption
 import net.vertexdezign.vdt.app.components.FilterSelect
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.PricesData
 import net.vertexdezign.vdt.model.PricesFillType
@@ -136,7 +137,7 @@ internal fun PriceBoard(data: PricesData, periods: List<String>) {
 
 @Composable
 private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Boolean, onClick: () -> Unit) {
-  val fg = if (selected) VdtColors.White else VdtColors.TextDark
+  val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   Row(
     Modifier
       .fillMaxWidth()
@@ -160,10 +161,10 @@ private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Bo
         "DEMAND",
         fontSize = 8.sp,
         fontWeight = FontWeight.Bold,
-        color = if (selected) VdtColors.Green else VdtColors.White,
+        color = if (selected) VdtColors.Green else VdtColors.OnFill,
         modifier = Modifier
           .clip(RoundedCornerShape(3.dp))
-          .background(if (selected) VdtColors.White else VdtColors.DarkGray)
+          .background(if (selected) VdtColors.OnFill else VdtColors.DarkGray)
           .padding(horizontal = 3.dp, vertical = 1.dp),
       )
       Spacer(Modifier.width(4.dp))
@@ -172,7 +173,7 @@ private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Bo
       TrendMark(sale.trend, Modifier.padding(end = 2.dp))
       Text(formatPrice(sale.price), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     } else {
-      Text("buy only", color = if (selected) VdtColors.White else VdtColors.DarkGray, fontSize = 10.sp)
+      Text("buy only", color = if (selected) VdtColors.OnFill else VdtColors.DarkGray, fontSize = 10.sp)
     }
   }
 }
@@ -328,8 +329,9 @@ private fun PriceCurve(fillType: PricesFillType, period: Int, periods: List<Stri
   // 0 for a flat curve, which draws every bar the same height and names none of them the peak.
   val peakMonth = peakMonth(fillType)
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    val palette = VdtColors.palette
     Canvas(Modifier.fillMaxWidth().height(CURVE_HEIGHT)) {
-      drawCurve(months, peak, peakMonth, period)
+      drawCurve(months, peak, peakMonth, period, palette)
     }
     Row(Modifier.fillMaxWidth()) {
       for (index in 1..CropCalendarData.PERIODS) {
@@ -353,7 +355,7 @@ private fun PriceCurve(fillType: PricesFillType, period: Int, periods: List<Stri
   }
 }
 
-private fun DrawScope.drawCurve(months: List<Float>, peak: Float, peakMonth: Int, period: Int) {
+private fun DrawScope.drawCurve(months: List<Float>, peak: Float, peakMonth: Int, period: Int, palette: VdtPalette) {
   if (peak <= 0f) return
   val step = size.width / CropCalendarData.PERIODS
   val gap = step * 0.18f
@@ -363,7 +365,7 @@ private fun DrawScope.drawCurve(months: List<Float>, peak: Float, peakMonth: Int
     val width = step - gap
     val top = size.height - height
     drawRect(
-      color = VdtColors.ProgressBlue.copy(alpha = if (index + 1 == peakMonth) 1f else 0.4f),
+      color = palette.progressBlue.copy(alpha = if (index + 1 == peakMonth) 1f else 0.4f),
       topLeft = Offset(left, top),
       size = Size(width, height),
     )
@@ -371,7 +373,7 @@ private fun DrawScope.drawCurve(months: List<Float>, peak: Float, peakMonth: Int
       // The current period is outlined rather than recoloured: it can also be the peak, and two
       // states that share one bar have to be able to show at once.
       drawRect(
-        color = VdtColors.TextDark,
+        color = palette.text,
         topLeft = Offset(left, top),
         size = Size(width, height),
         style = Stroke(width = 2f),

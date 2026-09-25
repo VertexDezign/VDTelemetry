@@ -103,7 +103,7 @@ private fun DetailCard(title: String, content: @Composable () -> Unit) {
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White)
+      .background(VdtColors.Surface)
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
       .padding(10.dp),
     verticalArrangement = Arrangement.spacedBy(6.dp),

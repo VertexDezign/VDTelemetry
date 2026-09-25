@@ -1,7 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.ui.text.AnnotatedString
-import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.theme.VdtPalette
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -120,8 +120,8 @@ class FinanceFormatTest {
   @Test
   fun zeroIsMutedRatherThanGreen() {
     // Most of the finances table is zeroes; colouring them as income would drown the rows that moved.
-    assertEquals(VdtColors.DarkGray, moneyColor(0))
-    assertEquals(VdtColors.AccentText, moneyColor(1))
-    assertEquals(VdtColors.Red, moneyColor(-1))
+    assertEquals(VdtPalette.Light.textSecondary, moneyColor(0, VdtPalette.Light))
+    assertEquals(VdtPalette.Light.accentText, moneyColor(1, VdtPalette.Light))
+    assertEquals(VdtPalette.Light.red, moneyColor(-1, VdtPalette.Light))
   }
 }

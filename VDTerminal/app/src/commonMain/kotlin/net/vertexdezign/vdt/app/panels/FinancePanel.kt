@@ -200,7 +200,7 @@ private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) 
     Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(4.dp))
-      .background(VdtColors.White.copy(alpha = 0.6f))
+      .background(VdtColors.Surface.copy(alpha = 0.6f))
       .padding(horizontal = 12.dp, vertical = 8.dp),
     verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
@@ -219,7 +219,7 @@ private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) 
       if (delta != 0L) {
         Text(
           if (delta > 0) "borrow ${formatMoney(delta)}" else "repay ${formatMoney(-delta)}",
-          color = moneyColor(-delta),
+          color = moneyColor(-delta, VdtColors.palette),
           fontSize = 11.sp,
           fontWeight = FontWeight.SemiBold,
         )
@@ -445,7 +445,7 @@ private fun HeaderCell(
 @Composable
 private fun StatRow(row: FinanceStatRow, columns: List<FinancePeriod>, striped: Boolean) {
   Row(
-    Modifier.background(if (striped) VdtColors.White.copy(alpha = 0.6f) else Color.Transparent),
+    Modifier.background(if (striped) VdtColors.Surface.copy(alpha = 0.6f) else Color.Transparent),
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Text(
@@ -461,7 +461,7 @@ private fun StatRow(row: FinanceStatRow, columns: List<FinancePeriod>, striped: 
       val value = row.values.getOrElse(period.index) { 0L }
       Text(
         if (value == 0L) "—" else formatMoney(value),
-        color = moneyColor(value),
+        color = moneyColor(value, VdtColors.palette),
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.End,
@@ -486,7 +486,7 @@ private fun TotalsRow(columns: List<FinancePeriod>) {
     columns.forEach { period ->
       Text(
         formatMoney(period.total, withSign = true),
-        color = moneyColor(period.total),
+        color = moneyColor(period.total, VdtColors.palette),
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.End,

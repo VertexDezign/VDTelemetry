@@ -1,6 +1,6 @@
 package net.vertexdezign.vdt.app.components
 
-import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PfManual
 import net.vertexdezign.vdt.model.PfMode
@@ -37,23 +37,23 @@ class SectionViewTest {
     // Lowered, in gear, section on — but nothing has gone under it in the last 200 ms.
     val ready = workAreaStatus(listOf(area()))!!
     assertEquals("Sprayer · ready", ready.label)
-    assertEquals(VdtColors.Amber, ready.color)
+    assertEquals(VdtPalette.Light.amber, ready.color(VdtPalette.Light))
 
     val working = workAreaStatus(listOf(area(processing = true)))!!
     assertEquals("Sprayer · working", working.label)
-    assertEquals(VdtColors.Green, working.color)
+    assertEquals(VdtPalette.Light.green, working.color(VdtPalette.Light))
 
     // Raised, or driving backwards, or switched off: the tool covers nothing.
     val off = workAreaStatus(listOf(area(active = false)))!!
     assertEquals("Sprayer · off", off.label)
-    assertEquals(VdtColors.TextDisabled, off.color)
+    assertEquals(VdtPalette.Light.textDisabled, off.color(VdtPalette.Light))
   }
 
   @Test
   fun oneWorkingAreaMakesTheWholeToolWorking() {
     // A cultivator with a sowing area behind it reports several; the tool is working if any part is.
     val status = workAreaStatus(listOf(area(type = "CULTIVATOR"), area(type = "SOWINGMACHINE", processing = true)))!!
-    assertEquals(VdtColors.Green, status.color)
+    assertEquals(VdtPalette.Light.green, status.color(VdtPalette.Light))
     // Named by what it leads with, not by whichever part happens to be busy.
     assertTrue(status.label.startsWith("Cultivator"))
   }
@@ -70,7 +70,7 @@ class SectionViewTest {
     // PF's isValid goes false off the field and on ground the soil sample has not uncovered. Ramping
     // that to green would paint "nothing needed here" over ground we know nothing about.
     val blank = PfSubSection(valid = false, n = 0f, nTarget = 0f)
-    assertEquals(VdtColors.Gray, sliceColor(blank, PfMode.FERTILIZER))
+    assertEquals(VdtPalette.Light.unlit, sliceColor(blank, PfMode.FERTILIZER, VdtPalette.Light))
     // …and it draws no column at all, which is what separates it from a slice that needs nothing
     // without asking anyone to tell two colours apart.
     assertNull(sliceFill(blank, PfMode.FERTILIZER))
@@ -103,21 +103,24 @@ class SectionViewTest {
   @Test
   fun rampsASliceFromRedAtEmptyToGreenAtTarget() {
     fun slice(level: Float) = PfSubSection(valid = true, n = level, nTarget = 100f)
-    assertEquals(VdtColors.Red, sliceColor(slice(0f), PfMode.FERTILIZER))
-    assertEquals(VdtColors.Amber, sliceColor(slice(50f), PfMode.FERTILIZER))
-    assertEquals(VdtColors.Green, sliceColor(slice(100f), PfMode.FERTILIZER))
+    assertEquals(VdtPalette.Light.red, sliceColor(slice(0f), PfMode.FERTILIZER, VdtPalette.Light))
+    assertEquals(VdtPalette.Light.amber, sliceColor(slice(50f), PfMode.FERTILIZER, VdtPalette.Light))
+    assertEquals(VdtPalette.Light.green, sliceColor(slice(100f), PfMode.FERTILIZER, VdtPalette.Light))
     // Past target is not more than green, and never wraps back toward red.
-    assertEquals(VdtColors.Green, sliceColor(slice(400f), PfMode.FERTILIZER))
+    assertEquals(VdtPalette.Light.green, sliceColor(slice(400f), PfMode.FERTILIZER, VdtPalette.Light))
     // Nothing needed here at all: the target is zero, which is a fine place to be, not a divide by it.
-    assertEquals(VdtColors.Green, sliceColor(PfSubSection(valid = true, n = 0f, nTarget = 0f), PfMode.FERTILIZER))
+    assertEquals(
+      VdtPalette.Light.green,
+      sliceColor(PfSubSection(valid = true, n = 0f, nTarget = 0f), PfMode.FERTILIZER, VdtPalette.Light),
+    )
   }
 
   @Test
   fun readsTheModeThatMachineIsIn() {
     // The same slice means different things in the two tanks: lime is about pH, fertilizer about N.
     val slice = PfSubSection(valid = true, n = 0f, nTarget = 100f, ph = 6.8f, phTarget = 6.8f)
-    assertEquals(VdtColors.Red, sliceColor(slice, PfMode.FERTILIZER))
-    assertEquals(VdtColors.Green, sliceColor(slice, PfMode.LIME))
+    assertEquals(VdtPalette.Light.red, sliceColor(slice, PfMode.FERTILIZER, VdtPalette.Light))
+    assertEquals(VdtPalette.Light.green, sliceColor(slice, PfMode.LIME, VdtPalette.Light))
   }
 
   @Test
@@ -283,7 +286,7 @@ class SectionViewTest {
     assertEquals(SprayBar.Nozzles(nozzles), boom.bar)
     assertEquals(nozzles, boom.nozzles)
     assertEquals(24f, boom.width)
-    assertEquals(VdtColors.Green, boom.status!!.color)
+    assertEquals(VdtPalette.Light.green, boom.status!!.color(VdtPalette.Light))
 
     // A tool that reports no aggregate width falls back to a work area that is actually down, the same
     // rule the panel's status line uses — a raised implement's width is not the width being worked.

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -34,9 +33,12 @@ import net.vertexdezign.vdt.app.panels.Header
 import net.vertexdezign.vdt.app.state.Favourite
 import net.vertexdezign.vdt.app.state.FavouritesStore
 import net.vertexdezign.vdt.app.state.LocalVdtStore
+import net.vertexdezign.vdt.app.state.ThemeStore
 import net.vertexdezign.vdt.app.state.VdtStore
 import net.vertexdezign.vdt.app.state.resolveDisplay
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.app.theme.VdtPalette
+import net.vertexdezign.vdt.app.theme.VdtTheme
 import net.vertexdezign.vdt.model.VdtData
 
 /**
@@ -92,7 +94,9 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
         }
       }
 
-    MaterialTheme {
+    val themeMode by store.theme.mode.collectAsState()
+    val systemDark by store.theme.systemDark.collectAsState()
+    VdtTheme(if (ThemeStore.isDark(themeMode, systemDark)) VdtPalette.Dark else VdtPalette.Light) {
       val pinned = display
       // A pinned display goes black, and only a pinned display. The tablet is a thing you hold under
       // a cab roof and its light panels are right for that; a phone clamped to the A-pillar is an
@@ -244,6 +248,7 @@ private fun Shell(
 ) {
   val store = LocalVdtStore.current
   val wakeLock by store.wakeLock.collectAsState()
+  val theme by store.theme.mode.collectAsState()
 
   Column(Modifier.fillMaxSize()) {
     Header(
@@ -255,6 +260,8 @@ private fun Shell(
       canEdit = screen is Screen.OpenPage,
       onToggleWakeLock = store.onToggleWakeLock,
       onToggleEdit = onToggleEdit,
+      theme = theme,
+      onCycleTheme = store.theme::cycle,
     )
 
     when (screen) {

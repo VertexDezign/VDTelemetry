@@ -585,7 +585,7 @@ private fun RigBox(
         when {
           selected -> VdtColors.TextDark
 
-          canTap -> VdtColors.White
+          canTap -> VdtColors.Surface
 
           // Flat and outline-less, the way a read-only chip is flat where an actionable one is raised
           // and outlined. Nothing here is said by hue.
@@ -621,7 +621,7 @@ private fun RigBox(
         Icons.Filled.Agriculture,
         contentDescription = null,
         tint = when {
-          selected -> VdtColors.White
+          selected -> VdtColors.OnFill
           canTap -> VdtColors.DarkGray
           else -> VdtColors.TextDisabled
         },
