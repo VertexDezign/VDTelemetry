@@ -206,8 +206,9 @@ appears with the wake-lock state and EXIT DISPLAY, and hides itself again if you
 mode right there, at the size it is shown, with only a floating EDITING LAYOUT pill (MOVE flips it
 between the bottom and top edge, DONE ends it). That is the point of editing on the device: in the
 full shell a phone's header and bottom bar take a third of its height, so the grid you arranged there
-was a squashed copy of the one on the pillar. The page's name, icon and auto-show are left to the
-tablet.
+was a squashed copy of the one on the pillar. The page's name, icon and auto-show still need the full
+shell — on this same device, since each browser keeps its own pages: exit display mode and edit them
+there, not on the tablet.
 
 **Add to Home Screen** gives a display its own icon and no browser chrome at all (`manifest.webmanifest` plus the iOS
 `apple-mobile-web-app-*` tags). The manifest deliberately
