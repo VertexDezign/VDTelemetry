@@ -575,7 +575,13 @@ fun MapPanel(
         if (courseUp) autoCenter = true
       })
       // Not a toggle: tapping re-centres, and a drag is what turns following off again.
-      ToolButton(Icons.Filled.CenterFocusStrong, "auto-center", active = autoCenter, onClick = { autoCenter = true })
+      ToolButton(
+        Icons.Filled.CenterFocusStrong,
+        "auto-center",
+        active = autoCenter,
+        setsOnly = true,
+        onClick = { autoCenter = true },
+      )
     },
   ) {
     BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {

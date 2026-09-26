@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -75,66 +76,80 @@ fun Header(
   val brandName = vehicle?.brand?.title?.takeIf { it.isNotBlank() } ?: "VDTerminal"
   val temp = env?.weather?.temperature
 
-  Row(
-    modifier.fillMaxWidth().background(accent.active).padding(horizontal = 16.dp, vertical = 8.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    // Left third
-    Row(
-      Modifier.weight(1f),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-      Stat(Icons.Filled.Thermostat, if (temp != null) "${temp.current}${temp.unit}" else "--", accent.text)
-      Stat(Icons.Filled.CalendarMonth, env?.date ?: "--", accent.text)
-      Stat(Icons.Filled.Schedule, env?.time ?: "--", accent.text)
-    }
-    // Center third — identity: brand over model. Modded vehicle names run long, so both lines clip
-    // rather than pushing the stats and controls out of the bar.
-    Column(
-      Modifier.weight(1f),
-      horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-      Text(
-        brandName.uppercase(),
-        color = accent.labelText,
-        fontSize = 28.sp,
-        fontWeight = FontWeight.Black,
-        fontStyle = FontStyle.Italic,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-      )
-      vehicle?.name?.takeIf { it.isNotBlank() }?.let { name ->
+  BoxWithConstraints(modifier.fillMaxWidth().background(accent.active).padding(horizontal = 16.dp, vertical = 8.dp)) {
+    // Thirds keep the brand on the screen's centre line, but a phone's third is narrower than the three
+    // stats or the three controls. There the controls take the room they need, the stats shrink to the
+    // clock, and the brand gets what is left. The layout doesn't depend on canEdit, so opening an app
+    // (which hides EDIT) doesn't make the header jump.
+    val compact = maxWidth / 3 < MIN_THIRD
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+      // Left third
+      Row(
+        if (compact) Modifier.padding(end = 8.dp) else Modifier.weight(1f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+      ) {
+        if (!compact) {
+          Stat(Icons.Filled.Thermostat, if (temp != null) "${temp.current}${temp.unit}" else "--", accent.text)
+          Stat(Icons.Filled.CalendarMonth, env?.date ?: "--", accent.text)
+        }
+        Stat(Icons.Filled.Schedule, env?.time ?: "--", accent.text)
+      }
+      // Center third — identity: brand over model. Modded vehicle names run long, so both lines clip
+      // rather than pushing the stats and controls out of the bar.
+      Column(
+        Modifier.weight(1f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+      ) {
         Text(
-          name,
-          color = accent.text.copy(alpha = 0.75f),
-          fontSize = 11.sp,
-          fontWeight = FontWeight.Bold,
+          brandName.uppercase(),
+          color = accent.labelText,
+          fontSize = 28.sp,
+          fontWeight = FontWeight.Black,
+          fontStyle = FontStyle.Italic,
           maxLines = 1,
           overflow = TextOverflow.Ellipsis,
         )
+        vehicle?.name?.takeIf { it.isNotBlank() }?.let { name ->
+          Text(
+            name,
+            color = accent.text.copy(alpha = 0.75f),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
       }
-    }
-    // Right third — controls
-    Row(
-      Modifier.weight(1f),
-      horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      DisplaySettings(theme, onThemeChange, uiScale, onUiScaleChange, accent.text)
-      WakeLockButton(wakeLock, onToggleWakeLock, accent.text)
-      if (canEdit) {
-        HeaderControl(
-          if (editing) Icons.Filled.Check else Icons.Filled.Edit,
-          if (editing) "DONE" else "EDIT",
-          "edit layout",
-          accent.text,
-          onClick = onToggleEdit,
-        )
+      // Right third — controls
+      Row(
+        if (compact) Modifier.padding(start = 8.dp) else Modifier.weight(1f),
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        DisplaySettings(theme, onThemeChange, uiScale, onUiScaleChange, accent.text)
+        WakeLockButton(wakeLock, onToggleWakeLock, accent.text)
+        if (canEdit) {
+          HeaderControl(
+            if (editing) Icons.Filled.Check else Icons.Filled.Edit,
+            if (editing) "DONE" else "EDIT",
+            "edit layout",
+            accent.text,
+            onClick = onToggleEdit,
+          )
+        }
       }
     }
   }
 }
+
+/**
+ * The narrowest third the full header fits in: three [HeaderControl]s at [CONTROL_MIN_WIDTH] with their
+ * gaps, rounded up for the three stats, which need about as much.
+ */
+private val MIN_THIRD = 180.dp
+
+private val CONTROL_MIN_WIDTH = 48.dp
 
 /**
  * One control in the header's right third: an icon over the word for its state, the way every one of
@@ -146,7 +161,7 @@ fun Header(
  */
 @Composable
 private fun HeaderControl(icon: ImageVector, label: String, description: String, tint: Color, onClick: (() -> Unit)?) {
-  var mod = Modifier.widthIn(min = 48.dp).clip(RoundedCornerShape(6.dp))
+  var mod = Modifier.widthIn(min = CONTROL_MIN_WIDTH).clip(RoundedCornerShape(6.dp))
   if (onClick != null) mod = mod.clickable(role = Role.Button, onClick = onClick)
   Column(
     modifier = mod.padding(horizontal = 6.dp, vertical = 4.dp),

@@ -15,6 +15,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -41,6 +43,10 @@ object ToolButtonSize {
  * and knocks the icon out in [VdtColors.OnFill], off is the outlined surface — the "fill the chip" rule
  * from `VDTerminal/README.md` → "Design rules", so the state never rests on hue. It is in the semantics
  * too, since the fill is not something a screen reader can see.
+ *
+ * [setsOnly] is for a state a tap can only turn on — the map's follow, which a drag ends. It is drawn
+ * like any toggle, since whether the map is following is worth seeing, but announced as a button with
+ * its state: a switch that stays on when you flip it would be a lie.
  */
 @Composable
 fun ToolButton(
@@ -50,6 +56,7 @@ fun ToolButton(
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
   active: Boolean? = null,
+  setsOnly: Boolean = false,
   enabled: Boolean = true,
   size: Dp = ToolButtonSize.Header,
   /** The icon's ink when off, for a button whose kind is its colour — a red delete. */
@@ -64,7 +71,11 @@ fun ToolButton(
       else -> tint
     }
   val interaction =
-    if (active != null) {
+    if (active != null && setsOnly) {
+      Modifier
+        .semantics { stateDescription = if (on) "on" else "off" }
+        .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+    } else if (active != null) {
       Modifier.toggleable(value = on, enabled = enabled, role = Role.Switch, onValueChange = { onClick() })
     } else {
       Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
