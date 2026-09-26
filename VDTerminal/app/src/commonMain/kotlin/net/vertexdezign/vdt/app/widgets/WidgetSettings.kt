@@ -10,7 +10,7 @@ import com.russhwolf.settings.Settings
  *
  * Ambient rather than another [Widget.Content] parameter because almost nothing needs it: it is the
  * key for a widget's own view state, which most widgets don't have. The default covers rendering
- * outside any grid — an app's own full-screen view, which is a single stable place of its own and so
+ * outside any page — an app's own full-screen view, which is a single stable place of its own and so
  * keeps its own zoom and filters rather than borrowing some tile's.
  */
 val LocalWidgetInstance = staticCompositionLocalOf { "app" }

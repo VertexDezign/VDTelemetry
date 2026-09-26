@@ -102,11 +102,11 @@ object ShortcutWidget : Widget {
 }
 
 /**
- * The icon-and-label tile. It centres a square inside whatever cell block it was given rather than
- * stretching to fill it: one grid serves both orientations, so the same 1×1 shortcut is square in
- * landscape (~91×90dp) but tall and narrow in portrait (~61×142dp), and an icon that tracked those
- * bounds would visibly distort on rotation. The square is also capped, so a shortcut someone has
- * deliberately resized up stays an icon instead of becoming a billboard.
+ * The icon-and-label tile. It centres a square inside whatever tile it was given rather than
+ * stretching to fill it: a tile is whatever share of a split it holds, so the same shortcut can be
+ * square on one screen and tall and narrow on another, and an icon that tracked those bounds would
+ * visibly distort on rotation. The square is also capped, so a shortcut someone has deliberately
+ * given a big region stays an icon instead of becoming a billboard.
  *
  * A null [onClick] renders the tile inert — it has nothing to open.
  */

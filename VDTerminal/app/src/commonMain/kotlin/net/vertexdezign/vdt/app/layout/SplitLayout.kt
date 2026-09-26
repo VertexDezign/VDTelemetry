@@ -17,6 +17,12 @@ import kotlin.random.Random
  * an interlocking arrangement no straight cut crosses edge to edge (four tiles pinwheeled round a
  * fifth) — accepted, since that has to be built on purpose and rarely looks balanced.
  *
+ * Two alternatives were turned down. A free-form canvas would have needed snap guides, match-size and
+ * distribute actions and overlap handling — all on touch, all twice (landscape and portrait) — and
+ * would still drift by a few dp. And keeping the grid beside the tree, one per page behind an
+ * interface, was cheap to build but would have doubled every edit-mode change after it; revisit only
+ * if a real page needs both.
+ *
  * Every mutation ends in [normalize], so a tree is always in canonical form; see there.
  */
 @Serializable
@@ -65,6 +71,13 @@ data class Empty(val id: String) : LayoutNode
 
 /** Child indices from the root down to a node; the root is the empty path. */
 typealias NodePath = List<Int>
+
+/**
+ * A fresh tile instance id. Random rather than derived from the widget or its position: the id has to
+ * outlive both, since a tile keeps its instance-scoped state when it is moved, swapped or
+ * reconfigured.
+ */
+fun newInstanceId(): String = "w-" + Random.nextLong(0, Long.MAX_VALUE).toString(36)
 
 /** A fresh [Empty] id; random for the same reason [newInstanceId] is — it must outlive its position. */
 fun newEmptyId(): String = "e-" + Random.nextLong(0, Long.MAX_VALUE).toString(36)

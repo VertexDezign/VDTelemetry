@@ -227,7 +227,7 @@ object IsoBusWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Memory
 
   // Wide rather than tall: the machine art is 2:1 and the ratio bars want width to be readable. The
-  // height floor is what three portrait cells were — at two, the status strip and a three-ingredient
+  // height floor is what three of the old grid's portrait cells were — at two, the status strip and a three-ingredient
   // recipe already fill the body and the panel has nothing left to give up but the bars themselves.
   override val minWidth = 184.dp
   override val minHeight = 184.dp

@@ -16,7 +16,8 @@ project (it replaced an earlier React/Vite + Go stack, which is no longer in thi
 ## What it shows
 
 The shell is a launcher of **apps** and a set of **pages**. An app owns one full-screen view and
-contributes tiles (**widgets**) that any page can place; a page is a grid you arrange yourself. An app
+contributes tiles (**widgets**) that any page can place; a page is a layout you arrange yourself (see
+[Page layouts](#page-layouts)). An app
 whose mod isn't installed is not listed at all, rather than showing an empty screen.
 
 | App                                        | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -202,10 +203,10 @@ listening to. Hence the guides' device-level alternative.
 **To leave display mode on the device itself**, press and hold anywhere for two seconds: a small bar
 appears with the wake-lock state and EXIT DISPLAY, and hides itself again if you ignore it.
 
-**To rearrange a display's page**, hold for the same bar and tap EDIT LAYOUT. The grid goes into edit
+**To rearrange a display's page**, hold for the same bar and tap EDIT LAYOUT. The page goes into edit
 mode right there, at the size it is shown, with only a floating EDITING LAYOUT pill (MOVE flips it
 between the bottom and top edge, DONE ends it). That is the point of editing on the device: in the
-full shell a phone's header and bottom bar take a third of its height, so the grid you arranged there
+full shell a phone's header and bottom bar take a third of its height, so the page you arranged there
 was a squashed copy of the one on the pillar. The page's name, icon and auto-show still need the full
 shell — on this same device, since each browser keeps its own pages: exit display mode and edit them
 there, not on the tablet.
@@ -309,21 +310,35 @@ diagonals dark), and `.` has zero advance, so `12.4` occupies three cells and no
 reserves a fixed cell count, which is why a number getting shorter unlights a cell instead of shifting
 its neighbours.
 
-## Portrait layouts
+## Page layouts
 
-A page holds **one arrangement per orientation**. The shell measures the page body and renders either
-the landscape one — a 12 × 7 grid, tuned so an 11" tablet gets ~91dp square cells — or the portrait
-one, 6 × 12, tuned so a phone with no chrome around it does too (~56dp square on an iPhone 15 Pro).
-Square cells are the point: every span a widget declares is calibrated against one, so the same grid
-on a 393dp-wide phone would have given 32 × 120dp stripes and a page that was wrong rather than
-merely cramped.
+A page is **cut, not placed**: the page is split across or down into regions at ratios, each region
+is split again or holds one widget — the way a tiling window manager lays out windows. Symmetry is
+then something the structure guarantees rather than something you count cells for: the two ends of
+one split are the same width because they have the same weight, and "make these three equal" is one
+button on one split. What it cannot express is an arrangement no straight cut crosses edge to edge
+(four tiles wound round a fifth); that has to be built on purpose and rarely looks balanced.
 
-Edit mode edits whichever arrangement is on screen — turn the device to rearrange the other. Tiles
-keep their identity across the two, so a map's zoom, filters and layer follow it round instead of
-resetting when you rotate; the arrangements diverge only where you make them, since adding or removing
-a tile in one orientation leaves the other alone. A page saved before portrait existed gets one
-derived from its landscape arrangement (12 → 6 columns is an exact halving), so no stored layout was
-thrown away and the storage key did not have to change.
+In edit mode everything happens on the thing under your finger: drag a tile onto another to swap them
+(onto an empty space, to move it); split a tile right or below; remove it, which leaves an empty space
+so its neighbours don't shift; drag a divider — it always snaps, to twelfths, to where its two
+neighbours are equal, or into line with another divider running the same way — or even out a split
+with its equalize button; and add a full-width or full-height band from the buttons in the margin at
+each page edge. A control that would do nothing, or squeeze a widget below the size it can be read at,
+is not shown.
+
+Each widget declares that size as a floor in dp. Floors **gate edits, never rendering**: a page
+arranged on a big tablet and opened on a smaller one draws anyway, and the widget's compact form copes.
+
+A page holds **one arrangement per orientation** — the shell measures the page body and shows the
+landscape or the portrait one — because a good landscape page squeezed onto a phone standing up is a
+page of tall stripes, not a small version of itself. Edit mode edits whichever arrangement is on
+screen; turn the device to rearrange the other. Tiles keep their identity across the two, so a map's
+zoom, filters and layer follow it round instead of resetting when you rotate; the arrangements diverge
+only where you make them.
+
+Pages from before this (the 12 × 7 cell grid, `vdt.pages.v2`) are converted to trees on first load
+and saved under `vdt.pages.v3`; the old key is left in storage untouched.
 
 ## Design rules
 
