@@ -28,10 +28,9 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
  * Modal widget picker: a scrim (tap to dismiss) over a card listing the [available] widgets — the
- * caller narrows those to what can actually be placed where the slot was tapped (not already on the
- * screen, and roomy enough for the widget's floor). Picking one calls [onPick] with the widget
- * itself — placement needs its declared size, not just its id. Shown when an empty grid slot is
- * tapped in edit mode.
+ * caller narrows those to what can actually be placed in the empty space that was tapped (roomy
+ * enough for the widget's floor). Picking one calls [onPick] with the widget itself — placement needs
+ * its declared floor, not just its id. Shown when an empty space's add button is tapped in edit mode.
  */
 @Composable
 fun WidgetPicker(

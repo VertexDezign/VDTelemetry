@@ -6,11 +6,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.russhwolf.settings.Settings
 
 /**
- * The instance id of the tile currently being rendered; `WidgetGrid` provides it around each cell.
+ * The instance id of the tile currently being rendered; `SplitLayoutView` provides it around each tile.
  *
  * Ambient rather than another [Widget.Content] parameter because almost nothing needs it: it is the
  * key for a widget's own view state, which most widgets don't have. The default covers rendering
- * outside any grid — an app's own full-screen view, which is a single stable place of its own and so
+ * outside any page — an app's own full-screen view, which is a single stable place of its own and so
  * keeps its own zoom and filters rather than borrowing some tile's.
  */
 val LocalWidgetInstance = staticCompositionLocalOf { "app" }
@@ -22,7 +22,7 @@ val LocalWidgetInstance = staticCompositionLocalOf { "app" }
  * This is the other half of [WidgetConfig], and the split is deliberate:
  *
  * - **Config** is what the user declared. It belongs to the layout, so it rides on the
- *   `LayoutCell` and is deleted with it.
+ *   `Tile` and is deleted with it.
  * - **View state** is incidental and written constantly — a pinch stores a new zoom on every frame
  *   of the gesture — and `PageStore` re-encodes the entire page list on every write. Putting it on
  *   the cell would rewrite every page of the layout per gesture, so it lives here instead.

@@ -22,7 +22,7 @@ to, not in `FUTURE.md`.
 Feature plans live at the repo root as `<topic>-plan.md` while their feature is in progress, and are
 **deleted once the feature is built** — the reasoning moves into the code, which is where it gets
 read, and whatever the plan left undone moves to `FUTURE.md`. `isobus-plan.md` (issue #58) is the
-only live one.
+live one.
 
 ## Commit messages
 

@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
@@ -50,10 +51,8 @@ object MapWidget : Widget {
 
   // The one widget that is mostly picture: it wants area, and below roughly a third of the page the
   // overlays (vehicles, field info, the layer filter) start covering the terrain they annotate.
-  override val defaultColSpan = 6
-  override val defaultRowSpan = 4
-  override val minColSpan = 4
-  override val minRowSpan = 3
+  override val minWidth = 248.dp
+  override val minHeight = 184.dp
 
   /** The config key deciding whether this map carries the navigation strip. */
   const val GUIDANCE_KEY = "guidance"
@@ -176,13 +175,11 @@ object RigSlotWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Anchor
 
   // Taller than wide: the panel is a stack (name, condition, controls, load) that reads as a column
-  // beside the map. It goes down to a single cell, where the panel stacks its controls instead of
-  // rowing them — worth the extra row of height, because a column of these is a layout the two-column
+  // beside the map. It goes down to a thumb's width, where the panel stacks its controls instead of
+  // rowing them — worth the extra height, because a column of these is a layout the two-column
   // panel this replaced could never have made.
-  override val defaultColSpan = 3
-  override val defaultRowSpan = 4
-  override val minColSpan = 1
-  override val minRowSpan = 3
+  override val minWidth = 56.dp
+  override val minHeight = 184.dp
 
   /** The config key naming the position this tile renders. */
   const val SLOT_KEY = "slot"
@@ -230,12 +227,10 @@ object IsoBusWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Memory
 
   // Wide rather than tall: the machine art is 2:1 and the ratio bars want width to be readable. The
-  // floor is three rows — at two, the status strip and a three-ingredient recipe already fill the
-  // body and the panel has nothing left to give up but the bars themselves.
-  override val defaultColSpan = 5
-  override val defaultRowSpan = 4
-  override val minColSpan = 3
-  override val minRowSpan = 3
+  // height floor is what three of the old grid's portrait cells were — at two, the status strip and a three-ingredient
+  // recipe already fill the body and the panel has nothing left to give up but the bars themselves.
+  override val minWidth = 184.dp
+  override val minHeight = 184.dp
 
   /** The config key naming the position this tile follows. */
   const val SLOT_KEY = "slot"
@@ -278,8 +273,8 @@ object NavigationWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Explore
 
   // A heading and a row of status icons — it squeezes further than the readout panels do.
-  override val minColSpan = 2
-  override val minRowSpan = 2
+  override val minWidth = 120.dp
+  override val minHeight = 120.dp
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -301,8 +296,8 @@ object LightingWidget : Widget {
   override val icon: ImageVector = Icons.Filled.Lightbulb
 
   // A grid of toggle buttons, so it stays usable small — it just fits fewer per row.
-  override val minColSpan = 2
-  override val minRowSpan = 2
+  override val minWidth = 120.dp
+  override val minHeight = 120.dp
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -329,7 +324,6 @@ object FieldsWidget : Widget {
   override val id = "fields"
   override val title = "Fields"
   override val icon: ImageVector = Icons.Filled.Grass
-  override val defaultColSpan = 3
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -379,8 +373,6 @@ object FinanceWidget : Widget {
   override val id = "finance"
   override val title = "Finance"
   override val icon: ImageVector = Icons.Filled.AccountBalance
-  override val defaultColSpan = 3
-  override val defaultRowSpan = 2
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -398,8 +390,6 @@ object InvoicesWidget : Widget {
   override val id = "invoices"
   override val title = "Invoices"
   override val icon: ImageVector = Icons.AutoMirrored.Filled.ReceiptLong
-  override val defaultColSpan = 3
-  override val defaultRowSpan = 2
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -431,9 +421,8 @@ object WeatherWidget : Widget {
   override val id = "weather"
   override val title = "Weather"
   override val icon: ImageVector = WeatherIcons.PartiallyCloudy
-  override val defaultColSpan = 4
-  override val defaultRowSpan = 2
-  override val minColSpan = 2
+  override val minWidth = 120.dp
+  override val minHeight = 120.dp
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {

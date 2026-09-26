@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * size is right for all of them — a button that is comfortable on the iPad is a speck on a small
  * Android tablet, and text sized for the phone wastes the big screen. So each device picks for
  * itself, persisted in its own browser storage. Everything scales together (type, icons, touch
- * targets, spacing), which is what keeps a panel laid out the same at every size; the page grid still
+ * targets, spacing), which is what keeps a panel laid out the same at every size; the page layout still
  * fills the screen, so a bigger size means bigger contents in the same tiles.
  */
 class UiScaleStore(private val settings: Settings) {

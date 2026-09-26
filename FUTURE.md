@@ -30,6 +30,7 @@ Retired plans, if the full reasoning is wanted (`git show <sha>:<file>`):
 | `vehicle-data-plan.md` | `afe2585` (2026-07-25)                             | the vehicle export gaps, §1–§4                  |
 | `map-layers-plan.md`   | `df511b3` (2026-07-25)                             | ground-layer overlays, per-plane split          |
 | `mission-plan.md`      | `91e9fca` (2026-08-06)                             | issue #17 — contracts                           |
+| `split-layout-plan.md` | `9798758` (2026-09-26)                             | pages as split trees instead of a cell grid     |
 
 Still live: **`isobus-plan.md`** (issue #58). Its mod side is built; its app side is not, so the plan stays as the
 working spec. It is indexed below rather than duplicated.
@@ -71,6 +72,25 @@ What those two left is under their own headings below. What is still untouched f
   alert needs, and nothing else. Do it only if that alert is wanted.
 
 ---
+
+## Page layouts as split trees
+
+Built 2026-09-26 on branch `new-layout` and driven on the tablet in both orientations and on the pillar
+phone; what it left open:
+
+- **Finer snapping along a wide screen's long side.** Driven on the iPad and on the pillar phone
+  (2026-09-26): 24dp and twelfths are good enough for now. Twelfths of the tablet's long side are
+  ~100dp apart, so eventually one more stop there (a finer division along the wider axis) would make
+  sense. Dividers also stop where a neighbour just fits its floor — added for the pillar's service
+  tile, which sat between two twelfths — so that stop is only as good as the floor behind it.
+- **Widget floors are a mechanical conversion.** Each dp floor is what the old cell-span floor came to
+  on the portrait grid's 56dp cell. Only the service tile has been corrected (56 → 80dp, driven on the
+  pillar phone); the rest are unreviewed, and the map and the rig slot are the likely outliers.
+- **No dock-on-edge drop.** Dragging a tile onto a leaf's *edge* to split that leaf and drop it beside
+  it was deliberately left out of round 1: swap, split and close already reach every arrangement, and
+  a second drag gesture with edge zones is the kind of thing that misfires on a tablet in a moving cab.
+- **Edit mode on the smallest tiles.** Below ~60dp the four corner controls cover most of a tile,
+  leaving little to grab for a drag. Not reported yet, only expected.
 
 ## The universal machine screen (#116)
 
