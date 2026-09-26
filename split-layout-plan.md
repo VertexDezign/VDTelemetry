@@ -4,11 +4,10 @@ Plan to replace the page grid (`GridLayout`, 12 × 7 landscape / 6 × 12 portrai
 tree**: a page is a region that is cut, horizontally or vertically, into children at ratios, and each
 leaf holds one widget. The way a tiling window manager lays out windows.
 
-Status: **steps 1–3 built** on branch `new-layout` (steps 2 and 3 landed as one commit: once `Page`
+Status: **steps 1–4 built** on branch `new-layout` (steps 2 and 3 landed as one commit: once `Page`
 holds a tree the dashboard can't render it without the new view, so step 2 could not build alone).
-Edit mode currently offers remove, configure, add-into-empty and close-empty only; drag-swap,
-split, dividers and edge strips are step 4. Written 2026-09-25 against branch `ui-display-edit`,
-which has since merged to `main`.
+Step 4's edit mode is built but not yet tried on a tablet; step 5 (cleanup) is open. Written
+2026-09-25 against branch `ui-display-edit`, which has since merged to `main`.
 
 Settled while building step 1:
 
@@ -18,6 +17,11 @@ Settled while building step 1:
 - The floor guard is one rule for every edit: a leaf must clear its floor, or, if it was already on
   the page, be no smaller than before in the dimension where it falls short. That is what keeps a page
   arranged on a bigger screen editable on a smaller one.
+- Divider and tile drags stay local until the finger lifts (PageStore persists every update); the
+  divider's line is drawn where it will snap to, not under the finger.
+- Divider grips reach only 4dp into each neighbour so they never cover a tile's corner buttons; the
+  pill at the divider's middle is the real touch target. The page-edge buttons sit inside the page,
+  not straddling its padding — a control outside its parent's bounds can't be touched.
 - The grid converter does not cut on *every* clean line: it picks the subset with the fewest leaves
   (more strips on a tie), and only lines some tile ends on. Cutting all of them split the Vehicle
   dock's free row into two empties and flipped the page to columns-first.
