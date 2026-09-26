@@ -77,10 +77,11 @@ What those two left is under their own headings below. What is still untouched f
 
 Built 2026-09-26 on branch `new-layout` and tried on the tablet in landscape; what it left open:
 
-- **Snapping was never tuned.** The 24dp threshold was a guess, and whether twelfths are still the
-  right fallback once dividers also snap to each other is unsettled. Tune it on the iPad. (Dividers
-  also stop where a neighbour just fits its floor — added for the pillar's service tile, which sat
-  between two twelfths — so that stop is only as good as the floor behind it.)
+- **Finer snapping along a wide screen's long side.** Driven on the iPad and on the pillar phone
+  (2026-09-26): 24dp and twelfths are good enough for now. Twelfths of the tablet's long side are
+  ~100dp apart, so eventually one more stop there (a finer division along the wider axis) would make
+  sense. Dividers also stop where a neighbour just fits its floor — added for the pillar's service
+  tile, which sat between two twelfths — so that stop is only as good as the floor behind it.
 - **Widget floors are a mechanical conversion.** Each dp floor is what the old cell-span floor came to
   on the portrait grid's 56dp cell. Only the service tile has been corrected (56 → 80dp, driven on the
   pillar phone); the rest are unreviewed, and the map and the rig slot are the likely outliers.
