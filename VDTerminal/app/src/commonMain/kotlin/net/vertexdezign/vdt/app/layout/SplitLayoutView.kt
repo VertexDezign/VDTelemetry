@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -330,24 +331,15 @@ private fun TileView(
           size = ctrlSize,
           modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
         )
+        // A split that would break a floor is hidden rather than greyed — on the small tiles, where
+        // it is refused, a pair of dead buttons is most of the tile. Each keeps its own slot, so the
+        // one that is left doesn't slide into its neighbour's place.
         Row(
           Modifier.align(Alignment.BottomEnd).padding(4.dp),
           horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-          CtrlButton(
-            Icons.Filled.VerticalSplit,
-            "split right",
-            onClick = { edits.splitRight?.invoke() },
-            enabled = edits.splitRight != null,
-            size = ctrlSize,
-          )
-          CtrlButton(
-            Icons.Filled.HorizontalSplit,
-            "split below",
-            onClick = { edits.splitBelow?.invoke() },
-            enabled = edits.splitBelow != null,
-            size = ctrlSize,
-          )
+          SlotButton(Icons.Filled.VerticalSplit, "split right", edits.splitRight, ctrlSize)
+          SlotButton(Icons.Filled.HorizontalSplit, "split below", edits.splitBelow, ctrlSize)
         }
       }
     }
@@ -534,9 +526,15 @@ private fun EdgeButton(edge: PageEdge, bounds: Rect, onClick: () -> Unit) {
   }
 }
 
+/** A [CtrlButton] that holds its place when there is nothing to do: a gap of its size instead. */
+@Composable
+private fun SlotButton(icon: ImageVector, description: String, onClick: (() -> Unit)?, size: Dp) {
+  if (onClick != null) CtrlButton(icon, description, onClick = onClick, size = size) else Spacer(Modifier.size(size))
+}
+
 /**
- * Small round control button used by the edit overlays. When [enabled] is false it greys out and
- * ignores taps.
+ * Small round control button used by the edit overlays. A control that can't act is left out rather
+ * than greyed (see [SlotButton]), so there is no disabled state.
  */
 @Composable
 internal fun CtrlButton(
@@ -545,7 +543,6 @@ internal fun CtrlButton(
   onClick: () -> Unit,
   size: Dp,
   modifier: Modifier = Modifier,
-  enabled: Boolean = true,
 ) {
   Box(
     modifier
@@ -553,13 +550,13 @@ internal fun CtrlButton(
       .clip(CircleShape)
       .background(VdtColors.Panel)
       .border(1.dp, VdtColors.PanelBorder, CircleShape)
-      .clickable(enabled = enabled, onClick = onClick),
+      .clickable(onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
     Icon(
       icon,
       description,
-      tint = if (enabled) VdtColors.DarkGray else VdtColors.TextDisabled,
+      tint = VdtColors.DarkGray,
       modifier = Modifier.size(size * 0.66f),
     )
   }
