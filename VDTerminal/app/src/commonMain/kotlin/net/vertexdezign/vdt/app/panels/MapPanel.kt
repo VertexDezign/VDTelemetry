@@ -54,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -323,6 +324,8 @@ fun MapPanel(
   // that edge — the ground-layer legend and the field-info popup — clear it. It spans the full width,
   // so both corners owe it the same. Measured rather than assumed: its height follows the text scale.
   var sectionStripHeight by remember { mutableStateOf(0.dp) }
+  // What the control rail takes on the right edge, reported by the rail since a short tile widens it.
+  var railWidth by remember { mutableStateOf(MAP_RAIL_WIDTH) }
   val player = pda?.player
 
   // The live end of the coverage layer. Fed only while that layer is the one on screen: it is the
@@ -806,7 +809,7 @@ fun MapPanel(
           Row(
             Modifier
               .align(Alignment.TopCenter)
-              .padding(end = MAP_RAIL_WIDTH)
+              .padding(end = railWidth)
               .padding(8.dp)
               .widthIn(max = 420.dp)
               .clip(RoundedCornerShape(4.dp))
@@ -857,7 +860,7 @@ fun MapPanel(
       // Bottom-end, opposite the field popup above — the two shared that corner and drew over each
       // other (issue #95).
       if (activeLayerInfo != null && shownLayerBitmap != null) {
-        GroundLayerLegend(activeLayerInfo.legend, side, bottomInset = sectionStripHeight, endInset = MAP_RAIL_WIDTH)
+        GroundLayerLegend(activeLayerInfo.legend, side, bottomInset = sectionStripHeight, endInset = railWidth)
       }
 
       // Navigation as map chrome (issue #43): opt-in per placed tile, so a map used as an overview
@@ -882,6 +885,7 @@ fun MapPanel(
       // Filter & search popover, on top of everything map-related.
       if (filterOpen && (mapData != null || mapVehicles != null || mapLayers != null || gpsCourse != null)) {
         MapFilterPanel(
+          endInset = railWidth,
           mapData = mapData,
           mapVehicles = mapVehicles,
           mapLayers = mapLayers,
@@ -948,22 +952,28 @@ fun MapPanel(
         onRecenter = { autoCenter = true },
         onZoom = { factor -> zoomAround(factor, sidePx / 2f, sidePx / 2f) },
         bottomInset = sectionStripHeight,
+        onWidth = { railWidth = it },
       )
     }
   }
 }
 
+private val RAIL_MARGIN = 6.dp
+
 /** The room the control rail takes on the map's right edge: a standalone button and its margins. */
-private val MAP_RAIL_WIDTH = ToolButtonSize.Standalone + 12.dp
+private val MAP_RAIL_WIDTH = ToolButtonSize.Standalone + RAIL_MARGIN * 2
 
 /**
  * The map's buttons, down its right edge in two groups the way a phone's map app lays them out: what
  * the map *shows* and *does* at the top (filters, orientation, follow), zoom at the bottom, above the
  * section strip when there is one ([bottomInset]).
  *
- * A tile too short for two groups gets one column at the top, and one short even for that gets header
- * size buttons: the map is often a small tile on a phone, and a rail that runs off its bottom edge
- * hides zoom-out, the button you need when you have zoomed in too far.
+ * A tile too short for two groups gets one column at the top, one short even for that gets header size
+ * buttons, and below that the zoom pair moves beside the others as a second column: the map is often a
+ * small tile on a phone, and a rail that runs off its bottom edge hides zoom-out, the button you need
+ * when you have zoomed in too far. That last step widens the rail, so it reports its width through
+ * [onWidth] for the popover, legend and banner to clear. (A tile too short for even the three view
+ * buttons, about 120dp, is not a map anyone reads; the rail is clipped there.)
  *
  * Each button carries a shadow, because unlike a header it sits on a picture — a green field, a dark
  * forest — and an outline alone disappears into one of them.
@@ -979,8 +989,9 @@ private fun BoxScope.MapControlRail(
   onRecenter: () -> Unit,
   onZoom: (Float) -> Unit,
   bottomInset: Dp,
+  onWidth: (Dp) -> Unit,
 ) {
-  BoxWithConstraints(Modifier.matchParentSize().padding(bottom = bottomInset).padding(6.dp)) {
+  BoxWithConstraints(Modifier.matchParentSize().padding(bottom = bottomInset).padding(RAIL_MARGIN)) {
     val gap = 6.dp
     val groupGap = 16.dp
     val count = if (showFilter) 5 else 4
@@ -988,6 +999,9 @@ private fun BoxScope.MapControlRail(
     val size = if (maxHeight >= column(ToolButtonSize.Standalone)) ToolButtonSize.Standalone else ToolButtonSize.Header
     // Two groups need the room for both plus a clear stretch between them; otherwise they stack.
     val split = maxHeight >= column(size) + size
+    val sideBySide = maxHeight < column(size)
+    val width = (if (sideBySide) size * 2 + gap else size) + RAIL_MARGIN * 2
+    SideEffect { onWidth(width) }
 
     val viewGroup =
       listOfNotNull(
@@ -1005,6 +1019,12 @@ private fun BoxScope.MapControlRail(
     if (split) {
       RailColumn(viewGroup, size, gap, Modifier.align(Alignment.TopEnd))
       RailColumn(zoomGroup, size, gap, Modifier.align(Alignment.BottomEnd))
+    } else if (sideBySide) {
+      // The view group keeps the edge it has everywhere else; zoom goes inside it.
+      Row(Modifier.align(Alignment.TopEnd), horizontalArrangement = Arrangement.spacedBy(gap)) {
+        RailColumn(zoomGroup, size, gap)
+        RailColumn(viewGroup, size, gap)
+      }
     } else {
       // One column; the wider step between the groups keeps zoom reading as its own pair.
       RailColumn(viewGroup + listOf(null) + zoomGroup, size, gap, Modifier.align(Alignment.TopEnd), groupGap)
@@ -1853,6 +1873,7 @@ private data class SearchHit(val label: String, val pos: Offset)
  */
 @Composable
 private fun BoxScope.MapFilterPanel(
+  endInset: Dp,
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
   mapLayers: MapLayersInfo?,
@@ -1883,7 +1904,7 @@ private fun BoxScope.MapFilterPanel(
     Modifier
       .align(Alignment.TopEnd)
       // Left of the control rail, so the button that opened it stays there to close it.
-      .padding(end = MAP_RAIL_WIDTH)
+      .padding(end = endInset)
       .padding(6.dp)
       .width(210.dp)
       .clip(RoundedCornerShape(4.dp))
