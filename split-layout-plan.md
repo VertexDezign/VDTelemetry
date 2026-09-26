@@ -20,8 +20,10 @@ Settled while building step 1:
 - Divider and tile drags stay local until the finger lifts (PageStore persists every update); the
   divider's line is drawn where it will snap to, not under the finger.
 - Divider grips reach only 4dp into each neighbour so they never cover a tile's corner buttons; the
-  pill at the divider's middle is the real touch target. The page-edge buttons sit inside the page,
-  not straddling its padding — a control outside its parent's bounds can't be touched.
+  pill at the divider's middle is the real touch target.
+- The page-edge buttons live in a 28dp gutter the page is drawn inset by in edit mode. Placed over the
+  page they landed on a tile's split buttons (seen on the tablet); long-press was rejected as
+  undiscoverable and clashing with the tile drag. Floors are still checked against the real size.
 - The grid converter does not cut on *every* clean line: it picks the subset with the fewest leaves
   (more strips on a tie), and only lines some tile ends on. Cutting all of them split the Vehicle
   dock's free row into two empties and flipped the page to columns-first.

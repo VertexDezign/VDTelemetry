@@ -105,7 +105,12 @@ fun SplitLayoutView(
   onConfigureRequest: (Tile) -> Unit = {},
 ) {
   BoxWithConstraints(modifier) {
+    // Edits are checked against the page at its real size; in edit mode it is *drawn* inset by a
+    // gutter that holds the page-edge buttons, so they never land on a tile's own controls. A tree is
+    // ratios, so the page simply draws a little smaller while being edited — but a floor check made
+    // against that smaller drawing would refuse splits that are fine on the real page.
     val frame = layoutFrame(maxWidth, maxHeight)
+    val drawn = if (editing) frame.bounds.deflate(EDGE_GUTTER.value) else frame.bounds
     // Both drags are local until the finger lifts: PageStore persists on every update, and a divider
     // drag is a change per frame. A new layout from outside ends either drag.
     var tileDrag by remember(layout, editing) { mutableStateOf<TileDrag?>(null) }
@@ -116,7 +121,7 @@ fun SplitLayoutView(
         layout.setDivider(drag.split, drag.index, snapped, frame)
       }
     val shown = preview ?: layout
-    val leaves = shown.layOut(frame.bounds, frame.gap)
+    val leaves = shown.layOut(drawn, frame.gap)
 
     // The leaf under the finger, if dropping there would be allowed. A refused target simply isn't
     // highlighted, so the tile is visibly not going anywhere before it is let go.
@@ -190,7 +195,7 @@ fun SplitLayoutView(
     }
 
     if (editing) {
-      for (divider in shown.dividers(frame.bounds, frame.gap)) {
+      for (divider in shown.dividers(drawn, frame.gap)) {
         key("divider", divider.split, divider.index) {
           // One equalize per split, on its first divider: a three-way split has two dividers and
           // one thing to equalize.
@@ -213,7 +218,11 @@ fun SplitLayoutView(
                 }
                 dividerDrag = DividerDrag(divider.split, divider.index, start.position, 0f)
               },
-              onDrag = { delta -> dividerDrag = dividerDrag?.let { it.copy(moved = it.moved + delta) } },
+              // The finger moves over the drawn page; the divider is set on the real one.
+              onDrag = { delta ->
+                val scale = layout.contentScale(divider.split, frame, drawn)
+                dividerDrag = dividerDrag?.let { it.copy(moved = it.moved + delta * scale) }
+              },
               onEnd = {
                 dividerDrag = null
                 if (preview != null && preview != layout) onLayoutChange(preview)
@@ -483,25 +492,26 @@ private fun EqualizeButton(divider: Divider, onClick: () -> Unit) {
 private fun handleSize(divider: Divider): Pair<Float, Float> = if (divider.axis == Axis.Row) 24f to 48f else 48f to 24f
 
 /**
- * Adds a band along one side of the page: a pill at the middle of that edge, lying along it and flush
- * against it so it reads as belonging to the edge rather than to the tile beneath. Inside the page, not
- * straddling the padding: a control outside its parent's bounds can't be touched.
+ * Adds a band along one side of the page: a pill at the middle of that edge, lying along it in the
+ * edit-mode gutter — outside the drawn page, so it can't cover a tile's controls, but inside the view,
+ * since a control outside its parent's bounds can't be touched.
  */
 @Composable
 private fun EdgeButton(edge: PageEdge, bounds: Rect, onClick: () -> Unit) {
   val along = edge.axis == Axis.Column // a top/bottom band: the pill lies horizontally
   val w = if (along) 56f else 24f
   val h = if (along) 24f else 56f
+  val inset = (EDGE_GUTTER.value - 24f) / 2
   val x =
     when (edge) {
-      PageEdge.Left -> bounds.left
-      PageEdge.Right -> bounds.right - w
+      PageEdge.Left -> bounds.left + inset
+      PageEdge.Right -> bounds.right - inset - w
       else -> bounds.center.x - w / 2
     }
   val y =
     when (edge) {
-      PageEdge.Top -> bounds.top
-      PageEdge.Bottom -> bounds.bottom - h
+      PageEdge.Top -> bounds.top + inset
+      PageEdge.Bottom -> bounds.bottom - inset - h
       else -> bounds.center.y - h / 2
     }
   Box(
@@ -561,6 +571,22 @@ private fun Rect.inflateY(by: Float) = Rect(left, top - by, right, bottom + by)
 
 internal val CTRL_MIN = 24.dp
 internal val CTRL_MAX = 36.dp
+
+/** The margin the page is drawn inset by in edit mode, holding the page-edge buttons. */
+private val EDGE_GUTTER = 28.dp
+
+/**
+ * How far the real page's content moves per dp of the drawn one, along the split at [split]: the
+ * ratio of their extents once the fixed gaps are taken out. Exact for a divider of that split, since
+ * the gaps are the only part of either that doesn't scale.
+ */
+private fun LayoutNode.contentScale(split: NodePath, frame: LayoutFrame, drawn: Rect): Float {
+  val node = nodeAt(split) as? Split ?: return 1f
+  val gaps = frame.gap * node.children.lastIndex
+  val real = rectOf(split, frame.bounds, frame.gap)?.extentOn(node.axis) ?: return 1f
+  val shown = rectOf(split, drawn, frame.gap)?.extentOn(node.axis) ?: return 1f
+  return if (shown - gaps > 0f) (real - gaps) / (shown - gaps) else 1f
+}
 
 /** How far a divider's grab strip reaches into each neighbour — short of the 4dp-inset corner buttons. */
 private val GRIP_REACH = 4.dp
