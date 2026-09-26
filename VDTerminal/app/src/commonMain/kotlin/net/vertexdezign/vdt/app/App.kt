@@ -158,8 +158,6 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
             )
           }
 
-
-
           if (notificationsOpen) {
             NotificationCenter(
               history = store.alerts.history.collectAsState().value,
