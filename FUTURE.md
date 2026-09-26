@@ -78,10 +78,12 @@ What those two left is under their own headings below. What is still untouched f
 Built 2026-09-26 on branch `new-layout` and tried on the tablet in landscape; what it left open:
 
 - **Snapping was never tuned.** The 24dp threshold was a guess, and whether twelfths are still the
-  right fallback once dividers also snap to each other is unsettled. Tune it on the iPad.
+  right fallback once dividers also snap to each other is unsettled. Tune it on the iPad. (Dividers
+  also stop where a neighbour just fits its floor — added for the pillar's service tile, which sat
+  between two twelfths — so that stop is only as good as the floor behind it.)
 - **Widget floors are a mechanical conversion.** Each dp floor is what the old cell-span floor came to
-  on the portrait grid's 56dp cell. Nobody has reviewed them per widget; the map and the rig slot are
-  the likely outliers.
+  on the portrait grid's 56dp cell. Only the service tile has been corrected (56 → 80dp, driven on the
+  pillar phone); the rest are unreviewed, and the map and the rig slot are the likely outliers.
 - **No dock-on-edge drop.** Dragging a tile onto a leaf's *edge* to split that leaf and drop it beside
   it was deliberately left out of round 1: swap, split and close already reach every arrangement, and
   a second drag gesture with edge zones is the kind of thing that misfires on a tablet in a moving cab.

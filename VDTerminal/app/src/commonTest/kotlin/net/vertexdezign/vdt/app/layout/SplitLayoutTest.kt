@@ -332,6 +332,18 @@ class SplitEditsTest {
   }
 
   @Test
+  fun aDividerStopsWhereItsNeighbourJustFits() {
+    // A phone standing up: the twelfths are ~63dp apart, and a tile needing 80dp sits between two.
+    val tree = column(1f / 12 to tile("service"), 11f / 12 to tile("readout"))
+    val f = frame(bounds = Rect(0f, 0f, 377f, 769f), floors = mapOf("service" to Size(120f, 80f)))
+    val justFits = 80f + GAP / 2
+    assertTrue(tree.snapCandidates(emptyList(), 0, f).any { abs(it - justFits) < 0.01f })
+    // Dragged towards the too-small twelfth, it stops where the tile fits rather than jumping on to
+    // the next twelfth up.
+    assertNear(justFits, tree.snapDivider(emptyList(), 0, 70f, f))
+  }
+
+  @Test
   fun snapCandidatesStayInsideTheFloors() {
     val tree = row(0.5f to tile("a"), 0.5f to tile("b"))
     val f = frame(bounds = Rect(0f, 0f, 1208f, 400f), floors = mapOf("a" to Size(500f, 56f)))

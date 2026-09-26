@@ -214,13 +214,24 @@ fun LayoutNode.reconfigure(instanceId: String, config: WidgetConfig): LayoutNode
  */
 fun LayoutNode.dividerRange(split: NodePath, index: Int, frame: LayoutFrame): ClosedFloatingPointRange<Float>? {
   val (node, rects) = splitRects(split, frame) ?: return null
+  val (lo, hi) = floorStops(split, index, frame) ?: return null
+  val current = rects[index].endOn(node.axis) + frame.gap / 2
+  return minOf(lo, current)..maxOf(hi, current)
+}
+
+/**
+ * Where divider [index] of the split at [split] leaves the child before it, and the child after it,
+ * exactly at its floor. Unclamped — unlike [dividerRange]'s ends, which an already-undersized pair
+ * stretches out to where the divider is now.
+ */
+private fun LayoutNode.floorStops(split: NodePath, index: Int, frame: LayoutFrame): Pair<Float, Float>? {
+  val (node, rects) = splitRects(split, frame) ?: return null
   if (index !in 0 until node.children.lastIndex) return null
   val axis = node.axis
   val half = frame.gap / 2
-  val current = rects[index].endOn(axis) + half
   val lo = rects[index].startOn(axis) + frame.minSize(node.children[index].node).on(axis) + half
   val hi = rects[index + 1].endOn(axis) - frame.minSize(node.children[index + 1].node).on(axis) - half
-  return minOf(lo, current)..maxOf(hi, current)
+  return lo to hi
 }
 
 /**
@@ -248,30 +259,36 @@ fun LayoutNode.setDivider(split: NodePath, index: Int, position: Float, frame: L
 }
 
 /**
- * The positions divider [index] of the split at [split] snaps to, within [dividerRange]:
+ * The positions divider [index] of the split at [split] snaps to, within [snapRange]:
  *
  * 1. twelfths of the split — in weight, so a page converted from the 12-column grid lands on them
  *    exactly and a three-way split's equal thirds are among them;
  * 2. the position that makes its two neighbours equal;
  * 3. every other divider on the page running the same way — the cross-band alignment the tree alone
- *    doesn't give (the bottom band's divider lining up with a column edge of the top band).
+ *    doesn't give (the bottom band's divider lining up with a column edge of the top band);
+ * 4. the positions where a neighbour is exactly at its floor, i.e. as small as it can be and still be
+ *    read. A widget whose natural size falls between two twelfths (the pillar's service tile: 63dp
+ *    cut its second row off, 127dp was mostly empty) gets a stop where it fits, and the stop follows
+ *    whichever widget is there.
  */
 fun LayoutNode.snapCandidates(split: NodePath, index: Int, frame: LayoutFrame): List<Float> {
-  val range = dividerRange(split, index, frame) ?: return emptyList()
+  val range = snapRange(split, index, frame) ?: return emptyList()
   val (node, rects) = splitRects(split, frame) ?: return emptyList()
   val equal = (rects[index].startOn(node.axis) + rects[index + 1].endOn(node.axis)) / 2
   val others =
     dividers(frame.bounds, frame.gap)
       .filter { it.axis == node.axis && !(it.split == split && it.index == index) }
       .map { it.position }
-  return (twelfths(split, index, frame) + equal + others).filter { it in range }.distinct()
+  val stops = floorStops(split, index, frame)?.toList().orEmpty()
+  return (twelfths(split, index, frame) + equal + others + stops).filter { it in range }.distinct()
 }
 
 /**
- * Where a divider dragged to [raw] comes to rest. It always snaps — there are no free positions,
- * which is what keeps pages tidy without effort: the nearest [snapCandidates] entry within
- * [threshold] wins, else the nearest twelfth in range, else (a range too tight to hold any) [raw]
- * clamped into it.
+ * Where divider [index] of the split at [split] comes to rest when dragged to [raw]. It always snaps —
+ * there are no free positions, which is what keeps pages tidy without effort: the nearest
+ * [snapCandidates] entry within [threshold] wins, else the nearest twelfth or floor stop. The floor
+ * stops are what keep a drag from sticking: without them a divider pushed towards a neighbour's floor
+ * would jump to the last twelfth that clears it, however far away that is.
  */
 fun LayoutNode.snapDivider(
   split: NodePath,
@@ -280,10 +297,22 @@ fun LayoutNode.snapDivider(
   frame: LayoutFrame,
   threshold: Float = SNAP_THRESHOLD,
 ): Float {
-  val range = dividerRange(split, index, frame) ?: return raw
+  val range = snapRange(split, index, frame) ?: return raw
   val near = snapCandidates(split, index, frame).filter { abs(it - raw) <= threshold }.minByOrNull { abs(it - raw) }
   if (near != null) return near
-  return twelfths(split, index, frame).filter { it in range }.minByOrNull { abs(it - raw) } ?: raw.coerceIn(range)
+  val fallback = twelfths(split, index, frame) + listOf(range.start, range.endInclusive)
+  return fallback.filter { it in range }.minBy { abs(it - raw) }
+}
+
+/**
+ * Where a snap may land: between the two floor stops, so every candidate leaves both neighbours
+ * readable — including the position the divider is at now, when that is what leaves one of them
+ * short (a page arranged on a bigger screen). Only when the pair can't both fit anywhere does it fall
+ * back to [dividerRange], which at least never makes either worse.
+ */
+private fun LayoutNode.snapRange(split: NodePath, index: Int, frame: LayoutFrame): ClosedFloatingPointRange<Float>? {
+  val (lo, hi) = floorStops(split, index, frame) ?: return null
+  return if (lo <= hi) lo..hi else dividerRange(split, index, frame)
 }
 
 private fun LayoutNode.twelfths(split: NodePath, index: Int, frame: LayoutFrame): List<Float> {

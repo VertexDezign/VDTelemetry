@@ -110,9 +110,11 @@ object ClusterServiceWidget : Widget {
 
   // A wide short tile: with the walk-round chores gone there is only the interval and the volts left
   // in it, and two rows of small type in a tall tile is mostly empty space. Wide rather than tall is
-  // the shape it wants — the bar is read along its length.
+  // the shape it wants — the bar is read along its length. 80dp tall is what the two readouts, the bar
+  // and the surface padding actually come to (each line of small digits still takes a 24dp line box);
+  // at 56dp the volts row was cut off.
   override val minWidth = 120.dp
-  override val minHeight = 56.dp
+  override val minHeight = 80.dp
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
