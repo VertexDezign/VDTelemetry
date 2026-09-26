@@ -4,9 +4,20 @@ Plan to replace the page grid (`GridLayout`, 12 × 7 landscape / 6 × 12 portrai
 tree**: a page is a region that is cut, horizontally or vertically, into children at ratios, and each
 leaf holds one widget. The way a tiling window manager lays out windows.
 
-Status: **planned, nothing built**. Written 2026-09-25 against branch `ui-display-edit` @ `fd001da`
-(the top of the unpushed UI-overhaul stack). It builds on that stack's on-display edit mode, so it
-stacks on top of it rather than on `main`.
+Status: **step 1 built** (`layout/SplitLayout.kt`, `layout/SplitEdits.kt`, on branch `new-layout`);
+steps 2–5 open. Written 2026-09-25 against branch `ui-display-edit`, which has since merged to `main`.
+
+Settled while building step 1:
+
+- `minSize` holds the weights *inside* a subtree fixed — that is what a divider drag does to the
+  subtrees either side of it — so along an axis it is `max(floor / weight) + gaps`, not the plain sum
+  of floors.
+- The floor guard is one rule for every edit: a leaf must clear its floor, or, if it was already on
+  the page, be no smaller than before in the dimension where it falls short. That is what keeps a page
+  arranged on a bigger screen editable on a smaller one.
+- Splitting along the parent's axis keeps every sibling's exact extent; the split leaf pays for the
+  new gap. Halving weights instead shrank every neighbour by a share of it, enough to refuse the edit
+  next to a tile already at its floor.
 
 Decided with the user before writing this:
 
