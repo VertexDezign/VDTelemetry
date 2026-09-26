@@ -22,6 +22,7 @@ import net.vertexdezign.vdt.app.state.DisplayRequest
 import net.vertexdezign.vdt.app.state.DisplayStore
 import net.vertexdezign.vdt.app.state.FavouritesStore
 import net.vertexdezign.vdt.app.state.ThemeStore
+import net.vertexdezign.vdt.app.state.UiScaleStore
 import net.vertexdezign.vdt.app.state.VdtStore
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -132,6 +133,7 @@ fun main() {
       favourites = FavouritesStore(settings),
       display = display,
       theme = ThemeStore(settings, systemPrefersDark()),
+      uiScale = UiScaleStore(settings),
       onToggleWakeLock = {
         WakeLock.toggle()
         wakeLock.value = currentWakeStatus()

@@ -289,7 +289,7 @@ private fun Token(option: FilterOption, onRemove: () -> Unit) {
       tint = VdtColors.OnFill,
       modifier = Modifier
         .padding(start = 2.dp)
-        .size(14.dp)
+        .size(18.dp)
         .clip(RoundedCornerShape(3.dp))
         .clickable(role = Role.Button, onClick = onRemove),
     )

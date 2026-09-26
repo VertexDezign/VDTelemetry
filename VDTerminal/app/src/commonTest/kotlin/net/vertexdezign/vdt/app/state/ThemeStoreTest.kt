@@ -30,17 +30,6 @@ class ThemeStoreTest {
   }
 
   @Test
-  fun cyclesThroughAllThree() {
-    val store = ThemeStore(MapSettings(), MutableStateFlow(false))
-    store.cycle()
-    assertEquals(ThemeMode.Light, store.mode.value)
-    store.cycle()
-    assertEquals(ThemeMode.Dark, store.mode.value)
-    store.cycle()
-    assertEquals(ThemeMode.System, store.mode.value)
-  }
-
-  @Test
   fun anUnknownStoredValueFallsBackToAuto() {
     val settings = MapSettings()
     settings.putString(ThemeStore.KEY, "Sepia")

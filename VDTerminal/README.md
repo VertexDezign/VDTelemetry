@@ -347,8 +347,8 @@ so a lamp using those two for idle/active differs in nothing but hue. Put the st
 
 ### A colour is a role, never a hex
 
-The app has a light and a dark palette (`theme/Theme.kt`), switched per device from the header
-(AUTO follows the browser's `prefers-color-scheme`). A colour written as a literal, or as Compose's
+The app has a light and a dark palette (`theme/Theme.kt`), switched per device from the header's
+DISPLAY menu (AUTO follows the browser's `prefers-color-scheme`). A colour written as a literal, or as Compose's
 `Color.White`, stays the same in both — and the panel under it doesn't. So ask `VdtColors` for a
 **role**:
 

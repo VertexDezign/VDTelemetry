@@ -47,6 +47,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.ConfirmDialog
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.components.ToolButton
 import net.vertexdezign.vdt.app.components.ViewTab
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.FinanceData
@@ -100,14 +101,11 @@ fun FinancePanel(
         ViewTab("Invoices", showInvoices, { showInvoices = true })
       }
       if (!showInvoices && data?.stats?.isNotEmpty() == true) {
-        Icon(
+        ToolButton(
           if (hideEmpty) Icons.Filled.FilterAlt else Icons.Filled.FilterAltOff,
-          contentDescription = if (hideEmpty) "show rows with no movement" else "hide rows with no movement",
-          tint = VdtColors.DarkGray,
-          modifier = Modifier
-            .clip(RoundedCornerShape(4.dp))
-            .clickable { hideEmpty = !hideEmpty }
-            .padding(2.dp),
+          "hide rows with no movement",
+          active = hideEmpty,
+          onClick = { hideEmpty = !hideEmpty },
         )
       }
     },

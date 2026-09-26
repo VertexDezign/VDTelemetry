@@ -39,7 +39,7 @@ fun ActionIcon(
     icon,
     contentDescription = description,
     tint = tint,
-    modifier = modifier.size(20.dp).clip(CircleShape).clickable(onClick = onClick).padding(1.dp),
+    modifier = modifier.size(28.dp).clip(CircleShape).clickable(onClick = onClick).padding(4.dp),
   )
 }
 

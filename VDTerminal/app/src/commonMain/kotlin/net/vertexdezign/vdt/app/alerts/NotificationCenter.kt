@@ -83,7 +83,10 @@ fun NotificationCenter(
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = VdtColors.Green,
-            modifier = Modifier.clickable(onClick = onClear),
+            modifier = Modifier
+              .clip(RoundedCornerShape(4.dp))
+              .clickable(onClick = onClear)
+              .padding(horizontal = 8.dp, vertical = 4.dp),
           )
         }
       }

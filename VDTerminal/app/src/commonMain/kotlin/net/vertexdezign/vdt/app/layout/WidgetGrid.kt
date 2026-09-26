@@ -40,6 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -172,6 +173,14 @@ private fun WidgetCell(
   // corner buttons earn that room; the centred drag hint is decoration, and at 1×1 (~91×90dp) it
   // overlaps the resize block outright — so it only appears once there is a tile to hint at.
   val roomForDragHint = cell.colSpan >= 2 && cell.rowSpan >= 2
+  // The corner buttons as big as the tile allows. Across, two sit side by side with 4dp outside and
+  // between; down the right edge, remove sits over the two resize rows, so three stack with four gaps.
+  // A single cell keeps the old 24dp; anything from 2×2 up gets 36dp, which is what a thumb in a
+  // moving cab actually hits.
+  val ctrlSize =
+    with(density) {
+      minOf((widthPx.toDp() - 12.dp) / 2, (heightPx.toDp() - 16.dp) / 3).coerceIn(CTRL_MIN, CTRL_MAX)
+    }
 
   Box(
     Modifier
@@ -228,6 +237,7 @@ private fun WidgetCell(
             Icons.Filled.Settings,
             "configure widget",
             onClick = { onConfigureRequest(cell) },
+            size = ctrlSize,
             modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
           )
         }
@@ -235,6 +245,7 @@ private fun WidgetCell(
           Icons.Filled.Close,
           "remove widget",
           onClick = { onLayoutChange(layout.removeAt(cell.col, cell.row)) },
+          size = ctrlSize,
           modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
         )
 
@@ -255,12 +266,14 @@ private fun WidgetCell(
               Icons.AutoMirrored.Filled.KeyboardArrowLeft,
               "narrower",
               enabled = canResizeTo(cell.colSpan - 1, cell.rowSpan),
+              size = ctrlSize,
               onClick = { onLayoutChange(resizedTo(cell.colSpan - 1, cell.rowSpan)) },
             )
             CtrlButton(
               Icons.AutoMirrored.Filled.KeyboardArrowRight,
               "wider",
               enabled = canResizeTo(cell.colSpan + 1, cell.rowSpan),
+              size = ctrlSize,
               onClick = { onLayoutChange(resizedTo(cell.colSpan + 1, cell.rowSpan)) },
             )
           }
@@ -269,12 +282,14 @@ private fun WidgetCell(
               Icons.Filled.KeyboardArrowUp,
               "shorter",
               enabled = canResizeTo(cell.colSpan, cell.rowSpan - 1),
+              size = ctrlSize,
               onClick = { onLayoutChange(resizedTo(cell.colSpan, cell.rowSpan - 1)) },
             )
             CtrlButton(
               Icons.Filled.KeyboardArrowDown,
               "taller",
               enabled = canResizeTo(cell.colSpan, cell.rowSpan + 1),
+              size = ctrlSize,
               onClick = { onLayoutChange(resizedTo(cell.colSpan, cell.rowSpan + 1)) },
             )
           }
@@ -317,12 +332,13 @@ private fun CtrlButton(
   icon: ImageVector,
   description: String,
   onClick: () -> Unit,
+  size: Dp,
   modifier: Modifier = Modifier,
   enabled: Boolean = true,
 ) {
   Box(
     modifier
-      .size(24.dp)
+      .size(size)
       .clip(CircleShape)
       .background(VdtColors.Panel)
       .border(1.dp, VdtColors.PanelBorder, CircleShape)
@@ -333,7 +349,10 @@ private fun CtrlButton(
       icon,
       description,
       tint = if (enabled) VdtColors.DarkGray else VdtColors.TextDisabled,
-      modifier = Modifier.size(16.dp),
+      modifier = Modifier.size(size * 0.66f),
     )
   }
 }
+
+private val CTRL_MIN = 24.dp
+private val CTRL_MAX = 36.dp

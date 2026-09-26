@@ -111,6 +111,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.components.SectionStrip
+import net.vertexdezign.vdt.app.components.ToolButton
 import net.vertexdezign.vdt.app.components.boomOf
 import net.vertexdezign.vdt.app.state.LayerSubscriptions
 import net.vertexdezign.vdt.app.state.MapFocus
@@ -562,57 +563,24 @@ fun MapPanel(
     modifier = modifier,
     headerActions = {
       if (mapData != null || mapVehicles != null || mapLayers != null || gpsCourse != null) {
-        Icon(
-          Icons.Filled.Tune,
-          "filters & search",
-          tint = if (filterOpen) VdtColors.Green else VdtColors.DarkGray,
-          modifier = Modifier.size(16.dp).clickableNoRipple { filterOpen = !filterOpen },
-        )
+        ToolButton(Icons.Filled.Tune, "filters & search", active = filterOpen, onClick = { filterOpen = !filterOpen })
       }
-      Icon(
-        Icons.Filled.Remove,
-        "zoom out",
-        tint = VdtColors.DarkGray,
-        modifier =
-        Modifier.size(16.dp).clickableNoRipple {
-          zoomAround(1f / 1.25f, sidePx / 2f, sidePx / 2f)
-        },
-      )
-      Icon(
-        Icons.Filled.Add,
-        "zoom in",
-        tint = VdtColors.DarkGray,
-        modifier =
-        Modifier.size(16.dp).clickableNoRipple {
-          zoomAround(
-            1.25f,
-            sidePx / 2f,
-            sidePx / 2f,
-          )
-        },
-      )
+      ToolButton(Icons.Filled.Remove, "zoom out", onClick = { zoomAround(1f / 1.25f, sidePx / 2f, sidePx / 2f) })
+      ToolButton(Icons.Filled.Add, "zoom in", onClick = { zoomAround(1.25f, sidePx / 2f, sidePx / 2f) })
       // Orientation, beside the follow toggle it belongs with: both answer "what is this map doing
       // while I drive". Turning it on also resumes following — course-up means "point where I am
       // going", which says nothing at all about a map parked over some other corner of the estate.
-      Icon(
-        Icons.Filled.Explore,
-        if (courseUp) "north up" else "course up",
-        tint = if (courseUp) VdtColors.Green else VdtColors.DarkGray,
-        modifier =
-        Modifier.size(16.dp).clickableNoRipple {
-          courseUp = !courseUp
-          if (courseUp) autoCenter = true
-        },
-      )
-      Icon(
+      ToolButton(Icons.Filled.Explore, "course up", active = courseUp, onClick = {
+        courseUp = !courseUp
+        if (courseUp) autoCenter = true
+      })
+      // Not a toggle: tapping re-centres, and a drag is what turns following off again.
+      ToolButton(
         Icons.Filled.CenterFocusStrong,
         "auto-center",
-        tint = if (autoCenter) VdtColors.Green else VdtColors.DarkGray,
-        modifier =
-        Modifier.size(16.dp).clickableNoRipple {
-          autoCenter =
-            true
-        },
+        active = autoCenter,
+        setsOnly = true,
+        onClick = { autoCenter = true },
       )
     },
   ) {
@@ -2114,12 +2082,7 @@ private fun BoxScope.FieldInfoPopup(
         color = VdtColors.TextDark,
         modifier = Modifier.weight(1f),
       )
-      Icon(
-        Icons.Filled.Close,
-        "close",
-        tint = VdtColors.DarkGray,
-        modifier = Modifier.size(16.dp).clickableNoRipple(onClose),
-      )
+      ToolButton(Icons.Filled.Close, "close", onClick = onClose)
     }
 
     // Scrollable body: the value rows overflow into this region, the header stays put.

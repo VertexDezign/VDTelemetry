@@ -18,7 +18,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.alerts.AlertBannerHost
@@ -96,96 +98,103 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
 
     val themeMode by store.theme.mode.collectAsState()
     val systemDark by store.theme.systemDark.collectAsState()
-    VdtTheme(if (ThemeStore.isDark(themeMode, systemDark)) VdtPalette.Dark else VdtPalette.Light) {
-      val pinned = display
-      // A pinned display goes black, and only a pinned display. The tablet is a thing you hold under
-      // a cab roof and its light panels are right for that; a phone clamped to the A-pillar is an
-      // instrument in the driver's eyeline at night, and the cluster tiles it carries are black
-      // already — on the terminal's grey the gutters between them lit up as a grid of seams, which is
-      // the one part of the picture that isn't the instrument. Leaving display mode restores it.
-      Box(modifier.fillMaxSize().background(if (pinned != null) VdtColors.Black else VdtColors.Light)) {
-        val data = telemetry
-        when {
-          // A display owns the whole viewport, including the pre-first-frame state — see [DisplayShell].
-          // Navigation is inert there: the device is pinned to one screen, so a widget that would
-          // otherwise open an app has nowhere to go, and the way to change what's shown is the URL.
-          pinned != null ->
-            CompositionLocalProvider(LocalNavigator provides NoNavigation) {
-              DisplayShell(
-                screen = resolveDisplay(pinned, pages),
-                target = pinned,
-                pages = pages,
-                ready = data != null,
-                onExit = store.display::clear,
-              )
-            }
+    val uiScale by store.uiScale.percent.collectAsState()
+    // The per-device UI size, applied as a density: every dp and sp below scales together, touch
+    // targets included, so nothing has to know about it. See UiScaleStore.
+    val baseDensity = LocalDensity.current
+    val scaled = remember(baseDensity, uiScale) { Density(baseDensity.density * uiScale / 100f, baseDensity.fontScale) }
+    CompositionLocalProvider(LocalDensity provides scaled) {
+      VdtTheme(if (ThemeStore.isDark(themeMode, systemDark)) VdtPalette.Dark else VdtPalette.Light) {
+        val pinned = display
+        // A pinned display goes black, and only a pinned display. The tablet is a thing you hold under
+        // a cab roof and its light panels are right for that; a phone clamped to the A-pillar is an
+        // instrument in the driver's eyeline at night, and the cluster tiles it carries are black
+        // already — on the terminal's grey the gutters between them lit up as a grid of seams, which is
+        // the one part of the picture that isn't the instrument. Leaving display mode restores it.
+        Box(modifier.fillMaxSize().background(if (pinned != null) VdtColors.Black else VdtColors.Light)) {
+          val data = telemetry
+          when {
+            // A display owns the whole viewport, including the pre-first-frame state — see [DisplayShell].
+            // Navigation is inert there: the device is pinned to one screen, so a widget that would
+            // otherwise open an app has nowhere to go, and the way to change what's shown is the URL.
+            pinned != null ->
+              CompositionLocalProvider(LocalNavigator provides NoNavigation) {
+                DisplayShell(
+                  screen = resolveDisplay(pinned, pages),
+                  target = pinned,
+                  pages = pages,
+                  ready = data != null,
+                  onExit = store.display::clear,
+                )
+              }
 
-          data == null -> LoadingScreen()
+            data == null -> LoadingScreen()
 
-          else ->
-            CompositionLocalProvider(LocalNavigator provides openScreen) {
-              Shell(
-                data,
-                screen,
-                pages,
-                editing = editing,
-                onOpenScreen = openScreen,
-                onToggleEdit = { editing = !editing },
-                onOpenLauncher = { launcherOpen = true },
-                onOpenNotifications = { notificationsOpen = true },
-              )
-            }
-        }
+            else ->
+              CompositionLocalProvider(LocalNavigator provides openScreen) {
+                Shell(
+                  data,
+                  screen,
+                  pages,
+                  editing = editing,
+                  onOpenScreen = openScreen,
+                  onToggleEdit = { editing = !editing },
+                  onOpenLauncher = { launcherOpen = true },
+                  onOpenNotifications = { notificationsOpen = true },
+                )
+              }
+          }
 
-        // Shell-level, so banners survive navigation; below the header so they don't cover its
-        // controls. Deliberately under the connection scrim — stale-data banners shouldn't outrank
-        // "connection lost".
-        //
-        // Not on a display: the tablet owns announcing things, so one alert doesn't raise itself twice
-        // in one cab, and the cluster keeps the readout it exists for.
-        if (pinned == null) {
-          AlertBannerHost(
-            store.alerts.raised,
-            Modifier.align(Alignment.TopCenter).padding(top = 72.dp),
-          )
-        }
+          // Shell-level, so banners survive navigation; below the header so they don't cover its
+          // controls. Deliberately under the connection scrim — stale-data banners shouldn't outrank
+          // "connection lost".
+          //
+          // Not on a display: the tablet owns announcing things, so one alert doesn't raise itself twice
+          // in one cab, and the cluster keeps the readout it exists for.
+          if (pinned == null) {
+            AlertBannerHost(
+              store.alerts.raised,
+              Modifier.align(Alignment.TopCenter).padding(top = 72.dp),
+            )
+          }
 
-        if (notificationsOpen) {
-          NotificationCenter(
-            history = store.alerts.history.collectAsState().value,
-            // Marks the entries whose condition is still true, so the log reads differently from a
-            // second copy of the active set.
-            activeIds = store.alerts.active.collectAsState().value.mapTo(mutableSetOf()) { it.rule.id },
-            onClear = store.alerts::clearHistory,
-            onDismiss = { notificationsOpen = false },
-          )
-        }
+          if (notificationsOpen) {
+            NotificationCenter(
+              history = store.alerts.history.collectAsState().value,
+              // Marks the entries whose condition is still true, so the log reads differently from a
+              // second copy of the active set.
+              activeIds = store.alerts.active.collectAsState().value.mapTo(mutableSetOf()) { it.rule.id },
+              onClear = store.alerts::clearHistory,
+              onDismiss = { notificationsOpen = false },
+            )
+          }
 
-        if (launcherOpen) {
-          Launcher(
-            apps = availableApps(),
-            pages = pages,
-            screen = screen,
-            onOpen = {
-              openScreen(it)
-              launcherOpen = false
-            },
-            onCreatePage = {
-              // Open the new (empty) page straight into edit mode — there's nothing on it yet.
-              screen = Screen.OpenPage(store.pages.create().id)
-              editing = true
-              launcherOpen = false
-            },
-            onReorder = { from, to -> store.pages.reorder(from, to) },
-            // Keep the launcher open so the restored pages appear in place for the user to pick.
-            onRestoreDefaults = { store.pages.restoreDefaults() },
-            onDismiss = { launcherOpen = false },
-            // Pinning happens here because the launcher is the drawer everything else lives in —
-            // it's where you decide what gets promoted out of it onto the bar.
-            pinned = favourites.mapTo(mutableSetOf()) { it.toScreen() },
-            canPinMore = favourites.size < FavouritesStore.MAX,
-            onTogglePin = { store.favourites.toggle(Favourite.of(it)) },
-          )
+          if (launcherOpen) {
+            Launcher(
+              apps = availableApps(),
+              pages = pages,
+              screen = screen,
+              onOpen = {
+                openScreen(it)
+                launcherOpen = false
+              },
+              onCreatePage = {
+                // Open the new (empty) page straight into edit mode — there's nothing on it yet.
+                screen = Screen.OpenPage(store.pages.create().id)
+                editing = true
+                launcherOpen = false
+              },
+              onReorder = { from, to -> store.pages.reorder(from, to) },
+              // Keep the launcher open so the restored pages appear in place for the user to pick.
+              onRestoreDefaults = { store.pages.restoreDefaults() },
+              onDismiss = { launcherOpen = false },
+              // Pinning happens here because the launcher is the drawer everything else lives in —
+              // it's where you decide what gets promoted out of it onto the bar.
+              pinned = favourites.mapTo(mutableSetOf()) { it.toScreen() },
+              canPinMore = favourites.size < FavouritesStore.MAX,
+              onTogglePin = { store.favourites.toggle(Favourite.of(it)) },
+            )
+          }
         }
 
         // Last, so it sits above the launcher and the notification centre as well: nothing outranks
@@ -249,6 +258,7 @@ private fun Shell(
   val store = LocalVdtStore.current
   val wakeLock by store.wakeLock.collectAsState()
   val theme by store.theme.mode.collectAsState()
+  val uiScale by store.uiScale.percent.collectAsState()
 
   Column(Modifier.fillMaxSize()) {
     Header(
@@ -261,7 +271,9 @@ private fun Shell(
       onToggleWakeLock = store.onToggleWakeLock,
       onToggleEdit = onToggleEdit,
       theme = theme,
-      onCycleTheme = store.theme::cycle,
+      onThemeChange = store.theme::set,
+      uiScale = uiScale,
+      onUiScaleChange = store.uiScale::set,
     )
 
     when (screen) {

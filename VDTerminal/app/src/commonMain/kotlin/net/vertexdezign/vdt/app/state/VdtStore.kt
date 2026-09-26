@@ -108,6 +108,8 @@ class VdtStore(
   val display: DisplayStore,
   /** Light or dark on this device; see [ThemeStore]. */
   val theme: ThemeStore,
+  /** How big this device draws everything; see [UiScaleStore]. */
+  val uiScale: UiScaleStore,
   val onToggleWakeLock: () -> Unit,
   val onCommand: (ClientMessage) -> Unit,
 )
