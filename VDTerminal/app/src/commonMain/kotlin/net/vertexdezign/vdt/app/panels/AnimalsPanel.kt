@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.Centered
+import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -77,28 +78,36 @@ private fun AnimalsMasterDetail(data: HusbandriesData) {
   // Hoisted above the detail so a chosen sort outlives switching pens (and a pen with no animals).
   var sort by remember { mutableStateOf<AnimalSort?>(null) }
 
-  Row(Modifier.fillMaxSize()) {
-    Column(
-      Modifier.width(240.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 10.dp),
-      verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-      data.husbandries.forEach { pen ->
-        PenRow(
-          name = pen.name,
-          subtitle = "${pen.numAnimals} / ${pen.maxNumAnimals} animals",
-          selected = pen.id == currentId,
-          onClick = { selectedId = pen.id },
-        )
+  var detailOpen by remember { mutableStateOf(false) }
+  ListDetail(
+    listWidth = 240.dp,
+    detailOpen = detailOpen,
+    backLabel = "Pens",
+    onBack = { detailOpen = false },
+    list = { listModifier ->
+      Column(
+        listModifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+      ) {
+        data.husbandries.forEach { pen ->
+          PenRow(
+            name = pen.name,
+            subtitle = "${pen.numAnimals} / ${pen.maxNumAnimals} animals",
+            selected = pen.id == currentId,
+            onClick = {
+              selectedId = pen.id
+              detailOpen = true
+            },
+          )
+        }
       }
-    }
-    Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
-    Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
-      val pen = data.husbandries.firstOrNull { it.id == currentId }
-      if (pen != null) {
-        HusbandryDetail(pen, sort, onSort = { sort = nextSort(sort, it) })
-      } else {
-        Centered("Select a pen")
-      }
+    },
+  ) {
+    val pen = data.husbandries.firstOrNull { it.id == currentId }
+    if (pen != null) {
+      HusbandryDetail(pen, sort, onSort = { sort = nextSort(sort, it) })
+    } else {
+      Centered("Select a pen")
     }
   }
 }

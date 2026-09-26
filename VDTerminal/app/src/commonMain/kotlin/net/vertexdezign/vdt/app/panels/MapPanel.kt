@@ -21,8 +21,10 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -52,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -66,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -81,6 +85,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -112,6 +117,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.components.SectionStrip
 import net.vertexdezign.vdt.app.components.ToolButton
+import net.vertexdezign.vdt.app.components.ToolButtonSize
 import net.vertexdezign.vdt.app.components.boomOf
 import net.vertexdezign.vdt.app.state.LayerSubscriptions
 import net.vertexdezign.vdt.app.state.MapFocus
@@ -318,6 +324,8 @@ fun MapPanel(
   // that edge — the ground-layer legend and the field-info popup — clear it. It spans the full width,
   // so both corners owe it the same. Measured rather than assumed: its height follows the text scale.
   var sectionStripHeight by remember { mutableStateOf(0.dp) }
+  // What the control rail takes on the right edge, reported by the rail since a short tile widens it.
+  var railWidth by remember { mutableStateOf(MAP_RAIL_WIDTH) }
   val player = pda?.player
 
   // The live end of the coverage layer. Fed only while that layer is the one on screen: it is the
@@ -561,28 +569,6 @@ fun MapPanel(
     title = "Map",
     icon = Icons.Filled.Map,
     modifier = modifier,
-    headerActions = {
-      if (mapData != null || mapVehicles != null || mapLayers != null || gpsCourse != null) {
-        ToolButton(Icons.Filled.Tune, "filters & search", active = filterOpen, onClick = { filterOpen = !filterOpen })
-      }
-      ToolButton(Icons.Filled.Remove, "zoom out", onClick = { zoomAround(1f / 1.25f, sidePx / 2f, sidePx / 2f) })
-      ToolButton(Icons.Filled.Add, "zoom in", onClick = { zoomAround(1.25f, sidePx / 2f, sidePx / 2f) })
-      // Orientation, beside the follow toggle it belongs with: both answer "what is this map doing
-      // while I drive". Turning it on also resumes following — course-up means "point where I am
-      // going", which says nothing at all about a map parked over some other corner of the estate.
-      ToolButton(Icons.Filled.Explore, "course up", active = courseUp, onClick = {
-        courseUp = !courseUp
-        if (courseUp) autoCenter = true
-      })
-      // Not a toggle: tapping re-centres, and a drag is what turns following off again.
-      ToolButton(
-        Icons.Filled.CenterFocusStrong,
-        "auto-center",
-        active = autoCenter,
-        setsOnly = true,
-        onClick = { autoCenter = true },
-      )
-    },
   ) {
     BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
       val density = LocalDensity.current
@@ -823,6 +809,7 @@ fun MapPanel(
           Row(
             Modifier
               .align(Alignment.TopCenter)
+              .padding(end = railWidth)
               .padding(8.dp)
               .widthIn(max = 420.dp)
               .clip(RoundedCornerShape(4.dp))
@@ -873,7 +860,7 @@ fun MapPanel(
       // Bottom-end, opposite the field popup above — the two shared that corner and drew over each
       // other (issue #95).
       if (activeLayerInfo != null && shownLayerBitmap != null) {
-        GroundLayerLegend(activeLayerInfo.legend, side, bottomInset = sectionStripHeight)
+        GroundLayerLegend(activeLayerInfo.legend, side, bottomInset = sectionStripHeight, endInset = railWidth)
       }
 
       // Navigation as map chrome (issue #43): opt-in per placed tile, so a map used as an overview
@@ -898,6 +885,7 @@ fun MapPanel(
       // Filter & search popover, on top of everything map-related.
       if (filterOpen && (mapData != null || mapVehicles != null || mapLayers != null || gpsCourse != null)) {
         MapFilterPanel(
+          endInset = railWidth,
           mapData = mapData,
           mapVehicles = mapVehicles,
           mapLayers = mapLayers,
@@ -945,9 +933,143 @@ fun MapPanel(
           },
         )
       }
+
+      // The map's own controls, on the map rather than in the header: in reach of a thumb, big enough
+      // to hit on a moving cab's tablet, and beside the thing they move. Drawn last so no overlay can
+      // cover them — the popovers and the legend make room on the right edge instead.
+      MapControlRail(
+        showFilter = (mapData != null || mapVehicles != null || mapLayers != null || gpsCourse != null),
+        filterOpen = filterOpen,
+        onToggleFilter = { filterOpen = !filterOpen },
+        courseUp = courseUp,
+        onToggleCourseUp = {
+          // Turning it on also resumes following — course-up means "point where I am going", which
+          // says nothing at all about a map parked over some other corner of the estate.
+          courseUp = !courseUp
+          if (courseUp) autoCenter = true
+        },
+        autoCenter = autoCenter,
+        onRecenter = { autoCenter = true },
+        onZoom = { factor -> zoomAround(factor, sidePx / 2f, sidePx / 2f) },
+        bottomInset = sectionStripHeight,
+        onWidth = { railWidth = it },
+      )
     }
   }
 }
+
+private val RAIL_MARGIN = 6.dp
+
+/** The room the control rail takes on the map's right edge: a standalone button and its margins. */
+private val MAP_RAIL_WIDTH = ToolButtonSize.Standalone + RAIL_MARGIN * 2
+
+/**
+ * The map's buttons, down its right edge in two groups the way a phone's map app lays them out: what
+ * the map *shows* and *does* at the top (filters, orientation, follow), zoom at the bottom, above the
+ * section strip when there is one ([bottomInset]).
+ *
+ * A tile too short for two groups gets one column at the top, one short even for that gets header size
+ * buttons, and below that the zoom pair moves beside the others as a second column: the map is often a
+ * small tile on a phone, and a rail that runs off its bottom edge hides zoom-out, the button you need
+ * when you have zoomed in too far. That last step widens the rail, so it reports its width through
+ * [onWidth] for the popover, legend and banner to clear. (A tile too short for even the three view
+ * buttons, about 120dp, is not a map anyone reads; the rail is clipped there.)
+ *
+ * Each button carries a shadow, because unlike a header it sits on a picture — a green field, a dark
+ * forest — and an outline alone disappears into one of them.
+ */
+@Composable
+private fun BoxScope.MapControlRail(
+  showFilter: Boolean,
+  filterOpen: Boolean,
+  onToggleFilter: () -> Unit,
+  courseUp: Boolean,
+  onToggleCourseUp: () -> Unit,
+  autoCenter: Boolean,
+  onRecenter: () -> Unit,
+  onZoom: (Float) -> Unit,
+  bottomInset: Dp,
+  onWidth: (Dp) -> Unit,
+) {
+  BoxWithConstraints(Modifier.matchParentSize().padding(bottom = bottomInset).padding(RAIL_MARGIN)) {
+    val gap = 6.dp
+    val groupGap = 16.dp
+    val count = if (showFilter) 5 else 4
+    fun column(size: Dp) = size * count + gap * (count - 2) + groupGap
+    val size = if (maxHeight >= column(ToolButtonSize.Standalone)) ToolButtonSize.Standalone else ToolButtonSize.Header
+    // Two groups need the room for both plus a clear stretch between them; otherwise they stack.
+    val split = maxHeight >= column(size) + size
+    val sideBySide = maxHeight < column(size)
+    val width = (if (sideBySide) size * 2 + gap else size) + RAIL_MARGIN * 2
+    SideEffect { onWidth(width) }
+
+    val viewGroup =
+      listOfNotNull(
+        RailButton(Icons.Filled.Tune, "filters & search", filterOpen, onClick = onToggleFilter).takeIf { showFilter },
+        RailButton(Icons.Filled.Explore, "course up", courseUp, onClick = onToggleCourseUp),
+        // Lit while following; tapping re-centres, and a drag is what turns following off again.
+        RailButton(Icons.Filled.CenterFocusStrong, "follow machine", autoCenter, setsOnly = true, onClick = onRecenter),
+      )
+    val zoomGroup =
+      listOf(
+        RailButton(Icons.Filled.Add, "zoom in", null) { onZoom(ZOOM_STEP) },
+        RailButton(Icons.Filled.Remove, "zoom out", null) { onZoom(1f / ZOOM_STEP) },
+      )
+
+    if (split) {
+      RailColumn(viewGroup, size, gap, Modifier.align(Alignment.TopEnd))
+      RailColumn(zoomGroup, size, gap, Modifier.align(Alignment.BottomEnd))
+    } else if (sideBySide) {
+      // The view group keeps the edge it has everywhere else; zoom goes inside it.
+      Row(Modifier.align(Alignment.TopEnd), horizontalArrangement = Arrangement.spacedBy(gap)) {
+        RailColumn(zoomGroup, size, gap)
+        RailColumn(viewGroup, size, gap)
+      }
+    } else {
+      // One column; the wider step between the groups keeps zoom reading as its own pair.
+      RailColumn(viewGroup + listOf(null) + zoomGroup, size, gap, Modifier.align(Alignment.TopEnd), groupGap)
+    }
+  }
+}
+
+private class RailButton(
+  val icon: ImageVector,
+  val description: String,
+  val active: Boolean?,
+  val setsOnly: Boolean = false,
+  val onClick: () -> Unit,
+)
+
+/** A column of rail buttons; a null entry is the break between two groups, [groupGap] tall. */
+@Composable
+private fun RailColumn(
+  buttons: List<RailButton?>,
+  size: Dp,
+  gap: Dp,
+  modifier: Modifier = Modifier,
+  groupGap: Dp = gap,
+) {
+  Column(modifier, verticalArrangement = Arrangement.spacedBy(gap)) {
+    for (button in buttons) {
+      if (button == null) {
+        Spacer(Modifier.height(groupGap - gap * 2))
+      } else {
+        ToolButton(
+          button.icon,
+          button.description,
+          active = button.active,
+          setsOnly = button.setsOnly,
+          size = size,
+          onClick = button.onClick,
+          modifier = Modifier.shadow(3.dp, RoundedCornerShape(6.dp)),
+        )
+      }
+    }
+  }
+}
+
+/** One tap of a zoom button. */
+private const val ZOOM_STEP = 1.25f
 
 // Points projected further than this (px) outside the canvas are culled before any text measuring.
 private const val OVERLAY_CULL_MARGIN = 80f
@@ -1552,12 +1674,17 @@ private fun BoxScope.MapDataOverlay(
  * is the thing being read while driving.
  */
 @Composable
-private fun BoxScope.GroundLayerLegend(legend: List<MapLayerLegendEntry>, side: Float, bottomInset: Dp = 0.dp) {
+private fun BoxScope.GroundLayerLegend(
+  legend: List<MapLayerLegendEntry>,
+  side: Float,
+  bottomInset: Dp = 0.dp,
+  endInset: Dp = 0.dp,
+) {
   val density = LocalDensity.current
   Column(
     Modifier
       .align(Alignment.BottomEnd)
-      .padding(bottom = bottomInset)
+      .padding(bottom = bottomInset, end = endInset)
       .padding(6.dp)
       .clip(RoundedCornerShape(4.dp))
       .background(VdtColors.Panel)
@@ -1746,6 +1873,7 @@ private data class SearchHit(val label: String, val pos: Offset)
  */
 @Composable
 private fun BoxScope.MapFilterPanel(
+  endInset: Dp,
   mapData: MapData?,
   mapVehicles: MapVehiclesData?,
   mapLayers: MapLayersInfo?,
@@ -1775,6 +1903,8 @@ private fun BoxScope.MapFilterPanel(
   Column(
     Modifier
       .align(Alignment.TopEnd)
+      // Left of the control rail, so the button that opened it stays there to close it.
+      .padding(end = endInset)
       .padding(6.dp)
       .width(210.dp)
       .clip(RoundedCornerShape(4.dp))

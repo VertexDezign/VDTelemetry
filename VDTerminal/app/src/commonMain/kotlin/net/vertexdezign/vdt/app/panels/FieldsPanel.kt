@@ -50,6 +50,7 @@ import net.vertexdezign.vdt.TaskInput
 import net.vertexdezign.vdt.app.components.ActionIcon
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.FilterChip
+import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -205,26 +206,34 @@ private fun FieldsMasterDetail(
       onDirection = { ascending = !ascending },
     )
     Spacer(Modifier.height(8.dp))
-    Row(Modifier.fillMaxSize()) {
-      Box(Modifier.width(300.dp).fillMaxHeight().padding(end = 10.dp)) {
-        if (shown.isEmpty()) {
-          Centered("Nothing matches")
-        } else {
-          // A played-in map is 80-odd fields, so this is lazy for the same reason the fleet list is.
-          LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            items(shown, key = { it.id }) { row ->
-              FieldRowTile(row, status, row.id == currentId) { selectedId = row.id }
+    var detailOpen by remember { mutableStateOf(false) }
+    ListDetail(
+      listWidth = 300.dp,
+      detailOpen = detailOpen,
+      backLabel = "Fields",
+      onBack = { detailOpen = false },
+      list = { listModifier ->
+        Box(listModifier) {
+          if (shown.isEmpty()) {
+            Centered("Nothing matches")
+          } else {
+            // A played-in map is 80-odd fields, so this is lazy for the same reason the fleet list is.
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+              items(shown, key = { it.id }) { row ->
+                FieldRowTile(row, status, row.id == currentId) {
+                  selectedId = row.id
+                  detailOpen = true
+                }
+              }
             }
           }
         }
-      }
-      Box(Modifier.width(1.dp).fillMaxHeight().background(VdtColors.PanelBorder))
-      Box(Modifier.weight(1f).fillMaxHeight().padding(start = 10.dp)) {
-        if (selected != null) {
-          FieldDetail(selected, status, rotation, calendar, canCreate, onShowOnMap, onCreate)
-        } else {
-          Centered("Select a field")
-        }
+      },
+    ) {
+      if (selected != null) {
+        FieldDetail(selected, status, rotation, calendar, canCreate, onShowOnMap, onCreate)
+      } else {
+        Centered("Select a field")
       }
     }
   }
@@ -286,10 +295,13 @@ private fun FieldsControls(
   onSort: (FieldSort) -> Unit,
   onDirection: () -> Unit,
 ) {
-  Row(
+  // Wraps rather than squeezing: on a phone the search and the sort take a line, and the chips the
+  // next, where a Row would have left the chips a sliver between them.
+  FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(8.dp),
-    verticalAlignment = Alignment.CenterVertically,
+    verticalArrangement = Arrangement.spacedBy(6.dp),
+    itemVerticalAlignment = Alignment.CenterVertically,
   ) {
     SearchField(query, "Search fields", onQuery, Modifier.width(150.dp))
     FlowRow(

@@ -66,9 +66,18 @@ private sealed interface ConfigTarget {
  * The aspect is measured here, from the box the grid is actually given, rather than passed down from
  * the shell — see [GridAspect.of]. Edit mode therefore edits whichever arrangement is on screen:
  * rotate the device and you are editing the other one, and the first is left as you had it.
+ *
+ * [pageToolbar] false leaves the page's own settings (name, icon, auto-show, delete) out of edit mode.
+ * A display edits its layout without them: the toolbar would take its height from the grid, and the
+ * point of editing on the display is to edit the grid at exactly the size it is shown.
  */
 @Composable
-fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier = Modifier) {
+fun ColumnScope.WidgetDashboard(
+  page: Page,
+  editing: Boolean,
+  modifier: Modifier = Modifier,
+  pageToolbar: Boolean = true,
+) {
   val store = LocalVdtStore.current
   val pageStore = store.pages
   var addAt by remember(page.id, editing) { mutableStateOf<GridPos?>(null) }
@@ -78,7 +87,7 @@ fun ColumnScope.WidgetDashboard(page: Page, editing: Boolean, modifier: Modifier
 
   // Hide the toolbar while the confirmation is pending: its dialog only scrims the grid area below, so
   // an exposed toolbar would let a second destructive request stack up behind the modal.
-  if (editing && !confirmDelete) {
+  if (editing && pageToolbar && !confirmDelete) {
     PageEditToolbar(page, pageStore, onDeleteRequest = { confirmDelete = true })
   }
 

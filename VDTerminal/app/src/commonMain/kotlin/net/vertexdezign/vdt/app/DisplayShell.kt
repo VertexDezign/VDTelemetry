@@ -7,16 +7,22 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Coffee
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.VerticalAlignBottom
+import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,10 +35,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -73,6 +81,10 @@ fun DisplayShell(
   modifier: Modifier = Modifier,
 ) {
   var revealed by remember { mutableStateOf(false) }
+  // Editing the pinned page's layout, here on the display — see DisplayEditBar.
+  var editing by remember(screen) { mutableStateOf(false) }
+  var editBarAtTop by remember { mutableStateOf(false) }
+  val page = (screen as? Screen.OpenPage)?.let { open -> pages.firstOrNull { it.id == open.pageId } }
 
   // A reveal that was really a fat-fingered lean on the screen shouldn't leave a live EXIT sitting
   // there for the rest of the session, so the controls time out on their own.
@@ -83,7 +95,9 @@ fun DisplayShell(
     }
   }
 
-  Box(modifier.fillMaxSize().holdToReveal { revealed = true }) {
+  // No reveal while editing: the DONE bar is already showing, and a finger held still on a tile before
+  // it starts to drag would otherwise pop the controls up over the grid being arranged.
+  Box(modifier.fillMaxSize().then(if (editing) Modifier else Modifier.holdToReveal { revealed = true })) {
     Column(Modifier.fillMaxSize()) {
       when {
         // Held until the first frame arrives, exactly as the tablet does — but inside the hold
@@ -91,7 +105,7 @@ fun DisplayShell(
         !ready -> Box(Modifier.fillMaxWidth().weight(1f)) { LoadingScreen() }
 
         screen is Screen.OpenPage ->
-          pages.firstOrNull { it.id == screen.pageId }?.let { WidgetDashboard(it, editing = false) }
+          page?.let { WidgetDashboard(it, editing = editing, pageToolbar = false) }
 
         screen is Screen.OpenApp ->
           AppRegistry.byId(screen.appId)?.let { app ->
@@ -104,8 +118,32 @@ fun DisplayShell(
 
     // Pinned at nothing means the hold gesture is the only thing standing between the user and a dead
     // device, so don't make them discover it — show the way out outright.
-    if (revealed || screen == null) {
-      DisplayControls(onExit, Modifier.align(Alignment.TopCenter).padding(top = 16.dp))
+    if (editing) {
+      DisplayEditBar(
+        atTop = editBarAtTop,
+        onMove = { editBarAtTop = !editBarAtTop },
+        onDone = { editing = false },
+        modifier =
+        if (editBarAtTop) {
+          Modifier.align(Alignment.TopCenter).padding(top = 16.dp)
+        } else {
+          Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)
+        },
+      )
+    } else if (revealed || screen == null) {
+      DisplayControls(
+        onExit,
+        // Only a page has a layout to edit; an app pinned here draws itself.
+        onEdit = if (page != null && ready) {
+          {
+            revealed = false
+            editing = true
+          }
+        } else {
+          null
+        },
+        modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
+      )
     }
   }
 }
@@ -119,7 +157,7 @@ fun DisplayShell(
  * that is gone.
  */
 @Composable
-private fun DisplayControls(onExit: () -> Unit, modifier: Modifier = Modifier) {
+private fun DisplayControls(onExit: () -> Unit, onEdit: (() -> Unit)?, modifier: Modifier = Modifier) {
   val store = LocalVdtStore.current
   val wakeLock by store.wakeLock.collectAsState()
   val (wakeIcon, wakeLabel) =
@@ -129,15 +167,20 @@ private fun DisplayControls(onExit: () -> Unit, modifier: Modifier = Modifier) {
       WakeLockStatus.Unsupported -> Icons.Filled.Bedtime to "NO WAKE LOCK"
     }
 
-  Row(
+  // Wraps rather than squeezing: a phone held upright is too narrow for all four on one line, and a
+  // Row gave the last button whatever was left — EXIT DISPLAY broke into six lines of two letters.
+  // As a flow the buttons drop to a second line together, and no label ever breaks.
+  FlowRow(
     modifier
+      .padding(horizontal = 12.dp)
       .clip(RoundedCornerShape(10.dp))
       .background(VdtColors.Black.copy(alpha = 0.85f))
       .padding(horizontal = 14.dp, vertical = 10.dp),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.spacedBy(16.dp),
+    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+    verticalArrangement = Arrangement.spacedBy(10.dp),
+    itemVerticalAlignment = Alignment.CenterVertically,
   ) {
-    Text("DISPLAY MODE", color = VdtColors.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    Text("DISPLAY MODE", color = VdtColors.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, softWrap = false)
 
     Row(
       // Tappable whenever the API exists, so a lock the browser refused without a gesture can be
@@ -153,21 +196,69 @@ private fun DisplayControls(onExit: () -> Unit, modifier: Modifier = Modifier) {
     ) {
       val tint = VdtColors.White.copy(alpha = if (wakeLock == WakeLockStatus.On) 1f else 0.55f)
       Icon(wakeIcon, "screen wake lock: $wakeLabel", tint = tint, modifier = Modifier.size(16.dp))
-      Text(wakeLabel, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+      Text(wakeLabel, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold, softWrap = false)
     }
 
-    Row(
-      Modifier
-        .clip(RoundedCornerShape(6.dp))
-        .background(VdtColors.White.copy(alpha = 0.14f))
-        .clickable(onClick = onExit)
-        .padding(horizontal = 10.dp, vertical = 5.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-      Icon(Icons.Filled.Close, null, tint = VdtColors.White, modifier = Modifier.size(14.dp))
-      Text("EXIT DISPLAY", color = VdtColors.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-    }
+    if (onEdit != null) ShellButton(Icons.Filled.Edit, "EDIT LAYOUT", onEdit)
+    ShellButton(Icons.Filled.Close, "EXIT DISPLAY", onExit)
+  }
+}
+
+/**
+ * Editing the pinned page's layout on the display itself.
+ *
+ * The phone on the pillar is the one screen the layout is for, and in the full shell it was the one
+ * screen it could not be arranged on: the header and bottom bar took a third of a phone's height, so
+ * the grid being edited was a squashed version of the one on show — and the tiles too small to grab.
+ * Here the grid keeps the whole screen; the only chrome is this pill, floating over an edge rather than
+ * taking any height from the grid. Floating means it covers something — a tile's resize or remove
+ * buttons, sooner or later — so it moves between the bottom and top edge ([atTop], [onMove]).
+ */
+@Composable
+private fun DisplayEditBar(atTop: Boolean, onMove: () -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
+  Row(
+    modifier
+      .padding(horizontal = 12.dp)
+      .clip(RoundedCornerShape(24.dp))
+      .background(VdtColors.Black.copy(alpha = 0.85f))
+      .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(12.dp),
+  ) {
+    // The label gives way first on a narrow screen: the two buttons are what the pill is for.
+    Text(
+      "EDITING LAYOUT",
+      color = VdtColors.Accent,
+      fontSize = 11.sp,
+      fontWeight = FontWeight.Bold,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f, fill = false),
+    )
+    ShellButton(
+      if (atTop) Icons.Filled.VerticalAlignBottom else Icons.Filled.VerticalAlignTop,
+      "MOVE",
+      onMove,
+    )
+    ShellButton(Icons.Filled.Check, "DONE", onDone)
+  }
+}
+
+/** A labelled button on the black shell: icon and word, at least 40dp tall for a thumb in a cab. */
+@Composable
+private fun ShellButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+  Row(
+    Modifier
+      .heightIn(min = 40.dp)
+      .clip(RoundedCornerShape(6.dp))
+      .background(VdtColors.White.copy(alpha = 0.14f))
+      .clickable(onClick = onClick)
+      .padding(horizontal = 12.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Icon(icon, null, tint = VdtColors.White, modifier = Modifier.size(16.dp))
+    Text(label, color = VdtColors.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, softWrap = false)
   }
 }
 

@@ -26,9 +26,10 @@ enum class StatusColor { White, Green }
 /**
  * Status toggle button (active/inactive, round or full-width). Port of `StatusIconButton`.
  *
- * [height] applies to the full-width form only ([round] is always 48dp square). It exists for callers
- * that stack several of these in a narrow tile, where three at the default height overrun the space
- * before the rest of the panel gets any.
+ * [height] applies to the full-width form only, [diameter] to the [round] one. They exist for callers
+ * that fit several of these into a tile whose size they don't choose — three full-width ones stacked in
+ * a narrow tile, eight round ones over the Lighting panel's schematic — where the default 48dp overruns
+ * the space before the rest of the panel gets any.
  */
 @Composable
 fun StatusIconButton(
@@ -38,6 +39,7 @@ fun StatusIconButton(
   color: StatusColor = StatusColor.White,
   round: Boolean = false,
   height: Dp = 48.dp,
+  diameter: Dp = 48.dp,
   onClick: (() -> Unit)? = null,
 ) {
   val shape = if (round) CircleShape else RoundedCornerShape(4.dp)
@@ -67,13 +69,18 @@ fun StatusIconButton(
 
   var base =
     modifier
-      .then(if (round) Modifier.size(48.dp) else Modifier.fillMaxWidth().height(height))
+      .then(if (round) Modifier.size(diameter) else Modifier.fillMaxWidth().height(height))
       .clip(shape)
       .background(background)
       .border(1.dp, borderColor, shape)
   if (onClick != null) base = base.clickable(onClick = onClick)
 
   Box(base, contentAlignment = Alignment.Center) {
-    Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(20.dp))
+    Icon(
+      icon,
+      contentDescription = null,
+      tint = contentColor,
+      modifier = Modifier.size(if (round) diameter * 0.42f else 20.dp),
+    )
   }
 }

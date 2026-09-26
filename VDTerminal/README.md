@@ -167,8 +167,8 @@ seeded pages are `vehicle`, `farm` and `pillar`; a page you made yourself shows 
 the page edit toolbar. Nothing is shared between devices: pages, favourites and widget state are
 per-browser `localStorage`, so the phone's layout is its own.
 
-A display drops the header, the bottom bar, the launcher, the notification centre, edit mode, page
-swipe, and the auto-switch to the Farm page when you step out of the tractor. It keeps the loading and
+A display drops the header, the bottom bar, the launcher, the notification centre, the page's own
+settings, page swipe, and the auto-switch to the Farm page when you step out of the tractor. It keeps the loading and
 connection states, the screen wake lock (requested automatically — there's no header toggle left to
 press), and the widgets' own controls, which still work. Alert banners and the chime stay on the
 tablet, so one alert doesn't announce itself twice in one cab.
@@ -201,6 +201,14 @@ listening to. Hence the guides' device-level alternative.
 
 **To leave display mode on the device itself**, press and hold anywhere for two seconds: a small bar
 appears with the wake-lock state and EXIT DISPLAY, and hides itself again if you ignore it.
+
+**To rearrange a display's page**, hold for the same bar and tap EDIT LAYOUT. The grid goes into edit
+mode right there, at the size it is shown, with only a floating EDITING LAYOUT pill (MOVE flips it
+between the bottom and top edge, DONE ends it). That is the point of editing on the device: in the
+full shell a phone's header and bottom bar take a third of its height, so the grid you arranged there
+was a squashed copy of the one on the pillar. The page's name, icon and auto-show still need the full
+shell — on this same device, since each browser keeps its own pages: exit display mode and edit them
+there, not on the tablet.
 
 **Add to Home Screen** gives a display its own icon and no browser chrome at all (`manifest.webmanifest` plus the iOS
 `apple-mobile-web-app-*` tags). The manifest deliberately
