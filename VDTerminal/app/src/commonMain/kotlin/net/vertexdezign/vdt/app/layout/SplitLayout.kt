@@ -112,6 +112,26 @@ private fun LayoutNode.normalizeOrNull(): LayoutNode? = when (this) {
   }
 }
 
+/**
+ * This tree with every split turned the other way: bands across become columns down. What a page
+ * stored with only one arrangement starts its other one from — a starting point, since a good
+ * landscape page is rarely a good portrait one.
+ */
+fun LayoutNode.flipped(): LayoutNode = when (this) {
+  is Split -> Split(axis.cross, children.map { it.copy(node = it.node.flipped()) })
+  is Tile, is Empty -> this
+}
+
+/**
+ * Every leaf passed through [transform], with the structure kept exactly — the basis of load-time
+ * sanitizing, where a tile that can no longer be shown becomes an [Empty] in its place rather than
+ * being dropped, which on a tree would reflow its neighbours.
+ */
+fun LayoutNode.mapLeaves(transform: (LayoutNode) -> LayoutNode): LayoutNode = when (this) {
+  is Split -> copy(children = children.map { it.copy(node = it.node.mapLeaves(transform)) })
+  is Tile, is Empty -> transform(this)
+}
+
 fun LayoutNode.nodeAt(path: NodePath): LayoutNode? {
   var node: LayoutNode = this
   for (index in path) node = ((node as? Split)?.children?.getOrNull(index) ?: return null).node
@@ -148,6 +168,17 @@ fun LayoutNode.pathOf(instanceId: String): NodePath? = when (this) {
         listOf(index) +
           it
       }
+    }
+}
+
+fun LayoutNode.pathOfEmpty(id: String): NodePath? = when (this) {
+  is Empty -> if (this.id == id) emptyList() else null
+
+  is Tile -> null
+
+  is Split ->
+    children.withIndex().firstNotNullOfOrNull { (index, child) ->
+      child.node.pathOfEmpty(id)?.let { listOf(index) + it }
     }
 }
 

@@ -35,8 +35,8 @@ import net.vertexdezign.vdt.app.theme.VdtColors
  * Which app is per-instance config, so a page can hold as many as it likes; tapping one opens that
  * app full-screen through [LocalNavigator].
  *
- * This is what the fine grid buys: a shortcut is meaningful at a size no readout panel could work at,
- * so it declares a 1×1 floor and everything else keeps its own. It also reaches the apps that
+ * A shortcut is meaningful at a size no readout panel could work at, so it declares a thumb-sized
+ * floor and everything else keeps its own. It also reaches the apps that
  * contribute no widget at all (Production, Storage, Animals, Diagnostics) — before this they were only
  * ever two taps deep behind the launcher, or one of the four pinned slots on the bar.
  *
@@ -49,13 +49,10 @@ object ShortcutWidget : Widget {
   override val title = "Shortcut"
   override val icon: ImageVector = Icons.Filled.Apps
 
-  // A single cell — the smallest thing the grid can hold, and on a landscape tablet a square one at
-  // roughly 91×90dp. Being placeable at one cell is the whole point of the grid rework; a row of
+  // A thumb-sized square, comfortably over a thumb's 44dp — the smallest thing a page holds. A row of
   // these along the edge of a page is a dock, not a set of panels.
-  override val defaultColSpan = 1
-  override val defaultRowSpan = 1
-  override val minColSpan = 1
-  override val minRowSpan = 1
+  override val minWidth = 56.dp
+  override val minHeight = 56.dp
 
   /** The config key naming the app this shortcut opens — how a seeded layout points one somewhere. */
   const val APP_KEY = "app"

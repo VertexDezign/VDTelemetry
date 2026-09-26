@@ -10,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import net.vertexdezign.vdt.app.panels.ClusterEmpty
 import net.vertexdezign.vdt.app.panels.ClusterLevels
 import net.vertexdezign.vdt.app.panels.ClusterReadout
@@ -37,10 +38,8 @@ object TelltaleWidget : Widget {
 
   // A row of lamps that wraps: it needs width far more than height, and one row of them is a
   // perfectly useful tile.
-  override val defaultColSpan = 6
-  override val defaultRowSpan = 1
-  override val minColSpan = 2
-  override val minRowSpan = 1
+  override val minWidth = 120.dp
+  override val minHeight = 56.dp
 
   /** The config key holding which lamps this band shows. */
   const val LAMPS_KEY = "lamps"
@@ -80,10 +79,8 @@ object ClusterReadoutWidget : Widget {
   override val title = "Cluster Readout"
   override val icon: ImageVector = Icons.Filled.Speed
 
-  override val defaultColSpan = 4
-  override val defaultRowSpan = 3
-  override val minColSpan = 2
-  override val minRowSpan = 2
+  override val minWidth = 120.dp
+  override val minHeight = 120.dp
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -111,13 +108,11 @@ object ClusterServiceWidget : Widget {
   override val title = "Service"
   override val icon: ImageVector = Icons.Filled.Build
 
-  // A wide short tile, and one cell tall by default: with the walk-round chores gone there is only
-  // the interval and the volts left in it, and two rows of small type in a two-cell tile is mostly
-  // empty space. Wide rather than tall is the shape it wants — the bar is read along its length.
-  override val defaultColSpan = 4
-  override val defaultRowSpan = 1
-  override val minColSpan = 2
-  override val minRowSpan = 1
+  // A wide short tile: with the walk-round chores gone there is only the interval and the volts left
+  // in it, and two rows of small type in a tall tile is mostly empty space. Wide rather than tall is
+  // the shape it wants — the bar is read along its length.
+  override val minWidth = 120.dp
+  override val minHeight = 56.dp
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -138,12 +133,10 @@ object ClusterLevelsWidget : Widget {
   override val title = "Level Strip"
   override val icon: ImageVector = Icons.Filled.Straighten
 
-  // Bars are read by height, so height is what it wants; it narrows to two cells before the bars
+  // Bars are read by height, so height is what it wants; it narrows to about 120dp before the bars
   // stop being comparable.
-  override val defaultColSpan = 3
-  override val defaultRowSpan = 3
-  override val minColSpan = 2
-  override val minRowSpan = 2
+  override val minWidth = 120.dp
+  override val minHeight = 120.dp
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {

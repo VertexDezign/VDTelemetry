@@ -4,8 +4,11 @@ Plan to replace the page grid (`GridLayout`, 12 × 7 landscape / 6 × 12 portrai
 tree**: a page is a region that is cut, horizontally or vertically, into children at ratios, and each
 leaf holds one widget. The way a tiling window manager lays out windows.
 
-Status: **step 1 built** (`layout/SplitLayout.kt`, `layout/SplitEdits.kt`, on branch `new-layout`);
-steps 2–5 open. Written 2026-09-25 against branch `ui-display-edit`, which has since merged to `main`.
+Status: **steps 1–3 built** on branch `new-layout` (steps 2 and 3 landed as one commit: once `Page`
+holds a tree the dashboard can't render it without the new view, so step 2 could not build alone).
+Edit mode currently offers remove, configure, add-into-empty and close-empty only; drag-swap,
+split, dividers and edge strips are step 4. Written 2026-09-25 against branch `ui-display-edit`,
+which has since merged to `main`.
 
 Settled while building step 1:
 
@@ -15,6 +18,9 @@ Settled while building step 1:
 - The floor guard is one rule for every edit: a leaf must clear its floor, or, if it was already on
   the page, be no smaller than before in the dimension where it falls short. That is what keeps a page
   arranged on a bigger screen editable on a smaller one.
+- The grid converter does not cut on *every* clean line: it picks the subset with the fewest leaves
+  (more strips on a tie), and only lines some tile ends on. Cutting all of them split the Vehicle
+  dock's free row into two empties and flipped the page to columns-first.
 - Splitting along the parent's axis keeps every sibling's exact extent; the split leaf pays for the
   new gap. Halving weights instead shrank every neighbour by a share of it, enough to refuse the edit
   next to a tile already at its floor.

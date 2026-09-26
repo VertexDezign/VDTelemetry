@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
  * is the thing worth pinning down.
  */
 class GridAspectTest {
-  /** What [WidgetGrid] lays out: n cells and n-1 gaps inside a body already inset by the padding. */
+  /** What the old grid laid out: n cells and n-1 gaps inside a body already inset by the padding. */
   private fun cell(body: Double, count: Int) = (body - (count - 1) * CELL_GAP.value) / count
 
   @Test

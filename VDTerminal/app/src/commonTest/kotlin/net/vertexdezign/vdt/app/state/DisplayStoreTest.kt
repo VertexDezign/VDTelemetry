@@ -2,7 +2,7 @@ package net.vertexdezign.vdt.app.state
 
 import com.russhwolf.settings.MapSettings
 import net.vertexdezign.vdt.app.Screen
-import net.vertexdezign.vdt.app.layout.GridLayout
+import net.vertexdezign.vdt.app.layout.Empty
 import net.vertexdezign.vdt.app.pages.AutoShow
 import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.pages.PageIcon
@@ -12,7 +12,7 @@ import kotlin.test.assertNull
 
 class DisplayStoreTest {
   private fun page(id: String) =
-    Page(id = id, title = id, icon = PageIcon.Grid, autoShow = AutoShow.Never, landscape = GridLayout.empty())
+    Page(id = id, title = id, icon = PageIcon.Grid, autoShow = AutoShow.Never, landscape = Empty("empty"))
 
   @Test
   fun parsesTheDisplayParameter() {
