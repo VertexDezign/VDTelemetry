@@ -75,7 +75,8 @@ What those two left is under their own headings below. What is still untouched f
 
 ## Page layouts as split trees
 
-Built 2026-09-26 on branch `new-layout` and tried on the tablet in landscape; what it left open:
+Built 2026-09-26 on branch `new-layout` and driven on the tablet in both orientations and on the pillar
+phone; what it left open:
 
 - **Finer snapping along a wide screen's long side.** Driven on the iPad and on the pillar phone
   (2026-09-26): 24dp and twelfths are good enough for now. Twelfths of the tablet's long side are
@@ -90,8 +91,6 @@ Built 2026-09-26 on branch `new-layout` and tried on the tablet in landscape; wh
   a second drag gesture with edge zones is the kind of thing that misfires on a tablet in a moving cab.
 - **Edit mode on the smallest tiles.** Below ~60dp the four corner controls cover most of a tile,
   leaving little to grab for a drag. Not reported yet, only expected.
-- **Portrait not tried on the tablet.** On-display editing on the pillar phone works (2026-09-26); the
-  tablet's portrait arrangements have not been driven with the new edit mode.
 
 ## The universal machine screen (#116)
 
