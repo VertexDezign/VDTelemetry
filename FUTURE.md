@@ -87,8 +87,8 @@ Built 2026-09-26 on branch `new-layout` and tried on the tablet in landscape; wh
   a second drag gesture with edge zones is the kind of thing that misfires on a tablet in a moving cab.
 - **Edit mode on the smallest tiles.** Below ~60dp the four corner controls cover most of a tile,
   leaving little to grab for a drag. Not reported yet, only expected.
-- **Not tried in portrait or on a display.** Neither the portrait arrangements nor on-display editing
-  (the pillar phone) have been driven with the new edit mode.
+- **Portrait not tried on the tablet.** On-display editing on the pillar phone works (2026-09-26); the
+  tablet's portrait arrangements have not been driven with the new edit mode.
 
 ## The universal machine screen (#116)
 
