@@ -32,6 +32,7 @@ import net.vertexdezign.vdt.app.pages.AutoShow
 import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.panels.Footer
 import net.vertexdezign.vdt.app.panels.Header
+import net.vertexdezign.vdt.app.panels.rememberBrandLogo
 import net.vertexdezign.vdt.app.state.Favourite
 import net.vertexdezign.vdt.app.state.FavouritesStore
 import net.vertexdezign.vdt.app.state.LocalVdtStore
@@ -274,6 +275,7 @@ private fun Shell(
       onThemeChange = store.theme::set,
       uiScale = uiScale,
       onUiScaleChange = store.uiScale::set,
+      brandLogo = rememberBrandLogo(store.brandImageUrl, data.vehicle?.brand),
     )
 
     when (screen) {

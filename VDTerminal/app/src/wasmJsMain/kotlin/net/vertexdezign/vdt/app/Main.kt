@@ -35,6 +35,7 @@ fun main() {
   val wsUrl = "$wsProtocol//${location.host}/ws"
   val mapUrl = "${location.protocol}//${location.host}/api/map-image"
   val mapLayerUrl = "${location.protocol}//${location.host}/api/map-layer"
+  val brandImageUrl = "${location.protocol}//${location.host}/api/brand-image"
   // The coverage mask lives on the server, so clearing it is an HTTP call rather than a mod command.
   val coverageResetUrl = "${location.protocol}//${location.host}/api/coverage/reset"
 
@@ -126,6 +127,7 @@ fun main() {
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,
       mapLayerUrl = mapLayerUrl,
+      brandImageUrl = brandImageUrl,
       coverageResetUrl = coverageResetUrl,
       settings = settings,
       pages = PageStore(settings),

@@ -91,6 +91,8 @@ class VdtStore(
   val mapUrl: String,
   /** Base URL for ground-layer raster PNGs; the map widget appends `/{layerId}` (see [mapLayers]). */
   val mapLayerUrl: String,
+  /** Base URL for brand logos; the header appends `/{brandName}`. */
+  val brandImageUrl: String,
   /**
    * POST here to clear the worked-coverage mask. The one ground layer the server accumulates itself
    * rather than reading from the mod, so wiping it is an HTTP call and not a [ClientMessage] — there
