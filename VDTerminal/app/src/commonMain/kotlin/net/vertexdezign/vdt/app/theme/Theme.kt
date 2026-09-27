@@ -11,6 +11,8 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
+val vdtGreen = Color(0xFF256E2B)
+
 /**
  * One set of terminal colours, grouped by **role**, because one hue cannot serve every role. There are
  * two of them — [Light] and [Dark] — and a screen never names either: it asks [VdtColors] for a role
@@ -96,7 +98,7 @@ data class VdtPalette(
         text = Color(0xFF333333), // 11.1:1
         textSecondary = Color(0xFF666666), // 5.0:1
         textDisabled = Color(0xFF7F858D), // 3.3:1
-        green = Color(0xFF256E2B), // 5.5:1 as ink, 6.3:1 under white
+        green = vdtGreen, // 5.5:1 as ink, 6.3:1 under white
         accent = Color(0xFF00A35C), // 2.9:1 on a panel — fill only there
         accentText = Color(0xFF00723F), // 5.3:1
         amber = Color(0xFFA85408), // 4.7:1 as ink, white on it 5.3:1 (`#D97706` did not make it)
@@ -301,23 +303,34 @@ object VdtColors {
   val OnBlackTrack = Color(0xFF4B5563) // gray-600
 }
 
-/** Per-brand accent, ported from the `.brand-*` CSS classes. Brand colours hold on both palettes. */
-data class BrandAccent(val active: Color, val text: Color, val labelText: Color)
+/**
+ * Per-brand accent, ported from the `.brand-*` CSS classes. Brand colours hold on both palettes.
+ *
+ * [logoPlate] is what the brand's logo sits on in the header, or null for straight on [active]. A
+ * listed brand draws its logo on its own colour unless a plate is set here, so set one where the logo
+ * needs it — Steyr's red wordmark vanishes on Steyr red. Every brand *not* listed gets
+ * [defaultAccent]'s black plate, the dark ground the game shows all logos on.
+ */
+data class BrandAccent(val active: Color, val text: Color, val labelText: Color, val logoPlate: Color? = null)
 
 private val White = Color(0xFFFFFFFF)
 private val Black = Color(0xFF000000)
 
 /** The light palette's brand green, fixed: the header is the brand's colour whichever theme is on. */
-private val defaultAccent = BrandAccent(Color(0xFF256E2B), White, White)
+private val defaultAccent = BrandAccent(vdtGreen, White, White, logoPlate = Black)
 
 private val brandAccents: Map<String, BrandAccent> =
   mapOf(
     "claas" to BrandAccent(Color(0xFFB4C618), White, Color(0xFFFE0000)),
     "fendt" to BrandAccent(Color(0xFF008B45), White, White),
-    "steyr" to BrandAccent(Color(0xFFE20026), White, White),
+    "steyr" to BrandAccent(Color(0xFFE20026), White, White, logoPlate = White),
     "valtra" to BrandAccent(Color(0xFFE4002B), White, White),
-    "mercedesbenztrucks" to BrandAccent(Color(0xFFE9EC5D), Black, Black),
+    "mercedesbenztrucks" to BrandAccent(vdtGreen, White, White),
     "johndeere" to BrandAccent(Color(0xFF367C2B), White, White),
+    "krone" to BrandAccent(Color(0xFF4A7729), White, White),
+    "vredo" to BrandAccent(Color(0xFFFF9C00), Black, Black),
+    "caseih" to BrandAccent(Color(0xFFA71930), White, White),
+    "deutzfahr" to BrandAccent(Color(0xFF37A137), White, White, logoPlate = White),
   )
 
 /** Resolves the accent from a brand name, mirroring `brand-${name.toLowerCase().replace(/\s+/g,"")}`. */

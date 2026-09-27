@@ -108,7 +108,7 @@ fun Header(
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
         if (vehicle != null && brandLogo != null) {
-          BrandPlate(brandLogo, brandName)
+          BrandPlate(brandLogo, brandName, accent.logoPlate)
         } else {
           Text(
             brandName.uppercase(),
@@ -154,25 +154,20 @@ fun Header(
 }
 
 /**
- * The brand's logo on a black plate. Black because the game only ever shows its logos on a dark
- * ground, so that is what they are drawn for: some carry white lettering, and a light plate — or the
- * brand's own accent behind the art — loses it. Literal [Color.Black] rather than a palette role for
- * the same reason as the map's: it belongs to the art, and holds whichever theme is on.
+ * The brand's logo, on [plate] when the brand's accent asks for one (see [BrandAccent.logoPlate]) —
+ * black for every brand the accent table doesn't know, because the game only ever shows its logos on
+ * a dark ground and some carry white lettering. A literal colour rather than a palette role for the
+ * same reason as the map's: it belongs to the art, and holds whichever theme is on.
  *
- * The plate is as tall as the name it replaces plus a little, so the bar does not jump when a logo
- * arrives; the height the controls give the header already has room for it.
+ * With or without a plate the slot is the same size, as tall as the name it replaces plus a little,
+ * so the bar does not jump when a logo arrives; the height the controls give the header already has
+ * room for it.
  */
 @Composable
-private fun BrandPlate(logo: ImageBitmap, title: String) {
-  Box(
-    Modifier
-      .height(BRAND_PLATE_HEIGHT)
-      .widthIn(max = BRAND_PLATE_MAX_WIDTH)
-      .clip(RoundedCornerShape(6.dp))
-      .background(Color.Black)
-      .padding(horizontal = 8.dp, vertical = 3.dp),
-    contentAlignment = Alignment.Center,
-  ) {
+private fun BrandPlate(logo: ImageBitmap, title: String, plate: Color?) {
+  var mod = Modifier.height(BRAND_PLATE_HEIGHT).widthIn(max = BRAND_PLATE_MAX_WIDTH)
+  if (plate != null) mod = mod.clip(RoundedCornerShape(6.dp)).background(plate)
+  Box(mod.padding(horizontal = 8.dp, vertical = 3.dp), contentAlignment = Alignment.Center) {
     Image(logo, title, contentScale = ContentScale.Fit)
   }
 }
