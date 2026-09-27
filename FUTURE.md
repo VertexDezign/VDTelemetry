@@ -596,7 +596,6 @@ DLC logos seen so far are DXT5. Still open:
 - **Seen in game on the author's own brands**, with the hand-picked plates and the automatic one for unlisted
   brands both checked. Still unseen: a brand from a zipped mod, the plate at phone width, and whether 28dp is tall
   enough for a squarish logo like 2G, which comes out small next to a wordmark.
-- **A v24 capture.** `VdtModelTest` pins `brand.image` with inline JSON until then.
 - **Implements' logos.** Their `brand` is exported but has no `image`, and the Kotlin `Implement` has no brand at all;
   the rig diagram or the Fleet list could use the same route.
 
