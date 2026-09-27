@@ -9,6 +9,7 @@
 ---@class BrandModel
 ---@field name string?
 ---@field title string?
+---@field image string? the logo's path as the engine resolved it; on the vehicle only, not on implements
 
 ---@class OperatingTimeModel
 ---@field value string

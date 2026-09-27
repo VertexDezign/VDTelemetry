@@ -279,7 +279,11 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     the engine documents as the width of the *world* in meters -- never the overview image's pixel
 --     size, which is what a reader would take them for. Nothing consumed them: the terminal places
 --     the picture by proportion, and the world size it does use is map.json's `terrainSize`.
-VDTelemetry.VERSION = 23
+-- 24: `vehicle.brand.image` -- the brand logo's absolute path: in the game install for a base-game
+--     brand (BrandManager leaves those relative), in the DLC or mod folder for the rest. The terminal reads the art out of the game
+--     install the way it already reads the map overview, and shows it in the top bar instead of the
+--     brand's name. See issue #161.
+VDTelemetry.VERSION = 24
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
