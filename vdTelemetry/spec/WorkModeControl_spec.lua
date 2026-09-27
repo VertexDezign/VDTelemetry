@@ -69,6 +69,13 @@ describe("WorkModeControl.setWorkMode", function()
     assert.are.same({}, t.calls)
   end)
 
+  it("drops the command when the machine cannot say whether the change is allowed", function()
+    local t = tool(1, 4)
+    t.getIsWorkModeChangeAllowed = nil
+    VDT.WorkModeControl.setWorkMode(t, "vehicle", 2, debugger)
+    assert.are.same({}, t.calls)
+  end)
+
   it("drops a mode the machine does not declare", function()
     local t = tool(1, 4)
     VDT.WorkModeControl.setWorkMode(t, "vehicle", 5, debugger)

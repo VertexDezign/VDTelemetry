@@ -43,7 +43,9 @@ function VDT.WorkModeControl.setWorkMode(vehicle, target, mode, debugger)
     debugger:debug("setWorkMode: %s already in mode %d", target, mode)
     return
   end
-  if VDT.Work.canChangeMode(object) == false then
+  -- `~= true`, not `== false`: nil is "cannot say", and unknown is not permission -- the same reading
+  -- the terminal gives a missing `canChange`.
+  if VDT.Work.canChangeMode(object) ~= true then
     debugger:debug("setWorkMode: %s cannot change mode right now, ignoring", target)
     return
   end
