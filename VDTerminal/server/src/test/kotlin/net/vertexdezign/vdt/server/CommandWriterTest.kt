@@ -239,6 +239,7 @@ class CommandWriterTest {
     writer.submit(ClientMessage.SetPipeState(ControlTarget.BACK, state = 2))
     writer.submit(ClientMessage.SetCoverState(ControlTarget.BACK, state = 0))
     writer.submit(ClientMessage.SetTipSide(ControlTarget.BACK, side = 3))
+    writer.submit(ClientMessage.SetWorkMode(ControlTarget.SELECTED, mode = 2))
     writer.submit(ClientMessage.SetDischarging(ControlTarget.VEHICLE, on = true))
     // The fourth token (#120). The mod matches it as a literal string in TargetResolver and in
     // ImplementControl's vdAI table, so it fails the same silent way if the spelling drifts.
@@ -247,6 +248,7 @@ class CommandWriterTest {
     assertTrue(xml.contains("""type="setPipeState" target="back" state="2""""), xml)
     assertTrue(xml.contains("""type="setCoverState" target="back" state="0""""), xml)
     assertTrue(xml.contains("""type="setTipSide" target="back" side="3""""), xml)
+    assertTrue(xml.contains("""type="setWorkMode" target="selected" mode="2""""), xml)
     assertTrue(xml.contains("""type="setDischarging" target="vehicle" on="true""""), xml)
     assertTrue(xml.contains("""type="setLowered" target="selected" on="true""""), xml)
   }

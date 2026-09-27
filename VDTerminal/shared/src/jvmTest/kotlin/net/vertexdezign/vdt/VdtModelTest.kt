@@ -331,6 +331,29 @@ class VdtModelTest {
   }
 
   @Test
+  fun parsesTheWorkModeOfAMerger() {
+    // A rotary merger in the last of its four delivery modes. The names are the localized ones the
+    // machine's XML declares — the point of exporting them, since the game's HUD has only the number.
+    val data = capture("workMode.json")
+    assertEquals("25", data.version)
+    val v = assertNotNull(data.vehicle)
+    val merger = assertNotNull(v.implement.singleOrNull())
+    assertEquals("windrower", merger.type)
+    val mode = assertNotNull(merger.workMode)
+    assertEquals(4, mode.current)
+    assertEquals(4, mode.count)
+    assertEquals("Außen", mode.name)
+    // Index-aligned with `current`, so `name` is always the entry `current` points at.
+    assertEquals(listOf("Mitte", "Links", "Rechts", "Außen"), mode.names)
+    assertEquals(mode.name, mode.names[mode.current - 1])
+    // Refused with the motor ON: the merger is folded for the road, outside its fold limits. So this
+    // pins the fold gate on its own, not the power gate a Krone BiG M first slipped past.
+    assertEquals(MotorState.ON, v.motor?.state)
+    assertEquals(FoldableState.FOLDED, merger.foldable)
+    assertEquals(false, mode.canChange)
+  }
+
+  @Test
   fun parsesNestedTrailersAndAggregatesFillUnits() {
     val data = model("nested_trailers.json")
     val v = assertNotNull(data.vehicle)

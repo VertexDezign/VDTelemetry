@@ -11,6 +11,7 @@ import net.vertexdezign.vdt.model.Mixer
 import net.vertexdezign.vdt.model.MixerIngredient
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
+import net.vertexdezign.vdt.model.WorkMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -203,6 +204,21 @@ class IsoBusTest {
     // and the group together — so stepping from nowhere has to land somewhere real.
     val group = ControlGroup(current = 0, names = listOf("Boom", "Grab"), available = listOf(1, 2))
     assertEquals(1, nextControlGroup(group))
+  }
+
+  @Test
+  fun aWorkModeTapStepsToTheNextModeAndWraps() {
+    val mode = WorkMode(current = 1, count = 4, canChange = true)
+    assertEquals(2, nextWorkMode(mode))
+    assertEquals(1, nextWorkMode(mode.copy(current = 4)), "and wraps back to the first, as the game's key does")
+  }
+
+  @Test
+  fun aWorkModeTheEngineWouldNotChangeHasNoTap() {
+    // Refused (folded, lowered on a raised-only tool) and unknown (an export from before 25) alike.
+    assertNull(nextWorkMode(WorkMode(current = 1, count = 4, canChange = false)))
+    assertNull(nextWorkMode(WorkMode(current = 1, count = 4)))
+    assertNull(nextWorkMode(WorkMode(current = 1, count = 1, canChange = true)), "one mode is nothing to step to")
   }
 
   // -------------------------------------------------------------------------

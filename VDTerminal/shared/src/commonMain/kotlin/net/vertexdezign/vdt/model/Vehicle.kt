@@ -717,9 +717,27 @@ data class Cutter(
   val load: Double? = null,
 )
 
-/** The discrete mode a tool is switched to. [name] comes from the vehicle XML and may be absent. */
+/**
+ * The discrete mode a tool is switched to — a merger's delivery side, a mower-conditioner's swath
+ * against spread, a cultivator's depth. [current] is 1-based into [count]. [name] comes from the
+ * vehicle XML, already localized, and may be absent.
+ *
+ * Mod version 25 made the mode writable ([net.vertexdezign.vdt.ClientMessage.SetWorkMode]) and added
+ * what a control needs:
+ * - [names] — every mode, index-aligned with [current], `""` where one is unnamed. Empty before 25.
+ * - [canChange] — whether the game's own work-mode key would switch it now: false while the tool is
+ *   folded past its limits, lowered on a raised-only machine, running on an off-only one, or with no
+ *   motor running on the rig (the key is a powered action). **Null means unknown**
+ *   (an export from before 25), which must not read as permission.
+ */
 @Serializable
-data class WorkMode(val current: Int = 0, val count: Int = 0, val name: String? = null)
+data class WorkMode(
+  val current: Int = 0,
+  val count: Int = 0,
+  val name: String? = null,
+  val names: List<String> = emptyList(),
+  val canChange: Boolean? = null,
+)
 
 /**
  * Live working width of a tool with retractable sections — it changes as sections are switched off,

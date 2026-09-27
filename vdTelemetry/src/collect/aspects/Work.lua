@@ -27,7 +27,51 @@ function VDT.Work.collectMode(object)
     -- Resolved from the XML at load; nil when the mode was declared without a name.
     model.name = mode.name
   end
+
+  -- Every mode's name, index-aligned with `current`, so a terminal can say what a tap switches TO and
+  -- not only what the machine is in now. Already localized, like `name`: loadWorkModeFromXML reads
+  -- #name with the machine's own customEnvironment. A nameless mode keeps its slot as "" -- dropping
+  -- it would relabel every mode after it.
+  local names = {}
+  for _, entry in ipairs(spec.workModes or {}) do
+    names[#names + 1] = type(entry.name) == "string" and entry.name or ""
+  end
+  if 0 < #names then
+    model.names = names
+  end
+
+  model.canChange = VDT.Work.canChangeMode(object)
   return model
+end
+
+---Whether the game's own work-mode key would switch this object's mode right now. Shared with
+---WorkModeControl, which asks again at command time, so the export and the command cannot disagree.
+---
+---Two gates, both of which the key passes through before it reaches setWorkMode:
+---  * getIsWorkModeChangeAllowed -- what WorkMode:onUpdate switches the action on and off by. WorkMode
+---    checks the fold limits and, where the XML sets allowChangeOnLowered="false", that the attacher
+---    joint is up; TurnOnVehicle overrides it to refuse while running where the XML sets
+---    allowChangeWhileTurnedOn="false".
+---  * getIsPowered -- the action is registered with addPoweredActionEvent, whose wrapper refuses with
+---    "start the motor" unless a motor on the rig is running (Motorized) or the machine is hitched to
+---    something that is (Attachable). The setter checks neither, which is how a Krone BiG M switched
+---    modes from the terminal with its engine off.
+---Everything both read -- fold time, joint moveDown, turned-on, motor state -- is synchronized, so a
+---multiplayer client gets the answer the server would.
+---@param object table
+---@return boolean|nil nil when the object cannot say (no getIsWorkModeChangeAllowed)
+function VDT.Work.canChangeMode(object)
+  if object.getIsWorkModeChangeAllowed == nil then
+    return nil
+  end
+  if not object:getIsWorkModeChangeAllowed() then
+    return false
+  end
+  -- getIsPowered returns `isPowered, warning`; only the first is ours (see aspects/Mixer.lua).
+  if object.getIsPowered ~= nil and object:getIsPowered() ~= true then
+    return false
+  end
+  return true
 end
 
 ---Which side of the boom a section sits on. `isCenter` wins: a center section is in neither of the

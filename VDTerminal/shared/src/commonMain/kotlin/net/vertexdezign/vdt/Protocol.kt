@@ -395,6 +395,18 @@ sealed interface ClientMessage {
   data class SetSwath(val target: ControlTarget, val on: Boolean) : ClientMessage
 
   /**
+   * Switch the [target] to work mode [mode] — 1-based, as [net.vertexdezign.vdt.model.WorkMode.current].
+   *
+   * Absolute where the game's own `TOGGLE_WORKMODE` key steps to the next mode, so a resent or doubled
+   * command lands on the same mode. Mod-side a direct `WorkMode:setWorkMode`, which owns its
+   * multiplayer event. Offer it only where [net.vertexdezign.vdt.model.WorkMode.canChange] is true: the
+   * setter itself does not ask, so the mod asks the engine again and drops the command otherwise.
+   */
+  @Serializable
+  @SerialName("setWorkMode")
+  data class SetWorkMode(val target: ControlTarget, val mode: Int) : ClientMessage
+
+  /**
    * Choose which tip side the [target]'s next tip will use — `Tipping.preferredSide`, 1-based.
    *
    * The mod gates this on the engine's own `getCanTogglePreferdTipSide`, which requires the trough to

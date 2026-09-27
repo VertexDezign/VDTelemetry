@@ -136,6 +136,8 @@
 ---@field current number
 ---@field count number
 ---@field name string?
+---@field names string[]? every mode's name, index-aligned with `current` ("" where unnamed)
+---@field canChange boolean? the engine's getIsWorkModeChangeAllowed
 
 -- One shutoff section of a boom, in the game's own HUD order. A CENTER section is in neither side
 -- list and so is never switched off.

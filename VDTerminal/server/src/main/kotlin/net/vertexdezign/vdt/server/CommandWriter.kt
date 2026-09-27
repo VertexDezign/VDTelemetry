@@ -87,6 +87,10 @@ class CommandWriter(private val path: Path, private val ringSize: Int = 16) {
       """<command id="$id" type="setSwath" target="${message.target.token}" on="${message.on}"/>"""
     }
 
+    is ClientMessage.SetWorkMode -> {
+      """<command id="$id" type="setWorkMode" target="${message.target.token}" mode="${message.mode}"/>"""
+    }
+
     is ClientMessage.SetTipSide -> {
       """<command id="$id" type="setTipSide" target="${message.target.token}" side="${message.side}"/>"""
     }
