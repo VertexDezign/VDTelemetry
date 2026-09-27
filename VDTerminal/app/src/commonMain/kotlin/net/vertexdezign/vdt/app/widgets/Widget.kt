@@ -3,14 +3,16 @@ package net.vertexdezign.vdt.app.widgets
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /**
  * A placeable dashboard tile — the panels ("widgets") an app arranges on its screen. A widget pulls
- * whatever it renders from `LocalVdtStore`; the grid only positions it. [title]/[icon] identify the
+ * whatever it renders from `LocalVdtStore`; the page layout only positions it. [title]/[icon] identify the
  * widget in the add-widget picker (the tile itself draws its own panel chrome).
  *
- * Register widgets in [WidgetRegistry]; a [net.vertexdezign.vdt.app.layout.GridLayout] refers to them
- * by [id], so ids must be stable — they're persisted in saved layouts.
+ * Register widgets in [WidgetRegistry]; a [net.vertexdezign.vdt.app.layout.Tile] refers to them by
+ * [id], so ids must be stable — they're persisted in saved layouts.
  */
 interface Widget {
   val id: String
@@ -18,20 +20,16 @@ interface Widget {
   val icon: ImageVector
 
   /**
-   * The size this tile is placed at, in cells of the [net.vertexdezign.vdt.app.layout.GridLayout]
-   * (12×7, so a cell is roughly 91×90dp — square — on a landscape tablet). Placement squeezes the
-   * tile down towards [minColSpan] × [minRowSpan] when the default doesn't fit where it was dropped.
+   * The smallest this tile may be made and still be read — the readability floor, in dp, per widget.
+   *
+   * Floors **gate edits, not rendering**: a split, a divider drag or a swap that would put the tile
+   * below it is refused (see [net.vertexdezign.vdt.app.layout.LayoutFrame]), but a page arranged on a
+   * bigger screen and opened on a smaller one renders its tiles anyway, and the widget's compact form
+   * has to cope. The defaults are what the old grid's default floor (3×2 cells) came to on a portrait
+   * phone's 56dp cell — the smallest these were already being drawn at.
    */
-  val defaultColSpan: Int get() = 4
-  val defaultRowSpan: Int get() = 3
-
-  /**
-   * The smallest this tile may be resized to and still be readable. This is the readability floor —
-   * it lives here, per widget, rather than on the cell, which is what lets the grid be fine enough
-   * for small tiles (a shortcut) and large ones (the map) to coexist on one page.
-   */
-  val minColSpan: Int get() = 3
-  val minRowSpan: Int get() = 2
+  val minWidth: Dp get() = 184.dp
+  val minHeight: Dp get() = 120.dp
 
   /**
    * The per-instance settings this widget accepts, empty (the default) when it takes none. Each

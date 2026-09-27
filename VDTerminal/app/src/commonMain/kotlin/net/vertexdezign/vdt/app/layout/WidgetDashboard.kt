@@ -49,27 +49,27 @@ import net.vertexdezign.vdt.app.widgets.availableWidgets
 
 /**
  * What the config dialog is currently open for: a widget being placed, or a tile already on the page.
- * One dialog serves both, so the difference is only what SAVE does — add a cell, or update one.
+ * One dialog serves both, so the difference is only what SAVE does — add a tile, or update one.
  */
 private sealed interface ConfigTarget {
-  data class New(val widget: Widget, val at: GridPos) : ConfigTarget
+  data class New(val widget: Widget, val emptyId: String) : ConfigTarget
 
-  data class Placed(val cell: LayoutCell) : ConfigTarget
+  data class Placed(val tile: Tile) : ConfigTarget
 }
 
 /**
- * The body of a [Page]: the [GridLayout] for the body's own [GridAspect], rendered as a [WidgetGrid],
- * with every edit written straight back through [PageStore] (which persists). [editing] is the
- * shell-wide edit toggle from the header; when on, the page's edit toolbar sits above the grid and the
- * grid shows its editing affordances. The status footer is rendered by the shell, not here.
+ * The body of a [Page]: the arrangement for the body's own [GridAspect], rendered as a
+ * [SplitLayoutView], with every edit written straight back through [PageStore] (which persists).
+ * [editing] is the shell-wide edit toggle from the header; when on, the page's edit toolbar sits above
+ * the page and the page shows its editing affordances. The status footer is rendered by the shell, not here.
  *
- * The aspect is measured here, from the box the grid is actually given, rather than passed down from
+ * The aspect is measured here, from the box the page is actually given, rather than passed down from
  * the shell — see [GridAspect.of]. Edit mode therefore edits whichever arrangement is on screen:
  * rotate the device and you are editing the other one, and the first is left as you had it.
  *
  * [pageToolbar] false leaves the page's own settings (name, icon, auto-show, delete) out of edit mode.
- * A display edits its layout without them: the toolbar would take its height from the grid, and the
- * point of editing on the display is to edit the grid at exactly the size it is shown.
+ * A display edits its layout without them: the toolbar would take its height from the page, and the
+ * point of editing on the display is to edit the page at exactly the size it is shown.
  */
 @Composable
 fun ColumnScope.WidgetDashboard(
@@ -80,12 +80,13 @@ fun ColumnScope.WidgetDashboard(
 ) {
   val store = LocalVdtStore.current
   val pageStore = store.pages
-  var addAt by remember(page.id, editing) { mutableStateOf<GridPos?>(null) }
+  // The empty being filled, by id: a path would go stale if the tree changed under the picker.
+  var addTo by remember(page.id, editing) { mutableStateOf<String?>(null) }
   var configuring by remember(page.id, editing) { mutableStateOf<ConfigTarget?>(null) }
   // Deleting a page is destructive, so it's held here until the user confirms.
   var confirmDelete by remember(page.id) { mutableStateOf(false) }
 
-  // Hide the toolbar while the confirmation is pending: its dialog only scrims the grid area below, so
+  // Hide the toolbar while the confirmation is pending: its dialog only scrims the page area below, so
   // an exposed toolbar would let a second destructive request stack up behind the modal.
   if (editing && pageToolbar && !confirmDelete) {
     PageEditToolbar(page, pageStore, onDeleteRequest = { confirmDelete = true })
@@ -95,34 +96,30 @@ fun ColumnScope.WidgetDashboard(
     val aspect = GridAspect.of(maxWidth, maxHeight)
     val layout = page.layoutFor(aspect)
 
-    fun apply(next: GridLayout) = pageStore.update(page.withLayout(aspect, next))
+    fun apply(next: LayoutNode) = pageStore.update(page.withLayout(aspect, next))
 
-    // The widget, not just its id: placement needs the size it asks for and the floor it may be
-    // squeezed to, which is exactly what stops a tile landing as an unreadable single cell. Every
+    // Measured on the box the tiles actually get, inside the padding, so a floor is checked against
+    // what is drawn.
+    val frame = layoutFrame(maxWidth - GRID_PADDING * 2, maxHeight - GRID_PADDING * 2)
+
+    // A widget placed into an empty takes the whole of it — there is no default size any more. Every
     // placement goes through here — the picker's fit probe, a direct add, and the add-after-configuring
     // path — so all three agree on what "placing this widget here" means.
-    fun place(widget: Widget, at: GridPos, config: WidgetConfig = emptyMap()) = layout.addWidget(
-      newInstanceId(),
-      widget.id,
-      at.col,
-      at.row,
-      colSpan = widget.defaultColSpan,
-      rowSpan = widget.defaultRowSpan,
-      minColSpan = widget.minColSpan,
-      minRowSpan = widget.minRowSpan,
-      config = config,
-    )
+    fun place(widget: Widget, emptyId: String, config: WidgetConfig = emptyMap()): LayoutNode {
+      val path = layout.pathOfEmpty(emptyId) ?: return layout
+      return layout.place(path, Tile(newInstanceId(), widget.id, config), frame)
+    }
 
-    WidgetGrid(
+    SplitLayoutView(
       layout,
       Modifier.fillMaxSize().padding(GRID_PADDING),
       editing = editing,
       onLayoutChange = ::apply,
-      onAddRequest = { addAt = it },
+      onAddRequest = { addTo = it },
       onConfigureRequest = { configuring = ConfigTarget.Placed(it) },
     )
 
-    val pending = addAt?.takeIf { editing && it in layout.freePositions() }
+    val pending = addTo?.takeIf { editing && layout.pathOfEmpty(it) != null }
     if (pending != null) {
       // Which widgets want the config dialog has to be settled here: `configOptions` is composable
       // and the picker's onPick callback is not.
@@ -132,10 +129,9 @@ fun ColumnScope.WidgetDashboard(
       }
 
       WidgetPicker(
-        // An empty slot doesn't mean every widget fits it: one whose floor won't clear the grid edge
-        // or a neighbour is refused, and addWidget is then a no-op — listing it would give a row that
-        // silently does nothing when tapped. Trying the placement is the only honest filter, the same
-        // way the resize controls grey out on `resize() == layout`.
+        // An empty space doesn't mean every widget fits it: one whose floor is bigger than the space
+        // is refused, and place() is then a no-op — listing it would give a row that silently does
+        // nothing when tapped. Trying the placement is the only honest filter.
         //
         // Fit is now the *only* filter. Widgets already on the page used to be withheld, back when a
         // page could hold one tile per type; a second map with its own zoom and layers is a normal
@@ -148,10 +144,10 @@ fun ColumnScope.WidgetDashboard(
             configuring = ConfigTarget.New(widget, pending)
           } else {
             apply(place(widget, pending))
-            addAt = null
+            addTo = null
           }
         },
-        onDismiss = { addAt = null },
+        onDismiss = { addTo = null },
       )
     }
 
@@ -165,9 +161,9 @@ fun ColumnScope.WidgetDashboard(
           initial = emptyMap(),
           confirmLabel = "ADD",
           onConfirm = { config ->
-            apply(place(target.widget, target.at, config))
+            apply(place(target.widget, target.emptyId, config))
             configuring = null
-            addAt = null
+            addTo = null
           },
           // Back out of configuring, not out of adding: the picker is still open underneath.
           onDismiss = { configuring = null },
@@ -176,14 +172,14 @@ fun ColumnScope.WidgetDashboard(
       // Only the gear opens this, and it only renders for a widget that resolved and declared
       // options — so an unknown id here means the page changed under the dialog; drop it.
       is ConfigTarget.Placed ->
-        WidgetRegistry.byId(target.cell.widgetId)?.let { widget ->
+        WidgetRegistry.byId(target.tile.widgetId)?.let { widget ->
           WidgetConfigDialog(
             title = widget.title,
             options = widget.configOptions(),
-            initial = target.cell.config,
+            initial = target.tile.config,
             confirmLabel = "SAVE",
             onConfirm = { config ->
-              apply(layout.reconfigure(target.cell.instanceId, config))
+              apply(layout.reconfigure(target.tile.instanceId, config))
               configuring = null
             },
             onDismiss = { configuring = null },
@@ -211,10 +207,8 @@ fun ColumnScope.WidgetDashboard(
  * [onDeleteRequest] so the parent can guard it; the non-destructive edits write straight back through
  * [store].
  *
- * There is no grid-size control: a page is laid out on one of two fixed grids, chosen by the body's
- * aspect ([GridAspect]), and each widget carries its own size, so there is nothing here for the user
- * to tune. Nor is there a control for editing the *other* orientation's arrangement — turn the device
- * and edit it there, which is the only way to see what you are arranging.
+ * There is no control for editing the *other* orientation's arrangement (see [GridAspect]) — turn the
+ * device and edit it there, which is the only way to see what you are arranging.
  */
 @Composable
 private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () -> Unit) {

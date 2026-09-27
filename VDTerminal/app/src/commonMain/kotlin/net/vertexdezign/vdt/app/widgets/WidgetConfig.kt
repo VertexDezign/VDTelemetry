@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * A placed widget instance's settings, stored on its
- * [net.vertexdezign.vdt.app.layout.LayoutCell] and handed to
+ * [net.vertexdezign.vdt.app.layout.Tile] and handed to
  * [Widget.Content].
  *
  * A plain string map rather than a type per widget: the layout schema then stays independent of the

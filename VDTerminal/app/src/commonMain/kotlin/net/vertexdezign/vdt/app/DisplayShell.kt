@@ -96,7 +96,7 @@ fun DisplayShell(
   }
 
   // No reveal while editing: the DONE bar is already showing, and a finger held still on a tile before
-  // it starts to drag would otherwise pop the controls up over the grid being arranged.
+  // it starts to drag would otherwise pop the controls up over the page being arranged.
   Box(modifier.fillMaxSize().then(if (editing) Modifier else Modifier.holdToReveal { revealed = true })) {
     Column(Modifier.fillMaxSize()) {
       when {
@@ -209,9 +209,9 @@ private fun DisplayControls(onExit: () -> Unit, onEdit: (() -> Unit)?, modifier:
  *
  * The phone on the pillar is the one screen the layout is for, and in the full shell it was the one
  * screen it could not be arranged on: the header and bottom bar took a third of a phone's height, so
- * the grid being edited was a squashed version of the one on show — and the tiles too small to grab.
- * Here the grid keeps the whole screen; the only chrome is this pill, floating over an edge rather than
- * taking any height from the grid. Floating means it covers something — a tile's resize or remove
+ * the page being edited was a squashed version of the one on show — and the tiles too small to grab.
+ * Here the page keeps the whole screen; the only chrome is this pill, floating over an edge rather than
+ * taking any height from the page. Floating means it covers something — a tile's split or remove
  * buttons, sooner or later — so it moves between the bottom and top edge ([atTop], [onMove]).
  */
 @Composable
