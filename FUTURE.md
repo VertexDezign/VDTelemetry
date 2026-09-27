@@ -53,7 +53,8 @@ What those two left is under their own headings below. What is still untouched f
 - **The stepped fill bar.** `fillUnit.display == STEP` marks consumables, where capacity is a slot count: the game draws
   one segment per slot with the part-used roll's fraction inside the next one, and labels it `"2 / 2"` (a `ceil`, not a
   percentage). `components/FillUnitsDisplay.kt` carries the note and renders a continuous bar.
-- **The work aspects that are still undrawn:** `workMode` and `baleCounter`. `workWidth` was drawn by the section view,
+- **The work aspect that is still undrawn:** `baleCounter`. `workMode` became a chip on the machine screen, writable
+  through `setWorkMode` (export v25), validated in singleplayer and on a multiplayer client. `workWidth` was drawn by the section view,
   `discharge` and `tipping` by #116 — `discharge.reason`, the engine's own verdict on why unloading is refused, turned
   out to be exactly the pick of them it looked like — and the `harvest` / `cutter` pair by **#141**, which took the
   whole

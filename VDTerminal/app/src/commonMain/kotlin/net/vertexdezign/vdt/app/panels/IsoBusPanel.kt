@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.PriorityHigh
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.UnfoldLess
@@ -94,6 +95,7 @@ import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.Tipping
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
+import net.vertexdezign.vdt.model.WorkMode
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.roundToInt
 
@@ -230,6 +232,7 @@ internal data class IsoBusMachine(
   val fillUnits: List<FillUnit>,
   val tipping: Tipping?,
   val discharge: Discharge?,
+  val workMode: WorkMode?,
   val pipe: Pipe?,
   val cover: Cover?,
   val mass: Mass?,
@@ -270,6 +273,7 @@ internal fun Vehicle.isoBus() = IsoBusMachine(
   fillUnits = fillUnits?.fillUnit ?: emptyList(),
   tipping = tipping,
   discharge = discharge,
+  workMode = workMode,
   pipe = pipe,
   cover = cover,
   mass = mass,
@@ -293,6 +297,7 @@ internal fun Implement.isoBus() = IsoBusMachine(
   fillUnits = fillUnits?.fillUnit ?: emptyList(),
   tipping = tipping,
   discharge = discharge,
+  workMode = workMode,
   pipe = pipe,
   cover = cover,
   mass = mass,
@@ -707,6 +712,7 @@ private fun MachineStatus(
       null -> Unit
     }
 
+    machine.workMode?.let { WorkModeChip(it, target, onCommand) }
     machine.tipping?.let { TipChip(it, target, onCommand) }
     machine.discharge?.let { DischargeChip(it, target, onCommand) }
 
@@ -1183,6 +1189,43 @@ private fun MixerStatus(mixer: Mixer, showState: Boolean) {
 }
 
 /**
+ * Which of its work modes the tool is in — a merger's delivery side, a mower-conditioner's swath
+ * against spread — by the name the machine's XML gives it, where the game's own HUD prints the same.
+ *
+ * A tap steps to the next mode and wraps, as the game's `TOGGLE_WORKMODE` key does, but sends the
+ * absolute index ([nextWorkMode]). Read-only whenever the engine would refuse the change — folded,
+ * lowered on a raised-only machine, running on an off-only one, motor off — which is
+ * [WorkMode.canChange], and
+ * on an export from before it existed.
+ */
+@Composable
+private fun WorkModeChip(mode: WorkMode, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
+  val label = mode.name?.takeIf { it.isNotBlank() } ?: "Mode ${mode.current}/${mode.count}"
+  val next = nextWorkMode(mode)
+  Chip(
+    Icons.Filled.SwapHoriz,
+    label,
+    VdtColors.AccentText,
+    onClick = if (target != null && next != null) {
+      { onCommand(ClientMessage.SetWorkMode(target, next)) }
+    } else {
+      null
+    },
+    // A control whenever there is a mode to step to; refused, it keeps the control's shape.
+    control = target != null && mode.count > 1,
+  )
+}
+
+/**
+ * The mode a tap on [WorkModeChip] switches to, or null when it has no tap: a single mode has nothing
+ * to step to, and an unknown [WorkMode.canChange] is not permission.
+ */
+internal fun nextWorkMode(mode: WorkMode): Int? {
+  if (mode.canChange != true || mode.count < 2) return null
+  return if (mode.current in 1 until mode.count) mode.current + 1 else 1
+}
+
+/**
  * Which way the wagon is unloading, and whether the door is moving.
  *
  * The side is named rather than drawn on the machine: the art is a side view, and left/right on a
@@ -1223,6 +1266,7 @@ private fun TipChip(tipping: Tipping, target: ControlTarget?, onCommand: (Client
         onCommand(ClientMessage.SetTipSide(it, if (from >= sides) 1 else from + 1))
       }
     },
+    control = target != null && sides > 1,
   )
 }
 
@@ -1240,23 +1284,39 @@ internal fun refusalOf(reason: DischargeReason): String = when (reason) {
 }
 
 @Composable
-internal fun Chip(icon: ImageVector, label: String, tint: Color, onClick: (() -> Unit)? = null) {
+internal fun Chip(
+  icon: ImageVector,
+  label: String,
+  tint: Color,
+  onClick: (() -> Unit)? = null,
+  control: Boolean = onClick != null,
+) {
   val shape = RoundedCornerShape(3.dp)
   // Actionable chips are told apart by weight and outline, never by hue: a raised, outlined, taller
   // chip against a flat grey one. The extra height is not decoration — it is what makes the tap
   // target reachable in a moving cab, where a 19dp chip is not.
+  //
+  // A third look for a [control] the game is refusing right now (a [TipChip] mid-tip, a
+  // [WorkModeChip] with the motor off): the control's size and outline, so the strip does not shrink
+  // and re-grow around it as the machine's state changes, but flat and in disabled ink — told apart
+  // from the live control by brightness, not hue.
   var box = Modifier.clip(shape)
-  box = if (onClick != null) {
-    box.background(VdtColors.Surface)
+  box = when {
+    onClick != null -> box.background(VdtColors.Surface)
       .border(1.dp, VdtColors.PanelBorder, shape)
       .clickable(onClick = onClick)
       .padding(horizontal = 8.dp, vertical = 6.dp)
-  } else {
-    box.background(VdtColors.TrackGray).padding(horizontal = 6.dp, vertical = 3.dp)
+
+    control -> box.background(VdtColors.TrackGray)
+      .border(1.dp, VdtColors.PanelBorder, shape)
+      .padding(horizontal = 8.dp, vertical = 6.dp)
+
+    else -> box.background(VdtColors.TrackGray).padding(horizontal = 6.dp, vertical = 3.dp)
   }
+  val ink = if (control && onClick == null) VdtColors.TextDisabled else tint
   Row(box, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(11.dp))
-    Text(label, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.size(11.dp))
+    Text(label, color = ink, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
   }
 }
 
