@@ -280,9 +280,12 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     size, which is what a reader would take them for. Nothing consumed them: the terminal places
 --     the picture by proportion, and the world size it does use is map.json's `terrainSize`.
 -- 24: `vehicle.brand.image` -- the brand logo's absolute path: in the game install for a base-game
---     brand (BrandManager leaves those relative), in the DLC or mod folder for the rest. The terminal reads the art out of the game
---     install the way it already reads the map overview, and shows it in the top bar instead of the
---     brand's name. See issue #161.
+--     brand (BrandManager leaves those relative), in the DLC or mod folder for the rest. The
+--     terminal reads the art out of the game install the way it already reads the map overview, and
+--     shows it in the top bar instead of the brand's name. `environment.pda.filename` likewise
+--     becomes the file map.xml declares -- the PNG, where it used to be the DDS the mod assumed ships
+--     in its place -- so a map in development that has only the PNG still gets its overview; the
+--     terminal finds whichever is there. See issue #161.
 VDTelemetry.VERSION = 24
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3

@@ -17,7 +17,9 @@ data class Weather(val temperature: Temperature? = null)
 data class Temperature(val min: Int = 0, val max: Int = 0, val current: Int = 0, val unit: String = "")
 
 /**
- * PDA / map data. [filename] is absent when the mod has no PDA reference, so it is optional.
+ * PDA / map data. [filename] is absent when the mod has no PDA reference, so it is optional. Since
+ * mod version 24 it is the overview as map.xml declares it — usually a `.png` that ships as `.dds`,
+ * which the server resolves; earlier versions sent the `.dds` already swapped in.
  */
 @Serializable
 data class Pda(val filename: String? = null, val player: Player? = null)

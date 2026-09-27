@@ -10,8 +10,8 @@ MapUtil = {}
 ---wrong -- a map whose `map.xml` names a `.png` that ships as `.dds`, a zipped map whose folder
 ---exists only in the engine's eyes, a map the mod manager loaded from somewhere this install has
 ---never heard of -- ends as an empty square in the dashboard with nothing anywhere to say why. These
----lines are what a bug report gets built from, so they name the map, the declared filename and the
----resolved one, and say whether the engine can see a file there.
+---lines are what a bug report gets built from, so they name the map and the resolved filename, and
+---say whether the engine can see a file there -- under that name or as the `.dds` beside it.
 ---@param debugger GrisuDebug
 ---@return PDA | nil The filename to the pda or nil if not found.
 function MapUtil.getMapPDAFile(debugger)
@@ -60,20 +60,27 @@ function MapUtil.getMapPDAFile(debugger)
         pdaMapFile = item.baseDirectory .. pdaMapFile
       end
 
-      -- The engine converts a map's overview to DDS when the map is built; map.xml still names the
-      -- source PNG. Matched on the extension itself rather than with `find(".png")`, whose `.` is a
-      -- pattern wildcard and so also matches any folder called e.g. `xpng` along the way.
+      -- Exported as map.xml declares it. A released map names a PNG and ships only the DDS the
+      -- engine loads in its place, while a map still in development may have just the PNG, so which
+      -- file is really there is VDTerminal's to find out (AssetResolver.lookupTexture) rather than
+      -- ours to assume. The log looks for both spellings for the same reason.
+      local shipped = pdaMapFile
       if pdaMapFile:sub(-4):lower() == ".png" then
-        pdaMapFile = pdaMapFile:sub(1, -5) .. ".dds"
+        -- Matched on the extension itself rather than with `find(".png")`, whose `.` is a pattern
+        -- wildcard and so also matches any folder called e.g. `xpng` along the way.
+        shipped = pdaMapFile:sub(1, -5) .. ".dds"
       end
 
       -- A `false` here is worth saying out loud but is not proof of anything: the path may still be
       -- one the terminal can reach inside the mod's zip. It is the first thing to look at when the
       -- dashboard's map stays empty.
-      local exists = fileExists(pdaMapFile)
-      debugger:info("PDA overview: '%s' (declared '%s', fileExists=%s)", pdaMapFile, declared, tostring(exists))
+      local exists = fileExists(pdaMapFile) or fileExists(shipped)
+      debugger:info("PDA overview: '%s' (fileExists=%s, as itself or as .dds)", pdaMapFile, tostring(exists))
       if not exists then
-        debugger:warn("PDA: the engine reports no file at '%s' -- VDTerminal may not find it either", pdaMapFile)
+        debugger:warn(
+          "PDA: the engine reports no file at '%s' or its .dds -- VDTerminal may not find it either",
+          pdaMapFile
+        )
       end
 
       return { filename = pdaMapFile }

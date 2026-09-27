@@ -545,7 +545,7 @@ fun main() {
         val gameDir = Config.gameDir()
         // INFO, not DEBUG: this is the line a bug report needs, and the request happens once a session.
         log.info("Map image requested: the mod reports {} (game folder {})", filename, gameDir)
-        val lookup = AssetResolver.lookup(gameDir, filename)
+        val lookup = AssetResolver.lookupTexture(gameDir, filename)
         val asset = lookup.asset
         if (asset == null) {
           log.warn("Map image not found: {}. Looked at: {}", filename, lookup.tried.joinToString(" | "))
@@ -563,7 +563,8 @@ fun main() {
           return@get
         }
         try {
-          val (bytes, contentType) = ImagePipeline.process(asset.bytes, filename)
+          // Decoded by the file actually found, not the one declared: a declared .png is usually a .dds.
+          val (bytes, contentType) = ImagePipeline.process(asset.bytes, asset.entry ?: asset.path.toString())
           log.info("Map image served from {} as {} ({} bytes)", asset.source, contentType, bytes.size)
           call.respondBytes(bytes, ContentType.parse(contentType))
         } catch (e: Exception) {

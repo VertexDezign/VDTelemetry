@@ -9,6 +9,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
@@ -151,5 +152,29 @@ class AssetResolverTest {
     val gameDir = Files.createTempDirectory("vdt-game")
     zipWith(gameDir.resolve("mods/FS25_Map.zip"), "maps/overview.dds", byteArrayOf(0))
     assertNull(AssetResolver.resolve(gameDir, "D:/Projekt_MM/FS25_Map/maps/overview.dds"))
+  }
+
+  // A released map names overview.png and ships only the .dds, inside its zip.
+  @Test
+  fun aDeclaredPngThatShipsAsDdsIsFoundAsTheDds() {
+    val gameDir = Files.createTempDirectory("vdt-game")
+    val bytes = zipWith(gameDir.resolve("mods/FS25_Map.zip"), "maps/overview.dds", byteArrayOf(4, 2))
+    val lookup = AssetResolver.lookupTexture(gameDir, "$gameDir/mods/FS25_Map/maps/overview.png")
+    val asset = assertNotNull(lookup.asset)
+    assertContentEquals(bytes, asset.bytes)
+    assertEquals("maps/overview.dds", asset.entry)
+  }
+
+  // A map still in development may have only the PNG it declares -- or both, where the PNG is the
+  // one being worked on. Either way the declared file is the one served.
+  @Test
+  fun aDeclaredPngThatIsThereWinsOverTheDds() {
+    val gameDir = Files.createTempDirectory("vdt-game")
+    val maps = gameDir.resolve("mods/FS25_Map/maps")
+    maps.createDirectories()
+    maps.resolve("overview.png").writeBytes(byteArrayOf(1))
+    maps.resolve("overview.dds").writeBytes(byteArrayOf(2))
+    val asset = assertNotNull(AssetResolver.lookupTexture(gameDir, "$maps/overview.png").asset)
+    assertContentEquals(byteArrayOf(1), asset.bytes)
   }
 }
