@@ -174,6 +174,35 @@ describe("Work.collectMode", function()
     assert.are.equal(1, m.current)
     assert.is_nil(m.name)
   end)
+
+  it("names every mode, keeping an unnamed one's slot so the rest stay aligned", function()
+    local m = VDT.Work.collectMode({
+      spec_workMode = { state = 1, stateMax = 3, workModes = { { name = "Links" }, {}, { name = "Außen" } } },
+    })
+    assert.are.same({ "Links", "", "Außen" }, m.names)
+  end)
+
+  it("carries the engine's verdict on whether the mode can change", function()
+    local spec = { state = 1, stateMax = 2, workModes = { { name = "A" }, { name = "B" } } }
+    local allowed = true
+    local object = {
+      spec_workMode = spec,
+      getIsWorkModeChangeAllowed = function()
+        return allowed
+      end,
+    }
+    assert.is_true(VDT.Work.collectMode(object).canChange)
+    allowed = false
+    assert.is_false(VDT.Work.collectMode(object).canChange)
+    -- The key is a powered action: with the motor off the game refuses it however the tool stands.
+    allowed = true
+    object.getIsPowered = function()
+      return false, "Start the motor"
+    end
+    assert.is_false(VDT.Work.collectMode(object).canChange)
+    -- Without the function there is no verdict to report, which is not the same as "no".
+    assert.is_nil(VDT.Work.collectMode({ spec_workMode = spec }).canChange)
+  end)
 end)
 
 describe("Work.collectWidth", function()

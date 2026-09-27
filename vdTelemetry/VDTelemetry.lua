@@ -133,6 +133,9 @@ local sourceFiles = {
   -- The combine's straw toggle; asks aspects/Harvest.lua for the engine's own verdict on whether the
   -- toggle is allowed, so it is sourced after the aspects.
   "src/command/CombineControl.lua",
+  -- A tool's work mode (a merger's delivery side, a mower's spread/swath); asks aspects/Work.lua for
+  -- the engine's own verdict, as CombineControl does.
+  "src/command/WorkModeControl.lua",
   -- Drives the game's own machine selection (and, in the same call, the Cylindered control group).
   -- Addresses a machine by the rig diagram's node path rather than by a target token, so it resolves
   -- its own walk and does not use TargetResolver.
@@ -286,7 +289,13 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     becomes the file map.xml declares -- the PNG, where it used to be the DDS the mod assumed ships
 --     in its place -- so a map in development that has only the PNG still gets its overview; the
 --     terminal finds whichever is there. See issue #161.
-VDTelemetry.VERSION = 24
+-- 25: `workMode.names` -- every mode the machine declares, index-aligned with `current`, where it used
+--     to name only the one it is in -- and `workMode.canChange`, the engine's own
+--     getIsWorkModeChangeAllowed (fold limits, raised-only and off-only modes) plus the getIsPowered
+--     its key is gated on (a motor on the rig must be running). Both exist because the
+--     mode became WRITABLE: a terminal needs to know what a tap switches to, and when the game would
+--     refuse it. First machine it was captured on is a rotary merger (examples/json/workMode.json).
+VDTelemetry.VERSION = 25
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry
