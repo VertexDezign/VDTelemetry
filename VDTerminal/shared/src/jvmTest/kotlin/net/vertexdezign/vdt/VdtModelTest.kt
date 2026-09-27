@@ -1946,6 +1946,23 @@ class VdtModelTest {
   }
 
   @Test
+  fun theBrandCarriesItsLogoPathAsTheModDeclaredIt() {
+    // Inline until a v24 capture lands. The path names the `.png` the brand XML declared; the server
+    // is what swaps it for the `.dds`, so the model must hand it over untouched.
+    val brand =
+      assertNotNull(
+        VdtParser
+          .parseJson(
+            """{"version":"24","vehicle":{"brand":{"name":"CLAAS","title":"CLAAS",""" +
+              """"image":"S:/common/Farming Simulator 25/data/store/brands/brand_claas.png"}}}""",
+          ).vehicle
+          ?.brand,
+      )
+    assertEquals("S:/common/Farming Simulator 25/data/store/brands/brand_claas.png", brand.image)
+    assertNull(VdtParser.parseJson("""{"version":"23","vehicle":{"brand":{"name":"CLAAS"}}}""").vehicle?.brand?.image)
+  }
+
+  @Test
   fun theEmptyMassIsAbsentUntilTheEngineHasRunItsFirstMassUpdate() {
     // getDefaultMass reads `component.defaultMass or 0` until Vehicle:updateMass has filled it in, so
     // the mod omits it rather than reporting a zero that would make the machine look weightless empty.

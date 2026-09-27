@@ -188,6 +188,10 @@ fun main() {
   val mapLayerState = layerWatcher.registerRest { VdtParser.parseMapLayer(it) }
   layerWatcher.launchIn(appScope)
 
+  // Every brand driven this session, so a logo asked for after the player moved on is still found.
+  val brandImages = BrandImages()
+  appScope.launch { telemetryState.collect { brandImages.note(it?.vehicle?.brand) } }
+
   // Coverage: the one ground layer the server owns. Fed from the telemetry the dashboards already
   // receive, so the game does no extra work for it — see CoverageRecorder for why this is not in the
   // mod, and COVERAGE_LAYER_ID for how it reaches the app as an ordinary plane.
@@ -506,6 +510,8 @@ fun main() {
         val worked = coverageState.value
         if (worked == null) mapLayerState.value else mapLayerState.value + (COVERAGE_LAYER_ID to worked)
       }
+
+      brandImageRoute(brandImages, Config::gameDir) { telemetryState.value?.vehicle?.brand }
 
       // Coverage is a trail the driver decides is finished — a new day, a new job, a field done — so
       // clearing it is a control rather than a rule. There is nothing for the mod to do here: the mask

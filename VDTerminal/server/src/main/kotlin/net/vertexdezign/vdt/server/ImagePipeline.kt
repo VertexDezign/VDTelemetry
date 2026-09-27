@@ -18,11 +18,17 @@ import javax.imageio.ImageIO
 object ImagePipeline {
   private val log = LoggerFactory.getLogger(ImagePipeline::class.java)
 
-  fun process(data: ByteArray, filename: String): Pair<ByteArray, String> {
+  /**
+   * [trim] crops the picture to what is actually drawn in it — opt-in, because the map overview must
+   * be served whole (see `ImagePipelineTest`). A brand logo needs it: the game's sit in a 512×256
+   * canvas with half of it transparent, and drawn to the header's height untrimmed they come out at
+   * half the size the slot has room for.
+   */
+  fun process(data: ByteArray, filename: String, trim: Boolean = false): Pair<ByteArray, String> {
     val ext = filename.substringAfterLast('.', "").lowercase()
     val started = System.nanoTime()
 
-    val image: BufferedImage =
+    val decoded: BufferedImage =
       when (ext) {
         "dds" -> {
           toBufferedImage(Dds.decode(data))
@@ -38,6 +44,7 @@ object ImagePipeline {
         }
       }
 
+    val image = if (trim) trimmed(decoded) else decoded
     val out = ByteArrayOutputStream()
     ImageIO.write(image, "png", out)
     val png = out.toByteArray()
@@ -53,6 +60,32 @@ object ImagePipeline {
     )
     return png to "image/png"
   }
+
+  /**
+   * [image] cut down to the bounding box of its visible pixels, or unchanged when nothing in it is.
+   * "Visible" is above [TRIM_ALPHA] rather than above zero: DXT5 alpha is interpolated per 4×4
+   * block, and the faint fringe it leaves around a logo is not part of the picture.
+   */
+  internal fun trimmed(image: BufferedImage): BufferedImage {
+    var left = image.width
+    var top = image.height
+    var right = -1
+    var bottom = -1
+    for (y in 0 until image.height) {
+      for (x in 0 until image.width) {
+        if ((image.getRGB(x, y) ushr 24) > TRIM_ALPHA) {
+          if (x < left) left = x
+          if (x > right) right = x
+          if (y < top) top = y
+          if (y > bottom) bottom = y
+        }
+      }
+    }
+    if (right < 0) return image
+    return image.getSubimage(left, top, right - left + 1, bottom - top + 1)
+  }
+
+  private const val TRIM_ALPHA = 8
 
   private fun toBufferedImage(decoded: DecodedImage): BufferedImage {
     val img = BufferedImage(decoded.width, decoded.height, BufferedImage.TYPE_INT_ARGB)

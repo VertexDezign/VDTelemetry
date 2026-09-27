@@ -66,6 +66,18 @@ object AssetResolver {
     return AssetLookup(lookUp(reanchored, tried), tried)
   }
 
+  /**
+   * [lookup] for a texture the game names by the file its XML declared: `brand_claas.png` is what
+   * the brand XML says, and the engine loads the `brand_claas.dds` beside it, which is the only one
+   * that ships. So a missing `.png` is tried again as `.dds`, and the trail carries both attempts.
+   */
+  fun lookupTexture(gameDir: Path, filename: String): AssetLookup {
+    val declared = lookup(gameDir, filename)
+    if (declared.asset != null || !filename.endsWith(".png", ignoreCase = true)) return declared
+    val shipped = lookup(gameDir, filename.dropLast(".png".length) + ".dds")
+    return AssetLookup(shipped.asset, declared.tried + shipped.tried)
+  }
+
   /** The file itself if it is one, else the zipped mod it pretends to be a folder in. */
   private fun lookUp(path: Path, tried: MutableList<String>): ResolvedAsset? {
     // A real file at the path wins: nothing else can be more right than the path itself.
