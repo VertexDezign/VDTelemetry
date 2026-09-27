@@ -16,7 +16,8 @@ limitations" section that used to close this file was dissolved into those two h
 
 Pruned 2026-08-13, 2026-08-15 and 2026-08-23: entries describing work that is now finished were removed, and the
 "validated in-game" narratives compressed to a line. The 2026-08-15 pass went further and dropped the *design records*
-of shipped features — why the invoice totals are computed the way they are, how the ELS detector works, what the change-detection
+of shipped features — why the invoice totals are computed the way they are, how the ELS detector works, what the
+change-detection
 hook funnels through. Every one of those was checked against the file it documents before it went: they live in the
 module headers now, which is where the next reader is. What stays is what the work did **not** do. Nothing was lost that
 the code does not already carry — `git log -p FUTURE.md` has the long form if a decision needs its original reasoning.
@@ -54,7 +55,8 @@ What those two left is under their own headings below. What is still untouched f
   percentage). `components/FillUnitsDisplay.kt` carries the note and renders a continuous bar.
 - **The work aspects that are still undrawn:** `workMode` and `baleCounter`. `workWidth` was drawn by the section view,
   `discharge` and `tipping` by #116 — `discharge.reason`, the engine's own verdict on why unloading is refused, turned
-  out to be exactly the pick of them it looked like — and the `harvest` / `cutter` pair by **#141**, which took the whole
+  out to be exactly the pick of them it looked like — and the `harvest` / `cutter` pair by **#141**, which took the
+  whole
   of export v21 into the Kotlin model and built the combine screen on it.
 
 ### Two open calls on the mod side
@@ -78,8 +80,8 @@ What those two left is under their own headings below. What is still untouched f
 Built 2026-09-26 on branch `new-layout` and driven on the tablet in both orientations and on the pillar
 phone; what it left open:
 
-- **Finer snapping along a wide screen's long side.** Driven on the iPad and on the pillar phone
-  (2026-09-26): 24dp and twelfths are good enough for now. Twelfths of the tablet's long side are
+- **Finer snapping along a wide screen's long side.** Driven on the iPad and on the pillar phone (2026-09-26): 24dp and
+  twelfths are good enough for now. Twelfths of the tablet's long side are
   ~100dp apart, so eventually one more stop there (a finer division along the wider axis) would make
   sense. Dividers also stop where a neighbour just fits its floor — added for the pillar's service
   tile, which sat between two twelfths — so that stop is only as good as the floor behind it.
@@ -152,8 +154,8 @@ What it did not do:
   terrain" and says nothing about whose land it is, so `getCanDischargeToLand` and
   `getCanDischargeAtPosition` had to join it, which is what
   `actionEventToggleDischargeToGround` runs. Before that the trough opened on someone else's field
-  and nothing came out. Now nothing happens at all, where the game blinks
-  *"you don't have access to this land"* — and we have no way to blink. Preventing it instead would
+  and nothing came out. Now nothing happens at all, where the game blinks *"you don't have access to this land"* — and
+  we have no way to blink. Preventing it instead would
   mean exporting the land check per tick, which `aspects/Discharge.lua` deliberately avoids along with
   every other positional query. `getCanDischargeToLand` is the cheap one of the three (two
   `localToWorld` and two farmland lookups, where `getCanDischargeAtPosition` runs a density-map line
@@ -355,8 +357,10 @@ Both remaining items were declined on 2026-07-25. They are kept as the record of
   alternative — raster rows to the app, which draws and filters the bitmap itself — is a big shift away from the
   deliberate "PNG server-side, legends-only over the WebSocket" design.
 - **Independent soil toggles need the data de-collapsed first.** `classifySoil` returns *one* value per cell by priority
-  (weeds > stones > needs-plow > mulched > needs-lime > fertilized), mirroring the game, so a cell that is both weedy and
-  needs plowing stores only "weeds" — the plough state underneath was never captured, and hiding weeds cannot reveal it. Doing
+  (weeds > stones > needs-plow > mulched > needs-lime > fertilized), mirroring the game, so a cell that is both weedy
+  and
+  needs plowing stores only "weeds" — the plough state underneath was never captured, and hiding weeds cannot reveal it.
+  Doing
   it properly means promoting each soil sub-state to its own single-value plane: mod classification, wire model, and
   stacking order in the app. Only if independent soil visibility is actually wanted; if it is picked up, fold it into
   one coherent re-model of the layer set rather than two passes.
@@ -374,8 +378,8 @@ One thing was left, and it is a trap rather than a feature:
 
 - **There is no app→mod config push.** Per-channel config is read from the settings XML **at load only**, and the mod
   rewrites that XML on any in-game change — so an app that edits it live gets clobbered. Wiring per-channel tuning into
-  the app needs a push channel of its own, the way the command channel works. Re-checked 2026-08-15: `shared` carries the
-  *observed* cadence (the diagnostics feed) and no channel config at all.
+  the app needs a push channel of its own, the way the command channel works. Re-checked 2026-08-15: `shared` carries
+  the *observed* cadence (the diagnostics feed) and no channel config at all.
 - Related, if that is built: a per-channel `intervalOverride` is **ignored unless the profile is
   `custom`**, so an app doing the tuning has to stamp `profile = custom` as it goes.
 
@@ -475,8 +479,8 @@ Each one is cheap to do while playing and settles something above.
   case by design, but nobody has seen how often it happens.
 - **Does a withered crop read as withered on the field list?** Let a crop go past harvest, then compare
   the field's row against the game's own growth overlay. Two things ride on it. `withered` drives the
-  only **Warning** alert the Fields app raises and the only suggestion that destroys a crop
-  (`Cultivate`), so it is the one growth kind that costs something in both directions. And it is the
+  only **Warning** alert the Fields app raises and the only suggestion that destroys a crop (`Cultivate`), so it is the
+  one growth kind that costs something in both directions. And it is the
   one where our classifier's order and the game's can part company: `MapOverlayGenerator:buildGrowthStateMapOverlay`
   writes the withered colour **first** and lets later writes overwrite it, while
   `classifyGrowthFromFruit` returns first-match-wins with withered checked second. For `cut` the two
@@ -584,8 +588,6 @@ engine load it wears the engine on, the service interval and system voltage. The
 - **The two rain states are drawn but never seen.** Both captures are dry. The wording ("Rain coming" at the engine's
   early warning, "Rain — stopped" once it bites) is a guess at what reads best in a cab and wants one rainy harvest.
 
----
-
 ## Captures wanted as fixtures
 
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
@@ -598,7 +600,8 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   the `isServer` gate on `cutter.load` and `combineXp.speedLimit`. What no committed file has is those two fields
   *present*, which needs a singleplayer or host capture — and since #141 that is a visible gap rather than a
   theoretical one: the combine screen's load bar falls back from the drum to the header where Combine XP is absent, and
-  on a client neither number exists, so the bar is simply not drawn. Mid-pass either way: CombineXP's measurement resets to zero the
+  on a client neither number exists, so the bar is simply not drawn. Mid-pass either way: CombineXP's measurement resets
+  to zero the
   moment the drum stops being fed, so a headland capture shows nothing.
 - **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`, the `STEP`
   consumable bar, and they would give `jointDescIndex` its first real chain.
@@ -641,7 +644,6 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
 - The rule these follow: fixtures are **real game captures, never hand-authored**. A hand-written file claiming to be a
   capture was rejected before, and fill-type names live in `fillTypes.xml`, which is not readable from here — inventing
   them would put made-up game data in `examples/json`.
-
 
 ## Releasing (#80)
 

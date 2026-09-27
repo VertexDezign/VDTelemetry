@@ -188,6 +188,10 @@ fun main() {
   val mapLayerState = layerWatcher.registerRest { VdtParser.parseMapLayer(it) }
   layerWatcher.launchIn(appScope)
 
+  // Every brand driven this session, so a logo asked for after the player moved on is still found.
+  val brandImages = BrandImages()
+  appScope.launch { telemetryState.collect { brandImages.note(it?.vehicle?.brand) } }
+
   // Coverage: the one ground layer the server owns. Fed from the telemetry the dashboards already
   // receive, so the game does no extra work for it — see CoverageRecorder for why this is not in the
   // mod, and COVERAGE_LAYER_ID for how it reaches the app as an ordinary plane.
@@ -507,6 +511,8 @@ fun main() {
         if (worked == null) mapLayerState.value else mapLayerState.value + (COVERAGE_LAYER_ID to worked)
       }
 
+      brandImageRoute(brandImages, Config::gameDir) { telemetryState.value?.vehicle?.brand }
+
       // Coverage is a trail the driver decides is finished — a new day, a new job, a field done — so
       // clearing it is a control rather than a rule. There is nothing for the mod to do here: the mask
       // never existed in the game, so this is the whole of it.
@@ -539,7 +545,7 @@ fun main() {
         val gameDir = Config.gameDir()
         // INFO, not DEBUG: this is the line a bug report needs, and the request happens once a session.
         log.info("Map image requested: the mod reports {} (game folder {})", filename, gameDir)
-        val lookup = AssetResolver.lookup(gameDir, filename)
+        val lookup = AssetResolver.lookupTexture(gameDir, filename)
         val asset = lookup.asset
         if (asset == null) {
           log.warn("Map image not found: {}. Looked at: {}", filename, lookup.tried.joinToString(" | "))
@@ -557,7 +563,8 @@ fun main() {
           return@get
         }
         try {
-          val (bytes, contentType) = ImagePipeline.process(asset.bytes, filename)
+          // Decoded by the file actually found, not the one declared: a declared .png is usually a .dds.
+          val (bytes, contentType) = ImagePipeline.process(asset.bytes, asset.entry ?: asset.path.toString())
           log.info("Map image served from {} as {} ({} bytes)", asset.source, contentType, bytes.size)
           call.respondBytes(bytes, ContentType.parse(contentType))
         } catch (e: Exception) {

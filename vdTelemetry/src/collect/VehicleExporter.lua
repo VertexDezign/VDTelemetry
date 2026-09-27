@@ -7,6 +7,27 @@
 VDT = VDT or {}
 VDT.VehicleExporter = {}
 
+-- The brand logo's path, made absolute. BrandManager resolves a mod or DLC brand against the folder it
+-- came from, but the base game's own brands.xml is loaded with an empty base directory, so theirs stay
+-- relative (`data/store/brands/...`) -- the engine resolves that against the install, and a reader on
+-- the far side of the file would resolve it against the profile folder instead, where only mods live.
+-- Anchored the way MapUtil anchors a vanilla map's overview. A leading `$` is the engine's own marker
+-- for the install, should one ever get through unresolved.
+---@param image string|nil
+---@return string|nil
+local function absoluteBrandImage(image)
+  if image == nil or image == "" then
+    return nil
+  end
+  if image:sub(1, 1) == "$" then
+    return getAppBasePath() .. image:sub(2)
+  end
+  if image:sub(1, 1) == "/" or image:find("^%a:[/\\]") ~= nil then
+    return image
+  end
+  return getAppBasePath() .. image
+end
+
 -- Recursively collect an object's attached implements into ImplementModel[]. `position` comes from
 -- FS25_additionalInputs (a hard requirement, so no presence guard beyond the nil default). Returns
 -- nil when there are no attached implements, so the JSON key is absent (the Kotlin model defaults it to []) —
@@ -79,7 +100,10 @@ function VDT.VehicleExporter.collect(vehicle)
 
   local brand = ValueMapper.resolveBrand(vehicle)
   if brand ~= nil then
-    model.brand = { name = brand.name, title = brand.title }
+    -- `image` is the logo as BrandManager stored it, made absolute (see absoluteBrandImage), so the
+    -- terminal needs to know neither the install nor the mod folder. It names the `.png` the XML
+    -- declared, which the engine swaps for the `.dds` that actually ships.
+    model.brand = { name = brand.name, title = brand.title, image = absoluteBrandImage(brand.image) }
   end
 
   if vehicle.operatingTime ~= nil then

@@ -52,6 +52,22 @@ class ImagePipelineTest {
   }
 
   @Test
+  fun `trims only when asked, and then to what is drawn`() {
+    val img = BufferedImage(32, 16, BufferedImage.TYPE_INT_ARGB)
+    for (y in 4 until 10) for (x in 6 until 26) img.setRGB(x, y, 0xFFC02020.toInt())
+    // The faint DXT5 fringe a logo sits in: visible to the decoder, not part of the picture.
+    img.setRGB(0, 0, 0x05FFFFFF)
+    val out = ByteArrayOutputStream()
+    ImageIO.write(img, "png", out)
+
+    assertEquals(32, process(out.toByteArray()).width, "the overview path never crops")
+    val (png, _) = ImagePipeline.process(out.toByteArray(), "logo.png", trim = true)
+    val trimmed = ImageIO.read(ByteArrayInputStream(png))
+    assertEquals(20, trimmed.width)
+    assertEquals(6, trimmed.height)
+  }
+
+  @Test
   fun `does not resize whatever resolution the map author exported`() {
     assertEquals(4096, process(framed(4096)).width)
   }

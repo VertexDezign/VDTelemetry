@@ -453,8 +453,9 @@ class VdtModelTest {
     // loader's slot therefore starts at 80% of the tractor's and the two overlap by a fifth of a box.
     val v = assertNotNull(model("tractor_frontloader.json").vehicle)
 
-    val loader = assertNotNull(v.implement.singleOrNull())
-    assertEquals("FRONT", loader.position)
+    // The v24 capture has a trailer on the back as well; the loader is the one at the front.
+    val loader = assertNotNull(v.implement.singleOrNull { it.position == "FRONT" })
+    assertEquals("attachableFrontloader", loader.type)
     assertEquals(6, loader.jointDescIndex)
 
     val joint = assertNotNull(v.schema?.attacherJoint?.getOrNull(5))
@@ -471,8 +472,9 @@ class VdtModelTest {
   fun aShovelIsDischargeableButNotSomethingAPlayerUnloads() {
     // The other half of `canToggle`, and the first capture to show it false. A shovel is Dischargeable
     // — that is how the material leaves it — but tipping it is done by moving the loader, not by a tip
-    // action, so the game offers none and neither does the terminal.
-    val v = assertNotNull(model("tractor_frontloader.json").vehicle)
+    // action, so the game offers none and neither does the terminal. The earlier capture of this rig,
+    // kept for the shovel: the current one carries a bale grab instead.
+    val v = assertNotNull(model("tractor_frontloader_shovel.json").vehicle)
     val shovel =
       assertNotNull(
         v.implement
@@ -492,24 +494,28 @@ class VdtModelTest {
   @Test
   fun aFrontLoaderDeclaresNoControlGroupsAtAll() {
     // The machine the control-group chip was expected to be *for*, and it turns out not to be one: a
-    // loader and its shovel have moving tools but name no groups, so `controlGroup` is absent on all
-    // three nodes of this rig. That is the engine agreeing with itself rather than a gap — the game
-    // gates its own group readout on `1 < #controlGroupNames` and would print nothing here either.
-    // The chip's home is a crane or a ladder (see `subSelection.json`).
-    val v = assertNotNull(capture("tractor_frontloader.json").vehicle)
-    val loader = assertNotNull(v.implement.singleOrNull())
-    val shovel = assertNotNull(loader.implement.singleOrNull())
-
-    assertNull(v.selection?.controlGroup)
-    assertNull(loader.selection?.controlGroup)
-    assertNull(shovel.selection?.controlGroup)
-
-    // Every node selectable, tractor included: this save has automatic motor start off — the same
+    // loader and its tool have moving tools but name no groups, so `controlGroup` is absent on every
+    // node of this rig. That is the engine agreeing with itself rather than a gap — the game gates its
+    // own group readout on `1 < #controlGroupNames` and would print nothing here either. The chip's
+    // home is a crane or a ladder (see `subSelection.json`). Held on both captures of the rig: the
+    // shovel, and the bale grab with a trailer behind.
+    //
+    // Every node selectable, tractor included: both saves have automatic motor start off — the same
     // setting `multiple_implements.json` was taken under. See
     // [theTractorsSelectabilityFollowsTheAutomaticMotorStartSetting].
-    assertEquals(true, v.selection?.selectable)
-    assertEquals(true, loader.selection?.selectable)
-    assertEquals(true, shovel.selection?.selectable)
+    for (name in listOf("tractor_frontloader.json", "tractor_frontloader_shovel.json")) {
+      val v = assertNotNull(capture(name).vehicle)
+      assertNull(v.selection?.controlGroup, "$name: tractor")
+      assertEquals(true, v.selection?.selectable, "$name: tractor")
+      val nodes = generateSequence(v.implement) { level ->
+        level.flatMap { it.implement }.ifEmpty { null }
+      }.flatten().toList()
+      assertTrue(nodes.size >= 2, "$name: the loader and its tool at least")
+      for (node in nodes) {
+        assertNull(node.selection?.controlGroup, "$name: ${node.name}")
+        assertEquals(true, node.selection?.selectable, "$name: ${node.name}")
+      }
+    }
   }
 
   @Test
@@ -1943,6 +1949,27 @@ class VdtModelTest {
           ?.mixer,
       )
     assertEquals(null, mixer.mass)
+  }
+
+  @Test
+  fun theBrandCarriesItsLogoPathAsTheModDeclaredIt() {
+    // A v24 capture on a base-game brand: the path is absolute into the install (the mod anchors the
+    // relative one BrandManager keeps for the base game) and names the `.png` the brand XML declared.
+    // The server swaps that for the `.dds`, so the model hands it over untouched.
+    val data = capture("tractor_frontloader.json")
+    assertEquals("24", data.version)
+    val brand = assertNotNull(data.vehicle?.brand)
+    assertEquals("JOHNDEERE", brand.name)
+    assertEquals("S:/common/Farming Simulator 25/data/store/brands/brand_johnDeere.png", brand.image)
+
+    // The PDA overview the same way since v24: as map.xml declares it, a mod map's `.png`.
+    assertEquals(
+      "C:/users/steamuser/Documents/My Games/FarmingSimulator2025/mods/FS25_Mindenerwald/maps/overview.png",
+      data.environment?.pda?.filename,
+    )
+
+    // Before v24 there is no image, and the header falls back to the brand's name.
+    assertNull(capture("tractor_frontloader_shovel.json").vehicle?.brand?.image)
   }
 
   @Test

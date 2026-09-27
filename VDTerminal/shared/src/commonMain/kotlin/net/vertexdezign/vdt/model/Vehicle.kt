@@ -53,8 +53,14 @@ data class Vehicle(
 @Serializable
 data class Speed(val value: Float = 0f, val unit: String = "", val direction: DriveDirection = DriveDirection.STOPPED)
 
+/**
+ * [image] (mod version 24) is the logo's absolute path — in the game install for a base-game brand,
+ * in the DLC or mod folder otherwise. A file on the player's machine, never fetched by the app directly: the server looks it up by [name] and serves it at
+ * `/api/brand-image/{name}`. It names the `.png` the brand's XML declared, although only a `.dds`
+ * ships beside it.
+ */
 @Serializable
-data class Brand(val name: String? = null, val title: String? = null)
+data class Brand(val name: String? = null, val title: String? = null, val image: String? = null)
 
 // ---------------------------------------------------------------------------
 // Steering (mod version 10)

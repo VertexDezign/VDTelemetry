@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -33,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +50,7 @@ import net.vertexdezign.vdt.app.state.ThemeMode
 import net.vertexdezign.vdt.app.state.UiScaleStore
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.brandAccentFor
+import net.vertexdezign.vdt.app.theme.logoPlateFor
 import net.vertexdezign.vdt.model.Environment
 import net.vertexdezign.vdt.model.Vehicle
 
@@ -71,6 +76,7 @@ fun Header(
   onThemeChange: (ThemeMode) -> Unit = {},
   uiScale: Int = UiScaleStore.DEFAULT,
   onUiScaleChange: (Int) -> Unit = {},
+  brandLogo: ImageBitmap? = null,
 ) {
   val accent = brandAccentFor(vehicle?.brand?.name)
   val brandName = vehicle?.brand?.title?.takeIf { it.isNotBlank() } ?: "VDTerminal"
@@ -96,20 +102,32 @@ fun Header(
         Stat(Icons.Filled.Schedule, env?.time ?: "--", accent.text)
       }
       // Center third — identity: brand over model. Modded vehicle names run long, so both lines clip
-      // rather than pushing the stats and controls out of the bar.
+      // rather than pushing the stats and controls out of the bar. The brand is its logo when the
+      // server could read one out of the game, and its name until then or otherwise.
       Column(
         Modifier.weight(1f),
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
-        Text(
-          brandName.uppercase(),
-          color = accent.labelText,
-          fontSize = 28.sp,
-          fontWeight = FontWeight.Black,
-          fontStyle = FontStyle.Italic,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
-        )
+        if (vehicle != null && brandLogo != null) {
+          // Worked out once per logo, not per frame: the header recomposes with every telemetry tick.
+          val plate =
+            if (accent.autoPlate) {
+              remember(brandLogo, accent.active) { logoPlateFor(brandLogo, accent.active) }
+            } else {
+              accent.logoPlate
+            }
+          BrandPlate(brandLogo, brandName, plate)
+        } else {
+          Text(
+            brandName.uppercase(),
+            color = accent.labelText,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Black,
+            fontStyle = FontStyle.Italic,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
         vehicle?.name?.takeIf { it.isNotBlank() }?.let { name ->
           Text(
             name,
@@ -142,6 +160,30 @@ fun Header(
     }
   }
 }
+
+/**
+ * The brand's logo, on [plate] when it needs one: chosen by hand for a brand in the accent table
+ * (see [BrandAccent.logoPlate]), worked out from the logo for any other (see [logoPlateFor]). A
+ * literal colour rather than a palette role for the same reason as the map's: it belongs to the art,
+ * and holds whichever theme is on.
+ *
+ * With or without a plate the slot is the same size, as tall as the name it replaces plus a little,
+ * so the bar does not jump when a logo arrives; the height the controls give the header already has
+ * room for it.
+ */
+@Composable
+private fun BrandPlate(logo: ImageBitmap, title: String, plate: Color?) {
+  var mod = Modifier.height(BRAND_PLATE_HEIGHT).widthIn(max = BRAND_PLATE_MAX_WIDTH)
+  if (plate != null) mod = mod.clip(RoundedCornerShape(6.dp)).background(plate)
+  Box(mod.padding(horizontal = 8.dp, vertical = 3.dp), contentAlignment = Alignment.Center) {
+    Image(logo, title, contentScale = ContentScale.Fit)
+  }
+}
+
+private val BRAND_PLATE_HEIGHT = 28.dp
+
+/** A wordmark is wide; past this the plate would crowd a narrow third rather than grow the logo. */
+private val BRAND_PLATE_MAX_WIDTH = 200.dp
 
 /**
  * The narrowest third the full header fits in: three [HeaderControl]s at [CONTROL_MIN_WIDTH] with their
