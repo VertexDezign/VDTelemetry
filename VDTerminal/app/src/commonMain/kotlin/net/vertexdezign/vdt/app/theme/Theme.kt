@@ -308,16 +308,23 @@ object VdtColors {
  *
  * [logoPlate] is what the brand's logo sits on in the header, or null for straight on [active]. A
  * listed brand draws its logo on its own colour unless a plate is set here, so set one where the logo
- * needs it — Steyr's red wordmark vanishes on Steyr red. Every brand *not* listed gets
- * [defaultAccent]'s black plate, the dark ground the game shows all logos on.
+ * needs it — Steyr's red wordmark vanishes on Steyr red. Every brand *not* listed takes
+ * [defaultAccent], whose [autoPlate] asks the logo itself instead (see [logoPlateFor]): the table is
+ * the brands someone chose a colour for, and no one should have to list a brand just so its logo reads.
  */
-data class BrandAccent(val active: Color, val text: Color, val labelText: Color, val logoPlate: Color? = null)
+data class BrandAccent(
+  val active: Color,
+  val text: Color,
+  val labelText: Color,
+  val logoPlate: Color? = null,
+  val autoPlate: Boolean = false,
+)
 
 private val White = Color(0xFFFFFFFF)
 private val Black = Color(0xFF000000)
 
 /** The light palette's brand green, fixed: the header is the brand's colour whichever theme is on. */
-private val defaultAccent = BrandAccent(vdtGreen, White, White, logoPlate = Black)
+private val defaultAccent = BrandAccent(vdtGreen, White, White, autoPlate = true)
 
 private val brandAccents: Map<String, BrandAccent> =
   mapOf(
@@ -326,7 +333,7 @@ private val brandAccents: Map<String, BrandAccent> =
     "steyr" to BrandAccent(Color(0xFFE20026), White, White, logoPlate = White),
     "valtra" to BrandAccent(Color(0xFFE4002B), White, White),
     "mercedesbenztrucks" to BrandAccent(vdtGreen, White, White),
-    "johndeere" to BrandAccent(Color(0xFF367C2B), White, White),
+    "johndeere" to BrandAccent(Color(0xFF367C2B), White, White, logoPlate = Color(0xFFFFDE00)),
     "krone" to BrandAccent(Color(0xFF4A7729), White, White),
     "vredo" to BrandAccent(Color(0xFFFF9C00), Black, Black),
     "caseih" to BrandAccent(Color(0xFFA71930), White, White),

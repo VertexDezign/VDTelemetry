@@ -50,6 +50,7 @@ import net.vertexdezign.vdt.app.state.ThemeMode
 import net.vertexdezign.vdt.app.state.UiScaleStore
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.brandAccentFor
+import net.vertexdezign.vdt.app.theme.logoPlateFor
 import net.vertexdezign.vdt.model.Environment
 import net.vertexdezign.vdt.model.Vehicle
 
@@ -108,7 +109,14 @@ fun Header(
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
         if (vehicle != null && brandLogo != null) {
-          BrandPlate(brandLogo, brandName, accent.logoPlate)
+          // Worked out once per logo, not per frame: the header recomposes with every telemetry tick.
+          val plate =
+            if (accent.autoPlate) {
+              remember(brandLogo, accent.active) { logoPlateFor(brandLogo, accent.active) }
+            } else {
+              accent.logoPlate
+            }
+          BrandPlate(brandLogo, brandName, plate)
         } else {
           Text(
             brandName.uppercase(),
@@ -154,10 +162,10 @@ fun Header(
 }
 
 /**
- * The brand's logo, on [plate] when the brand's accent asks for one (see [BrandAccent.logoPlate]) —
- * black for every brand the accent table doesn't know, because the game only ever shows its logos on
- * a dark ground and some carry white lettering. A literal colour rather than a palette role for the
- * same reason as the map's: it belongs to the art, and holds whichever theme is on.
+ * The brand's logo, on [plate] when it needs one: chosen by hand for a brand in the accent table
+ * (see [BrandAccent.logoPlate]), worked out from the logo for any other (see [logoPlateFor]). A
+ * literal colour rather than a palette role for the same reason as the map's: it belongs to the art,
+ * and holds whichever theme is on.
  *
  * With or without a plate the slot is the same size, as tall as the name it replaces plus a little,
  * so the bar does not jump when a logo arrives; the height the controls give the header already has
