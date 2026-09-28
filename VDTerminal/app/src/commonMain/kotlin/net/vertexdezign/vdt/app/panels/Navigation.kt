@@ -33,6 +33,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.GpsCourseState
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.math.abs
@@ -106,7 +107,12 @@ internal fun deviationLabel(deviationM: Float): String {
  * place it on rather than in a band that is always on screen.
  */
 @Composable
-fun Navigation(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
+fun Navigation(
+  vehicle: Vehicle,
+  modifier: Modifier = Modifier,
+  progress: CourseProgress? = null,
+  onCommand: (ClientMessage) -> Unit = {},
+) {
   Panel("Navigation", modifier, icon = Icons.Filled.Explore) {
     val gps = vehicle.gps
 
@@ -155,7 +161,7 @@ fun Navigation(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (Clie
       gps?.course?.let { course ->
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
           Lightbar(course.deviationM ?: 0f, Modifier.fillMaxWidth())
-          CourseReadout(course)
+          CourseReadout(course, progress)
         }
       }
 
@@ -208,11 +214,19 @@ internal fun Lightbar(deviationM: Float, modifier: Modifier = Modifier, cellHeig
  * in the field.
  *
  * The distance counts down to the headland and turns amber inside the game's own line-end warning
- * distance. The progress pair is the honest measure of a field's state — the game marks a line worked
- * once you have steered it for 2.5 s, so "23 of 47" is its own bookkeeping, not ours.
+ * distance. The done count is [progress] — lines the steering assist has actually followed for most of
+ * their length — and never the game's own tally, which counts a line as done once it has been steered
+ * for 2.5 s. It is left off
+ * until the server has scored this very course: a count for the previous field, or none yet, would
+ * read as a statement about this one.
  */
 @Composable
-internal fun CourseReadout(course: GpsCourseState, modifier: Modifier = Modifier, fontSize: TextUnit = 12.sp) {
+internal fun CourseReadout(
+  course: GpsCourseState,
+  progress: CourseProgress?,
+  modifier: Modifier = Modifier,
+  fontSize: TextUnit = 12.sp,
+) {
   Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
     course.deviationM?.let {
       Text(
@@ -232,8 +246,9 @@ internal fun CourseReadout(course: GpsCourseState, modifier: Modifier = Modifier
     }
     if (course.segmentCount > 0) {
       val line = if (course.segmentIndex > 0) course.segmentIndex.toString() else "–"
+      val done = progress?.takeIf { it.courseId == course.courseId && it.courseId.isNotBlank() }?.doneCount
       Text(
-        "$line/${course.segmentCount} · ${course.workedCount} done",
+        "$line/${course.segmentCount}" + if (done != null) " · $done done" else "",
         fontSize = fontSize,
         color = VdtColors.DarkGray,
       )
@@ -322,6 +337,7 @@ fun BoxScope.GuidanceStrip(
   heading: Int,
   vehicle: Vehicle?,
   modifier: Modifier = Modifier,
+  progress: CourseProgress? = null,
   onCommand: (ClientMessage) -> Unit = {},
 ) {
   val gps = vehicle?.gps
@@ -394,7 +410,7 @@ fun BoxScope.GuidanceStrip(
     // for driving to somewhere doesn't carry a bar that has nothing to say.
     gps?.course?.let { course ->
       Lightbar(course.deviationM ?: 0f, cellHeight = 8.dp)
-      CourseReadout(course, fontSize = 10.sp)
+      CourseReadout(course, progress, fontSize = 10.sp)
     }
   }
 }

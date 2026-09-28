@@ -110,6 +110,7 @@ fun main() {
       mapData = repository.mapData,
       mapVehicles = repository.mapVehicles,
       gpsCourse = repository.gpsCourse,
+      courseProgress = repository.courseProgress,
       mapLayers = repository.mapLayers,
       fieldInfo = repository.fieldInfo,
       fieldStatus = repository.fieldStatus,

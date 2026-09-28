@@ -15,6 +15,7 @@ import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
+import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
@@ -106,6 +107,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // is the mod saying the driver has left the field, which clears the overlay just as null does.
   private val _gpsCourse = MutableStateFlow<GpsCourseData?>(null)
   val gpsCourse: StateFlow<GpsCourseData?> = _gpsCourse.asStateFlow()
+
+  // How much of each course line is actually worked, scored by the server against its coverage mask;
+  // null while there is no course to score.
+  private val _courseProgress = MutableStateFlow<CourseProgress?>(null)
+  val courseProgress: StateFlow<CourseProgress?> = _courseProgress.asStateFlow()
 
   // Per-field agronomy for the field-info popup, on its own interval cadence; null while
   // fieldInfo.json is absent (export off / no data yet), broadcast so the popup drops the agronomy
@@ -264,6 +270,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.GpsCourse -> {
                       _gpsCourse.value = msg.data
+                    }
+
+                    is ServerMessage.GpsCourseProgress -> {
+                      _courseProgress.value = msg.data
                     }
 
                     is ServerMessage.FieldInfo -> {

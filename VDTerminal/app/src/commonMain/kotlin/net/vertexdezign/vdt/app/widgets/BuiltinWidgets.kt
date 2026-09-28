@@ -101,6 +101,7 @@ object MapWidget : Widget {
     val mapLayers by store.mapLayers.collectAsState()
     val fieldInfo by store.fieldInfo.collectAsState()
     val gpsCourse by store.gpsCourse.collectAsState()
+    val courseProgress by store.courseProgress.collectAsState()
     val missions by store.missions.collectAsState()
 
     val pda = telemetry?.environment?.pda
@@ -130,6 +131,7 @@ object MapWidget : Widget {
       showSections = sectionsOption.resolve(config) == SECTIONS_ON,
       onCommand = store.onCommand,
       gpsCourse = gpsCourse,
+      courseProgress = courseProgress,
       missions = missions,
     )
   }
@@ -280,11 +282,12 @@ object NavigationWidget : Widget {
   override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
+    val courseProgress by store.courseProgress.collectAsState()
     val vehicle = telemetry?.vehicle
     if (vehicle == null) {
       MissingPanel(title, icon, modifier)
     } else {
-      Navigation(vehicle, modifier, onCommand = store.onCommand)
+      Navigation(vehicle, modifier, courseProgress, onCommand = store.onCommand)
     }
   }
 }

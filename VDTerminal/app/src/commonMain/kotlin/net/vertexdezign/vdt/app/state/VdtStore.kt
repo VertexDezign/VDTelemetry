@@ -9,6 +9,7 @@ import net.vertexdezign.vdt.app.WakeLockStatus
 import net.vertexdezign.vdt.app.alerts.AlertEngine
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.PageStore
+import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
@@ -48,6 +49,11 @@ class VdtStore(
   val mapVehicles: StateFlow<MapVehiclesData?>,
   /** The steering assist's guidance lines for the field being driven; null when there is no course. */
   val gpsCourse: StateFlow<GpsCourseData?>,
+  /**
+   * How much of each line of [gpsCourse] is actually worked — the server's answer, read in place of
+   * the game's own flags; null when there is no course.
+   */
+  val courseProgress: StateFlow<CourseProgress?>,
   /** Ground-layer legends (crops/growth/soil); the raster PNG is fetched from [mapLayerUrl] on demand. */
   val mapLayers: StateFlow<MapLayersInfo?>,
   val fieldInfo: StateFlow<FieldInfoData?>,

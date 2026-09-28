@@ -2,6 +2,7 @@ package net.vertexdezign.vdt
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
@@ -90,6 +91,18 @@ sealed interface ServerMessage {
   @Serializable
   @SerialName("gpsCourse")
   data class GpsCourse(val data: GpsCourseData? = null) : ServerMessage
+
+  /**
+   * Which stretches of the current course's lines have been driven — see [CourseProgress].
+   *
+   * Derived by the **server**, like [FieldStatus]: it follows the steering assist along the course from
+   * [GpsCourse], so there is no channel file behind it. Republished a few times a second while it
+   * grows, not at all while it does not. [data] is null when there is no course (no file, or the
+   * driver has left the field).
+   */
+  @Serializable
+  @SerialName("gpsCourseProgress")
+  data class GpsCourseProgress(val data: CourseProgress? = null) : ServerMessage
 
   /**
    * The per-field agronomy channel (`fieldInfo.json`), feeding the field-info popup. Interval-driven
