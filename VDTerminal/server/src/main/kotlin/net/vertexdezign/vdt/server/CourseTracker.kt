@@ -93,7 +93,7 @@ class CourseTracker {
     val line = current.segments.firstOrNull { it.i == state.segmentIndex }
     val length = line?.let { lengths[it.i] } ?: 0f
     val hit = line?.let { projectOnPolyline(it.p, player.posX, player.posZ) }
-    val onLine = max(current.implementWidth, MIN_ON_LINE_METERS) / terrainSize
+    val onLine = max(current.implementWidth / 2f, MIN_ON_LINE_METERS) / terrainSize
     if (line == null || length <= 0f || hit == null || hit.off > onLine) {
       last = null
       return

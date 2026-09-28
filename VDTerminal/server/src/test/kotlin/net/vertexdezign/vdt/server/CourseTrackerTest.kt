@@ -135,6 +135,14 @@ class CourseTrackerTest {
   }
 
   @Test
+  fun theNeighbouringLineIsNotThisOne() {
+    // A swath away is the next line over: the game naming line 1 while the machine still drives line 2.
+    val tracker = tracker()
+    tracker.drive(x = 518f, fromZ = 500f, toZ = 700f)
+    assertTrue(assertNotNull(tracker.snapshot()).driven.isEmpty())
+  }
+
+  @Test
   fun doesNotBridgeAGapItCannotVouchFor() {
     val tracker = tracker()
     val t = tracker.drive(x = 506f, fromZ = 500f, toZ = 520f)
