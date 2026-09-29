@@ -56,7 +56,7 @@ The pickup's raised/lowered position is the `lowered` aspect, which asks `Pickup
   2700-line state machine; see FUTURE.md.
 - Specs: `spec/Baler_spec.lua`.
 
-## App side — `BalerSection.kt` + `BalerArt.kt`
+## App side — `BalerSection.kt` + `BalerArt.kt` (built, not yet seen in a browser)
 
 - Dispatch on `baler != null || baleWrapper != null` in `IsoBusMachine.hasSection`, like the mixer.
   A baler-wrapper is **one** machine carrying both aspects (unlike the combine's two), so no rig pairing is
@@ -76,7 +76,11 @@ The pickup's raised/lowered position is the `lowered` aspect, which asks `Pickup
     because the game's animation time is not exported. When `bales` empties during OPEN, the bale rolls out
     onto the ground behind the machine.
   - *Collector*: 0..capacity bales on a rack behind a square baler, from `collector.fillUnit`.
-  - *Square*: a long channel. The plunger strokes while `working`; the forming bale is a slab
+  - *Square*: a long channel. **Bales are drawn nose to tail from the forming one, by count** — not at
+    their exported `position`: that runs along the machine's own bale curve, whose origin the export does
+    not give (the captured BiG Pack's freshly tied bale already sits at ~0.18), and mapping it onto the
+    picture left gaps the machine does not have. The push is what the game guarantees: one bale length
+    per bale formed. The plunger strokes while `working`; the forming bale is a slab
     that gets longer with the fill level; finished bales sit at their `position` along the channel and chute,
     and leave off the end when their position reaches 1. Platform: the bale waits on the tilted platform
     while `ready`.
@@ -95,8 +99,10 @@ The pickup's raised/lowered position is the `lowered` aspect, which asks `Pickup
 
 1. ~~Mod: aspects, commands, v26. Captures.~~
 2. ~~Kotlin model + `BalerModelTest` over the captures.~~
-3. Commands on the app side (`Protocol.kt` + `CommandWriter`).
-4. `BalerArt` geometry + tests, then the section, then the chips.
+3. ~~Commands on the app side (`Protocol.kt` + `CommandWriter`).~~
+4. ~~`BalerArt` geometry + tests, then the section, then the chips.~~ Reviewed only through a throwaway
+   ImageMagick port of the geometry; **the first look in a real browser is still to come.**
+5. In-game: every control on SP and an MP client, then this plan goes and its leftovers move to FUTURE.md.
 
 ## Captures (`examples/json/telemetry/vanilla/baler/`, singleplayer, 2026-09-29)
 
