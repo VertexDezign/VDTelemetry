@@ -411,7 +411,9 @@ private fun BaleSizeChip(baler: Baler, target: ControlTarget?, onCommand: (Clien
           },
           onClick = {
             open = false
-            if (!chosen) target?.let { onCommand(ClientMessage.SetBaleType(it, index)) }
+            // Asked again here, not only when the menu opened: the motor can stop while it is open, and
+            // the mod would drop the command without a word.
+            if (!chosen && baler.powered) target?.let { onCommand(ClientMessage.SetBaleType(it, index)) }
           },
         )
       }
