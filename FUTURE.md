@@ -32,6 +32,7 @@ Retired plans, if the full reasoning is wanted (`git show <sha>:<file>`):
 | `map-layers-plan.md`   | `df511b3` (2026-07-25)                             | ground-layer overlays, per-plane split          |
 | `mission-plan.md`      | `91e9fca` (2026-08-06)                             | issue #17 — contracts                           |
 | `split-layout-plan.md` | `9798758` (2026-09-26)                             | pages as split trees instead of a cell grid     |
+| `baler-plan.md`        | `b925d2a` (2026-09-29)                             | the baler and bale-wrapper ISOBUS screen        |
 
 Still live: **`isobus-plan.md`** (issue #58). Its mod side is built; its app side is not, so the plan stays as the
 working spec. It is indexed below rather than duplicated.
@@ -52,13 +53,9 @@ What those two left is under their own headings below. What is still untouched f
 
 - **The stepped fill bar.** `fillUnit.display == STEP` marks consumables, where capacity is a slot count: the game draws
   one segment per slot with the part-used roll's fraction inside the next one, and labels it `"2 / 2"` (a `ceil`, not a
-  percentage). `components/FillUnitsDisplay.kt` carries the note and renders a continuous bar.
-- **The work aspect that is still undrawn:** `baleCounter`. `workMode` became a chip on the machine screen, writable
-  through `setWorkMode` (export v25), validated in singleplayer and on a multiplayer client. `workWidth` was drawn by the section view,
-  `discharge` and `tipping` by #116 — `discharge.reason`, the engine's own verdict on why unloading is refused, turned
-  out to be exactly the pick of them it looked like — and the `harvest` / `cutter` pair by **#141**, which took the
-  whole
-  of export v21 into the Kotlin model and built the combine screen on it.
+  percentage). `components/FillUnitsDisplay.kt` carries the note and renders a continuous bar. The base game does use
+  it: every baler capture's net, twine and film are `STEP`. The baler screen counts rolls the game's way
+  (`rollsLabel`), so what is left is the generic bar on the vehicle page.
 
 ### Two open calls on the mod side
 
@@ -191,7 +188,11 @@ but **none of round 1's four aspects has a section yet**.
   runtime in the wasm build was never verified** — only accessor generation was. The mixer's art is a
   PNG and sidesteps it, so the question is still open and blocks that branch, not this one.
 - **Round 2 classes**, in rough value order: trailer / forage wagon. The mixer wagon is done (#113), the
-  harvesters are done (#141), and the balers and bale wrappers are being built (`baler-plan.md`).
+  harvesters are done (#141), and so are the balers and bale wrappers (branch `baler-isobus`, export v26).
+- **A baler with a `Baler.platform` has never been seen.** The export and the art both handle one (`baler.platform`,
+  `DROP_PLATFORM`), written to the engine and covered by the specs, but no base-game baler turned out to have it — the
+  square baler's collector, which looked like one, is BaleLoader (below). The first capture of a modded machine with
+  it is the first real test of that path.
 - **Setting down a baler's bale collector.** A square baler with its collector configured (`balerLoader`,
   captured as `squareBaler_collector.json`) carries `BaleLoader` for the rack: the export counts the bales on
   it (`baler.collector`) but setting the stack down is the game's key only. `BaleLoader` is the same
@@ -439,8 +440,6 @@ Each one is cheap to do while playing and settles something above.
   `environment.daylight.latitude < 0` and should label period 1 September rather than March. This is the whole reason
   the labels cross the wire instead of being a lookup table in the app.
 
-- Does a base-game baler set `uiDisplayType="STEP"` on its consumable fill unit? It is visible in the exported JSON as
-  `display`, so this is just a matter of looking. Decides whether the stepped bar is worth building.
 - Does a multi-state pipe report sensibly — an auger wagon should give `pipe.numStates > 2`? Read the JSON; nothing
   renders it.
 - Does a multi-cover vehicle really report `cover.state > 1`? Parked for want of such a vehicle, and low risk: a
@@ -608,8 +607,12 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   on a client neither number exists, so the bar is simply not drawn. Mid-pass either way: CombineXP's measurement resets
   to zero the
   moment the drum stops being fed, so a headland capture shows nothing.
-- **A tipping trailer** and **a baler.** Between them they cover `tipping`, `discharge`, `baleCounter`, the `STEP`
-  consumable bar, and they would give `jointDescIndex` its first real chain.
+- **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
+  (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
+- **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file
+  shows `baler` / `baleWrapper` as a client exports them. Nothing is expected to differ — the door, the bales, the
+  sizes and auto-drop all ride Baler's own events and streams, and the wrap time advances on every peer — which is
+  exactly what one capture would confirm. Wanted mid-bale, so the fill level and `working` are live.
 - **More finance captures.** `examples/json/finance/vanilla.json` is a fresh singleplayer save, so it has one period and
   an empty log. Still wanted: **a played-in save** (several archived periods, to see how many a real game carries), **an
   MP client** (does the history really stop at five?), and **one with notifications in the log** — the hook itself is
