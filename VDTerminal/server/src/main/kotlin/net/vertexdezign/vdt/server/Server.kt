@@ -34,6 +34,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
 import net.vertexdezign.vdt.VdtParser
 import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
+import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.MapLayerData
 import net.vertexdezign.vdt.model.MapLayerInfo
@@ -83,6 +84,12 @@ private const val CHANNEL_STATS_INTERVAL_MS = 1000L
  * for a picture that grows by one swath in that time. Coverage is a trail, not an instrument.
  */
 private const val COVERAGE_PUBLISH_INTERVAL_MS = 2000L
+
+/**
+ * How often the driven stretches of the course are published. Short, unlike the coverage raster: the
+ * line changes colour behind the machine, and at working speed it moves a metre or two in this time.
+ */
+private const val COURSE_PROGRESS_PUBLISH_INTERVAL_MS = 250L
 
 /**
  * The addresses this server can be opened on from another device.
@@ -196,6 +203,8 @@ fun main() {
   // receive, so the game does no extra work for it — see CoverageRecorder for why this is not in the
   // mod, and COVERAGE_LAYER_ID for how it reaches the app as an ordinary plane.
   val coverage = CoverageRecorder()
+  // Fed from the same collector; see the course progress block below.
+  val courseTracker = CourseTracker()
   val coverageState = MutableStateFlow<MapLayerData?>(null)
   appScope.launch {
     telemetryState.collect { data ->
@@ -207,13 +216,28 @@ fun main() {
       val terrainSize =
         listOfNotNull(mapState.value?.terrainSize, mapLayerCatalogState.value?.terrainSize)
           .firstOrNull { it > 0f } ?: 0f
-      coverage.record(data.vehicle, terrainSize, System.currentTimeMillis())
+      val now = System.currentTimeMillis()
+      coverage.record(data.vehicle, terrainSize, now)
+      courseTracker.record(data.vehicle, data.environment?.pda?.player, terrainSize, now)
     }
   }
   appScope.launch {
     while (isActive) {
       delay(COVERAGE_PUBLISH_INTERVAL_MS)
       coverage.snapshotIfChanged()?.let { coverageState.value = it }
+    }
+  }
+
+  // Course progress: which stretches of the course lines have been driven with the steering assist
+  // engaged, sent in place of the game's own "worked" flags — see CourseProgress for why those
+  // cannot be used. Taken off a timer rather than per sample: the stretch grows by a metre or two in
+  // that time, and an unchanged snapshot is dropped by the StateFlow, so an idle course sends nothing.
+  val courseProgressState = MutableStateFlow<CourseProgress?>(null)
+  appScope.launch { gpsCourseState.collect { courseTracker.setCourse(it) } }
+  appScope.launch {
+    while (isActive) {
+      delay(COURSE_PROGRESS_PUBLISH_INTERVAL_MS)
+      courseProgressState.value = courseTracker.snapshot()
     }
   }
 
@@ -345,6 +369,13 @@ fun main() {
           launch {
             gpsCourseState.collect { data ->
               val message: ServerMessage = ServerMessage.GpsCourse(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
+        val courseProgressJob =
+          launch {
+            courseProgressState.collect { data ->
+              val message: ServerMessage = ServerMessage.GpsCourseProgress(data)
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
@@ -487,6 +518,7 @@ fun main() {
           mapJob.cancel()
           mapVehiclesJob.cancel()
           gpsCourseJob.cancel()
+          courseProgressJob.cancel()
           fieldInfoJob.cancel()
           productionJob.cancel()
           storageJob.cancel()

@@ -1,13 +1,18 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.GpsCourseData
 import net.vertexdezign.vdt.model.GpsCourseState
+import net.vertexdezign.vdt.model.polylineLength
+import net.vertexdezign.vdt.model.projectOnPolyline
+import net.vertexdezign.vdt.model.slicePolyline
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -171,5 +176,65 @@ class GpsCourseModelTest {
     assertFalse(second.isWorked(0))
     assertFalse(second.isWorked(-1))
     assertFalse(GpsCourseState().isWorked(1))
+  }
+
+  @Test
+  fun sumsTheDrivenStretchesOfALine() {
+    val progress = CourseProgress(
+      courseId = "c1",
+      driven = mapOf(
+        1 to listOf(0f, 1f),
+        2 to listOf(0f, 0.5f, 0.6f, 1f),
+        3 to listOf(0.2f, 0.5f),
+      ),
+    )
+    assertEquals(1f, progress.fractionOf(1))
+    assertEquals(0.9f, progress.fractionOf(2), 1e-6f)
+    assertEquals(0.3f, progress.fractionOf(3), 1e-6f)
+    assertEquals(0f, progress.fractionOf(4), "a line never driven is left out, and reads as nothing driven")
+    // Done at 90 %: a line is never driven into the headland, so "all of it" never comes.
+    assertEquals(2, progress.doneCount)
+  }
+
+  @Test
+  fun projectsOntoAndSlicesAPolyline() {
+    // An L: 10 east, then 10 north.
+    val l = listOf(0f, 0f, 10f, 0f, 10f, 10f)
+    assertEquals(20f, polylineLength(l))
+
+    val onSecondLeg = assertNotNull(projectOnPolyline(l, 12f, 5f))
+    assertEquals(15f, onSecondLeg.along, 1e-5f)
+    assertEquals(2f, onSecondLeg.off, 1e-5f)
+    // Beyond the start clamps to the start rather than extrapolating the line.
+    assertEquals(0f, assertNotNull(projectOnPolyline(l, -3f, 0f)).along)
+    assertNull(projectOnPolyline(listOf(1f, 1f), 0f, 0f), "a single point has no length to project onto")
+
+    // The slice keeps the corner it runs through.
+    assertContentEquals(listOf(5f, 0f, 10f, 0f, 10f, 5f), slicePolyline(l, 0.25f, 0.75f))
+    assertContentEquals(listOf(0f, 0f, 10f, 0f), slicePolyline(l, 0f, 0.5f))
+    assertTrue(slicePolyline(l, 0.5f, 0.5f).isEmpty(), "an empty stretch is no polyline")
+  }
+
+  @Test
+  fun courseProgressRoundTripsThroughTheServerMessage() {
+    val json = Json { encodeDefaults = true }
+    val message: ServerMessage = ServerMessage.GpsCourseProgress(
+      CourseProgress(
+        "c1",
+        mapOf(
+          3 to listOf(0.1f, 0.4f),
+          12 to listOf(0f, 1f),
+        ),
+      ),
+    )
+    val encoded = json.encodeToString(ServerMessage.serializer(), message)
+    assertTrue(encoded.contains("\"type\":\"gpsCourseProgress\""), encoded)
+    assertEquals(message, json.decodeFromString(ServerMessage.serializer(), encoded))
+    // "No course" has to cross the wire too, or the app keeps the last field's progress.
+    val none: ServerMessage = ServerMessage.GpsCourseProgress(null)
+    assertEquals(
+      none,
+      json.decodeFromString(ServerMessage.serializer(), json.encodeToString(ServerMessage.serializer(), none)),
+    )
   }
 }

@@ -46,7 +46,7 @@ data class GpsCourseData(
 data class GpsCourseSegment(
   /**
    * The game's own segment index, and the key everything else uses: [GpsCourseState.segmentIndex]
-   * names one of these, and [GpsCourseState.isWorked] is asked about one of these.
+   * names one of these, and [CourseProgress.driven] is keyed by it.
    */
   val i: Int = 0,
   /**
@@ -60,3 +60,53 @@ data class GpsCourseSegment(
   /** Flat normalized polyline `[x1, z1, x2, z2, …]`; a straight line is just its two ends. */
   val p: List<Float> = emptyList(),
 )
+
+/**
+ * A line counts as done once this much of its length has been driven.
+ *
+ * Not all of it: steering drops off a few metres before the headland, where the driver takes the turn,
+ * and a course line runs right up to it — so a line driven end to end the way anyone actually drives
+ * one still comes out a little short, more so on the short lines in a field's corners.
+ */
+const val COURSE_LINE_DONE_FRACTION = 0.9f
+
+/**
+ * Which stretches of each course line have been driven with the steering assist engaged — tracked by
+ * the **server** from the telemetry it already receives, and sent in place of the game's own "worked"
+ * flags ([GpsCourseState.worked]).
+ *
+ * The game's flag is not a statement about how much of a line was driven. `SteeringFieldCourse` sets
+ * it once steering has been engaged on a line for 2.5 s, so a line driven for a metre reads exactly
+ * like one driven end to end. The only thing in the game that reads it is the course visual; picking
+ * the next line does not, so nothing is lost by answering the question ourselves.
+ *
+ * What is recorded is the line itself, not the ground: while the assist is steering, the vehicle's
+ * position is projected onto the line it is following and the stretch between two samples is marked.
+ * That is deliberately not the coverage mask — lines generated narrower than the tool overlap, and a
+ * line whose ground a neighbour already worked is still a line nobody has driven.
+ *
+ * Its lifetime is the course's, like the game's flags: a new [courseId] starts every line over. A
+ * server restart does too, which the game's flags would have survived.
+ */
+@Serializable
+data class CourseProgress(
+  /** The [GpsCourseData.courseId] these stretches belong to; ignore them for any other course. */
+  val courseId: String = "",
+  /**
+   * Per line, keyed by [GpsCourseSegment.i]: the driven stretches as flat `[from1, to1, from2, to2, …]`
+   * fractions of the line's length, measured from its first point, sorted and never overlapping.
+   * Lines never driven are left out.
+   */
+  val driven: Map<Int, List<Float>> = emptyMap(),
+) {
+  /** How much of the line with index [i] has been driven, 0..1. */
+  fun fractionOf(i: Int): Float {
+    val spans = driven[i] ?: return 0f
+    var sum = 0f
+    for (k in 0 until spans.size / 2) sum += spans[2 * k + 1] - spans[2 * k]
+    return sum
+  }
+
+  /** How many lines count as done. */
+  val doneCount: Int get() = driven.keys.count { fractionOf(it) >= COURSE_LINE_DONE_FRACTION }
+}

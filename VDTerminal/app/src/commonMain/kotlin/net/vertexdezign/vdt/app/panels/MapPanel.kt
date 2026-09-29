@@ -125,6 +125,7 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
+import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.FieldCropRotation
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldInfoEntry
@@ -147,6 +148,7 @@ import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
 import net.vertexdezign.vdt.model.activeWorkAreas
 import net.vertexdezign.vdt.model.coversGround
+import net.vertexdezign.vdt.model.slicePolyline
 import org.jetbrains.skia.Image
 import kotlin.math.hypot
 import kotlin.math.pow
@@ -288,6 +290,8 @@ fun MapPanel(
   showSections: Boolean = false,
   onCommand: (ClientMessage) -> Unit = {},
   gpsCourse: GpsCourseData? = null,
+  /** How much of each [gpsCourse] line is actually worked, scored by the server. */
+  courseProgress: CourseProgress? = null,
   /** The farm's contracts, drawn as markers and as a tint on the field each one is on. */
   missions: MissionsData? = null,
 ) {
@@ -744,6 +748,7 @@ fun MapPanel(
         CourseOverlay(
           gpsCourse,
           vehicle?.gps?.course,
+          courseProgress,
           mapData?.terrainSize ?: 0f,
           projection,
           focus = player?.let { Offset(it.posX, it.posZ) },
@@ -867,7 +872,7 @@ fun MapPanel(
       // stays uncovered while a map used as a run screen carries its heading and lamps. Above the
       // legend and the field popup in the stack — it is a fixed strip in a corner they don't use.
       if (showGuidance) {
-        GuidanceStrip(heading, vehicle, onCommand = onCommand)
+        GuidanceStrip(heading, vehicle, progress = courseProgress, onCommand = onCommand)
       }
 
       // The boom along the bottom edge (issue #43), where the reference terminals put it — and in
@@ -1135,7 +1140,14 @@ private fun sweptPath(areas: List<SweptArea>): Path = Path().apply {
 
 /**
  * The guidance course: every line the game's steering assist generated for the field being driven,
- * shaded by whether it is done, with the line currently being followed picked out.
+ * with the stretches already driven shaded and the line currently being followed picked out.
+ *
+ * What is driven is [progress] — the stretches the server saw the steering assist follow — never the
+ * game's own flag, which marks a whole line done after 2.5 s of steering on it. So the line changes
+ * behind the machine as it goes. Driven and not driven differ by more than hue: a driven stretch is a
+ * green hairline over a **filled** band, the rest a faint swath — and on the line being followed, the
+ * thick red line ahead of the machine gives way to the thin green one behind it, never a red line
+ * turning green at the same width.
  *
  * Drawn like the field polygons — paths built once per course in normalized space and re-projected
  * under [projection] — but with two stroke widths that mean different things. The centreline is a
@@ -1160,6 +1172,7 @@ private fun sweptPath(areas: List<SweptArea>): Path = Path().apply {
 private fun BoxScope.CourseOverlay(
   course: GpsCourseData,
   state: GpsCourseState?,
+  progress: CourseProgress?,
   terrainSize: Float,
   projection: MapProjection,
   focus: Offset? = null,
@@ -1183,6 +1196,16 @@ private fun BoxScope.CourseOverlay(
 
   // Only the geometry this state actually describes (see the doc comment).
   val live = state?.takeIf { it.courseId == course.courseId && it.courseId.isNotBlank() }
+  // Scored against this course, or not at all: a score for the field just left says nothing here.
+  val scored = progress?.takeIf { it.courseId == course.courseId && it.courseId.isNotBlank() }
+  // Each line split into what has been driven and what has not, so neither is drawn under the other.
+  val split =
+    remember(course, scored) {
+      course.segments.associate { segment ->
+        val spans = scored?.driven?.get(segment.i).orEmpty()
+        segment.i to splitDriven(segment.p, spans)
+      }
+    }
   val swathWidth = if (terrainSize > 0f && course.implementWidth > 0f) course.implementWidth / terrainSize else 0f
 
   // Half a swath more than asked for, so the line being driven sits inside its own window rather than
@@ -1231,29 +1254,59 @@ private fun BoxScope.CourseOverlay(
       }
 
       for ((segment, path) in shown) {
-        val worked = live?.isWorked(segment.i) == true
         val current = live != null && segment.i == live.segmentIndex
+        val (driven, rest) = split[segment.i] ?: DrivenSplit(null, path)
         if (swathWidth > 0f) {
-          // The swath: what this line covers on the ground. Worked lines read as a filled band, the
-          // rest as a faint one — the same "where have I been" the reference terminals paint.
-          drawPath(
-            path,
-            if (worked) palette.green.copy(alpha = 0.35f) else VdtColors.White.copy(alpha = 0.12f),
-            style = Stroke(width = swathWidth),
-          )
+          // The swath: what this line covers on the ground. Driven stretches read as a filled band,
+          // the rest as barely there — the same "where have I been" the reference terminals paint.
+          rest?.let { drawPath(it, VdtColors.White.copy(alpha = 0.12f), style = Stroke(width = swathWidth)) }
+          driven?.let { drawPath(it, palette.green.copy(alpha = 0.35f), style = Stroke(width = swathWidth)) }
         }
         val tint =
           when {
             current -> palette.red
             segment.kind == "headland" -> palette.progressBlue
             segment.kind == "island" -> palette.amber
-            worked -> palette.green
             else -> VdtColors.White
           }
-        drawPath(path, tint, style = Stroke(width = if (current) currentLine else hairline))
+        rest?.let { drawPath(it, tint, style = Stroke(width = if (current) currentLine else hairline)) }
+        driven?.let { drawPath(it, palette.green, style = Stroke(width = hairline)) }
       }
     }
   }
+}
+
+/** A course line cut into its [driven] stretches and the [rest]; either is null when there is none. */
+private data class DrivenSplit(val driven: Path?, val rest: Path?)
+
+/**
+ * Cut the flat polyline [p] at the driven [spans] (flat `[from, to, …]` fractions, sorted and
+ * disjoint, as [CourseProgress.driven] sends them) into one path of what was driven and one of what
+ * was not, each made of as many pieces as it takes.
+ */
+private fun splitDriven(p: List<Float>, spans: List<Float>): DrivenSplit {
+  fun pathOf(pieces: List<List<Float>>): Path? {
+    val drawn = pieces.filter { it.size >= 4 }
+    if (drawn.isEmpty()) return null
+    return Path().apply {
+      for (piece in drawn) {
+        moveTo(piece[0], piece[1])
+        for (i in 2 until piece.size - 1 step 2) lineTo(piece[i], piece[i + 1])
+      }
+    }
+  }
+  val driven = ArrayList<List<Float>>()
+  val rest = ArrayList<List<Float>>()
+  var at = 0f
+  for (k in 0 until spans.size / 2) {
+    val from = spans[2 * k]
+    val to = spans[2 * k + 1]
+    if (from > at) rest += slicePolyline(p, at, from)
+    driven += slicePolyline(p, from, to)
+    at = maxOf(at, to)
+  }
+  if (at < 1f) rest += slicePolyline(p, at, 1f)
+  return DrivenSplit(pathOf(driven), pathOf(rest))
 }
 
 /**

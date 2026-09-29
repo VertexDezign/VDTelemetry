@@ -335,6 +335,10 @@ data class GpsCourseState(
    * Hex bitmask over segment indices, four per character: character *k* covers indices `4k-3..4k`,
    * bit 0 being the lowest of those, and the all-zero tail is trimmed. Read it through [isWorked]
    * rather than by hand.
+   *
+   * The game's own flag, which it sets after 2.5 s of steering on a line whether or not anything was
+   * worked. The dashboard draws and counts [CourseProgress] instead, the stretches actually driven;
+   * this stays in the contract as the raw record of what the game believes.
    */
   val worked: String? = null,
   /**
