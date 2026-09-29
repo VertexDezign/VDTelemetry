@@ -47,6 +47,9 @@ local sourceFiles = {
   -- further down; the call is inside the collector, so the order between the two does not matter.
   "src/collect/aspects/WorkAreas.lua",
   "src/collect/aspects/BaleCounter.lua",
+  -- Baler points at its own chamber in the exported fill-unit list, so FillUnit (above) comes first.
+  "src/collect/aspects/Baler.lua",
+  "src/collect/aspects/BaleWrapper.lua",
   "src/collect/aspects/Sowing.lua",
   "src/collect/aspects/Spraying.lua",
   "src/collect/aspects/Plow.lua",
@@ -136,6 +139,9 @@ local sourceFiles = {
   -- A tool's work mode (a merger's delivery side, a mower's spread/swath); asks aspects/Work.lua for
   -- the engine's own verdict, as CombineControl does.
   "src/command/WorkModeControl.lua",
+  -- Baler, bale-wrapper and bale-counter controls; ask aspects/Baler.lua and aspects/BaleWrapper.lua
+  -- for the engine's verdicts, as the two above do.
+  "src/command/BalerControl.lua",
   -- Drives the game's own machine selection (and, in the same call, the Cylindered control group).
   -- Addresses a machine by the rig diagram's node path rather than by a target token, so it resolves
   -- its own walk and does not use TargetResolver.
@@ -295,7 +301,13 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     its key is gated on (a motor on the rig must be running). Both exist because the
 --     mode became WRITABLE: a terminal needs to know what a tap switches to, and when the game would
 --     refuse it. First machine it was captured on is a rotary merger (examples/json/workMode.json).
-VDTelemetry.VERSION = 25
+-- 26: `baler` and `baleWrapper` -- the baler's own state (door, finished bales and where they are in
+--     the channel, the sizes it offers and the one chosen, auto-drop, platform, non-stop buffer, and
+--     `unload`, what the game's drop key would do right now) and the wrapper's (its state machine,
+--     the wrap's progress, auto-drop, whether the drop key would drop). The bale's level is NOT
+--     repeated: `baler.fillUnit` is the chamber's position in `fillUnits`. Written by five new
+--     commands (command/BalerControl.lua).
+VDTelemetry.VERSION = 26
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

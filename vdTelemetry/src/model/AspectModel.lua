@@ -177,6 +177,59 @@
 ---@field session number
 ---@field lifetime number
 
+-- A baler (aspects/Baler.lua). The bale's level is NOT here: `fillUnit` points at the chamber's entry
+-- in the same node's `fillUnits` (1-based), which already carries it.
+---@class BalerModel
+---@field round boolean
+---@field fillUnit number? absent when the chamber is not an exported fill unit
+---@field consumable number? the net or twine's entry in `fillUnits`
+---@field working boolean crop is coming in (Baler's lastAreaBiggerZero)
+---@field powered boolean a motor on the rig is running; the game's keys refuse otherwise
+---@field door string? CLOSED | OPENING | OPEN | CLOSING -- round balers only
+---@field bales BaleModel[]? finished bales still on the machine
+---@field baleTypes BaleTypeModel[]?
+---@field baleType number 1-based into baleTypes
+---@field nextBaleType number? chosen, waiting for the chamber to empty
+---@field autoDrop AutoDropModel?
+---@field platform BalerPlatformModel?
+---@field buffer BalerBufferModel? non-stop balers only
+---@field collector BaleCollectorModel? a bale collector on the back (BaleLoader)
+---@field unload string? UNLOAD | UNLOAD_UNFINISHED | CLOSE | DROP_PLATFORM -- what the drop key would do
+
+---@class BaleModel
+---@field position number? 0..1 along a square baler's channel; absent on a round baler
+
+-- Metres. A round bale has diameter + width, a square bale width + height + length.
+---@class BaleTypeModel
+---@field diameter number?
+---@field width number
+---@field height number?
+---@field length number?
+
+---@class AutoDropModel
+---@field on boolean
+---@field canToggle boolean
+
+---@class BalerPlatformModel
+---@field ready boolean a bale is waiting on the platform
+
+---@class BaleCollectorModel
+---@field fillUnit number? its entry in `fillUnits`, counted in bales
+
+---@class BalerBufferModel
+---@field fillUnit number? the buffer's entry in `fillUnits`
+---@field overloading boolean the buffer is emptying into the chamber
+
+-- A bale wrapper, standalone or on a baler-wrapper (aspects/BaleWrapper.lua).
+---@class BaleWrapperModel
+---@field state string EMPTY | LOADING | LOADED | WRAPPING | WRAPPED | DROPPING | RESETTING
+---@field round boolean
+---@field progress number? 0..1 while wrapping, 1 once wrapped
+---@field consumable number? the wrap film's entry in `fillUnits`
+---@field autoDrop AutoDropModel
+---@field canDrop boolean the drop key would drop the wrapped bale now
+---@field unsupportedBale boolean the bale in reach cannot be wrapped by this machine
+
 -- A sowing machine's hopper: which crop is selected out of the machine's declared list, and how the
 -- hopper is set up. `fruitType` is the crop token (WHEAT), `fillType` the fill type it is carried as
 -- -- which is what joins this to the matching FillUnitModel -- and `title` the localized name to

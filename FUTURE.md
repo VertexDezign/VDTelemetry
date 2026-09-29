@@ -190,9 +190,13 @@ but **none of round 1's four aspects has a section yet**.
   along with `tools/isobus-art/` and `tools/isobus-mockup/`. **Whether Compose Resources decodes SVG at
   runtime in the wasm build was never verified** — only accessor generation was. The mixer's art is a
   PNG and sidesteps it, so the question is still open and blocks that branch, not this one.
-- **Round 2 classes**, in rough value order: baler + wrapper (bale in progress, bale type, auto-drop —
-  `Baler.lua` carries all of it), then trailer / forage wagon. The mixer wagon is done (#113) and the
-  harvesters are done (#141).
+- **Round 2 classes**, in rough value order: trailer / forage wagon. The mixer wagon is done (#113), the
+  harvesters are done (#141), and the balers and bale wrappers are being built (`baler-plan.md`).
+- **Setting down a baler's bale collector.** A square baler with its collector configured (`balerLoader`,
+  captured as `squareBaler_collector.json`) carries `BaleLoader` for the rack: the export counts the bales on
+  it (`baler.collector`) but setting the stack down is the game's key only. `BaleLoader` is the same
+  2700-line spec bale-collecting trailers use, with its own chain of `EMPTY_*` unload states, so the
+  command belongs with a bale-loader trailer screen rather than bolted onto the baler one.
 - **Round 2 controls.** Seed index (`setSeedIndex` / `changeSeedIndex` already send `SetSeedIndexEvent`), plough
   rotation (`setRotationMax` / `setRotationCenter`, both take `noEventSend` and own their event), the sprayer's
   doubled-amount toggle. None of them needs an MP event of our own.

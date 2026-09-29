@@ -47,6 +47,8 @@
 ---@field workWidth WorkWidthModel?
 ---@field workAreas WorkAreaModel[]?
 ---@field baleCounter BaleCounterModel?
+---@field baler BalerModel?
+---@field baleWrapper BaleWrapperModel?
 ---@field sowing SowingModel?
 ---@field spraying SprayingModel?
 ---@field plow PlowModel?
