@@ -33,6 +33,8 @@ data class Vehicle(
   val workWidth: WorkWidth? = null,
   val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
+  val baler: Baler? = null,
+  val baleWrapper: BaleWrapper? = null,
   val sowing: Sowing? = null,
   val spraying: Spraying? = null,
   val plow: Plow? = null,
@@ -841,6 +843,143 @@ val WorkArea.coversGround: Boolean get() = type !in DEPOSIT_AREA_TYPES
 data class BaleCounter(val session: Int = 0, val lifetime: Int = 0)
 
 /**
+ * A baler, round or square (mod version 26). The bale's level is **not** here: [fillUnit] is the
+ * chamber's 1-based position in the same machine's [FillUnits], and [consumable] the net's or twine's —
+ * resolve them with [chamberIn] / [consumableIn]. A baler carries other units beside the chamber (a
+ * non-stop baler's [buffer], an additive tank), and the chamber's fill type is just the crop, so
+ * neither is found by type. The net in particular cannot be: a captured GÖWEIL VARIO-Master exports its
+ * net roll with no fill type at all.
+ */
+@Serializable
+data class Baler(
+  val round: Boolean = false,
+  val fillUnit: Int? = null,
+  val consumable: Int? = null,
+  /** Crop is coming in right now. */
+  val working: Boolean = false,
+  /** A motor on the rig is running. Every one of the game's baler keys refuses without it. */
+  val powered: Boolean = false,
+  /** The tailgate, on a round baler; null on a square one, which has none. */
+  val door: BaleDoor? = null,
+  /**
+   * Finished bales still on the machine: the one waiting behind a round baler's shut door, or the ones
+   * in a square baler's channel.
+   */
+  val bales: List<Bale> = emptyList(),
+  val baleTypes: List<BaleType> = emptyList(),
+  /** 1-based into [baleTypes]: the size being formed. */
+  val baleType: Int = 1,
+  /** 1-based: a size chosen while a bale was in progress. The engine applies it once the chamber empties. */
+  val nextBaleType: Int? = null,
+  /** Null where the machine has no drop to automate (a square baler without platform). */
+  val autoDrop: AutoDrop? = null,
+  val platform: BalerPlatform? = null,
+  /** A non-stop baler's pre-chamber, which keeps filling while the chamber ties and drops. */
+  val buffer: BalerBuffer? = null,
+  /** A bale collector on the back of a square baler; resolve its count with [BaleCollector.fillUnit]. */
+  val collector: BaleCollector? = null,
+  /** What the game's drop key would do right now; null when it would do nothing. */
+  val unload: BaleUnloadAction? = null,
+) {
+  fun chamberIn(units: FillUnits?): FillUnit? = units.at(fillUnit)
+
+  fun consumableIn(units: FillUnits?): FillUnit? = units.at(consumable)
+
+  val currentBaleType: BaleType? get() = baleTypes.getOrNull(baleType - 1)
+}
+
+/** The 1-based [index] into [FillUnits.fillUnit], as the baler aspects point into it. */
+internal fun FillUnits?.at(index: Int?): FillUnit? = index?.let { this?.fillUnit?.getOrNull(it - 1) }
+
+enum class BaleDoor { CLOSED, OPENING, OPEN, CLOSING }
+
+/** The game's own drop-key verdict, which the `unloadBale` command must echo back to be carried out. */
+enum class BaleUnloadAction {
+  /** Open the door on a finished bale. */
+  UNLOAD,
+
+  /** Push out a part-formed bale — only machines that allow it, past a minimum fill. */
+  UNLOAD_UNFINISHED,
+
+  /** Shut the door after a drop. */
+  CLOSE,
+
+  /** Tip the bale waiting on the platform. */
+  DROP_PLATFORM,
+}
+
+/** [position] runs 0..1 along a square baler's channel, the bale leaving at 1; null on a round baler. */
+@Serializable
+data class Bale(val position: Double? = null)
+
+/** Metres. A round bale has [diameter] and [width]; a square one [width], [height] and [length]. */
+@Serializable
+data class BaleType(
+  val diameter: Double? = null,
+  val width: Double = 0.0,
+  val height: Double? = null,
+  val length: Double? = null,
+)
+
+@Serializable
+data class AutoDrop(val on: Boolean = false, val canToggle: Boolean = false)
+
+/** [ready]: a bale is waiting on the platform to be tipped. */
+@Serializable
+data class BalerPlatform(val ready: Boolean = false)
+
+/**
+ * [fillUnit] as [Baler.fillUnit]: a unit counted in bales, whose capacity is the places on the rack.
+ * Setting the stack down is not commandable — that is the collector's own specialization (BaleLoader),
+ * left for later.
+ */
+@Serializable
+data class BaleCollector(val fillUnit: Int? = null)
+
+/** [fillUnit] as [Baler.fillUnit]; [overloading] while the buffer empties into the chamber. */
+@Serializable
+data class BalerBuffer(val fillUnit: Int? = null, val overloading: Boolean = false)
+
+/**
+ * A bale wrapper — standalone, or the table on a baler-wrapper, which is the same machine to the
+ * engine (mod version 26). [consumable] is the film's position in [FillUnits], as [Baler.consumable].
+ */
+@Serializable
+data class BaleWrapper(
+  val state: WrapperState = WrapperState.EMPTY,
+  val round: Boolean = true,
+  val consumable: Int? = null,
+  /** 0..1 while [WrapperState.WRAPPING], 1 once wrapped. */
+  val progress: Double? = null,
+  val autoDrop: AutoDrop = AutoDrop(),
+  /** The game's drop key would drop the wrapped bale now. The drop area is only checked when it lands. */
+  val canDrop: Boolean = false,
+  /** The bale in reach is one this machine cannot wrap — the game's own warning. */
+  val unsupportedBale: Boolean = false,
+) {
+  fun consumableIn(units: FillUnits?): FillUnit? = units.at(consumable)
+}
+
+enum class WrapperState {
+  /** Nothing on the table; ready for a bale. */
+  EMPTY,
+
+  /** The arm is carrying a bale onto the table. */
+  LOADING,
+
+  /** Bale on the table, arm going back; wrapping starts next. */
+  LOADED,
+  WRAPPING,
+
+  /** Wrapped, waiting to be dropped. */
+  WRAPPED,
+  DROPPING,
+
+  /** The table tilting back after a drop. */
+  RESETTING,
+}
+
+/**
  * A sowing machine's hopper — which crop is selected, out of the list the machine itself declares.
  *
  * The fill unit only ever says SEEDS, so this is the only place the crop appears. [fruitType] is the
@@ -1153,6 +1292,8 @@ data class Implement(
   val workWidth: WorkWidth? = null,
   val workAreas: List<WorkArea> = emptyList(),
   val baleCounter: BaleCounter? = null,
+  val baler: Baler? = null,
+  val baleWrapper: BaleWrapper? = null,
   val sowing: Sowing? = null,
   val spraying: Spraying? = null,
   val plow: Plow? = null,

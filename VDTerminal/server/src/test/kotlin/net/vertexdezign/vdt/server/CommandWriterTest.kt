@@ -1,11 +1,13 @@
 package net.vertexdezign.vdt.server
 
+import net.vertexdezign.vdt.BalePart
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.CruiseAction
 import net.vertexdezign.vdt.InvoiceLineInput
 import net.vertexdezign.vdt.OutputMode
 import net.vertexdezign.vdt.TaskInput
+import net.vertexdezign.vdt.model.BaleUnloadAction
 import java.nio.file.Files
 import kotlin.io.path.readText
 import kotlin.test.Test
@@ -251,5 +253,23 @@ class CommandWriterTest {
     assertTrue(xml.contains("""type="setWorkMode" target="selected" mode="2""""), xml)
     assertTrue(xml.contains("""type="setDischarging" target="vehicle" on="true""""), xml)
     assertTrue(xml.contains("""type="setLowered" target="selected" on="true""""), xml)
+  }
+
+  @Test
+  fun `writes the baler commands with the attributes the mod parses`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    val writer = CommandWriter(path)
+    writer.submit(ClientMessage.ResetBaleCounter(ControlTarget.BACK))
+    writer.submit(ClientMessage.SetBaleType(ControlTarget.BACK, index = 3))
+    writer.submit(ClientMessage.SetBaleAutoDrop(ControlTarget.SELECTED, BalePart.WRAPPER, on = false))
+    writer.submit(ClientMessage.UnloadBale(ControlTarget.VEHICLE, BaleUnloadAction.UNLOAD_UNFINISHED))
+    writer.submit(ClientMessage.DropWrappedBale(ControlTarget.BACK))
+    val xml = path.readText()
+    assertTrue(xml.contains("""type="resetBaleCounter" target="back"/>"""), xml)
+    assertTrue(xml.contains("""type="setBaleType" target="back" index="3""""), xml)
+    assertTrue(xml.contains("""type="setBaleAutoDrop" target="selected" part="wrapper" on="false""""), xml)
+    // The mod compares this against its own `unload` verdict token for token.
+    assertTrue(xml.contains("""type="unloadBale" target="vehicle" action="UNLOAD_UNFINISHED""""), xml)
+    assertTrue(xml.contains("""type="dropWrappedBale" target="back"/>"""), xml)
   }
 }

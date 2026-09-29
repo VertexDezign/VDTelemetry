@@ -1,0 +1,325 @@
+{
+  "vehicle": {
+    "brand": {
+      "image": "S:/common/Farming Simulator 25/data/store/brands/brand_mercedesBenz.png",
+      "name": "MERCEDESBENZTRUCKS",
+      "title": "Mercedes-Benz Trucks"
+    },
+    "implement": [
+      {
+        "brand": {
+          "name": "KRONE",
+          "title": "KRONE"
+        },
+        "type": "baler",
+        "workAreas": [
+          {
+            "type": "BALER",
+            "index": 1,
+            "active": true,
+            "processing": true,
+            "unit": "m",
+            "shape": [
+              0.1424,
+              0.60644,
+              0.14118,
+              0.60646,
+              0.14239,
+              0.60617
+            ],
+            "width": 2.5
+          }
+        ],
+        "isTurnedOn": true,
+        "lowered": true,
+        "baleCounter": {
+          "session": 0,
+          "lifetime": 0
+        },
+        "fillUnits": {
+          "fillUnit": [
+            {
+              "type": "STRAW",
+              "title": "Stroh",
+              "fillLevelPercentage": 19,
+              "value": 968.254,
+              "capacity": 5000,
+              "unit": "l"
+            },
+            {
+              "display": "STEP",
+              "type": "BALE_NET",
+              "title": "Rundballennetz",
+              "fillLevelPercentage": 100,
+              "value": 2,
+              "capacity": 2,
+              "unit": ""
+            }
+          ]
+        },
+        "schema": {
+          "name": "IMPLEMENT",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "mass": {
+          "value": 5.154,
+          "empty": 4.68
+        },
+        "name": "KRONE VariPack V 190 XC Plus",
+        "position": "BACK",
+        "selection": {
+          "selectable": true,
+          "selected": true
+        },
+        "baler": {
+          "fillUnit": 1,
+          "baleType": 1,
+          "powered": true,
+          "autoDrop": {
+            "on": false,
+            "canToggle": true
+          },
+          "baleTypes": [
+            {
+              "diameter": 1.25,
+              "width": 1.2
+            },
+            {
+              "diameter": 1.5,
+              "width": 1.2
+            },
+            {
+              "diameter": 1.8,
+              "width": 1.2
+            }
+          ],
+          "round": true,
+          "door": "CLOSED",
+          "working": false
+        },
+        "jointDescIndex": 2,
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 1,
+          "unit": "%"
+        }
+      }
+    ],
+    "mass": {
+      "value": 10.888,
+      "empty": 4.48
+    },
+    "speed": {
+      "value": 16.53,
+      "direction": "FORWARD",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": true,
+      "targetSpeed": 40
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 1,
+      "unit": "%"
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "type": "tractorReverseDriving",
+    "motor": {
+      "state": "ON",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 40,
+        "forward": 40
+      },
+      "fillUnits": {
+        "air": {
+          "fillLevelPercentage": 83,
+          "title": "Luft",
+          "value": 3313,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 170,
+          "usage": 37.8,
+          "capacity": 170,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "5",
+        "isNeutral": false,
+        "group": "H"
+      },
+      "rpm": {
+        "value": 1799,
+        "max": 2600,
+        "min": 0
+      },
+      "load": {
+        "value": 94.77,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 84,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "ai": {
+      "active": false
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 179,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "name": "Mercedes-Benz Trucks MB-trac 1100",
+    "ads": {
+      "electrical": {
+        "unit": "V",
+        "systemVoltage": 14.1
+      },
+      "inspected": {
+        "service": 100,
+        "condition": 100,
+        "complete": false
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "service": "OFF",
+        "battery": "OFF"
+      },
+      "load": {
+        "value": 95,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 5.5,
+        "hours": 0
+      }
+    },
+    "operatingTime": {
+      "value": "0.02",
+      "unit": "h"
+    },
+    "steering": {
+      "changing": false,
+      "reversed": false
+    },
+    "schema": {
+      "name": "VEHICLE",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0.25,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    },
+    "selection": {
+      "selectable": true,
+      "selected": false
+    }
+  },
+  "version": "26",
+  "environment": {
+    "date": "01.09.2024",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 10,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "time": "08:15",
+    "pda": {
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
+      "player": {
+        "heading": 179,
+        "posX": 0.14181026816368,
+        "farmId": 1,
+        "posZ": 0.60852646827698,
+        "headingUnit": "°"
+      }
+    }
+  }
+}

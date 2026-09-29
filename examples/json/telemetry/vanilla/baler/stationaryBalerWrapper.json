@@ -1,0 +1,349 @@
+{
+  "vehicle": {
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "type": "tractor",
+    "mass": {
+      "value": 28.611,
+      "empty": 6.975
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 354,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "ai": {
+      "active": false
+    },
+    "brand": {
+      "image": "S:/common/Farming Simulator 25/data/store/brands/brand_fendt.png",
+      "name": "FENDT",
+      "title": "Fendt"
+    },
+    "motor": {
+      "state": "ON",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 33,
+        "forward": 53
+      },
+      "fillUnits": {
+        "air": {
+          "fillLevelPercentage": 74,
+          "title": "Luft",
+          "value": 2968,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 449,
+          "usage": 9.78,
+          "capacity": 450,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 48,
+          "capacity": 48,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "rpm": {
+        "value": 1049,
+        "max": 1700,
+        "min": 0
+      },
+      "load": {
+        "value": 3.35,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 89,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "implement": [
+      {
+        "isTurnedOn": true,
+        "lowered": true,
+        "baleCounter": {
+          "session": 3,
+          "lifetime": 3
+        },
+        "brand": {
+          "name": "GOEWEIL",
+          "title": "GÖWEIL"
+        },
+        "type": "balerStationary",
+        "jointDescIndex": 4,
+        "fillUnits": {
+          "fillUnit": [
+            {
+              "type": "ROUNDBALE_GRASS",
+              "title": "Rundballen (Gras)",
+              "fillLevelPercentage": 37,
+              "value": 1280.367,
+              "capacity": 3500,
+              "unit": ""
+            },
+            {
+              "type": "CHAFF",
+              "title": "Häckselgut",
+              "fillLevelPercentage": 45,
+              "value": 9082.974,
+              "capacity": 20000,
+              "unit": "l"
+            },
+            {
+              "display": "STEP",
+              "type": "",
+              "title": "",
+              "fillLevelPercentage": 95,
+              "value": 1.9,
+              "capacity": 2,
+              "unit": ""
+            },
+            {
+              "display": "STEP",
+              "type": "BALE_WRAP",
+              "title": "Wickelfolie",
+              "fillLevelPercentage": 99,
+              "value": 19.715,
+              "capacity": 20,
+              "unit": ""
+            },
+            {
+              "type": "",
+              "title": "",
+              "fillLevelPercentage": 0,
+              "value": 0,
+              "precision": 2,
+              "capacity": 450,
+              "unit": ""
+            }
+          ]
+        },
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 0,
+          "unit": "%"
+        },
+        "mass": {
+          "value": 19.809,
+          "empty": 15.292
+        },
+        "name": "GÖWEIL VARIO-Master V140",
+        "position": "BACK",
+        "baleWrapper": {
+          "state": "WRAPPING",
+          "consumable": 4,
+          "unsupportedBale": false,
+          "progress": 0.85245564985275,
+          "round": true,
+          "canDrop": false,
+          "autoDrop": {
+            "on": true,
+            "canToggle": true
+          }
+        },
+        "baler": {
+          "fillUnit": 1,
+          "buffer": {
+            "fillUnit": 2,
+            "overloading": true
+          },
+          "baleType": 1,
+          "powered": true,
+          "door": "CLOSED",
+          "autoDrop": {
+            "on": true,
+            "canToggle": false
+          },
+          "baleTypes": [
+            {
+              "diameter": 1.25,
+              "width": 1.2
+            },
+            {
+              "diameter": 1.5,
+              "width": 1.2
+            }
+          ],
+          "consumable": 3,
+          "round": true,
+          "working": false
+        },
+        "schema": {
+          "name": "IMPLEMENT",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "selection": {
+          "selectable": true,
+          "selected": true
+        }
+      }
+    ],
+    "operatingTime": {
+      "value": "0.29",
+      "unit": "h"
+    },
+    "selection": {
+      "selectable": true,
+      "selected": false
+    },
+    "name": "Fendt 720 Vario",
+    "ads": {
+      "electrical": {
+        "unit": "V",
+        "systemVoltage": 14.1
+      },
+      "transmissionTemperatur": {
+        "value": 75,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "inspected": {
+        "service": 100,
+        "condition": 100,
+        "complete": false
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "warning": "OFF",
+        "battery": "OFF",
+        "service": "OFF",
+        "engine": "OFF",
+        "brakes": "OFF"
+      },
+      "load": {
+        "value": 3,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 6.2,
+        "hours": 0.3
+      }
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 53
+    },
+    "schema": {
+      "name": "VEHICLE",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 0,
+      "unit": "%"
+    }
+  },
+  "version": "26",
+  "environment": {
+    "date": "01.09.2024",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 11,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "time": "08:30",
+    "pda": {
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
+      "player": {
+        "heading": 354,
+        "posX": 0.16300067305565,
+        "farmId": 1,
+        "posZ": 0.564317882061,
+        "headingUnit": "°"
+      }
+    }
+  }
+}

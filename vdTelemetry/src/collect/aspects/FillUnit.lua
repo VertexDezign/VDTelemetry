@@ -43,6 +43,65 @@ local function round(value, decimals)
 end
 
 ---@param object table
+---@return Set the engine indices of the motor's propellant (fuel) units, empty on an unmotorized object
+local function propellantIndices(object)
+  local mSpec = object.spec_motorized
+  if mSpec ~= nil then
+    return Set:new(mSpec.propellantFillUnitIndices)
+  end
+  return Set:new()
+end
+
+---The fill type a unit is shown as: a spec may want a different type shown than the one physically
+---loaded (fillTypeToDisplay is FillType.UNKNOWN when unset, not nil).
+---@param fillUnit table
+---@return number
+local function displayedFillType(fillUnit)
+  if fillUnit.fillTypeToDisplay ~= nil and fillUnit.fillTypeToDisplay ~= FILL_TYPE_UNKNOWN then
+    return fillUnit.fillTypeToDisplay
+  end
+  return fillUnit.fillType
+end
+
+---Whether a unit makes it into the export. Skipped: the motor's propellant, AIR, and units the game
+---itself hides from the vehicle info box (showOnInfoHud="false" in the XML, e.g. a forage/carrot
+---harvester's pass-through output). The engine defaults the flag to true, so only an explicit false
+---hides it; a nil (unit created outside XML load) is treated as shown.
+---@param fillUnitIndex number the engine's index
+---@param fillUnit table
+---@param propellant Set
+---@return boolean
+local function isReported(fillUnitIndex, fillUnit, propellant)
+  local fillType = g_fillTypeManager:getFillTypeByIndex(displayedFillType(fillUnit))
+  return not (propellant:contains(fillUnitIndex) or fillType.name == "AIR" or fillUnit.showOnInfoHud == false)
+end
+
+---Where the engine's fill unit `fillUnitIndex` lands in the exported `fillUnits` list, 1-based. The
+---two differ as soon as a unit before it is skipped -- a self-propelled machine's diesel comes first
+---on most of them -- so an aspect that wants to point at one of its own units (the baler's chamber)
+---must translate, not pass the engine's index through.
+---@param object table
+---@param fillUnitIndex number|nil the engine's index
+---@return number|nil nil when the unit does not exist or is not exported
+function VDT.FillUnit.reportedIndex(object, fillUnitIndex)
+  local spec = object.spec_fillUnit
+  if spec == nil or fillUnitIndex == nil or spec.fillUnits[fillUnitIndex] == nil then
+    return nil
+  end
+  local propellant = propellantIndices(object)
+  if not isReported(fillUnitIndex, spec.fillUnits[fillUnitIndex], propellant) then
+    return nil
+  end
+  local position = 0
+  for index = 1, fillUnitIndex do
+    if isReported(index, spec.fillUnits[index], propellant) then
+      position = position + 1
+    end
+  end
+  return position
+end
+
+---@param object table
 ---@return FillUnitsModel|nil nil when the object has no reportable fill units
 function VDT.FillUnit.collect(object)
   local spec = object.spec_fillUnit
@@ -50,29 +109,13 @@ function VDT.FillUnit.collect(object)
     return nil
   end
 
-  local mSpec = object.spec_motorized
-  ---@type Set
-  local propellantFillUnitIndices
-  if mSpec ~= nil then
-    propellantFillUnitIndices = Set:new(mSpec.propellantFillUnitIndices)
-  else
-    propellantFillUnitIndices = Set:new()
-  end
+  local propellant = propellantIndices(object)
 
   local fillUnitList = {}
   for fillUnitIndex, fillUnit in ipairs(spec.fillUnits) do
-    -- A spec may want a different type shown than the one physically loaded (fillTypeToDisplay is
-    -- FillType.UNKNOWN when unset, not nil).
-    local fillTypeIndex = fillUnit.fillType
-    if fillUnit.fillTypeToDisplay ~= nil and fillUnit.fillTypeToDisplay ~= FILL_TYPE_UNKNOWN then
-      fillTypeIndex = fillUnit.fillTypeToDisplay
-    end
+    local fillTypeIndex = displayedFillType(fillUnit)
     local fillType = g_fillTypeManager:getFillTypeByIndex(fillTypeIndex)
-    -- Skip units the game itself hides from the vehicle info box (showOnInfoHud="false" in the XML,
-    -- e.g. a forage/carrot harvester's pass-through output). The engine defaults the flag to true, so
-    -- only an explicit false hides it; a nil (unit created outside XML load) is treated as shown.
-    local hiddenFromInfoHud = fillUnit.showOnInfoHud == false
-    if not (propellantFillUnitIndices:contains(fillUnitIndex) or fillType.name == "AIR" or hiddenFromInfoHud) then
+    if isReported(fillUnitIndex, fillUnit, propellant) then
       local capacity = fillUnit.capacityToDisplay or fillUnit.capacity
       -- Pass-through units (e.g. a forage/carrot harvester's output) carry no capacity in their XML,
       -- so the engine reports capacity = math.huge. The JSON encoder turns +inf into null, which the

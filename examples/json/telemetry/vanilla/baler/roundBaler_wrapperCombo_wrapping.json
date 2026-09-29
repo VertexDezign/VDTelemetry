@@ -1,0 +1,358 @@
+{
+  "vehicle": {
+    "ai": {
+      "active": false
+    },
+    "tipping": {
+      "state": "CLOSED",
+      "count": 3,
+      "sides": [
+        "Hinten",
+        "Links",
+        "Rechts"
+      ],
+      "preferredSide": 2
+    },
+    "discharge": {
+      "fillUnitIndex": 4,
+      "canToggle": true,
+      "hasObject": false,
+      "allowed": true,
+      "state": "OFF",
+      "nodeIndex": 2,
+      "hitTerrain": true
+    },
+    "implement": [
+      {
+        "brand": {
+          "name": "JOHNDEERE",
+          "title": "John Deere"
+        },
+        "workAreas": [
+          {
+            "type": "BALER",
+            "index": 1,
+            "active": true,
+            "processing": true,
+            "unit": "m",
+            "shape": [
+              0.47514,
+              0.3445,
+              0.47514,
+              0.34314,
+              0.47562,
+              0.3445
+            ],
+            "width": 2.79
+          }
+        ],
+        "fillUnits": {
+          "fillUnit": [
+            {
+              "type": "GRASS_WINDROW",
+              "title": "Gras",
+              "fillLevelPercentage": 28,
+              "value": 986.773,
+              "capacity": 3500,
+              "unit": "l"
+            },
+            {
+              "display": "STEP",
+              "type": "BALE_NET",
+              "title": "Rundballennetz",
+              "fillLevelPercentage": 99,
+              "value": 3.975,
+              "capacity": 4,
+              "unit": ""
+            },
+            {
+              "display": "STEP",
+              "type": "BALE_WRAP",
+              "title": "Wickelfolie",
+              "fillLevelPercentage": 100,
+              "value": 11.955,
+              "capacity": 12,
+              "unit": ""
+            }
+          ]
+        },
+        "selection": {
+          "selectable": true,
+          "selected": true
+        },
+        "baleWrapper": {
+          "state": "WRAPPING",
+          "unsupportedBale": false,
+          "progress": 0.45100648403168,
+          "round": true,
+          "canDrop": false,
+          "autoDrop": {
+            "on": false,
+            "canToggle": true
+          }
+        },
+        "baler": {
+          "fillUnit": 1,
+          "baleType": 1,
+          "powered": true,
+          "autoDrop": {
+            "on": true,
+            "canToggle": true
+          },
+          "baleTypes": [
+            {
+              "diameter": 1.25,
+              "width": 1.2
+            }
+          ],
+          "round": true,
+          "door": "CLOSED",
+          "working": false
+        },
+        "jointDescIndex": 4,
+        "isTurnedOn": true,
+        "lowered": true,
+        "baleCounter": {
+          "session": 1,
+          "lifetime": 1
+        },
+        "mass": {
+          "value": 7.278,
+          "empty": 5.72
+        },
+        "name": "John Deere C441R",
+        "position": "BACK",
+        "type": "balerWrapper",
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 2,
+          "unit": "%"
+        },
+        "schema": {
+          "name": "IMPLEMENT",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        }
+      }
+    ],
+    "fillUnits": {
+      "fillUnit": [
+        {
+          "type": "",
+          "title": "",
+          "fillLevelPercentage": 0,
+          "value": 0,
+          "capacity": 2500,
+          "unit": ""
+        }
+      ]
+    },
+    "brand": {
+      "image": "S:/common/Farming Simulator 25/data/store/brands/brand_mercedesBenz.png",
+      "name": "MERCEDESBENZTRUCKS",
+      "title": "Mercedes-Benz Trucks"
+    },
+    "mass": {
+      "value": 16.219,
+      "empty": 8.025
+    },
+    "speed": {
+      "value": 16.99,
+      "direction": "FORWARD",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": true,
+      "targetSpeed": 90
+    },
+    "operatingTime": {
+      "value": "0.10",
+      "unit": "h"
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "type": "pdlc_daimlerTruckPack.carFillableCameraMirrors",
+    "motor": {
+      "state": "ON",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 30,
+        "forward": 90
+      },
+      "fillUnits": {
+        "air": {
+          "fillLevelPercentage": 78,
+          "title": "Luft",
+          "value": 3103,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 99,
+          "value": 198,
+          "usage": 65.44,
+          "capacity": 200,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 25,
+          "capacity": 25,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "4",
+        "isNeutral": false,
+        "group": "H"
+      },
+      "rpm": {
+        "value": 1802,
+        "max": 2200,
+        "min": 0
+      },
+      "load": {
+        "value": 47.97,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 90,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 270,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "name": "Mercedes-Benz Trucks U 527",
+    "ads": {
+      "electrical": {
+        "unit": "V",
+        "systemVoltage": 14.2
+      },
+      "inspected": {
+        "service": 100,
+        "condition": 100,
+        "complete": false
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "warning": "OFF",
+        "battery": "OFF",
+        "service": "OFF",
+        "engine": "OFF",
+        "brakes": "OFF"
+      },
+      "load": {
+        "value": 49,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 5.5,
+        "hours": 0.1
+      }
+    },
+    "selection": {
+      "selectable": true,
+      "selected": false
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 2,
+      "unit": "%"
+    },
+    "schema": {
+      "name": "VEHICLE",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    }
+  },
+  "version": "26",
+  "environment": {
+    "date": "01.09.2024",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 10,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "time": "08:22",
+    "pda": {
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
+      "player": {
+        "heading": 270,
+        "posX": 0.47279253788292,
+        "farmId": 1,
+        "posZ": 0.34380921721458,
+        "headingUnit": "°"
+      }
+    }
+  }
+}

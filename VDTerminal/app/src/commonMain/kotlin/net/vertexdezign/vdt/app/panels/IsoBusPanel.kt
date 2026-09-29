@@ -74,6 +74,9 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_mixer_wagon
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.BaleCounter
+import net.vertexdezign.vdt.model.BaleWrapper
+import net.vertexdezign.vdt.model.Baler
 import net.vertexdezign.vdt.model.ControlGroup
 import net.vertexdezign.vdt.model.Cover
 import net.vertexdezign.vdt.model.CoverType
@@ -246,6 +249,10 @@ internal data class IsoBusMachine(
    * working width comes from, and no other aspect reports it.
    */
   val workAreas: List<WorkArea>,
+  val baler: Baler? = null,
+  /** On a standalone wrapper alone, or beside [baler] on a baler-wrapper — one machine either way. */
+  val baleWrapper: BaleWrapper? = null,
+  val baleCounter: BaleCounter? = null,
 ) {
   /**
    * Whether this machine has anything the panel knows how to draw. The dispatch list, and the one
@@ -255,7 +262,8 @@ internal data class IsoBusMachine(
    * the combine and its header together, because a header on its own says nothing a driver wants and
    * the game frequently has it selected rather than the machine pulling it.
    */
-  val hasSection: Boolean get() = mixer != null || harvest != null || cutter != null
+  val hasSection: Boolean get() = mixer != null || harvest != null || cutter != null || baler != null ||
+    baleWrapper != null
 }
 
 internal fun Vehicle.isoBus() = IsoBusMachine(
@@ -281,6 +289,9 @@ internal fun Vehicle.isoBus() = IsoBusMachine(
   harvest = harvest,
   cutter = cutter,
   workAreas = workAreas,
+  baler = baler,
+  baleWrapper = baleWrapper,
+  baleCounter = baleCounter,
 )
 
 internal fun Implement.isoBus() = IsoBusMachine(
@@ -305,6 +316,9 @@ internal fun Implement.isoBus() = IsoBusMachine(
   harvest = harvest,
   cutter = cutter,
   workAreas = workAreas,
+  baler = baler,
+  baleWrapper = baleWrapper,
+  baleCounter = baleCounter,
 )
 
 /** Every machine on the rig, the vehicle first, then its implements depth-first in hitch order. */
@@ -465,6 +479,7 @@ fun IsoBusPanel(
           when {
             mixer != null -> MixStateChip(mixer)
             combine != null -> HarvestChip(combine)
+            machine != null && (machine.baler != null || machine.baleWrapper != null) -> BalerStateChip(machine)
             else -> Unit
           }
         }
@@ -540,6 +555,8 @@ fun IsoBusPanel(
               onCommand = onCommand,
               modifier = Modifier.weight(1f).fillMaxWidth(),
             )
+          } else if (machine.baler != null || machine.baleWrapper != null) {
+            BalerSection(machine, target, onCommand, Modifier.weight(1f).fillMaxWidth())
           }
         }
       }

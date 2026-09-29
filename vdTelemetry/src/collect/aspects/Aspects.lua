@@ -5,7 +5,8 @@
 --
 -- Field order follows the Kotlin model's Implement (isTurnedOn, foldable, lowered, fillUnits, mass, pipe,
 -- cover, wearable, schema, selection, discharge, tipping, harvest, workMode, workWidth, workAreas,
--- baleCounter, sowing, spraying, plow, tillage, mixer); JSON is key-addressed so order is cosmetic.
+-- baleCounter, baler, baleWrapper, sowing, spraying, plow, tillage, mixer); JSON is key-addressed so order
+-- is cosmetic.
 --
 -- harvest/cutter are the two halves of a harvest: the combine says what reaches the tank, the header
 -- says what comes off the field, and a machine can carry either without the other (a header lying on
@@ -43,6 +44,8 @@ function VDT.Aspects.apply(object, model)
   model.workWidth = VDT.Work.collectWidth(object)
   model.workAreas = VDT.WorkAreas.collect(object)
   model.baleCounter = VDT.BaleCounter.collect(object)
+  model.baler = VDT.Baler.collect(object)
+  model.baleWrapper = VDT.BaleWrapper.collect(object)
   model.sowing = VDT.Sowing.collect(object)
   model.spraying = VDT.Spraying.collect(object)
   model.plow = VDT.Plow.collect(object)
