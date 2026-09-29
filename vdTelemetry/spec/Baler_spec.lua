@@ -165,6 +165,13 @@ describe("Baler", function()
       assert.is_nil(m.buffer)
     end)
 
+    it("holds working through a thin spot, as the game's crop effect does", function()
+      assert.is_true(
+        VDT.Baler.collect(roundBaler({ lastAreaBiggerZero = false, lastAreaBiggerZeroTime = 320 })).working
+      )
+      assert.is_false(VDT.Baler.collect(roundBaler({ lastAreaBiggerZero = false, lastAreaBiggerZeroTime = 0 })).working)
+    end)
+
     it("points at the chamber's EXPORTED position, past an unexported diesel tank", function()
       local b = roundBaler({ fillUnitIndex = 2 })
       b.spec_fillUnit.fillUnits = { { fillType = 2 }, { fillType = 3 }, { fillType = 4 } }

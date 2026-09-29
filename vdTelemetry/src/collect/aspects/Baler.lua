@@ -148,6 +148,18 @@ function VDT.Baler.consumableFillUnit(object, typeNames)
   return nil
 end
 
+---Whether crop is coming in. `lastAreaBiggerZero` alone is the engine's per-tick "did the pickup take
+---anything this tick", and it drops to false on every thin spot in the swath -- exported raw, the
+---terminal's baling animation started and stopped all through a pass. The game has the same problem
+---for its own crop-flow effect and holds it for 500 ms after the last pickup
+---(`lastAreaBiggerZeroTime`, kept in Baler:onUpdateTick on the client); this is that same hold, so
+---"working" is what the game itself shows as crop flowing.
+---@param spec table spec_baler
+---@return boolean
+function VDT.Baler.isWorking(spec)
+  return spec.lastAreaBiggerZero == true or (spec.lastAreaBiggerZeroTime or 0) > 0
+end
+
 ---@param definition table an entry of spec.baleTypes
 ---@return BaleTypeModel
 local function baleType(definition)
@@ -234,7 +246,7 @@ function VDT.Baler.collect(object)
     round = spec.isRoundBaler == true,
     fillUnit = VDT.FillUnit.reportedIndex(object, spec.fillUnitIndex),
     consumable = VDT.Baler.consumableFillUnit(object, consumables),
-    working = spec.lastAreaBiggerZero == true,
+    working = VDT.Baler.isWorking(spec),
     powered = isPowered(object),
     door = door,
     bales = bales,
