@@ -2,6 +2,7 @@ package net.vertexdezign.vdt
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.vertexdezign.vdt.model.BaleUnloadAction
 import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
@@ -418,6 +419,51 @@ sealed interface ClientMessage {
   @Serializable
   @SerialName("setWorkMode")
   data class SetWorkMode(val target: ControlTarget, val mode: Int) : ClientMessage
+
+  /**
+   * Reset the [target]'s session bale count ([net.vertexdezign.vdt.model.BaleCounter.session]); the
+   * lifetime count has no reset in the game. Mod-side `BaleCounter:doBaleCounterReset`, which owns its
+   * event. Refused while [net.vertexdezign.vdt.model.Baler.powered] is false, as the game's key is.
+   */
+  @Serializable
+  @SerialName("resetBaleCounter")
+  data class ResetBaleCounter(val target: ControlTarget) : ClientMessage
+
+  /**
+   * Choose the bale size — 1-based into [net.vertexdezign.vdt.model.Baler.baleTypes]. Absolute where
+   * the game's `TOGGLE_BALE_TYPES` key steps to the next size. On a chamber with a bale in progress
+   * the engine holds it back as [net.vertexdezign.vdt.model.Baler.nextBaleType] until that bale is done.
+   */
+  @Serializable
+  @SerialName("setBaleType")
+  data class SetBaleType(val target: ControlTarget, val index: Int) : ClientMessage
+
+  /**
+   * Switch automatic dropping on or off, absolutely. A baler-wrapper carries two such settings, so the
+   * [part] says which: the baler's ([net.vertexdezign.vdt.model.Baler.autoDrop]) or the wrapping
+   * table's ([net.vertexdezign.vdt.model.BaleWrapper.autoDrop]). Offer it only where `canToggle`.
+   */
+  @Serializable
+  @SerialName("setBaleAutoDrop")
+  data class SetBaleAutoDrop(val target: ControlTarget, val part: BalePart, val on: Boolean) : ClientMessage
+
+  /**
+   * Do what the game's drop key would — provided it would still do [action], which the app copies from
+   * [net.vertexdezign.vdt.model.Baler.unload]. The engine's handler toggles (it opens a shut door and
+   * shuts an open one), so the mod drops a command whose action is no longer on offer: a late UNLOAD
+   * never becomes a CLOSE.
+   */
+  @Serializable
+  @SerialName("unloadBale")
+  data class UnloadBale(val target: ControlTarget, val action: BaleUnloadAction) : ClientMessage
+
+  /**
+   * Drop the wrapped bale off the wrapping table — the game's own drop key, which checks the drop area
+   * when it lands. Offer it only where [net.vertexdezign.vdt.model.BaleWrapper.canDrop].
+   */
+  @Serializable
+  @SerialName("dropWrappedBale")
+  data class DropWrappedBale(val target: ControlTarget) : ClientMessage
 
   /**
    * Choose which tip side the [target]'s next tip will use — `Tipping.preferredSide`, 1-based.
@@ -989,4 +1035,11 @@ enum class TurnLightState(val token: String) {
   LEFT("left"),
   RIGHT("right"),
   HAZARD("hazard"),
+}
+
+/** Which half of a baler-wrapper a [ClientMessage.SetBaleAutoDrop] addresses. */
+@Serializable
+enum class BalePart(val token: String) {
+  BALER("baler"),
+  WRAPPER("wrapper"),
 }

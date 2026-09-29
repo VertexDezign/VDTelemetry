@@ -91,6 +91,27 @@ class CommandWriter(private val path: Path, private val ringSize: Int = 16) {
       """<command id="$id" type="setWorkMode" target="${message.target.token}" mode="${message.mode}"/>"""
     }
 
+    is ClientMessage.ResetBaleCounter -> {
+      """<command id="$id" type="resetBaleCounter" target="${message.target.token}"/>"""
+    }
+
+    is ClientMessage.SetBaleType -> {
+      """<command id="$id" type="setBaleType" target="${message.target.token}" index="${message.index}"/>"""
+    }
+
+    is ClientMessage.SetBaleAutoDrop -> {
+      """<command id="$id" type="setBaleAutoDrop" target="${message.target.token}" part="${message.part.token}" on="${message.on}"/>"""
+    }
+
+    // The action's enum name is the mod's token, exactly as the export spells it.
+    is ClientMessage.UnloadBale -> {
+      """<command id="$id" type="unloadBale" target="${message.target.token}" action="${message.action.name}"/>"""
+    }
+
+    is ClientMessage.DropWrappedBale -> {
+      """<command id="$id" type="dropWrappedBale" target="${message.target.token}"/>"""
+    }
+
     is ClientMessage.SetTipSide -> {
       """<command id="$id" type="setTipSide" target="${message.target.token}" side="${message.side}"/>"""
     }
