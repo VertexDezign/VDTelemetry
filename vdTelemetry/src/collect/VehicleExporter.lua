@@ -54,6 +54,7 @@ local function collectImplements(rootObject)
     -- the flat per-object schema data into a drawable rig (see aspects/Schema.lua). It lives on the
     -- attacher-joint entry, not on the object, so it is set here rather than in an aspect.
     implModel.jointDescIndex = attachedImplement.jointDescIndex
+    implModel.hitch = VDT.Hitch.collect(rootObject, attachedImplement)
 
     local object = attachedImplement.object
     if object ~= nil then
@@ -78,6 +79,42 @@ local function collectImplements(rootObject)
   return implements
 end
 
+-- The working-speed cap the rig is held to right now, in km/h: the tightest limit of every machine
+-- on it that is working (a lowered cultivator, a running sprayer), already cut by the root's damage.
+-- `getSpeedLimit(true)` is the engine's own figure -- the one Drivable hands to the motor alongside
+-- the cruise-control speed -- and it is math.huge while nothing is working, which is reported as
+-- absent: there is no limit then, not an infinitely high one.
+-- MULTIPLAYER: fine. Each doCheckSpeedLimit reads lowered / turned-on state, which is synced.
+---@param vehicle Vehicle
+---@return number|nil
+function VDT.VehicleExporter.collectSpeedLimit(vehicle)
+  if vehicle.getSpeedLimit == nil then
+    return nil
+  end
+  local limit = vehicle:getSpeedLimit(true)
+  if type(limit) ~= "number" or limit == math.huge or limit ~= limit then
+    return nil
+  end
+  return tonumber(ValueMapper.mapFloat(limit, 1))
+end
+
+-- The odometer, in km: Drivable keeps it on every drivable machine, saves it, and shows it on the
+-- cab's own dashboards. Absent on anything that cannot be driven.
+-- MULTIPLAYER: close enough. A joining client is handed the host's figure once (Drivable's
+-- onReadStream) and from then on adds up the distance it sees the machine move itself, as the host
+-- does, so the two can drift apart by rounding but not by the journey. One exception is the engine's:
+-- onReadStream only sends the figure for a machine with cruise control, so on one without, a client
+-- counts from 0 at the join.
+---@param vehicle Vehicle
+---@return OdometerModel|nil
+function VDT.VehicleExporter.collectOdometer(vehicle)
+  local spec = vehicle.spec_drivable
+  if spec == nil or type(spec.odometerMilage) ~= "number" then
+    return nil
+  end
+  return { value = tonumber(ValueMapper.mapFloat(spec.odometerMilage, 1)), unit = "km" }
+end
+
 ---@param vehicle Vehicle|nil
 ---@return VehicleModel|nil nil when there is no current vehicle
 function VDT.VehicleExporter.collect(vehicle)
@@ -97,6 +134,7 @@ function VDT.VehicleExporter.collect(vehicle)
     model.speed.unit = "km/h"
     model.speed.direction = ValueMapper.mapDirection(vehicle:getDrivingDirection())
   end
+  model.speed.limit = VDT.VehicleExporter.collectSpeedLimit(vehicle)
 
   local brand = ValueMapper.resolveBrand(vehicle)
   if brand ~= nil then
@@ -109,6 +147,7 @@ function VDT.VehicleExporter.collect(vehicle)
   if vehicle.operatingTime ~= nil then
     model.operatingTime = { value = ValueMapper.formatOperatingTime(vehicle.operatingTime), unit = "h" }
   end
+  model.odometer = VDT.VehicleExporter.collectOdometer(vehicle)
 
   model.motor = VDT.Motor.collect(vehicle)
   model.lights = VDT.Lights.collect(vehicle)

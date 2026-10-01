@@ -69,6 +69,7 @@
 ---@field wearable WearableModel?
 ---@field fillUnits FillUnitsModel?
 ---@field motorFillUnits MotorFillUnitsModel? fuel/def/air; also marks the machine as motorized
+---@field broken boolean? drowned and waiting for a reset; absent on a working machine
 ---@field attachedTo number? id of the rig's root vehicle, when this machine is attached to one
 ---@field isAI boolean? an AI helper is driving it
 ---@field isControlled boolean? a human is driving it (any player in MP)

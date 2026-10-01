@@ -2,6 +2,14 @@
 -- Maps to the Kotlin model's Implement (model/Vehicle.kt). `brand` is emitted (preserving current behaviour) but absent from
 -- it, so the server drops it via ignoreUnknownKeys.
 
+-- Where the parent's linkage that this implement hangs off sits in its travel, in % with 100 at
+-- the top (see collect/vehicle/Hitch.lua). `min`/`max` are where it stops for this implement when
+-- lowered and when raised.
+---@class HitchModel
+---@field position number
+---@field min number?
+---@field max number?
+
 ---@class ImplementModel
 ---@field position string
 ---@field name string?
@@ -32,5 +40,8 @@
 ---@field plow PlowModel?
 ---@field tillage TillageModel?
 ---@field mixer MixerModel?
+---@field tensionBelts TensionBeltsModel?
+---@field broken boolean?
 ---@field jointDescIndex number?
+---@field hitch HitchModel? absent unless the joint lowers this implement
 ---@field implement ImplementModel[]?

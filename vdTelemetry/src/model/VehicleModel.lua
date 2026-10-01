@@ -5,6 +5,7 @@
 ---@field value number
 ---@field unit string?
 ---@field direction string? the way the machine is travelling; STOPPED below walking pace
+---@field limit number? km/h the working machines on the rig hold it to; absent while none is working
 
 ---@class BrandModel
 ---@field name string?
@@ -15,6 +16,10 @@
 ---@field value string
 ---@field unit string
 
+---@class OdometerModel
+---@field value number km, one decimal
+---@field unit string
+
 -- The isTurnedOn..wearable fields are the shared aspects (see collect/aspects/), identical to the
 -- ones on ImplementModel.
 ---@class VehicleModel
@@ -23,6 +28,7 @@
 ---@field speed SpeedModel
 ---@field brand BrandModel?
 ---@field operatingTime OperatingTimeModel?
+---@field odometer OdometerModel?
 ---@field motor MotorModel?
 ---@field lights LightsModel?
 ---@field steering SteeringModel?
@@ -54,4 +60,6 @@
 ---@field plow PlowModel?
 ---@field tillage TillageModel?
 ---@field mixer MixerModel?
+---@field tensionBelts TensionBeltsModel?
+---@field broken boolean? only ever true; absent on a working machine
 ---@field implement ImplementModel[]?

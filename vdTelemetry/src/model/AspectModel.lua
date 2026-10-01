@@ -20,6 +20,11 @@
 ---@class FillUnitsModel
 ---@field fillUnit FillUnitModel[]
 
+-- Load straps: `fastened` of `count` belts are done up; all of them is the game's "all fastened".
+---@class TensionBeltsModel
+---@field fastened number
+---@field count number
+
 ---@class WearableModel
 ---@field damage number?
 ---@field wear number?

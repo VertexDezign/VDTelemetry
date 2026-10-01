@@ -57,6 +57,13 @@ What those two left is under their own headings below. What is still untouched f
   it: every baler capture's net, twine and film are `STEP`. The baler screen counts rolls the game's way
   (`rollsLabel`), so what is left is the generic bar on the vehicle page.
 
+- **Export v27's five cab reads are drawn nowhere.** `speed.limit`, `odometer`, an implement's `hitch`,
+  `tensionBelts` and `broken` (plus `broken` on the fleet row, fleet version 2) were added ahead of the Modhub
+  submission on the same *export first, UI later* rule. The obvious homes: the limit as a mark on the cluster's
+  speedometer, the hitch as a gauge beside the rig's raise chip, open straps and a drowned machine as alerts (the
+  straps only together with a load on the bed — the game cannot see an unstrapped load, see `TensionBelts`), the
+  odometer next to the operating hours.
+
 ### Two open calls on the mod side
 
 - **`showOnHud` vs `showOnInfoHud`.** `aspects/FillUnit.lua` filters on `showOnInfoHud`, which is the *info-box* flag;
@@ -607,6 +614,11 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   on a client neither number exists, so the bar is simply not drawn. Mid-pass either way: CombineXP's measurement resets
   to zero the
   moment the drum stops being fed, so a headland capture shows nothing.
+- **Export v27's cab reads**, all inline JSON in `VdtModelTest.decodesTheV27CabReads` meanwhile: a tractor with a
+  lowered three-point implement (for `hitch`, ideally mid-travel) pulling or carrying something strapped (for
+  `tensionBelts`), while the implement is working (for `speed.limit`). Once on the host and once on a multiplayer
+  client — the hitch's travel and the odometer are both worked out locally on a client (see `vehicle/Hitch.lua` and
+  `VehicleExporter.collectOdometer`), so the two files are the check that they agree.
 - **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
   (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
 - **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file

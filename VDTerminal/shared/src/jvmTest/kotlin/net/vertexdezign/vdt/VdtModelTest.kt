@@ -585,6 +585,45 @@ class VdtModelTest {
   }
 
   @Test
+  fun decodesTheV27CabReads() {
+    // Speed limit, odometer, hitch, tension belts and the drowned flag (mod version 27). Inline because
+    // every committed capture predates them; a v27 capture of a tractor with a lowered implement and a
+    // strapped trailer is wanted (FUTURE.md -> "Captures wanted as fixtures").
+    val text =
+      """{"version":"27","vehicle":{"speed":{"value":11.2,"unit":"km/h","direction":"FORWARD","limit":12.0},""" +
+        """"odometer":{"value":1234.6,"unit":"km"},""" +
+        """"implement":[{"position":"BACK","jointDescIndex":1,"hitch":{"position":12,"min":10,"max":85}},""" +
+        """{"position":"BACK","tensionBelts":{"fastened":2,"count":3},"broken":true}]}}"""
+    val data = VdtParser.parseJson(text)
+    assertJsonRoundTrips(data)
+    val vehicle = assertNotNull(data.vehicle)
+    assertEquals(12f, vehicle.speed?.limit)
+    assertEquals(1234.6, vehicle.odometer?.value)
+    assertFalse(vehicle.broken)
+    assertNull(vehicle.tensionBelts)
+
+    val (cultivator, trailer) = vehicle.implement
+    assertEquals(12, cultivator.hitch?.position)
+    assertEquals(10, cultivator.hitch?.min)
+    assertEquals(85, cultivator.hitch?.max)
+    assertNull(trailer.hitch)
+    assertEquals(2, trailer.tensionBelts?.fastened)
+    assertEquals(3, trailer.tensionBelts?.count)
+    assertTrue(trailer.broken)
+  }
+
+  @Test
+  fun leavesTheV27ReadsAbsentOnAnOlderCapture() {
+    // A pre-27 file says nothing about any of them, and must not read as "no limit / no hitch / not
+    // broken" because of a default that looks like data: the nullable ones stay null.
+    val data = VdtParser.parseJson(example("tractor_with_cultivator.json"))
+    val vehicle = assertNotNull(data.vehicle)
+    assertNull(vehicle.speed?.limit)
+    assertNull(vehicle.odometer)
+    assertTrue(vehicle.implement.all { it.hitch == null && it.tensionBelts == null && !it.broken })
+  }
+
+  @Test
   fun decodesSchemaAndSelection() {
     // The rig diagram: each object names a silhouette and lists where children hang off it, and the
     // child points back with jointDescIndex. enhanced_vehicle.json carries the plain shape of this;

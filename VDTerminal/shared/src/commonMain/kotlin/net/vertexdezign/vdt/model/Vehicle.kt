@@ -9,6 +9,8 @@ data class Vehicle(
   val speed: Speed? = null,
   val brand: Brand? = null,
   val operatingTime: OperatingTime? = null,
+  /** Drivable's odometer (mod version 27); null on anything that cannot be driven. */
+  val odometer: Odometer? = null,
   val motor: Motor? = null,
   val lights: Lights? = null,
   val steering: Steering? = null,
@@ -40,6 +42,9 @@ data class Vehicle(
   val plow: Plow? = null,
   val tillage: Tillage? = null,
   val mixer: Mixer? = null,
+  val tensionBelts: TensionBelts? = null,
+  /** The machine drowned and needs a reset (mod version 27). See [Implement.broken]. */
+  val broken: Boolean = false,
   val precisionFarming: PrecisionFarming? = null,
   /** Advanced Damage System, when that mod is installed and manages this machine. See [Ads]. */
   val ads: Ads? = null,
@@ -51,9 +56,19 @@ data class Vehicle(
  * [direction] is the way the machine is *travelling*, and the game reports it as stopped below
  * walking pace — so it goes blank whenever the tractor is standing still. What the transmission is
  * *set to* is [Motor.direction], which does not.
+ *
+ * [limit] (mod version 27) is the working-speed cap in km/h — the tightest limit of every machine on
+ * the rig that is working right now (a lowered cultivator, a running sprayer), already cut by the
+ * root's damage. It is what the game hands the motor alongside the cruise-control speed. **Null while
+ * nothing is working**, which means no limit rather than an unknown one.
  */
 @Serializable
-data class Speed(val value: Float = 0f, val unit: String = "", val direction: DriveDirection = DriveDirection.STOPPED)
+data class Speed(
+  val value: Float = 0f,
+  val unit: String = "",
+  val direction: DriveDirection = DriveDirection.STOPPED,
+  val limit: Float? = null,
+)
 
 /**
  * [image] (mod version 24) is the logo's absolute path — in the game install for a base-game brand,
@@ -141,6 +156,10 @@ enum class SteeringLayout {
 
 @Serializable
 data class OperatingTime(val value: String = "", val unit: String = "")
+
+/** Kilometres driven, to a tenth, as the cab's own odometer counts them. */
+@Serializable
+data class Odometer(val value: Double = 0.0, val unit: String = "")
 
 // ---------------------------------------------------------------------------
 // Motor
@@ -383,6 +402,30 @@ data class CruiseControl(val targetSpeed: Float? = null, val active: Boolean? = 
  */
 @Serializable
 data class Wearable(val damage: Int = 0, val wear: Int = 0, val dirt: Int = 0, val unit: String = "")
+
+/**
+ * Load straps (mod version 27): [fastened] of [count] are done up, and all of them is the game's own
+ * "all fastened".
+ *
+ * Says nothing about whether anything is on the bed — the game only looks when a strap is tightened,
+ * so an unstrapped load is invisible to it. A "load not secured" warning pairs this with the
+ * machine's fill units or mass.
+ */
+@Serializable
+data class TensionBelts(val fastened: Int = 0, val count: Int = 0)
+
+/**
+ * Where the linkage an implement hangs off sits in its travel (mod version 27), in percent with 100
+ * at the top — the game's `bottomArmPosition` dashboard value. It belongs to the *parent's* joint, so
+ * it is on the implement: a tractor's front linkage reads on the front implement, the rear one on the
+ * rear.
+ *
+ * [min] and [max] are where the arm stops for *this* implement when lowered and when raised. The game
+ * works them out from the implement, so they are not the arm's mechanical limits and differ from
+ * one implement to the next.
+ */
+@Serializable
+data class Hitch(val position: Int = 0, val min: Int? = null, val max: Int? = null)
 
 // ---------------------------------------------------------------------------
 // Pipe / cover
@@ -1299,9 +1342,17 @@ data class Implement(
   val plow: Plow? = null,
   val tillage: Tillage? = null,
   val mixer: Mixer? = null,
+  val tensionBelts: TensionBelts? = null,
+  /**
+   * The machine drowned (mod version 27): the game's one-way `isBroken`, set when it went into water
+   * deeper than it tolerates. It cannot be used again until it is reset. Unrelated to wear.
+   */
+  val broken: Boolean = false,
   val precisionFarming: PrecisionFarming? = null,
   /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
   val jointDescIndex: Int? = null,
+  /** Null unless the parent's joint lowers this implement. */
+  val hitch: Hitch? = null,
   val implement: List<Implement> = emptyList(),
 )
 

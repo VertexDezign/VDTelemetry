@@ -77,6 +77,8 @@ data class FleetVehicle(
   val motorFillUnits: MotorFillUnits? = null,
   /** The rig's root vehicle, when this machine is attached to one. */
   val attachedTo: Int? = null,
+  /** It drowned and is waiting for a reset (fleet version 2). See [Implement.broken]. */
+  val broken: Boolean = false,
   val isAI: Boolean = false,
   /** A human is driving it — any player, in multiplayer. */
   val isControlled: Boolean = false,
