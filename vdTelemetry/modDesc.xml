@@ -1,44 +1,44 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no" ?>
-<modDesc descVersion="96">
-    <author>VertexDezign</author>
-    <!-- A placeholder, and deliberately one that cannot be mistaken for a release. `fs validate`
-         requires the element and the mod runs unpacked in development, so it has to say something;
-         what ships is whatever `fs pack` is given as its mod version, which the release workflow
-         derives from the git tag. Nothing here needs bumping to cut a release. -->
-    <version>0.0.0.0</version>
-    <title>
-        <en>VDTelemetry</en>
-        <de>VDTelemetry</de>
-    </title>
-    <description>
-        <en>
-            <![CDATA[Exports live game state - vehicle, map, productions, animals, contracts, finances - to JSON files that external dashboards can read, and takes commands back so a dashboard can operate the machine and the farm.
+<modDesc descVersion="114">
+  <author>VertexDezign</author>
+  <!-- A placeholder, and deliberately one that cannot be mistaken for a release. `fs validate`
+       requires the element and the mod runs unpacked in development, so it has to say something;
+       what ships is whatever `fs pack` is given as its mod version, which the release workflow
+       derives from the git tag. Nothing here needs bumping to cut a release. -->
+  <version>0.0.0.0</version>
+  <title>
+    <en>VDTelemetry</en>
+    <de>VDTelemetry</de>
+  </title>
+  <description>
+    <en>
+      <![CDATA[Exports live game state - vehicle, map, productions, animals, contracts, finances - to JSON files that external dashboards can read, and takes commands back so a dashboard can operate the machine and the farm.
 
 Pair it with VDTerminal, which turns that into a live dashboard in any browser: on this PC, or on a tablet or phone in the cab.
 
 Requires FS25_additionalInputs.
 
 Download and setup guide: https://github.com/VertexDezign/VDTelemetry]]>
-        </en>
-        <de>
-            <![CDATA[Exportiert den laufenden Spielzustand - Fahrzeug, Karte, Produktionen, Tiere, Verträge, Finanzen - in JSON-Dateien, die externe Dashboards lesen können, und nimmt Befehle entgegen, damit ein Dashboard Maschine und Hof auch bedienen kann.
+    </en>
+    <de>
+      <![CDATA[Exportiert den laufenden Spielzustand - Fahrzeug, Karte, Produktionen, Tiere, Verträge, Finanzen - in JSON-Dateien, die externe Dashboards lesen können, und nimmt Befehle entgegen, damit ein Dashboard Maschine und Hof auch bedienen kann.
 
 Zusammen mit VDTerminal wird daraus ein Live-Dashboard in jedem Browser: auf diesem PC oder auf einem Tablet oder Handy in der Kabine.
 
 Benötigt FS25_additionalInputs.
 
 Download und Anleitung: https://github.com/VertexDezign/VDTelemetry]]>
-        </de>
-    </description>
-    <iconFilename>icon_vdTelemetry.png</iconFilename>
-    <multiplayer supported="true"/>
-    <l10n filenamePrefix="l10n/l10n"/>
-    <extraSourceFiles>
-        <sourceFile filename="GrisuDebug.lua"/>
-        <sourceFile filename="VDTelemetry.lua"/>
-    </extraSourceFiles>
+    </de>
+  </description>
+  <iconFilename>icon_vdTelemetry.png</iconFilename>
+  <multiplayer supported="true"/>
+  <l10n filenamePrefix="l10n/l10n"/>
+  <extraSourceFiles>
+    <sourceFile filename="GrisuDebug.lua"/>
+    <sourceFile filename="VDTelemetry.lua"/>
+  </extraSourceFiles>
 
-    <dependencies>
-        <dependency>FS25_additionalInputs</dependency>
-    </dependencies>
+  <dependencies>
+    <dependency>FS25_additionalInputs</dependency>
+  </dependencies>
 </modDesc>
