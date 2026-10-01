@@ -656,3 +656,52 @@ class TelltaleLayoutTest {
     assertTrue(lampSize(13, 40.dp, 12.dp).value > 0f)
   }
 }
+
+/** The speed line's working-limit sign and the odometer caption (mod version 27). */
+class ClusterReadoutLimitTest {
+  @Test
+  fun theSpeedLimitSignIsThereOnlyWhileSomethingIsWorking() {
+    // No limit on the wire is the game imposing none — nothing on the rig is working — and a sign with
+    // nothing to say would be a lamp lit for no reason.
+    assertNull(speedLimitMark(Vehicle(speed = Speed(value = 20f, unit = "km/h"))))
+    val sign = assertNotNull(speedLimitMark(Vehicle(speed = Speed(value = 8f, unit = "km/h", limit = 12f))))
+    assertEquals(ClusterIcons.SpeedLimit, sign.icon)
+    assertEquals("12", sign.text)
+    assertEquals("Working speed limit 12 km/h", sign.label)
+  }
+
+  @Test
+  fun theSpeedLimitSignBrightensWhenItIsWhatHoldsTheMachine() {
+    // Below the limit it is only a ceiling, and dim; at it, the limit is deciding the speed. Brightness,
+    // never a second colour.
+    val below = assertNotNull(speedLimitMark(Vehicle(speed = Speed(value = 8f, limit = 12f))))
+    val held = assertNotNull(speedLimitMark(Vehicle(speed = Speed(value = 11.7f, limit = 12f))))
+    assertEquals(ARMED_ALPHA, below.alpha)
+    assertEquals(1f, held.alpha)
+    assertEquals(below.colour, held.colour)
+  }
+
+  @Test
+  fun theSpeedLimitPrintsWholeKilometresAsASignDoes() {
+    // A tenth only exists on a damaged machine, whose limit the game cuts by its damage.
+    assertEquals("11", speedLimitMark(Vehicle(speed = Speed(limit = 11.4f)))?.text)
+    assertEquals("12", speedLimitMark(Vehicle(speed = Speed(limit = 11.6f)))?.text)
+  }
+
+  @Test
+  fun aFigureInsideItsRingFitsTheRing() {
+    // The ring's middle is about half the slot; two digits must fit in it side by side, and one digit
+    // must not grow until it touches the ring.
+    val cell = 40f
+    assertTrue(markTextSp(cell, 2, framed = true) * 2 * 0.82f <= cell * 0.55f)
+    assertTrue(markTextSp(cell, 1, framed = true) <= cell * 0.42f)
+    assertTrue(markTextSp(cell, 1, framed = false) > markTextSp(cell, 1, framed = true), "unframed text gets the slot")
+  }
+
+  @Test
+  fun theOdometerKeepsATenthOnlyWhileItIsShort() {
+    assertEquals("12.3", formatOdometer(12.34))
+    assertEquals("999.9", formatOdometer(999.94))
+    assertEquals("12345", formatOdometer(12345.67))
+  }
+}

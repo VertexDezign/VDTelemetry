@@ -6,9 +6,11 @@ import net.vertexdezign.vdt.model.DischargeReason
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FillUnits
 import net.vertexdezign.vdt.model.Harvest
+import net.vertexdezign.vdt.model.Hitch
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Mixer
 import net.vertexdezign.vdt.model.MixerIngredient
+import net.vertexdezign.vdt.model.TensionBelts
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
 import net.vertexdezign.vdt.model.WorkMode
@@ -367,5 +369,29 @@ class IsoBusTest {
     assertEquals("3.2s", formatSeconds(3200))
     assertEquals("0.0s", formatSeconds(0))
     assertEquals("45s", formatSeconds(45_000))
+  }
+
+  @Test
+  fun anImplementCarriesItsHitchStrapsAndResetOntoTheScreen() {
+    val trailer =
+      Implement(
+        position = "BACK",
+        hitch = Hitch(position = 85, min = 10, max = 90),
+        tensionBelts = TensionBelts(fastened = 1, count = 3),
+        broken = true,
+      ).isoBus()
+    assertEquals(85, trailer.hitch?.position)
+    assertEquals(3, trailer.tensionBelts?.count)
+    assertTrue(trailer.broken)
+    // The vehicle is what the hitching is done to: it hangs off nothing.
+    assertNull(Vehicle(tensionBelts = TensionBelts(0, 2)).isoBus().hitch)
+  }
+
+  @Test
+  fun theStrapsSayAWordWhereOneFitsAndACountOtherwise() {
+    assertEquals("Strapped", strapsLabel(TensionBelts(fastened = 3, count = 3)))
+    assertEquals("Unstrapped", strapsLabel(TensionBelts(fastened = 0, count = 3)))
+    assertEquals("Straps 2/3", strapsLabel(TensionBelts(fastened = 2, count = 3)))
+    assertEquals("Hitch 85%", hitchLabel(Hitch(position = 85)))
   }
 }

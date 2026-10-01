@@ -57,12 +57,14 @@ What those two left is under their own headings below. What is still untouched f
   it: every baler capture's net, twine and film are `STEP`. The baler screen counts rolls the game's way
   (`rollsLabel`), so what is left is the generic bar on the vehicle page.
 
-- **Export v27's five cab reads are drawn nowhere.** `speed.limit`, `odometer`, an implement's `hitch`,
-  `tensionBelts` and `broken` (plus `broken` on the fleet row, fleet version 2) were added ahead of the Modhub
-  submission on the same *export first, UI later* rule. The obvious homes: the limit as a mark on the cluster's
-  speedometer, the hitch as a gauge beside the rig's raise chip, open straps and a drowned machine as alerts (the
-  straps only together with a load on the bed — the game cannot see an unstrapped load, see `TensionBelts`), the
-  odometer next to the operating hours.
+- **Export v27's five cab reads have never been seen drawn against a game.** The limit is a ring on the
+  cluster's speed line and a tick on the engine panel's speedometer, the odometer sits beside the hour meter,
+  the hitch is a chip on the ISOBUS strip and on a rig slot, the straps and a drowned machine are chips
+  there too, and the fleet list flags a drowned machine. All of it is tested off inline JSON only. Two calls
+  left open on purpose: **no alert for open straps** — the game cannot see an unstrapped load (see
+  `TensionBelts`), so every empty flatbed would raise it. And **the straps chip is read-only**: the game's
+  own key fastens every strap from the cab (`TOGGLE_TENSION_BELTS`, which steps through them one per frame in
+  `TensionBelts:onUpdate`), so a strap command is a fair control to add — it just needs the mod side first.
 
 ### Two open calls on the mod side
 

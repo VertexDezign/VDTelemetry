@@ -205,6 +205,20 @@ object ClusterIcons {
     )
   }
 
+  /**
+   * The working-speed limit: the ring of a road speed-limit sign, empty, because the number goes
+   * inside it as segment digits — see [speedLimitMark]. The ring alone is the sign's shape; what makes
+   * it that sign rather than any circle is the figure in it, which is also why the inner circle is
+   * generous. A thick ring, so it survives being drawn at the size of a line's mark slot.
+   */
+  val SpeedLimit = telltale("SpeedLimit") {
+    fill(
+      "M1.2 12 A10.8 10.8 0 1 1 22.8 12 A10.8 10.8 0 1 1 1.2 12 Z " +
+        "M3.9 12 A8.1 8.1 0 1 1 20.1 12 A8.1 8.1 0 1 1 3.9 12 Z",
+      PathFillType.EvenOdd,
+    )
+  }
+
   // ---------------------------------------------------------------------------------------------
   // The level strip's gauges. Not lamps — these caption a bar rather than lighting on their own —
   // but drawn here and to the same rules, because a strip of Material icons under a row of hand-drawn

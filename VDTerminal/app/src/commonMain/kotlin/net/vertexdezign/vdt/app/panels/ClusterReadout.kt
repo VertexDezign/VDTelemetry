@@ -154,10 +154,17 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // the wrong way to be wrong about that.
   val gearMarks = if (gear != null) steering else emptyList()
   val cruiseMarks = guidance + if (gear == null) steering else emptyList()
+  // The working-speed limit goes last, so it is the mark standing next to the number it caps.
+  //
+  // It comes and goes with the work — lower the cultivator and it is there — which the width budget
+  // below absorbs without the digits moving: beside the reverser's arrow it makes two marks, and two
+  // marks on three cells is still narrower than the rpm's four. Only a machine that also had guidance
+  // on this line (no cruise target at all, see above) would resize when it appeared.
   val speedMarks =
     listOfNotNull(symbol?.mark(holding)) +
       (if (cruise == null) guidance else emptyList()) +
-      (if (cruise == null && gear == null) steering else emptyList())
+      (if (cruise == null && gear == null) steering else emptyList()) +
+      listOfNotNull(speedLimitMark(vehicle))
 
   ClusterSurface(modifier) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -251,11 +258,20 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             unlit = dark,
           )
         }
-        // The hour meter, and the one thing on the tile that is a *value* set in the caption face
-        // rather than in segments — so a dark panel drops its text instead of ghosting it. The empty
-        // caption stays in the layout, because the line it occupies is the line it will occupy again.
-        vehicle.operatingTime?.let {
-          ClusterLabel(if (dark) "" else "${it.value}${it.unit}", Modifier.fillMaxWidth(), align = TextAlign.End)
+        // The odometer and the hour meter, the two counters a cab keeps — the only *values* on the
+        // tile set in the caption face rather than in segments, so a dark panel drops their text
+        // instead of ghosting it. The empty captions stay in the layout, because the line they occupy
+        // is the line they will occupy again.
+        val odometer = vehicle.odometer
+        val hours = vehicle.operatingTime
+        if (odometer != null || hours != null) {
+          Row(Modifier.fillMaxWidth()) {
+            ClusterLabel(
+              if (dark || odometer == null) "" else "${formatOdometer(odometer.value)}${odometer.unit}",
+              Modifier.weight(1f),
+            )
+            ClusterLabel(if (dark || hours == null) "" else "${hours.value}${hours.unit}", align = TextAlign.End)
+          }
         }
       }
     }
@@ -289,6 +305,21 @@ private const val NOTE_SCALE = 0.55f
 private const val MARK_TEXT_SCALE = 0.8f
 
 /**
+ * A figure *inside* a glyph — the speed limit's ring — gets the ring's open middle rather than the
+ * whole slot: this much of the cell across, shared between its digits, and never taller than
+ * [FRAMED_TEXT_MAX] of it so a single digit does not touch the ring top and bottom.
+ */
+private const val FRAMED_TEXT_WIDTH = 0.52f
+private const val FRAMED_TEXT_MAX = 0.42f
+
+/** Type size for a mark's [cells]-long text in a slot [cell] dp across. See [FRAMED_TEXT_WIDTH]. */
+internal fun markTextSp(cell: Float, cells: Int, framed: Boolean): Float = if (framed) {
+  minOf(cell * FRAMED_TEXT_MAX, cell * FRAMED_TEXT_WIDTH / (maxOf(1, cells) * CELL_EM))
+} else {
+  cell * MARK_TEXT_SCALE
+}
+
+/**
  * A caption's type size for a mark cell [cell] dp across, or **null when the cell is too small to
  * set one** and the mark should keep its glyph alone.
  *
@@ -313,9 +344,11 @@ private const val LINE_AIR = 1f
 /**
  * One thing in a line's leading slot: the reverser's arrow, the steering mode, the seat.
  *
- * Either an [icon] or a short [text] — the text is the way out for a steering mode whose shape the
+ * An [icon], a short [text], or both. Text alone is the way out for a steering mode whose shape the
  * mod couldn't work out, where the mode's *number* is all there is to show and drawing a guess at
- * its geometry would be worse than printing it.
+ * its geometry would be worse than printing it. Both is a figure framed by its glyph — the speed
+ * limit's number inside its ring ([speedLimitMark]) — set in the numeric face and sized to the
+ * glyph's middle rather than to the slot (see [markTextSp]).
  *
  * [alpha] is how a mark that is present but not doing anything is drawn: the seat of a machine that
  * has a reversible position and is facing the normal way is ghosted rather than dropped, on the same
@@ -489,13 +522,14 @@ private fun Line(
           Box(Modifier.size(cell.dp), contentAlignment = Alignment.Center) {
             if (mark.icon != null) {
               Icon(mark.icon, mark.label, tint = mark.colour, modifier = Modifier.fillMaxSize())
-            } else if (mark.text != null) {
+            }
+            if (mark.text != null) {
               ClusterDigits(
                 mark.text,
                 cells = mark.text.length,
-                size = (cell * MARK_TEXT_SCALE).sp,
+                size = markTextSp(cell, mark.text.length, framed = mark.icon != null).sp,
                 colour = mark.colour,
-                face = SegmentFace.Alphanumeric,
+                face = if (mark.icon != null) SegmentFace.Numeric else SegmentFace.Alphanumeric,
               )
             }
           }
@@ -675,6 +709,49 @@ internal fun steeringLayoutIcon(layout: SteeringLayout?): ImageVector? = when (l
 
   null -> null
 }
+
+/**
+ * The working-speed limit as a road sign in the speed line's mark slot: a ring with the figure in it.
+ * **Absent while nothing on the rig is working**, which is when the game imposes none — so the sign
+ * is there exactly while a tool is holding the machine back, and comes and goes as it is lowered and
+ * raised.
+ *
+ * The game draws nothing for this. It is the reason a tractor with a lowered cultivator will not go
+ * past 12 whatever the cruise is set to, and the driver otherwise learns it by watching the speed stop
+ * climbing — which is the moment this says why.
+ *
+ * Bright while the machine is **at** the limit, which is when the limit is what is deciding its
+ * speed; [ARMED_ALPHA] below it, where it is only the ceiling. Brightness rather than a second colour,
+ * on the cluster's own rule (see [ARMED_ALPHA]). Neutral ink rather than a road sign's red: red on
+ * this cluster means something is wrong, and a working limit is the machine doing what it is built to.
+ *
+ * Whole km/h, as a sign prints it. The mod sends a tenth, and the tenth only exists for a damaged
+ * machine, whose limit the game cuts by its damage — not a figure anyone drives to.
+ */
+internal fun speedLimitMark(vehicle: Vehicle): LineMark? {
+  val limit = vehicle.speed?.limit ?: return null
+  val speed = vehicle.speed?.value ?: 0f
+  val figure = limit.roundToInt()
+  return LineMark(
+    icon = ClusterIcons.SpeedLimit,
+    text = figure.toString(),
+    label = "Working speed limit $figure ${vehicle.speed?.unit.orEmpty()}".trim(),
+    colour = ClusterColors.Digits,
+    alpha = if (speed >= limit - AT_LIMIT) 1f else ARMED_ALPHA,
+  )
+}
+
+/** How close to the limit counts as held at it: the motor settles a little under it, never on it. */
+private const val AT_LIMIT = 0.5f
+
+/**
+ * The odometer, to a tenth while it is short and in whole kilometres once it is not — a tenth is a
+ * field's headland on a new machine and noise on one with thousands of km behind it.
+ */
+internal fun formatOdometer(km: Double): String =
+  if (km < ODOMETER_TENTHS_BELOW) format1(km.toFloat()) else km.toLong().toString()
+
+private const val ODOMETER_TENTHS_BELOW = 1000.0
 
 /**
  * Which way the transmission is **set**, from `motor.direction` (mod version 6) — not the way the

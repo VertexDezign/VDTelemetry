@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,10 +20,13 @@ import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.East
+import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.West
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -54,8 +58,10 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FoldableState
+import net.vertexdezign.vdt.model.Hitch
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PrecisionFarming
+import net.vertexdezign.vdt.model.TensionBelts
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
 import net.vertexdezign.vdt.model.WorkWidth
@@ -106,6 +112,9 @@ private data class RigSlotState(
   val workWidth: WorkWidth?,
   val workAreas: List<WorkArea>,
   val precisionFarming: PrecisionFarming?,
+  val hitch: Hitch? = null,
+  val tensionBelts: TensionBelts? = null,
+  val broken: Boolean = false,
 )
 
 private fun findImplement(list: List<Implement>, pos: String): Implement? {
@@ -178,6 +187,8 @@ private fun Vehicle.slotState() = RigSlotState(
   workWidth = workWidth,
   workAreas = workAreas,
   precisionFarming = ownRates(this),
+  tensionBelts = tensionBelts,
+  broken = broken,
 )
 
 private fun Implement.slotState(): RigSlotState {
@@ -198,6 +209,11 @@ private fun Implement.slotState(): RigSlotState {
     workWidth = working.workWidth,
     workAreas = working.workAreas,
     precisionFarming = working.precisionFarming,
+    // The slot's own machine, not the chain's: the hitch is the linkage *this* implement hangs off,
+    // and the straps and the reset belong to the machine that has them.
+    hitch = hitch,
+    tensionBelts = tensionBelts,
+    broken = broken,
   )
 }
 
@@ -294,7 +310,13 @@ fun RigSlotPanel(
         NameBox(state, empty = if (slot == RigSlot.VEHICLE) "No Vehicle" else "No Implement")
 
         if (state != null) {
-          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          // Wraps rather than clipping: a one-cell slot is narrow, and the straps and the reset are
+          // only ever there on the machines that have them.
+          FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
+          ) {
             Icon(Icons.Filled.Build, null, tint = VdtColors.DarkGray, modifier = Modifier.height(14.dp))
             Text(
               "${100 - state.damage}%",
@@ -302,6 +324,20 @@ fun RigSlotPanel(
               fontWeight = FontWeight.Bold,
               color = VdtColors.DarkGray,
             )
+            // The machine's condition in the other sense: a drowned one is useless whatever its wear
+            // says, until it is reset. A word with its glyph, so the amber is never the whole message.
+            if (state.broken) SlotFact(Icons.Filled.WaterDrop, "Needs reset", VdtColors.Amber)
+            // Where the linkage is, worded as the ISOBUS strip words it. A fact in this row rather than a
+            // bar under the controls: a bar there sat among the fill levels and read as one of them.
+            state.hitch?.let { SlotFact(Icons.Filled.Height, hitchLabel(it), VdtColors.DarkGray) }
+            state.tensionBelts?.let { belts ->
+              val done = belts.fastened == belts.count
+              SlotFact(
+                if (done) Icons.Filled.Link else Icons.Filled.LinkOff,
+                strapsLabel(belts),
+                if (done) VdtColors.AccentText else VdtColors.DarkGray,
+              )
+            }
           }
         }
 
@@ -331,6 +367,15 @@ fun RigSlotPanel(
         if (state != null) FillUnitsDisplay(fillUnits, Modifier.fillMaxWidth(), spacing = 4)
       }
     }
+  }
+}
+
+/** One fact in the condition row: a glyph and a short word, the glyph carrying it where the tint can't. */
+@Composable
+private fun SlotFact(icon: ImageVector, label: String, tint: Color) {
+  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+    Icon(icon, null, tint = tint, modifier = Modifier.height(14.dp))
+    Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = tint, maxLines = 1)
   }
 }
 

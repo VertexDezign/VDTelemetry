@@ -29,7 +29,10 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Memory
@@ -42,6 +45,7 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,6 +91,7 @@ import net.vertexdezign.vdt.model.DischargeState
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Harvest
+import net.vertexdezign.vdt.model.Hitch
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.Mass
 import net.vertexdezign.vdt.model.MixState
@@ -94,6 +99,7 @@ import net.vertexdezign.vdt.model.Mixer
 import net.vertexdezign.vdt.model.MixerIngredient
 import net.vertexdezign.vdt.model.Pipe
 import net.vertexdezign.vdt.model.PipeState
+import net.vertexdezign.vdt.model.TensionBelts
 import net.vertexdezign.vdt.model.TipState
 import net.vertexdezign.vdt.model.Tipping
 import net.vertexdezign.vdt.model.Vehicle
@@ -253,6 +259,11 @@ internal data class IsoBusMachine(
   /** On a standalone wrapper alone, or beside [baler] on a baler-wrapper — one machine either way. */
   val baleWrapper: BaleWrapper? = null,
   val baleCounter: BaleCounter? = null,
+  /** Where the linkage this machine hangs off sits in its travel; the vehicle itself never has one. */
+  val hitch: Hitch? = null,
+  val tensionBelts: TensionBelts? = null,
+  /** Drowned: the game's one-way flag, cleared only by a reset. */
+  val broken: Boolean = false,
 ) {
   /**
    * Whether this machine has anything the panel knows how to draw. The dispatch list, and the one
@@ -292,6 +303,8 @@ internal fun Vehicle.isoBus() = IsoBusMachine(
   baler = baler,
   baleWrapper = baleWrapper,
   baleCounter = baleCounter,
+  tensionBelts = tensionBelts,
+  broken = broken,
 )
 
 internal fun Implement.isoBus() = IsoBusMachine(
@@ -319,6 +332,9 @@ internal fun Implement.isoBus() = IsoBusMachine(
   baler = baler,
   baleWrapper = baleWrapper,
   baleCounter = baleCounter,
+  hitch = hitch,
+  tensionBelts = tensionBelts,
+  broken = broken,
 )
 
 /** Every machine on the rig, the vehicle first, then its implements depth-first in hitch order. */
@@ -691,6 +707,11 @@ private fun MachineStatus(
       DamageChip(machine)
     }
 
+    // Ahead of everything it can do, because it can do nothing: a drowned machine is neither active
+    // nor interactive until someone resets it, and every chip after this one is moot until then.
+    // Read-only — a reset is the game's menu, not something to put a tap on in the cab.
+    if (machine.broken) Chip(Icons.Filled.WaterDrop, "Needs reset", VdtColors.Amber)
+
     // The three any machine on the rig might have, first: they are its operating state, where the
     // rest of the strip is situational.
     machine.isTurnedOn?.let { on ->
@@ -710,6 +731,9 @@ private fun MachineStatus(
         onClick = target?.let { { onCommand(ClientMessage.SetLowered(it, on = !down)) } },
       )
     }
+    // Beside the raise chip, because it is what that chip moves: where the linkage actually is, which
+    // the lowered/raised word cannot say while the arm is on its way or parked at a headland height.
+    machine.hitch?.let { Chip(Icons.Filled.Height, hitchLabel(it), VdtColors.DarkGray) }
 
     when (machine.foldable) {
       FoldableState.FOLDED -> Chip(
@@ -741,6 +765,15 @@ private fun MachineStatus(
 
     machine.pipe?.let { PipeChip(it, target, onCommand) }
     machine.cover?.let { CoverChip(it, target, onCommand) }
+    machine.tensionBelts?.let { belts ->
+      // Read-only for now: the mod has no strap command yet. The game's own key does work from the cab
+      // (TOGGLE_TENSION_BELTS, every strap at once), so this is a chip that could become a control.
+      Chip(
+        if (belts.fastened == belts.count) Icons.Filled.Link else Icons.Filled.LinkOff,
+        strapsLabel(belts),
+        if (belts.fastened == belts.count) VdtColors.AccentText else VdtColors.DarkGray,
+      )
+    }
     ControlGroupChip(machine, node, onCommand)
   }
 }
@@ -1285,6 +1318,20 @@ private fun TipChip(tipping: Tipping, target: ControlTarget?, onCommand: (Client
     },
     control = target != null && sides > 1,
   )
+}
+
+/** The linkage's place in its travel, 100% at the top as the game's own dashboard reads it. */
+internal fun hitchLabel(hitch: Hitch): String = "Hitch ${hitch.position}%"
+
+/**
+ * The load straps in a word where one fits — every strap done up or none — and as a count while the
+ * driver is part way round the trailer. The glyph says the same (a link, or a broken one), so the
+ * state never rests on the tint.
+ */
+internal fun strapsLabel(belts: TensionBelts): String = when (belts.fastened) {
+  belts.count -> "Strapped"
+  0 -> "Unstrapped"
+  else -> "Straps ${belts.fastened}/${belts.count}"
 }
 
 /**

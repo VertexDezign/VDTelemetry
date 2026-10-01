@@ -34,6 +34,7 @@ class FleetPanelTest {
     damage: Int? = 10,
     fuel: Int? = 80,
     ads: FleetAds? = null,
+    broken: Boolean = false,
   ) = FleetVehicle(
     id = id,
     name = name,
@@ -45,6 +46,7 @@ class FleetPanelTest {
     wearable = damage?.let { Wearable(damage = it, wear = 20, dirt = 30, unit = "%") },
     motorFillUnits = fuel?.let { MotorFillUnits(fuel = FillUnit(fillLevelPercentage = it)) },
     ads = ads,
+    broken = broken,
   )
 
   private fun ads(
@@ -276,5 +278,17 @@ class FleetPanelTest {
   fun theHeadlineNamesTheRigAnImplementIsOn() {
     assertEquals("Ploughs · on Fendt 942", headline(machine(category = "Ploughs", fuel = null), "Fendt 942"))
     assertEquals("Tractors · leased", headline(machine(propertyState = PropertyState.LEASED), null))
+  }
+
+  @Test
+  fun aDrownedMachineNeedsAttentionAndSaysWhy() {
+    val drowned = machine(broken = true, damage = 0, fuel = 100)
+    assertTrue(needsAttention(drowned), "a brand-new machine that drowned is still unusable")
+    assertEquals("Drowned — needs a reset", statusLabel(drowned))
+    // Its own words, not ADS's BROKEN, which is a breakdown; and it takes the who-has-it rung, so a
+    // row still wears at most three badges.
+    val badges =
+      rowBadges(machine(broken = true, propertyState = PropertyState.LEASED, ads = ads(state = AdsState.BROKEN)))
+    assertEquals(listOf("BROKEN", "LEASED", "NEEDS RESET"), badges)
   }
 }
