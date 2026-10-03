@@ -157,8 +157,9 @@ Layout, with the side view facing left (design rule):
   reads the signed angle with an up/down `Icon`. The tolerance is a constant to tune in game.
 - **Distance** in metres below it, with the same reference applied.
 - **Cylinder travel** as small bars, one per `loaderCylinders` tool, labelled by role.
-- **Set level** button, plus *Clear* once a reference exists. With no reference, the angle is shown
-  greyed with "no reference — set level", so a raw root-node angle can never pass for level.
+- **Set level** button, plus *Clear* once a reference exists. With no reference the root node is the
+  level (the user's call, 2026-10-03: it matched every tool they had), and the caption says
+  "default level" so the two are never confused.
 
 ### 6. Dedicated `LoaderPanel` / Loader app
 

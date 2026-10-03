@@ -131,10 +131,7 @@ private fun inclinationMark(degrees: Float): ImageVector = when {
   else -> Icons.Filled.ArrowDownward
 }
 
-/**
- * The header's one line: how far off level the tool is, the glance a driver makes between buckets.
- * Nothing until the player has set a level — the body says why, and the header has no room to.
- */
+/** The header's one line: how far off level the tool is, the glance a driver makes between buckets. */
 @Composable
 internal fun RowScope.LoaderStateChip(rig: LoaderRig) {
   val inclination = rig.reading?.inclination ?: return
@@ -145,10 +142,9 @@ internal fun RowScope.LoaderStateChip(rig: LoaderRig) {
  * The loader screen: a side view of the arm and the tool, how far off level the tool is and how high,
  * each cylinder's travel, and "set level".
  *
- * **No reference, no level.** The angle the mod reports is the tool's root node, and nothing makes
- * that node parallel to a shovel floor — so until the player has said where level is for this tool,
- * the angle is shown in disabled ink and labelled as unlevelled. A raw 0° passing for level is the one
- * thing this screen must never show.
+ * **The root node is the default level.** Nothing in the engine makes it parallel to a shovel floor,
+ * but on every captured tool it is within a degree or so, so the screen reads off it until the player
+ * sets a level for that tool model — and says which of the two it is reading off.
  */
 @Composable
 internal fun LoaderSection(rig: LoaderRig, onCommand: (ClientMessage) -> Unit, modifier: Modifier = Modifier) {
@@ -177,13 +173,13 @@ private fun LoaderReadouts(rig: LoaderRig, modifier: Modifier = Modifier) {
   Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)) {
     rig.reading?.let { reading ->
       AngleReadout(reading)
-      val metres = reading.height ?: reading.distance
+      val metres = reading.height
       Figure(
         "Height",
         metres?.let(::heightLabel) ?: "-",
         when {
           metres == null -> "nothing below in reach"
-          reading.height != null -> "above level"
+          reading.reference?.distance != null -> "above your zero"
           else -> "above what is below"
         },
       )
@@ -198,56 +194,51 @@ private fun LoaderReadouts(rig: LoaderRig, modifier: Modifier = Modifier) {
 }
 
 /**
- * The angle, with its glyph and its word. Unlevelled, it is the raw root-node angle in disabled ink
- * under a label that says so — the colour is the lesser half; the words are what carry it.
+ * The angle, with its glyph and its word — and whose level it is measured from, because the default
+ * (the tool's root node) and the player's own read the same and are not the same thing.
  */
 @Composable
 private fun AngleReadout(reading: LoaderTool) {
   val inclination = reading.inclination
   Column {
     Text("ANGLE", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-    if (inclination != null) {
-      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Icon(
-          inclinationMark(inclination),
-          contentDescription = null,
-          tint = VdtColors.TextDark,
-          modifier = Modifier.size(18.dp),
-        )
-        Text(
-          inclinationLabel(inclination),
-          color = VdtColors.TextDark,
-          fontSize = 20.sp,
-          fontWeight = FontWeight.Bold,
-          maxLines = 1,
-        )
-      }
-      Text(
-        when {
-          abs(inclination) < LEVEL_TOLERANCE_DEG -> "on your level"
-          inclination > 0 -> "nose up"
-          else -> "nose down"
-        },
-        color = VdtColors.DarkGray,
-        fontSize = 10.sp,
-        maxLines = 1,
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+      Icon(
+        inclinationMark(inclination),
+        contentDescription = null,
+        tint = VdtColors.TextDark,
+        modifier = Modifier.size(18.dp),
       )
-    } else {
       Text(
-        inclinationLabel(reading.pitch).let { if (it == "LEVEL") "0.0°" else it },
-        color = VdtColors.TextDisabled,
+        inclinationLabel(inclination),
+        color = VdtColors.TextDark,
         fontSize = 20.sp,
         fontWeight = FontWeight.Bold,
         maxLines = 1,
       )
-      Text("no level set for this tool", color = VdtColors.DarkGray, fontSize = 10.sp, maxLines = 1)
     }
+    Text(
+      angleCaption(inclination, reading.reference != null),
+      color = VdtColors.DarkGray,
+      fontSize = 10.sp,
+      maxLines = 1,
+    )
   }
+}
+
+/** The line under the angle: which way it is off, and off whose level. */
+internal fun angleCaption(inclination: Float, ownLevel: Boolean): String {
+  val off = when {
+    abs(inclination) < LEVEL_TOLERANCE_DEG -> if (ownLevel) "on your level" else "on the default level"
+    inclination > 0 -> "nose up"
+    else -> "nose down"
+  }
+  return if (abs(inclination) < LEVEL_TOLERANCE_DEG || ownLevel) off else "$off, default level"
 }
 
 /**
  * "Set level" — the tool's pose right now becomes this tool model's zero, for every copy of it, on
- * every save and every screen — and, once there is one, "Clear level".
+ * every save and every screen — and, once there is one, "Clear level", back to the default.
  *
  * Inert without a diagram path ([LoaderRig.toolNode]): the command is addressed by it, and a pinned
  * tile has none.
@@ -292,8 +283,7 @@ private const val ARM_HIGH_DEG = 42f
 /**
  * The loader from the side, **facing left** (design rule): the arm from its pivot on the right, raised
  * by its lift travel and lengthened by its telescope, and the tool at its tip turned to the angle the
- * screen prints — off the player's level once there is one, else the raw angle, drawn in disabled ink
- * like the figure. A dashed line through the tool is level, so the picture says what the number says.
+ * screen prints. A dashed line through the tool is level, so the picture says what the number says.
  *
  * Schematic on purpose. The arm's real geometry is not exported and differs on every machine; what a
  * driver reads off it is "up or down, tipped or not", and the figures beside it are the measurement.
@@ -303,10 +293,9 @@ private fun LoaderGlyph(rig: LoaderRig, modifier: Modifier = Modifier) {
   val lift = rig.cylinders.firstOrNull { it.role == LoaderCylinderRole.LIFT }?.travel ?: 0.3f
   val telescope = rig.cylinders.firstOrNull { it.role == LoaderCylinderRole.TELESCOPE }?.travel ?: 0f
   val reading = rig.reading
-  val angle = reading?.inclination ?: reading?.pitch ?: 0f
-  val levelled = reading?.inclination != null
+  val angle = reading?.inclination ?: 0f
   val armInk = VdtColors.DarkGray
-  val toolInk = if (levelled || reading == null) VdtColors.TextDark else VdtColors.TextDisabled
+  val toolInk = VdtColors.TextDark
   val groundInk = VdtColors.PanelBorder
   val levelInk = VdtColors.Gray
 
