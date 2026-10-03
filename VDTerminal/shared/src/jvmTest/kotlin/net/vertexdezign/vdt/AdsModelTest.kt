@@ -32,7 +32,8 @@ class AdsModelTest {
                 "motor": { "temperatur": { "value": 93, "min": 20, "max": 120, "unit": "°C" } },
                 "ads": {
                   "lamps": { "engine": "OFF", "warning": "WARN", "brakes": "OFF",
-                             "battery": "CRIT", "coolant": "COLD", "service": "OFF" },
+                             "battery": "CRIT", "coolant": "COLD", "service": "OFF",
+                             "transmission": "WARN", "oil": "OFF" },
                   "service": { "hours": 3.3, "interval": 5.4 },
                   "electrical": { "systemVoltage": 13.8, "unit": "V" },
                   "load": { "value": 112, "overloadAt": 85, "unit": "%" },
@@ -50,6 +51,8 @@ class AdsModelTest {
     assertEquals(AdsLamp.WARN, lamps.warning)
     assertEquals(AdsLamp.CRIT, lamps.battery)
     assertEquals(AdsLamp.COLD, lamps.coolant)
+    assertEquals(AdsLamp.WARN, lamps.transmission)
+    assertEquals(AdsLamp.OFF, lamps.oil)
 
     val service = assertNotNull(ads.service)
     assertEquals(3.3f, service.hours)
@@ -88,6 +91,8 @@ class AdsModelTest {
     assertEquals(AdsLamp.OFF, lamps.battery)
     assertNull(lamps.engine, "a lamp the machine does not have must not decode as OFF")
     assertNull(lamps.service)
+    assertNull(lamps.transmission, "a plain manual has no transmission lamp, not a dark one")
+    assertNull(lamps.oil)
     assertNull(ads.service)
     assertNull(ads.electrical)
     assertNull(ads.load)
