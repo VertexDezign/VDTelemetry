@@ -4,10 +4,9 @@ The issue asks for the positions of loaders and shovels, shown in a panel of the
 panel when the loader or its tool is selected, with a button to re-zero the shovel so different tools can
 all be aligned to the ground.
 
-Status: **steps 1–2 built** — the aspects (v30, captured: seven vanilla SP machines under
-`examples/json/telemetry/vanilla/loader/`) and the reference store + command. The reference is unseen in game until
-step 3 gives it a button. Written 2026-10-03 on branch `169-front-loader-shovel-arm-positions`
-(mod `VERSION 29`).
+Status: **steps 1–4 built**, step 5 (in-game validation) open. The aspects (v30) are captured on seven vanilla SP
+machines under `examples/json/telemetry/vanilla/loader/`; the reference store, command, `LoaderSection` (ISOBUS) and the
+standalone Loader app/widget are unseen in game.
 
 The model is [Tool Inclination Helper](https://www.farming-simulator.com/mod.php?mod_id=308809)
 (timmeey86, Apache-2.0, [source](https://github.com/Timmeey86/FS25_ToolInclinationHelper)), which the user

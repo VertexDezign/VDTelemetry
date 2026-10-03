@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.Lightbulb
@@ -32,6 +33,7 @@ import net.vertexdezign.vdt.app.panels.FinanceSummary
 import net.vertexdezign.vdt.app.panels.InvoicesSummary
 import net.vertexdezign.vdt.app.panels.IsoBusPanel
 import net.vertexdezign.vdt.app.panels.Lighting
+import net.vertexdezign.vdt.app.panels.LoaderPanel
 import net.vertexdezign.vdt.app.panels.MapPanel
 import net.vertexdezign.vdt.app.panels.MissionsSummary
 import net.vertexdezign.vdt.app.panels.Navigation
@@ -260,6 +262,27 @@ object IsoBusWidget : Widget {
     // stopped offering, which is the fallback the option's docs leave to the widget.
     val slot = RigSlot.entries.firstOrNull { it.name == slotOption.resolve(config) }
     IsoBusPanel(telemetry?.vehicle, slot, modifier, onCommand = store.onCommand)
+  }
+}
+
+/**
+ * The loader's tool: off level, height, cylinders and "set level" (issue #169). Follows the rig, not the
+ * game's selection — see [LoaderPanel]. Nothing to configure: a rig has one loader.
+ */
+object LoaderWidget : Widget {
+  override val id = "loader"
+  override val title = "Loader"
+  override val icon: ImageVector = Icons.Filled.Construction
+
+  // The readouts alone fit a narrow tile; the side view joins them from 300dp wide.
+  override val minWidth = 140.dp
+  override val minHeight = 140.dp
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val store = LocalVdtStore.current
+    val telemetry by store.telemetry.collectAsState()
+    LoaderPanel(telemetry?.vehicle, modifier, onCommand = store.onCommand)
   }
 }
 

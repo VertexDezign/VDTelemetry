@@ -11,6 +11,7 @@ object AppRegistry {
     listOf(
       VehicleApp,
       IsoBusApp,
+      LoaderApp,
       MapApp,
       FieldsApp,
       FleetApp,
