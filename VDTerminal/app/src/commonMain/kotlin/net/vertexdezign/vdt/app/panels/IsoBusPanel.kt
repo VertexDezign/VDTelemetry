@@ -93,6 +93,8 @@ import net.vertexdezign.vdt.model.FoldableState
 import net.vertexdezign.vdt.model.Harvest
 import net.vertexdezign.vdt.model.Hitch
 import net.vertexdezign.vdt.model.Implement
+import net.vertexdezign.vdt.model.LoaderCylinder
+import net.vertexdezign.vdt.model.LoaderTool
 import net.vertexdezign.vdt.model.Mass
 import net.vertexdezign.vdt.model.MixState
 import net.vertexdezign.vdt.model.Mixer
@@ -264,6 +266,10 @@ internal data class IsoBusMachine(
   val tensionBelts: TensionBelts? = null,
   /** Drowned: the game's one-way flag, cleared only by a reset. */
   val broken: Boolean = false,
+  /** On the tool of a loader: its raw angle and height, and the player's level. See [LoaderSection]. */
+  val loaderTool: LoaderTool? = null,
+  /** A loader's cylinders, or a tool's own clamp. See [LoaderSection]. */
+  val loaderCylinders: List<LoaderCylinder> = emptyList(),
 ) {
   /**
    * Whether this machine has anything the panel knows how to draw. The dispatch list, and the one
@@ -274,7 +280,7 @@ internal data class IsoBusMachine(
    * the game frequently has it selected rather than the machine pulling it.
    */
   val hasSection: Boolean get() = mixer != null || harvest != null || cutter != null || baler != null ||
-    baleWrapper != null
+    baleWrapper != null || isLoaderPart
 }
 
 internal fun Vehicle.isoBus() = IsoBusMachine(
@@ -305,6 +311,8 @@ internal fun Vehicle.isoBus() = IsoBusMachine(
   baleCounter = baleCounter,
   tensionBelts = tensionBelts,
   broken = broken,
+  loaderTool = loaderTool,
+  loaderCylinders = loaderCylinders,
 )
 
 internal fun Implement.isoBus() = IsoBusMachine(
@@ -335,6 +343,8 @@ internal fun Implement.isoBus() = IsoBusMachine(
   hitch = hitch,
   tensionBelts = tensionBelts,
   broken = broken,
+  loaderTool = loaderTool,
+  loaderCylinders = loaderCylinders,
 )
 
 /** Every machine on the rig, the vehicle first, then its implements depth-first in hitch order. */
@@ -476,6 +486,18 @@ fun IsoBusPanel(
     else -> null
   }
 
+  // The loader, like the combine, is resolved from the whole rig: the tool, the loader carrying its
+  // cylinders and (on a self-propelled loader) the machine itself are separate nodes, the game
+  // usually has the TOOL selected, and the screen must not change as the driver taps between them.
+  // Only opened when the machine being shown is part of it, so a tractor working a baler behind a
+  // parked front loader shows the baler.
+  val loader = when {
+    machine == null || !machine.isLoaderPart -> null
+    nodes.isNotEmpty() -> loaderRigOf(nodes.map { it.id to it.machine })
+    vehicle != null -> loaderRigOf(rigMachines(vehicle).map { null to it })
+    else -> null
+  }
+
   BoxWithConstraints(modifier) {
     // Narrow, the machine's name and the mix state cannot both sit in the header without one running
     // over the other. The state is the thing you glance at, so it moves into the body's status strip
@@ -496,6 +518,7 @@ fun IsoBusPanel(
             mixer != null -> MixStateChip(mixer)
             combine != null -> HarvestChip(combine)
             machine != null && (machine.baler != null || machine.baleWrapper != null) -> BalerStateChip(machine)
+            loader != null -> LoaderStateChip(loader)
             else -> Unit
           }
         }
@@ -573,6 +596,8 @@ fun IsoBusPanel(
             )
           } else if (machine.baler != null || machine.baleWrapper != null) {
             BalerSection(machine, target, onCommand, Modifier.weight(1f).fillMaxWidth())
+          } else if (loader != null) {
+            LoaderSection(loader, onCommand, Modifier.weight(1f).fillMaxWidth())
           }
         }
       }
