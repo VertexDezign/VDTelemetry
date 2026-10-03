@@ -27,9 +27,10 @@ data class Ads(
   val electrical: AdsElectrical? = null,
   val load: AdsLoad? = null,
   /**
-   * A CVT's own oil temperature, which ADS models separately and which can cook while the engine
-   * still reads fine. Null on any machine without one — never a very cold reading. (ADS models it on
-   * powershift and automatic gearboxes too; the mod reports it for CVTs only.)
+   * The transmission's own oil temperature, which ADS models separately and which can cook while the
+   * engine still reads fine. Present exactly where ADS's dashboard prints it — every gearbox but a
+   * plain manual, on a machine new enough for the transmission lamp (mod version 29; before that,
+   * CVTs only). Null everywhere else — never a very cold reading.
    */
   val transmissionTemperatur: Temperatur? = null,
 )
@@ -42,9 +43,10 @@ data class Ads(
  * coolant lamp and genuinely nothing else. That is the same rule the drivetrain lamps already
  * follow, and the reason these are nullable rather than defaulted.
  *
- * ADS's dashboard draws two more, `transmission` and `oil`, which are not carried: they would need
- * glyphs and fields of their own, and were left out when the integration was brought up to ADS
- * 0.9.9.3. [service] lights only once the service interval is past, as in ADS's own HUD.
+ * Two lamps have a gate beyond the year, both ADS's own: a plain manual gearbox has no [transmission]
+ * lamp, and an electric machine no [coolant] one. [transmission] and [oil] arrived with mod version
+ * 29, when ADS 0.9.9.3 started drawing them. [service] lights only once the service interval is
+ * past, as in ADS's own HUD.
  */
 @Serializable
 data class AdsLamps(
@@ -54,6 +56,8 @@ data class AdsLamps(
   val battery: AdsLamp? = null,
   val coolant: AdsLamp? = null,
   val service: AdsLamp? = null,
+  val transmission: AdsLamp? = null,
+  val oil: AdsLamp? = null,
 )
 
 /**

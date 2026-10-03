@@ -326,7 +326,9 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 28: `ads.inspected` is gone. Advanced Damage System 0.9.9.3 rewrote the inspection record it was
 --     read from, and the integration was cut back to the parts of ADS that survived the rewrite (see
 --     src/integrations/AdvancedDamageSystem.lua). Everything else in `ads` is unchanged.
--- 29: held for the rest of the Advanced Damage System 0.9.9.3 work.
+-- 29: `ads.lamps.transmission` and `ads.lamps.oil`, the two lamps ADS 0.9.9.3 started drawing, and
+--     `ads.transmissionTemperatur` on every gearbox ADS shows it for (all but a plain manual, from
+--     the transmission lamp's year on) rather than on CVTs only. Additive.
 -- 30: `loaderTool` on a tool hitched to a loader's tool joint -- its pitch against the horizon and the
 --     distance to whatever is under it (issue #169) -- and `loaderCylinders` on anything with a
 --     front-loader-driven cylinder, each one's travel along its stroke; `loaderTool.reference`, the

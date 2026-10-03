@@ -351,12 +351,14 @@ version renames costs you that panel, never a Lua error.
   reports no `vehicle.ads` at all rather than a plausible wrong one. Kept deliberately small since
   0.9.9.3 rewrote the mod: only the dashboard and the service interval are read. **Read only:** every
   workshop procedure stays in-game, as with vanilla repair.
-    * The six dashboard lamps ADS drives, each with its severity — and only the lamps a machine of
-      that production year actually has
+    * All eight dashboard lamps ADS drives, each with its severity — and only the lamps the machine
+      actually has: ADS gates each on the production year, the transmission lamp on any gearbox but a
+      plain manual, and the coolant lamp on not being electric
     * The engine temperature, which **replaces** `motor.temperatur.value`. ADS's thermal model is the
       real one under ADS, and the vanilla figure it stands in for is never synced to a multiplayer
       client at all (`motorTemperature.valueSend` is dead code in the base game)
-    * A CVT's own transmission temperature, which ADS models separately
+    * The transmission's own temperature, which ADS models separately — wherever ADS's dashboard
+      shows it (any gearbox but a plain manual, from the transmission lamp's year on)
     * The load ADS wears the engine on — the plain engine load plus the draft term it adds while an
       implement is down and working, which is what its own dashboard prints and can read past 100%.
       `motor.load` stays exported beside it, unchanged: the plain engine load is still true, and this
