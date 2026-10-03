@@ -136,7 +136,7 @@ internal fun fuelPercent(vehicle: FleetVehicle): Int? = vehicle.motorFillUnits?.
  * of fuel. The point of the whole list is to answer this without walking the yard.
  */
 internal fun needsAttention(vehicle: FleetVehicle): Boolean {
-  if (vehicle.ads?.needsAttention == true) return true
+  if (vehicle.broken || vehicle.ads?.needsAttention == true) return true
   val condition = fleetCondition(vehicle)
   if (condition != null && condition < CONDITION_ATTENTION) return true
   val fuel = fuelPercent(vehicle)
@@ -462,7 +462,12 @@ internal fun rowBadges(vehicle: FleetVehicle, rig: FleetVehicle? = null): List<S
   }
   // Who has it, or that it has been put away: one rung of statusLabel's ladder, short enough for a row
   // — including the rig's answer for an implement, or a plough would work all day saying nothing.
+  //
+  // Drowned heads the ladder, as it heads statusLabel's: nobody is driving a machine that cannot be
+  // used until it is reset. Not ADS's BROKEN — that is a breakdown, this is the game's own flag for a
+  // machine that went into deep water — so it gets its own words rather than borrowing that one.
   when {
+    vehicle.broken -> add("NEEDS RESET")
     vehicle.isAI -> add("AI")
     vehicle.isControlled || rig?.isControlled == true || rig?.isEntered == true -> add("IN USE")
     vehicle.isParked -> add("PARKED")

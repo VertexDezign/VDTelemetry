@@ -27,6 +27,7 @@ local sourceFiles = {
   "src/collect/vehicle/Lights.lua",
   "src/collect/vehicle/Steering.lua",
   "src/collect/vehicle/SupportSystems.lua",
+  "src/collect/vehicle/Hitch.lua",
   -- Shared aspects (any vehicle or implement); Aspects.lua depends on the individual collectors
   "src/collect/aspects/TurnOn.lua",
   "src/collect/aspects/Foldable.lua",
@@ -55,6 +56,8 @@ local sourceFiles = {
   "src/collect/aspects/Plow.lua",
   "src/collect/aspects/Tillage.lua",
   "src/collect/aspects/Mixer.lua",
+  "src/collect/aspects/TensionBelts.lua",
+  "src/collect/aspects/Broken.lua",
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
@@ -307,7 +310,12 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     the wrap's progress, auto-drop, whether the drop key would drop). The bale's level is NOT
 --     repeated: `baler.fillUnit` is the chamber's position in `fillUnits`. Written by five new
 --     commands (command/BalerControl.lua).
-VDTelemetry.VERSION = 26
+-- 27: five small reads the game already shows in the cab: `speed.limit` (the working-speed cap the
+--     rig's working machines impose, getSpeedLimit(true)), `odometer` (Drivable's km counter),
+--     `hitch` on an implement (where the linkage it hangs off sits in its travel -- the
+--     bottomArmPosition dashboard), `tensionBelts` (how many load straps are done up) and `broken`
+--     (the machine drowned and needs a reset). All optional; nothing existing changed shape.
+VDTelemetry.VERSION = 27
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

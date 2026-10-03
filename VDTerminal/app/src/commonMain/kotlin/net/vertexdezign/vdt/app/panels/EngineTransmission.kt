@@ -148,6 +148,10 @@ fun EngineTransmission(
             unit = vehicle.speed?.unit ?: "",
             size = 140.dp,
             isActive = cruise?.active ?: false,
+            // The working-speed limit the rig's tools set, as a mark on the scale — the speed the
+            // needle will stop at however far the cruise is turned up. Absent while nothing works.
+            marker = vehicle.speed?.limit,
+            markerDescription = vehicle.speed?.limit?.let { "working speed limit ${format2(it)}" },
             onClick =
             cruise?.let {
               {

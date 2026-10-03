@@ -33,6 +33,9 @@ end
 if VDT.Motor == nil then
   dofile("src/collect/vehicle/Motor.lua")
 end
+if VDT.Broken == nil then
+  dofile("src/collect/aspects/Broken.lua")
+end
 if VDT.FleetExporter == nil then
   dofile("src/collect/FleetExporter.lua")
 end
@@ -62,6 +65,7 @@ local function makeVehicle(over)
     spec_motorized = over.motorized,
     spec_pallet = over.pallet and {} or nil,
     spec_rideable = over.rideable and {} or nil,
+    isBroken = over.broken,
   }
   vehicle.rootVehicle = over.rootVehicle or vehicle
   function vehicle:getShowInVehiclesOverview()
@@ -154,7 +158,7 @@ describe("FleetExporter", function()
     it("lists the farm's own machines", function()
       installWorld({ makeVehicle({ id = 7, name = "Fendt 942" }) })
       local model = VDT.FleetExporter.collect()
-      assert.equals("1", model.version)
+      assert.equals("2", model.version)
       assert.equals(1, #model.vehicles)
       assert.equals(7, model.vehicles[1].id)
       assert.equals("Fendt 942", model.vehicles[1].name)
@@ -202,7 +206,7 @@ describe("FleetExporter", function()
       installWorld({ makeVehicle({}) }, { farmId = false })
       local model = VDT.FleetExporter.collect()
       -- The document still goes out: an empty fleet and no fleet are different statements.
-      assert.equals("1", model.version)
+      assert.equals("2", model.version)
       assert.is_nil(model.vehicles)
     end)
 
@@ -275,6 +279,13 @@ describe("FleetExporter", function()
       assert.is_true(row.isControlled)
       -- Absent rather than false: the Kotlin model defaults it, and the file stays small.
       assert.is_nil(row.isEntered)
+    end)
+
+    it("flags a drowned machine, and only that one", function()
+      installWorld({ makeVehicle({ id = 1, broken = true }), makeVehicle({ id = 2, broken = false }) })
+      local rows = VDT.FleetExporter.collect().vehicles
+      assert.is_true(rows[1].broken)
+      assert.is_nil(rows[2].broken)
     end)
 
     it("reports the tab rotation, which is how a machine is marked as parked", function()

@@ -35,7 +35,8 @@ VDT.FleetExporter = {}
 VDT.FleetExporter.CHANNEL = "fleet"
 VDT.FleetExporter.FILE_NAME = "fleet.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin FleetData.
-VDT.FleetExporter.VERSION = 1
+-- 2: `broken` -- the machine drowned and needs a reset (see aspects/Broken.lua).
+VDT.FleetExporter.VERSION = 2
 -- Write cadence in ms. Condition, hours and fill levels drift over in-game hours; the two things
 -- here that move faster (fuel, who is driving) are the driven machine's business, and that one is on
 -- the 100 ms telemetry channel already.
@@ -224,6 +225,9 @@ function VDT.FleetExporter.collectVehicle(vehicle, sizeX, sizeZ)
   row.fillUnits = okFill and fillUnits or nil
   local okMotor, motorFillUnits = pcall(VDT.Motor.collectFillUnits, vehicle)
   row.motorFillUnits = okMotor and motorFillUnits or nil
+  -- A drowned machine is the one the fleet list is for: the player is not sitting in it, and it
+  -- stays useless where it went in until someone resets it.
+  row.broken = VDT.Broken.collect(vehicle)
 
   local root = vehicle.rootVehicle
   if type(root) == "table" and root ~= vehicle then

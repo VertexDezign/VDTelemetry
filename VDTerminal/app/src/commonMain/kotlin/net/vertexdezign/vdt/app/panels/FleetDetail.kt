@@ -175,12 +175,21 @@ private fun FactsCard(vehicle: FleetVehicle, rig: FleetVehicle?) {
  * *person* is driving would otherwise sit there claiming to be merely attached while it works.
  */
 internal fun statusLabel(vehicle: FleetVehicle, rig: FleetVehicle? = null): String = when {
+  // First, because it answers the question the others are about: nobody is taking this one anywhere.
+  vehicle.broken -> "Drowned — needs a reset"
+
   vehicle.isEntered -> "You are in it"
+
   vehicle.isAI -> "Helper driving"
+
   vehicle.isControlled -> "In use"
+
   rig != null && (rig.isControlled || rig.isEntered) -> "In use"
+
   vehicle.isParked -> "Parked"
+
   vehicle.attachedTo != null -> "Attached"
+
   else -> "Idle"
 }
 

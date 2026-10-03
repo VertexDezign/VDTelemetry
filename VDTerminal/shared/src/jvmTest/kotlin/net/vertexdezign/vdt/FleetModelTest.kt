@@ -255,6 +255,28 @@ class FleetModelTest {
   }
 
   @Test
+  fun decodesADrownedMachine() {
+    // Fleet version 2. The flag is only ever written when true, so every version-1 row reads false.
+    val data =
+      VdtParser.parseFleet(
+        """
+        {
+          "version": "2",
+          "vehicles": [
+            { "id": 3, "name": "Valtra T", "type": "tractor", "age": 1, "hours": 2.0,
+              "propertyState": "OWNED", "broken": true },
+            { "id": 4, "name": "Valtra N", "type": "tractor", "age": 1, "hours": 2.0, "propertyState": "OWNED" }
+          ]
+        }
+        """.trimIndent(),
+      )
+    assertRoundTrips(data)
+    val (drowned, fine) = data.vehicles
+    assertTrue(drowned.broken)
+    assertFalse(fine.broken)
+  }
+
+  @Test
   fun decodesTheAdsMaintenanceBlock() {
     val ads =
       assertNotNull(

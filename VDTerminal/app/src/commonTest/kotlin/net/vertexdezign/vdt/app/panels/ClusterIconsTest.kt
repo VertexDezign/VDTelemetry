@@ -51,6 +51,7 @@ class ClusterIconsTest {
       "steerCrabLeft" to ClusterIcons.SteerCrabLeft,
       "steerCrabRight" to ClusterIcons.SteerCrabRight,
       "seatReversed" to ClusterIcons.SeatReversed,
+      "speedLimit" to ClusterIcons.SpeedLimit,
     )
 
   private fun paths(node: VectorNode): List<VectorPath> = when (node) {

@@ -57,6 +57,15 @@ What those two left is under their own headings below. What is still untouched f
   it: every baler capture's net, twine and film are `STEP`. The baler screen counts rolls the game's way
   (`rollsLabel`), so what is left is the generic bar on the vehicle page.
 
+- **Export v27's five cab reads have never been seen drawn against a game.** The limit is a ring on the
+  cluster's speed line and a tick on the engine panel's speedometer, the odometer sits beside the hour meter,
+  the hitch is a chip on the ISOBUS strip and on a rig slot, the straps and a drowned machine are chips
+  there too, and the fleet list flags a drowned machine. All of it is tested off inline JSON only. Two calls
+  left open on purpose: **no alert for open straps** — the game cannot see an unstrapped load (see
+  `TensionBelts`), so every empty flatbed would raise it. And **the straps chip is read-only**: the game's
+  own key fastens every strap from the cab (`TOGGLE_TENSION_BELTS`, which steps through them one per frame in
+  `TensionBelts:onUpdate`), so a strap command is a fair control to add — it just needs the mod side first.
+
 ### Two open calls on the mod side
 
 - **`showOnHud` vs `showOnInfoHud`.** `aspects/FillUnit.lua` filters on `showOnInfoHud`, which is the *info-box* flag;
@@ -607,6 +616,11 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   on a client neither number exists, so the bar is simply not drawn. Mid-pass either way: CombineXP's measurement resets
   to zero the
   moment the drum stops being fed, so a headland capture shows nothing.
+- **Export v27's cab reads**, all inline JSON in `VdtModelTest.decodesTheV27CabReads` meanwhile: a tractor with a
+  lowered three-point implement (for `hitch`, ideally mid-travel) pulling or carrying something strapped (for
+  `tensionBelts`), while the implement is working (for `speed.limit`). Once on the host and once on a multiplayer
+  client — the hitch's travel and the odometer are both worked out locally on a client (see `vehicle/Hitch.lua` and
+  `VehicleExporter.collectOdometer`), so the two files are the check that they agree.
 - **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
   (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
 - **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file
