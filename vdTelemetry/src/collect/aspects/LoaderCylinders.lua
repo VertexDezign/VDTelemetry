@@ -25,7 +25,10 @@
 --   * LIFT -- 1 is the top of the stroke;
 --   * TILT -- 1 is curled back, 0 tipped out;
 --   * TELESCOPE -- 1 is fully extended;
---   * AUX -- the engine's own 0..1, unoriented: its meaning is the tool's, so there is no "up".
+--   * AUX -- 1 is the end a positive input drives toward, by the same rule below; what that end MEANS
+--     is the tool's own (on a grab it is expected to be open -- a bale grab and a log grab disagreed
+--     about it in the engine's raw 0..1, open at 1 and at 0). A tool cylinder with no speed to read a
+--     sense from keeps the engine's direction rather than vanishing, since nothing is claimed for it.
 --
 -- "Up" is read off the machine's CONTROLS, not its geometry. Cylindered:onUpdate moves a tool by
 -- `move * rotSpeed` (or trans/anim speed), `move` being the axis input flipped when the XML sets
@@ -113,11 +116,11 @@ end
 ---@param state number the engine's 0..1, already clamped
 ---@return number|nil
 local function orient(tool, role, state)
-  if role == "AUX" then
-    return state
-  end
   local sense = inputSense(tool)
   if sense == nil then
+    if role == "AUX" then
+      return state
+    end
     return nil
   end
   return sense > 0 and state or 1 - state
