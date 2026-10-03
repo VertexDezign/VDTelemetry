@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -281,16 +282,94 @@ private const val ARM_LOW_DEG = -28f
 private const val ARM_HIGH_DEG = 42f
 
 /**
+ * The side view in model units, the arm's retracted length being 1: how much a telescope adds, how big
+ * the bucket is, how far its farthest point can sit from the hinge at any angle (the cutting edge, a
+ * whole bucket length out — the back wall's corner is only `hypot(0.35, 0.85)` of it), and the margin
+ * kept clear for line widths.
+ */
+private const val TELESCOPE_GAIN = 0.45f
+private const val TOOL_SIZE = 0.44f
+private const val TOOL_REACH = TOOL_SIZE
+private const val MARGIN = 0.08f
+
+/**
+ * Where the side view sits in a canvas of [width] x [height]: the pivot, the scale from model units,
+ * and the ground line.
+ *
+ * Fitted to the **whole reach** of the machine, not to where the arm is now: the lowest and highest
+ * lift, retracted and (on a [telescopic] machine) fully out, with the bucket turned any way at the
+ * tip. So nothing the loader can do takes the picture out of its box — a fixed pivot and scale drew a
+ * raised telehandler's fork over the panel's header and the control-group chips — and the picture
+ * does not rescale as the arm moves.
+ */
+internal data class GlyphFrame(val pivot: Offset, val scale: Float, val ground: Float)
+
+internal fun glyphFrame(width: Float, height: Float, telescopic: Boolean): GlyphFrame {
+  val longest = if (telescopic) 1f + TELESCOPE_GAIN else 1f
+  var minX = 0f
+  var maxX = 0f
+  var minY = 0f
+  var maxY = 0f
+  // The arm's tip is farthest out at the two ends of the lift and, horizontally, at level.
+  for (deg in listOf(ARM_LOW_DEG, ARM_HIGH_DEG, 0f)) {
+    for (length in listOf(1f, longest)) {
+      val tip = armOffset(deg, length)
+      minX = minOf(minX, tip.x - TOOL_REACH)
+      maxX = maxOf(maxX, tip.x + TOOL_REACH)
+      minY = minOf(minY, tip.y - TOOL_REACH)
+      maxY = maxOf(maxY, tip.y + TOOL_REACH)
+    }
+  }
+  minX -= MARGIN
+  maxX += MARGIN
+  minY -= MARGIN
+  maxY += MARGIN
+  val scale = minOf(width / (maxX - minX), height / (maxY - minY))
+  val pivot = Offset(
+    (width - (maxX - minX) * scale) / 2f - minX * scale,
+    (height - (maxY - minY) * scale) / 2f - minY * scale,
+  )
+  return GlyphFrame(pivot, scale, pivot.y + (maxY - MARGIN / 2) * scale)
+}
+
+/** The arm's tip relative to its pivot, in model units: to the LEFT (facing left), up for a positive angle. */
+private fun armOffset(degrees: Float, length: Float): Offset {
+  val rad = degrees * PI.toFloat() / 180f
+  return Offset(-length * cos(rad), -length * sin(rad))
+}
+
+/** The arm's tip on the canvas for a [lift] and [telescope] travel. */
+internal fun armTip(frame: GlyphFrame, lift: Float, telescope: Float): Offset {
+  val deg = ARM_LOW_DEG + (ARM_HIGH_DEG - ARM_LOW_DEG) * lift.coerceIn(0f, 1f)
+  val offset = armOffset(deg, 1f + TELESCOPE_GAIN * telescope.coerceIn(0f, 1f))
+  return Offset(frame.pivot.x + offset.x * frame.scale, frame.pivot.y + offset.y * frame.scale)
+}
+
+/**
+ * The bucket in profile as a polyline hinged at [tip] — cutting edge to the left, back wall up —
+ * turned nose-up for a positive [degrees]. Screen y grows downward, which is why a positive angle
+ * SUBTRACTS from the edge's y.
+ */
+internal fun bucketPoints(frame: GlyphFrame, tip: Offset, degrees: Float): List<Offset> {
+  val s = TOOL_SIZE * frame.scale
+  val rad = degrees.coerceIn(-90f, 90f) * PI.toFloat() / 180f
+  fun at(x: Float, y: Float) = Offset(tip.x + x * cos(rad) - y * sin(rad), tip.y + x * sin(rad) + y * cos(rad))
+  return listOf(at(-s, 0f), at(0f, 0f), at(0f, -s * 0.75f), at(-s * 0.35f, -s * 0.85f))
+}
+
+/**
  * The loader from the side, **facing left** (design rule): the arm from its pivot on the right, raised
  * by its lift travel and lengthened by its telescope, and the tool at its tip turned to the angle the
  * screen prints. A dashed line through the tool is level, so the picture says what the number says.
  *
  * Schematic on purpose. The arm's real geometry is not exported and differs on every machine; what a
  * driver reads off it is "up or down, tipped or not", and the figures beside it are the measurement.
+ * Fitted to the machine's whole reach ([glyphFrame]) and clipped besides, so it never leaves its box.
  */
 @Composable
 private fun LoaderGlyph(rig: LoaderRig, modifier: Modifier = Modifier) {
   val lift = rig.cylinders.firstOrNull { it.role == LoaderCylinderRole.LIFT }?.travel ?: 0.3f
+  val telescopic = rig.cylinders.any { it.role == LoaderCylinderRole.TELESCOPE }
   val telescope = rig.cylinders.firstOrNull { it.role == LoaderCylinderRole.TELESCOPE }?.travel ?: 0f
   val reading = rig.reading
   val angle = reading?.inclination ?: 0f
@@ -299,48 +378,32 @@ private fun LoaderGlyph(rig: LoaderRig, modifier: Modifier = Modifier) {
   val groundInk = VdtColors.PanelBorder
   val levelInk = VdtColors.Gray
 
-  Canvas(modifier) {
-    val w = size.width
-    val h = size.height
-    val unit = minOf(w, h * 1.6f)
-    val ground = h * 0.92f
-    val pivot = Offset(w * 0.82f, h * 0.55f)
+  Canvas(modifier.clipToBounds()) {
+    val frame = glyphFrame(size.width, size.height, telescopic)
+    val unit = frame.scale
 
-    // Ground.
-    drawLine(groundInk, Offset(0f, ground), Offset(w, ground), strokeWidth = 2f)
+    drawLine(groundInk, Offset(0f, frame.ground), Offset(size.width, frame.ground), strokeWidth = 2f)
 
-    // The arm, from the pivot to the left.
-    val armDeg = ARM_LOW_DEG + (ARM_HIGH_DEG - ARM_LOW_DEG) * lift.coerceIn(0f, 1f)
-    val armRad = armDeg * PI.toFloat() / 180f
-    val armLength = unit * 0.5f * (1f + 0.45f * telescope.coerceIn(0f, 1f))
-    val tip = Offset(pivot.x - armLength * cos(armRad), pivot.y - armLength * sin(armRad))
-    drawLine(armInk, pivot, tip, strokeWidth = unit * 0.035f, cap = StrokeCap.Round)
-    drawCircle(armInk, radius = unit * 0.03f, center = pivot)
+    val tip = armTip(frame, lift, telescope)
+    drawLine(armInk, frame.pivot, tip, strokeWidth = unit * 0.07f, cap = StrokeCap.Round)
+    drawCircle(armInk, radius = unit * 0.06f, center = frame.pivot)
 
     if (reading == null) return@Canvas
 
-    // Level through the tool's hinge.
+    // Level through the tool's hinge, as far either side as the bucket can reach.
     drawLine(
       levelInk,
-      Offset(tip.x - unit * 0.32f, tip.y),
-      Offset(tip.x + unit * 0.08f, tip.y),
+      Offset(tip.x - TOOL_REACH * unit, tip.y),
+      Offset(tip.x + TOOL_REACH * 0.3f * unit, tip.y),
       strokeWidth = 1.5f,
       pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 5f)),
     )
 
-    // The tool: a bucket in profile, its cutting edge to the left, turned nose-up for a positive angle.
-    val s = unit * 0.22f
-    val rad = angle.coerceIn(-90f, 90f) * PI.toFloat() / 180f
-
-    // Screen y grows downward, so with the edge at negative x this turns it UP for a positive angle.
-    fun at(x: Float, y: Float) = Offset(tip.x + x * cos(rad) - y * sin(rad), tip.y + x * sin(rad) + y * cos(rad))
+    val points = bucketPoints(frame, tip, angle)
     val bucket = Path().apply {
-      val edge = at(-s, 0f)
-      moveTo(edge.x, edge.y)
-      at(0f, 0f).let { lineTo(it.x, it.y) }
-      at(0f, -s * 0.75f).let { lineTo(it.x, it.y) }
-      at(-s * 0.35f, -s * 0.85f).let { lineTo(it.x, it.y) }
+      moveTo(points[0].x, points[0].y)
+      points.drop(1).forEach { lineTo(it.x, it.y) }
     }
-    drawPath(bucket, toolInk, style = Stroke(width = unit * 0.03f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(bucket, toolInk, style = Stroke(width = unit * 0.06f, cap = StrokeCap.Round, join = StrokeJoin.Round))
   }
 }
