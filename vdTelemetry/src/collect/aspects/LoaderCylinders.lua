@@ -26,8 +26,8 @@
 --   * TILT -- 1 is curled back, 0 tipped out;
 --   * TELESCOPE -- 1 is fully extended;
 --   * AUX -- 1 is the end a positive input drives toward, by the same rule below; what that end MEANS
---     is the tool's own (on a grab it is expected to be open -- a bale grab and a log grab disagreed
---     about it in the engine's raw 0..1, open at 1 and at 0). A tool cylinder with no speed to read a
+--     is the tool's own. On a grab it is open: a Göweil bale grab and a Magsi log grab disagreed about
+--     it in the engine's raw 0..1 (open at 1 and at 0), and both read 1 open once oriented. A tool cylinder with no speed to read a
 --     sense from keeps the engine's direction rather than vanishing, since nothing is claimed for it.
 --
 -- "Up" is read off the machine's CONTROLS, not its geometry. Cylindered:onUpdate moves a tool by

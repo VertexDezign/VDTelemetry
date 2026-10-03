@@ -49,8 +49,8 @@
             "loaderTool": {
               "joint": "FRONTLOADER",
               "kind": "BALE_GRAB",
-              "distance": 0.52,
-              "pitch": -4.04
+              "distance": 0.411,
+              "pitch": -2.47
             },
             "schema": {
               "name": "IMPLEMENT",
@@ -91,12 +91,12 @@
         "loaderCylinders": [
           {
             "role": "LIFT",
-            "travel": 0.198,
+            "travel": 0.168,
             "axis": "AXIS_FRONTLOADER_ARM"
           },
           {
             "role": "TILT",
-            "travel": 0.747,
+            "travel": 0.767,
             "axis": "AXIS_FRONTLOADER_TOOL"
           }
         ],
@@ -108,7 +108,7 @@
       }
     ],
     "odometer": {
-      "value": 0.4,
+      "value": 0.3,
       "unit": "km"
     },
     "mass": {
@@ -132,7 +132,7 @@
     },
     "gps": {
       "enabled": false,
-      "heading": 183,
+      "heading": 167,
       "linesVisible": true,
       "active": false,
       "headingUnit": "°"
@@ -140,16 +140,16 @@
     "type": "tractor",
     "motor": {
       "state": "ON",
-      "direction": "FORWARD",
+      "direction": "BACKWARD",
       "maxSpeed": {
         "backward": 22,
         "forward": 53
       },
       "fillUnits": {
         "air": {
-          "fillLevelPercentage": 100,
+          "fillLevelPercentage": 80,
           "title": "Luft",
-          "value": 4000,
+          "value": 3196,
           "capacity": 4000,
           "unit": "l"
         },
@@ -171,7 +171,7 @@
         }
       },
       "gear": {
-        "value": "T3",
+        "value": "-1",
         "isNeutral": false,
         "group": "L"
       },
@@ -181,7 +181,7 @@
         "min": 0
       },
       "load": {
-        "value": 1.91,
+        "value": 1.93,
         "min": 0,
         "max": 100,
         "unit": "%"
@@ -242,7 +242,7 @@
       }
     },
     "operatingTime": {
-      "value": "0.23",
+      "value": "0.22",
       "unit": "h"
     },
     "ai": {
@@ -321,14 +321,14 @@
         "unit": "°C"
       }
     },
-    "time": "08:43",
+    "time": "08:44",
     "pda": {
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
       "player": {
-        "heading": 183,
-        "posX": 0.47493427991867,
+        "heading": 167,
+        "posX": 0.47161504812539,
         "farmId": 1,
-        "posZ": 0.42232617735863,
+        "posZ": 0.41610838472843,
         "headingUnit": "°"
       }
     }

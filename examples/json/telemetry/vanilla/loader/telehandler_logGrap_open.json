@@ -19,8 +19,8 @@
         "loaderTool": {
           "joint": "TELEHANDLER",
           "kind": "LOG_GRAB",
-          "distance": 0.613,
-          "pitch": 9.73
+          "distance": 0.494,
+          "pitch": 4.02
         },
         "schema": {
           "name": "IMPLEMENT",
@@ -38,7 +38,7 @@
         "loaderCylinders": [
           {
             "role": "AUX",
-            "travel": 0,
+            "travel": 0.997,
             "axis": "AXIS_FRONTLOADER_TOOL2"
           }
         ],
@@ -69,12 +69,12 @@
       "targetSpeed": 43
     },
     "operatingTime": {
-      "value": "0.33",
+      "value": "0.35",
       "unit": "h"
     },
     "gps": {
       "enabled": false,
-      "heading": 190,
+      "heading": 80,
       "linesVisible": true,
       "active": false,
       "headingUnit": "°"
@@ -98,7 +98,7 @@
     "loaderCylinders": [
       {
         "role": "LIFT",
-        "travel": 0.099,
+        "travel": 0.106,
         "axis": "AXIS_FRONTLOADER_ARM"
       },
       {
@@ -108,7 +108,7 @@
       },
       {
         "role": "TILT",
-        "travel": 0.765,
+        "travel": 0.726,
         "axis": "AXIS_FRONTLOADER_TOOL"
       }
     ],
@@ -125,7 +125,7 @@
         "systemVoltage": 14.1
       },
       "transmissionTemperatur": {
-        "value": 70,
+        "value": 71,
         "min": 20,
         "max": 120,
         "unit": "°C"
@@ -141,7 +141,7 @@
         "brakes": "OFF"
       },
       "load": {
-        "value": 8,
+        "value": 7,
         "unit": "%",
         "overloadAt": 85
       },
@@ -202,7 +202,7 @@
     },
     "motor": {
       "state": "ON",
-      "direction": "BACKWARD",
+      "direction": "FORWARD",
       "maxSpeed": {
         "backward": 30,
         "forward": 43
@@ -226,7 +226,7 @@
         }
       },
       "gear": {
-        "value": "R",
+        "value": "D",
         "isNeutral": false
       },
       "rpm": {
@@ -235,13 +235,13 @@
         "min": 0
       },
       "load": {
-        "value": 8.29,
+        "value": 7.18,
         "min": 0,
         "max": 100,
         "unit": "%"
       },
       "temperatur": {
-        "value": 90,
+        "value": 89,
         "min": 20,
         "max": 120,
         "unit": "°C"
@@ -259,14 +259,14 @@
         "unit": "°C"
       }
     },
-    "time": "08:44",
+    "time": "08:43",
     "pda": {
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
       "player": {
-        "heading": 190,
-        "posX": 0.44465624168515,
+        "heading": 80,
+        "posX": 0.44867575913668,
         "farmId": 1,
-        "posZ": 0.43232133984566,
+        "posZ": 0.43446098268032,
         "headingUnit": "°"
       }
     }

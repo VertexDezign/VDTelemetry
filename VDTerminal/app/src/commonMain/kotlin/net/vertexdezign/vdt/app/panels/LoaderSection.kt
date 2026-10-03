@@ -382,8 +382,8 @@ private class ToolFrame(val tip: Offset, val size: Float, degrees: Float) {
  * - **Bale grab**: the frame with two arms reaching forward, top and bottom, around where a bale sits.
  * - **Log grab**: a short stem forward to a pair of claws hanging under it.
  *
- * The two grabs open with [open], the tool's own cylinder travel — 1 open, which is what the mod's
- * input-sense orientation is expected to make of every grab's open/close key (see `LoaderCylinders.lua`).
+ * The two grabs open with [open], the tool's own cylinder travel — 1 open, as the mod's input-sense
+ * orientation reads both captured grabs (see `LoaderCylinders.lua`).
  * - **Other**, and a capture that names no kind: a plain plate.
  *
  * Every point stays within one tool length of the hinge, which is the reach [glyphFrame] fits the
