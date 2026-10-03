@@ -58,6 +58,8 @@ local sourceFiles = {
   "src/collect/aspects/Mixer.lua",
   "src/collect/aspects/TensionBelts.lua",
   "src/collect/aspects/Broken.lua",
+  "src/collect/aspects/LoaderTool.lua",
+  "src/collect/aspects/LoaderCylinders.lua",
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
@@ -321,7 +323,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 29: `ads.lamps.transmission` and `ads.lamps.oil`, the two lamps ADS 0.9.9.3 started drawing, and
 --     `ads.transmissionTemperatur` on every gearbox ADS shows it for (all but a plain manual, from
 --     the transmission lamp's year on) rather than on CVTs only. Additive.
-VDTelemetry.VERSION = 29
+-- 30: `loaderTool` on a tool hitched to a loader's tool joint -- its pitch against the horizon and the
+--     distance to whatever is under it (issue #169) -- and `loaderCylinders` on anything with a
+--     front-loader-driven cylinder, each one's travel along its stroke. Additive.
+VDTelemetry.VERSION = 30
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

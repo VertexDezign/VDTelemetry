@@ -62,4 +62,6 @@
 ---@field mixer MixerModel?
 ---@field tensionBelts TensionBeltsModel?
 ---@field broken boolean? only ever true; absent on a working machine
+---@field loaderTool LoaderToolModel?
+---@field loaderCylinders LoaderCylinderModel[]?
 ---@field implement ImplementModel[]?
