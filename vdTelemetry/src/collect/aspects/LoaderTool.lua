@@ -73,6 +73,35 @@ local function loaderJoint(object)
   return nil
 end
 
+---What kind of tool `object` is, by which tool specialization it carries -- never by its `type`
+---string, which is the modder's own word (the captured pallet fork's is implementDynamicMountAttacher).
+---The panel draws a different profile per kind.
+---
+---Checked most specific first: a grab is often ALSO a DynamicMountAttacher, and a muck grab is a
+---shovel with a clamp (the clamp is its own AUX cylinder, which the panel draws on top). A spec counts
+---only where it is configured: Shovel keeps its table on a type with no shovel nodes, and LogGrab
+---with no grabs. BaleGrab is the exception -- its whole onLoad is under `if self.isServer`, so on a
+---multiplayer client the table is there and empty, and its presence is all there is to go by.
+---@param object table
+---@return string SHOVEL | FORK | BALE_GRAB | LOG_GRAB | OTHER
+function VDT.LoaderTool.kindOf(object)
+  if object.spec_baleGrab ~= nil then
+    return "BALE_GRAB"
+  end
+  local logGrab = object.spec_logGrab
+  if logGrab ~= nil and logGrab.grabs ~= nil and #logGrab.grabs > 0 then
+    return "LOG_GRAB"
+  end
+  local shovel = object.spec_shovel
+  if shovel ~= nil and shovel.shovelNodes ~= nil and #shovel.shovelNodes > 0 then
+    return "SHOVEL"
+  end
+  if object.spec_dynamicMountAttacher ~= nil then
+    return "FORK"
+  end
+  return "OTHER"
+end
+
 ---Whether a hit node belongs to any machine on the rig.
 ---@param rig table[] the rig's vehicles
 ---@param node number
@@ -135,6 +164,7 @@ function VDT.LoaderTool.collect(object)
   ---@type LoaderToolModel
   local model = {
     joint = joint,
+    kind = VDT.LoaderTool.kindOf(object),
     pitch = tonumber(ValueMapper.mapFloat(math.deg(math.asin(math.max(-1, math.min(1, dy)))), 2)),
   }
 

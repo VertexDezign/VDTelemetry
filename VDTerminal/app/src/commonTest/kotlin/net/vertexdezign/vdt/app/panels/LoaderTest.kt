@@ -1,11 +1,14 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.model.FillUnit
+import net.vertexdezign.vdt.model.FillUnits
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.LoaderCylinder
 import net.vertexdezign.vdt.model.LoaderCylinderRole
 import net.vertexdezign.vdt.model.LoaderJoint
 import net.vertexdezign.vdt.model.LoaderReference
 import net.vertexdezign.vdt.model.LoaderTool
+import net.vertexdezign.vdt.model.LoaderToolKind
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -126,9 +129,13 @@ class LoaderTest {
           for (telescope in if (telescopic) listOf(0f, 1f) else listOf(0f)) {
             val tip = armTip(frame, lift, telescope)
             for (angle in listOf(-90f, -45f, 0f, 45f, 90f)) {
-              (bucketPoints(frame, tip, angle) + tip + frame.pivot).forEach { p ->
-                val at = "lift $lift, telescope $telescope, angle $angle on $w x $h"
-                assertTrue(p.x in 0f..w && p.y in 0f..h, "($p) out of the box at $at")
+              for (kind in LoaderToolKind.entries + null) {
+                val drawn = toolStrokes(frame, tip, angle, kind).flatten() +
+                  shovelFill(frame, tip, angle, 1f).orEmpty() + tip + frame.pivot
+                drawn.forEach { p ->
+                  val at = "$kind, lift $lift, telescope $telescope, angle $angle on $w x $h"
+                  assertTrue(p.x in 0f..w && p.y in 0f..h, "($p) out of the box at $at")
+                }
               }
             }
           }
@@ -143,7 +150,32 @@ class LoaderTest {
     assertTrue(armTip(frame, 1f, 0f).y < armTip(frame, 0f, 0f).y)
     val tip = armTip(frame, 0.5f, 0f)
     // Facing left: the cutting edge is to the left of the hinge when level, and above it nose-up.
-    assertTrue(bucketPoints(frame, tip, 0f)[0].x < tip.x)
-    assertTrue(bucketPoints(frame, tip, 30f)[0].y < tip.y)
+    val edge = { angle: Float -> toolStrokes(frame, tip, angle, LoaderToolKind.SHOVEL)[0][0] }
+    assertTrue(edge(0f).x < tip.x)
+    assertTrue(edge(30f).y < tip.y)
+  }
+
+  @Test
+  fun aShovelsFillRisesWithItsLoadAndAForkHasNone() {
+    val frame = glyphFrame(300f, 200f, telescopic = false)
+    val tip = armTip(frame, 0f, 0f)
+    assertNull(shovelFill(frame, tip, 0f, 0f))
+    // Level bucket: the fill's top edge is higher (smaller y) the fuller the bucket is.
+    val half = shovelFill(frame, tip, 0f, 0.5f)!!
+    val full = shovelFill(frame, tip, 0f, 1f)!!
+    assertTrue(full[2].y < half[2].y)
+
+    val shovel = Implement(
+      name = "Shovel",
+      loaderTool = LoaderTool(kind = LoaderToolKind.SHOVEL),
+      fillUnits =
+      FillUnits(
+        listOf(FillUnit(value = 640f, type = "WHEAT", title = "Wheat", capacity = 1000, fillLevelPercentage = 64)),
+      ),
+    )
+    val rig = loaderRigOf(listOf(null to shovel.isoBus()))!!
+    assertEquals(64, rig.load?.fillLevelPercentage)
+    val fork = Implement(name = "Fork", loaderTool = LoaderTool(kind = LoaderToolKind.FORK))
+    assertNull(loaderRigOf(listOf(null to fork.isoBus()))!!.load)
   }
 }

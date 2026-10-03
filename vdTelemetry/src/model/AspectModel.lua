@@ -338,6 +338,7 @@
 -- See collect/aspects/LoaderTool.lua.
 ---@class LoaderToolModel
 ---@field joint string FRONTLOADER | TELEHANDLER | WHEEL_LOADER | SKID_STEER | LOADER_FORK
+---@field kind string SHOVEL | FORK | BALE_GRAB | LOG_GRAB | OTHER -- by tool specialization, see LoaderTool.kindOf
 ---@field pitch number
 ---@field distance number?
 ---@field reference LoaderReferenceModel? the player's level for this tool model, absent until set
