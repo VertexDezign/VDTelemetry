@@ -318,7 +318,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 -- 28: `ads.inspected` is gone. Advanced Damage System 0.9.9.3 rewrote the inspection record it was
 --     read from, and the integration was cut back to the parts of ADS that survived the rewrite (see
 --     src/integrations/AdvancedDamageSystem.lua). Everything else in `ads` is unchanged.
-VDTelemetry.VERSION = 28
+-- 29: `ads.lamps.transmission` and `ads.lamps.oil`, the two lamps ADS 0.9.9.3 started drawing, and
+--     `ads.transmissionTemperatur` on every gearbox ADS shows it for (all but a plain manual, from
+--     the transmission lamp's year on) rather than on CVTs only. Additive.
+VDTelemetry.VERSION = 29
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

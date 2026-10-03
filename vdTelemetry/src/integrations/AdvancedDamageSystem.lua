@@ -48,8 +48,8 @@
 --
 -- DELIBERATELY SMALL. After 0.9.9.3 we cut this integration down to the parts that read ADS's
 -- vehicle-facing surface, which survived the rewrite, rather than its internal model, which did
--- not: the dashboard (lamps, engine temperature, load, voltage, transmission temperature), the
--- service interval, and for the fleet just the workshop state and the service interval. The
+-- not: the dashboard (its eight lamps, engine temperature, load, voltage, transmission temperature),
+-- the service interval, and for the fleet just the workshop state and the service interval. The
 -- inspection result, the breakdown list, the workshop's times and price, the log dates and the
 -- maintenance cost are gone on purpose -- each sat on a structure 0.9.9.3 replaced, and nobody knows
 -- whether that rework was the last one. Not future work: bring one back only once ADS settles.
@@ -77,6 +77,8 @@ VDT.AdvancedDamageSystem = {}
 ---@field battery AdsLampModel?
 ---@field coolant AdsLampModel?
 ---@field service AdsLampModel?
+---@field transmission AdsLampModel?
+---@field oil AdsLampModel?
 
 -- Where this machine is in its service interval. Both in operating hours, both player-visible in
 -- game (the shop, the vehicle info panel and ADS's fleet menu all print them).
@@ -121,12 +123,22 @@ VDT.AdvancedDamageSystem.MOD_NAME = "FS25_AdvancedDamageSystem"
 -- The lamps we carry, as ids of ADS's HUD indicators (which is also how spec.activeIndicators is
 -- keyed), in the order they read on the band.
 --
--- ADS's HUD draws eight; we carry the six the cluster was drawn for. Since 0.9.9.3 ADS also draws
--- `transmission` (any gearbox but a plain manual) and `oil`; carrying those needs two new glyphs and
--- model fields, and was left out of the 0.9.9.3 catch-up on purpose (see DELIBERATELY SMALL).
--- `service` is no longer a breakdown lamp in 0.9.9.3 (it left ADS's DASHBOARD enum) -- only the
--- overdue test below lights it, exactly as ADS's HUD does.
-local LAMPS = { "engine", "warning", "brakes", "battery", "coolant", "service" }
+-- All eight ADS's HUD draws. Two have a gate beyond the production year, both ADS's own: a plain
+-- manual gearbox has no `transmission` lamp (see gearboxHasLamp), and an electric machine no
+-- `coolant` one. `service` is not a breakdown lamp since 0.9.9.3 (it left ADS's DASHBOARD enum) --
+-- only the overdue test below lights it, exactly as ADS's HUD does.
+local LAMPS = { "engine", "warning", "brakes", "battery", "coolant", "service", "transmission", "oil" }
+
+-- ADS's gearbox token for a plain manual (AdvancedDamageSystem.TRANSMISSION_TYPES.MANUAL), the one
+-- gearbox its HUD gives no transmission lamp or temperature. Fallback for when that table is out of
+-- reach.
+local GEARBOX_MANUAL = "manual"
+
+-- Cold-transmission threshold, in °C, ADS's HUD applies instead of its configured one when the CVT
+-- comes from FS25_CVTaddon. A literal in the mod too. Accepted limitation: ADS's HUD also promotes
+-- its general-warning lamp off that mod's own `spec_CVTaddon.forDBL_*` flags, which we do not read --
+-- another mod's internals, behind a mod nobody here runs, so it would never be seen working.
+local COLD_CVT_ADDON_C = 55
 
 -- MotorState (the engine's own enum, values from vehicles/specializations/enums/MotorState.lua):
 -- OFF = 1, IGNITION = 2, STARTING = 3, ON = 4. Named locally because the enum is a base-game global
@@ -336,6 +348,42 @@ local function call(vehicle, name, ...)
   return first, second
 end
 
+---One of ADS's class-level capability queries (`AdvancedDamageSystem.<name>(vehicle)`), contained.
+---False when it is missing or throws: every one of these answers a "does it have" question, and a
+---machine we cannot ask is one we draw nothing extra for.
+---@param name string
+---@param vehicle table
+---@return boolean
+local function capability(name, vehicle)
+  local e = env()
+  local class = e ~= nil and e.AdvancedDamageSystem or nil
+  local fn = type(class) == "table" and class[name] or nil
+  if type(fn) ~= "function" then
+    return false
+  end
+  local ok, result = pcall(fn, vehicle)
+  return ok and result == true
+end
+
+---Whether ADS gives this machine's gearbox a transmission lamp and a transmission temperature on its
+---dashboard: every gearbox it classifies except a plain manual. The classification is ADS's own
+---(`getTransmissionType`, which it registers on the vehicle and reads off the store's transmission
+---name), so a gearbox it calls something we have never heard of still gets the lamp, as in its HUD.
+---A machine that cannot answer gets neither.
+---@param vehicle table
+---@return boolean
+local function gearboxHasLamp(vehicle)
+  local gearbox = call(vehicle, "getTransmissionType")
+  if type(gearbox) ~= "string" then
+    return false
+  end
+  local e = env()
+  local class = e ~= nil and e.AdvancedDamageSystem or nil
+  local types = type(class) == "table" and class.TRANSMISSION_TYPES or nil
+  local manual = type(types) == "table" and types.MANUAL or GEARBOX_MANUAL
+  return gearbox ~= manual
+end
+
 -- Evaluate one of ADS's switchOn/switchOff conditions, which the mod aggregates into a function but
 -- may leave as a plain boolean on an older stage definition. Contained for the same reason as [call].
 local function condition(fn, vehicle)
@@ -383,13 +431,19 @@ end
 -- `cvt` is load-bearing rather than decorative: a machine without one carries a non-reading in that
 -- field which drifts up out of the -90s, and taken at face value it is below every cold threshold
 -- there is — so the lamp would sit blue for the whole session on most of the fleet.
-local function coolantSeverity(spec, severity, cvt)
+--
+-- A CVT that FS25_CVTaddon provides is cold below a fixed 55 °C rather than the configured threshold,
+-- as in ADS's HUD; `cvtAddon` says which.
+local function coolantSeverity(spec, severity, cvt, cvtAddon)
   if severity ~= nil then
     return severity
   end
   local engine = tonumber(spec.engineTemperature)
   local transmission = cvt and tonumber(spec.transmissionTemperature) or nil
   local coldEngine, coldTransmission = coldThresholds()
+  if cvtAddon then
+    coldTransmission = COLD_CVT_ADDON_C
+  end
 
   if transmission ~= nil and transmission <= NO_TRANSMISSION_TEMP_C then
     transmission = nil
@@ -435,13 +489,15 @@ end
 
 ---The dashboard lamps, exactly as ADS drives its own: dark with the key out, every lamp lit while
 ---the starter turns (a real bulb check), and otherwise whatever the machine's breakdowns and
----temperatures say. Only the lamps a machine of this age actually has are reported.
+---temperatures say. Only the lamps this machine actually has are reported: its production year, its
+---gearbox and its fuel all decide that, as in ADS's HUD.
 ---@param vehicle table
 ---@param spec table ADS's spec
 ---@param service AdsServiceModel|nil
----@param cvt boolean whether this machine has a transmission temperature at all
+---@param cvt boolean whether the transmission's temperature counts towards the coolant lamp
+---@param gearboxLamp boolean whether the gearbox has a transmission lamp at all (see gearboxHasLamp)
 ---@return AdsLampsModel|nil
-local function collectLamps(vehicle, spec, service, cvt)
+local function collectLamps(vehicle, spec, service, cvt, gearboxLamp)
   local motorState = call(vehicle, "getMotorState")
   local years = lampYears()
   if motorState == nil or years == nil then
@@ -461,12 +517,20 @@ local function collectLamps(vehicle, spec, service, cvt)
   -- Ignition and cranking light everything the machine has, which is what a real cluster does while
   -- the starter turns and the one moment a driver can see that the lamps still work.
   local bulbCheck = motorState == MOTOR_IGNITION or motorState == MOTOR_STARTING
+  local electric = capability("getIsElectricVehicle", vehicle)
+  local cvtAddon = cvt and capability("hasCVTAddon", vehicle)
 
   local lamps = {}
   local any = false
   for _, id in ipairs(LAMPS) do
     -- A lamp ADS reports no year for is one it no longer has: absent, not off.
-    if (years[id] or math.huge) < year then
+    local fitted = (years[id] or math.huge) < year
+    if id == "transmission" then
+      fitted = fitted and gearboxLamp
+    elseif id == "coolant" then
+      fitted = fitted and not electric
+    end
+    if fitted then
       local severity
       if off then
         latch[id] = nil
@@ -475,7 +539,7 @@ local function collectLamps(vehicle, spec, service, cvt)
       else
         severity = breakdownSeverity(vehicle, spec, latch, palette, id)
         if id == "coolant" then
-          severity = coolantSeverity(spec, severity, cvt)
+          severity = coolantSeverity(spec, severity, cvt, cvtAddon)
         elseif id == "service" and severity == nil and serviceOverdue(service) then
           severity = "WARN"
         end
@@ -536,22 +600,27 @@ function VDT.AdvancedDamageSystem.contributeObject(object, model)
   ---@type AdsModel
   local ads = {}
 
-  -- Asked once and handed down: both the coolant lamp and the transmission field turn on it, and
-  -- neither may fall back to reading it out of the temperature (see NO_TRANSMISSION_TEMP_C).
+  -- Asked once and handed down. Neither may fall back to reading the answer out of the temperature
+  -- (see NO_TRANSMISSION_TEMP_C): `cvt` is whether the transmission counts towards the coolant lamp,
+  -- `gearboxLamp` whether the gearbox has a lamp and a temperature of its own at all.
   local cvt = hasCVT(object)
+  local gearboxLamp = gearboxHasLamp(object)
 
   local service = collectService(object)
   ads.service = service
-  ads.lamps = collectLamps(object, spec, service, cvt)
+  ads.lamps = collectLamps(object, spec, service, cvt, gearboxLamp)
   ads.load = collectLoad(spec)
 
-  -- Only a machine with a CVT gets the field: the terminal draws a second temperature bar off its
-  -- presence, and a bar for oil that does not exist is worse than no bar at all. Since 0.9.9.3 ADS
-  -- models (and its HUD shows) this temperature on powershift and automatic gearboxes too; telling
-  -- those apart needs its gearbox classification (ADS_VehicleProfile), which we do not read -- see
-  -- DELIBERATELY SMALL in the header.
+  -- Exactly where ADS's HUD prints it: under the transmission lamp, so on every gearbox but a plain
+  -- manual, and only on a machine new enough to have that lamp. The terminal draws a second
+  -- temperature bar off the field's presence, and a bar for oil the dashboard does not show is worse
+  -- than no bar at all. A HUD that has not been built yet (no year table) means no lamp, so no field.
+  local years = lampYears()
+  local transmissionShown = gearboxLamp
+    and years ~= nil
+    and (years.transmission or math.huge) < (tonumber(spec.year) or 0)
   local transmissionTemp = tonumber(spec.transmissionTemperature)
-  if cvt and transmissionTemp ~= nil and transmissionTemp > NO_TRANSMISSION_TEMP_C then
+  if transmissionShown and transmissionTemp ~= nil and transmissionTemp > NO_TRANSMISSION_TEMP_C then
     ---@type TemperaturModel
     ads.transmissionTemperatur = {
       value = math.floor(transmissionTemp),

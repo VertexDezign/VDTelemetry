@@ -44,6 +44,14 @@ local function stubMod(over)
     ADS_VehiclePerformance = over.noColours and {} or { COLORS = COLORS },
     -- ADS's specialization class, which is where its STATUS values live.
     AdvancedDamageSystem = {
+      TRANSMISSION_TYPES = { MANUAL = "manual", POWERSHIFT = "powershift", VARIABLE = "variable" },
+      -- ADS's capability queries; the stub machine carries the answers it should give.
+      getIsElectricVehicle = function(vehicle)
+        return vehicle.electric == true
+      end,
+      hasCVTAddon = function(vehicle)
+        return vehicle.cvtAddon == true
+      end,
       STATUS = {
         READY = "ads_spec_state_ready",
         INSPECTION = "ads_spec_state_inspection",
@@ -96,6 +104,9 @@ end
 ---A motorized vehicle carrying ADS's spec. `motorState` is the engine's own enum (OFF 1, IGNITION 2,
 ---STARTING 3, ON 4).
 ---
+---`gearbox` is what ADS's `getTransmissionType` answers: "variable" on a CVT, a plain "manual"
+---otherwise, unless the case says. `noGearbox` builds one that cannot answer.
+---
 ---`excluded` is asked through `getIsADSExcluded`, which is how 0.9.9.3 answers it. `noExclusionMethod`
 ---builds a machine from an ADS too old to have that method, and `exclusionThrows` one whose method is
 ---there but blows up in third-party code.
@@ -115,7 +126,12 @@ local function makeVehicle(over)
     dynamicMotorLoad = over.dynamicMotorLoad,
     activeIndicators = over.activeIndicators or {},
   }
-  local vehicle = { spec_AdvancedDamageSystem = spec }
+  local vehicle = { spec_AdvancedDamageSystem = spec, electric = over.electric, cvtAddon = over.cvtAddon }
+  if not over.noGearbox then
+    function vehicle:getTransmissionType()
+      return over.gearbox or (over.cvt and "variable" or "manual")
+    end
+  end
   if not over.noExclusionMethod then
     function vehicle:getIsADSExcluded()
       if over.exclusionThrows then
@@ -219,8 +235,25 @@ describe("AdvancedDamageSystem integration", function()
       assert.equals("°C", trans.unit)
     end)
 
-    it("says nothing about the transmission of a machine that has no CVT", function()
-      local vehicle = makeVehicle({ transmissionTemperature = -99 })
+    it("reports it on a powershift too, as ADS's dashboard does since 0.9.9.3", function()
+      local vehicle = makeVehicle({ gearbox = "powershift", transmissionTemperature = 64 })
+      assert.equals(64, contribute(vehicle).ads.transmissionTemperatur.value)
+    end)
+
+    it("says nothing about the transmission of a plain manual, which ADS shows none for", function()
+      -- ADS models a manual's oil too; its HUD just does not print it, and neither do we.
+      local vehicle = makeVehicle({ gearbox = "manual", transmissionTemperature = 48 })
+      assert.is_nil(contribute(vehicle).ads.transmissionTemperatur)
+    end)
+
+    it("says nothing on a machine too old for a transmission lamp", function()
+      -- ADS prints the reading under the lamp, and the lamp starts in 2000.
+      local vehicle = makeVehicle({ year = 1995, cvt = true, transmissionTemperature = 70 })
+      assert.is_nil(contribute(vehicle).ads.transmissionTemperatur)
+    end)
+
+    it("says nothing when the machine cannot say what gearbox it has", function()
+      local vehicle = makeVehicle({ noGearbox = true, transmissionTemperature = 70 })
       assert.is_nil(contribute(vehicle).ads.transmissionTemperatur)
     end)
 
@@ -240,18 +273,55 @@ describe("AdvancedDamageSystem integration", function()
 
   describe("lamps", function()
     it("reports every lamp a modern machine has, dark by default", function()
-      local lamps = contribute(makeVehicle({ year = 2020 })).ads.lamps
-      assert.same(
-        { engine = "OFF", warning = "OFF", brakes = "OFF", battery = "OFF", coolant = "OFF", service = "OFF" },
-        lamps
-      )
+      local lamps = contribute(makeVehicle({ year = 2020, cvt = true })).ads.lamps
+      assert.same({
+        engine = "OFF",
+        warning = "OFF",
+        brakes = "OFF",
+        battery = "OFF",
+        coolant = "OFF",
+        service = "OFF",
+        transmission = "OFF",
+        oil = "OFF",
+      }, lamps)
     end)
 
     it("gives an old machine only the lamps of its age", function()
-      -- 1975: past the battery and coolant lamps (1950) and the service one (1970), short of brakes
-      -- (1980) and engine/warning (1990).
-      local lamps = contribute(makeVehicle({ year = 1975 })).ads.lamps
-      assert.same({ battery = "OFF", coolant = "OFF", service = "OFF" }, lamps)
+      -- 1975: past the battery, coolant and oil lamps (1950) and the service one (1970), short of
+      -- brakes (1980), engine/warning (1990) and transmission (2000).
+      local lamps = contribute(makeVehicle({ year = 1975, cvt = true })).ads.lamps
+      assert.same({ battery = "OFF", coolant = "OFF", service = "OFF", oil = "OFF" }, lamps)
+    end)
+
+    it("gives a plain manual gearbox no transmission lamp", function()
+      local lamps = contribute(makeVehicle({ year = 2020, gearbox = "manual" })).ads.lamps
+      assert.is_nil(lamps.transmission)
+      assert.equals("OFF", lamps.oil)
+    end)
+
+    it("gives any other gearbox one, including one ADS calls something we do not know", function()
+      assert.equals("OFF", contribute(makeVehicle({ gearbox = "powershift" })).ads.lamps.transmission)
+      assert.equals("OFF", contribute(makeVehicle({ gearbox = "hydrostatic" })).ads.lamps.transmission)
+      assert.is_nil(contribute(makeVehicle({ noGearbox = true })).ads.lamps.transmission)
+    end)
+
+    it("gives an electric machine no coolant lamp", function()
+      local lamps = contribute(makeVehicle({ electric = true })).ads.lamps
+      assert.is_nil(lamps.coolant)
+      assert.equals("OFF", lamps.battery)
+    end)
+
+    it("lights the transmission and oil lamps from their breakdowns", function()
+      local vehicle = makeVehicle({
+        cvt = true,
+        activeIndicators = {
+          transmission = indicator(COLORS.CRITICAL, true, false),
+          oil = indicator(COLORS.WARNING, true, false),
+        },
+      })
+      local lamps = contribute(vehicle).ads.lamps
+      assert.equals("CRIT", lamps.transmission)
+      assert.equals("WARN", lamps.oil)
     end)
 
     it("takes the year gate from ADS's own HUD table rather than a copy of it", function()
@@ -363,6 +433,20 @@ describe("AdvancedDamageSystem integration", function()
     it("reads it blue while only a CVT's transmission is cold", function()
       local vehicle = makeVehicle({ cvt = true, engineTemperature = 88, transmissionTemperature = 30 })
       assert.equals("COLD", contribute(vehicle).ads.lamps.coolant)
+    end)
+
+    it("holds a CVTaddon transmission to that mod's own 55 degrees, as ADS's HUD does", function()
+      local addon = makeVehicle({ cvt = true, cvtAddon = true, engineTemperature = 88, transmissionTemperature = 50 })
+      assert.equals("COLD", contribute(addon).ads.lamps.coolant)
+      local plain = makeVehicle({ cvt = true, engineTemperature = 88, transmissionTemperature = 50 })
+      assert.equals("OFF", contribute(plain).ads.lamps.coolant, "50 is warm against ADS's own 45")
+    end)
+
+    it("does not count a powershift's transmission towards the coolant lamp", function()
+      -- ADS's HUD gives a powershift a transmission temperature but leaves the coolant lamp to the
+      -- engine and a CVT's oil only.
+      local vehicle = makeVehicle({ gearbox = "powershift", engineTemperature = 88, transmissionTemperature = 30 })
+      assert.equals("OFF", contribute(vehicle).ads.lamps.coolant)
     end)
 
     it("does not read a non-CVT's non-reading as a cold transmission", function()
