@@ -112,4 +112,38 @@ class LoaderTest {
     assertEquals("on your level", angleCaption(rig.reading!!.inclination, ownLevel = true))
     assertEquals("nose up", angleCaption(6f, ownLevel = true))
   }
+
+  @Test
+  fun noPoseTakesTheSideViewOutOfItsBox() {
+    // The bug this guards: a fixed pivot and scale drew a raised arm's bucket over the panel header and
+    // the control-group chips. Every corner of the lift, telescope and tool angle, on a wide, a tall and
+    // a square canvas, must land inside it.
+    for ((w, h) in listOf(400f to 120f, 120f to 400f, 200f to 200f)) {
+      for (telescopic in listOf(false, true)) {
+        val frame = glyphFrame(w, h, telescopic)
+        assertTrue(frame.ground <= h, "ground at ${frame.ground} below a $h canvas")
+        for (lift in listOf(0f, 0.5f, 1f)) {
+          for (telescope in if (telescopic) listOf(0f, 1f) else listOf(0f)) {
+            val tip = armTip(frame, lift, telescope)
+            for (angle in listOf(-90f, -45f, 0f, 45f, 90f)) {
+              (bucketPoints(frame, tip, angle) + tip + frame.pivot).forEach { p ->
+                val at = "lift $lift, telescope $telescope, angle $angle on $w x $h"
+                assertTrue(p.x in 0f..w && p.y in 0f..h, "($p) out of the box at $at")
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  fun aRaisedArmIsAboveALoweredOneAndANoseUpBucketPointsUp() {
+    val frame = glyphFrame(300f, 200f, telescopic = false)
+    assertTrue(armTip(frame, 1f, 0f).y < armTip(frame, 0f, 0f).y)
+    val tip = armTip(frame, 0.5f, 0f)
+    // Facing left: the cutting edge is to the left of the hinge when level, and above it nose-up.
+    assertTrue(bucketPoints(frame, tip, 0f)[0].x < tip.x)
+    assertTrue(bucketPoints(frame, tip, 30f)[0].y < tip.y)
+  }
 }
