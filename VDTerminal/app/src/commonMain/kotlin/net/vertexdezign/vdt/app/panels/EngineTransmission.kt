@@ -192,9 +192,9 @@ fun EngineTransmission(
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Metric("${motor.temperatur?.value ?: 0}${motor.temperatur?.unit ?: ""}", s.water)
-          // A CVT's oil, which Advanced Damage System models separately and which on slow heavy work
-          // cooks before the coolant does. Only shown on a machine that has one — nothing else here
-          // is a reading that only some machines can take.
+          // The transmission's oil, which Advanced Damage System models separately and which on slow
+          // heavy work cooks before the coolant does. Only where ADS's own dashboard shows it — nothing
+          // else here is a reading that only some machines can take.
           vehicle.ads?.transmissionTemperatur?.let { Metric("${it.value}${it.unit}", s.trans) }
           Metric(numbers.usage(motor.def()?.usage, null), s.defPerHour)
         }

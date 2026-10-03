@@ -49,5 +49,7 @@ internal object DeCluster : ClusterStrings {
   override val charging = "Ladesystem"
   override val brakes = "Bremssystem"
   override val service = "Wartung fällig"
+  override val transmissionWarning = "Getriebe"
+  override val engineOil = "Motoröl"
   override val attention = "Achtung"
 }

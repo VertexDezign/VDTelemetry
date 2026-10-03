@@ -49,5 +49,7 @@ internal object EnCluster : ClusterStrings {
   override val charging = "Charging system"
   override val brakes = "Brake system"
   override val service = "Service due"
+  override val transmissionWarning = "Transmission"
+  override val engineOil = "Engine oil"
   override val attention = "Needs attention"
 }

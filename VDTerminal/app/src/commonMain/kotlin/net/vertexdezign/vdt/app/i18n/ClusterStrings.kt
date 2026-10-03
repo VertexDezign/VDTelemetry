@@ -50,5 +50,7 @@ interface ClusterStrings {
   val charging: String
   val brakes: String
   val service: String
+  val transmissionWarning: String
+  val engineOil: String
   val attention: String
 }
