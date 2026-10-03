@@ -31,7 +31,7 @@ object ModFormat {
       "production" to 2,
       "storage" to 4,
       "husbandry" to 2,
-      "fleet" to 2,
+      "fleet" to 3,
       "prices" to 1,
       "missions" to 2,
       "finance" to 1,

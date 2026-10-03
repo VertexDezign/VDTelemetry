@@ -19,9 +19,9 @@
 -- a row can be handed straight to the map.
 --
 -- CONDITION comes from the vanilla wearable aspect, EXCEPT under Advanced Damage System, which pins
--- `damage` to 0 on any machine it manages and keeps condition in its own inspection record instead
--- (see the ads block, contributed by src/integrations/AdvancedDamageSystem.lua). Readers take
--- `ads.inspected` where the ads block is present and `wearable` otherwise.
+-- `damage` to 0 on any machine it manages and keeps condition behind its own workshop inspection,
+-- which we do not export (see the ads block, contributed by src/integrations/AdvancedDamageSystem.lua).
+-- Readers take `wearable` only where the ads block is absent.
 --
 -- Reads only base-game state, so it lives in collect/ rather than integrations/, and every engine
 -- read is pcall-guarded (fail-soft house rule): this walks third-party-modded vehicles, where a
@@ -36,7 +36,9 @@ VDT.FleetExporter.CHANNEL = "fleet"
 VDT.FleetExporter.FILE_NAME = "fleet.json"
 -- Own version, evolving independently of VDTelemetry.VERSION and the shared Kotlin FleetData.
 -- 2: `broken` -- the machine drowned and needs a reset (see aspects/Broken.lua).
-VDT.FleetExporter.VERSION = 2
+-- 3: the `ads` block is down to `state` and `service` (ADS 0.9.9.3 rewrote what the rest was read
+--    from); the document's `date`, which only the ADS log dates were read against, is gone with them.
+VDT.FleetExporter.VERSION = 3
 -- Write cadence in ms. Condition, hours and fill levels drift over in-game hours; the two things
 -- here that move faster (fuel, who is driving) are the driven machine's business, and that one is on
 -- the 100 ms telemetry channel already.
@@ -157,21 +159,6 @@ end
 function VDT.FleetExporter.hours(operatingTimeMs)
   local ms = num(operatingTimeMs) or 0
   return math.floor(ms / 360000 + 0.5) / 10
-end
-
----Today, as the game counts it: `month` is the period (1..12). Carried on the document so ADS's log
----dates can be read as "3 months ago" without the app needing another channel.
----@return FleetDateModel|nil
-local function collectDate()
-  local env = g_currentMission ~= nil and g_currentMission.environment or nil
-  if env == nil or num(env.currentYear) == nil or num(env.currentPeriod) == nil then
-    return nil
-  end
-  return {
-    year = math.floor(env.currentYear),
-    month = math.floor(env.currentPeriod),
-    day = math.floor(num(env.currentDayInPeriod) or 1),
-  }
 end
 
 ---Build one machine's row, or nil when it has no usable network id (not registered yet).
@@ -305,7 +292,6 @@ function VDT.FleetExporter.collect()
 
   return {
     version = tostring(VDT.FleetExporter.VERSION),
-    date = collectDate(),
     -- omit the empty array: the Json encoder emits {} for an empty table (see TaskList.lua)
     vehicles = #vehicles > 0 and vehicles or nil,
   }
