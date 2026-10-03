@@ -263,3 +263,31 @@ describe("VDT.LoaderCylinders", function()
     assert.are.equal(0, VDT.LoaderCylinders.collect(machine({ arm }, { [arm] = 1.2 }))[1].travel)
   end)
 end)
+
+describe("VDT.LoaderTool.kindOf", function()
+  it("names a tool by its specialization, most specific first", function()
+    assert.are.equal("SHOVEL", VDT.LoaderTool.kindOf({ spec_shovel = { shovelNodes = { {} } } }))
+    assert.are.equal("FORK", VDT.LoaderTool.kindOf({ spec_dynamicMountAttacher = {} }))
+    assert.are.equal(
+      "LOG_GRAB",
+      VDT.LoaderTool.kindOf({ spec_logGrab = { grabs = { {} } }, spec_dynamicMountAttacher = {} })
+    )
+    assert.are.equal("OTHER", VDT.LoaderTool.kindOf({}))
+  end)
+
+  it("takes a bale grab on its spec alone, which is all a multiplayer client has", function()
+    -- BaleGrab:onLoad runs only on the server; a client's table is empty.
+    assert.are.equal("BALE_GRAB", VDT.LoaderTool.kindOf({ spec_baleGrab = {}, spec_dynamicMountAttacher = {} }))
+  end)
+
+  it("does not count a shovel or log grab spec that configures nothing", function()
+    assert.are.equal(
+      "FORK",
+      VDT.LoaderTool.kindOf({
+        spec_shovel = { shovelNodes = {} },
+        spec_logGrab = { grabs = {} },
+        spec_dynamicMountAttacher = {},
+      })
+    )
+  end)
+end)

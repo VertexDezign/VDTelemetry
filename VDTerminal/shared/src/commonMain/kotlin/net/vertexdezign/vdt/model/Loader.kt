@@ -16,6 +16,11 @@ import kotlinx.serialization.Serializable
 data class LoaderTool(
   /** The joint the tool hangs on; null for one this app does not know yet. */
   val joint: LoaderJoint? = null,
+  /**
+   * Which tool it is, by the tool specialization it carries rather than its modder-named `type`. Null
+   * on a capture from before the mod reported it, or a kind this app does not know yet.
+   */
+  val kind: LoaderToolKind? = null,
   /** Degrees against the horizon, positive nose up. */
   val pitch: Float = 0f,
   /**
@@ -45,6 +50,14 @@ data class LoaderTool(
 /** A tool model's zero (mod version 30): the raw readings it was set at. See [LoaderTool.reference]. */
 @Serializable
 data class LoaderReference(val pitch: Float = 0f, val distance: Float? = null)
+
+/**
+ * A loader tool by what it does. [FORK] is anything that carries what it picks up on tines — a pallet
+ * fork and a bale spike both mount their load the same way — and [OTHER] a tool with none of the
+ * tool specializations (a plate, a sweeper, a modded attachment).
+ */
+@Serializable
+enum class LoaderToolKind { SHOVEL, FORK, BALE_GRAB, LOG_GRAB, OTHER }
 
 @Serializable
 enum class LoaderJoint { FRONTLOADER, TELEHANDLER, WHEEL_LOADER, SKID_STEER, LOADER_FORK }

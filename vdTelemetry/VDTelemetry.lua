@@ -332,7 +332,8 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     distance to whatever is under it (issue #169) -- and `loaderCylinders` on anything with a
 --     front-loader-driven cylinder, each one's travel along its stroke; `loaderTool.reference`, the
 --     player's "this is level" for that tool model, set by the new setLoaderReference command and kept
---     in modSettings/<modName>/loaderReferences.xml. Additive.
+--     in modSettings/<modName>/loaderReferences.xml; `loaderTool.kind`, which tool it is (shovel, fork,
+--     bale grab, log grab) by its specialization. Additive.
 VDTelemetry.VERSION = 30
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3

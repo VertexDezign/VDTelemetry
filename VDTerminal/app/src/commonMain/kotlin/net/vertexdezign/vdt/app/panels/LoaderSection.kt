@@ -37,9 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.theme.VdtColors
+import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.LoaderCylinder
 import net.vertexdezign.vdt.model.LoaderCylinderRole
 import net.vertexdezign.vdt.model.LoaderTool
+import net.vertexdezign.vdt.model.LoaderToolKind
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -77,6 +79,12 @@ internal data class LoaderRig(
   val cylinders: List<LoaderCylinder>,
 ) {
   val reading: LoaderTool? get() = tool?.loaderTool
+
+  /**
+   * What the tool is carrying, when it has a fill unit to say: a shovel's bucket. A fork's pallet or a
+   * grab's bale is a separate object the game mounts, not a fill level, so they have none.
+   */
+  val load: FillUnit? get() = tool?.fillUnits?.firstOrNull { it.capacity > 0 }
 }
 
 /**
@@ -184,6 +192,11 @@ private fun LoaderReadouts(rig: LoaderRig, modifier: Modifier = Modifier) {
           else -> "above what is below"
         },
       )
+    }
+    // The tool's own fill units are not drawn by the panel's generic block once the loader screen is
+    // open (it stands down for any machine with a section), so the load is printed here.
+    rig.load?.let { unit ->
+      Figure("Load", "${unit.fillLevelPercentage}%", unit.title.takeIf { unit.value > 0f && it.isNotBlank() })
     }
     if (rig.cylinders.isNotEmpty()) {
       @OptIn(ExperimentalLayoutApi::class)
@@ -345,16 +358,74 @@ internal fun armTip(frame: GlyphFrame, lift: Float, telescope: Float): Offset {
   return Offset(frame.pivot.x + offset.x * frame.scale, frame.pivot.y + offset.y * frame.scale)
 }
 
+/** Turns a point given in the tool's own frame (edge to the left, up negative) about the hinge at [tip]. */
+private class ToolFrame(val tip: Offset, val size: Float, degrees: Float) {
+  private val rad = degrees.coerceIn(-90f, 90f) * PI.toFloat() / 180f
+
+  /** [x], [y] in tool lengths. Screen y grows downward, so a positive angle SUBTRACTS from the edge's y. */
+  fun at(x: Float, y: Float): Offset {
+    val px = x * size
+    val py = y * size
+    return Offset(tip.x + px * cos(rad) - py * sin(rad), tip.y + px * sin(rad) + py * cos(rad))
+  }
+}
+
 /**
- * The bucket in profile as a polyline hinged at [tip] — cutting edge to the left, back wall up —
- * turned nose-up for a positive [degrees]. Screen y grows downward, which is why a positive angle
- * SUBTRACTS from the edge's y.
+ * The tool in profile as polylines hinged at [tip] — working edge to the LEFT (design rule), turned
+ * nose-up for a positive [degrees] — one shape per [kind]:
+ *
+ * - **Shovel**: floor, back wall and the lip of the back wall: a bucket.
+ * - **Fork**: tines along the floor line and the carriage frame standing at the hinge.
+ * - **Bale grab**: the frame with two arms reaching forward, top and bottom, around where a bale sits.
+ * - **Log grab**: a short stem forward to a pair of claws hanging under it.
+ * - **Other**, and a capture that names no kind: a plain plate.
+ *
+ * Every point stays within one tool length of the hinge, which is the reach [glyphFrame] fits the
+ * picture to — so no kind can take the side view out of its box.
  */
-internal fun bucketPoints(frame: GlyphFrame, tip: Offset, degrees: Float): List<Offset> {
-  val s = TOOL_SIZE * frame.scale
-  val rad = degrees.coerceIn(-90f, 90f) * PI.toFloat() / 180f
-  fun at(x: Float, y: Float) = Offset(tip.x + x * cos(rad) - y * sin(rad), tip.y + x * sin(rad) + y * cos(rad))
-  return listOf(at(-s, 0f), at(0f, 0f), at(0f, -s * 0.75f), at(-s * 0.35f, -s * 0.85f))
+internal fun toolStrokes(frame: GlyphFrame, tip: Offset, degrees: Float, kind: LoaderToolKind?): List<List<Offset>> {
+  val t = ToolFrame(tip, TOOL_SIZE * frame.scale, degrees)
+  return when (kind) {
+    LoaderToolKind.SHOVEL -> listOf(listOf(t.at(-1f, 0f), t.at(0f, 0f), t.at(0f, -0.75f), t.at(-0.35f, -0.85f)))
+
+    LoaderToolKind.FORK -> listOf(
+      listOf(t.at(-0.95f, 0f), t.at(0f, 0f)),
+      listOf(t.at(0f, 0.1f), t.at(0f, -0.7f), t.at(-0.12f, -0.7f)),
+    )
+
+    LoaderToolKind.BALE_GRAB -> listOf(
+      listOf(t.at(-0.75f, -0.05f), t.at(0f, -0.05f), t.at(0f, -0.6f), t.at(-0.75f, -0.6f)),
+      listOf(t.at(-0.75f, -0.05f), t.at(-0.75f, -0.17f)),
+      listOf(t.at(-0.75f, -0.6f), t.at(-0.75f, -0.48f)),
+    )
+
+    LoaderToolKind.LOG_GRAB -> listOf(
+      listOf(t.at(0f, 0f), t.at(-0.5f, 0f)),
+      listOf(t.at(-0.5f, 0f), t.at(-0.85f, 0.3f), t.at(-0.7f, 0.55f)),
+      listOf(t.at(-0.5f, 0f), t.at(-0.15f, 0.3f), t.at(-0.3f, 0.55f)),
+    )
+
+    LoaderToolKind.OTHER, null -> listOf(
+      listOf(t.at(0f, 0f), t.at(-0.15f, 0f)),
+      listOf(t.at(-0.15f, 0.25f), t.at(-0.15f, -0.65f)),
+    )
+  }
+}
+
+/**
+ * What is in a shovel, as the polygon to fill: the bucket's inside from the floor up to [fraction] of
+ * the back wall, **turning with the bucket**. A level that stayed horizontal as the bucket tipped
+ * would read empty mid-tip while the game is still emptying it gradually; this reads what the fill
+ * unit says. Null when there is nothing to draw.
+ */
+internal fun shovelFill(frame: GlyphFrame, tip: Offset, degrees: Float, fraction: Float): List<Offset>? {
+  val f = fraction.coerceIn(0f, 1f)
+  if (f <= 0f) return null
+  val t = ToolFrame(tip, TOOL_SIZE * frame.scale, degrees)
+  val h = 0.75f * f
+  // The front of the bucket runs from the cutting edge (-1, 0) to the lip (-0.35, -0.85).
+  val front = -1f + 0.65f * (h / 0.85f)
+  return listOf(t.at(-1f, 0f), t.at(0f, 0f), t.at(0f, -h), t.at(front, -h))
 }
 
 /**
@@ -377,6 +448,10 @@ private fun LoaderGlyph(rig: LoaderRig, modifier: Modifier = Modifier) {
   val toolInk = VdtColors.TextDark
   val groundInk = VdtColors.PanelBorder
   val levelInk = VdtColors.Gray
+  // A quantity, told by how high it stands and printed beside the picture: the fill bars' own role.
+  val fillInk = VdtColors.ProgressBlue
+  val kind = reading?.kind
+  val load = rig.load?.let { it.fillLevelPercentage / 100f }
 
   Canvas(modifier.clipToBounds()) {
     val frame = glyphFrame(size.width, size.height, telescopic)
@@ -399,11 +474,21 @@ private fun LoaderGlyph(rig: LoaderRig, modifier: Modifier = Modifier) {
       pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 5f)),
     )
 
-    val points = bucketPoints(frame, tip, angle)
-    val bucket = Path().apply {
-      moveTo(points[0].x, points[0].y)
-      points.drop(1).forEach { lineTo(it.x, it.y) }
+    if (kind == LoaderToolKind.SHOVEL && load != null) {
+      shovelFill(frame, tip, angle, load)?.let { drawPath(pathOf(it, close = true), fillInk) }
     }
-    drawPath(bucket, toolInk, style = Stroke(width = unit * 0.06f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    toolStrokes(frame, tip, angle, kind).forEach { line ->
+      drawPath(
+        pathOf(line),
+        toolInk,
+        style = Stroke(width = unit * 0.06f, cap = StrokeCap.Round, join = StrokeJoin.Round),
+      )
+    }
   }
+}
+
+private fun pathOf(points: List<Offset>, close: Boolean = false) = Path().apply {
+  moveTo(points[0].x, points[0].y)
+  points.drop(1).forEach { lineTo(it.x, it.y) }
+  if (close) close()
 }
