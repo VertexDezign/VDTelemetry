@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -61,6 +62,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
@@ -651,7 +654,19 @@ private fun MachineDetail(
   awaitingSelection: Boolean = false,
 ) {
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    MachineStatus(machine, target, node, onCommand, showIdentity, Modifier.fillMaxWidth())
+    // The strip never gives back a row while the same machine is shown. Chips come and go with what
+    // the machine is doing (a shovel's "Unloading" while it tips, a refusal at the trough), and a
+    // strip that wrapped onto a second row and back moved everything under it each time -- the loader
+    // screen's picture visibly jumped on every tip. Keyed by the node, so tapping to another machine
+    // starts it afresh.
+    MachineStatus(
+      machine,
+      target,
+      node,
+      onCommand,
+      showIdentity,
+      Modifier.fillMaxWidth().neverShrinks(node ?: machine.name),
+    )
 
     // Why the machine's own controls are inert, rather than leaving the driver to tap and wonder. The
     // limit is the command channel's, not the diagram's: see [controlTargetOf]. Named rather than
@@ -780,7 +795,7 @@ private fun MachineStatus(
 
     machine.workMode?.let { WorkModeChip(it, target, onCommand) }
     machine.tipping?.let { TipChip(it, target, onCommand) }
-    machine.discharge?.let { DischargeChip(it, target, onCommand) }
+    machine.discharge?.let { DischargeChip(it, target, onCommand, alwaysShown = machine.loaderTool != null) }
 
     // The engine's own "why is nothing coming out". A terminal earns its place at the trough here:
     // the tip side is open, the drum is turning, and the reason it is not unloading is a fact only
@@ -975,17 +990,46 @@ private fun CoverChip(cover: Cover, target: ControlTarget?, onCommand: (ClientMe
  * chip beside this one carries the answer.
  */
 @Composable
-private fun DischargeChip(discharge: Discharge, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
+private fun DischargeChip(
+  discharge: Discharge,
+  target: ControlTarget?,
+  onCommand: (ClientMessage) -> Unit,
+  alwaysShown: Boolean = false,
+) {
   val unloading = discharge.state != DischargeState.OFF
+  val toggleable = discharge.canToggle != false
   // Null is an older mod that never reported the flag; keep the pre-19 behaviour rather than hiding a
   // control that used to work. Something already unloading always gets a chip, so it can be stopped.
-  if (discharge.canToggle == false && !unloading) return
+  //
+  // A loader tool keeps its chip [alwaysShown], inert while it cannot be toggled: a shovel unloads by
+  // being tipped, never by a switch, so its chip would otherwise appear and vanish with every bucket
+  // emptied and reflow the strip each time. A sprayer, also Dischargeable and also never toggled,
+  // still gets nothing: it never unloads at all, and an "Unload" that never lights is noise.
+  if (!toggleable && !unloading && !alwaysShown) return
   Chip(
     Icons.Filled.Download,
     if (unloading) "Unloading" else "Unload",
     if (unloading) VdtColors.AccentText else VdtColors.DarkGray,
-    onClick = target?.let { { onCommand(ClientMessage.SetDischarging(it, on = !unloading)) } },
+    onClick = target?.takeIf {
+      toggleable || unloading
+    }?.let { { onCommand(ClientMessage.SetDischarging(it, on = !unloading)) } },
+    control = toggleable || alwaysShown,
   )
+}
+
+/**
+ * Height this element has needed, held: it may grow, never shrink, until [key] changes. For a strip of
+ * chips that come and go with the machine's state, so the content under it does not move each time a
+ * chip wraps onto a row of its own and back.
+ */
+@Composable
+private fun Modifier.neverShrinks(key: Any?): Modifier {
+  val density = LocalDensity.current
+  var reserved by remember(key) { mutableStateOf(0.dp) }
+  return heightIn(min = reserved).onSizeChanged { size ->
+    val height = with(density) { size.height.toDp() }
+    if (height > reserved) reserved = height
+  }
 }
 
 /**

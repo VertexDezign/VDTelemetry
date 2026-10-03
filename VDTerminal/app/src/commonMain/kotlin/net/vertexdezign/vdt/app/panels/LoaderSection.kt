@@ -299,13 +299,13 @@ private const val ARM_HIGH_DEG = 42f
 
 /**
  * The side view in model units, the arm's retracted length being 1: how much a telescope adds, how big
- * the bucket is, how far its farthest point can sit from the hinge at any angle (the cutting edge, a
- * whole bucket length out — the back wall's corner is only `hypot(0.35, 0.85)` of it), and the margin
- * kept clear for line widths.
+ * a tool is, how far its farthest point can sit from the hinge at any angle, and the margin kept clear
+ * for line widths. The reach is set by the log grab's top arm fully open, the one part that stands
+ * out past a tool length (a bucket's cutting edge is exactly one); the bounds test walks every kind.
  */
 private const val TELESCOPE_GAIN = 0.45f
 private const val TOOL_SIZE = 0.44f
-private const val TOOL_REACH = TOOL_SIZE
+private const val TOOL_REACH = TOOL_SIZE * 1.25f
 private const val MARGIN = 0.08f
 
 /**
@@ -380,14 +380,15 @@ private class ToolFrame(val tip: Offset, val size: Float, degrees: Float) {
  * - **Shovel**: floor, back wall and the lip of the back wall: a bucket.
  * - **Fork**: tines along the floor line and the carriage frame standing at the hinge.
  * - **Bale grab**: the frame with two arms reaching forward, top and bottom, around where a bale sits.
- * - **Log grab**: a short stem forward to a pair of claws hanging under it.
+ * - **Log grab**: the fork's tines and carriage, with a top arm hinged on the carriage that swings
+ *   down onto the tines as it closes.
  *
- * The two grabs open with [open], the tool's own cylinder travel — 1 open, as the mod's input-sense
+ * Both grabs open with [open], the tool's own cylinder travel — 1 open, as the mod's input-sense
  * orientation reads both captured grabs (see `LoaderCylinders.lua`).
  * - **Other**, and a capture that names no kind: a plain plate.
  *
- * Every point stays within one tool length of the hinge, which is the reach [glyphFrame] fits the
- * picture to — so no kind can take the side view out of its box.
+ * Every point stays within the reach [glyphFrame] fits the picture to — so no kind can take the side
+ * view out of its box.
  */
 internal fun toolStrokes(
   frame: GlyphFrame,
@@ -416,13 +417,21 @@ internal fun toolStrokes(
       )
     }
 
-    // The claws part sideways as the grab opens.
+    // A fork whose top arm, hinged on the carriage, swings down onto the tines to hold the logs.
     LoaderToolKind.LOG_GRAB -> {
-      val spread = 0.1f * o
+      val armDeg = LOG_ARM_CLOSED_DEG + (LOG_ARM_OPEN_DEG - LOG_ARM_CLOSED_DEG) * o
+      val armRad = armDeg * PI.toFloat() / 180f
+      val armTipX = -LOG_ARM_LENGTH * cos(armRad)
+      val armTipY = LOG_ARM_HINGE_Y - LOG_ARM_LENGTH * sin(armRad)
       listOf(
-        listOf(t.at(0f, 0f), t.at(-0.5f, 0f)),
-        listOf(t.at(-0.5f, 0f), t.at(-0.85f - spread, 0.3f), t.at(-0.7f - spread, 0.55f)),
-        listOf(t.at(-0.5f, 0f), t.at(-0.15f + spread, 0.3f), t.at(-0.3f + spread, 0.55f)),
+        listOf(t.at(-0.95f, 0f), t.at(0f, 0f)),
+        listOf(t.at(0f, 0.1f), t.at(0f, LOG_ARM_HINGE_Y)),
+        // The arm, with a claw at its end bent down toward the tines.
+        listOf(
+          t.at(0f, LOG_ARM_HINGE_Y),
+          t.at(armTipX, armTipY),
+          t.at(armTipX + 0.06f, armTipY + 0.14f),
+        ),
       )
     }
 
@@ -432,6 +441,12 @@ internal fun toolStrokes(
     )
   }
 }
+
+/** The log grab's top arm: where it is hinged on the carriage, how long it is, and its swing. */
+private const val LOG_ARM_HINGE_Y = -0.65f
+private const val LOG_ARM_LENGTH = 0.85f
+private const val LOG_ARM_CLOSED_DEG = -28f
+private const val LOG_ARM_OPEN_DEG = 20f
 
 /** How open a grab is drawn when it reports no cylinder of its own. */
 private const val DEFAULT_OPEN = 0.3f
