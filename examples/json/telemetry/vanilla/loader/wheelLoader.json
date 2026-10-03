@@ -3,9 +3,31 @@
     "ai": {
       "active": false
     },
+    "loaderCylinders": [
+      {
+        "probe": {
+          "raw": 0,
+          "geometry": 1,
+          "input": -1
+        },
+        "role": "LIFT",
+        "travel": 1,
+        "axis": "AXIS_FRONTLOADER_ARM"
+      },
+      {
+        "probe": {
+          "raw": 0.7,
+          "geometry": 1,
+          "input": -1
+        },
+        "role": "TILT",
+        "travel": 0.3,
+        "axis": "AXIS_FRONTLOADER_TOOL"
+      }
+    ],
     "wearable": {
       "wear": 1,
-      "damage": 0,
+      "damage": 1,
       "dirt": 7,
       "unit": "%"
     },
@@ -17,8 +39,8 @@
         },
         "type": "shovelLeveler",
         "loaderTool": {
-          "pitch": 5.88,
-          "distance": 1.258,
+          "pitch": -0.86,
+          "distance": 3.566,
           "joint": "WHEEL_LOADER"
         },
         "wearable": {
@@ -112,13 +134,13 @@
         "min": 0
       },
       "load": {
-        "value": 9.07,
+        "value": 8.08,
         "min": 0,
         "max": 100,
         "unit": "%"
       },
       "temperatur": {
-        "value": 49,
+        "value": 26,
         "min": 20,
         "max": 120,
         "unit": "°C"
@@ -134,7 +156,7 @@
       "targetSpeed": 48
     },
     "operatingTime": {
-      "value": "0.23",
+      "value": "0.24",
       "unit": "h"
     },
     "lights": {
@@ -215,14 +237,14 @@
         "unit": "°C"
       }
     },
-    "time": "08:29",
+    "time": "08:43",
     "pda": {
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
       "player": {
         "heading": 179,
-        "posX": 0.16780436038971,
+        "posX": 0.16780400276184,
         "farmId": 1,
-        "posZ": 0.60577540844679,
+        "posZ": 0.60577438026667,
         "headingUnit": "°"
       }
     }

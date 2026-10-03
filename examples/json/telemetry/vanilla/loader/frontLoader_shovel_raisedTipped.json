@@ -43,8 +43,8 @@
             },
             "type": "shovelLeveler",
             "loaderTool": {
-              "pitch": -66.65,
-              "distance": 2.439,
+              "pitch": -66.75,
+              "distance": 2.423,
               "joint": "FRONTLOADER"
             },
             "wearable": {
@@ -111,11 +111,21 @@
         "position": "FRONT",
         "loaderCylinders": [
           {
+            "probe": {
+              "raw": 0,
+              "geometry": 1,
+              "input": -1
+            },
             "role": "LIFT",
             "travel": 1,
             "axis": "AXIS_FRONTLOADER_ARM"
           },
           {
+            "probe": {
+              "raw": 1,
+              "geometry": 1,
+              "input": -1
+            },
             "role": "TILT",
             "travel": 0,
             "axis": "AXIS_FRONTLOADER_TOOL"
@@ -129,7 +139,7 @@
       }
     ],
     "odometer": {
-      "value": 0.2,
+      "value": 0.3,
       "unit": "km"
     },
     "mass": {
@@ -148,12 +158,12 @@
     "wearable": {
       "wear": 0,
       "damage": 0,
-      "dirt": 0,
+      "dirt": 1,
       "unit": "%"
     },
     "gps": {
       "enabled": false,
-      "heading": 160,
+      "heading": 91,
       "linesVisible": true,
       "active": false,
       "headingUnit": "°"
@@ -168,9 +178,9 @@
       },
       "fillUnits": {
         "air": {
-          "fillLevelPercentage": 100,
+          "fillLevelPercentage": 92,
           "title": "Luft",
-          "value": 4000,
+          "value": 3698,
           "capacity": 4000,
           "unit": "l"
         },
@@ -201,13 +211,13 @@
         "min": 0
       },
       "load": {
-        "value": 7.65,
+        "value": 7.56,
         "min": 0,
         "max": 100,
         "unit": "%"
       },
       "temperatur": {
-        "value": 90,
+        "value": 89,
         "min": 20,
         "max": 120,
         "unit": "°C"
@@ -237,7 +247,7 @@
       },
       "service": {
         "interval": 5,
-        "hours": 0.2
+        "hours": 0.3
       },
       "load": {
         "value": 8,
@@ -255,7 +265,7 @@
       }
     },
     "operatingTime": {
-      "value": "0.23",
+      "value": "0.35",
       "unit": "h"
     },
     "ai": {
@@ -334,14 +344,14 @@
         "unit": "°C"
       }
     },
-    "time": "08:39",
+    "time": "08:42",
     "pda": {
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
       "player": {
-        "heading": 160,
-        "posX": 0.45002928003669,
+        "heading": 91,
+        "posX": 0.45832677930593,
         "farmId": 1,
-        "posZ": 0.43217935413122,
+        "posZ": 0.43063127994537,
         "headingUnit": "°"
       }
     }

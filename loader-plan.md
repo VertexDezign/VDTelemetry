@@ -98,9 +98,10 @@ loaderCylinders: [ { role, axis, travel } ]
   `TOOL2`..`TOOL5` → `AUX` (grab, clamp, top-hold: the meaning is tool-specific, so it stays a slot rather
   than a guess).
 - `travel` is `Cylindered.getMovingToolState(object, tool)` (a spec function, not a vehicle method), clamped
-  to 0..1, and only for tools with both limits set. **Oriented** so 1 is raised / curled back / extended: the
-  engine's 0..1 ran backwards on every captured arm, so the mod checks each node's X axis against the
-  machine's and turns lift and tilt round; a lift/tilt/telescope whose direction cannot be told is dropped. A tool with an unbounded rotation is left out, because its "state" is a raw angle and the panel
+  to 0..1, and only for tools with both limits set. **Oriented** so 1 is raised / curled back / extended, by the
+  machine's controls: the end a positive input drives toward (`sign(speed)`, flipped by `invertAxis`) is up.
+  A first rule read the node's X axis instead and got a Kubota SVL's lift upside down; four probed
+  captures settled it. A lift/tilt/telescope with no speed to read is dropped. A tool with an unbounded rotation is left out, because its "state" is a raw angle and the panel
   would draw it as a fraction.
 - Only tools with `hasRequiredConfigurations` are kept.
 
