@@ -402,8 +402,11 @@ One thing was left, and it is a trap rather than a feature:
 
 ## VDT-owned data
 
-Every write path today drives a *mod's* own state through its own multiplayer events; VDTelemetry persists nothing of
-its own. The first real case for changing that:
+Every write path but one drives a *mod's* own state through its own multiplayer events. The exception is the loader
+tool's "set level" (#169): `src/store/LoaderReferences.lua` keeps a per-tool-*model* reference in
+`modSettings/<modName>/loaderReferences.xml`, client-local and outside the savegame because it describes the tool's
+geometry rather than the farm. It is the precedent, not the template, for what follows: the case below is savegame
+state and argues the other way.
 
 ### Assigning a CropRotation plan to a field
 

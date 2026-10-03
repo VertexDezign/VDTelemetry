@@ -7,9 +7,9 @@
 -- the tool's ROOT NODE pitch, and a downward ray that ignores the rig. Both are raw. Neither is "level":
 -- no node on a tool is guaranteed to lie parallel to the shovel floor or the fork tines -- the engine's
 -- own Shovel measures its tip angle off a separate dischargeInfo node, and a fork has no such node at
--- all -- so a zero has to be SET by the player, per tool model (see loader-plan.md). The reference is
--- carried beside the raw values rather than subtracted from them, so a panel can tell "level" from
--- "nobody has said where level is".
+-- all -- so a zero has to be SET by the player, per tool model (VDT.LoaderReferences, written by
+-- command/LoaderControl.lua). The reference is carried beside the raw values rather than subtracted
+-- from them, so a panel can tell "level" from "nobody has said where level is".
 --
 -- Which objects: decided by the joint the tool hangs on, not by `storeData.category` as Tool
 -- Inclination Helper does. The category is a shop shelf; a modder who files a shovel under the wrong one
@@ -147,6 +147,15 @@ function VDT.LoaderTool.collect(object)
   end
   if distance ~= nil then
     model.distance = tonumber(ValueMapper.mapFloat(distance, 3))
+  end
+
+  -- The player's "this is level" for this tool model, carried beside the raw values rather than
+  -- subtracted from them (see the header, and src/store/LoaderReferences.lua).
+  if VDT.LoaderReferences ~= nil then
+    local reference = VDT.LoaderReferences.get(VDT.LoaderReferences.keyOf(object))
+    if reference ~= nil then
+      model.reference = { pitch = reference.pitch, distance = reference.distance }
+    end
   end
 
   return model

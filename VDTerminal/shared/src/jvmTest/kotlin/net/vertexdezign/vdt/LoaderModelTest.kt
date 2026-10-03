@@ -160,6 +160,37 @@ class LoaderModelTest {
   }
 
   @Test
+  fun noCaptureHasAReferenceSoNoneHasALevel() {
+    // Taken before "set level" existed. Without a reference there is no inclination to show -- a raw
+    // root-node angle must never stand in for one.
+    val shovel = toolOf("frontLoader_shovel_ground").loaderTool!!
+    assertNull(shovel.reference)
+    assertNull(shovel.inclination)
+    assertNull(shovel.height)
+  }
+
+  @Test
+  fun aReferenceIsSubtractedFromBothReadings() {
+    val tool =
+      VdtParser.parseJson(
+        """{"version":"30","vehicle":{"name":"x","loaderTool":{"joint":"FRONTLOADER","pitch":-48.5,""" +
+          """"distance":2.3,"reference":{"pitch":1.5,"distance":0.3}}}}""",
+      ).vehicle!!.loaderTool!!
+    assertEquals(-50f, tool.inclination)
+    assertEquals(2f, tool.height!!, 1e-4f)
+  }
+
+  @Test
+  fun aReferenceTakenOverNothingZeroesTheAngleOnly() {
+    val tool =
+      VdtParser.parseJson(
+        """{"version":"30","vehicle":{"name":"x","loaderTool":{"pitch":2,"distance":1.2,"reference":{"pitch":2}}}}""",
+      ).vehicle!!.loaderTool!!
+    assertEquals(0f, tool.inclination)
+    assertEquals(1.2f, tool.height)
+  }
+
+  @Test
   fun anUnknownJointOrRoleDoesNotLoseTheReading() {
     val v =
       VdtParser.parseJson(

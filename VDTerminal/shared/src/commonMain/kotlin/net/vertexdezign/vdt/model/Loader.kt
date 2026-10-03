@@ -22,7 +22,28 @@ data class LoaderTool(
    * the mod's 10 m reach.
    */
   val distance: Float? = null,
-)
+  /**
+   * The raw [pitch] and [distance] this tool model read when the player said "this is level" — set by
+   * [net.vertexdezign.vdt.ClientMessage.SetLoaderReference], kept by the mod per tool *model* and
+   * shared by every copy of it. Null until set, and then the panel has no level to show: it must
+   * not fall back to treating a raw 0° as one.
+   */
+  val reference: LoaderReference? = null,
+) {
+  /** Degrees off level, positive nose up — null without a [reference]. */
+  val inclination: Float? get() = reference?.let { pitch - it.pitch }
+
+  /**
+   * Metres above where the tool sat when it was zeroed — null without a [reference] or a [distance].
+   * A reference taken with no distance (nothing under the tool at the time) zeroes the angle only,
+   * and this falls back to the raw [distance].
+   */
+  val height: Float? get() = distance?.let { d -> reference?.let { d - (it.distance ?: 0f) } }
+}
+
+/** A tool model's zero (mod version 30): the raw readings it was set at. See [LoaderTool.reference]. */
+@Serializable
+data class LoaderReference(val pitch: Float = 0f, val distance: Float? = null)
 
 @Serializable
 enum class LoaderJoint { FRONTLOADER, TELEHANDLER, WHEEL_LOADER, SKID_STEER, LOADER_FORK }

@@ -340,6 +340,14 @@
 ---@field joint string FRONTLOADER | TELEHANDLER | WHEEL_LOADER | SKID_STEER | LOADER_FORK
 ---@field pitch number
 ---@field distance number?
+---@field reference LoaderReferenceModel? the player's level for this tool model, absent until set
+
+-- The raw `pitch` / `distance` a loader tool read when the player said "this is level". Both are
+-- subtracted by the consumer; `distance` is absent when the tool read none at the time.
+-- See store/LoaderReferences.lua.
+---@class LoaderReferenceModel
+---@field pitch number
+---@field distance number?
 
 -- One front-loader-driven cylinder. `role` is read off its input axis: LIFT, TELESCOPE, TILT, or AUX
 -- for TOOL2..5, whose meaning is the tool's own. `travel` is 0..1 along the stroke, turned so 1 is up
