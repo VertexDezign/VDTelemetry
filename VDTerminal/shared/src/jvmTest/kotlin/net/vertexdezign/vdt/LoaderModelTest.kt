@@ -256,6 +256,16 @@ class LoaderModelTest {
   }
 
   @Test
+  fun bothGrabsReadOneOpen() {
+    // In the engine's raw 0..1 the bale grab was open at 1 and the log grab at 0. Oriented by the
+    // input that drives them, both read 1 open -- the rule the side view's jaws are drawn by.
+    fun clamp(name: String) = toolOf(name).loaderCylinders.single { it.role == LoaderCylinderRole.AUX }.travel
+    assertEquals(1f, clamp("frontLoader_baleGrap_open"))
+    assertEquals(0f, clamp("frontLoader_baleGrap_closed"))
+    assertEquals(0.997f, clamp("telehandler_logGrap_open"))
+  }
+
+  @Test
   fun aFilledShovelCarriesItsLoadInItsFirstFillUnit() {
     // Shovels carry two units; the bucket is the first, the second an empty helper.
     val shovel = toolOf("wheelLoader_shovel_filled")
