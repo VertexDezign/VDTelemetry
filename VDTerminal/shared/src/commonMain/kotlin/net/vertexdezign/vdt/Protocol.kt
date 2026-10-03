@@ -524,8 +524,9 @@ sealed interface ClientMessage {
   data class SetSelected(val node: String, val controlGroup: Int? = null) : ClientMessage
 
   /**
-   * Record the loader tool at [node] as level where it is now ([on] = true), or forget its level
-   * ([on] = false) — issue #169. Comes back as [net.vertexdezign.vdt.model.LoaderTool.reference].
+   * Record the loader tool at [node] as level where it is now ([on] = true), or forget its level and go
+   * back to the root node's ([on] = false) — issue #169. Comes back as
+   * [net.vertexdezign.vdt.model.LoaderTool.reference].
    *
    * Kept by the mod per tool **model** in its own settings folder, not in the savegame and not in the
    * app: every copy of that shovel needs the same zero, on every save and every device. Client-local,

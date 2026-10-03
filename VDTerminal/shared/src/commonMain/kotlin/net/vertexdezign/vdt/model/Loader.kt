@@ -6,9 +6,11 @@ import kotlinx.serialization.Serializable
  * A tool on a loader's tool joint — the shovel, fork or grab on a front loader, wheel loader,
  * telehandler or skid steer (mod version 30, issue #169).
  *
- * Both readings are **raw**. [pitch] is the angle of the tool's root node, and no node on a tool is
- * guaranteed to lie parallel to the shovel floor or the fork tines, so 0° here is *not* level: level
- * is a reference the player sets per tool model. Nothing may present [pitch] as "level" on its own.
+ * Both readings are **raw**. [pitch] is the angle of the tool's root node. Nothing in the engine makes
+ * that node parallel to a shovel floor or a fork's tines — but on every tool captured so far it is
+ * within a few degrees of it (a shovel -0.69°, a pallet fork +0.19° lying flat), which is how GIANTS
+ * models them. So the root node is the **default** level, and a reference the player sets per tool
+ * model corrects the tool that is the exception. See [inclination].
  */
 @Serializable
 data class LoaderTool(
@@ -19,26 +21,25 @@ data class LoaderTool(
   /**
    * Metres to the nearest thing under the tool that is not part of the rig — ground, bale, pallet,
    * trailer. Negative when the only hit was above it (buried in a heap); null when nothing was within
-   * the mod's 10 m reach.
+   * the mod's 30 m reach.
    */
   val distance: Float? = null,
   /**
    * The raw [pitch] and [distance] this tool model read when the player said "this is level" — set by
    * [net.vertexdezign.vdt.ClientMessage.SetLoaderReference], kept by the mod per tool *model* and
-   * shared by every copy of it. Null until set, and then the panel has no level to show: it must
-   * not fall back to treating a raw 0° as one.
+   * shared by every copy of it. Null until set, and then the root node is level (see [inclination]).
    */
   val reference: LoaderReference? = null,
 ) {
-  /** Degrees off level, positive nose up — null without a [reference]. */
-  val inclination: Float? get() = reference?.let { pitch - it.pitch }
+  /** Degrees off level, positive nose up: off the player's [reference], or off the root node without one. */
+  val inclination: Float get() = pitch - (reference?.pitch ?: 0f)
 
   /**
-   * Metres above where the tool sat when it was zeroed — null without a [reference] or a [distance].
-   * A reference taken with no distance (nothing under the tool at the time) zeroes the angle only,
-   * and this falls back to the raw [distance].
+   * Metres above where the tool sat when it was zeroed, or the raw [distance] without a [reference] —
+   * null only when nothing is under the tool within reach. A reference taken with nothing under the
+   * tool zeroes the angle only.
    */
-  val height: Float? get() = distance?.let { d -> reference?.let { d - (it.distance ?: 0f) } }
+  val height: Float? get() = distance?.let { it - (reference?.distance ?: 0f) }
 }
 
 /** A tool model's zero (mod version 30): the raw readings it was set at. See [LoaderTool.reference]. */

@@ -96,14 +96,20 @@ class LoaderTest {
   }
 
   @Test
-  fun withoutAReferenceThereIsNoInclinationToShow() {
+  fun withoutAReferenceTheRootNodeIsLevelAndTheScreenSaysSo() {
     val rig = loaderRigOf(rigMachines(frontLoader()).map { null to it })!!
-    assertNull(rig.reading?.inclination)
-    val levelled = loaderRigOf(
-      rigMachines(frontLoader(LoaderTool(pitch = -0.69f, distance = 0.4f, reference = LoaderReference(-0.69f, 0.001f))))
-        .map { null to it },
-    )!!
-    assertEquals(0f, levelled.reading?.inclination)
-    assertEquals("LEVEL", inclinationLabel(levelled.reading!!.inclination!!))
+    assertEquals(-0.69f, rig.reading?.inclination)
+    assertEquals("LEVEL", inclinationLabel(rig.reading!!.inclination))
+    assertEquals("on the default level", angleCaption(-0.69f, ownLevel = false))
+    assertEquals("nose down, default level", angleCaption(-12f, ownLevel = false))
+  }
+
+  @Test
+  fun thePlayersLevelReplacesTheDefault() {
+    val tool = LoaderTool(pitch = 4.2f, distance = 0.4f, reference = LoaderReference(4.0f, 0.001f))
+    val rig = loaderRigOf(rigMachines(frontLoader(tool)).map { null to it })!!
+    assertEquals("LEVEL", inclinationLabel(rig.reading!!.inclination))
+    assertEquals("on your level", angleCaption(rig.reading!!.inclination, ownLevel = true))
+    assertEquals("nose up", angleCaption(6f, ownLevel = true))
   }
 }

@@ -9,7 +9,9 @@
 -- own Shovel measures its tip angle off a separate dischargeInfo node, and a fork has no such node at
 -- all -- so a zero has to be SET by the player, per tool model (VDT.LoaderReferences, written by
 -- command/LoaderControl.lua). The reference is carried beside the raw values rather than subtracted
--- from them, so a panel can tell "level" from "nobody has said where level is".
+-- from them, so a panel can say whose level it is reading off. Without one the app takes the root
+-- node as level: on every captured tool it lies within a degree or so of the floor, and the
+-- reference is the correction for the tool where it does not.
 --
 -- Which objects: decided by the joint the tool hangs on, not by `storeData.category` as Tool
 -- Inclination Helper does. The category is a shop shelf; a modder who files a shovel under the wrong one

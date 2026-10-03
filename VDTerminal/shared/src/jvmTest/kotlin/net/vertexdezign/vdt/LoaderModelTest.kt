@@ -72,8 +72,8 @@ class LoaderModelTest {
 
   @Test
   fun aShovelFlatOnTheGroundReadsNearLevelAndNearZero() {
-    // The raw root-node angle happens to land within a degree of flat on this shovel. That is a fact
-    // about this model, not a rule: the reference exists because nothing guarantees it.
+    // The raw root-node angle lands within a degree of flat on this shovel. Nothing in the engine
+    // guarantees it, which is what the reference is for -- but it is why the root node is the default.
     val t = toolOf("frontLoader_shovel_ground").loaderTool!!
     assertEquals(-0.69f, t.pitch)
     assertEquals(0.001f, t.distance)
@@ -160,13 +160,14 @@ class LoaderModelTest {
   }
 
   @Test
-  fun noCaptureHasAReferenceSoNoneHasALevel() {
-    // Taken before "set level" existed. Without a reference there is no inclination to show -- a raw
-    // root-node angle must never stand in for one.
+  fun withoutAReferenceTheRootNodeIsLevel() {
+    // Taken before "set level" existed. The root node is the default level, and on the captured tools
+    // it is within a degree of flat lying on the ground -- which is why it is the default.
     val shovel = toolOf("frontLoader_shovel_ground").loaderTool!!
     assertNull(shovel.reference)
-    assertNull(shovel.inclination)
-    assertNull(shovel.height)
+    assertEquals(-0.69f, shovel.inclination)
+    assertEquals(0.001f, shovel.height)
+    assertEquals(0.19f, toolOf("frontLoader_palletFork_ground").loaderTool!!.inclination)
   }
 
   @Test
