@@ -29,7 +29,6 @@ interface FleetStrings {
   val badgeWorkshop: String
   val badgeUnknownState: String
   val badgeServiceDue: String
-  val badgeFault: String
   val badgeLeased: String
   val badgeContract: String
   val badgeNeedsReset: String
@@ -48,11 +47,9 @@ interface FleetStrings {
   val cardMachine: String
   val cardMaintenance: String
 
-  val neverInspected: String
+  val keptByAds: String
   val noCondition: String
   val condition: String
-  val conditionEstimate: String
-  val estimateNote: String
   val wear: String
   val dirt: String
 
@@ -73,29 +70,14 @@ interface FleetStrings {
   val state: String
   val serviceOverdue: String
   val serviceInterval: String
-  val lastInspection: String
-  val lastMaintenance: String
-  val maintenanceSpent: String
-  val noFaults: String
-  val noFaultsYet: String
-  val workLeft: String
-  val readyAt: String
-  val serviceCost: String
-
-  /** A finish time [inDays] midnights away; 0 is today, and then [clock] alone. */
-  fun finish(clock: String, inDays: Int): String
 
   val adsReady: String
   val adsInspection: String
   val adsMaintenance: String
   val adsRepair: String
-  val adsOverhaul: String
   val adsBroken: String
   val adsUnknown: String
 
   /** A machine's age, which the game counts in months, as years and months once there are enough. */
   fun age(months: Int): String
-
-  /** How long ago something happened, in the game's months. */
-  fun monthsAgo(months: Int): String
 }
