@@ -27,27 +27,19 @@ import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.AdsState
 import net.vertexdezign.vdt.model.FleetAds
-import net.vertexdezign.vdt.model.FleetBreakdown
 import net.vertexdezign.vdt.model.FleetVehicle
-import net.vertexdezign.vdt.model.FleetWorkshop
-import net.vertexdezign.vdt.model.GameDate
 import net.vertexdezign.vdt.model.PropertyState
 
 /**
  * One machine, in full: what condition it is in, what it is carrying, what it is worth, and — where
- * Advanced Damage System is installed — its maintenance record.
+ * Advanced Damage System is installed — whether it is in the workshop or due for service.
  *
  * Nothing here is a control. The game's own overview can sell and reset a machine; those are
  * irreversible and stay where the game put them. What this screen adds is the one action a second
  * screen is better at: showing you where the thing actually is.
  */
 @Composable
-internal fun FleetVehicleDetail(
-  vehicle: FleetVehicle,
-  today: GameDate?,
-  rig: FleetVehicle?,
-  onShowOnMap: (FleetVehicle) -> Unit,
-) {
+internal fun FleetVehicleDetail(vehicle: FleetVehicle, rig: FleetVehicle?, onShowOnMap: (FleetVehicle) -> Unit) {
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -80,7 +72,7 @@ internal fun FleetVehicleDetail(
       DetailCard("Levels") { FillUnitsDisplay(fillUnits) }
     }
 
-    vehicle.ads?.let { AdsCard(it, today) }
+    vehicle.ads?.let { AdsCard(it) }
   }
 }
 
@@ -119,29 +111,21 @@ private fun ConditionCard(vehicle: FleetVehicle) {
   DetailCard("Condition") {
     if (condition == null) {
       Text(
-        if (vehicle.ads != null) "Never inspected — a workshop has to look at it" else "No condition reported",
+        if (vehicle.ads !=
+          null
+        ) {
+          "Kept by Advanced Damage System — inspect it in a workshop"
+        } else {
+          "No condition reported"
+        },
         color = VdtColors.DarkGray,
         fontSize = 11.sp,
       )
     } else {
-      ProgressBar(
-        condition / 100f,
-        leftLabel = if (conditionIsApproximate(vehicle)) "CONDITION (ESTIMATE)" else "CONDITION",
-        rightLabel = "$condition%",
-      )
-      if (conditionIsApproximate(vehicle)) {
-        // ADS gives an exact figure only after a full defectoscopy; anything else is its own coarse
-        // band. Saying so is the difference between a reading and a guess.
-        Text(
-          "From an ordinary inspection, not a full one",
-          color = VdtColors.DarkGray,
-          fontSize = 10.sp,
-        )
-      }
+      ProgressBar(condition / 100f, leftLabel = "CONDITION", rightLabel = "$condition%")
     }
     // Wear and dirt are shown whatever manages the machine. Advanced Damage System replaces the
-    // *damage* figure and nothing else, so these two stay live under it — the multiplayer capture has
-    // a 6R 215 reading 83% condition on ADS's own inspection with its paint worn clean through.
+    // *damage* figure and nothing else, so these two stay live under it.
     vehicle.wearable?.let { wearable ->
       ProgressBar(wearable.wear / 100f, leftLabel = "WEAR", rightLabel = "${wearable.wear}%")
       ProgressBar(wearable.dirt / 100f, leftLabel = "DIRT", rightLabel = "${wearable.dirt}%")
@@ -194,7 +178,7 @@ internal fun statusLabel(vehicle: FleetVehicle, rig: FleetVehicle? = null): Stri
 }
 
 @Composable
-private fun AdsCard(ads: FleetAds, today: GameDate?) {
+private fun AdsCard(ads: FleetAds) {
   DetailCard("Maintenance") {
     FactRow("State", adsStateLabel(ads.state))
     ads.service?.let { service ->
@@ -204,40 +188,6 @@ private fun AdsCard(ads: FleetAds, today: GameDate?) {
         rightLabel = "${formatHours(service.hours)} / ${formatHours(service.interval)} h",
       )
     }
-    today?.let { now ->
-      ads.lastInspection?.let { FactRow("Last inspection", formatMonthsAgo(monthsBetween(it, now))) }
-      ads.lastMaintenance?.let { FactRow("Last maintenance", formatMonthsAgo(monthsBetween(it, now))) }
-    }
-    ads.maintenanceCost?.let { FactRow("Spent on maintenance", formatMoney(it.toLong())) }
-    ads.workshop?.let { WorkshopRows(it) }
-
-    if (ads.breakdowns.isEmpty()) {
-      Text(
-        if (ads.state == AdsState.READY) "No faults found" else "No faults found yet",
-        color = VdtColors.DarkGray,
-        fontSize = 11.sp,
-      )
-    } else {
-      ads.breakdowns.forEach { BreakdownRow(it) }
-    }
-  }
-}
-
-@Composable
-private fun WorkshopRows(workshop: FleetWorkshop) {
-  workshop.remaining?.let { FactRow("Work left", "${formatHours(it)} h") }
-  workshop.finishHour?.let { FactRow("Ready at", formatFinish(it, workshop.finishInDays)) }
-  workshop.price?.let { FactRow("Service cost", formatMoney(it.toLong())) }
-}
-
-/** ADS's finish time: an hour of the game's day, plus how many midnights away it is. */
-internal fun formatFinish(hour: Float, inDays: Int): String {
-  val minutes = ((hour % 24f) * 60).toInt().coerceAtLeast(0)
-  val clock = "${(minutes / 60).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}"
-  return when (inDays) {
-    0 -> clock
-    1 -> "$clock tomorrow"
-    else -> "$clock, in $inDays days"
   }
 }
 
@@ -251,39 +201,11 @@ internal fun adsStateLabel(state: AdsState): String = when (state) {
 
   AdsState.REPAIR -> "In the workshop — repair"
 
-  AdsState.OVERHAUL -> "In the workshop — overhaul"
-
   AdsState.BROKEN -> "Broken down"
 
   // Not a state ADS has: a token this build could not name. Said plainly, because the alternative is
-  // to print one of the five above over a machine nobody has read the state of.
+  // to print one of the four above over a machine nobody has read the state of.
   AdsState.UNKNOWN -> "State not recognised"
-}
-
-@Composable
-private fun BreakdownRow(breakdown: FleetBreakdown) {
-  Row(
-    Modifier
-      .fillMaxWidth()
-      .clip(RoundedCornerShape(3.dp))
-      .background(VdtColors.TrackGray)
-      .padding(horizontal = 8.dp, vertical = 6.dp),
-    horizontalArrangement = Arrangement.spacedBy(8.dp),
-  ) {
-    Column(Modifier.weight(1f)) {
-      Text(
-        breakdown.part ?: breakdown.id,
-        color = VdtColors.TextDark,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold,
-      )
-      breakdown.description?.let { Text(it, color = VdtColors.DarkGray, fontSize = 10.sp) }
-    }
-    // The severity is ADS's own word for the stage, so it reads the same here as in its workshop.
-    breakdown.severity?.let {
-      Text(it.uppercase(), color = VdtColors.TextDark, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-    }
-  }
 }
 
 @Composable

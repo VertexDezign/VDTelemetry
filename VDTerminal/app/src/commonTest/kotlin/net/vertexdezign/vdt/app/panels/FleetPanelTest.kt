@@ -1,13 +1,10 @@
 package net.vertexdezign.vdt.app.panels
 
-import net.vertexdezign.vdt.model.AdsInspected
 import net.vertexdezign.vdt.model.AdsService
 import net.vertexdezign.vdt.model.AdsState
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FleetAds
-import net.vertexdezign.vdt.model.FleetBreakdown
 import net.vertexdezign.vdt.model.FleetVehicle
-import net.vertexdezign.vdt.model.GameDate
 import net.vertexdezign.vdt.model.MotorFillUnits
 import net.vertexdezign.vdt.model.PropertyState
 import net.vertexdezign.vdt.model.Wearable
@@ -49,19 +46,8 @@ class FleetPanelTest {
     broken = broken,
   )
 
-  private fun ads(
-    state: AdsState = AdsState.READY,
-    condition: Int? = null,
-    complete: Boolean = true,
-    hours: Float = 10f,
-    interval: Float = 60f,
-    breakdowns: List<FleetBreakdown> = emptyList(),
-  ) = FleetAds(
-    state = state,
-    inspected = condition?.let { AdsInspected(condition = it, complete = complete) },
-    service = AdsService(hours = hours, interval = interval),
-    breakdowns = breakdowns,
-  )
+  private fun ads(state: AdsState = AdsState.READY, hours: Float = 10f, interval: Float = 60f) =
+    FleetAds(state = state, service = AdsService(hours = hours, interval = interval))
 
   @Test
   fun conditionComesFromWearWithoutAds() {
@@ -70,24 +56,11 @@ class FleetPanelTest {
   }
 
   @Test
-  fun conditionComesFromTheInspectionUnderAds() {
+  fun aMachineUnderAdsHasNoCondition() {
     // ADS pins the vanilla damage to 0, so reading it would report this worn machine as brand new.
-    val machine = machine(damage = 0, ads = ads(condition = 47))
-    assertEquals(47, fleetCondition(machine))
-  }
-
-  @Test
-  fun aMachineAdsHasNeverInspectedHasNoCondition() {
-    val machine = machine(damage = 0, ads = ads(condition = null))
+    val machine = machine(damage = 0, ads = ads())
     assertNull(fleetCondition(machine), "hiding it is the mechanic; 100% would be a lie")
     assertFalse(needsAttention(machine), "unknown is not the same as bad")
-  }
-
-  @Test
-  fun anOrdinaryInspectionIsMarkedAsAnEstimate() {
-    assertTrue(conditionIsApproximate(machine(ads = ads(condition = 60, complete = false))))
-    assertFalse(conditionIsApproximate(machine(ads = ads(condition = 60, complete = true))))
-    assertFalse(conditionIsApproximate(machine(damage = 10)), "a vanilla figure is exact")
   }
 
   @Test
@@ -97,10 +70,6 @@ class FleetPanelTest {
     assertTrue(needsAttention(machine(fuel = 4)))
     assertTrue(needsAttention(machine(ads = ads(state = AdsState.BROKEN))))
     assertTrue(needsAttention(machine(ads = ads(hours = 80f, interval = 60f))), "service overdue")
-    assertTrue(
-      needsAttention(machine(ads = ads(breakdowns = listOf(FleetBreakdown(id = "OIL"))))),
-      "a fault the player has already found",
-    )
   }
 
   @Test
@@ -163,7 +132,7 @@ class FleetPanelTest {
   fun unknownValuesSortToTheEndInBothDirections() {
     val good = machine(id = 1, name = "Good", damage = 5)
     val bad = machine(id = 2, name = "Bad", damage = 60)
-    val unmeasured = machine(id = 3, name = "Unmeasured", damage = 0, ads = ads(condition = null))
+    val unmeasured = machine(id = 3, name = "Unmeasured", damage = 0, ads = ads())
     val all = listOf(good, bad, unmeasured)
 
     assertEquals(listOf(bad, good, unmeasured), fleetSorted(all, FleetSort.CONDITION, ascending = true))
@@ -201,9 +170,8 @@ class FleetPanelTest {
   @Test
   fun theRowsBadgesAreWordsAndTheWorstOneWins() {
     assertEquals(listOf("BROKEN"), rowBadges(machine(ads = ads(state = AdsState.BROKEN))))
-    assertEquals(listOf("WORKSHOP"), rowBadges(machine(ads = ads(state = AdsState.OVERHAUL))))
+    assertEquals(listOf("WORKSHOP"), rowBadges(machine(ads = ads(state = AdsState.MAINTENANCE))))
     assertEquals(listOf("SERVICE DUE"), rowBadges(machine(ads = ads(hours = 90f, interval = 60f))))
-    assertEquals(listOf("FAULT"), rowBadges(machine(ads = ads(breakdowns = listOf(FleetBreakdown(id = "OIL"))))))
     assertEquals(emptyList(), rowBadges(machine()))
     assertEquals(listOf("LEASED"), rowBadges(machine(propertyState = PropertyState.LEASED)))
     assertEquals(listOf("CONTRACT"), rowBadges(machine(propertyState = PropertyState.MISSION)))
@@ -212,31 +180,12 @@ class FleetPanelTest {
   }
 
   @Test
-  fun formatsHoursAgeAndTimeAgo() {
+  fun formatsHoursAndAge() {
     assertEquals("1234.5", formatHours(1234.54f))
     assertEquals("0.0", formatHours(0f))
     assertEquals("7 mo", formatAge(7))
     assertEquals("1 y", formatAge(12))
     assertEquals("2 y 3 mo", formatAge(27))
-
-    val today = GameDate(year = 2, month = 7, day = 11)
-    assertEquals(0, monthsBetween(GameDate(2, 7, 1), today))
-    assertEquals(3, monthsBetween(GameDate(2, 4, 1), today))
-    assertEquals(7, monthsBetween(GameDate(1, 12, 1), today))
-    // A date in the future (a save fiddled with, or a clock the mod read mid-rollover) reads as now
-    // rather than as "-2 months ago".
-    assertEquals(0, monthsBetween(GameDate(3, 1, 1), today))
-
-    assertEquals("this month", formatMonthsAgo(0))
-    assertEquals("1 month ago", formatMonthsAgo(1))
-    assertEquals("5 months ago", formatMonthsAgo(5))
-  }
-
-  @Test
-  fun formatsTheWorkshopFinishTime() {
-    assertEquals("16:30", formatFinish(16.5f, 0))
-    assertEquals("07:00 tomorrow", formatFinish(7f, 1))
-    assertEquals("09:15, in 3 days", formatFinish(9.25f, 3))
   }
 
   @Test
