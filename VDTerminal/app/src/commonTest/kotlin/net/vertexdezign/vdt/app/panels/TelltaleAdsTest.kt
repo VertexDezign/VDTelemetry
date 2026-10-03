@@ -19,7 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The six maintenance lamps once Advanced Damage System is feeding them.
+ * The eight maintenance lamps once Advanced Damage System is feeding them.
  *
  * Two things here are easy to get wrong and expensive when wrong. A lamp the machine is too old to
  * have must stay *absent* rather than becoming an unlit claim about a dashboard that never had it —
@@ -48,6 +48,16 @@ class TelltaleAdsTest {
     // Cold is a lamp that is ON. It is not a fault, but a dark lamp would be the wrong claim.
     assertEquals(true, Telltale.Temperature.stateIn(vehicle))
     assertEquals(false, Telltale.Service.stateIn(vehicle))
+  }
+
+  @Test
+  fun theTransmissionAndOilLampsReadTheirOwnAdsLamps() {
+    val vehicle = withLamps(AdsLamps(transmission = AdsLamp.CRIT, oil = AdsLamp.OFF))
+    assertEquals(true, Telltale.TransmissionWarning.stateIn(vehicle))
+    assertEquals(false, Telltale.EngineOil.stateIn(vehicle))
+    assertTrue(Telltale.TransmissionWarning.blinksIn(vehicle), "critical flashes, not just reddens")
+    // A plain manual: ADS gives it no transmission lamp, so the band has none rather than a dark one.
+    assertNull(Telltale.TransmissionWarning.stateIn(withLamps(AdsLamps(oil = AdsLamp.OFF))))
   }
 
   @Test

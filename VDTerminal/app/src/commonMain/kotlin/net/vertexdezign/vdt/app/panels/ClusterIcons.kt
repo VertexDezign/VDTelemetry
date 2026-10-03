@@ -269,7 +269,7 @@ object ClusterIcons {
   val TemperatureCold = telltale("TemperatureCold") { fill("$THERMOMETER $SNOWFLAKE") }
 
   /**
-   * A CVT's oil temperature: the same thermometer, over a gear rather than over water.
+   * The transmission's oil temperature: the same thermometer, over a gear rather than over water.
    *
    * It exists because the level strip is read by **icon alone** — the labels there are for the screen
    * reader — so a second thermometer beside the coolant one would be two marks that cannot be told
@@ -279,6 +279,31 @@ object ClusterIcons {
   val TemperatureTransmission = telltale("TemperatureTransmission") {
     fill("$THERMOMETER $GEAR_TEETH")
     fill(GEAR_RING, PathFillType.EvenOdd)
+  }
+
+  /**
+   * Transmission fault: a gear with the (!) in its hub — the gear says which system, the mark that
+   * it is a fault. Bigger and centred where [TemperatureTransmission]'s gear is small and to one
+   * side, so the lamp and the gauge caption are not the same mark at two sizes.
+   */
+  val TransmissionWarning = telltale("TransmissionWarning") {
+    fill(
+      "M4.6 12 A7.4 7.4 0 1 1 19.4 12 A7.4 7.4 0 1 1 4.6 12 Z M7 12 A5 5 0 1 1 17 12 A5 5 0 1 1 7 12 Z",
+      PathFillType.EvenOdd,
+    )
+    fill(TRANSMISSION_TEETH)
+    fill("M11.1 7.9 H12.9 V13 H11.1 Z M11.1 14.2 H12.9 V16 H11.1 Z")
+  }
+
+  /**
+   * Engine oil: the oil can with a drop leaving its spout, as every tractor's lens draws it. The can
+   * is a tool rather than a machine, so it keeps the spout to the right the symbol always has.
+   */
+  val EngineOil = telltale("EngineOil") {
+    fill("M3 10 H14 L15.5 16 H3 Z M6 7.9 H10 V10 H6 Z")
+    fill("M13.6 10.9 L21.6 6.7 L22.4 8.1 L15 13.1 Z")
+    fill("M3.4 10.7 C-0.2 10.7 -0.2 15.3 3.4 15.3 L3.4 13.8 C1.6 13.8 1.6 12.2 3.4 12.2 Z")
+    fill("M21.8 9.9 C21.8 9.9 20.5 11.8 20.5 12.7 A1.3 1.3 0 0 0 23.1 12.7 C23.1 11.8 21.8 9.9 21.8 9.9 Z")
   }
 
   /** The general warning triangle, as the reference cluster shows it. */
@@ -342,6 +367,13 @@ private const val THERMOMETER =
 private const val GEAR_RING =
   "M3.2 11.5 A4 4 0 1 1 11.2 11.5 A4 4 0 1 1 3.2 11.5 Z " +
     "M5.3 11.5 A1.9 1.9 0 1 1 9.1 11.5 A1.9 1.9 0 1 1 5.3 11.5 Z"
+
+/** Eight teeth round [ClusterIcons.TransmissionWarning]'s ring, each starting inside the annulus. */
+private const val TRANSMISSION_TEETH =
+  "M18.4 10.55 L22 10.84 L22 13.16 L18.4 13.45 Z M17.55 15.5 L19.89 18.25 L18.25 19.89 L15.5 17.55 Z " +
+    "M13.45 18.4 L13.16 22 L10.84 22 L10.55 18.4 Z M8.5 17.55 L5.75 19.89 L4.11 18.25 L6.45 15.5 Z " +
+    "M5.6 13.45 L2 13.16 L2 10.84 L5.6 10.55 Z M6.45 8.5 L4.11 5.75 L5.75 4.11 L8.5 6.45 Z " +
+    "M10.55 5.6 L10.84 2 L13.16 2 L13.45 5.6 Z M15.5 6.45 L18.25 4.11 L19.89 5.75 L17.55 8.5 Z"
 
 private const val GEAR_TEETH =
   "M10.7 10.4 H12.6 V12.6 H10.7 Z M1.8 10.4 H3.7 V12.6 H1.8 Z " +

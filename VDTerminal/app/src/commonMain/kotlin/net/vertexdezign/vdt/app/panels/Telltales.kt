@@ -70,7 +70,7 @@ enum class BandSide { Start, Middle, End }
  * band saying the same thing twice. The engine lamp keeps its key and its glyph, and takes its state
  * from Advanced Damage System's own engine fault, which is a different claim from either of the two.
  *
- * The six maintenance lamps are ADS's, and there [colour] is only their **resting** colour: what they
+ * The eight maintenance lamps are ADS's, and there [colour] is only their **resting** colour: what they
  * light in is the severity ADS reports (see [Reading.colour]).
  */
 enum class Telltale(
@@ -93,7 +93,7 @@ enum class Telltale(
   Awd("awd", "All-wheel drive", ClusterIcons.Awd, ClusterColors.Go),
 
   // The maintenance family, at the end because that is the order a cluster reads in: what you are
-  // doing, then what the machine is doing, then what is wrong with it. All six come from Advanced
+  // doing, then what the machine is doing, then what is wrong with it. All eight come from Advanced
   // Damage System and are absent without it — the same rule the drivetrain lamps follow, and one that
   // costs nothing but a line in the band's config dialog on a game that doesn't run the mod.
   EngineWarning("engineWarning", "Engine warning", ClusterIcons.EngineWarning, ClusterColors.Warn),
@@ -101,6 +101,8 @@ enum class Telltale(
   Battery("battery", "Charging system", ClusterIcons.Battery, ClusterColors.Warn),
   BrakeSystem("brakeSystem", "Brake system", ClusterIcons.BrakeSystem, ClusterColors.Warn),
   Service("service", "Service due", ClusterIcons.Service, ClusterColors.Set),
+  TransmissionWarning("transmissionWarning", "Transmission", ClusterIcons.TransmissionWarning, ClusterColors.Warn),
+  EngineOil("engineOil", "Engine oil", ClusterIcons.EngineOil, ClusterColors.Warn),
   GeneralWarning("generalWarning", "Needs attention", ClusterIcons.GeneralWarning, ClusterColors.Set),
   ;
 
@@ -113,6 +115,8 @@ enum class Telltale(
       Battery -> it.battery
       Temperature -> it.coolant
       Service -> it.service
+      TransmissionWarning -> it.transmission
+      EngineOil -> it.oil
       else -> null
     }
   }
@@ -127,7 +131,7 @@ enum class Telltale(
  * optional. An unlit diff-lock lamp is a claim about the drivetrain, and without one of the mods we
  * have no standing to make it — so we say nothing instead.
  *
- * The maintenance six are the same rule taken to its end, twice over. Without Advanced Damage System
+ * The maintenance eight are the same rule taken to its end, twice over. Without Advanced Damage System
  * there is nothing to say at all; *with* it, a lamp the machine is too old to have (ADS gates each on
  * the vehicle's production year) is null too, so a 1960s tractor's band does not grow an engine-fault
  * lamp its dashboard never had.
@@ -373,10 +377,10 @@ private fun Lamp(reading: Reading, size: Dp, checking: Boolean, blink: (() -> Fl
  * check is there without any mod at all; [MotorState.IGNITION] additionally needs the game's ignition
  * lock, and a machine that never rests there simply checks its lamps for the length of the crank.
  *
- * It is also the test Advanced Damage System makes for its own six, mod-side and against this same
+ * It is also the test Advanced Damage System makes for its own eight, mod-side and against this same
  * enum, so with ADS installed those lamps arrive already lit for the check and the rest of the band
  * joins them **from the same sample**. Which is why there is no minimum on-screen duration softening
- * this: a check held here past the sample that ended it would split the band in half, six lamps going
+ * this: a check held here past the sample that ended it would split the band in half, eight lamps going
  * out while their neighbours stayed lit.
  *
  * A vehicle with no motor has no ignition to turn, and so no check. What a check does light is the
