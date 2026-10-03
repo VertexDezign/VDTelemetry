@@ -472,8 +472,10 @@ internal fun shovelFill(frame: GlyphFrame, tip: Offset, degrees: Float, fraction
  * by its lift travel and lengthened by its telescope, and the tool at its tip turned to the angle the
  * screen prints. A dashed line through the tool is level, so the picture says what the number says.
  *
- * Schematic on purpose. The arm's real geometry is not exported and differs on every machine; what a
- * driver reads off it is "up or down, tipped or not", and the figures beside it are the measurement.
+ * Schematic on purpose, and accepted as one (2026-10-03, after seeing it in game). The arm's real
+ * geometry is not exported and differs on every machine, so its swing ([ARM_LOW_DEG]..[ARM_HIGH_DEG]),
+ * the telescope's extra length and the tool shapes are chosen to read well, not measured; what a driver
+ * reads off it is "up or down, tipped or not", and the figures beside it are the measurement.
  * Fitted to the machine's whole reach ([glyphFrame]) and clipped besides, so it never leaves its box.
  */
 @Composable
