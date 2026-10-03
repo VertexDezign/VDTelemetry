@@ -264,7 +264,15 @@ class MaintenanceLampTest {
         motor = Motor(temperatur = Temperatur(value = 90, min = 20, max = 120)),
         wearable = Wearable(damage = 90),
       )
-    val waiting = listOf(Telltale.EngineWarning, Telltale.Battery, Telltale.BrakeSystem, Telltale.Service)
+    val waiting =
+      listOf(
+        Telltale.EngineWarning,
+        Telltale.Battery,
+        Telltale.BrakeSystem,
+        Telltale.Service,
+        Telltale.TransmissionWarning,
+        Telltale.EngineOil,
+      )
     for (lamp in waiting) {
       assertNull(lamp.stateIn(fullyReporting), "${lamp.key} lit without a channel behind it")
     }

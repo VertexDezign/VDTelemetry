@@ -45,6 +45,8 @@ class ClusterIconsTest {
       "generalWarning" to ClusterIcons.GeneralWarning,
       "brakeSystem" to ClusterIcons.BrakeSystem,
       "service" to ClusterIcons.Service,
+      "transmissionWarning" to ClusterIcons.TransmissionWarning,
+      "engineOil" to ClusterIcons.EngineOil,
       "steerFront" to ClusterIcons.SteerFront,
       "steerBack" to ClusterIcons.SteerBack,
       "steerAllWheel" to ClusterIcons.SteerAllWheel,

@@ -111,16 +111,16 @@ fun ClusterLevels(vehicle: Vehicle, modifier: Modifier = Modifier) {
  * to carry.
  *
  * Condition before contents, as on the reference cluster: the temperatures sit to the left of the
- * tanks. That ordering is what lets the strip grow without moving anything — the CVT bar arrived
+ * tanks. That ordering is what lets the strip grow without moving anything — the transmission bar arrived
  * beside the coolant one rather than shoving the fuel bar the driver has learned the position of, and
  * anything else Advanced Damage System comes to export belongs in the same place.
  */
 internal fun levelsOf(vehicle: Vehicle): List<Level> = buildList {
   vehicle.motor?.temperatur?.level("TEMP", ClusterIcons.Temperature)?.let { add(it) }
-  // A CVT's own oil, which Advanced Damage System models separately — on slow heavy work it is the
-  // one that cooks while the coolant still reads fine. Straight after the coolant it is compared
-  // against, and only on a machine that has one, which is most of the point of a bar being here at
-  // all. Its glyph is a thermometer over a gear rather than a second plain thermometer: this strip is
+  // The transmission's own oil, which Advanced Damage System models separately — on slow heavy work
+  // it is the one that cooks while the coolant still reads fine. Straight after the coolant it is
+  // compared against, and only where ADS's own dashboard shows it (every gearbox but a plain manual),
+  // which is most of the point of a bar being here at all. Its glyph is a thermometer over a gear rather than a second plain thermometer: this strip is
   // read by icon alone, so two identical marks would be two bars nobody could tell apart.
   vehicle.ads?.transmissionTemperatur?.level("TRANS", ClusterIcons.TemperatureTransmission)?.let { add(it) }
   val engine = vehicle.motor?.fillUnits ?: return@buildList

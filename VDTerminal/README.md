@@ -222,14 +222,15 @@ Four widgets that stack into an A-pillar instrument cluster, after the small dis
 tractor puts between the windscreen and the right-hand window:
 
 - **Telltales** — a wrapping band of lamps (turn signals, beams, work lights, beacon, parking brake,
-  diff locks, AWD, and the six maintenance lamps). Which lamps a band shows is per instance, since
+  diff locks, AWD, and the eight maintenance lamps). Which lamps a band shows is per instance, since
   what matters differs per rig. A lamp the vehicle reports *nothing* about is absent rather than
   unlit — the drivetrain trio comes from Enhanced Vehicle, and an unlit diff-lock lamp is a claim we
   can't make without it.
 
-  The maintenance six (engine warning, coolant temperature, battery, brake system, service, needs
-  attention) come from **Advanced Damage System**, and follow the same rule twice over: without the
-  mod there is nothing to say, and *with* it a lamp the machine is too old to have stays absent too —
+  The maintenance eight (engine warning, coolant temperature, battery, brake system, service, needs
+  attention, transmission, engine oil) come from **Advanced Damage System**, and follow the same rule
+  twice over: without the mod there is nothing to say, and *with* it a lamp the machine does not have
+  stays absent too — a plain manual gearbox has no transmission lamp, and
   ADS gates each on the vehicle's production year, so a 1960s tractor's band doesn't grow lamps its
   dashboard never had. Two of them keep a base-game fallback for a game without the mod: coolant
   temperature off the gauge, and "needs attention" off vanilla damage.
@@ -262,8 +263,8 @@ tractor puts between the windscreen and the right-hand window:
   and reads zeros until the engine catches. The **telltale band stays lit**, because a parked machine
   can genuinely have its beacon on or its hazards going (`Lights:onStopMotor` re-applies the light
   mask rather than clearing it) and the band is the only place that shows it.
-- **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, a CVT's own
-  transmission temperature where Advanced Damage System reports one, then the engine's fuel, DEF and
+- **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, the
+  transmission's own temperature where Advanced Damage System shows one (any gearbox but a plain manual), then the engine's fuel, DEF and
   air. The two temperatures are told apart by their glyphs — a thermometer over water, and one over a
   gear — because the strip is read by icon alone. Each is an open-topped frame — green over the working range, red
   across
