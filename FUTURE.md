@@ -606,6 +606,37 @@ integration's header; bringing any of it back waits on ADS settling. What it did
 - **The two rain states are drawn but never seen.** Both captures are dry. The wording ("Rain coming" at the engine's
   early warning, "Rain — stopped" once it bites) is a guess at what reads best in a cab and wants one rainy harvest.
 
+## Loader tools (#169), what it left
+
+The tool's angle and height, the loader's cylinders, "set level" per tool model, and a loader screen in the ISOBUS
+panel and as its own app. Captured on a front loader (shovel, pallet fork, bale spike, bale grab), a wheel loader, a
+telehandler (pallet fork, log grab) and a skid steer, all vanilla singleplayer; set and clear level checked in game.
+
+- **Nothing of it has been seen on a multiplayer client.** Argued from the source: node transforms follow the server
+  on a client (Cylindered interpolates its moving tools there), collision is client-side so the ray works, and the
+  reference is client-local by design. The one place a client really differs is the **bale grab**, whose
+  `BaleGrab:onLoad` runs only on the server — `kind` goes on the spec's presence alone for that reason. One capture
+  of a loaded rig from a joined client, ideally the bale grab, turns this from argued to shown.
+- **Forklift forks.** On a forklift the forks are a *component*, not a hitched tool, so there is no loader joint to
+  find them by. Tool Inclination Helper loads the vehicle's i3d as XML and string-matches shape names (`fork`,
+  `tine`) to get at them — fragile, and a lot of machinery for one vehicle class.
+- **Detecting level automatically.** The tool's root node is the default level, and on every captured tool it is
+  within a few degrees of the floor. Nothing guarantees it: a `Shovel` carries its own `dischargeInfo` and
+  `shovelNode#maxPickupAngle` nodes, which are thresholds for game mechanics rather than a floor, and a fork has
+  neither. Worth looking at only if a tool turns up whose root node is well off.
+- **"Set level" from the cab.** A hotkey would mean registering an input action, and input belongs to
+  FS25_additionalInputs — so it is an additionalInputs change, not ours.
+- **Tool Inclination Helper's references.** A player who calibrated a tool there has to do it again here. Reading its
+  settings file would spare that, but the format is its own and could change under us.
+- **What a fork or grab is carrying is not shown.** A pallet or bale is a separate object the game mounts, not a fill
+  level, so the side view draws an empty fork. `DynamicMountAttacher` knows what it holds; drawing it is a design
+  call, not a data gap.
+- **The side view is a schematic and its numbers are first guesses.** The arm's swing (-28° to +42°), the
+  telescope's extra length and the tool shapes are invented — the arm's real geometry is not exported and differs
+  per machine — and `LEVEL_TOLERANCE_DEG` (1°) has been seen working, not tuned.
+- **A tile pinned to a rig position cannot set level.** The command is addressed by the rig diagram's path to the
+  tool, and a pinned ISOBUS tile has no diagram; the Loader app always has one.
+
 ## Captures wanted as fixtures
 
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
