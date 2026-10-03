@@ -554,7 +554,10 @@ and are named in `VdtModelTest`. What it did not do:
 Built: the six dashboard lamps with ADS's severity and its production-year gating, the engine temperature as ADS's, the
 engine load it wears the engine on, the service interval and system voltage. The reasoning is in
 `src/integrations/AdvancedDamageSystem.lua` and
-`panels/ClusterService.kt`. What it did not do:
+`panels/ClusterService.kt`. Brought up to **ADS 0.9.9.3** on 2026-10-02, a rewrite of that mod, by cutting the
+integration back rather than following it: the inspection result, the fleet's breakdowns, workshop times and price, log
+dates and maintenance cost were removed (export v28, fleet v3). That cut is a decision and is explained in the
+integration's header; bringing any of it back waits on ADS settling. What it did not do:
 
 - **The pre-shift chores are not exported, and that is the decision rather than an omission.**
   Radiator and air-intake clogging and the lubrication level were collected at first, in ADS's own coarse bands, and
@@ -564,25 +567,28 @@ engine load it wears the engine on, the service interval and system voltage. The
   checks`), and reversing it means the collector, `AdsChecks`/`AdsCheck` and a row on the service tile — all of which
   `ba4d8e4` removed, so `git show ba4d8e4` is where they are.
 
-- **Almost nothing has been checked in game.** The integration is written against ADS's source rather than against a
-  running session. The one exception is the bulb check on the starter, driven on 2026-08-14 both with ADS and without
-  (#85): the band lights whole for the crank and goes back to reporting when the engine catches. Still worth watching
+- **Almost nothing has been checked in game, and nothing at all against 0.9.9.3.** The integration is written against
+  ADS's source rather than against a running session. The one exception is the bulb check on the starter, driven on
+  2026-08-14 both with ADS and without (#85) on 0.9.2.8: the band lights whole for the crank and goes back to reporting
+  when the engine catches. First check on 0.9.9.3: that the lamps carry CRIT and COLD again (the colour table moved to
+  `ADS_VehiclePerformance.COLORS`; a lookup that missed would show every lit lamp as WARN). Still worth watching
   for specifically: whether the coolant lamp reads COLD for a plausible length of time after a cold start, whether a
   lamp latched by a breakdown clears when the breakdown is repaired, and whether an ADS-managed machine's engine
   temperature really does arrive on an MP client (which is the whole claim about the vanilla figure being unsynced).
   Also that the lamps turn up on every machine: the year gate is read from `ADS_Main.hud.indicators` and there is no
   mirrored fallback any more, so anywhere that table is not built the band is simply empty — an empty band with the rest
   of the `ads` block present is that case, not a machine with no lamps.
-- **The `oil` lamp is exported by nobody and drawn by nobody.** ADS computes it (`serviceLevel < 0.2`)
-  and then hides it from its own HUD, so drawing it would tell the player something the mod chose to withhold.
-  `transmission` is worse: declared in `ADS_Breakdowns.DASHBOARD` and referenced by not one breakdown in the mod. If a
-  future ADS starts drawing either, they are two lamps and two glyphs away.
-- **The fleet is now exported** — issue #84, the `fleet` channel and its `contributeFleetVehicle` stage. It does not
-  read `ADS_Main.vehicles` (keyed by `uniqueId`, which is nil on an MP client) but the per-vehicle spec of every machine
-  the farm owns, which is fully synced. See the section below for what that left open.
+- **ADS 0.9.9.3 draws two lamps we do not carry.** `transmission` (on any gearbox but a plain manual) and `oil` are on
+  its HUD now; both used to be withheld or dead. They are two lamps, two glyphs and two `AdsLamps` fields away, plus —
+  for `transmission` — ADS's gearbox classification (`ADS_VehicleProfile.getTransmissionType`).
+- **The transmission temperature is CVT-only here, and no longer in ADS.** 0.9.9.3 models and shows it on powershift
+  and automatic gearboxes too. Following it needs the same gearbox classification as the lamp above.
+- **The fleet carries only ADS's state and service interval** (fleet v3, `contributeFleetVehicle`). It reads the
+  per-vehicle spec rather than `ADS_Main.vehicles` (keyed by `uniqueId`, nil on an MP client). The ADS machines have no
+  condition in the fleet list at all, since vanilla damage is pinned to 0 under ADS and the inspection is no longer read.
 - **A fixture is wanted.** No committed capture has the driven vehicle's `ads` block — the fleet captures carry the
-  *fleet* one (`examples/json/fleet/`), which is the maintenance record rather than the dashboard — so `AdsModelTest`
-  decodes the shape with inline JSON and says so at the top. See the section below for the rule those follow.
+  *fleet* one (`examples/json/fleet/`), and predate fleet v3 besides — so `AdsModelTest` decodes the shape with inline
+  JSON and says so at the top. See the section below for the rule those follow.
 
 ---
 
@@ -656,19 +662,18 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   MP client** (does the history really stop at five?), and **one with notifications in the log** — the hook itself is
   confirmed working in singleplayer, so this is now wanted as a fixture rather than as proof. `FinanceModelTest` covers
   those three shapes with inline JSON meanwhile.
-- **A capture with Advanced Damage System installed**, for the `ads` block — ideally a CVT machine (so
+- **A capture with Advanced Damage System 0.9.9.3 installed**, for the `ads` block — ideally a CVT machine (so
   `transmissionTemperatur` is present) that is a little overdue for service and carrying a breakdown or two, so the
   lamps, the interval and the load are all non-trivial in the one file.
   `AdsModelTest` covers the shape with inline JSON meanwhile.
-- **A fleet capture with a machine actually in trouble** — wanted, but nothing to chase: the playthrough these came
-  from has not produced a breakdown or an overdue service yet, so it waits on the game rather than on anyone.
+- **A fleet capture with a machine actually in trouble**, on fleet v3 and ADS 0.9.9.3 — wanted, but nothing to chase:
+  the playthrough these came from has not produced one yet, so it waits on the game rather than on anyone.
   Two are committed —
   `examples/json/fleet/fleet.json` (fresh singleplayer: a helper's rig, the player's own rig, contract equipment, a
   leased tractor, an electric loader ADS excludes, four machines parked) and `mp.json` (a played-in multiplayer client:
-  ADS histories, real wear, consumables in slots). Between them the shapes are covered except the ones that need a
-  machine in **trouble**: nothing in either is overdue, in a workshop, carrying a discovered fault, or has ever had a
-  *complete* inspection — so `FleetAds.workshop`, the breakdown list and an exact condition figure are still inline
-  JSON in `FleetModelTest`.
+  real wear, consumables in slots). Both predate fleet v3 and still carry the ADS fields it dropped, which the parser
+  ignores. Neither has a machine overdue for service or in a workshop, so those two states are still inline JSON in
+  `FleetModelTest`.
 - **More invoices captures.** `examples/json/invoices/invoices.json` came out of the 2026-08-11 two-farm session and
   drives `InvoicesModelTest.parsesTheTwoFarmCapture`: three invoices from farm 1's side, one of them a proposal showing
   the direction inversion, a discounted line, and the full 56-entry German work-type catalogue. What it does not

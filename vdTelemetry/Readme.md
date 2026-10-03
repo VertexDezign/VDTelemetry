@@ -344,12 +344,13 @@ version renames costs you that panel, never a Lua error.
   even though the mod's automatic mode flips it to 4WD; a multiplayer client cannot see the
   drivetrain (the engine loads it on the host only) and reports the switches as the mod holds them.
   With both mods installed, EnhancedVehicle's answer stands.
-* [FS25_AdvancedDamageSystem](https://github.com/id577/FS25_AdvancedDamageSystem) **0.9.2.8-beta** —
+* [FS25_AdvancedDamageSystem](https://github.com/id577/FS25_AdvancedDamageSystem) **0.9.9.3** —
   replaces the vanilla damage model, and drives the cluster's warning lamps
   (`src/integrations/AdvancedDamageSystem.lua`, `vehicle.ads`). Still a beta, so its internals move
   faster than the others': the version above is the one this was written against, and an older ADS
-  reports no `vehicle.ads` at all rather than a plausible wrong one. **Read only:** every workshop
-  procedure stays in-game, as with vanilla repair.
+  reports no `vehicle.ads` at all rather than a plausible wrong one. Kept deliberately small since
+  0.9.9.3 rewrote the mod: only the dashboard and the service interval are read. **Read only:** every
+  workshop procedure stays in-game, as with vanilla repair.
     * The six dashboard lamps ADS drives, each with its severity — and only the lamps a machine of
       that production year actually has
     * The engine temperature, which **replaces** `motor.temperatur.value`. ADS's thermal model is the
@@ -363,9 +364,10 @@ version renames costs you that panel, never a Lua error.
     * The service interval — hours since the last maintenance, and the hours this machine's
       manufacturer recommends between them
     * The system voltage the machine's electrics see
-    * What the last workshop inspection found. **Not** the live condition/stress/service values: ADS
-      hides those behind an inspection on purpose, so the terminal never knows more than the driver.
-      The pre-shift chores (radiator, air intake, lubrication) are left out for the same reason, even
+    * In the `fleet.json` channel, per machine: whether it is in ADS's workshop or broken down, and
+      its service interval
+    * **No condition of any kind**: ADS hides it behind a workshop inspection on purpose, so the
+      terminal never knows more than the driver. The pre-shift chores (radiator, air intake, lubrication) are left out for the same reason, even
       though ADS reports them in coarse bands — you learn them by getting out and walking round the
       machine, and a dashboard that printed them would hand you that walk
 * [FS25_CombineXP](https://github.com/yumi-modding/FS25_CombineXP) `1.0.2.0` — the combine

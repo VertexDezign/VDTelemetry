@@ -245,7 +245,7 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    same units. The rate PF's HUD leads with in AUTO, where the tool picks its own and no step
 --    describes it; absent whenever the boom is up, because PF never clears the field. See issue #77.
 -- 13: `ads` — Advanced Damage System: the dashboard lamps it drives, where the machine is in its
---     service interval, what the last inspection found, and system voltage. Also
+--     service interval, what the last inspection found (gone in 28), and system voltage. Also
 --     *changes* `motor.temperatur.value`, which is ADS's engine temperature when ADS is installed —
 --     the first correct engine temperature this mod has exported to a multiplayer client, since the
 --     vanilla figure is never synced. Also `ads.load`, which is a DIFFERENT number from
@@ -323,8 +323,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     `hitch` on an implement (where the linkage it hangs off sits in its travel -- the
 --     bottomArmPosition dashboard), `tensionBelts` (how many load straps are done up) and `broken`
 --     (the machine drowned and needs a reset). All optional; nothing existing changed shape.
--- 28, 29: held for the Advanced Damage System 0.9.9.3 work (branch ads-rework), which waits on ADS
---     going public; the loader captures were taken with it, so they say 30.
+-- 28: `ads.inspected` is gone. Advanced Damage System 0.9.9.3 rewrote the inspection record it was
+--     read from, and the integration was cut back to the parts of ADS that survived the rewrite (see
+--     src/integrations/AdvancedDamageSystem.lua). Everything else in `ads` is unchanged.
+-- 29: held for the rest of the Advanced Damage System 0.9.9.3 work.
 -- 30: `loaderTool` on a tool hitched to a loader's tool joint -- its pitch against the horizon and the
 --     distance to whatever is under it (issue #169) -- and `loaderCylinders` on anything with a
 --     front-loader-driven cylinder, each one's travel along its stroke; `loaderTool.reference`, the

@@ -402,8 +402,8 @@ data class CruiseControl(val targetSpeed: Float? = null, val active: Boolean? = 
  *
  * [damage] is **pinned to 0 on any vehicle Advanced Damage System manages** — ADS replaces the
  * vanilla damage model and the server zeroes this every tick. An implement's is still real (ADS
- * attaches to motorized vehicles only). Where ADS is installed, condition lives in [Ads.inspected]
- * instead, and only as far as an inspection has revealed it.
+ * attaches to motorized vehicles only). Where ADS is installed a machine's condition is behind ADS's
+ * own workshop inspection, and is not exported at all.
  */
 @Serializable
 data class Wearable(val damage: Int = 0, val wear: Int = 0, val dirt: Int = 0, val unit: String = "")

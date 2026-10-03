@@ -34,7 +34,6 @@ class AdsModelTest {
                   "lamps": { "engine": "OFF", "warning": "WARN", "brakes": "OFF",
                              "battery": "CRIT", "coolant": "COLD", "service": "OFF" },
                   "service": { "hours": 3.3, "interval": 5.4 },
-                  "inspected": { "condition": 73, "service": 42, "complete": true },
                   "electrical": { "systemVoltage": 13.8, "unit": "V" },
                   "load": { "value": 112, "overloadAt": 85, "unit": "%" },
                   "transmissionTemperatur": { "value": 71, "min": 20, "max": 120, "unit": "°C" }
@@ -57,11 +56,6 @@ class AdsModelTest {
     assertEquals(5.4f, service.interval)
     assertTrue(service.fraction < 1f, "3.3 of 5.4 hours is not yet due")
 
-    val inspected = assertNotNull(ads.inspected)
-    assertEquals(73, inspected.condition)
-    assertEquals(42, inspected.service)
-    assertTrue(inspected.complete)
-
     val load = assertNotNull(ads.load)
     // Past 100 on purpose: ADS lets the draft term take it to 115, and the overrun is the point.
     assertEquals(112.0, load.value)
@@ -76,7 +70,7 @@ class AdsModelTest {
 
   @Test
   fun everyAbsentPartStaysNullRatherThanBecomingZero() {
-    // What a plain tractor under ADS looks like: no CVT, never inspected, and too old for four of
+    // What a plain tractor under ADS looks like: no CVT, and too old for four of
     // the six lamps. Each of those is a distinct answer from a zero or an OFF.
     val ads =
       assertNotNull(
@@ -95,7 +89,6 @@ class AdsModelTest {
     assertNull(lamps.engine, "a lamp the machine does not have must not decode as OFF")
     assertNull(lamps.service)
     assertNull(ads.service)
-    assertNull(ads.inspected)
     assertNull(ads.electrical)
     assertNull(ads.load)
     assertNull(ads.transmissionTemperatur, "no CVT is not a very cold one")
