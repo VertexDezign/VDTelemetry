@@ -58,6 +58,8 @@ local sourceFiles = {
   "src/collect/aspects/Mixer.lua",
   "src/collect/aspects/TensionBelts.lua",
   "src/collect/aspects/Broken.lua",
+  -- The player's per-tool-model "level" (VDT-owned data, issue #169); LoaderTool reads it at runtime.
+  "src/store/LoaderReferences.lua",
   "src/collect/aspects/LoaderTool.lua",
   "src/collect/aspects/LoaderCylinders.lua",
   "src/collect/aspects/Aspects.lua",
@@ -151,6 +153,9 @@ local sourceFiles = {
   -- Addresses a machine by the rig diagram's node path rather than by a target token, so it resolves
   -- its own walk and does not use TargetResolver.
   "src/command/SelectionControl.lua",
+  -- The loader tool's "set level" (issue #169): addressed by node path through SelectionControl's
+  -- resolver, measured by the LoaderTool aspect, stored in store/LoaderReferences.lua.
+  "src/command/LoaderControl.lua",
   "src/command/MotorControl.lua",
   "src/command/CruiseControl.lua",
   -- Precision Farming application rate (auto/manual + the manual step). Resolves which machine on the
@@ -325,7 +330,9 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     the transmission lamp's year on) rather than on CVTs only. Additive.
 -- 30: `loaderTool` on a tool hitched to a loader's tool joint -- its pitch against the horizon and the
 --     distance to whatever is under it (issue #169) -- and `loaderCylinders` on anything with a
---     front-loader-driven cylinder, each one's travel along its stroke. Additive.
+--     front-loader-driven cylinder, each one's travel along its stroke; `loaderTool.reference`, the
+--     player's "this is level" for that tool model, set by the new setLoaderReference command and kept
+--     in modSettings/<modName>/loaderReferences.xml. Additive.
 VDTelemetry.VERSION = 30
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
@@ -380,6 +387,7 @@ function VDTelemetry.init()
     self:writeDefaultSettings()
   end
   self:loadSettingsFromFile()
+  VDT.LoaderReferences.load(self.baseDir .. VDT.LoaderReferences.FILE_NAME, self.debugger)
 
   self.debugger:info("VDTelemetry initialized")
   return self
