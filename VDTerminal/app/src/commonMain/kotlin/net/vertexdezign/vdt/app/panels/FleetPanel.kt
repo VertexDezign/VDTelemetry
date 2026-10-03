@@ -48,7 +48,6 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.AdsState
 import net.vertexdezign.vdt.model.FleetData
 import net.vertexdezign.vdt.model.FleetVehicle
-import net.vertexdezign.vdt.model.GameDate
 import net.vertexdezign.vdt.model.PropertyState
 import kotlin.math.roundToInt
 
@@ -107,26 +106,15 @@ internal const val CONDITION_ATTENTION = 40
 internal const val FUEL_ATTENTION = 15
 
 /**
- * The condition to print for a machine, as a percentage, or null when nobody has measured one.
+ * The condition to print for a machine, as a percentage, or null when there is none to print.
  *
- * **Two sources, one right at a time.** Under Advanced Damage System the vanilla damage figure is
- * pinned to 0 — printing it would report a worn-out tractor as brand new — so a machine with an
- * [FleetVehicle.ads] block is read from its inspection record and everything else from its wear.
- * A machine ADS manages that has never been inspected has no condition at all, which is exactly what
- * the mod means by hiding it: go and have it looked at.
+ * Under Advanced Damage System the vanilla damage figure is pinned to 0 — printing it would report a
+ * worn-out tractor as brand new — and ADS keeps condition behind its own workshop inspection, which
+ * is not exported. So a machine with an [FleetVehicle.ads] block has no condition here at all, and
+ * everything else is read from its wear.
  */
-internal fun fleetCondition(vehicle: FleetVehicle): Int? {
-  val ads = vehicle.ads
-  return if (ads != null) ads.inspected?.condition else vehicle.wearable?.let { 100 - it.damage }
-}
-
-/**
- * Whether that condition is ADS's approximation rather than a measurement — an ordinary inspection
- * instead of a full defectoscopy. The reading is still shown; it is labelled, because quoting a guess
- * as a measurement is how a dashboard lies.
- */
-internal fun conditionIsApproximate(vehicle: FleetVehicle): Boolean =
-  vehicle.ads?.inspected?.let { !it.complete } == true
+internal fun fleetCondition(vehicle: FleetVehicle): Int? =
+  if (vehicle.ads != null) null else vehicle.wearable?.let { 100 - it.damage }
 
 /** Fuel level in percent, for the machines that burn any. */
 internal fun fuelPercent(vehicle: FleetVehicle): Int? = vehicle.motorFillUnits?.fuel?.fillLevelPercentage
@@ -281,7 +269,6 @@ private fun FleetMasterDetail(data: FleetData, onShowOnMap: (FleetVehicle) -> Un
       if (selected != null) {
         FleetVehicleDetail(
           vehicle = selected,
-          today = data.date,
           rig = selected.attachedTo?.let { byId[it] },
           onShowOnMap = onShowOnMap,
         )
@@ -448,8 +435,6 @@ internal fun rowBadges(vehicle: FleetVehicle, rig: FleetVehicle? = null): List<S
 
     ads.isServiceOverdue -> add("SERVICE DUE")
 
-    ads.breakdowns.isNotEmpty() -> add("FAULT")
-
     else -> Unit
   }
   when (vehicle.propertyState) {
@@ -502,14 +487,4 @@ internal fun formatAge(months: Int): String {
   val years = months / 12
   val rest = months % 12
   return if (rest == 0) "$years y" else "$years y $rest mo"
-}
-
-/** Whole months between two game dates, where a "month" is one of the game's twelve periods. */
-internal fun monthsBetween(then: GameDate, today: GameDate): Int = today.monthsSince(then).coerceAtLeast(0)
-
-/** How long ago something happened, in the game's own months — the phrasing ADS's own screens use. */
-internal fun formatMonthsAgo(months: Int): String = when (months) {
-  0 -> "this month"
-  1 -> "1 month ago"
-  else -> "$months months ago"
 }
