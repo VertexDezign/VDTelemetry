@@ -237,7 +237,7 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    same units. The rate PF's HUD leads with in AUTO, where the tool picks its own and no step
 --    describes it; absent whenever the boom is up, because PF never clears the field. See issue #77.
 -- 13: `ads` — Advanced Damage System: the dashboard lamps it drives, where the machine is in its
---     service interval, what the last inspection found, and system voltage. Also
+--     service interval, what the last inspection found (gone in 28), and system voltage. Also
 --     *changes* `motor.temperatur.value`, which is ADS's engine temperature when ADS is installed —
 --     the first correct engine temperature this mod has exported to a multiplayer client, since the
 --     vanilla figure is never synced. Also `ads.load`, which is a DIFFERENT number from
@@ -315,7 +315,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     `hitch` on an implement (where the linkage it hangs off sits in its travel -- the
 --     bottomArmPosition dashboard), `tensionBelts` (how many load straps are done up) and `broken`
 --     (the machine drowned and needs a reset). All optional; nothing existing changed shape.
-VDTelemetry.VERSION = 27
+-- 28: `ads.inspected` is gone. Advanced Damage System 0.9.9.3 rewrote the inspection record it was
+--     read from, and the integration was cut back to the parts of ADS that survived the rewrite (see
+--     src/integrations/AdvancedDamageSystem.lua). Everything else in `ads` is unchanged.
+VDTelemetry.VERSION = 28
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

@@ -9,53 +9,20 @@
 -- [0,1] map coordinates in the same frame as MapModel / MapVehicleModel, so the app can hand a row
 -- straight to the map.
 
--- A game date, as the game counts them: `month` is the period (1..12), not a calendar month. The
--- document carries today's, and ADS's log dates are read against it ("serviced 3 months ago").
----@class FleetDateModel
----@field year number
----@field month number
----@field day number
-
--- One visible breakdown, as ADS's own workshop dialog prints it: the affected part, the severity of
--- the stage it has reached, and what it is doing. Only breakdowns the player has already DISCOVERED
--- are here (ADS's own `isVisible` flag) -- listing the rest would hand over its inspection mechanic.
----@class FleetBreakdownModel
----@field id string ADS's registry id ("ENGINE_OIL_LEAK", ...)
----@field part string? localized part name ("Engine", ...) -- ADS's `part`, falling back to `system`
----@field severity string? localized severity of the current stage
----@field description string? localized description of the current stage
----@field stage number which stage the breakdown has progressed to (1 = first)
-
--- What the workshop is doing to this machine right now; absent while it is READY. All times are
--- in-game hours: `remaining` is how much work is left, `finishHour` the hour of the day it comes
--- back, `finishInDays` how many day rollovers away that is (0 = today).
----@class FleetWorkshopModel
----@field remaining number?
----@field finishHour number?
----@field finishInDays number?
----@field price number? what the pending service will cost
-
--- The Advanced Damage System block of one fleet row, mirroring that mod's own fleet menu. Present
--- only for machines ADS manages (motorized, not excluded).
+-- The Advanced Damage System block of one fleet row: whether the machine is in ADS's workshop, and
+-- where it is in its service interval. Present only for machines ADS manages (motorized, not
+-- excluded). Deliberately this small since ADS 0.9.9.3 -- see src/integrations/AdvancedDamageSystem.lua.
 --
--- `inspected` / `service` are the SAME shapes the driven vehicle's `ads` block uses (see
--- src/integrations/AdvancedDamageSystem.lua): what the last inspection told the player, never ADS's
--- exact condition or service level.
+-- `service` is the SAME shape the driven vehicle's `ads` block uses.
 ---@class FleetAdsModel
----@field state string READY | INSPECTION | MAINTENANCE | REPAIR | OVERHAUL | BROKEN | UNKNOWN
----@field inspected AdsInspectedModel?
+---@field state string READY | INSPECTION | MAINTENANCE | REPAIR | BROKEN | UNKNOWN
 ---@field service AdsServiceModel?
----@field lastInspection FleetDateModel?
----@field lastMaintenance FleetDateModel?
----@field breakdowns FleetBreakdownModel[]?
----@field workshop FleetWorkshopModel?
----@field maintenanceCost number? what has been spent on this machine so far
 
 -- One machine of the farm's fleet.
 --
 -- CONDITION: `wearable.damage` is the vanilla figure and is pinned to 0 on any machine ADS manages,
--- so a reader takes condition from `ads.inspected` where the ads block is present and from
--- `wearable` otherwise (see Fleet.kt, which says the same thing to the app).
+-- so a reader takes condition from `wearable` only where the ads block is ABSENT; an ADS machine has
+-- no condition on the wire at all (see Fleet.kt, which says the same thing to the app).
 ---@class FleetVehicleModel
 ---@field id number network object id (NOT uniqueId -- nil on a multiplayer client)
 ---@field name string
@@ -82,5 +49,4 @@
 
 ---@class FleetModel
 ---@field version string
----@field date FleetDateModel?
 ---@field vehicles FleetVehicleModel[]?

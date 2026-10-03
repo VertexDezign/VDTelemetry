@@ -126,7 +126,6 @@ local function installWorld(vehicles, over)
         return over.noAccess ~= true and vehicle.blocked ~= true
       end,
     },
-    environment = over.environment or { currentYear = 3, currentPeriod = 7, currentDayInPeriod = 2 },
   }
 end
 
@@ -158,7 +157,7 @@ describe("FleetExporter", function()
     it("lists the farm's own machines", function()
       installWorld({ makeVehicle({ id = 7, name = "Fendt 942" }) })
       local model = VDT.FleetExporter.collect()
-      assert.equals("2", model.version)
+      assert.equals("3", model.version)
       assert.equals(1, #model.vehicles)
       assert.equals(7, model.vehicles[1].id)
       assert.equals("Fendt 942", model.vehicles[1].name)
@@ -206,7 +205,7 @@ describe("FleetExporter", function()
       installWorld({ makeVehicle({}) }, { farmId = false })
       local model = VDT.FleetExporter.collect()
       -- The document still goes out: an empty fleet and no fleet are different statements.
-      assert.equals("2", model.version)
+      assert.equals("3", model.version)
       assert.is_nil(model.vehicles)
     end)
 
@@ -364,11 +363,6 @@ describe("FleetExporter", function()
   end)
 
   describe("the document", function()
-    it("carries today, so a log date can be read as months ago", function()
-      installWorld({ makeVehicle({}) })
-      assert.same({ year = 3, month = 7, day = 2 }, VDT.FleetExporter.collect().date)
-    end)
-
     it("omits an empty vehicle list rather than encoding it as an object", function()
       installWorld({})
       assert.is_nil(string.find(Json.encode(VDT.FleetExporter.collect()), "vehicles", 1, true))

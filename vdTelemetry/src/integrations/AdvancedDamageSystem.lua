@@ -21,39 +21,41 @@
 --     `spec.engineTemperature` here is both the ADS answer and the first correct engine temperature
 --     this mod has ever exported to an MP client.
 --
--- WHAT WE DELIBERATELY DO NOT EXPORT. ADS hides exact numbers on purpose: condition, per-system
--- condition/stress and service level are known to the player only as a coarse status from a workshop
--- inspection, and as percentages only after an expensive full defectoscopy. Exporting
--- `spec.conditionLevel` to a dashboard would hand out a permanent free diagnostic and delete that
--- mechanic. So `inspected` below carries what an inspection actually told the player
--- (getLastInspectedCondition / getLastInspectedService) and nothing else.
+-- WHAT WE DELIBERATELY DO NOT EXPORT. ADS hides exact numbers on purpose: condition, per-component
+-- condition/stress and service level are known to the player only from a workshop inspection.
+-- Exporting `spec.conditionLevel` to a dashboard would hand out a permanent free diagnostic and
+-- delete that mechanic, so no condition of any kind is on the wire.
 --
 -- The pre-shift chores -- radiator and air-intake clogging, lubrication -- are out for the same
 -- reason, and coarse bands were not enough to save them: they are learned by getting out and walking
 -- round the machine, so a dashboard that printed them would hand the player that walk for free.
 -- Having to go and look is what they are for. The dashboard never knows more than the driver does.
 --
--- Mod-environment isolation: ADS's `ADS_Breakdowns` / `ADS_Config` are globals in *its own* Lua
--- environment, so from ours they are reachable only as `FS25_AdvancedDamageSystem.ADS_Breakdowns`
--- (see EnhancedLoanSystem.lua, where the same trap already bit). The per-vehicle spec table and the
+-- Mod-environment isolation: ADS's `ADS_VehiclePerformance` / `ADS_Config` / `ADS_Main` are globals in
+-- *its own* Lua environment, so from ours they are reachable only as
+-- `FS25_AdvancedDamageSystem.ADS_VehiclePerformance` (see EnhancedLoanSystem.lua, where the same
+-- trap already bit). The per-vehicle spec table and the
 -- functions ADS registers on the vehicle type are on the vehicle itself, so those are called
 -- directly.
 --
--- **Written against FS25_AdvancedDamageSystem 0.9.2.8-beta** — everything here reads that mod's
--- internals, which it is free to rename in any release, and 0.9.2.7 already proves it does: the
--- exclusion flag `spec.isExcludedVehicle` became the method `getIsADSExcluded()` (see spec below).
+-- **Written against FS25_AdvancedDamageSystem 0.9.9.3** -- everything here reads that mod's internals,
+-- which it is free to rename in any release, and it does: 0.9.2.7 turned the exclusion flag into the
+-- method `getIsADSExcluded()`, and 0.9.9.3 rewrote the mod (breakdowns became component conditions,
+-- `ADS_Breakdowns` was folded into `ADS_VehiclePerformance`, the config was regrouped under
+-- `ADS_Config.FACTORS`, and most workshop jobs became work orders).
 -- One version is tracked rather than several, as with every other integration here; a player on an
 -- older ADS gets no `vehicle.ads` block rather than a plausible wrong one.
 --
+-- DELIBERATELY SMALL. After 0.9.9.3 we cut this integration down to the parts that read ADS's
+-- vehicle-facing surface, which survived the rewrite, rather than its internal model, which did
+-- not: the dashboard (lamps, engine temperature, load, voltage, transmission temperature), the
+-- service interval, and for the fleet just the workshop state and the service interval. The
+-- inspection result, the breakdown list, the workshop's times and price, the log dates and the
+-- maintenance cost are gone on purpose -- each sat on a structure 0.9.9.3 replaced, and nobody knows
+-- whether that rework was the last one. Not future work: bring one back only once ADS settles.
+--
 -- So fail soft, never throw: a missing field means "no ADS data", because a throw in a collector takes
 -- the whole telemetry write down with it.
---
--- Two more 0.9.2.8 changes, neither of which needs anything from us. Its other renames
--- (`setADSUserExcluded` -> `setADSPlayerExcluded`, the savegame's `isExcludedByUser` ->
--- `isExcludedByPlayer`) are on the write side, which we never touch. And contract vehicles stopped
--- accruing service hours (its new `isMissionVehicle` gate zeroes getHoursSinceLastMaintenance), so
--- `service.hours` reads 0 on one -- ADS's own answer, and its own menu shows the same, so it travels
--- unaltered.
 --
 -- Namespaced under VDT.* (see aspects/TurnOn.lua).
 
@@ -82,14 +84,6 @@ VDT.AdvancedDamageSystem = {}
 ---@field hours number hours since the last maintenance
 ---@field interval number hours the manufacturer recommends between them
 
--- What the last workshop inspection told the player — percentages, because that is the form the
--- report is in. `complete` is ADS's own flag for a full defectoscopy as opposed to a routine check;
--- absent entirely until the machine has been inspected at least once.
----@class AdsInspectedModel
----@field condition number?
----@field service number?
----@field complete boolean?
-
 ---@class AdsElectricalModel
 ---@field systemVoltage number
 ---@field unit string
@@ -107,7 +101,6 @@ VDT.AdvancedDamageSystem = {}
 ---@class AdsModel
 ---@field lamps AdsLampsModel?
 ---@field service AdsServiceModel?
----@field inspected AdsInspectedModel?
 ---@field electrical AdsElectricalModel?
 ---@field load AdsLoadModel?
 ---@field transmissionTemperatur TemperaturModel?
@@ -115,26 +108,24 @@ VDT.AdvancedDamageSystem = {}
 ---@class VehicleModel
 ---@field ads AdsModel?
 
--- The fleet-channel counterpart of AdsModel: the maintenance side of a machine NOBODY is sitting in,
--- which is what ADS's own fleet menu lists and what the fleet channel asks for (see
--- src/collect/FleetExporter.lua). Shapes live in src/model/FleetModel.lua; `inspected` and `service`
--- are the very same blocks the driven vehicle carries, on purpose -- a machine must not read
--- differently depending on which screen is asking.
+-- The fleet-channel counterpart of AdsModel: whether a machine NOBODY is sitting in is in the
+-- workshop, and where it is in its service interval (see src/collect/FleetExporter.lua). Shapes live
+-- in src/model/FleetModel.lua; `service` is the very same block the driven vehicle carries, on
+-- purpose -- a machine must not read differently depending on which screen is asking.
 ---@class FleetVehicleModel
 ---@field ads FleetAdsModel?
 
 -- ADS's mod name, which is also its env global's key.
 VDT.AdvancedDamageSystem.MOD_NAME = "FS25_AdvancedDamageSystem"
 
--- The lamps we carry, as ids of ADS_Breakdowns.DASHBOARD (which is also how spec.activeIndicators is
+-- The lamps we carry, as ids of ADS's HUD indicators (which is also how spec.activeIndicators is
 -- keyed), in the order they read on the band.
 --
--- ADS defines eight; two of them are not worth carrying, and that is an editorial call rather than
--- something to read off the mod. `transmission` is declared and then never referenced by a single
--- breakdown — dead in the mod itself. `oil` is alive (it lights below 20% service) but ADS
--- deliberately does not draw it, and drawing it here would be telling the player something the mod
--- chose to withhold. Their glyphs are also the only two we would have to invent, which is a fair sign
--- they are not part of what a driver sees.
+-- ADS's HUD draws eight; we carry the six the cluster was drawn for. Since 0.9.9.3 ADS also draws
+-- `transmission` (any gearbox but a plain manual) and `oil`; carrying those needs two new glyphs and
+-- model fields, and was left out of the 0.9.9.3 catch-up on purpose (see DELIBERATELY SMALL).
+-- `service` is no longer a breakdown lamp in 0.9.9.3 (it left ADS's DASHBOARD enum) -- only the
+-- overdue test below lights it, exactly as ADS's HUD does.
 local LAMPS = { "engine", "warning", "brakes", "battery", "coolant", "service" }
 
 -- MotorState (the engine's own enum, values from vehicles/specializations/enums/MotorState.lua):
@@ -227,8 +218,8 @@ end
 ---Whether this machine has a continuously variable transmission, and so a transmission oil
 ---temperature to report at all.
 ---
----ADS's own test, used everywhere it decides whether that half of its thermal model applies (its
----local `hasCVTTransmission`): a CVT motor is the one that carries a `minForwardGearRatio`, because a
+---ADS's own test, used where it decides whether the transmission counts towards the coolant lamp (its
+---`detectHasCVTTransmission`, cached as the `hasCVTTransmission` capability): a CVT motor is the one that carries a `minForwardGearRatio`, because a
 ---geared transmission has discrete ratios instead. Asking the machine rather than reading a sentinel
 ---out of the temperature is the whole point -- see NO_TRANSMISSION_TEMP_C.
 ---@param vehicle table
@@ -245,8 +236,8 @@ end
 -- which turns every lit lamp into a plain "WARN" rather than losing the lamp.
 local function colours()
   local e = env()
-  local breakdowns = e ~= nil and e.ADS_Breakdowns or nil
-  return type(breakdowns) == "table" and breakdowns.COLORS or nil
+  local performance = e ~= nil and e.ADS_VehiclePerformance or nil
+  return type(performance) == "table" and performance.COLORS or nil
 end
 
 -- Resolved once from ADS's HUD and then held: the indicator table is built at mission start and never
@@ -290,23 +281,27 @@ local function lampYears()
   return years
 end
 
+-- One of ADS's factor configs (`ADS_Config.FACTORS.<name>`), or nil when out of reach.
+local function factor(name)
+  local e = env()
+  local factors = e ~= nil and type(e.ADS_Config) == "table" and e.ADS_Config.FACTORS or nil
+  local data = type(factors) == "table" and factors[name] or nil
+  return type(data) == "table" and data or nil
+end
+
 -- ADS's cold-engine / cold-transmission thresholds, which are user-configurable, with its shipped
 -- defaults as the fallback.
 local function coldThresholds()
-  local e = env()
-  local core = e ~= nil and type(e.ADS_Config) == "table" and e.ADS_Config.CORE or nil
-  local engine = core ~= nil and core.ENGINE_FACTOR_DATA or nil
-  local transmission = core ~= nil and core.TRANSMISSION_FACTOR_DATA or nil
-  return tonumber(engine ~= nil and engine.COLD_MOTOR_TEMP_THRESHOLD or nil) or COLD_ENGINE_C,
-    tonumber(transmission ~= nil and transmission.COLD_TRANSMISSION_THRESHOLD or nil) or COLD_TRANSMISSION_C
+  local engine = factor("COLD_ENGINE")
+  local transmission = factor("COLD_TRANSMISSION")
+  return tonumber(engine ~= nil and engine.TEMPERATURE_THRESHOLD or nil) or COLD_ENGINE_C,
+    tonumber(transmission ~= nil and transmission.TEMPERATURE_THRESHOLD or nil) or COLD_TRANSMISSION_C
 end
 
 -- ADS's engine-overload threshold, also user-configurable, with its shipped default as the fallback.
 local function overloadThreshold()
-  local e = env()
-  local core = e ~= nil and type(e.ADS_Config) == "table" and e.ADS_Config.CORE or nil
-  local engine = core ~= nil and core.ENGINE_FACTOR_DATA or nil
-  return tonumber(engine ~= nil and engine.MOTOR_OVERLOADED_THRESHOLD or nil) or MOTOR_OVERLOADED
+  local load = factor("ENGINE_LOAD")
+  return tonumber(load ~= nil and load.LOAD_THRESHOLD or nil) or MOTOR_OVERLOADED
 end
 
 -- One of ADS's colour tables -> our severity name. Compared by identity, which is how ADS's own
@@ -495,30 +490,6 @@ local function collectLamps(vehicle, spec, service, cvt)
   return lamps
 end
 
----What the last workshop inspection told the player, as percentages. ADS returns the figure plus
----whether the report was a full defectoscopy; a machine never inspected reports nothing.
----@param vehicle table
----@return AdsInspectedModel|nil
-local function collectInspected(vehicle)
-  local rawCondition, conditionComplete = call(vehicle, "getLastInspectedCondition")
-  -- Coerced up front and used coerced from here on: a getter that answers with a numeric string
-  -- would otherwise pass the tonumber guard and then throw on the comparison right after it.
-  local conditionLevel = tonumber(rawCondition)
-  local serviceLevel = tonumber((call(vehicle, "getLastInspectedService")))
-  -- ADS returns 0 for "no report in the log at all", which is not a reading of zero condition.
-  if conditionLevel == nil or conditionLevel <= 0 then
-    return nil
-  end
-  local model = {
-    condition = tonumber(ValueMapper.mapPercentage(conditionLevel, 0)),
-    complete = conditionComplete == true,
-  }
-  if serviceLevel ~= nil and serviceLevel > 0 then
-    model.service = tonumber(ValueMapper.mapPercentage(serviceLevel, 0))
-  end
-  return model
-end
-
 ---The load ADS wears the engine on, and where it starts charging for it.
 ---
 ---This is `dynamicMotorLoad`, which is the plain engine load everywhere except on a field with an
@@ -572,12 +543,13 @@ function VDT.AdvancedDamageSystem.contributeObject(object, model)
   local service = collectService(object)
   ads.service = service
   ads.lamps = collectLamps(object, spec, service, cvt)
-  ads.inspected = collectInspected(object)
   ads.load = collectLoad(spec)
 
-  -- A CVT runs its own thermal model and its own gauge. Only a machine that HAS one gets the field:
-  -- the terminal draws a second temperature bar off its presence, and a bar for oil that does not
-  -- exist is worse than no bar at all.
+  -- Only a machine with a CVT gets the field: the terminal draws a second temperature bar off its
+  -- presence, and a bar for oil that does not exist is worse than no bar at all. Since 0.9.9.3 ADS
+  -- models (and its HUD shows) this temperature on powershift and automatic gearboxes too; telling
+  -- those apart needs its gearbox classification (ADS_VehicleProfile), which we do not read -- see
+  -- DELIBERATELY SMALL in the header.
   local transmissionTemp = tonumber(spec.transmissionTemperature)
   if cvt and transmissionTemp ~= nil and transmissionTemp > NO_TRANSMISSION_TEMP_C then
     ---@type TemperaturModel
@@ -590,7 +562,9 @@ function VDT.AdvancedDamageSystem.contributeObject(object, model)
   end
 
   -- System voltage rather than the battery's own terminal voltage: it is what the machine's
-  -- electrics actually see, and the figure ADS puts on its dashboard.
+  -- electrics actually see, and what ADS's own low-voltage warning tests. Raw, on a 12 V scale:
+  -- since 0.9.9.3 ADS's HUD prints it doubled for its largest battery grade (a 24 V system), a
+  -- display multiplier we do not apply, so the terminal's low-voltage threshold keeps one scale.
   local voltage = tonumber(spec.systemVoltageV)
   if voltage ~= nil then
     ads.electrical = { systemVoltage = round1(voltage), unit = "V" }
@@ -628,196 +602,16 @@ local function stateToken(currentState)
   return suffix ~= nil and string.upper(suffix) or "UNKNOWN"
 end
 
----One of ADS's OWN localized texts -- a breakdown's part, severity and description are all its keys,
----and the fleet rows carry the text rather than the key because the terminal has no language files.
----
----The mod-environment isolation again, in its i18n form: `I18N:addModI18N` gives every mod its own
----`texts` table, so an `ads_*` key is not in ours and asking for it plainly answers with the literal
----string "Missing '<key>' in l10n_xx.xml". The customEnv argument is the way in, and `hasText` is what
----keeps that literal off the screen -- the same lookup the Invoices integration does (see
----VDT.Invoices.modText).
----
----g_i18n is checked before it is indexed rather than merely pcall'd: `pcall(g_i18n.getText, ...)`
----evaluates the field access first, so a nil g_i18n would throw outside the pcall's protection.
----@param key any
----@return string|nil
-local function text(key)
-  if type(key) ~= "string" or key == "" or g_i18n == nil then
-    return nil
-  end
-  if type(g_i18n.hasText) ~= "function" or type(g_i18n.getText) ~= "function" then
-    return nil
-  end
-  local okHas, has = pcall(g_i18n.hasText, g_i18n, key, VDT.AdvancedDamageSystem.MOD_NAME)
-  if not okHas or has ~= true then
-    return nil
-  end
-  local ok, value = pcall(g_i18n.getText, g_i18n, key, VDT.AdvancedDamageSystem.MOD_NAME)
-  if not ok or type(value) ~= "string" or value == "" then
-    return nil
-  end
-  return value
-end
-
----One of ADS's log dates ({day, month, year}, where month is the game period) as our own shape.
----@param value any
----@return FleetDateModel|nil
-local function dateOf(value)
-  local year = tonumber(type(value) == "table" and value.year or nil)
-  local month = tonumber(type(value) == "table" and value.month or nil)
-  if year == nil or month == nil then
-    return nil
-  end
-  return { year = math.floor(year), month = math.floor(month), day = math.floor(tonumber(value.day) or 1) }
-end
-
----One visible breakdown, rendered the way ADS's workshop dialog renders it: the part it is on (its
----`part`, falling back to the system), and the severity/description of the stage it has reached --
----except for a breakdown ADS has SUSPENDED, where what was done to it (a quick fix, a bad part)
----replaces both, because that is what the player is looking at.
----@param id string
----@param data table ADS's activeBreakdowns entry
----@param registry table|nil ADS_Breakdowns.BreakdownRegistry
----@param sources table|nil AdvancedDamageSystem.BREAKDOWN_SOURCES
----@return FleetBreakdownModel
-local function breakdownRow(id, data, registry, sources)
-  local stage = math.max(math.floor(tonumber(data.stage) or 1), 1)
-  ---@type FleetBreakdownModel
-  local row = { id = tostring(id), stage = stage }
-
-  local entry = type(registry) == "table" and registry[id] or nil
-  if type(entry) == "table" then
-    row.part = text(entry.part) or text(entry.system)
-    local stageData = type(entry.stages) == "table" and entry.stages[stage] or nil
-    if type(stageData) == "table" then
-      row.severity = text(stageData.severity)
-      row.description = text(stageData.description)
-    end
-  end
-
-  if data.isActive == false and type(sources) == "table" then
-    if data.source == sources.QUICK_FIX then
-      row.severity = text("ads_breakdowns_quick_fix_stage") or row.severity
-      row.description = text("ads_breakdowns_temporarily_repaired_description") or row.description
-    elseif data.source == sources.POOR_PARTS then
-      row.severity = text("ads_breakdowns_defected_parts_stage") or row.severity
-      row.description = text("ads_breakdowns_defected_parts_detected_description") or row.description
-    end
-  end
-
-  return row
-end
-
----The breakdowns the player KNOWS about -- ADS's `isVisible` flag, the same filter its workshop
----dialog applies. An undiscovered breakdown is precisely what the inspection mechanic is for, so it
----is not on the wire in any form, not even as a count.
----@param spec table
----@return FleetBreakdownModel[]|nil
-local function collectBreakdowns(spec)
-  local active = spec.activeBreakdowns
-  if type(active) ~= "table" then
-    return nil
-  end
-  local e = env()
-  local breakdowns = e ~= nil and e.ADS_Breakdowns or nil
-  local registry = type(breakdowns) == "table" and breakdowns.BreakdownRegistry or nil
-  local class = e ~= nil and e.AdvancedDamageSystem or nil
-  local sources = type(class) == "table" and class.BREAKDOWN_SOURCES or nil
-
-  local rows = {}
-  for id, data in pairs(active) do
-    if type(id) == "string" and type(data) == "table" and data.isVisible == true then
-      rows[#rows + 1] = breakdownRow(id, data, registry, sources)
-    end
-  end
-  if #rows == 0 then
-    return nil
-  end
-  -- Sorted because `pairs` is not ordered: an unsorted list would reshuffle itself between writes and
-  -- push a "changed" document at every tick that changed nothing.
-  table.sort(rows, function(a, b)
-    return a.id < b.id
-  end)
-  return rows
-end
-
----What the workshop is doing to this machine, while it is doing anything. Times are in-game hours,
----straight out of ADS's own getters: how much work is left, and the hour (plus day rollovers) it
----comes back. The price is the pending service's, falling back to asking ADS what the service it is
----performing costs -- exactly what its fleet menu's service section does.
----@param vehicle table
----@param spec table
----@return FleetWorkshopModel|nil
-local function collectWorkshop(vehicle, spec)
-  ---@type FleetWorkshopModel
-  local workshop = {}
-
-  local remaining = tonumber((call(vehicle, "getServiceDuration")))
-  if remaining ~= nil and remaining > 0 then
-    workshop.remaining = round1(remaining)
-  end
-
-  local finishHour, finishInDays = call(vehicle, "getServiceFinishTime")
-  if tonumber(finishHour) ~= nil then
-    workshop.finishHour = round1(tonumber(finishHour))
-    workshop.finishInDays = math.floor(tonumber(finishInDays) or 0)
-  end
-
-  local price = tonumber(spec.pendingServicePrice)
-  if price == nil or price <= 0 then
-    price = tonumber(
-      (
-        call(
-          vehicle,
-          "getServicePrice",
-          spec.currentState,
-          spec.serviceOptionOne,
-          spec.serviceOptionTwo,
-          spec.serviceOptionThree == true
-        )
-      )
-    )
-  end
-  if price ~= nil and price > 0 then
-    workshop.price = math.floor(price)
-  end
-
-  if next(workshop) == nil then
-    return nil
-  end
-  return workshop
-end
-
----What this machine has cost in maintenance so far -- the sum of its log, which is the "cost" column
----of ADS's fleet menu.
----@param spec table
----@return number|nil
-local function maintenanceCost(spec)
-  local log = spec.maintenanceLog
-  if type(log) ~= "table" then
-    return nil
-  end
-  local total = 0
-  for _, entry in ipairs(log) do
-    total = total + (tonumber(type(entry) == "table" and entry.price or nil) or 0)
-  end
-  if total <= 0 then
-    return nil
-  end
-  return math.floor(total)
-end
-
 ---Fleet stage: runs per machine of the fleet channel (see registry.lua and collect/FleetExporter).
 ---
 ---A different block from [contributeObject]'s, deliberately: that one is the dashboard of the machine
 ---you are IN -- lamps, load, temperatures, all of which are live readings that mean nothing for a
----machine parked in a shed. This one is the maintenance record ADS's own fleet menu lists, which is
----the question a fleet list exists to answer.
+---machine parked in a shed. This one answers whether the machine can go out at all: is it in the
+---workshop, and is it due for service.
 ---
 ---It reads the per-vehicle spec rather than ADS's `ADS_Main.vehicles` table, which is keyed by
----`uniqueId` and therefore empty of anything useful on a multiplayer client. The spec itself is fully
----synced (state, breakdowns and the maintenance log all cross in onReadStream/onReadUpdateStream), so
----a client sees the same fleet the server does.
+---`uniqueId` and therefore empty of anything useful on a multiplayer client. The spec itself is
+---synced (onReadStream/onReadUpdateStream), so a client sees the same fleet the server does.
 ---@param vehicle table
 ---@param row table the machine's already core-collected fleet row
 function VDT.AdvancedDamageSystem.contributeFleetVehicle(vehicle, row)
@@ -828,24 +622,14 @@ function VDT.AdvancedDamageSystem.contributeFleetVehicle(vehicle, row)
 
   local state = stateToken(spec.currentState)
   if state == nil then
-    return -- no state at all means no ADS record worth reporting; the row keeps its vanilla condition
+    return -- no state at all means no ADS record worth reporting
   end
 
   ---@type FleetAdsModel
-  local ads = {
+  row.ads = {
     state = state,
-    inspected = collectInspected(vehicle),
     service = collectService(vehicle),
-    lastInspection = dateOf(call(vehicle, "getLastInspectionDate")),
-    lastMaintenance = dateOf(call(vehicle, "getLastMaintenanceDate")),
-    breakdowns = collectBreakdowns(spec),
-    maintenanceCost = maintenanceCost(spec),
   }
-  if state ~= "READY" then
-    ads.workshop = collectWorkshop(vehicle, spec)
-  end
-
-  row.ads = ads
 end
 
 -- Test seam: drop the per-vehicle lamp latches and the resolved year table between spec cases.
