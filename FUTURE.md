@@ -622,9 +622,6 @@ level on every tool tried, so automatic level detection is not wanted.
 - **What a fork or grab is carrying is not shown.** A pallet or bale is a separate object the game mounts, not a fill
   level, so the side view draws an empty fork. `DynamicMountAttacher` knows what it holds; drawing it is a design
   call, not a data gap.
-- **The side view is a schematic and its numbers are first guesses.** The arm's swing (-28° to +42°), the
-  telescope's extra length and the tool shapes are invented — the arm's real geometry is not exported and differs
-  per machine — and `LEVEL_TOLERANCE_DEG` (1°) has been seen working, not tuned.
 - **A tile pinned to a rig position cannot set level.** The command is addressed by the rig diagram's path to the
   tool, and a pinned ISOBUS tile has no diagram; the Loader app always has one.
 
