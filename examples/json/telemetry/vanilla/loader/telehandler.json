@@ -17,8 +17,8 @@
           "selected": true
         },
         "loaderTool": {
-          "pitch": 65.65,
-          "distance": 10.146,
+          "pitch": 67.98,
+          "distance": 10.196,
           "joint": "TELEHANDLER"
         },
         "schema": {
@@ -36,8 +36,13 @@
         "position": "FRONT",
         "loaderCylinders": [
           {
+            "probe": {
+              "raw": 1,
+              "geometry": 1,
+              "input": 1
+            },
             "role": "AUX",
-            "travel": 0.638,
+            "travel": 1,
             "axis": "AXIS_FRONTLOADER_TOOL2"
           }
         ],
@@ -68,7 +73,7 @@
       "targetSpeed": 43
     },
     "operatingTime": {
-      "value": "0.22",
+      "value": "0.32",
       "unit": "h"
     },
     "gps": {
@@ -96,18 +101,33 @@
     },
     "loaderCylinders": [
       {
+        "probe": {
+          "raw": 0,
+          "geometry": 1,
+          "input": -1
+        },
         "role": "LIFT",
-        "travel": 0.998,
+        "travel": 1,
         "axis": "AXIS_FRONTLOADER_ARM"
       },
       {
+        "probe": {
+          "raw": 1,
+          "geometry": 1,
+          "input": 1
+        },
         "role": "TELESCOPE",
         "travel": 1,
         "axis": "AXIS_FRONTLOADER_ARM2"
       },
       {
+        "probe": {
+          "raw": 0.175,
+          "geometry": 1,
+          "input": -1
+        },
         "role": "TILT",
-        "travel": 0.811,
+        "travel": 0.825,
         "axis": "AXIS_FRONTLOADER_TOOL"
       }
     ],
@@ -146,7 +166,7 @@
       },
       "service": {
         "interval": 5,
-        "hours": 0.2
+        "hours": 0.3
       }
     },
     "foldable": "FOLDED",
@@ -234,7 +254,7 @@
         "min": 0
       },
       "load": {
-        "value": 7.68,
+        "value": 8.75,
         "min": 0,
         "max": 100,
         "unit": "%"
@@ -258,14 +278,14 @@
         "unit": "°C"
       }
     },
-    "time": "08:38",
+    "time": "08:43",
     "pda": {
       "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
       "player": {
         "heading": 179,
-        "posX": 0.47289351373911,
+        "posX": 0.47289400734007,
         "farmId": 1,
-        "posZ": 0.42260114848614,
+        "posZ": 0.42261138558388,
         "headingUnit": "°"
       }
     }

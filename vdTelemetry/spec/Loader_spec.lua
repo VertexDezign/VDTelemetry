@@ -10,7 +10,8 @@
 --   * the ray ignores every machine on the rig, the loader arm included, and keeps the NEAREST hit;
 --   * nothing below casts upward and reports negative;
 --   * an unlimited moving tool is left out, because getMovingToolState returns it raw;
---   * the engine's 0..1 runs top-to-bottom on a normally modelled arm, and is turned round so 1 is up.
+--   * "up" is the end a positive input drives toward, whatever way the part was modelled -- the
+--     rule that read the Kubota SVL's lift upside down was a geometric one.
 
 if ValueMapper == nil then
   dofile("src/mapper/ValueMapper.lua")
@@ -157,17 +158,8 @@ end)
 describe("VDT.LoaderCylinders", function()
   -- The engine's Cylindered.getMovingToolState, which is a spec-table function and NOT a method on
   -- the vehicle: the machines below deliberately carry no `getMovingToolState` of their own.
-  --
-  -- Every node's X axis is scripted per node: the machine's root (node 1) points +X, and a tool node
-  -- answers whatever `xAxis` says for it -- the machine's way (1), reversed (-1) or across it (0).
-  local xAxis
   before_each(function()
     stubEngine(0, {})
-    xAxis = {}
-    rawset(_G, "localDirectionToWorld", function(node)
-      local x = node == 1 and 1 or (xAxis[node] or 1)
-      return x, 0, math.sqrt(1 - x * x)
-    end)
     rawset(_G, "Cylindered", {
       getMovingToolState = function(object, t)
         return object.states[t]
@@ -183,56 +175,61 @@ describe("VDT.LoaderCylinders", function()
     return { rootNode = 1, spec_cylindered = { movingTools = tools }, states = states }
   end
 
+  -- A rotating cylinder whose positive input drives toward `toward` ("max" or "min"), the two ways the
+  -- captured machines are authored: a positive speed, or a negative one / an inverted axis.
+  local function rotating(axis, toward, invert)
+    local speed = toward == "max" and 0.001 or -0.001
+    if invert then
+      speed = -speed
+    end
+    return { axis = axis, rotMin = -1, rotMax = 1, rotSpeed = speed, invertAxis = invert == true }
+  end
+
   it("reports nothing without Cylindered", function()
     assert.is_nil(VDT.LoaderCylinders.collect({}))
   end)
 
-  it("reads the role off the axis and turns lift and tilt so 1 is up", function()
-    -- The John Deere 623R in frontLoader_shovel_raisedTipped.json: the engine read the raised arm as
-    -- 0.101 and the dumped shovel as 0.81, because a positive rotation about X turns the arm DOWN.
-    local arm = { node = 10, axis = "AXIS_FRONTLOADER_ARM", rotMin = -0.5, rotMax = 0.6 }
-    local tilt = { node = 11, axis = "AXIS_FRONTLOADER_TOOL", rotMin = -1, rotMax = 0.8 }
-    local out = VDT.LoaderCylinders.collect(machine({ arm, tilt }, { [arm] = 0.101, [tilt] = 0.81 }))
+  it("puts every captured fully raised arm at the top, whichever end of its limits that is", function()
+    -- skidSteer_fullyRaised / frontLoader_shovel_raisedTipped / telehandler / wheelLoader.json:
+    -- three raise toward their min, the Kubota toward its max.
+    local kubota = rotating("AXIS_FRONTLOADER_ARM", "max")
+    local johnDeere = rotating("AXIS_FRONTLOADER_ARM", "min")
+    assert.are.equal(1, VDT.LoaderCylinders.collect(machine({ kubota }, { [kubota] = 1 }))[1].travel)
+    assert.are.equal(1, VDT.LoaderCylinders.collect(machine({ johnDeere }, { [johnDeere] = 0 }))[1].travel)
+  end)
+
+  it("reads an inverted axis as the author meant it", function()
+    -- Same node, same speed, the key flipped in the XML: up is now the other end.
+    local arm = rotating("AXIS_FRONTLOADER_ARM", "max", true)
+    assert.are.equal(0.25, VDT.LoaderCylinders.collect(machine({ arm }, { [arm] = 0.25 }))[1].travel)
+  end)
+
+  it("reads the role off the axis and turns tilt so 1 is curled back", function()
+    -- The John Deere's shovel tipped out: the engine reads 1, tipping is a negative input.
+    local arm = rotating("AXIS_FRONTLOADER_ARM", "min")
+    local tilt = rotating("AXIS_FRONTLOADER_TOOL", "min")
+    local boom = { axis = "AXIS_FRONTLOADER_ARM2", transMin = 0, transMax = 2.5, transSpeed = 0.001 }
+    local out = VDT.LoaderCylinders.collect(machine({ arm, boom, tilt }, { [arm] = 0, [boom] = 1, [tilt] = 1 }))
     assert.are.same({
-      { role = "LIFT", axis = "AXIS_FRONTLOADER_ARM", travel = 0.899 },
-      { role = "TILT", axis = "AXIS_FRONTLOADER_TOOL", travel = 0.19 },
+      { role = "LIFT", axis = "AXIS_FRONTLOADER_ARM", travel = 1 },
+      { role = "TELESCOPE", axis = "AXIS_FRONTLOADER_ARM2", travel = 1 },
+      { role = "TILT", axis = "AXIS_FRONTLOADER_TOOL", travel = 0 },
     }, out)
   end)
 
-  it("keeps a telescope as the engine reads it, which is already 1 at full extension", function()
-    -- The Sennebogen 340 G in telehandler.json, fully extended: 1.
-    local boom = { node = 10, axis = "AXIS_FRONTLOADER_ARM2", transMin = 0, transMax = 2.5 }
-    assert.are.equal(1, VDT.LoaderCylinders.collect(machine({ boom }, { [boom] = 1 }))[1].travel)
+  it("orients an animated cylinder by its animation speed", function()
+    local arm = { axis = "AXIS_FRONTLOADER_ARM", animName = "lift", animSpeed = -0.001 }
+    assert.are.equal(0.75, VDT.LoaderCylinders.collect(machine({ arm }, { [arm] = 0.25 }))[1].travel)
   end)
 
-  it("turns the other way on a node modelled back to front", function()
-    xAxis[10] = -1
-    xAxis[11] = -1
-    local arm = { node = 10, axis = "AXIS_FRONTLOADER_ARM", rotMin = 0, rotMax = 1 }
-    local boom = { node = 11, axis = "AXIS_FRONTLOADER_ARM2", transMin = 0, transMax = 2 }
-    local out = VDT.LoaderCylinders.collect(machine({ arm, boom }, { [arm] = 0.25, [boom] = 0.25 }))
-    assert.are.equal(0.25, out[1].travel)
-    assert.are.equal(0.75, out[2].travel)
+  it("leaves out a lift or tilt with no speed to read a direction from", function()
+    local still = { axis = "AXIS_FRONTLOADER_ARM", rotMin = 0, rotMax = 1 }
+    assert.is_nil(VDT.LoaderCylinders.collect(machine({ still }, { [still] = 0.5 })))
   end)
 
-  it("leaves out a lift or tilt whose direction cannot be told", function()
-    -- Across the machine, about another axis, or driven by an animation: any of them could be
-    -- backwards, and a backwards arm is worse than none.
-    xAxis[10] = 0
-    local across = { node = 10, axis = "AXIS_FRONTLOADER_ARM", rotMin = 0, rotMax = 1 }
-    local yawing = { node = 11, axis = "AXIS_FRONTLOADER_TOOL", rotMin = 0, rotMax = 1, rotationAxis = 2 }
-    local animated = { node = 12, axis = "AXIS_FRONTLOADER_TOOL", animName = "tilt" }
-    assert.is_nil(
-      VDT.LoaderCylinders.collect(
-        machine({ across, yawing, animated }, { [across] = 0.5, [yawing] = 0.5, [animated] = 0.5 })
-      )
-    )
-  end)
-
-  it("keeps an AUX cylinder as the engine reads it, whatever way it is modelled", function()
+  it("keeps an AUX cylinder as the engine reads it", function()
     -- The pallet fork's TOOL2: what it does is the tool's business, so there is no up to orient to.
-    xAxis[10] = 0
-    local clamp = { node = 10, axis = "AXIS_FRONTLOADER_TOOL2", animName = "clamp" }
+    local clamp = { axis = "AXIS_FRONTLOADER_TOOL2", animName = "clamp" }
     assert.are.same(
       { { role = "AUX", axis = "AXIS_FRONTLOADER_TOOL2", travel = 0.334 } },
       VDT.LoaderCylinders.collect(machine({ clamp }, { [clamp] = 0.334 }))
@@ -242,18 +239,18 @@ describe("VDT.LoaderCylinders", function()
   it("leaves out a moving tool with no limits, whose state would be a raw angle", function()
     -- getMovingToolState returns curRot itself for a rotation with a speed and no limits. 1.9 rad
     -- read as a fraction is a cylinder at 190 percent.
-    local spin = { node = 10, axis = "AXIS_FRONTLOADER_TOOL2", rotSpeed = 0.001 }
-    local arm = { node = 11, axis = "AXIS_FRONTLOADER_ARM", rotMin = 0, rotMax = 1 }
+    local spin = { axis = "AXIS_FRONTLOADER_TOOL2", rotSpeed = 0.001 }
+    local arm = rotating("AXIS_FRONTLOADER_ARM", "max")
     local out = VDT.LoaderCylinders.collect(machine({ spin, arm }, { [spin] = 1.9, [arm] = 0.4 }))
     assert.are.equal(1, #out)
     assert.are.equal("LIFT", out[1].role)
   end)
 
   it("ignores cranes, unbound tools and tools the configuration removed", function()
-    local crane = { node = 10, axis = "AXIS_CRANE_ARM", rotMin = 0, rotMax = 1 }
-    local unbound = { node = 11, rotMin = 0, rotMax = 1 }
-    local unconfigured =
-      { node = 12, axis = "AXIS_FRONTLOADER_TOOL2", rotMin = 0, rotMax = 1, hasRequiredConfigurations = false }
+    local crane = rotating("AXIS_CRANE_ARM", "max")
+    local unbound = { rotMin = 0, rotMax = 1, rotSpeed = 0.001 }
+    local unconfigured = rotating("AXIS_FRONTLOADER_TOOL2", "max")
+    unconfigured.hasRequiredConfigurations = false
     assert.is_nil(
       VDT.LoaderCylinders.collect(
         machine({ crane, unbound, unconfigured }, { [crane] = 0.5, [unbound] = 0.5, [unconfigured] = 0.5 })
@@ -262,7 +259,7 @@ describe("VDT.LoaderCylinders", function()
   end)
 
   it("clamps a travel outside 0..1 before turning it", function()
-    local arm = { node = 10, axis = "AXIS_FRONTLOADER_ARM", rotMin = 0, rotMax = 1 }
+    local arm = rotating("AXIS_FRONTLOADER_ARM", "min")
     assert.are.equal(0, VDT.LoaderCylinders.collect(machine({ arm }, { [arm] = 1.2 }))[1].travel)
   end)
 end)

@@ -1,5 +1,14 @@
 package net.vertexdezign.vdt
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.float
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.LoaderCylinderRole
 import net.vertexdezign.vdt.model.LoaderJoint
@@ -22,15 +31,17 @@ import kotlin.test.assertTrue
  * files are the third, taken after the mod turned lift and tilt round.
  */
 class LoaderModelTest {
-  private fun capture(name: String): Vehicle {
+  private fun captureText(name: String): String {
     var dir: File? = File(".").absoluteFile
     while (dir != null) {
       val candidate = File(dir, "examples/json/telemetry/vanilla/loader/$name.json")
-      if (candidate.exists()) return VdtParser.parseJson(candidate.readText()).vehicle!!
+      if (candidate.exists()) return candidate.readText()
       dir = dir.parentFile
     }
     error("Could not locate loader capture $name from ${File(".").absolutePath}")
   }
+
+  private fun capture(name: String): Vehicle = VdtParser.parseJson(captureText(name)).vehicle!!
 
   private fun Vehicle.tools(): List<Implement> {
     val out = mutableListOf<Implement>()
@@ -82,8 +93,8 @@ class LoaderModelTest {
   @Test
   fun aRaisedAndTippedShovelReadsNoseDownAndHigh() {
     val t = toolOf("frontLoader_shovel_raisedTipped").loaderTool!!
-    assertEquals(-66.65f, t.pitch)
-    assertEquals(2.439f, t.distance)
+    assertEquals(-66.75f, t.pitch)
+    assertEquals(2.423f, t.distance)
   }
 
   @Test
@@ -91,8 +102,8 @@ class LoaderModelTest {
     // Full lift and full extension, the fork following the boom. 10.1 m is past the 10 m reach the mod
     // first copied from Tool Inclination Helper, under which this capture had no distance at all.
     val t = toolOf("telehandler").loaderTool!!
-    assertEquals(65.65f, t.pitch)
-    assertEquals(10.146f, t.distance)
+    assertEquals(67.98f, t.pitch)
+    assertEquals(10.196f, t.distance)
   }
 
   private fun Vehicle.travel(role: LoaderCylinderRole): Float {
@@ -114,7 +125,7 @@ class LoaderModelTest {
     assertEquals(0.708f, ground.travel(LoaderCylinderRole.TILT))
 
     val tele = capture("telehandler")
-    assertEquals(0.998f, tele.travel(LoaderCylinderRole.LIFT))
+    assertEquals(1f, tele.travel(LoaderCylinderRole.LIFT))
     assertEquals(1f, tele.travel(LoaderCylinderRole.TELESCOPE))
   }
 
@@ -189,6 +200,45 @@ class LoaderModelTest {
       ).vehicle!!.loaderTool!!
     assertEquals(0f, tool.inclination)
     assertEquals(1.2f, tool.height)
+  }
+
+  /** Every LIFT cylinder object in a capture's raw JSON, wherever on the rig it sits. */
+  private fun liftCylinders(name: String): List<JsonObject> {
+    val out = mutableListOf<JsonObject>()
+    fun walk(node: JsonElement) {
+      when (node) {
+        is JsonObject -> {
+          (node["loaderCylinders"] as? JsonArray)?.forEach { c ->
+            if (c.jsonObject["role"]?.jsonPrimitive?.content == "LIFT") out += c.jsonObject
+          }
+          node.values.forEach(::walk)
+        }
+
+        is JsonArray -> node.forEach(::walk)
+
+        else -> Unit
+      }
+    }
+    walk(Json.parseToJsonElement(captureText(name)))
+    return out
+  }
+
+  @Test
+  fun theInputRulePutsEveryCapturedFullyRaisedArmAtTheTop() {
+    // These four were taken with a diagnostic `probe` on each cylinder -- the engine's unoriented
+    // state, and which way a positive input drives it -- with every arm fully raised. Three raise
+    // toward their min, the Kubota SVL toward its max; the rule the mod now orients by (the end a
+    // positive input drives toward is up) puts all four at 1. Their own `travel` came from the rule
+    // before it, which read the Kubota as 0, so it is the probe that is checked here.
+    val raised = listOf("frontLoader_shovel_raisedTipped", "telehandler", "wheelLoader", "skidSteer_fullyRaised")
+    val travel = raised.associateWith { name ->
+      val probe = liftCylinders(name).single()["probe"]!!.jsonObject
+      val raw = probe["raw"]!!.jsonPrimitive.float
+      if (probe["input"]!!.jsonPrimitive.int > 0) raw else 1 - raw
+    }
+    raised.forEach { assertEquals(1f, travel[it], it) }
+    // And the Kubota is the one that needed it: raised at its max, not its min.
+    assertEquals(1f, liftCylinders("skidSteer_fullyRaised").single()["probe"]!!.jsonObject["raw"]!!.jsonPrimitive.float)
   }
 
   @Test

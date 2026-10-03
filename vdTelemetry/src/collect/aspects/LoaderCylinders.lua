@@ -19,21 +19,27 @@
 -- bounded by its precedence are kept, and the value is clamped (an animation can be given a start time
 -- outside its min/max window).
 --
--- DIRECTION. The engine's 0..1 runs from rotMin to rotMax, and which end is "up" is an accident of how
--- the node was modelled. On every captured loader it ran BACKWARDS: an arm on the ground read 0.99 and
--- a telehandler at full height 0.002, a level shovel 0.29 and a dumped one 0.81. The reason is
--- geometric -- an arm or a tilt cylinder rotates about its node's X axis, and a POSITIVE rotation about
--- X turns the node's +Z (forward, toward the tool) DOWN -- so whether rotMax is the bottom depends only
--- on whether the node's X axis points the same way as the machine's. That is checked per tool against
--- the object's own root node, and `travel` is exported oriented:
+-- DIRECTION. The engine's 0..1 runs from the min limit to the max, and which end is "up" is an
+-- accident of how the part was modelled -- so `travel` is turned round where it has to be, and is
+-- exported oriented:
 --   * LIFT -- 1 is the top of the stroke;
 --   * TILT -- 1 is curled back, 0 tipped out;
---   * TELESCOPE -- 1 is fully extended (a translation along the boom's +Z, which with the X axis agreeing
---     points out of the boom);
---   * AUX -- the engine's own 0..1, unoriented: its meaning is the tool's, so there is no "up" to orient to.
--- A LIFT/TILT/TELESCOPE tool whose direction cannot be told -- driven by an animation, rotating about
--- another axis, or with its X axis across the machine's -- is left OUT rather than exported in a
--- direction that might be backwards.
+--   * TELESCOPE -- 1 is fully extended;
+--   * AUX -- the engine's own 0..1, unoriented: its meaning is the tool's, so there is no "up".
+--
+-- "Up" is read off the machine's CONTROLS, not its geometry. Cylindered:onUpdate moves a tool by
+-- `move * rotSpeed` (or trans/anim speed), `move` being the axis input flipped when the XML sets
+-- invertAxis -- and every author has to make the same key raise an arm, tip a bucket back and run a
+-- boom out. So the end a POSITIVE input drives toward is up, on any machine however it was built. Four
+-- fully raised arms settled it: a John Deere 623R, a Sennebogen 340 G and a Volvo L90H raise toward
+-- their min limit with a negative speed sense, a Kubota SVL 97-2 toward its max with a positive one --
+-- and the telescope and a dumped shovel agree.
+--
+-- The rule it replaced read the node's X axis against the machine's (a positive rotation about X
+-- turns +Z down) and assumed the node points from its pivot toward the tool. It held on three of those
+-- four and read the Kubota's lift upside down: its geometry check agreed on all four, so nothing about
+-- the node could have told it apart. A tool with no speed to read a sense from has no "up" and is left
+-- OUT rather than exported in a direction that might be backwards.
 --
 -- Not a world reading. The tilt cylinder's travel says where the cylinder is, not whether the shovel
 -- is level -- the arm under it moves the horizon -- which is what VDT.LoaderTool is for.
@@ -74,57 +80,47 @@ local function isBounded(tool)
   return tool.animName ~= nil
 end
 
--- How closely a tool's X axis has to agree (or disagree) with the machine's before its direction is
--- trusted: cos(60 degrees). A node turned further than that is modelled across the machine, and its
--- rotation says nothing about up.
-local AXIS_AGREEMENT = 0.5
-
----1 when the tool's X axis agrees with the machine's, -1 when it is reversed, nil when it is across.
----@param object table
+---Which way a POSITIVE input on the cylinder's axis moves its state: 1 toward its max, -1 toward its
+---min, nil when it has no speed to tell by. Cylindered:onUpdate turns input into motion as
+---`move * rotSpeed` (or trans/anim speed), with `move` the input flipped when the XML sets invertAxis.
+---Every author has to make the same key raise an arm, so this is the machine's own statement of which
+---end is "up" -- independent of how the node was modelled. See DIRECTION in the header.
 ---@param tool table
 ---@return number|nil
-local function xAxisSense(object, tool)
-  if tool.node == nil or object.rootNode == nil then
+local function inputSense(tool)
+  local speed
+  if tool.rotMax ~= nil and tool.rotMin ~= nil then
+    speed = tool.rotSpeed
+  elseif tool.transMax ~= nil and tool.transMin ~= nil then
+    speed = tool.transSpeed
+  else
+    speed = tool.animSpeed
+  end
+  if type(speed) ~= "number" or speed == 0 then
     return nil
   end
-  local tx, ty, tz = localDirectionToWorld(tool.node, 1, 0, 0)
-  local rx, ry, rz = localDirectionToWorld(object.rootNode, 1, 0, 0)
-  local dot = tx * rx + ty * ry + tz * rz
-  if dot > AXIS_AGREEMENT then
-    return 1
-  elseif dot < -AXIS_AGREEMENT then
-    return -1
+  local sense = speed > 0 and 1 or -1
+  if tool.invertAxis then
+    sense = -sense
   end
-  return nil
+  return sense
 end
 
 ---`state` turned so that 1 is raised / curled back / extended, or nil when the direction is unknowable.
 ---See DIRECTION in the header.
----@param object table
 ---@param tool table
 ---@param role string
 ---@param state number the engine's 0..1, already clamped
 ---@return number|nil
-local function orient(object, tool, role, state)
+local function orient(tool, role, state)
   if role == "AUX" then
     return state
   end
-  local sense = xAxisSense(object, tool)
+  local sense = inputSense(tool)
   if sense == nil then
     return nil
   end
-  if role == "TELESCOPE" then
-    -- A translation along +Z, the way out of the boom when X agrees.
-    if tool.rotMax ~= nil or tool.transMin == nil or (tool.translationAxis or 3) ~= 3 then
-      return nil
-    end
-    return sense > 0 and state or 1 - state
-  end
-  -- LIFT / TILT: a rotation about X, where positive turns +Z down.
-  if tool.rotMax == nil or tool.rotMin == nil or (tool.rotationAxis or 1) ~= 1 then
-    return nil
-  end
-  return sense > 0 and 1 - state or state
+  return sense > 0 and state or 1 - state
 end
 
 ---@param object table a vehicle or implement
@@ -153,7 +149,7 @@ function VDT.LoaderCylinders.collect(object)
       local role = VDT.LoaderCylinders.ROLES[axis:sub(#AXIS_PREFIX + 1)] or "AUX"
       local travel = nil
       if type(state) == "number" and state == state then
-        travel = orient(object, tool, role, math.max(0, math.min(1, state)))
+        travel = orient(tool, role, math.max(0, math.min(1, state)))
       end
       if travel ~= nil then
         table.insert(out, {
