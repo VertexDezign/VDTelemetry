@@ -85,6 +85,9 @@ internal data class LoaderRig(
    * grab's bale is a separate object the game mounts, not a fill level, so they have none.
    */
   val load: FillUnit? get() = tool?.fillUnits?.firstOrNull { it.capacity > 0 }
+
+  /** How far open the tool's own clamp is (its first AUX cylinder), 1 open — null on a tool with none. */
+  val toolOpen: Float? get() = tool?.loaderCylinders?.firstOrNull { it.role == LoaderCylinderRole.AUX }?.travel
 }
 
 /**
@@ -378,13 +381,23 @@ private class ToolFrame(val tip: Offset, val size: Float, degrees: Float) {
  * - **Fork**: tines along the floor line and the carriage frame standing at the hinge.
  * - **Bale grab**: the frame with two arms reaching forward, top and bottom, around where a bale sits.
  * - **Log grab**: a short stem forward to a pair of claws hanging under it.
+ *
+ * The two grabs open with [open], the tool's own cylinder travel — 1 open, which is what the mod's
+ * input-sense orientation is expected to make of every grab's open/close key (see `LoaderCylinders.lua`).
  * - **Other**, and a capture that names no kind: a plain plate.
  *
  * Every point stays within one tool length of the hinge, which is the reach [glyphFrame] fits the
  * picture to — so no kind can take the side view out of its box.
  */
-internal fun toolStrokes(frame: GlyphFrame, tip: Offset, degrees: Float, kind: LoaderToolKind?): List<List<Offset>> {
+internal fun toolStrokes(
+  frame: GlyphFrame,
+  tip: Offset,
+  degrees: Float,
+  kind: LoaderToolKind?,
+  open: Float = DEFAULT_OPEN,
+): List<List<Offset>> {
   val t = ToolFrame(tip, TOOL_SIZE * frame.scale, degrees)
+  val o = open.coerceIn(0f, 1f)
   return when (kind) {
     LoaderToolKind.SHOVEL -> listOf(listOf(t.at(-1f, 0f), t.at(0f, 0f), t.at(0f, -0.75f), t.at(-0.35f, -0.85f)))
 
@@ -393,17 +406,25 @@ internal fun toolStrokes(frame: GlyphFrame, tip: Offset, degrees: Float, kind: L
       listOf(t.at(0f, 0.1f), t.at(0f, -0.7f), t.at(-0.12f, -0.7f)),
     )
 
-    LoaderToolKind.BALE_GRAB -> listOf(
-      listOf(t.at(-0.75f, -0.05f), t.at(0f, -0.05f), t.at(0f, -0.6f), t.at(-0.75f, -0.6f)),
-      listOf(t.at(-0.75f, -0.05f), t.at(-0.75f, -0.17f)),
-      listOf(t.at(-0.75f, -0.6f), t.at(-0.75f, -0.48f)),
-    )
+    // The arms swing apart at their tips as the grab opens.
+    LoaderToolKind.BALE_GRAB -> {
+      val spread = 0.12f * o
+      listOf(
+        listOf(t.at(0f, -0.05f), t.at(0f, -0.55f)),
+        listOf(t.at(0f, -0.55f), t.at(-0.7f, -0.55f - spread), t.at(-0.7f, -0.43f - spread)),
+        listOf(t.at(0f, -0.05f), t.at(-0.7f, -0.05f + spread), t.at(-0.7f, -0.17f + spread)),
+      )
+    }
 
-    LoaderToolKind.LOG_GRAB -> listOf(
-      listOf(t.at(0f, 0f), t.at(-0.5f, 0f)),
-      listOf(t.at(-0.5f, 0f), t.at(-0.85f, 0.3f), t.at(-0.7f, 0.55f)),
-      listOf(t.at(-0.5f, 0f), t.at(-0.15f, 0.3f), t.at(-0.3f, 0.55f)),
-    )
+    // The claws part sideways as the grab opens.
+    LoaderToolKind.LOG_GRAB -> {
+      val spread = 0.1f * o
+      listOf(
+        listOf(t.at(0f, 0f), t.at(-0.5f, 0f)),
+        listOf(t.at(-0.5f, 0f), t.at(-0.85f - spread, 0.3f), t.at(-0.7f - spread, 0.55f)),
+        listOf(t.at(-0.5f, 0f), t.at(-0.15f + spread, 0.3f), t.at(-0.3f + spread, 0.55f)),
+      )
+    }
 
     LoaderToolKind.OTHER, null -> listOf(
       listOf(t.at(0f, 0f), t.at(-0.15f, 0f)),
@@ -411,6 +432,9 @@ internal fun toolStrokes(frame: GlyphFrame, tip: Offset, degrees: Float, kind: L
     )
   }
 }
+
+/** How open a grab is drawn when it reports no cylinder of its own. */
+private const val DEFAULT_OPEN = 0.3f
 
 /**
  * What is in a shovel, as the polygon to fill: the bucket's inside from the floor up to [fraction] of
@@ -477,7 +501,7 @@ private fun LoaderGlyph(rig: LoaderRig, modifier: Modifier = Modifier) {
     if (kind == LoaderToolKind.SHOVEL && load != null) {
       shovelFill(frame, tip, angle, load)?.let { drawPath(pathOf(it, close = true), fillInk) }
     }
-    toolStrokes(frame, tip, angle, kind).forEach { line ->
+    toolStrokes(frame, tip, angle, kind, rig.toolOpen ?: DEFAULT_OPEN).forEach { line ->
       drawPath(
         pathOf(line),
         toolInk,

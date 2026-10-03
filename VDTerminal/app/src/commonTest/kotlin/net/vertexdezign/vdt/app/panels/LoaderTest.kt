@@ -130,11 +130,13 @@ class LoaderTest {
             val tip = armTip(frame, lift, telescope)
             for (angle in listOf(-90f, -45f, 0f, 45f, 90f)) {
               for (kind in LoaderToolKind.entries + null) {
-                val drawn = toolStrokes(frame, tip, angle, kind).flatten() +
-                  shovelFill(frame, tip, angle, 1f).orEmpty() + tip + frame.pivot
-                drawn.forEach { p ->
-                  val at = "$kind, lift $lift, telescope $telescope, angle $angle on $w x $h"
-                  assertTrue(p.x in 0f..w && p.y in 0f..h, "($p) out of the box at $at")
+                for (open in listOf(0f, 1f)) {
+                  val drawn = toolStrokes(frame, tip, angle, kind, open).flatten() +
+                    shovelFill(frame, tip, angle, 1f).orEmpty() + tip + frame.pivot
+                  drawn.forEach { p ->
+                    val at = "$kind open $open, lift $lift, telescope $telescope, angle $angle on $w x $h"
+                    assertTrue(p.x in 0f..w && p.y in 0f..h, "($p) out of the box at $at")
+                  }
                 }
               }
             }

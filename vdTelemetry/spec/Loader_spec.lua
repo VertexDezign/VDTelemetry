@@ -227,8 +227,16 @@ describe("VDT.LoaderCylinders", function()
     assert.is_nil(VDT.LoaderCylinders.collect(machine({ still }, { [still] = 0.5 })))
   end)
 
-  it("keeps an AUX cylinder as the engine reads it", function()
-    -- The pallet fork's TOOL2: what it does is the tool's business, so there is no up to orient to.
+  it("orients a tool's own cylinder by its input too, so two grabs agree on which end is open", function()
+    -- frontLoader_baleGrap_open read 1 and telehandler_logGrap_open 0 in the engine's raw 0..1.
+    local baleGrab = rotating("AXIS_FRONTLOADER_TOOL2", "max")
+    local logGrab = rotating("AXIS_FRONTLOADER_TOOL2", "min")
+    assert.are.equal(1, VDT.LoaderCylinders.collect(machine({ baleGrab }, { [baleGrab] = 1 }))[1].travel)
+    assert.are.equal(1, VDT.LoaderCylinders.collect(machine({ logGrab }, { [logGrab] = 0 }))[1].travel)
+  end)
+
+  it("keeps a tool cylinder with no speed as the engine reads it", function()
+    -- Nothing is claimed for an AUX cylinder's direction, so it is shown rather than dropped.
     local clamp = { axis = "AXIS_FRONTLOADER_TOOL2", animName = "clamp" }
     assert.are.same(
       { { role = "AUX", axis = "AXIS_FRONTLOADER_TOOL2", travel = 0.334 } },

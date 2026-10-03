@@ -1,0 +1,329 @@
+{
+  "vehicle": {
+    "brand": {
+      "image": "S:/common/Farming Simulator 25/data/store/brands/brand_deutzFahr.png",
+      "name": "DEUTZFAHR",
+      "title": "DEUTZ-FAHR"
+    },
+    "implement": [
+      {
+        "brand": {
+          "name": "HAUER",
+          "title": "Hauer"
+        },
+        "type": "attachableFrontloader",
+        "schema": {
+          "name": "FRONTLOADER",
+          "attacherJoint": [
+            {
+              "y": 0,
+              "x": 1,
+              "liftedOffsetY": 5,
+              "liftedOffsetX": 0,
+              "rotation": 0,
+              "invertX": false
+            }
+          ],
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 1,
+          "unit": "%"
+        },
+        "implement": [
+          {
+            "brand": {
+              "name": "ALBUTT",
+              "title": "Albutt"
+            },
+            "type": "implementDynamicMountAttacher",
+            "selection": {
+              "selectable": true,
+              "selected": true
+            },
+            "loaderTool": {
+              "joint": "FRONTLOADER",
+              "kind": "FORK",
+              "distance": 0.379,
+              "pitch": -0.88
+            },
+            "schema": {
+              "name": "IMPLEMENT",
+              "borderLeft": 0.05,
+              "offsetY": 0,
+              "borderRight": 0.05,
+              "offsetX": 0
+            },
+            "mass": {
+              "value": 0.25,
+              "empty": 0.25
+            },
+            "name": "Albutt Ballenspieß",
+            "position": "",
+            "wearable": {
+              "wear": 0,
+              "damage": 0,
+              "dirt": 0,
+              "unit": "%"
+            },
+            "jointDescIndex": 1
+          }
+        ],
+        "lowered": true,
+        "mass": {
+          "value": 1.06,
+          "empty": 0.81
+        },
+        "name": "Hauer XB 150",
+        "position": "FRONT",
+        "loaderCylinders": [
+          {
+            "role": "LIFT",
+            "travel": 0.121,
+            "axis": "AXIS_FRONTLOADER_ARM"
+          },
+          {
+            "role": "TILT",
+            "travel": 0.743,
+            "axis": "AXIS_FRONTLOADER_TOOL"
+          }
+        ],
+        "selection": {
+          "selectable": true,
+          "selected": false
+        },
+        "jointDescIndex": 6
+      }
+    ],
+    "odometer": {
+      "value": 0.3,
+      "unit": "km"
+    },
+    "mass": {
+      "value": 7.371,
+      "empty": 4.375
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 53
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 1,
+      "unit": "%"
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 183,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "type": "tractor",
+    "motor": {
+      "state": "ON",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 22,
+        "forward": 53
+      },
+      "fillUnits": {
+        "air": {
+          "fillLevelPercentage": 54,
+          "title": "Luft",
+          "value": 2167,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 160,
+          "usage": 3.78,
+          "capacity": 160,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 12,
+          "capacity": 12,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "W1",
+        "isNeutral": false,
+        "group": "H"
+      },
+      "rpm": {
+        "value": 850,
+        "max": 2200,
+        "min": 0
+      },
+      "load": {
+        "value": 0.15,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 89,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "name": "DEUTZ-FAHR 6115 C RVshift",
+    "ads": {
+      "electrical": {
+        "unit": "V",
+        "systemVoltage": 14.1
+      },
+      "transmissionTemperatur": {
+        "value": 68,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "warning": "OFF",
+        "oil": "OFF",
+        "transmission": "OFF",
+        "battery": "OFF",
+        "service": "OFF",
+        "engine": "OFF",
+        "brakes": "OFF"
+      },
+      "load": {
+        "value": 2,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 5,
+        "hours": 0.2
+      }
+    },
+    "operatingTime": {
+      "value": "0.21",
+      "unit": "h"
+    },
+    "ai": {
+      "active": false
+    },
+    "schema": {
+      "name": "VEHICLE",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 0.8,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    },
+    "selection": {
+      "selectable": true,
+      "selected": false
+    }
+  },
+  "version": "30",
+  "environment": {
+    "date": "01.09.2024",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 11,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "time": "08:42",
+    "pda": {
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
+      "player": {
+        "heading": 183,
+        "posX": 0.47487394884229,
+        "farmId": 1,
+        "posZ": 0.42150790989399,
+        "headingUnit": "°"
+      }
+    }
+  }
+}

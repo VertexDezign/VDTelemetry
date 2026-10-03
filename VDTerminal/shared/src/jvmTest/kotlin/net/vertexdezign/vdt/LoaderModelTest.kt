@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.LoaderCylinderRole
 import net.vertexdezign.vdt.model.LoaderJoint
+import net.vertexdezign.vdt.model.LoaderToolKind
 import net.vertexdezign.vdt.model.Vehicle
 import java.io.File
 import kotlin.test.Test
@@ -239,6 +240,29 @@ class LoaderModelTest {
     raised.forEach { assertEquals(1f, travel[it], it) }
     // And the Kubota is the one that needed it: raised at its max, not its min.
     assertEquals(1f, liftCylinders("skidSteer_fullyRaised").single()["probe"]!!.jsonObject["raw"]!!.jsonPrimitive.float)
+  }
+
+  @Test
+  fun everyToolIsNamedByWhatItCanDoAndNotByItsTypeName() {
+    // The bale spike's type is implementDynamicMountAttacher like the pallet fork's, and it mounts
+    // what it carries the same way, so it is a FORK too.
+    assertEquals(LoaderToolKind.FORK, toolOf("frontLoader_baleSpike").loaderTool!!.kind)
+    assertEquals(LoaderToolKind.BALE_GRAB, toolOf("frontLoader_baleGrap_open").loaderTool!!.kind)
+    assertEquals(LoaderToolKind.BALE_GRAB, toolOf("frontLoader_baleGrap_closed").loaderTool!!.kind)
+    assertEquals(LoaderToolKind.LOG_GRAB, toolOf("telehandler_logGrap_open").loaderTool!!.kind)
+    assertEquals(LoaderToolKind.SHOVEL, toolOf("wheelLoader_shovel_filled").loaderTool!!.kind)
+    // Taken before the mod reported a kind.
+    assertNull(toolOf("frontLoader_palletFork_ground").loaderTool!!.kind)
+  }
+
+  @Test
+  fun aFilledShovelCarriesItsLoadInItsFirstFillUnit() {
+    // Shovels carry two units; the bucket is the first, the second an empty helper.
+    val shovel = toolOf("wheelLoader_shovel_filled")
+    val bucket = shovel.fillUnits!!.fillUnit.first()
+    assertEquals("CHAFF", bucket.type)
+    assertEquals(94, bucket.fillLevelPercentage)
+    assertEquals(25.4f, shovel.loaderTool!!.pitch)
   }
 
   @Test
