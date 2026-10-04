@@ -58,6 +58,8 @@ local sourceFiles = {
   "src/collect/aspects/Mixer.lua",
   "src/collect/aspects/TensionBelts.lua",
   "src/collect/aspects/Broken.lua",
+  "src/collect/aspects/LoaderTool.lua",
+  "src/collect/aspects/LoaderCylinders.lua",
   "src/collect/aspects/Aspects.lua",
   -- Export-channel registry (must precede any integration that registers a channel into it)
   "src/export/ExportChannels.lua",
@@ -315,7 +317,10 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     `hitch` on an implement (where the linkage it hangs off sits in its travel -- the
 --     bottomArmPosition dashboard), `tensionBelts` (how many load straps are done up) and `broken`
 --     (the machine drowned and needs a reset). All optional; nothing existing changed shape.
-VDTelemetry.VERSION = 27
+-- 30: `loaderTool` on a tool hitched to a loader's tool joint -- its pitch against the horizon and the
+--     distance to whatever is under it (issue #169) -- and `loaderCylinders` on anything with a
+--     front-loader-driven cylinder, each one's travel along its stroke. Additive.
+VDTelemetry.VERSION = 30
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

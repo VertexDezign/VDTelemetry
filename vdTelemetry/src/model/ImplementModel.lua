@@ -42,6 +42,8 @@
 ---@field mixer MixerModel?
 ---@field tensionBelts TensionBeltsModel?
 ---@field broken boolean?
+---@field loaderTool LoaderToolModel?
+---@field loaderCylinders LoaderCylinderModel[]?
 ---@field jointDescIndex number?
 ---@field hitch HitchModel? absent unless the joint lowers this implement
 ---@field implement ImplementModel[]?

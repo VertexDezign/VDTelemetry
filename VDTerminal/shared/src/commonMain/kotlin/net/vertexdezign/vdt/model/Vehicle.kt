@@ -45,6 +45,10 @@ data class Vehicle(
   val tensionBelts: TensionBelts? = null,
   /** The machine drowned and needs a reset (mod version 27). See [Implement.broken]. */
   val broken: Boolean = false,
+  /** On a tool hitched to a loader's tool joint (mod version 30). See [LoaderTool]. */
+  val loaderTool: LoaderTool? = null,
+  /** A self-propelled loader's own cylinders (mod version 30). See [LoaderCylinder]. */
+  val loaderCylinders: List<LoaderCylinder> = emptyList(),
   val precisionFarming: PrecisionFarming? = null,
   /** Advanced Damage System, when that mod is installed and manages this machine. See [Ads]. */
   val ads: Ads? = null,
@@ -1348,6 +1352,10 @@ data class Implement(
    * deeper than it tolerates. It cannot be used again until it is reset. Unrelated to wear.
    */
   val broken: Boolean = false,
+  /** The shovel, fork or grab on a loader: its raw angle and height (mod version 30). See [LoaderTool]. */
+  val loaderTool: LoaderTool? = null,
+  /** A loader's cylinders, or a tool's own clamp (mod version 30). See [LoaderCylinder]. */
+  val loaderCylinders: List<LoaderCylinder> = emptyList(),
   val precisionFarming: PrecisionFarming? = null,
   /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
   val jointDescIndex: Int? = null,
