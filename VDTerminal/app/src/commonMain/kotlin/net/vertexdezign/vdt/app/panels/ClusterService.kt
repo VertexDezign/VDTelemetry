@@ -52,7 +52,7 @@ fun ClusterService(vehicle: Vehicle, modifier: Modifier = Modifier) {
             format1(it.systemVoltage),
             cells = 4,
             size = VALUE_SP.sp,
-            colour = if (it.systemVoltage < LOW_VOLTS) ClusterColors.Warn else ClusterColors.Digits,
+            colour = if (it.low) ClusterColors.Warn else ClusterColors.Digits,
           )
         }
       }
@@ -113,9 +113,6 @@ private const val NEARLY_DUE = 0.8f
 
 /** How much past the recommended interval the bar can still show, as a share of it. */
 private const val OVERRUN = 0.5f
-
-/** ADS puts its own voltage readout in warning colours below this. */
-private const val LOW_VOLTS = 12f
 
 private const val VALUE_SP = 13
 private val BAR_HEIGHT = 6.dp

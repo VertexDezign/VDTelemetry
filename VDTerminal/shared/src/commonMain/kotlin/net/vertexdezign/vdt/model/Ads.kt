@@ -107,7 +107,19 @@ data class AdsLoad(val value: Double = 0.0, val overloadAt: Double = 0.0, val un
 /**
  * The electrical system. [systemVoltage] is what the machine's electrics see rather than the
  * battery's own terminal voltage — the figure ADS puts on its dashboard, and the one that sags when
- * the alternator cannot keep up with the load.
+ * the alternator cannot keep up with the load. On the dashboard's scale, so about 28 V on a machine
+ * ADS gives a 24 V system (mod version 31; before that, always the 12 V scale).
+ *
+ * [lowBelow] is where ADS's dashboard warns, on the same scale. Absent from an older export, which is
+ * on the 12 V scale throughout, hence the fallback.
  */
 @Serializable
-data class AdsElectrical(val systemVoltage: Float = 0f, val unit: String = "")
+data class AdsElectrical(val systemVoltage: Float = 0f, val lowBelow: Float = 0f, val unit: String = "") {
+  val low: Boolean get() = systemVoltage < threshold
+
+  private val threshold: Float get() = if (lowBelow > 0f) lowBelow else LOW_VOLTAGE_12V
+
+  private companion object {
+    const val LOW_VOLTAGE_12V = 12f
+  }
+}
