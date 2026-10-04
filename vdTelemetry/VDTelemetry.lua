@@ -322,6 +322,8 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     `hitch` on an implement (where the linkage it hangs off sits in its travel -- the
 --     bottomArmPosition dashboard), `tensionBelts` (how many load straps are done up) and `broken`
 --     (the machine drowned and needs a reset). All optional; nothing existing changed shape.
+-- 28, 29: held for the Advanced Damage System 0.9.9.3 work (branch ads-rework), which waits on ADS
+--     going public; the loader captures were taken with it, so they say 30.
 -- 30: `loaderTool` on a tool hitched to a loader's tool joint -- its pitch against the horizon and the
 --     distance to whatever is under it (issue #169) -- and `loaderCylinders` on anything with a
 --     front-loader-driven cylinder, each one's travel along its stroke; `loaderTool.reference`, the
