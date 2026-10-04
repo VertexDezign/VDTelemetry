@@ -571,7 +571,32 @@ describe("AdvancedDamageSystem integration", function()
     it("reports the voltage the machine's electrics see", function()
       local electrical = contribute(makeVehicle({ systemVoltageV = 13.84 })).ads.electrical
       assert.equals(13.8, electrical.systemVoltage)
+      assert.equals(12, electrical.lowBelow)
       assert.equals("V", electrical.unit)
+    end)
+
+    it("reads on the dashboard's scale on a 24 V system", function()
+      FS25_AdvancedDamageSystem.ADS_Electrical = {
+        getDisplayVoltageMultiplier = function(vehicle)
+          return vehicle.heavy and 2 or 1
+        end,
+      }
+      local vehicle = makeVehicle({ systemVoltageV = 13.84 })
+      vehicle.heavy = true
+      local electrical = contribute(vehicle).ads.electrical
+      assert.equals(27.7, electrical.systemVoltage)
+      assert.equals(24, electrical.lowBelow)
+    end)
+
+    it("stays on the 12 V scale when ADS's multiplier throws", function()
+      FS25_AdvancedDamageSystem.ADS_Electrical = {
+        getDisplayVoltageMultiplier = function()
+          error("boom")
+        end,
+      }
+      local electrical = contribute(makeVehicle({ systemVoltageV = 13.84 })).ads.electrical
+      assert.equals(13.8, electrical.systemVoltage)
+      assert.equals(12, electrical.lowBelow)
     end)
   end)
 

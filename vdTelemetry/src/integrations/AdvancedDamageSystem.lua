@@ -87,7 +87,8 @@ VDT.AdvancedDamageSystem = {}
 ---@field interval number hours the manufacturer recommends between them
 
 ---@class AdsElectricalModel
----@field systemVoltage number
+---@field systemVoltage number as ADS's dashboard prints it, 24 V systems included
+---@field lowBelow number the voltage under which ADS's dashboard warns, on the same scale
 ---@field unit string
 
 -- The load ADS wears the engine on, as a percentage. NOT the same quantity as `motor.load`, which is
@@ -158,6 +159,10 @@ local COLD_TRANSMISSION_C = 45
 
 -- ... and for the load above which ADS starts charging the engine wear for being overloaded.
 local MOTOR_OVERLOADED = 0.85
+
+-- Below this the system voltage is low: ADS's HUD warns on it, against the 12 V scale every machine
+-- is simulated on (a hard-coded figure in its HUD, not a config value).
+local LOW_VOLTAGE_V = 12
 
 -- Below this much service left, ADS treats the machine as running on spent consumables.
 local SERVICE_OVERDUE_RATIO = 1.0
@@ -468,6 +473,23 @@ local function round1(value)
   return math.floor(value * 10 + 0.5) / 10
 end
 
+---ADS's dashboard multiplier for this machine's battery grade (`ADS_Electrical.getDisplayVoltageMultiplier`):
+---2 on a 24 V system, 1 otherwise. 1 when it is out of reach or answers nonsense, which is the 12 V
+---every machine is simulated as.
+---@param vehicle table
+---@return number
+local function voltageScale(vehicle)
+  local e = env()
+  local electrical = e ~= nil and e.ADS_Electrical or nil
+  local fn = type(electrical) == "table" and electrical.getDisplayVoltageMultiplier or nil
+  if type(fn) ~= "function" then
+    return 1
+  end
+  local ok, scale = pcall(fn, vehicle)
+  scale = ok and tonumber(scale) or nil
+  return (scale ~= nil and scale > 0) and scale or 1
+end
+
 ---How far into its service interval this machine is, as hours-since and hours-recommended. Both
 ---come from ADS's own getters, which fold in the maintenance it has actually had.
 ---@param vehicle table
@@ -631,12 +653,15 @@ function VDT.AdvancedDamageSystem.contributeObject(object, model)
   end
 
   -- System voltage rather than the battery's own terminal voltage: it is what the machine's
-  -- electrics actually see, and what ADS's own low-voltage warning tests. Raw, on a 12 V scale:
-  -- since 0.9.9.3 ADS's HUD prints it doubled for its largest battery grade (a 24 V system), a
-  -- display multiplier we do not apply, so the terminal's low-voltage threshold keeps one scale.
+  -- electrics actually see, and what ADS's own low-voltage warning tests. On the dashboard's scale:
+  -- ADS simulates every machine as a 12 V system and prints the figure multiplied up by battery grade
+  -- (its largest grade is a 24 V system, on heavy machinery), so a raw 13.8 is 27.6 on a combine's
+  -- HUD and must be here too. The warning moves with it -- ADS tests the raw figure against 12 V --
+  -- so `lowBelow` travels with the value rather than being a number the terminal knows.
   local voltage = tonumber(spec.systemVoltageV)
   if voltage ~= nil then
-    ads.electrical = { systemVoltage = round1(voltage), unit = "V" }
+    local scale = voltageScale(object)
+    ads.electrical = { systemVoltage = round1(voltage * scale), lowBelow = LOW_VOLTAGE_V * scale, unit = "V" }
   end
 
   if next(ads) ~= nil then

@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt
 
+import net.vertexdezign.vdt.model.AdsElectrical
 import net.vertexdezign.vdt.model.AdsLamp
 import net.vertexdezign.vdt.model.AdsLoad
 import kotlin.test.Test
@@ -68,6 +69,12 @@ class AdsModelTest {
     assertFalse(AdsLoad(value = 50.0, overloadAt = 0.0).overloaded)
 
     assertEquals(13.8f, assertNotNull(ads.electrical).systemVoltage)
+    // An export from before 31 carries no threshold; it is on the 12 V scale throughout.
+    assertFalse(assertNotNull(ads.electrical).low)
+    assertTrue(AdsElectrical(systemVoltage = 11.9f).low)
+    // A 24 V system: healthy at 27.6, low under its own 24, not under 12.
+    assertFalse(AdsElectrical(systemVoltage = 27.6f, lowBelow = 24f).low)
+    assertTrue(AdsElectrical(systemVoltage = 23.5f, lowBelow = 24f).low)
     assertEquals(71, assertNotNull(ads.transmissionTemperatur).value)
   }
 
