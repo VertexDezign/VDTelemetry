@@ -22,6 +22,9 @@ VDT.Integrations = {}
 -- is a module under VDT.*, resolved at call time.
 VDT.Integrations.all = {
   "EnhancedVehicle",
+  -- More Vehicle Controls: the same drivetrain fields, for whoever runs it instead. After Enhanced
+  -- Vehicle, so with both installed Enhanced Vehicle's answer is the one that stands.
+  "MoreVehicleControls",
   -- Precision Farming is sourced far earlier than this file (it gates the channels that suppress the
   -- base-game data it supersedes), but its object hook belongs in the same list as any other optional
   -- mod's: it adds application rates to a sprayer that has them.

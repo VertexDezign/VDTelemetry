@@ -224,8 +224,8 @@ tractor puts between the windscreen and the right-hand window:
 - **Telltales** — a wrapping band of lamps (turn signals, beams, work lights, beacon, parking brake,
   diff locks, AWD, and the six maintenance lamps). Which lamps a band shows is per instance, since
   what matters differs per rig. A lamp the vehicle reports *nothing* about is absent rather than
-  unlit — the drivetrain trio comes from Enhanced Vehicle, and an unlit diff-lock lamp is a claim we
-  can't make without it.
+  unlit — the drivetrain trio comes from Enhanced Vehicle or More Vehicle Controls, and an unlit diff-lock
+  lamp is a claim we can't make without one of them.
 
   The maintenance six (engine warning, coolant temperature, battery, brake system, service, needs
   attention) come from **Advanced Damage System**, and follow the same rule twice over: without the

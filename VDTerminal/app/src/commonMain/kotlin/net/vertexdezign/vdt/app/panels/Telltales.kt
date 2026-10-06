@@ -123,9 +123,9 @@ enum class Telltale(
  * renders as an absent lamp rather than an unlit one.
  *
  * That distinction is the whole reason the drivetrain telltales exist as nullables in the model: the
- * parking brake, the diff locks and AWD come from Enhanced Vehicle, which is optional and only
- * decorates the vehicle you're controlling. An unlit diff-lock lamp is a claim about the drivetrain,
- * and without the mod we have no standing to make it — so we say nothing instead.
+ * parking brake, the diff locks and AWD come from Enhanced Vehicle or More Vehicle Controls, both
+ * optional. An unlit diff-lock lamp is a claim about the drivetrain, and without one of the mods we
+ * have no standing to make it — so we say nothing instead.
  *
  * The maintenance six are the same rule taken to its end, twice over. Without Advanced Damage System
  * there is nothing to say at all; *with* it, a lamp the machine is too old to have (ADS gates each on
@@ -196,7 +196,7 @@ fun Telltale.colourIn(vehicle: Vehicle): Color = when (adsLampIn(vehicle)) {
 fun Telltale.blinksIn(vehicle: Vehicle): Boolean = blinks || adsLampIn(vehicle) == AdsLamp.CRIT
 
 /**
- * Either differential shut, over the two ends Enhanced Vehicle reports separately.
+ * Either differential shut, over the two ends the drivetrain mod reports separately.
  *
  * Null only when it reports *neither* end, so a machine whose rear lock we can see keeps its lamp —
  * saying which end is not this function's job but [Telltale.iconIn]'s, and an end the mod is silent
@@ -214,7 +214,7 @@ fun diffLockEngaged(vehicle: Vehicle): Boolean? = vehicle.motor?.diffLock?.let {
  * which of two lamps came on. Front-only and rear-only get the axle in question drawn solid with the
  * other left open; both — and the resting state, where the lamp is ghosted — get both.
  *
- * An axle Enhanced Vehicle says nothing about is drawn as not-locked, which is the honest reading:
+ * An axle the drivetrain mod says nothing about is drawn as not-locked, which is the honest reading:
  * the lamp is only on this band at all because it reports at least one end (see [stateIn]), and an
  * end it does not report is one we cannot claim is shut.
  *

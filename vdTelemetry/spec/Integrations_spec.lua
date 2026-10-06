@@ -4,7 +4,7 @@
 -- each under VDT.* at call time, so these specs install fake modules under those names rather than
 -- sourcing the real integrations -- what is under test is the runner's containment, not any one mod.
 
-local NAMES = { "EnhancedVehicle", "PrecisionFarming", "AdvancedDamageSystem", "CombineXP" }
+local NAMES = { "EnhancedVehicle", "MoreVehicleControls", "PrecisionFarming", "AdvancedDamageSystem", "CombineXP" }
 
 describe("VDT.Integrations.run", function()
   local saved

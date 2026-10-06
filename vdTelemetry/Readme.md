@@ -337,6 +337,13 @@ version renames costs you that panel, never a Lua error.
     * Differential
     * AWD
     * Parking Brake
+* FS25_moreVehicleControls
+  `1.0.0.8` — the same three fields, for whoever runs it instead of EnhancedVehicle
+  (`src/integrations/MoreVehicleControls.lua`): its front/rear diff locks, 2WD/4WD and handbrake.
+  The lamps follow the differentials the machine actually has, so a 2WD truck lights no AWD lamp
+  even though the mod's automatic mode flips it to 4WD; a multiplayer client cannot see the
+  drivetrain (the engine loads it on the host only) and reports the switches as the mod holds them.
+  With both mods installed, EnhancedVehicle's answer stands.
 * [FS25_AdvancedDamageSystem](https://github.com/id577/FS25_AdvancedDamageSystem) **0.9.2.8-beta** —
   replaces the vanilla damage model, and drives the cluster's warning lamps
   (`src/integrations/AdvancedDamageSystem.lua`, `vehicle.ads`). Still a beta, so its internals move

@@ -113,6 +113,7 @@ local sourceFiles = {
   "src/collect/PricesExporter.lua",
   -- Integrations (optional third-party mods) — registry depends on the integration files
   "src/integrations/EnhancedVehicle.lua",
+  "src/integrations/MoreVehicleControls.lua",
   "src/integrations/AdvancedDamageSystem.lua",
   "src/integrations/CombineXP.lua",
   "src/integrations/registry.lua",
