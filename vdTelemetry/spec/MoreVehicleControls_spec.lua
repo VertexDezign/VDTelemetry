@@ -63,6 +63,16 @@ describe("VDT.MoreVehicleControls.contributeObject", function()
     end
   end)
 
+  it("reports no drivetrain lamps where the server loaded no differentials", function()
+    local vehicle = mvcVehicle({}, { frontDiff = true, rearDiff = true, driveMode = 1 }, true)
+    vehicle.isServer = true
+    local motor = contribute(vehicle)
+    assert.is_nil(motor.diffLock)
+    assert.is_nil(motor.awd)
+    -- the handbrake is the mod's own brake, not a differential
+    assert.is_true(motor.parkingBrake)
+  end)
+
   it("leaves what Enhanced Vehicle already reported", function()
     local motor = contribute(
       mvcVehicle({ AXLE, AXLE, CENTRE }, { frontDiff = true, rearDiff = true, driveMode = 0 }, true),

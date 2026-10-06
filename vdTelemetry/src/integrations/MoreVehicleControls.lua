@@ -28,11 +28,13 @@ VDT.MoreVehicleControls = {}
 ---differentials is the centre.
 ---
 ---The engine loads `spec_motorized.differentials` on the server only, so a multiplayer client sees an
----empty list and gets nil here -- it reports the switches unfiltered, as the mod's own HUD does.
+---empty list and gets nil here -- it reports the switches unfiltered, as the mod's own HUD does. On the
+---server an empty list is an answer, not a blank: the engine loads none when the vehicle has no
+---motorized node, and a machine with no differentials has nothing to lock.
 ---@return table? drivetrain { axles = number, centre = boolean }
 local function drivetrainOf(vehicle)
   local differentials = vehicle.spec_motorized ~= nil and vehicle.spec_motorized.differentials or nil
-  if type(differentials) ~= "table" or #differentials == 0 then
+  if type(differentials) ~= "table" or (#differentials == 0 and not vehicle.isServer) then
     return nil
   end
   local axles, centre = 0, false
