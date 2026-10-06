@@ -128,6 +128,11 @@ class CommandWriter(private val path: Path, private val ringSize: Int = 16) {
       """<command id="$id" type="setSelected" node="${esc(message.node)}"$groupAttr/>"""
     }
 
+    // A node path like setSelected's, escaped for the same reason.
+    is ClientMessage.SetLoaderReference -> {
+      """<command id="$id" type="setLoaderReference" node="${esc(message.node)}" on="${message.on}"/>"""
+    }
+
     is ClientMessage.SetMotorState -> {
       """<command id="$id" type="setMotorState" on="${message.on}"/>"""
     }

@@ -1,0 +1,287 @@
+{
+  "vehicle": {
+    "brand": {
+      "image": "S:/common/Farming Simulator 25/data/store/brands/brand_kubota.png",
+      "name": "KUBOTA",
+      "title": "Kubota"
+    },
+    "implement": [
+      {
+        "brand": {
+          "name": "PALADIN",
+          "title": "Paladin"
+        },
+        "type": "shovelLeveler",
+        "loaderTool": {
+          "pitch": 1.24,
+          "distance": 2.998,
+          "joint": "SKID_STEER"
+        },
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 0,
+          "unit": "%"
+        },
+        "selection": {
+          "selectable": true,
+          "selected": true
+        },
+        "fillUnits": {
+          "fillUnit": [
+            {
+              "type": "",
+              "title": "",
+              "fillLevelPercentage": 0,
+              "value": 0,
+              "capacity": 1284,
+              "unit": ""
+            },
+            {
+              "type": "",
+              "title": "",
+              "fillLevelPercentage": 0,
+              "value": 0,
+              "capacity": 10000,
+              "unit": ""
+            }
+          ]
+        },
+        "schema": {
+          "name": "IMPLEMENT",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "mass": {
+          "value": 0.612,
+          "empty": 0.612
+        },
+        "name": "Paladin Hochkippschaufel",
+        "position": "FRONT",
+        "loaderCylinders": [
+          {
+            "probe": {
+              "raw": 0,
+              "geometry": 1,
+              "input": 1
+            },
+            "role": "AUX",
+            "travel": 0,
+            "axis": "AXIS_FRONTLOADER_TOOL2"
+          }
+        ],
+        "discharge": {
+          "fillUnitIndex": 1,
+          "canToggle": false,
+          "hasObject": false,
+          "allowed": true,
+          "state": "OFF",
+          "nodeIndex": 1,
+          "hitTerrain": false
+        },
+        "jointDescIndex": 1
+      }
+    ],
+    "odometer": {
+      "value": 0.1,
+      "unit": "km"
+    },
+    "selection": {
+      "selectable": true,
+      "selected": false
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 12
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 0,
+      "unit": "%"
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "type": "teleHandler",
+    "motor": {
+      "state": "ON",
+      "direction": "FORWARD",
+      "maxSpeed": {
+        "backward": 12,
+        "forward": 12
+      },
+      "fillUnits": {
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 13,
+          "capacity": 13,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 111,
+          "usage": 2.85,
+          "capacity": 111,
+          "unit": "l"
+        }
+      },
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "rpm": {
+        "value": 850,
+        "max": 2400,
+        "min": 0
+      },
+      "load": {
+        "value": 0,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 90,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "loaderCylinders": [
+      {
+        "probe": {
+          "raw": 1,
+          "geometry": 1,
+          "input": 1
+        },
+        "role": "LIFT",
+        "travel": 0,
+        "axis": "AXIS_FRONTLOADER_ARM"
+      },
+      {
+        "probe": {
+          "raw": 0.549,
+          "geometry": 1,
+          "input": -1
+        },
+        "role": "TILT",
+        "travel": 0.451,
+        "axis": "AXIS_FRONTLOADER_TOOL"
+      }
+    ],
+    "ai": {
+      "active": false
+    },
+    "name": "Kubota SVL 97-2",
+    "ads": {
+      "electrical": {
+        "unit": "V",
+        "systemVoltage": 14.1
+      },
+      "transmissionTemperatur": {
+        "value": 70,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "warning": "OFF",
+        "oil": "OFF",
+        "transmission": "OFF",
+        "battery": "OFF",
+        "service": "OFF",
+        "engine": "OFF",
+        "brakes": "OFF"
+      },
+      "load": {
+        "value": 1,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 5,
+        "hours": 0.2
+      }
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 225,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "operatingTime": {
+      "value": "0.23",
+      "unit": "h"
+    },
+    "schema": {
+      "name": "LOADER",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    },
+    "mass": {
+      "value": 5.936,
+      "empty": 4.8
+    }
+  },
+  "version": "30",
+  "environment": {
+    "date": "01.09.2024",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 11,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "time": "08:42",
+    "pda": {
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
+      "player": {
+        "heading": 225,
+        "posX": 0.44313764199615,
+        "farmId": 1,
+        "posZ": 0.43822995945811,
+        "headingUnit": "°"
+      }
+    }
+  }
+}

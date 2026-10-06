@@ -523,6 +523,23 @@ sealed interface ClientMessage {
   @SerialName("setSelected")
   data class SetSelected(val node: String, val controlGroup: Int? = null) : ClientMessage
 
+  /**
+   * Record the loader tool at [node] as level where it is now ([on] = true), or forget its level and go
+   * back to the root node's ([on] = false) — issue #169. Comes back as
+   * [net.vertexdezign.vdt.model.LoaderTool.reference].
+   *
+   * Kept by the mod per tool **model** in its own settings folder, not in the savegame and not in the
+   * app: every copy of that shovel needs the same zero, on every save and every device. Client-local,
+   * like the channel — on a multiplayer client it is that player's zero.
+   *
+   * [node] is the rig diagram's path, as for [SetSelected]: a front loader's tool is two levels down,
+   * past what a [ControlTarget] can name. What is recorded is measured mod-side when the command
+   * arrives, so it is the pose the tool was in at the tap, a tick fresher than what was drawn.
+   */
+  @Serializable
+  @SerialName("setLoaderReference")
+  data class SetLoaderReference(val node: String, val on: Boolean) : ClientMessage
+
   /** Start (`on = true`) or stop the vehicle's engine. */
   @Serializable
   @SerialName("setMotorState")

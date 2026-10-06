@@ -272,4 +272,16 @@ class CommandWriterTest {
     assertTrue(xml.contains("""type="unloadBale" target="vehicle" action="UNLOAD_UNFINISHED""""), xml)
     assertTrue(xml.contains("""type="dropWrappedBale" target="back"/>"""), xml)
   }
+
+  @Test
+  fun `writes the loader reference by node path, both ways`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    val writer = CommandWriter(path)
+    // Tractor -> loader -> shovel: two levels down, which is why it is a path and not a target.
+    writer.submit(ClientMessage.SetLoaderReference("0/0/0", on = true))
+    writer.submit(ClientMessage.SetLoaderReference("0/0/0", on = false))
+    val xml = path.readText()
+    assertTrue(xml.contains("""type="setLoaderReference" node="0/0/0" on="true""""), xml)
+    assertTrue(xml.contains("""type="setLoaderReference" node="0/0/0" on="false""""), xml)
+  }
 }

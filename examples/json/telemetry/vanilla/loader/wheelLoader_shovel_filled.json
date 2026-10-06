@@ -1,0 +1,243 @@
+{
+  "vehicle": {
+    "ai": {
+      "active": false
+    },
+    "loaderCylinders": [
+      {
+        "role": "LIFT",
+        "travel": 0.314,
+        "axis": "AXIS_FRONTLOADER_ARM"
+      },
+      {
+        "role": "TILT",
+        "travel": 0.722,
+        "axis": "AXIS_FRONTLOADER_TOOL"
+      }
+    ],
+    "wearable": {
+      "wear": 1,
+      "damage": 1,
+      "dirt": 7,
+      "unit": "%"
+    },
+    "implement": [
+      {
+        "brand": {
+          "name": "VOLVO",
+          "title": "Volvo"
+        },
+        "type": "shovelLeveler",
+        "loaderTool": {
+          "joint": "WHEEL_LOADER",
+          "kind": "SHOVEL",
+          "distance": 1.773,
+          "pitch": 25.4
+        },
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 6,
+          "unit": "%"
+        },
+        "selection": {
+          "selectable": true,
+          "selected": true
+        },
+        "fillUnits": {
+          "fillUnit": [
+            {
+              "type": "CHAFF",
+              "title": "Häckselgut",
+              "fillLevelPercentage": 94,
+              "value": 2904.762,
+              "capacity": 3100,
+              "unit": "l"
+            },
+            {
+              "type": "",
+              "title": "",
+              "fillLevelPercentage": 0,
+              "value": 0,
+              "capacity": 3100,
+              "unit": ""
+            }
+          ]
+        },
+        "schema": {
+          "name": "IMPLEMENT",
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        },
+        "mass": {
+          "value": 1.771,
+          "empty": 0.9
+        },
+        "name": "Volvo Universalschaufel (L90)",
+        "position": "FRONT",
+        "discharge": {
+          "fillUnitIndex": 1,
+          "canToggle": false,
+          "hasObject": false,
+          "allowed": true,
+          "state": "OFF",
+          "nodeIndex": 1,
+          "hitTerrain": false
+        },
+        "jointDescIndex": 1
+      }
+    ],
+    "odometer": {
+      "value": 1.6,
+      "unit": "km"
+    },
+    "mass": {
+      "value": 16.97,
+      "empty": 14.275
+    },
+    "motor": {
+      "state": "ON",
+      "direction": "BACKWARD",
+      "maxSpeed": {
+        "backward": 48,
+        "forward": 48
+      },
+      "fillUnits": {
+        "fuel": {
+          "type": "electriccharge",
+          "title": "Elektrische Ladung",
+          "fillLevelPercentage": 98,
+          "value": 176,
+          "usage": 5.7,
+          "capacity": 180,
+          "unit": "kWh"
+        }
+      },
+      "gear": {
+        "value": "-1",
+        "isNeutral": false
+      },
+      "rpm": {
+        "value": 800,
+        "max": 1900,
+        "min": 0
+      },
+      "load": {
+        "value": 8.03,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "temperatur": {
+        "value": 47,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      }
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 48
+    },
+    "operatingTime": {
+      "value": "0.25",
+      "unit": "h"
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "type": "tractor",
+    "steering": {
+      "mode": {
+        "count": 2,
+        "name": "Lenkrad",
+        "index": 1
+      }
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 180,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "name": "Volvo L90H Electric Conversion",
+    "selection": {
+      "selectable": true,
+      "selected": false
+    },
+    "brand": {
+      "image": "S:/common/Farming Simulator 25/data/store/brands/brand_volvo.png",
+      "name": "VOLVO",
+      "title": "Volvo"
+    },
+    "schema": {
+      "name": "LOADER",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    }
+  },
+  "version": "30",
+  "environment": {
+    "date": "01.09.2024",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 11,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "time": "08:42",
+    "pda": {
+      "filename": "S:/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
+      "player": {
+        "heading": 180,
+        "posX": 0.16773992776871,
+        "farmId": 1,
+        "posZ": 0.60678673535585,
+        "headingUnit": "°"
+      }
+    }
+  }
+}

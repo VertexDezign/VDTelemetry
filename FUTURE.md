@@ -402,8 +402,11 @@ One thing was left, and it is a trap rather than a feature:
 
 ## VDT-owned data
 
-Every write path today drives a *mod's* own state through its own multiplayer events; VDTelemetry persists nothing of
-its own. The first real case for changing that:
+Every write path but one drives a *mod's* own state through its own multiplayer events. The exception is the loader
+tool's "set level" (#169): `src/store/LoaderReferences.lua` keeps a per-tool-*model* reference in
+`modSettings/<modName>/loaderReferences.xml`, client-local and outside the savegame because it describes the tool's
+geometry rather than the farm. It is the precedent, not the template, for what follows: the case below is savegame
+state and argues the other way.
 
 ### Assigning a CropRotation plan to a field
 
@@ -600,6 +603,25 @@ engine load it wears the engine on, the service interval and system voltage. The
   processing, so it would be another `isServer` field with nothing behind it on a client.
 - **The two rain states are drawn but never seen.** Both captures are dry. The wording ("Rain coming" at the engine's
   early warning, "Rain — stopped" once it bites) is a guess at what reads best in a cab and wants one rainy harvest.
+
+## Loader tools (#169), what it left
+
+The tool's angle and height, the loader's cylinders, "set level" per tool model, and a loader screen in the ISOBUS
+panel and as its own app. Captured on a front loader (shovel, pallet fork, bale spike, bale grab), a wheel loader, a
+telehandler (pallet fork, log grab) and a skid steer, all vanilla singleplayer; set and clear level checked in game,
+and the whole of it checked on a multiplayer client against a dedicated server. The tool's root node turned out to be
+level on every tool tried, so automatic level detection is not wanted.
+
+- **Forklift forks.** On a forklift the forks are a *component*, not a hitched tool, so there is no loader joint to
+  find them by. Tool Inclination Helper loads the vehicle's i3d as XML and string-matches shape names (`fork`,
+  `tine`) to get at them — fragile, and a lot of machinery for one vehicle class.
+- **"Set level" from the cab.** A hotkey would mean registering an input action, and input belongs to
+  FS25_additionalInputs — so it is an additionalInputs change, not ours.
+- **What a fork or grab is carrying is not shown.** A pallet or bale is a separate object the game mounts, not a fill
+  level, so the side view draws an empty fork. `DynamicMountAttacher` knows what it holds; drawing it is a design
+  call, not a data gap.
+- **A tile pinned to a rig position cannot set level.** The command is addressed by the rig diagram's path to the
+  tool, and a pinned ISOBUS tile has no diagram; the Loader app always has one.
 
 ## Captures wanted as fixtures
 
