@@ -44,6 +44,16 @@
 -- the node could have told it apart. A tool with no speed to read a sense from has no "up" and is left
 -- OUT rather than exported in a direction that might be backwards.
 --
+-- WHICH MACHINES. An axis name is only a key binding, and modders borrow the front-loader ones for
+-- anything with a lever: the John Deere 3x50 (issue #175) opens its doors, rear window and roof hatch
+-- and swings its armrests on AXIS_FRONTLOADER_ARM/ARM2/TOOL2/TOOL5, and read as a loader it showed a
+-- fully raised arm on a tractor with no loader on it. So the axis is only trusted on a machine that is
+-- part of a loader: one carrying a joint a loader TOOL hangs on (the front loader itself, a wheel
+-- loader, telehandler or skid steer -- VDT.LoaderTool.JOINT_TYPES), or a tool hanging on one (a
+-- grab's clamp). A tractor's own `attachableFrontloader` joint is the loader's mount, not a tool
+-- joint, so the tractor stays out with or without a loader on it -- the arm is the loader's to report.
+-- A machine with a bucket built in and no tool joint would be left out too; none has turned up yet.
+--
 -- Not a world reading. The tilt cylinder's travel says where the cylinder is, not whether the shovel
 -- is level -- the arm under it moves the horizon -- which is what VDT.LoaderTool is for.
 --
@@ -126,8 +136,23 @@ local function orient(tool, role, state)
   return sense > 0 and state or 1 - state
 end
 
+---Whether `object` is part of a loader: it carries a joint a loader tool hangs on, or hangs on one
+---itself. See WHICH MACHINES in the header.
+---@param object table
+---@return boolean
+function VDT.LoaderCylinders.isLoaderPart(object)
+  local joints = object.spec_attacherJoints ~= nil and object.spec_attacherJoints.attacherJoints or nil
+  for _, joint in ipairs(joints or {}) do
+    if VDT.LoaderTool.jointToken(joint.jointType) ~= nil then
+      return true
+    end
+  end
+  return VDT.LoaderTool.inputJointOf(object) ~= nil
+end
+
 ---@param object table a vehicle or implement
----@return LoaderCylinderModel[]|nil nil when no moving tool on it is driven by a front-loader axis
+---@return LoaderCylinderModel[]|nil nil when no moving tool on it is driven by a front-loader axis, or
+---it is not part of a loader at all
 function VDT.LoaderCylinders.collect(object)
   local spec = object.spec_cylindered
   if
@@ -135,6 +160,7 @@ function VDT.LoaderCylinders.collect(object)
     or spec.movingTools == nil
     or Cylindered == nil
     or type(Cylindered.getMovingToolState) ~= "function"
+    or not VDT.LoaderCylinders.isLoaderPart(object)
   then
     return nil
   end

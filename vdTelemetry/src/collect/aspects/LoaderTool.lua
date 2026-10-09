@@ -54,23 +54,33 @@ VDT.LoaderTool.MAX_DISTANCE = 30
 -- How far forward of the root node the ray starts, in metres (Tool Inclination Helper's value).
 VDT.LoaderTool.RAY_FORWARD_OFFSET = 0.5
 
----The exported joint token for `object`'s active input joint, or nil when it is not on a loader.
----@param object table
+---The exported token for an engine joint type, or nil when it is not one a loader's tool hangs on.
+---@param jointType number|nil an AttacherJoints.jointTypeNameToInt value
 ---@return string|nil
-local function loaderJoint(object)
-  if object.spec_attachable == nil or type(object.getActiveInputAttacherJoint) ~= "function" then
-    return nil
-  end
-  local joint = object:getActiveInputAttacherJoint()
-  if joint == nil or joint.jointType == nil or AttacherJoints == nil then
+function VDT.LoaderTool.jointToken(jointType)
+  if jointType == nil or AttacherJoints == nil then
     return nil
   end
   for name, token in pairs(VDT.LoaderTool.JOINT_TYPES) do
-    if AttacherJoints.jointTypeNameToInt[name] == joint.jointType then
+    if AttacherJoints.jointTypeNameToInt[name] == jointType then
       return token
     end
   end
   return nil
+end
+
+---The exported joint token for `object`'s active input joint, or nil when it is not on a loader.
+---@param object table
+---@return string|nil
+function VDT.LoaderTool.inputJointOf(object)
+  if object.spec_attachable == nil or type(object.getActiveInputAttacherJoint) ~= "function" then
+    return nil
+  end
+  local joint = object:getActiveInputAttacherJoint()
+  if joint == nil then
+    return nil
+  end
+  return VDT.LoaderTool.jointToken(joint.jointType)
 end
 
 ---What kind of tool `object` is, by which tool specialization it carries -- never by its `type`
@@ -154,7 +164,7 @@ end
 ---@param object table a vehicle or implement
 ---@return LoaderToolModel|nil nil when the object is not hitched to a loader's tool joint
 function VDT.LoaderTool.collect(object)
-  local joint = loaderJoint(object)
+  local joint = VDT.LoaderTool.inputJointOf(object)
   local node = object.rootNode
   if joint == nil or node == nil then
     return nil

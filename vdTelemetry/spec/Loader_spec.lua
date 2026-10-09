@@ -11,7 +11,9 @@
 --   * nothing below casts upward and reports negative;
 --   * an unlimited moving tool is left out, because getMovingToolState returns it raw;
 --   * "up" is the end a positive input drives toward, whatever way the part was modelled -- the
---     rule that read the Kubota SVL's lift upside down was a geometric one.
+--     rule that read the Kubota SVL's lift upside down was a geometric one;
+--   * a front-loader axis counts only on a machine that is part of a loader -- tractors bind doors to
+--     them (issue #175).
 
 if ValueMapper == nil then
   dofile("src/mapper/ValueMapper.lua")
@@ -171,8 +173,14 @@ describe("VDT.LoaderCylinders", function()
     rawset(_G, "Cylindered", nil)
   end)
 
-  local function machine(tools, states)
-    return { rootNode = 1, spec_cylindered = { movingTools = tools }, states = states }
+  -- A front loader by default: it carries the joint its tool hangs on, which is what admits it.
+  local function machine(tools, states, joints)
+    return {
+      rootNode = 1,
+      spec_cylindered = { movingTools = tools },
+      spec_attacherJoints = { attacherJoints = joints or { { jointType = JOINT.frontloader } } },
+      states = states,
+    }
   end
 
   -- A rotating cylinder whose positive input drives toward `toward` ("max" or "min"), the two ways the
@@ -263,6 +271,29 @@ describe("VDT.LoaderCylinders", function()
       VDT.LoaderCylinders.collect(
         machine({ crane, unbound, unconfigured }, { [crane] = 0.5, [unbound] = 0.5, [unconfigured] = 0.5 })
       )
+    )
+  end)
+
+  it("ignores a tractor that borrows the loader axes for its doors and armrests", function()
+    -- John Deere 3x50 (issue #175): doorLeft on AXIS_FRONTLOADER_ARM, armrest on ARM2. Its only
+    -- loader-ish joint is the loader's MOUNT, which no tool hangs on.
+    local door = { axis = "AXIS_FRONTLOADER_ARM", animName = "door", animSpeed = -1, invertAxis = true }
+    local armrest = { axis = "AXIS_FRONTLOADER_ARM2", animName = "armrest", animSpeed = 1 }
+    local tractor = machine({ door, armrest }, { [door] = 0, [armrest] = 0 }, {
+      { jointType = JOINT.implement },
+      { jointType = JOINT.attachableFrontloader },
+    })
+    assert.is_nil(VDT.LoaderCylinders.collect(tractor))
+  end)
+
+  it("keeps the cylinder of a tool hanging on a loader, which carries no tool joint of its own", function()
+    local clamp = rotating("AXIS_FRONTLOADER_TOOL2", "max")
+    local grab = tool("frontloader")
+    grab.spec_cylindered = { movingTools = { clamp } }
+    grab.states = { [clamp] = 1 }
+    assert.are.same(
+      { { role = "AUX", axis = "AXIS_FRONTLOADER_TOOL2", travel = 1 } },
+      VDT.LoaderCylinders.collect(grab)
     )
   end)
 
