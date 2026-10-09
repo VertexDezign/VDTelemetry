@@ -158,19 +158,24 @@ class LoaderModelTest {
   fun aMuckGrabsClampAndAHighTipShareTheirAxisAndTheirIcon() {
     // Issue #175. The Albutt Gabelzange (a muck grab on a Stoll Super 1) and the Paladin high-tip bucket
     // on the Kubota SVL are both shovels with a TOOL2 cylinder whose control carries TOOL_OPEN_CLOSE —
-    // which is why the mod tells the high tip apart by what it carries (role TIP), not by its icon.
-    // Both captured at export 32, before TIP existed, so both still read AUX here.
+    // which is why the mod tells the high tip apart by what it carries, not by its icon.
     val grab = toolOf("frontLoader_manureFork_grab")
     val bucket = toolOf("skidSteer_highTip")
     for (tool in listOf(grab, bucket)) {
       assertEquals(LoaderToolKind.SHOVEL, tool.loaderTool!!.kind)
       val cylinder = tool.loaderCylinders.single()
-      assertEquals(LoaderCylinderRole.AUX, cylinder.role)
       assertEquals("AXIS_FRONTLOADER_TOOL2", cylinder.axis)
       assertEquals("TOOL_OPEN_CLOSE", cylinder.icon)
     }
+    // The grab's clamp, open at 1 (seen in game), predates TIP and stays AUX either way.
+    assertEquals(LoaderCylinderRole.AUX, grab.loaderCylinders.single().role)
     assertEquals(1f, grab.loaderCylinders.single().travel)
-    assertEquals(0.588f, bucket.loaderCylinders.single().travel)
+    // The high tip carries the bucket, so it is TIP: 37% out, it has turned the bucket 33.3 degrees nose
+    // down from its travel-0 rest (the side view drawn from it matched the game).
+    val tip = bucket.loaderCylinders.single()
+    assertEquals(LoaderCylinderRole.TIP, tip.role)
+    assertEquals(0.37f, tip.travel)
+    assertEquals(-33.3f, tip.angle)
   }
 
   @Test

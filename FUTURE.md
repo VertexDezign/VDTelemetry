@@ -622,11 +622,6 @@ level on every tool tried, so automatic level detection is not wanted.
   call, not a data gap.
 - **A tile pinned to a rig position cannot set level.** The command is addressed by the rig diagram's path to the
   tool, and a pinned ISOBUS tile has no diagram; the Loader app always has one.
-- **A high tip's resting end is argued, not captured** (issue #175). A tool cylinder that carries the bucket is
-  exported as `TIP` with the angle it has turned the bucket from its travel-0 end, and travel 0 is taken as the
-  bucket's normal position by analogy with the grabs, where 1 is open (the Albutt Gabelzange, captured at 1 open).
-  `skidSteer_highTip.json` is mid-stroke and predates `TIP`. Wanted: the Paladin high-tip bucket captured at both
-  ends on the next export — at rest the side view must show no extra tip, fully out the most.
 
 ## Captures wanted as fixtures
 

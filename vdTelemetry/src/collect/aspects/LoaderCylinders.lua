@@ -60,9 +60,9 @@
 -- the bucket, so the shovel's own nodes hang below its moving node; a clamp moves an arm above a
 -- bucket that stays put. Such a cylinder is exported as TIP, with `angle`, how far it has turned the
 -- bucket from its travel-0 end in degrees nose up -- which the tool's root-node pitch
--- (VDT.LoaderTool) cannot see, the root being the frame the bucket turns on. Travel 0 is taken as the
--- bucket's normal position, by analogy with the grabs, where a positive input opens -- argued, not
--- yet captured at both ends.
+-- (VDT.LoaderTool) cannot see, the root being the frame the bucket turns on. Travel 0 is the bucket's
+-- normal position, as a positive input opens a grab: skidSteer_highTip.json reads -33.3 degrees at
+-- 0.37, and the side view drawn from it matched the bucket in game.
 --
 -- ICON. An AUX cylinder's role is the tool's own, and the axis name does not say it: TOOL2 is the
 -- clamp on a bale grab and a muck grab, the tine spread on a pallet fork, the high tip on a skid
