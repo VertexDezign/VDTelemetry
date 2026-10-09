@@ -99,6 +99,98 @@ class LoaderTest {
   }
 
   @Test
+  fun aClampIsNamedByItsIconAndAnUnnamedToolCylinderIsNot() {
+    // The Albutt muck grab's top-hold and a pallet fork's tine spread are both TOOL2; only the icon
+    // the author gave the control tells them apart.
+    val clamp = LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.6f, icon = "GRABBER_OPEN_CLOSE")
+    val spread =
+      LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.3f, icon = "WORKING_WIDTH_TRANSLATE_X")
+    assertTrue(clamp.isClamp)
+    assertFalse(spread.isClamp)
+    assertEquals("Clamp", cylinderLabel(clamp))
+    assertEquals("Width", cylinderLabel(spread))
+    assertEquals("Tool 2", cylinderLabel(spread.copy(icon = null)))
+  }
+
+  @Test
+  fun aShovelGetsATopArmOnlyWhenItHasAClamp() {
+    val clamp = LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.6f, icon = "TOOL_OPEN_CLOSE")
+    fun rigWith(cylinder: LoaderCylinder) = loaderRigOf(
+      listOf(
+        null to Implement(name = "623R", loaderCylinders = listOf(lift, tilt)).isoBus(),
+        null to Implement(
+          name = "Muck grab",
+          loaderTool = LoaderTool(LoaderJoint.FRONTLOADER, kind = LoaderToolKind.SHOVEL),
+          loaderCylinders = listOf(cylinder),
+        ).isoBus(),
+      ),
+    )!!
+    assertEquals(0.6f, rigWith(clamp).clamp?.travel)
+    // A high-tip bucket's TOOL2 carries no open/close icon, so it is no clamp and draws none.
+    assertNull(rigWith(clamp.copy(icon = null)).clamp)
+
+    val frame = glyphFrame(200f, 200f, false)
+    val tip = armTip(frame, 0.5f, 0f)
+    assertEquals(1, toolStrokes(frame, tip, 0f, LoaderToolKind.SHOVEL).size)
+    assertEquals(2, toolStrokes(frame, tip, 0f, LoaderToolKind.SHOVEL, clamp = 0.6f).size)
+  }
+
+  @Test
+  fun aHighTipTurnsTheBucketPastItsFrameAndIsNoClamp() {
+    // Paladin on a Kubota SVL (issue #175): the root node is the frame, so its pitch misses the tip.
+    val tip =
+      LoaderCylinder(LoaderCylinderRole.TIP, "AXIS_FRONTLOADER_TOOL2", 0.588f, icon = "TOOL_OPEN_CLOSE", angle = -53f)
+    val rig = loaderRigOf(
+      listOf(
+        null to Implement(
+          name = "Paladin",
+          loaderTool = LoaderTool(LoaderJoint.SKID_STEER, pitch = -1.6f, kind = LoaderToolKind.SHOVEL),
+          loaderCylinders = listOf(tip),
+        ).isoBus(),
+      ),
+    )!!
+    assertNull(rig.clamp)
+    assertEquals(-54.6f, rig.inclination!!, 0.001f)
+    assertEquals("High tip", cylinderLabel(tip))
+  }
+
+  @Test
+  fun aForkliftsForksRideUpItsMastAndItsReachSlidesItForward() {
+    // Hubtex MAXX 45 (issue #174): lift, reach (ARM2), tilt, and the tines' width on TOOL2.
+    val frame = glyphFrame(300f, 200f, telescopic = true, forklift = true)
+    val low = armTip(frame, 0f, 0f, forklift = true)
+    val high = armTip(frame, 1f, 0f, forklift = true)
+    val out = armTip(frame, 0f, 1f, forklift = true)
+    assertEquals(low.x, high.x, "the carriage rides straight up the mast")
+    assertTrue(high.y < low.y)
+    assertTrue(out.x < low.x, "reach moves the mast forward, which is left")
+    assertEquals(low.y, out.y)
+    // A mast tilted back leans its top toward the machine, which is right.
+    assertTrue(mastTop(frame, 0f, lean = 10f).x > mastTop(frame, 0f).x)
+
+    val rig = loaderRigOf(
+      listOf(
+        null to Vehicle(
+          name = "MAXX 45",
+          loaderTool = LoaderTool(LoaderJoint.FORKLIFT, kind = LoaderToolKind.FORK),
+          loaderCylinders = listOf(
+            LoaderCylinder(LoaderCylinderRole.TELESCOPE, "AXIS_FRONTLOADER_ARM2", 0f, icon = "IMPLEMENT_TRANS_X"),
+            LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.5f, icon = "WORKING_WIDTH_TRANSLATE_X"),
+          ),
+        ).isoBus(),
+      ),
+    )!!
+    assertTrue(rig.forklift)
+    assertEquals(
+      "Side shift",
+      cylinderLabel(LoaderCylinder(LoaderCylinderRole.SHIFT, "AXIS_FRONTLOADER_ARM2", 0.5f), forklift = true),
+    )
+    assertEquals(listOf("Reach", "Width"), rig.cylinders.map { cylinderLabel(it, rig.forklift) })
+    // On a telehandler the same axis runs the boom out.
+    assertEquals("Telescope", cylinderLabel(rig.cylinders.first()))
+  }
+
+  @Test
   fun withoutAReferenceTheRootNodeIsLevelAndTheScreenSaysSo() {
     val rig = loaderRigOf(rigMachines(frontLoader()).map { null to it })!!
     assertEquals(-0.69f, rig.reading?.inclination)
@@ -122,16 +214,32 @@ class LoaderTest {
     // the control-group chips. Every corner of the lift, telescope and tool angle, on a wide, a tall and
     // a square canvas, must land inside it.
     for ((w, h) in listOf(400f to 120f, 120f to 400f, 200f to 200f)) {
-      for (telescopic in listOf(false, true)) {
-        val frame = glyphFrame(w, h, telescopic)
+      for ((telescopic, forklift) in listOf(false to false, true to false, false to true, true to true)) {
+        val frame = glyphFrame(w, h, telescopic, forklift)
         assertTrue(frame.ground <= h, "ground at ${frame.ground} below a $h canvas")
         for (lift in listOf(0f, 0.5f, 1f)) {
           for (telescope in if (telescopic) listOf(0f, 1f) else listOf(0f)) {
-            val tip = armTip(frame, lift, telescope)
+            val tip = armTip(frame, lift, telescope, forklift)
+            if (forklift) {
+              // The mast leans with the forks on a Jungheinrich; any lean stays in the box.
+              for (lean in listOf(-90f, 0f, 90f)) {
+                listOf(
+                  mastFoot(frame, telescope),
+                  mastTop(frame, telescope, lean),
+                  armTip(frame, lift, telescope, true, lean),
+                )
+                  .forEach { p ->
+                    assertTrue(
+                      p.x in 0f..w && p.y in 0f..h,
+                      "mast ($p) out of the box, lean $lean, reach $telescope on $w x $h",
+                    )
+                  }
+              }
+            }
             for (angle in listOf(-90f, -45f, 0f, 45f, 90f)) {
               for (kind in LoaderToolKind.entries + null) {
                 for (open in listOf(0f, 1f)) {
-                  val drawn = toolStrokes(frame, tip, angle, kind, open).flatten() +
+                  val drawn = toolStrokes(frame, tip, angle, kind, open, clamp = open).flatten() +
                     shovelFill(frame, tip, angle, 1f).orEmpty() + tip + frame.pivot
                   drawn.forEach { p ->
                     val at = "$kind open $open, lift $lift, telescope $telescope, angle $angle on $w x $h"

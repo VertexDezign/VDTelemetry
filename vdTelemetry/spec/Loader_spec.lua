@@ -116,6 +116,64 @@ describe("VDT.LoaderTool", function()
     assert.are.equal(0.42, m.distance)
   end)
 
+  describe("a forklift", function()
+    -- Hubtex MAXX 45 (issue #174): the forks are a component of the machine, with the
+    -- DynamicMountAttacher node on them, and no attacher joint anywhere.
+    local function forklift(extra)
+      local object = {
+        rootNode = 1,
+        vehicleNodes = { [1] = {}, [30] = {} },
+        spec_dynamicMountAttacher = { dynamicMountAttacherNode = 30 },
+        spec_cylindered = { movingTools = { { axis = "AXIS_FRONTLOADER_ARM" } } },
+      }
+      for k, v in pairs(extra or {}) do
+        object[k] = v
+      end
+      object.rootVehicle = {
+        getChildVehicles = function()
+          return { object }
+        end,
+      }
+      return object
+    end
+
+    it("is read off its forks' mount node, as a fork on joint FORKLIFT", function()
+      stubEngine(0.5, { down = { { node = 1, distance = 0.2 }, { node = 99, distance = 1.1 } } })
+      local measured = {}
+      local direction = localDirectionToWorld
+      rawset(_G, "localDirectionToWorld", function(node, ...)
+        measured[#measured + 1] = node
+        return direction(node, ...)
+      end)
+      local m = VDT.LoaderTool.collect(forklift())
+      assert.are.equal("FORKLIFT", m.joint)
+      assert.are.equal("FORK", m.kind)
+      assert.are.equal(30, m.pitch)
+      -- Its own chassis (node 1) is part of the rig and is looked through.
+      assert.are.equal(1.1, m.distance)
+      assert.are.same({ 30 }, measured)
+    end)
+
+    it("is not a telehandler, which carries a tool joint, nor a trailer with nothing to lift", function()
+      stubEngine(0, {})
+      local telehandler = forklift({
+        spec_attacherJoints = { attacherJoints = { { jointType = JOINT.telehandler } } },
+      })
+      assert.is_nil(VDT.LoaderTool.collect(telehandler))
+      assert.is_nil(VDT.LoaderTool.collect(forklift({ spec_cylindered = { movingTools = {} } })))
+      -- A front-loader axis that is not the lift (a ramp, say) does not make it one, nor a disabled lift.
+      local ramp = { movingTools = { { axis = "AXIS_FRONTLOADER_TOOL2" } } }
+      assert.is_nil(VDT.LoaderTool.collect(forklift({ spec_cylindered = ramp })))
+      local disabled = { movingTools = { { axis = "AXIS_FRONTLOADER_ARM", hasRequiredConfigurations = false } } }
+      assert.is_nil(VDT.LoaderTool.collect(forklift({ spec_cylindered = disabled })))
+    end)
+
+    it("lets its cylinders through the loader gate", function()
+      stubEngine(0, {})
+      assert.is_true(VDT.LoaderCylinders.isLoaderPart(forklift()))
+    end)
+  end)
+
   it("reads pitch positive nose up", function()
     -- Z axis pointing up at 30 degrees: dy = sin(30) = 0.5.
     stubEngine(0.5, {})
@@ -295,6 +353,115 @@ describe("VDT.LoaderCylinders", function()
       { { role = "AUX", axis = "AXIS_FRONTLOADER_TOOL2", travel = 1 } },
       VDT.LoaderCylinders.collect(grab)
     )
+  end)
+
+  it("names the control's engine icon, and leaves out one the mod drew itself", function()
+    -- Cylindered prefixes a non-engine icon with the mod's environment, so it is not in AXIS_ICON.
+    rawset(_G, "InputHelpElement", { AXIS_ICON = { GRABBER_OPEN_CLOSE = "GRABBER_OPEN_CLOSE" } })
+    local clamp = rotating("AXIS_FRONTLOADER_TOOL2", "max")
+    clamp.axisActionIcon = "GRABBER_OPEN_CLOSE"
+    local own = rotating("AXIS_FRONTLOADER_TOOL3", "max")
+    own.axisActionIcon = "FS25_someTool.MY_ICON"
+    local out = VDT.LoaderCylinders.collect(machine({ clamp, own }, { [clamp] = 1, [own] = 0 }))
+    rawset(_G, "InputHelpElement", nil)
+    assert.are.equal("GRABBER_OPEN_CLOSE", out[1].icon)
+    assert.is_nil(out[2].icon)
+  end)
+
+  describe("a tool cylinder that carries the bucket", function()
+    -- Node tree: 10 the tool's frame, 11 the high-tip pivot below it, 12 the shovel node below that; 20
+    -- a clamp arm beside the bucket. getParent walks it.
+    local parents = { [11] = 10, [12] = 11, [20] = 10, [10] = 0 }
+    before_each(function()
+      rawset(_G, "getParent", function(node)
+        return parents[node] or 0
+      end)
+    end)
+    after_each(function()
+      rawset(_G, "getParent", nil)
+    end)
+
+    local function bucket(tools, states)
+      local object = machine(tools, states, {})
+      object.spec_attachable = {}
+      object.getActiveInputAttacherJoint = function()
+        return { jointType = JOINT.frontloader }
+      end
+      object.spec_shovel = { shovelNodes = { { node = 12 } } }
+      return object
+    end
+
+    it("is a TIP, turned nose down from its travel-0 end, where a clamp beside it stays AUX", function()
+      -- Paladin high-tip bucket and Albutt muck grab (issue #175): both TOOL2, both TOOL_OPEN_CLOSE.
+      local tip = { axis = "AXIS_FRONTLOADER_TOOL2", node = 11, rotMin = 0, rotMax = math.rad(90), rotSpeed = 0.001 }
+      tip.curRot = { math.rad(45), 0, 0 }
+      local clamp = { axis = "AXIS_FRONTLOADER_TOOL3", node = 20, rotMin = 0, rotMax = 1, rotSpeed = 0.001 }
+      local out = VDT.LoaderCylinders.collect(bucket({ tip, clamp }, { [tip] = 0.5, [clamp] = 1 }))
+      assert.are.same({ role = "TIP", axis = "AXIS_FRONTLOADER_TOOL2", travel = 0.5, angle = -45 }, out[1])
+      assert.are.equal("AUX", out[2].role)
+      assert.is_nil(out[2].angle)
+    end)
+
+    it("reads the turn against the tool's own X axis, whichever way the pivot was modelled", function()
+      -- The pivot's X axis pointing the other way across the tool: the same input turns it negative.
+      rawset(_G, "localDirectionToWorld", function(node)
+        if node == 11 then
+          return -1, 0, 0
+        end
+        return 1, 0, 0
+      end)
+      local tip = { axis = "AXIS_FRONTLOADER_TOOL2", node = 11, rotMin = math.rad(-90), rotMax = 0, rotSpeed = -0.001 }
+      tip.curRot = { math.rad(-30), 0, 0 }
+      local out = VDT.LoaderCylinders.collect(bucket({ tip }, { [tip] = 0.667 }))
+      assert.are.same({ role = "TIP", axis = "AXIS_FRONTLOADER_TOOL2", travel = 0.333, angle = -30 }, out[1])
+    end)
+  end)
+
+  describe("on a forklift's mast", function()
+    -- The two captured forklifts, by node: what hangs below what decides what tilts and what shifts.
+    --   Jungheinrich EFG S50: 41 tilt (arm01) > 42 lift (arm02) > 43 sideshift (tineHolder)
+    --   Hubtex MAXX 45:       51 reach (armSlide) > 52 lift (arm01) > 53 tilt (forkRot)
+    local parents = { [42] = 41, [43] = 42, [52] = 51, [53] = 52 }
+    before_each(function()
+      rawset(_G, "getParent", function(node)
+        return parents[node] or 0
+      end)
+    end)
+    after_each(function()
+      rawset(_G, "getParent", nil)
+    end)
+
+    local function forklift(tools, states)
+      local object = machine(tools, states, {})
+      object.spec_dynamicMountAttacher = { dynamicMountAttacherNode = 99 }
+      return object
+    end
+    local function anim(axis, node)
+      return { axis = axis, node = node, animName = axis, animSpeed = 0.001 }
+    end
+
+    it("leans the whole mast on the Jungheinrich and shifts its carriage sideways", function()
+      local tilt, lift, shift =
+        anim("AXIS_FRONTLOADER_TOOL", 41), anim("AXIS_FRONTLOADER_ARM", 42), anim("AXIS_FRONTLOADER_ARM2", 43)
+      local out =
+        VDT.LoaderCylinders.collect(forklift({ lift, tilt, shift }, { [lift] = 0, [tilt] = 1, [shift] = 0.5 }))
+      assert.are.same({ "LIFT", "TILT", "SHIFT" }, { out[1].role, out[2].role, out[3].role })
+      assert.is_true(out[2].carriesLift)
+    end)
+
+    it("tilts only the forks on the Hubtex, and its ARM2 is the reach", function()
+      local reach, lift, tilt =
+        anim("AXIS_FRONTLOADER_ARM2", 51), anim("AXIS_FRONTLOADER_ARM", 52), anim("AXIS_FRONTLOADER_TOOL", 53)
+      local out = VDT.LoaderCylinders.collect(forklift({ lift, tilt, reach }, { [lift] = 0, [tilt] = 1, [reach] = 0 }))
+      assert.are.same({ "LIFT", "TILT", "TELESCOPE" }, { out[1].role, out[2].role, out[3].role })
+      assert.is_nil(out[2].carriesLift)
+    end)
+
+    it("keeps a telehandler's boom a telescope, though it hangs below the lift", function()
+      local lift, boom = anim("AXIS_FRONTLOADER_ARM", 42), anim("AXIS_FRONTLOADER_ARM2", 43)
+      local telehandler = machine({ lift, boom }, { [lift] = 0, [boom] = 1 }, { { jointType = JOINT.telehandler } })
+      assert.are.equal("TELESCOPE", VDT.LoaderCylinders.collect(telehandler)[2].role)
+    end)
   end)
 
   it("clamps a travel outside 0..1 before turning it", function()

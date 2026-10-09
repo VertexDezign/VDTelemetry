@@ -17,6 +17,7 @@ import net.vertexdezign.vdt.model.Vehicle
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -32,10 +33,10 @@ import kotlin.test.assertTrue
  * files are the third, taken after the mod turned lift and tilt round.
  */
 class LoaderModelTest {
-  private fun captureText(name: String): String {
+  private fun captureText(name: String, folder: String = "loader"): String {
     var dir: File? = File(".").absoluteFile
     while (dir != null) {
-      val candidate = File(dir, "examples/json/telemetry/vanilla/loader/$name.json")
+      val candidate = File(dir, "examples/json/telemetry/vanilla/$folder/$name.json")
       if (candidate.exists()) return candidate.readText()
       dir = dir.parentFile
     }
@@ -152,6 +153,52 @@ class LoaderModelTest {
       "telehandler",
       "skidSteer",
     ).forEach { assertEquals(true, toolOf(it).selection?.selected, it) }
+  }
+
+  @Test
+  fun aMuckGrabsClampAndAHighTipShareTheirAxisAndTheirIcon() {
+    // Issue #175. The Albutt Gabelzange (a muck grab on a Stoll Super 1) and the Paladin high-tip bucket
+    // on the Kubota SVL are both shovels with a TOOL2 cylinder whose control carries TOOL_OPEN_CLOSE —
+    // which is why the mod tells the high tip apart by what it carries, not by its icon.
+    val grab = toolOf("frontLoader_manureFork_grab")
+    val bucket = toolOf("skidSteer_highTip")
+    for (tool in listOf(grab, bucket)) {
+      assertEquals(LoaderToolKind.SHOVEL, tool.loaderTool!!.kind)
+      val cylinder = tool.loaderCylinders.single()
+      assertEquals("AXIS_FRONTLOADER_TOOL2", cylinder.axis)
+      assertEquals("TOOL_OPEN_CLOSE", cylinder.icon)
+    }
+    // The grab's clamp, open at 1 (seen in game), predates TIP and stays AUX either way.
+    assertEquals(LoaderCylinderRole.AUX, grab.loaderCylinders.single().role)
+    assertEquals(1f, grab.loaderCylinders.single().travel)
+    // The high tip carries the bucket, so it is TIP: 37% out, it has turned the bucket 33.3 degrees nose
+    // down from its travel-0 rest (the side view drawn from it matched the game).
+    val tip = bucket.loaderCylinders.single()
+    assertEquals(LoaderCylinderRole.TIP, tip.role)
+    assertEquals(0.37f, tip.travel)
+    assertEquals(-33.3f, tip.angle)
+  }
+
+  @Test
+  fun aForkliftsMastIsReadOffWhatCarriesWhatNotOffItsAxes() {
+    // Issue #174: a Jungheinrich EFG S50 (base game) and a Hubtex MAXX 45 with a pallet on its forks.
+    // Both report the forks themselves, on joint FORKLIFT, and both bind ARM2 with the same icon — yet it
+    // shifts the Jungheinrich's carriage sideways and slides the Hubtex's whole mast forward, and only the
+    // Jungheinrich's tilt leans its mast. The mod reads both off which cylinder carries the lift.
+    fun forklift(name: String) = VdtParser.parseJson(captureText(name, "forklift")).vehicle!!
+    fun Vehicle.cylinder(axis: String) = loaderCylinders.single { it.axis == axis }
+    for (name in listOf("forklift", "hubtex_with_pallet")) {
+      val machine = forklift(name)
+      assertEquals(LoaderJoint.FORKLIFT, machine.loaderTool!!.joint, name)
+      assertEquals(LoaderToolKind.FORK, machine.loaderTool!!.kind, name)
+      assertEquals("IMPLEMENT_TRANS_X", machine.cylinder("AXIS_FRONTLOADER_ARM2").icon, name)
+    }
+    val jungheinrich = forklift("forklift")
+    assertEquals(LoaderCylinderRole.SHIFT, jungheinrich.cylinder("AXIS_FRONTLOADER_ARM2").role)
+    assertTrue(jungheinrich.cylinder("AXIS_FRONTLOADER_TOOL").carriesLift)
+    val hubtex = forklift("hubtex_with_pallet")
+    assertEquals(LoaderCylinderRole.TELESCOPE, hubtex.cylinder("AXIS_FRONTLOADER_ARM2").role)
+    assertFalse(hubtex.cylinder("AXIS_FRONTLOADER_TOOL").carriesLift)
   }
 
   @Test

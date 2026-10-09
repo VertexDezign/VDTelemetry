@@ -337,7 +337,7 @@
 -- RAW: no node is guaranteed parallel to a shovel floor, so "level" is a reference the player sets.
 -- See collect/aspects/LoaderTool.lua.
 ---@class LoaderToolModel
----@field joint string FRONTLOADER | TELEHANDLER | WHEEL_LOADER | SKID_STEER | LOADER_FORK
+---@field joint string FRONTLOADER | TELEHANDLER | WHEEL_LOADER | SKID_STEER | LOADER_FORK | FORKLIFT
 ---@field kind string SHOVEL | FORK | BALE_GRAB | LOG_GRAB | OTHER -- by tool specialization, see LoaderTool.kindOf
 ---@field pitch number
 ---@field distance number?
@@ -355,6 +355,9 @@
 -- (LIFT), curled back (TILT) or out (TELESCOPE); AUX keeps the engine's direction.
 -- See collect/aspects/LoaderCylinders.lua.
 ---@class LoaderCylinderModel
----@field role string LIFT | TELESCOPE | TILT | AUX
+---@field role string LIFT | TELESCOPE | SHIFT | TILT | TIP | AUX
 ---@field axis string the engine's input axis name, e.g. AXIS_FRONTLOADER_ARM
 ---@field travel number
+---@field icon string? the control's engine icon (InputHelpElement.AXIS_ICON), e.g. GRABBER_OPEN_CLOSE
+---@field angle number? TIP only: degrees nose up the bucket is turned from its travel-0 end
+---@field carriesLift boolean? TILT only: the tilt carries the lift, so the whole mast leans (a forklift)

@@ -1,0 +1,176 @@
+{
+  "vehicle": {
+    "ai": {
+      "active": false
+    },
+    "odometer": {
+      "value": 0.3,
+      "unit": "km"
+    },
+    "mass": {
+      "value": 8.258,
+      "empty": 7.858
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 11
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 2,
+      "unit": "%"
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "type": "FS25_hubtexMaxX45.hubtexMaxx45",
+    "loaderTool": {
+      "joint": "FORKLIFT",
+      "kind": "FORK",
+      "distance": 0.019,
+      "pitch": 0.09
+    },
+    "motor": {
+      "rpm": {
+        "value": 850,
+        "max": 2200,
+        "min": 0
+      },
+      "direction": "FORWARD",
+      "parkingBrake": false,
+      "temperatur": {
+        "value": 34,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "state": "ON",
+      "maxSpeed": {
+        "backward": 11,
+        "forward": 11
+      },
+      "awd": true,
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "diffLock": {
+        "front": false,
+        "back": false
+      },
+      "load": {
+        "value": 23.55,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "fillUnits": {
+        "fuel": {
+          "type": "electriccharge",
+          "title": "Elektrische Ladung",
+          "fillLevelPercentage": 100,
+          "value": 49,
+          "usage": 1.73,
+          "capacity": 49,
+          "unit": "kWh"
+        }
+      }
+    },
+    "loaderCylinders": [
+      {
+        "icon": "FORKLIFT_TRANSLATE_Y",
+        "role": "LIFT",
+        "travel": 0.148,
+        "axis": "AXIS_FRONTLOADER_ARM"
+      },
+      {
+        "icon": "FORKLIFT_ROTATE_X",
+        "role": "TILT",
+        "travel": 0.33,
+        "axis": "AXIS_FRONTLOADER_TOOL"
+      },
+      {
+        "icon": "IMPLEMENT_TRANS_X",
+        "role": "TELESCOPE",
+        "travel": 0.273,
+        "axis": "AXIS_FRONTLOADER_ARM2"
+      },
+      {
+        "icon": "WORKING_WIDTH_TRANSLATE_X",
+        "role": "AUX",
+        "travel": 0.122,
+        "axis": "AXIS_FRONTLOADER_TOOL2"
+      }
+    ],
+    "name": "Hubtex MAXX 45",
+    "gps": {
+      "enabled": false,
+      "heading": 351,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "brand": {
+      "image": "C:/users/steamuser/Documents/My Games/FarmingSimulator2025/mods/FS25_hubtexMaxX45/data/store/brands/brand_hubtex.png",
+      "name": "HUBTEX",
+      "title": "Hubtex"
+    },
+    "operatingTime": {
+      "value": "0.12",
+      "unit": "h"
+    },
+    "schema": {
+      "name": "LOADER",
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    },
+    "selection": {
+      "selectable": true,
+      "selected": true
+    }
+  },
+  "version": "32",
+  "environment": {
+    "date": "01.09.2024",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 11,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "time": "09:00",
+    "pda": {
+      "filename": "S:/steamapps/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
+      "player": {
+        "heading": 351,
+        "posX": 0.44975383207202,
+        "farmId": 1,
+        "posZ": 0.42810674756765,
+        "headingUnit": "°"
+      }
+    }
+  }
+}

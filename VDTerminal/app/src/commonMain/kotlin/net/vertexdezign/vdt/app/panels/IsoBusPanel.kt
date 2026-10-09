@@ -1248,7 +1248,7 @@ internal fun Figure(label: String, value: String, sub: String?, compact: Boolean
 }
 
 /** A line box exactly as tall as its type, centred and trimmed. See [Figure]. */
-private fun figureStyle(size: TextUnit, color: Color, weight: FontWeight) = TextStyle(
+internal fun figureStyle(size: TextUnit, color: Color, weight: FontWeight) = TextStyle(
   color = color,
   fontSize = size,
   fontWeight = weight,
