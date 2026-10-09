@@ -331,7 +331,13 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     player's "this is level" for that tool model, set by the new setLoaderReference command and kept
 --     in modSettings/<modName>/loaderReferences.xml; `loaderTool.kind`, which tool it is (shovel, fork,
 --     bale grab, log grab) by its specialization. Additive.
-VDTelemetry.VERSION = 30
+-- 31: held for the Advanced Damage System work (branch ads-rework), like 28 and 29.
+-- 32: `loaderCylinders[].icon` -- the engine icon the author gave the cylinder's control, the only
+--     place a tool cylinder says what it does: a clamp opens and closes, a pallet fork's tines
+--     spread. Lets a terminal draw a muck grab's top clamp without drawing one on every fork. And
+--     role TIP, with `angle`, for a tool cylinder that carries the bucket itself (a high-tip bucket),
+--     which the icon cannot tell from a clamp. Additive (a terminal that does not know TIP reads AUX).
+VDTelemetry.VERSION = 32
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

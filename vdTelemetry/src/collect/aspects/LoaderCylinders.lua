@@ -54,6 +54,24 @@
 -- joint, so the tractor stays out with or without a loader on it -- the arm is the loader's to report.
 -- A machine with a bucket built in and no tool joint would be left out too; none has turned up yet.
 --
+-- TIP. A high-tip bucket (the Paladin on the Kubota SVL, issue #175) turns the bucket on its own
+-- frame with a TOOL2 cylinder -- whose control carries TOOL_OPEN_CLOSE, the same icon as a muck grab's
+-- clamp, so the icon cannot tell them apart. What can is what the cylinder carries: a high tip moves
+-- the bucket, so the shovel's own nodes hang below its moving node; a clamp moves an arm above a
+-- bucket that stays put. Such a cylinder is exported as TIP, with `angle`, how far it has turned the
+-- bucket from its travel-0 end in degrees nose up -- which the tool's root-node pitch
+-- (VDT.LoaderTool) cannot see, the root being the frame the bucket turns on. Travel 0 is taken as the
+-- bucket's normal position, by analogy with the grabs, where a positive input opens -- argued, not
+-- yet captured at both ends.
+--
+-- ICON. An AUX cylinder's role is the tool's own, and the axis name does not say it: TOOL2 is the
+-- clamp on a bale grab and a muck grab, the tine spread on a pallet fork, the high tip on a skid
+-- steer's bucket. The one place the author does say is the icon they gave the control, out of the
+-- engine's fixed set (InputHelpElement.AXIS_ICON: GRABBER_OPEN_CLOSE, TOOL_OPEN_CLOSE,
+-- WORKING_WIDTH_TRANSLATE_X, ...), so it is exported as `icon` and the panel decides from it what to
+-- draw. An icon of the mod's own (Cylindered prefixes it with the mod's environment) names nothing a
+-- terminal could know, and is left out.
+--
 -- Not a world reading. The tilt cylinder's travel says where the cylinder is, not whether the shovel
 -- is level -- the arm under it moves the horizon -- which is what VDT.LoaderTool is for.
 --
@@ -136,6 +154,67 @@ local function orient(tool, role, state)
   return sense > 0 and state or 1 - state
 end
 
+---Whether `node` is `ancestor` or hangs below it.
+---@param node number
+---@param ancestor number
+---@return boolean
+local function isBelow(node, ancestor)
+  local depth = 0
+  while node ~= nil and node ~= 0 and depth < 64 do
+    if node == ancestor then
+      return true
+    end
+    node = getParent(node)
+    depth = depth + 1
+  end
+  return false
+end
+
+---Whether the tool cylinder moves the bucket itself: one of the shovel's own nodes hangs below it.
+---See TIP in the header.
+---@param object table
+---@param tool table
+---@return boolean
+local function carriesBucket(object, tool)
+  local shovel = object.spec_shovel
+  if shovel == nil or shovel.shovelNodes == nil or tool.node == nil then
+    return false
+  end
+  for _, shovelNode in ipairs(shovel.shovelNodes) do
+    if shovelNode.node ~= nil and isBelow(shovelNode.node, tool.node) then
+      return true
+    end
+  end
+  return false
+end
+
+---How far a tip cylinder has turned the bucket from its travel-0 end, in degrees, positive NOSE UP
+---against the tool's root node -- or nil where it is not a rotation about the node's X axis. A
+---positive rotation about X turns +Z down, and the node's X axis may point either way across the
+---tool, so the sign is taken against the root's. See TIP in the header.
+---@param object table
+---@param tool table
+---@return number|nil
+local function tipAngle(object, tool)
+  local sense = inputSense(tool)
+  if
+    sense == nil
+    or tool.rotMin == nil
+    or tool.rotMax == nil
+    or (tool.rotationAxis or 1) ~= 1
+    or tool.curRot == nil
+    or object.rootNode == nil
+  then
+    return nil
+  end
+  local rest = sense > 0 and tool.rotMin or tool.rotMax
+  local turned = tool.curRot[1] - rest
+  local nx, ny, nz = localDirectionToWorld(tool.node, 1, 0, 0)
+  local rx, ry, rz = localDirectionToWorld(object.rootNode, 1, 0, 0)
+  local across = (nx * rx + ny * ry + nz * rz) >= 0 and 1 or -1
+  return -across * math.deg(turned)
+end
+
 ---Whether `object` is part of a loader: it carries a joint a loader tool hangs on, or hangs on one
 ---itself. See WHICH MACHINES in the header.
 ---@param object table
@@ -148,6 +227,23 @@ function VDT.LoaderCylinders.isLoaderPart(object)
     end
   end
   return VDT.LoaderTool.inputJointOf(object) ~= nil
+end
+
+---The engine's name for the control's icon, or nil when the author gave none or drew their own.
+---See ICON in the header.
+---@param tool table
+---@return string|nil
+local function engineIcon(tool)
+  local icon = tool.axisActionIcon
+  if
+    type(icon) ~= "string"
+    or InputHelpElement == nil
+    or InputHelpElement.AXIS_ICON == nil
+    or InputHelpElement.AXIS_ICON[icon] == nil
+  then
+    return nil
+  end
+  return icon
 end
 
 ---@param object table a vehicle or implement
@@ -181,11 +277,20 @@ function VDT.LoaderCylinders.collect(object)
         travel = orient(tool, role, math.max(0, math.min(1, state)))
       end
       if travel ~= nil then
-        table.insert(out, {
+        local cylinder = {
           role = role,
           axis = axis,
           travel = tonumber(ValueMapper.mapFloat(travel, 3)),
-        })
+          icon = engineIcon(tool),
+        }
+        if role == "AUX" and carriesBucket(object, tool) then
+          cylinder.role = "TIP"
+          local angle = tipAngle(object, tool)
+          if angle ~= nil then
+            cylinder.angle = tonumber(ValueMapper.mapFloat(angle, 1))
+          end
+        end
+        table.insert(out, cylinder)
       end
     end
   end

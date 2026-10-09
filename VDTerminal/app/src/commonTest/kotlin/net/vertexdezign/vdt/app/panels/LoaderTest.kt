@@ -99,6 +99,61 @@ class LoaderTest {
   }
 
   @Test
+  fun aClampIsNamedByItsIconAndAnUnnamedToolCylinderIsNot() {
+    // The Albutt muck grab's top-hold and a pallet fork's tine spread are both TOOL2; only the icon
+    // the author gave the control tells them apart.
+    val clamp = LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.6f, icon = "GRABBER_OPEN_CLOSE")
+    val spread =
+      LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.3f, icon = "WORKING_WIDTH_TRANSLATE_X")
+    assertTrue(clamp.isClamp)
+    assertFalse(spread.isClamp)
+    assertEquals("Clamp", cylinderLabel(clamp))
+    assertEquals("Tool 2", cylinderLabel(spread))
+  }
+
+  @Test
+  fun aShovelGetsATopArmOnlyWhenItHasAClamp() {
+    val clamp = LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.6f, icon = "TOOL_OPEN_CLOSE")
+    fun rigWith(cylinder: LoaderCylinder) = loaderRigOf(
+      listOf(
+        null to Implement(name = "623R", loaderCylinders = listOf(lift, tilt)).isoBus(),
+        null to Implement(
+          name = "Muck grab",
+          loaderTool = LoaderTool(LoaderJoint.FRONTLOADER, kind = LoaderToolKind.SHOVEL),
+          loaderCylinders = listOf(cylinder),
+        ).isoBus(),
+      ),
+    )!!
+    assertEquals(0.6f, rigWith(clamp).clamp?.travel)
+    // A high-tip bucket's TOOL2 carries no open/close icon, so it is no clamp and draws none.
+    assertNull(rigWith(clamp.copy(icon = null)).clamp)
+
+    val frame = glyphFrame(200f, 200f, false)
+    val tip = armTip(frame, 0.5f, 0f)
+    assertEquals(1, toolStrokes(frame, tip, 0f, LoaderToolKind.SHOVEL).size)
+    assertEquals(2, toolStrokes(frame, tip, 0f, LoaderToolKind.SHOVEL, clamp = 0.6f).size)
+  }
+
+  @Test
+  fun aHighTipTurnsTheBucketPastItsFrameAndIsNoClamp() {
+    // Paladin on a Kubota SVL (issue #175): the root node is the frame, so its pitch misses the tip.
+    val tip =
+      LoaderCylinder(LoaderCylinderRole.TIP, "AXIS_FRONTLOADER_TOOL2", 0.588f, icon = "TOOL_OPEN_CLOSE", angle = -53f)
+    val rig = loaderRigOf(
+      listOf(
+        null to Implement(
+          name = "Paladin",
+          loaderTool = LoaderTool(LoaderJoint.SKID_STEER, pitch = -1.6f, kind = LoaderToolKind.SHOVEL),
+          loaderCylinders = listOf(tip),
+        ).isoBus(),
+      ),
+    )!!
+    assertNull(rig.clamp)
+    assertEquals(-54.6f, rig.inclination!!, 0.001f)
+    assertEquals("High tip", cylinderLabel(tip))
+  }
+
+  @Test
   fun withoutAReferenceTheRootNodeIsLevelAndTheScreenSaysSo() {
     val rig = loaderRigOf(rigMachines(frontLoader()).map { null to it })!!
     assertEquals(-0.69f, rig.reading?.inclination)
@@ -131,7 +186,7 @@ class LoaderTest {
             for (angle in listOf(-90f, -45f, 0f, 45f, 90f)) {
               for (kind in LoaderToolKind.entries + null) {
                 for (open in listOf(0f, 1f)) {
-                  val drawn = toolStrokes(frame, tip, angle, kind, open).flatten() +
+                  val drawn = toolStrokes(frame, tip, angle, kind, open, clamp = open).flatten() +
                     shovelFill(frame, tip, angle, 1f).orEmpty() + tip + frame.pivot
                   drawn.forEach { p ->
                     val at = "$kind open $open, lift $lift, telescope $telescope, angle $angle on $w x $h"

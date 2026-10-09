@@ -155,6 +155,25 @@ class LoaderModelTest {
   }
 
   @Test
+  fun aMuckGrabsClampAndAHighTipShareTheirAxisAndTheirIcon() {
+    // Issue #175. The Albutt Gabelzange (a muck grab on a Stoll Super 1) and the Paladin high-tip bucket
+    // on the Kubota SVL are both shovels with a TOOL2 cylinder whose control carries TOOL_OPEN_CLOSE —
+    // which is why the mod tells the high tip apart by what it carries (role TIP), not by its icon.
+    // Both captured at export 32, before TIP existed, so both still read AUX here.
+    val grab = toolOf("frontLoader_manureFork_grab")
+    val bucket = toolOf("skidSteer_highTip")
+    for (tool in listOf(grab, bucket)) {
+      assertEquals(LoaderToolKind.SHOVEL, tool.loaderTool!!.kind)
+      val cylinder = tool.loaderCylinders.single()
+      assertEquals(LoaderCylinderRole.AUX, cylinder.role)
+      assertEquals("AXIS_FRONTLOADER_TOOL2", cylinder.axis)
+      assertEquals("TOOL_OPEN_CLOSE", cylinder.icon)
+    }
+    assertEquals(1f, grab.loaderCylinders.single().travel)
+    assertEquals(0.588f, bucket.loaderCylinders.single().travel)
+  }
+
+  @Test
   fun theCylindersAreOnWhateverOwnsThem() {
     // A front loader's lift and tilt are on the loader, not the tractor; a telehandler's are on the
     // machine itself, with the boom's telescope between them. A pallet fork brings a cylinder of its own.

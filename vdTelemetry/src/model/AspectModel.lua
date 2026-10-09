@@ -355,6 +355,8 @@
 -- (LIFT), curled back (TILT) or out (TELESCOPE); AUX keeps the engine's direction.
 -- See collect/aspects/LoaderCylinders.lua.
 ---@class LoaderCylinderModel
----@field role string LIFT | TELESCOPE | TILT | AUX
+---@field role string LIFT | TELESCOPE | TILT | TIP | AUX
 ---@field axis string the engine's input axis name, e.g. AXIS_FRONTLOADER_ARM
 ---@field travel number
+---@field icon string? the control's engine icon (InputHelpElement.AXIS_ICON), e.g. GRABBER_OPEN_CLOSE
+---@field angle number? TIP only: degrees nose up the bucket is turned from its travel-0 end

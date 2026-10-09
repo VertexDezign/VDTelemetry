@@ -297,6 +297,68 @@ describe("VDT.LoaderCylinders", function()
     )
   end)
 
+  it("names the control's engine icon, and leaves out one the mod drew itself", function()
+    -- Cylindered prefixes a non-engine icon with the mod's environment, so it is not in AXIS_ICON.
+    rawset(_G, "InputHelpElement", { AXIS_ICON = { GRABBER_OPEN_CLOSE = "GRABBER_OPEN_CLOSE" } })
+    local clamp = rotating("AXIS_FRONTLOADER_TOOL2", "max")
+    clamp.axisActionIcon = "GRABBER_OPEN_CLOSE"
+    local own = rotating("AXIS_FRONTLOADER_TOOL3", "max")
+    own.axisActionIcon = "FS25_someTool.MY_ICON"
+    local out = VDT.LoaderCylinders.collect(machine({ clamp, own }, { [clamp] = 1, [own] = 0 }))
+    rawset(_G, "InputHelpElement", nil)
+    assert.are.equal("GRABBER_OPEN_CLOSE", out[1].icon)
+    assert.is_nil(out[2].icon)
+  end)
+
+  describe("a tool cylinder that carries the bucket", function()
+    -- Node tree: 10 the tool's frame, 11 the high-tip pivot below it, 12 the shovel node below that; 20
+    -- a clamp arm beside the bucket. getParent walks it.
+    local parents = { [11] = 10, [12] = 11, [20] = 10, [10] = 0 }
+    before_each(function()
+      rawset(_G, "getParent", function(node)
+        return parents[node] or 0
+      end)
+    end)
+    after_each(function()
+      rawset(_G, "getParent", nil)
+    end)
+
+    local function bucket(tools, states)
+      local object = machine(tools, states, {})
+      object.spec_attachable = {}
+      object.getActiveInputAttacherJoint = function()
+        return { jointType = JOINT.frontloader }
+      end
+      object.spec_shovel = { shovelNodes = { { node = 12 } } }
+      return object
+    end
+
+    it("is a TIP, turned nose down from its travel-0 end, where a clamp beside it stays AUX", function()
+      -- Paladin high-tip bucket and Albutt muck grab (issue #175): both TOOL2, both TOOL_OPEN_CLOSE.
+      local tip = { axis = "AXIS_FRONTLOADER_TOOL2", node = 11, rotMin = 0, rotMax = math.rad(90), rotSpeed = 0.001 }
+      tip.curRot = { math.rad(45), 0, 0 }
+      local clamp = { axis = "AXIS_FRONTLOADER_TOOL3", node = 20, rotMin = 0, rotMax = 1, rotSpeed = 0.001 }
+      local out = VDT.LoaderCylinders.collect(bucket({ tip, clamp }, { [tip] = 0.5, [clamp] = 1 }))
+      assert.are.same({ role = "TIP", axis = "AXIS_FRONTLOADER_TOOL2", travel = 0.5, angle = -45 }, out[1])
+      assert.are.equal("AUX", out[2].role)
+      assert.is_nil(out[2].angle)
+    end)
+
+    it("reads the turn against the tool's own X axis, whichever way the pivot was modelled", function()
+      -- The pivot's X axis pointing the other way across the tool: the same input turns it negative.
+      rawset(_G, "localDirectionToWorld", function(node)
+        if node == 11 then
+          return -1, 0, 0
+        end
+        return 1, 0, 0
+      end)
+      local tip = { axis = "AXIS_FRONTLOADER_TOOL2", node = 11, rotMin = math.rad(-90), rotMax = 0, rotSpeed = -0.001 }
+      tip.curRot = { math.rad(-30), 0, 0 }
+      local out = VDT.LoaderCylinders.collect(bucket({ tip }, { [tip] = 0.667 }))
+      assert.are.same({ role = "TIP", axis = "AXIS_FRONTLOADER_TOOL2", travel = 0.333, angle = -30 }, out[1])
+    end)
+  end)
+
   it("clamps a travel outside 0..1 before turning it", function()
     local arm = rotating("AXIS_FRONTLOADER_ARM", "min")
     assert.are.equal(0, VDT.LoaderCylinders.collect(machine({ arm }, { [arm] = 1.2 }))[1].travel)

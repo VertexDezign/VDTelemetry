@@ -82,11 +82,25 @@ data class LoaderCylinder(
 
    */
   val travel: Float = 0f,
+  /**
+   * The engine icon the author gave the cylinder's control (`GRABBER_OPEN_CLOSE`, `TOOL_OPEN_CLOSE`,
+   * `WORKING_WIDTH_TRANSLATE_X`, ...): the one place a tool's own cylinder says what it does, since its
+   * axis does not. Null on an icon the mod drew itself, and before export version 32.
+   */
+  val icon: String? = null,
+  /**
+   * [LoaderCylinderRole.TIP] only: how far the cylinder has turned the bucket from its travel-0 end, in
+   * degrees, positive nose up — the turn the tool's root-node pitch cannot see, since the root is the
+   * frame the bucket turns on. Null where the tip is not a plain rotation.
+   */
+  val angle: Float? = null,
 )
 
 /**
  * What a cylinder does, read off the input axis that drives it. [AUX] is `TOOL2`..`TOOL5`, whose
- * meaning is the tool's own — a clamp on one, a top-hold on another.
+ * meaning is the tool's own — a clamp on one, a top-hold on another. [TIP] is one of those that turns
+ * the bucket itself on the tool's frame (a high-tip bucket), told apart by what it carries (export 32;
+ * an older terminal reads it as [AUX]).
  */
 @Serializable
-enum class LoaderCylinderRole { LIFT, TELESCOPE, TILT, AUX }
+enum class LoaderCylinderRole { LIFT, TELESCOPE, TILT, TIP, AUX }
