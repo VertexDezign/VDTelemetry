@@ -161,6 +161,11 @@ describe("VDT.LoaderTool", function()
       })
       assert.is_nil(VDT.LoaderTool.collect(telehandler))
       assert.is_nil(VDT.LoaderTool.collect(forklift({ spec_cylindered = { movingTools = {} } })))
+      -- A front-loader axis that is not the lift (a ramp, say) does not make it one, nor a disabled lift.
+      local ramp = { movingTools = { { axis = "AXIS_FRONTLOADER_TOOL2" } } }
+      assert.is_nil(VDT.LoaderTool.collect(forklift({ spec_cylindered = ramp })))
+      local disabled = { movingTools = { { axis = "AXIS_FRONTLOADER_ARM", hasRequiredConfigurations = false } } }
+      assert.is_nil(VDT.LoaderTool.collect(forklift({ spec_cylindered = disabled })))
     end)
 
     it("lets its cylinders through the loader gate", function()

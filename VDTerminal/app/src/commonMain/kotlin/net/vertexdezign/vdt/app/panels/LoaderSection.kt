@@ -633,7 +633,8 @@ private fun LoaderGlyph(rig: LoaderRig, modifier: Modifier = Modifier) {
 
     drawLine(groundInk, Offset(0f, frame.ground), Offset(size.width, frame.ground), strokeWidth = 2f)
 
-    val lean = if (mastLeans) angle else 0f
+    // The mast leans by the forks' raw pitch: a player's level is a zero for the readout, not a pose.
+    val lean = if (mastLeans) reading?.pitch ?: 0f else 0f
     val tip = armTip(frame, lift, telescope, forklift, lean)
     if (forklift) {
       // The reach rail from the machine out to the mast, and the mast standing on it.

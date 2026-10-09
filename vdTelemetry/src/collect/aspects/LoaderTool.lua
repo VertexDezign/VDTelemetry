@@ -23,7 +23,7 @@
 -- joint to find them by. What every forklift does have is the engine's DynamicMountAttacher on the
 -- forks, since that is how a pallet rides on them, and its node lies on the forks: it is measured
 -- instead of a root node, under joint FORKLIFT. A machine counts as one when it carries that
--- attacher itself, has a front-loader-axis cylinder to lift with, and has no loader joint either way
+-- attacher itself, has an AXIS_FRONTLOADER_ARM cylinder to lift with, and has no loader joint either way
 -- (a telehandler or a pallet fork is read the joint way). Tool Inclination Helper string-matches
 -- shape names in the vehicle's i3d instead; the mount node is the engine's own word for "the forks".
 --
@@ -120,9 +120,10 @@ function VDT.LoaderTool.forkNodeOf(object)
   if VDT.LoaderTool.inputJointOf(object) ~= nil or VDT.LoaderTool.carriesToolJoint(object) then
     return nil
   end
+  -- The lift itself, not just any front-loader axis: a pallet trailer may swing a ramp on TOOL2.
   local cylindered = object.spec_cylindered
   for _, tool in ipairs(cylindered ~= nil and cylindered.movingTools or {}) do
-    if type(tool.axis) == "string" and tool.axis:sub(1, #"AXIS_FRONTLOADER_") == "AXIS_FRONTLOADER_" then
+    if tool.axis == "AXIS_FRONTLOADER_ARM" and tool.hasRequiredConfigurations ~= false then
       return mount.dynamicMountAttacherNode
     end
   end
