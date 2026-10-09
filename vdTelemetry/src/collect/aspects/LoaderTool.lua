@@ -18,6 +18,15 @@
 -- has not changed how it hitches. `attachableFrontloader` is excluded on purpose -- that is the joint
 -- between the loader and the TRACTOR, so it would mark the loader arm rather than its tool.
 --
+-- FORKLIFTS (issue #174). A forklift's forks are part of the machine -- on the Hubtex MAXX 45 a
+-- physics component of their own, hung off the mast by a component joint -- so there is no tool and no
+-- joint to find them by. What every forklift does have is the engine's DynamicMountAttacher on the
+-- forks, since that is how a pallet rides on them, and its node lies on the forks: it is measured
+-- instead of a root node, under joint FORKLIFT. A machine counts as one when it carries that
+-- attacher itself, has a front-loader-axis cylinder to lift with, and has no loader joint either way
+-- (a telehandler or a pallet fork is read the joint way). Tool Inclination Helper string-matches
+-- shape names in the vehicle's i3d instead; the mount node is the engine's own word for "the forks".
+--
 -- Sign: `pitch` is positive NOSE UP. MathUtil.directionToPitchYaw returns asin(-dy), the opposite
 -- sense, so it is not used here.
 --
@@ -47,6 +56,9 @@ VDT.LoaderTool.JOINT_TYPES = {
   skidSteer = "SKID_STEER",
   loaderFork = "LOADER_FORK",
 }
+
+-- The token for a forklift, whose forks hang on no joint at all (see FORKLIFTS in the header).
+VDT.LoaderTool.FORKLIFT = "FORKLIFT"
 
 -- How far the ray reaches, in metres. Tool Inclination Helper's 10 m is too short: a Sennebogen 340 G
 -- at full lift and full extension had its fork past it and came back with no distance at all.
@@ -81,6 +93,40 @@ function VDT.LoaderTool.inputJointOf(object)
     return nil
   end
   return VDT.LoaderTool.jointToken(joint.jointType)
+end
+
+---Whether `object` carries a joint a loader tool hangs on: it is the loader, not the tool.
+---@param object table
+---@return boolean
+function VDT.LoaderTool.carriesToolJoint(object)
+  local joints = object.spec_attacherJoints ~= nil and object.spec_attacherJoints.attacherJoints or nil
+  for _, joint in ipairs(joints or {}) do
+    if VDT.LoaderTool.jointToken(joint.jointType) ~= nil then
+      return true
+    end
+  end
+  return false
+end
+
+---The node a forklift's forks are measured off -- its own DynamicMountAttacher node -- or nil when
+---`object` is not a forklift. See FORKLIFTS in the header.
+---@param object table
+---@return number|nil
+function VDT.LoaderTool.forkNodeOf(object)
+  local mount = object.spec_dynamicMountAttacher
+  if mount == nil or mount.dynamicMountAttacherNode == nil then
+    return nil
+  end
+  if VDT.LoaderTool.inputJointOf(object) ~= nil or VDT.LoaderTool.carriesToolJoint(object) then
+    return nil
+  end
+  local cylindered = object.spec_cylindered
+  for _, tool in ipairs(cylindered ~= nil and cylindered.movingTools or {}) do
+    if type(tool.axis) == "string" and tool.axis:sub(1, #"AXIS_FRONTLOADER_") == "AXIS_FRONTLOADER_" then
+      return mount.dynamicMountAttacherNode
+    end
+  end
+  return nil
 end
 
 ---What kind of tool `object` is, by which tool specialization it carries -- never by its `type`
@@ -166,6 +212,10 @@ end
 function VDT.LoaderTool.collect(object)
   local joint = VDT.LoaderTool.inputJointOf(object)
   local node = object.rootNode
+  if joint == nil then
+    node = VDT.LoaderTool.forkNodeOf(object)
+    joint = node ~= nil and VDT.LoaderTool.FORKLIFT or nil
+  end
   if joint == nil or node == nil then
     return nil
   end

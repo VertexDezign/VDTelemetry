@@ -59,8 +59,12 @@ data class LoaderReference(val pitch: Float = 0f, val distance: Float? = null)
 @Serializable
 enum class LoaderToolKind { SHOVEL, FORK, BALE_GRAB, LOG_GRAB, OTHER }
 
+/**
+ * The joint a loader tool hangs on. [FORKLIFT] is no joint at all: a forklift's forks are part of the
+ * machine, and the mod reads them off their pallet-mount node instead (export 32).
+ */
 @Serializable
-enum class LoaderJoint { FRONTLOADER, TELEHANDLER, WHEEL_LOADER, SKID_STEER, LOADER_FORK }
+enum class LoaderJoint { FRONTLOADER, TELEHANDLER, WHEEL_LOADER, SKID_STEER, LOADER_FORK, FORKLIFT }
 
 /**
  * One front-loader-driven cylinder (mod version 30): where it is along its stroke. Carried by whatever
@@ -94,13 +98,19 @@ data class LoaderCylinder(
    * frame the bucket turns on. Null where the tip is not a plain rotation.
    */
   val angle: Float? = null,
+  /**
+   * [LoaderCylinderRole.TILT] only: the tilt carries the lift, so the whole mast leans with the forks
+   * (a Jungheinrich EFG S50) rather than the forks alone (a Hubtex MAXX 45).
+   */
+  val carriesLift: Boolean = false,
 )
 
 /**
  * What a cylinder does, read off the input axis that drives it. [AUX] is `TOOL2`..`TOOL5`, whose
  * meaning is the tool's own — a clamp on one, a top-hold on another. [TIP] is one of those that turns
- * the bucket itself on the tool's frame (a high-tip bucket), told apart by what it carries (export 32;
- * an older terminal reads it as [AUX]).
+ * the bucket itself on the tool's frame (a high-tip bucket), told apart by what it carries. [SHIFT] is a
+ * forklift's sideshift: its second arm axis where that moves only the carriage, not the whole mast,
+ * which stays [TELESCOPE] (the reach). Both new in export 32; an older terminal reads them as [AUX].
  */
 @Serializable
-enum class LoaderCylinderRole { LIFT, TELESCOPE, TILT, TIP, AUX }
+enum class LoaderCylinderRole { LIFT, TELESCOPE, SHIFT, TILT, TIP, AUX }

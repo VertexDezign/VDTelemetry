@@ -17,6 +17,7 @@ import net.vertexdezign.vdt.model.Vehicle
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -32,10 +33,10 @@ import kotlin.test.assertTrue
  * files are the third, taken after the mod turned lift and tilt round.
  */
 class LoaderModelTest {
-  private fun captureText(name: String): String {
+  private fun captureText(name: String, folder: String = "loader"): String {
     var dir: File? = File(".").absoluteFile
     while (dir != null) {
-      val candidate = File(dir, "examples/json/telemetry/vanilla/loader/$name.json")
+      val candidate = File(dir, "examples/json/telemetry/vanilla/$folder/$name.json")
       if (candidate.exists()) return candidate.readText()
       dir = dir.parentFile
     }
@@ -176,6 +177,28 @@ class LoaderModelTest {
     assertEquals(LoaderCylinderRole.TIP, tip.role)
     assertEquals(0.37f, tip.travel)
     assertEquals(-33.3f, tip.angle)
+  }
+
+  @Test
+  fun aForkliftsMastIsReadOffWhatCarriesWhatNotOffItsAxes() {
+    // Issue #174: a Jungheinrich EFG S50 (base game) and a Hubtex MAXX 45 with a pallet on its forks.
+    // Both report the forks themselves, on joint FORKLIFT, and both bind ARM2 with the same icon — yet it
+    // shifts the Jungheinrich's carriage sideways and slides the Hubtex's whole mast forward, and only the
+    // Jungheinrich's tilt leans its mast. The mod reads both off which cylinder carries the lift.
+    fun forklift(name: String) = VdtParser.parseJson(captureText(name, "forklift")).vehicle!!
+    fun Vehicle.cylinder(axis: String) = loaderCylinders.single { it.axis == axis }
+    for (name in listOf("forklift", "hubtex_with_pallet")) {
+      val machine = forklift(name)
+      assertEquals(LoaderJoint.FORKLIFT, machine.loaderTool!!.joint, name)
+      assertEquals(LoaderToolKind.FORK, machine.loaderTool!!.kind, name)
+      assertEquals("IMPLEMENT_TRANS_X", machine.cylinder("AXIS_FRONTLOADER_ARM2").icon, name)
+    }
+    val jungheinrich = forklift("forklift")
+    assertEquals(LoaderCylinderRole.SHIFT, jungheinrich.cylinder("AXIS_FRONTLOADER_ARM2").role)
+    assertTrue(jungheinrich.cylinder("AXIS_FRONTLOADER_TOOL").carriesLift)
+    val hubtex = forklift("hubtex_with_pallet")
+    assertEquals(LoaderCylinderRole.TELESCOPE, hubtex.cylinder("AXIS_FRONTLOADER_ARM2").role)
+    assertFalse(hubtex.cylinder("AXIS_FRONTLOADER_TOOL").carriesLift)
   }
 
   @Test

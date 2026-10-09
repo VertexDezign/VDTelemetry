@@ -49,10 +49,12 @@
 -- and swings its armrests on AXIS_FRONTLOADER_ARM/ARM2/TOOL2/TOOL5, and read as a loader it showed a
 -- fully raised arm on a tractor with no loader on it. So the axis is only trusted on a machine that is
 -- part of a loader: one carrying a joint a loader TOOL hangs on (the front loader itself, a wheel
--- loader, telehandler or skid steer -- VDT.LoaderTool.JOINT_TYPES), or a tool hanging on one (a
--- grab's clamp). A tractor's own `attachableFrontloader` joint is the loader's mount, not a tool
+-- loader, telehandler or skid steer -- VDT.LoaderTool.JOINT_TYPES), a tool hanging on one (a grab's
+-- clamp), or a forklift. A tractor's own `attachableFrontloader` joint is the loader's mount, not a tool
 -- joint, so the tractor stays out with or without a loader on it -- the arm is the loader's to report.
--- A machine with a bucket built in and no tool joint would be left out too; none has turned up yet.
+-- A forklift has no tool joint either, its forks being part of it, and is let in by the forks it
+-- carries instead (VDT.LoaderTool.forkNodeOf, issue #174). A machine with a bucket built in and no
+-- tool joint would still be left out; none has turned up yet.
 --
 -- TIP. A high-tip bucket (the Paladin on the Kubota SVL, issue #175) turns the bucket on its own
 -- frame with a TOOL2 cylinder -- whose control carries TOOL_OPEN_CLOSE, the same icon as a muck grab's
@@ -63,6 +65,18 @@
 -- (VDT.LoaderTool) cannot see, the root being the frame the bucket turns on. Travel 0 is the bucket's
 -- normal position, as a positive input opens a grab: skidSteer_highTip.json reads -33.3 degrees at
 -- 0.37, and the side view drawn from it matched the bucket in game.
+--
+-- MASTS (issue #174). A forklift answers two questions the axis cannot, and the hierarchy can --
+-- which cylinder carries which, as with TIP:
+--   * TILT carries the whole mast on a Jungheinrich EFG S50 (the tilt node is the lift's parent) and
+--     only the forks on a Hubtex MAXX 45 (the tilt hangs below the lift). Exported as `carriesLift`,
+--     so a side view can lean the mast rather than the forks alone. Never true on a loader arm, whose
+--     tilt sits at the tip.
+--   * ARM2 slides the whole mast forward on the Hubtex (its reach carries the lift) and shifts only the
+--     carriage sideways on the Jungheinrich (its "Verschiebe Rahmen" hangs below the lift). Both carry
+--     IMPLEMENT_TRANS_X, so the icon cannot tell them apart. On a forklift, one below the lift is SHIFT;
+--     one above stays TELESCOPE, which is what a reach is. Not applied off forklifts: a telehandler's
+--     boom extension also hangs below its lift.
 --
 -- ICON. An AUX cylinder's role is the tool's own, and the axis name does not say it: TOOL2 is the
 -- clamp on a bale grab and a muck grab, the tine spread on a pallet fork, the high tip on a skid
@@ -170,6 +184,18 @@ local function isBelow(node, ancestor)
   return false
 end
 
+---The node the lift cylinder moves, or nil when there is none. See MASTS in the header.
+---@param tools table[] spec_cylindered.movingTools
+---@return number|nil
+local function liftNodeOf(tools)
+  for _, tool in ipairs(tools) do
+    if tool.axis == AXIS_PREFIX .. "ARM" and tool.hasRequiredConfigurations ~= false and tool.node ~= nil then
+      return tool.node
+    end
+  end
+  return nil
+end
+
 ---Whether the tool cylinder moves the bucket itself: one of the shovel's own nodes hangs below it.
 ---See TIP in the header.
 ---@param object table
@@ -220,13 +246,9 @@ end
 ---@param object table
 ---@return boolean
 function VDT.LoaderCylinders.isLoaderPart(object)
-  local joints = object.spec_attacherJoints ~= nil and object.spec_attacherJoints.attacherJoints or nil
-  for _, joint in ipairs(joints or {}) do
-    if VDT.LoaderTool.jointToken(joint.jointType) ~= nil then
-      return true
-    end
-  end
-  return VDT.LoaderTool.inputJointOf(object) ~= nil
+  return VDT.LoaderTool.carriesToolJoint(object)
+    or VDT.LoaderTool.inputJointOf(object) ~= nil
+    or VDT.LoaderTool.forkNodeOf(object) ~= nil
 end
 
 ---The engine's name for the control's icon, or nil when the author gave none or drew their own.
@@ -261,6 +283,9 @@ function VDT.LoaderCylinders.collect(object)
     return nil
   end
 
+  local liftNode = liftNodeOf(spec.movingTools)
+  local forklift = VDT.LoaderTool.forkNodeOf(object) ~= nil
+
   local out = {}
   for _, tool in ipairs(spec.movingTools) do
     local axis = tool.axis
@@ -289,6 +314,16 @@ function VDT.LoaderCylinders.collect(object)
           if angle ~= nil then
             cylinder.angle = tonumber(ValueMapper.mapFloat(angle, 1))
           end
+        elseif role == "TILT" and liftNode ~= nil and tool.node ~= nil and isBelow(liftNode, tool.node) then
+          cylinder.carriesLift = true
+        elseif
+          role == "TELESCOPE"
+          and forklift
+          and liftNode ~= nil
+          and tool.node ~= nil
+          and isBelow(tool.node, liftNode)
+        then
+          cylinder.role = "SHIFT"
         end
         table.insert(out, cylinder)
       end

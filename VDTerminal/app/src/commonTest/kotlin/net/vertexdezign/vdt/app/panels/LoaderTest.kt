@@ -108,7 +108,8 @@ class LoaderTest {
     assertTrue(clamp.isClamp)
     assertFalse(spread.isClamp)
     assertEquals("Clamp", cylinderLabel(clamp))
-    assertEquals("Tool 2", cylinderLabel(spread))
+    assertEquals("Width", cylinderLabel(spread))
+    assertEquals("Tool 2", cylinderLabel(spread.copy(icon = null)))
   }
 
   @Test
@@ -154,6 +155,42 @@ class LoaderTest {
   }
 
   @Test
+  fun aForkliftsForksRideUpItsMastAndItsReachSlidesItForward() {
+    // Hubtex MAXX 45 (issue #174): lift, reach (ARM2), tilt, and the tines' width on TOOL2.
+    val frame = glyphFrame(300f, 200f, telescopic = true, forklift = true)
+    val low = armTip(frame, 0f, 0f, forklift = true)
+    val high = armTip(frame, 1f, 0f, forklift = true)
+    val out = armTip(frame, 0f, 1f, forklift = true)
+    assertEquals(low.x, high.x, "the carriage rides straight up the mast")
+    assertTrue(high.y < low.y)
+    assertTrue(out.x < low.x, "reach moves the mast forward, which is left")
+    assertEquals(low.y, out.y)
+    // A mast tilted back leans its top toward the machine, which is right.
+    assertTrue(mastTop(frame, 0f, lean = 10f).x > mastTop(frame, 0f).x)
+
+    val rig = loaderRigOf(
+      listOf(
+        null to Vehicle(
+          name = "MAXX 45",
+          loaderTool = LoaderTool(LoaderJoint.FORKLIFT, kind = LoaderToolKind.FORK),
+          loaderCylinders = listOf(
+            LoaderCylinder(LoaderCylinderRole.TELESCOPE, "AXIS_FRONTLOADER_ARM2", 0f, icon = "IMPLEMENT_TRANS_X"),
+            LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.5f, icon = "WORKING_WIDTH_TRANSLATE_X"),
+          ),
+        ).isoBus(),
+      ),
+    )!!
+    assertTrue(rig.forklift)
+    assertEquals(
+      "Side shift",
+      cylinderLabel(LoaderCylinder(LoaderCylinderRole.SHIFT, "AXIS_FRONTLOADER_ARM2", 0.5f), forklift = true),
+    )
+    assertEquals(listOf("Reach", "Width"), rig.cylinders.map { cylinderLabel(it, rig.forklift) })
+    // On a telehandler the same axis runs the boom out.
+    assertEquals("Telescope", cylinderLabel(rig.cylinders.first()))
+  }
+
+  @Test
   fun withoutAReferenceTheRootNodeIsLevelAndTheScreenSaysSo() {
     val rig = loaderRigOf(rigMachines(frontLoader()).map { null to it })!!
     assertEquals(-0.69f, rig.reading?.inclination)
@@ -177,12 +214,28 @@ class LoaderTest {
     // the control-group chips. Every corner of the lift, telescope and tool angle, on a wide, a tall and
     // a square canvas, must land inside it.
     for ((w, h) in listOf(400f to 120f, 120f to 400f, 200f to 200f)) {
-      for (telescopic in listOf(false, true)) {
-        val frame = glyphFrame(w, h, telescopic)
+      for ((telescopic, forklift) in listOf(false to false, true to false, false to true, true to true)) {
+        val frame = glyphFrame(w, h, telescopic, forklift)
         assertTrue(frame.ground <= h, "ground at ${frame.ground} below a $h canvas")
         for (lift in listOf(0f, 0.5f, 1f)) {
           for (telescope in if (telescopic) listOf(0f, 1f) else listOf(0f)) {
-            val tip = armTip(frame, lift, telescope)
+            val tip = armTip(frame, lift, telescope, forklift)
+            if (forklift) {
+              // The mast leans with the forks on a Jungheinrich; any lean stays in the box.
+              for (lean in listOf(-90f, 0f, 90f)) {
+                listOf(
+                  mastFoot(frame, telescope),
+                  mastTop(frame, telescope, lean),
+                  armTip(frame, lift, telescope, true, lean),
+                )
+                  .forEach { p ->
+                    assertTrue(
+                      p.x in 0f..w && p.y in 0f..h,
+                      "mast ($p) out of the box, lean $lean, reach $telescope on $w x $h",
+                    )
+                  }
+              }
+            }
             for (angle in listOf(-90f, -45f, 0f, 45f, 90f)) {
               for (kind in LoaderToolKind.entries + null) {
                 for (open in listOf(0f, 1f)) {

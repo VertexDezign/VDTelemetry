@@ -43,6 +43,7 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.LoaderCylinder
 import net.vertexdezign.vdt.model.LoaderCylinderRole
+import net.vertexdezign.vdt.model.LoaderJoint
 import net.vertexdezign.vdt.model.LoaderTool
 import net.vertexdezign.vdt.model.LoaderToolKind
 import kotlin.math.PI
@@ -89,6 +90,9 @@ internal data class LoaderRig(
    */
   val tipAngle: Float get() = tool?.loaderCylinders?.firstOrNull { it.role == LoaderCylinderRole.TIP }?.angle ?: 0f
 
+  /** A forklift: forks on a mast rather than a tool on an arm, so the side view and the names change. */
+  val forklift: Boolean get() = reading?.joint == LoaderJoint.FORKLIFT
+
   /** The bucket's angle off level as the screen shows it: the tool's, plus a high tip's turn. */
   val inclination: Float? get() = reading?.let { it.inclination + tipAngle }
 
@@ -109,6 +113,9 @@ internal data class LoaderRig(
   val toolOpen: Float? get() =
     (clamp ?: tool?.loaderCylinders?.firstOrNull { it.role == LoaderCylinderRole.AUX })?.travel
 }
+
+/** The engine's control icon for a working width, which on a fork is how far apart its tines sit. */
+private const val WIDTH_ICON = "WORKING_WIDTH_TRANSLATE_X"
 
 /** The engine's control icons for a part that opens and closes, which on a loader tool is its clamp. */
 private val CLAMP_ICONS = setOf("GRABBER_OPEN_CLOSE", "TOOL_OPEN_CLOSE")
@@ -158,18 +165,26 @@ internal fun heightLabel(metres: Float): String {
   }
 }
 
-/** A cylinder's name on the screen: what it does, and for a tool's own, which one it is. */
-internal fun cylinderLabel(cylinder: LoaderCylinder): String = when (cylinder.role) {
+/**
+ * A cylinder's name on the screen: what it does, and for a tool's own, which one it is. On a [forklift]
+ * the second arm axis slides the mast out rather than running a boom out, so it is the reach.
+ */
+internal fun cylinderLabel(cylinder: LoaderCylinder, forklift: Boolean = false): String = when (cylinder.role) {
   LoaderCylinderRole.LIFT -> "Lift"
 
-  LoaderCylinderRole.TELESCOPE -> "Telescope"
+  LoaderCylinderRole.TELESCOPE -> if (forklift) "Reach" else "Telescope"
+
+  LoaderCylinderRole.SHIFT -> "Side shift"
 
   LoaderCylinderRole.TILT -> "Tilt"
 
   LoaderCylinderRole.TIP -> "High tip"
 
-  LoaderCylinderRole.AUX ->
-    if (cylinder.isClamp) "Clamp" else "Tool " + cylinder.axis.removePrefix("AXIS_FRONTLOADER_TOOL").ifEmpty { "1" }
+  LoaderCylinderRole.AUX -> when {
+    cylinder.isClamp -> "Clamp"
+    cylinder.icon == WIDTH_ICON -> "Width"
+    else -> "Tool " + cylinder.axis.removePrefix("AXIS_FRONTLOADER_TOOL").ifEmpty { "1" }
+  }
 }
 
 /** Which way off level, as a glyph: hue never carries it alone, and a word goes beside it. */
@@ -252,7 +267,9 @@ private fun LoaderReadoutColumn(rig: LoaderRig, modifier: Modifier = Modifier) {
     if (rig.cylinders.isNotEmpty()) {
       @OptIn(ExperimentalLayoutApi::class)
       FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        rig.cylinders.forEach { Figure(cylinderLabel(it), "${(it.travel * 100).roundToInt()}%", null, compact = true) }
+        rig.cylinders.forEach {
+          Figure(cylinderLabel(it, rig.forklift), "${(it.travel * 100).roundToInt()}%", null, compact = true)
+        }
       }
     }
   }
@@ -348,6 +365,16 @@ private const val ARM_HIGH_DEG = 42f
  * out past a tool length (a bucket's cutting edge is exactly one); the bounds test walks every kind.
  */
 private const val TELESCOPE_GAIN = 0.45f
+
+/**
+ * A forklift's mast, in the same units: its height, how high the carriage sits at the bottom and the
+ * top of the lift, and how far the reach slides the whole mast forward. Schematic, like the arm.
+ */
+private const val MAST_HEIGHT = 1.1f
+private const val MAST_LOW = 0.05f
+private const val MAST_HIGH = 1f
+private const val MAST_REACH = 0.6f
+private const val MAST_LEAN_MAX_DEG = 15f
 private const val TOOL_SIZE = 0.44f
 private const val TOOL_REACH = TOOL_SIZE * 1.25f
 private const val MARGIN = 0.08f
@@ -364,20 +391,30 @@ private const val MARGIN = 0.08f
  */
 internal data class GlyphFrame(val pivot: Offset, val scale: Float, val ground: Float)
 
-internal fun glyphFrame(width: Float, height: Float, telescopic: Boolean): GlyphFrame {
-  val longest = if (telescopic) 1f + TELESCOPE_GAIN else 1f
+internal fun glyphFrame(width: Float, height: Float, telescopic: Boolean, forklift: Boolean = false): GlyphFrame {
   var minX = 0f
   var maxX = 0f
   var minY = 0f
   var maxY = 0f
-  // The arm's tip is farthest out at the two ends of the lift and, horizontally, at level.
-  for (deg in listOf(ARM_LOW_DEG, ARM_HIGH_DEG, 0f)) {
-    for (length in listOf(1f, longest)) {
-      val tip = armOffset(deg, length)
-      minX = minOf(minX, tip.x - TOOL_REACH)
-      maxX = maxOf(maxX, tip.x + TOOL_REACH)
-      minY = minOf(minY, tip.y - TOOL_REACH)
-      maxY = maxOf(maxY, tip.y + TOOL_REACH)
+  // The arm's tip is farthest out at the two ends of the lift and, horizontally, at level; a mast's
+  // carriage at its two ends, under the mast's top. Either fully in and fully out.
+  val lifts = if (forklift) listOf(0f, 1f) else listOf(0f, 1f, -ARM_LOW_DEG / (ARM_HIGH_DEG - ARM_LOW_DEG))
+  val leans = if (forklift) listOf(-MAST_LEAN_MAX_DEG, 0f, MAST_LEAN_MAX_DEG) else listOf(0f)
+  for (lift in lifts) {
+    for (telescope in if (telescopic) listOf(0f, 1f) else listOf(0f)) {
+      for (lean in leans) {
+        val tip = tipOffset(lift, telescope, forklift, lean)
+        minX = minOf(minX, tip.x - TOOL_REACH)
+        maxX = maxOf(maxX, tip.x + TOOL_REACH)
+        minY = minOf(minY, tip.y - TOOL_REACH)
+        maxY = maxOf(maxY, tip.y + TOOL_REACH)
+        if (forklift) {
+          val top = mastPoint(telescope, MAST_HEIGHT, lean)
+          minX = minOf(minX, top.x)
+          maxX = maxOf(maxX, top.x)
+          minY = minOf(minY, top.y)
+        }
+      }
     }
   }
   minX -= MARGIN
@@ -398,12 +435,46 @@ private fun armOffset(degrees: Float, length: Float): Offset {
   return Offset(-length * cos(rad), -length * sin(rad))
 }
 
-/** The arm's tip on the canvas for a [lift] and [telescope] travel. */
-internal fun armTip(frame: GlyphFrame, lift: Float, telescope: Float): Offset {
-  val deg = ARM_LOW_DEG + (ARM_HIGH_DEG - ARM_LOW_DEG) * lift.coerceIn(0f, 1f)
-  val offset = armOffset(deg, 1f + TELESCOPE_GAIN * telescope.coerceIn(0f, 1f))
-  return Offset(frame.pivot.x + offset.x * frame.scale, frame.pivot.y + offset.y * frame.scale)
+/**
+ * Where the tool hangs, relative to the pivot in model units, for a [lift] and [telescope] travel: at
+ * the arm's tip, or on a [forklift] at the carriage — [MAST_LOW]..[MAST_HIGH] up a mast standing level
+ * with the pivot, slid out to the left (forward) by its reach and leaning back by [lean] degrees.
+ */
+private fun tipOffset(lift: Float, telescope: Float, forklift: Boolean, lean: Float = 0f): Offset {
+  val l = lift.coerceIn(0f, 1f)
+  val t = telescope.coerceIn(0f, 1f)
+  if (forklift) return mastPoint(t, MAST_LOW + (MAST_HIGH - MAST_LOW) * l, lean)
+  return armOffset(ARM_LOW_DEG + (ARM_HIGH_DEG - ARM_LOW_DEG) * l, 1f + TELESCOPE_GAIN * t)
 }
+
+/**
+ * A point [height] up a forklift's mast, in model units from the pivot: the foot slid forward by the
+ * reach, the mast leaning back (toward the machine, so right) by [lean] degrees — clamped to
+ * [MAST_LEAN_MAX_DEG], a mast's real tilt being a few degrees either way.
+ */
+private fun mastPoint(telescope: Float, height: Float, lean: Float): Offset {
+  val rad = lean.coerceIn(-MAST_LEAN_MAX_DEG, MAST_LEAN_MAX_DEG) * PI.toFloat() / 180f
+  return Offset(-MAST_REACH * telescope.coerceIn(0f, 1f) + height * sin(rad), -height * cos(rad))
+}
+
+/** The arm's tip — a forklift's carriage — on the canvas for a [lift] and [telescope] travel. */
+internal fun armTip(
+  frame: GlyphFrame,
+  lift: Float,
+  telescope: Float,
+  forklift: Boolean = false,
+  lean: Float = 0f,
+): Offset = frame.at(tipOffset(lift, telescope, forklift, lean))
+
+/** The foot of a forklift's mast on the canvas. */
+internal fun mastFoot(frame: GlyphFrame, telescope: Float) = frame.at(mastPoint(telescope, 0f, 0f))
+
+/** The top of a forklift's mast on the canvas, leaning back by [lean] degrees. */
+internal fun mastTop(frame: GlyphFrame, telescope: Float, lean: Float = 0f) =
+  frame.at(mastPoint(telescope, MAST_HEIGHT, lean))
+
+/** A point in model units relative to the pivot, on the canvas. */
+private fun GlyphFrame.at(offset: Offset) = Offset(pivot.x + offset.x * scale, pivot.y + offset.y * scale)
 
 /** Turns a point given in the tool's own frame (edge to the left, up negative) about the hinge at [tip]. */
 private class ToolFrame(val tip: Offset, val size: Float, degrees: Float) {
@@ -527,7 +598,9 @@ internal fun shovelFill(frame: GlyphFrame, tip: Offset, degrees: Float, fraction
 /**
  * The loader from the side, **facing left** (design rule): the arm from its pivot on the right, raised
  * by its lift travel and lengthened by its telescope, and the tool at its tip turned to the angle the
- * screen prints. A dashed line through the tool is level, so the picture says what the number says.
+ * screen prints. A forklift instead stands a mast on a rail from the pivot, slid out by its reach, with
+ * the forks on a carriage that rides up it — and where its tilt carries the lift, the whole mast leans
+ * with the forks. A sideshift moves across the view, so it is only a figure. A dashed line through the tool is level, so the picture says what the number says.
  *
  * Schematic on purpose, and accepted as one (2026-10-03, after seeing it in game). The arm's real
  * geometry is not exported and differs on every machine, so its swing ([ARM_LOW_DEG]..[ARM_HIGH_DEG]),
@@ -540,6 +613,9 @@ private fun LoaderGlyph(rig: LoaderRig, modifier: Modifier = Modifier) {
   val lift = rig.cylinders.firstOrNull { it.role == LoaderCylinderRole.LIFT }?.travel ?: 0.3f
   val telescopic = rig.cylinders.any { it.role == LoaderCylinderRole.TELESCOPE }
   val telescope = rig.cylinders.firstOrNull { it.role == LoaderCylinderRole.TELESCOPE }?.travel ?: 0f
+  val forklift = rig.forklift
+  // A forklift whose tilt carries the lift leans the whole mast, by the forks' own angle.
+  val mastLeans = forklift && rig.cylinders.any { it.role == LoaderCylinderRole.TILT && it.carriesLift }
   val reading = rig.reading
   val angle = rig.inclination ?: 0f
   val armInk = VdtColors.DarkGray
@@ -552,13 +628,21 @@ private fun LoaderGlyph(rig: LoaderRig, modifier: Modifier = Modifier) {
   val load = rig.load?.let { it.fillLevelPercentage / 100f }
 
   Canvas(modifier.clipToBounds()) {
-    val frame = glyphFrame(size.width, size.height, telescopic)
+    val frame = glyphFrame(size.width, size.height, telescopic, forklift)
     val unit = frame.scale
 
     drawLine(groundInk, Offset(0f, frame.ground), Offset(size.width, frame.ground), strokeWidth = 2f)
 
-    val tip = armTip(frame, lift, telescope)
-    drawLine(armInk, frame.pivot, tip, strokeWidth = unit * 0.07f, cap = StrokeCap.Round)
+    val lean = if (mastLeans) angle else 0f
+    val tip = armTip(frame, lift, telescope, forklift, lean)
+    if (forklift) {
+      // The reach rail from the machine out to the mast, and the mast standing on it.
+      val foot = mastFoot(frame, telescope)
+      drawLine(armInk, frame.pivot, foot, strokeWidth = unit * 0.05f, cap = StrokeCap.Round)
+      drawLine(armInk, foot, mastTop(frame, telescope, lean), strokeWidth = unit * 0.07f, cap = StrokeCap.Round)
+    } else {
+      drawLine(armInk, frame.pivot, tip, strokeWidth = unit * 0.07f, cap = StrokeCap.Round)
+    }
     drawCircle(armInk, radius = unit * 0.06f, center = frame.pivot)
 
     if (reading == null) return@Canvas

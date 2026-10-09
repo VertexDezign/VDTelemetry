@@ -612,9 +612,11 @@ telehandler (pallet fork, log grab) and a skid steer, all vanilla singleplayer; 
 and the whole of it checked on a multiplayer client against a dedicated server. The tool's root node turned out to be
 level on every tool tried, so automatic level detection is not wanted.
 
-- **Forklift forks.** On a forklift the forks are a *component*, not a hitched tool, so there is no loader joint to
-  find them by. Tool Inclination Helper loads the vehicle's i3d as XML and string-matches shape names (`fork`,
-  `tine`) to get at them — fragile, and a lot of machinery for one vehicle class.
+- **The mast rules are argued from two machines** (issue #174). A forklift's forks are read off its own
+  `DynamicMountAttacher` node; what tilts and what shifts is read off which cylinder carries the lift (see MASTS in
+  `LoaderCylinders.lua`). Both captures read as the rules say — the Jungheinrich EFG S50's sideshift and leaning
+  mast, the Hubtex MAXX 45's reach — and both are seen drawn right in game. A forklift that builds its mast any
+  other way, or binds something else to ARM2, is unexplored.
 - **"Set level" from the cab.** A hotkey would mean registering an input action, and input belongs to
   FS25_additionalInputs — so it is an additionalInputs change, not ours.
 - **What a fork or grab is carrying is not shown.** A pallet or bale is a separate object the game mounts, not a fill
