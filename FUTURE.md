@@ -651,6 +651,10 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   state machine reports the vehicle there as it does on the host, and that `getPosition` on a remote player on foot
   follows them rather than sitting at their last synced spot. The exporter's header has the reasoning for which players
   are listed.
+- **Vehicle Speed Sync (#145) from a multiplayer client.** Built and checked in singleplayer — the cluster mark,
+  its blink while waiting, and the terminal toggle greying out of range — with the three states captured under
+  `examples/json/telemetry/modded/vehicleSpeedSync_*.json`. Nothing is expected to differ on a client (the mod switches
+  the sync there and the server only reports a lost connection back), which is what one client capture would confirm.
 - **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
   (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
 - **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file

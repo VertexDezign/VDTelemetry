@@ -206,6 +206,21 @@ object ClusterIcons {
   }
 
   /**
+   * Vehicle Speed Sync: a dot sending out two pairs of arcs — the mod's own HUD lamp, redrawn as
+   * fills. Symmetric, so it has no side to face. Each arc is a band of a ring, ±48° either side of
+   * the horizontal; none of them overlap, so the winding has nothing to union.
+   */
+  val SpeedSync = telltale("SpeedSync") {
+    fill(
+      "M9.5 12 A2.5 2.5 0 1 1 14.5 12 A2.5 2.5 0 1 1 9.5 12 Z " +
+        "M16.88 6.58 A7.3 7.3 0 0 1 16.88 17.42 L15.48 15.86 A5.2 5.2 0 0 0 15.48 8.14 Z " +
+        "M7.12 17.42 A7.3 7.3 0 0 1 7.12 6.58 L8.52 8.14 A5.2 5.2 0 0 0 8.52 15.86 Z " +
+        "M19.23 3.97 A10.8 10.8 0 0 1 19.23 20.03 L17.82 18.47 A8.7 8.7 0 0 0 17.82 5.53 Z " +
+        "M4.77 20.03 A10.8 10.8 0 0 1 4.77 3.97 L6.18 5.53 A8.7 8.7 0 0 0 6.18 18.47 Z",
+    )
+  }
+
+  /**
    * The working-speed limit: the ring of a road speed-limit sign, empty, because the number goes
    * inside it as segment digits — see [speedLimitMark]. The ring alone is the sign's shape; what makes
    * it that sign rather than any circle is the figure in it, which is also why the inner circle is

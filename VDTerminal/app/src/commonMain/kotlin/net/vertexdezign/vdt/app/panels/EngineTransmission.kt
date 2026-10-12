@@ -94,6 +94,21 @@ fun EngineTransmission(
           onClick = { onCommand(ClientMessage.SetMotorState(on = !running)) },
         )
       }
+      // Vehicle Speed Sync, the mod's key on the terminal (issue #145): tie this machine's speed to the
+      // nearest one moving within 25 m. Beside the engine key because it is the same kind of thing, a
+      // switch you flip while driving — and only with the mod installed. Greyed out where the key would
+      // refuse (nothing in range, a helper driving), rather than hidden, so the button is there to find
+      // when you pull up beside the combine. Filled while synced; a sync still waiting for the other
+      // machine to move is synced all the same, and the cluster blinks it.
+      vehicle.speedSync?.let { sync ->
+        ToolButton(
+          ClusterIcons.SpeedSync,
+          "speed sync",
+          active = sync.active,
+          enabled = sync.available,
+          onClick = { onCommand(ClientMessage.SetSpeedSync(active = !sync.active)) },
+        )
+      }
     },
   ) {
     if (motor == null) {

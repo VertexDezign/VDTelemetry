@@ -150,6 +150,10 @@ class CommandWriter(private val path: Path, private val ringSize: Int = 16) {
       """<command id="$id" type="setCruiseControl" action="${message.action.token}"$speedAttr/>"""
     }
 
+    is ClientMessage.SetSpeedSync -> {
+      """<command id="$id" type="setSpeedSync" active="${message.active}"/>"""
+    }
+
     is ClientMessage.SetGpsLinesVisible -> {
       """<command id="$id" type="setGpsLinesVisible" on="${message.on}"/>"""
     }

@@ -138,12 +138,17 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // machine with steering modes is quite likely to report no gear at all (a telehandler does), and
   // these must not disappear along with a field they have nothing to do with.
   val steering = steeringMarks(vehicle)
-  val blink = if (!dark && (holding || steering.any { it.blinks })) clusterBlinkPhase() else null
+  val sync = speedSyncMark(vehicle)
+  val blink =
+    if (!dark && (holding || steering.any { it.blinks } || sync?.blinks == true)) clusterBlinkPhase() else null
 
   // Steering assist rides on the cruise line, where it belongs: both are the machine holding
   // something for the driver — a speed, a line — and both are switched on the same way, armed first
   // and engaged after. Read together they are one sentence about who is driving.
-  val guidance = listOfNotNull(guidanceMark(vehicle))
+  //
+  // Speed sync follows it, for the same reason: it is the machine holding a speed for the driver —
+  // someone else's. It is the one that comes and goes, so it stands after the lamp that holds still.
+  val guidance = listOfNotNull(guidanceMark(vehicle), sync)
 
   // Which line the marks land on, decided once so the width budget below can see it too. Guidance
   // leads the cruise line so it holds one place: the steering marks beside it come and go with the
@@ -686,6 +691,28 @@ internal fun guidanceMark(vehicle: Vehicle): LineMark? {
     // borrowed rather than self-evident, and a word is one more thing about this mark that survives
     // being read in any colour.
     caption = "AUTO",
+  )
+}
+
+/**
+ * Vehicle Speed Sync, while it is tying this machine's speed to another's — and **absent otherwise**,
+ * as the mod's own lamp is not drawn unlit either: with the mod installed every drivable machine has
+ * it, and a ghost on every cruise line would be a lamp for a thing almost never in use.
+ *
+ * Waiting for the other machine to start moving **blinks**, as the mod's lamp does; holding its speed
+ * is steady. Blinking against steady rather than the mod's orange against its active colour, so the
+ * two never rest on hue. Captioned like [guidanceMark], whose neighbour it is: the glyph is the mod's,
+ * not a symbol a driver will have met on a real cluster.
+ */
+internal fun speedSyncMark(vehicle: Vehicle): LineMark? {
+  val sync = vehicle.speedSync ?: return null
+  if (!sync.active) return null
+  return LineMark(
+    icon = ClusterIcons.SpeedSync,
+    label = if (sync.waiting) "Speed sync waiting for the other machine" else "Speed synced",
+    colour = ClusterColors.Set,
+    blinks = sync.waiting,
+    caption = "SYNC",
   )
 }
 

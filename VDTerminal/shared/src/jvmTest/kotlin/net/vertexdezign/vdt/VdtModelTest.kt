@@ -12,6 +12,7 @@ import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.PfMode
 import net.vertexdezign.vdt.model.PipeState
 import net.vertexdezign.vdt.model.PlowSide
+import net.vertexdezign.vdt.model.SpeedSync
 import net.vertexdezign.vdt.model.SprayCategory
 import net.vertexdezign.vdt.model.SprayerKind
 import net.vertexdezign.vdt.model.SteeringLayout
@@ -610,6 +611,26 @@ class VdtModelTest {
     assertEquals(2, trailer.tensionBelts?.fastened)
     assertEquals(3, trailer.tensionBelts?.count)
     assertTrue(trailer.broken)
+  }
+
+  @Test
+  fun decodesTheSpeedSyncCaptures() {
+    // Vehicle Speed Sync (mod version 33): one tractor beside a running machine, captured unsynced, synced
+    // while the other one stood still, and synced while it moved. `available` is true in all three — the
+    // partner was in range throughout, and switching off needs none.
+    fun sync(name: String): SpeedSync? {
+      val data = model("telemetry/modded/vehicleSpeedSync_$name.json")
+      assertJsonRoundTrips(data)
+      assertEquals("33", data.version)
+      return data.vehicle?.speedSync
+    }
+    assertEquals(SpeedSync(active = false, waiting = false, available = true), sync("off"))
+    assertEquals(SpeedSync(active = true, waiting = true, available = true), sync("waiting"))
+    assertEquals(SpeedSync(active = true, waiting = false, available = true), sync("on"))
+
+    // Without the mod there is no block at all, which is a different answer from "not synced".
+    val without = VdtParser.parseJson("""{"version":"33","vehicle":{"name":"Valtra"}}""")
+    assertNull(without.vehicle?.speedSync)
   }
 
   @Test
