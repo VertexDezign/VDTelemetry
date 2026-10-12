@@ -65,6 +65,14 @@ describe("MapVehicles.collect", function()
       calculateHeading = function()
         return 91.7
       end,
+      calculatePlayerHeading = function(yaw)
+        return yaw * 100
+      end,
+    })
+    rawset(_G, "NetworkUtil", {
+      getObjectId = function(object)
+        return object.objectId
+      end,
     })
     rawset(_G, "g_currentMission", {
       terrainSize = 2048,
@@ -77,7 +85,9 @@ describe("MapVehicles.collect", function()
     rawset(_G, "getWorldTranslation", nil)
     rawset(_G, "VehicleHotspot", nil)
     rawset(_G, "ValueMapper", nil)
+    rawset(_G, "NetworkUtil", nil)
     rawset(_G, "g_currentMission", nil)
+    rawset(_G, "g_localPlayer", nil)
   end)
 
   it("returns nil without a mission", function()
@@ -85,19 +95,21 @@ describe("MapVehicles.collect", function()
     assert.is_nil(VDT.MapVehicles.collect())
   end)
 
-  it("omits the empty vehicles array", function()
+  it("omits the empty vehicles and players arrays", function()
     local model = VDT.MapVehicles.collect()
-    assert.are.equal("1", model.version)
+    assert.are.equal("2", model.version)
     assert.is_nil(model.vehicles)
+    assert.is_nil(model.players)
   end)
 
   it("exports root vehicles with normalized position, heading and flags", function()
-    local tractor = vehicle({ spec_enterable = { isControlled = true, isEntered = true } })
+    local tractor = vehicle({ objectId = 42, spec_enterable = { isControlled = true, isEntered = true } })
     g_currentMission.vehicleSystem.vehicles = { tractor }
 
     local vehicles = VDT.MapVehicles.collect().vehicles
     assert.are.same({
       {
+        id = 42,
         type = "tractor",
         name = "Valtra T195",
         posX = 0.5,
@@ -141,5 +153,76 @@ describe("MapVehicles.collect", function()
     assert.is_true(entry.isAI)
     assert.is_nil(entry.isControlled)
     assert.is_nil(entry.isEntered)
+  end)
+
+  describe("players", function()
+    local function player(over)
+      local p = {
+        isControlled = true,
+        farmId = 2,
+        getCurrentVehicle = function()
+          return nil
+        end,
+        getPosition = function()
+          return 1024, 10, 0
+        end,
+        getYaw = function()
+          return 0.5
+        end,
+        getNickname = function()
+          return "Grisu118"
+        end,
+      }
+      for k, val in pairs(over or {}) do
+        p[k] = val
+      end
+      return p
+    end
+
+    it("exports another player on foot with their own position and heading", function()
+      g_currentMission.playerSystem = { players = { player() } }
+
+      assert.are.same({
+        { name = "Grisu118", posX = 1, posZ = 0.5, heading = 50, farmId = 2 },
+      }, VDT.MapVehicles.collect().players)
+    end)
+
+    it("leaves the local player out", function()
+      local me = player()
+      rawset(_G, "g_localPlayer", me)
+      g_currentMission.playerSystem = { players = { me } }
+
+      assert.is_nil(VDT.MapVehicles.collect().players)
+    end)
+
+    it("places a seated player on the root vehicle, though entering hid them", function()
+      local tractor = vehicle({ objectId = 42 })
+      local trailer = vehicle({ objectId = 43 })
+      trailer.rootVehicle = tractor
+      local driver = player({
+        isControlled = false, -- Player:hide() on entering
+        getCurrentVehicle = function()
+          return trailer
+        end,
+      })
+      g_currentMission.playerSystem = { players = { driver } }
+
+      local entry = VDT.MapVehicles.collect().players[1]
+      -- the vehicle's node and heading, not the player's parked capsule
+      assert.are.equal(0.5, entry.posX)
+      assert.are.equal(0, entry.posZ)
+      assert.are.equal(91, entry.heading)
+      assert.are.equal(42, entry.vehicleId)
+    end)
+
+    it("skips a hidden player who is in no vehicle, and the spectator farm", function()
+      local joining = player({ isControlled = false })
+      local spectator = player({ farmId = 0 })
+      g_currentMission.playerSystem = { players = { joining, spectator } }
+
+      local players = VDT.MapVehicles.collect().players
+      assert.are.equal(1, #players)
+      assert.is_nil(players[1].farmId)
+    end)
   end)
 end)

@@ -185,6 +185,7 @@ private const val KEY_COURSE_UP = "courseUp"
 private const val KEY_COURSE_NEARBY = "courseNearby"
 private const val KEY_POI_CATS = "poiCats"
 private const val KEY_VEH_STATES = "vehStates"
+private const val KEY_SHOW_PLAYERS = "showPlayers"
 private const val KEY_GROUND_LAYER = "groundLayer"
 
 /**
@@ -314,6 +315,10 @@ fun MapPanel(
   var missionChoices by remember { mutableStateOf(emptyMap<Int, Boolean>()) }
   var poiCats by remember { mutableStateOf(loadFilterSet(settings, KEY_POI_CATS, PoiCategories)) }
   var vehStates by remember { mutableStateOf(loadFilterSet(settings, KEY_VEH_STATES, VehicleStates)) }
+  // Its own switch rather than a fourth vehicle state: a stored vehicle filter predates it, and a
+  // state missing from a stored set reads as switched off — players would start out hidden for
+  // everyone who had ever touched the vehicle filter.
+  var showPlayers by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_PLAYERS, true)) }
   var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, NO_GROUND_LAYER)) }
   var filterOpen by remember { mutableStateOf(false) }
   // The field whose info popup is open (its id / farmland number), or null when none. Set by tapping
@@ -474,6 +479,7 @@ fun MapPanel(
   LaunchedEffect(courseUp) { settings.putBoolean(KEY_COURSE_UP, courseUp) }
   LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
   LaunchedEffect(vehStates) { settings.putString(KEY_VEH_STATES, vehStates.joinToString(",")) }
+  LaunchedEffect(showPlayers) { settings.putBoolean(KEY_SHOW_PLAYERS, showPlayers) }
   LaunchedEffect(groundLayer) { settings.putString(KEY_GROUND_LAYER, groundLayer) }
 
   // Tell the mod which plane to sweep: it grid-samples only what a dashboard is actually showing, so
@@ -775,6 +781,7 @@ fun MapPanel(
           showFields,
           poiCats,
           vehStates,
+          showPlayers,
           highlight,
           if (showMissions) shownMissions(accepted, missionChoices) else emptyList(),
         )
@@ -912,6 +919,8 @@ fun MapPanel(
           onPoiCats = { poiCats = it },
           vehStates = vehStates,
           onVehStates = { vehStates = it },
+          showPlayers = showPlayers,
+          onShowPlayers = { showPlayers = it },
           query = searchQuery,
           onQuery = {
             searchQuery = it
@@ -1427,6 +1436,7 @@ private fun BoxScope.MapDataOverlay(
   showFields: Boolean,
   poiCats: Set<String>,
   vehStates: Set<String>,
+  showPlayers: Boolean,
   highlight: Offset?,
   /** The contracts to draw — already filtered by the panel; see [shownMissions]. */
   accepted: List<Mission>,
@@ -1503,6 +1513,33 @@ private fun BoxScope.MapDataOverlay(
         lineTo(-5f * u, 6f * u)
         close()
       }
+    }
+
+  // The other players' pointer: a short wedge ahead of their round marker, north-up like the arrow.
+  val playerPointer =
+    remember(density) {
+      val u = with(density) { 1.dp.toPx() }
+      Path().apply {
+        moveTo(0f, -9f * u)
+        lineTo(3.5f * u, -3f * u)
+        lineTo(-3.5f * u, -3f * u)
+        close()
+      }
+    }
+
+  // Who is in each machine, by vehicle id: a seated player is named on the machine's marker rather
+  // than drawn over it (the arrow already says where it is and which way it faces).
+  val occupants =
+    remember(mapVehicles) {
+      (mapVehicles?.players ?: emptyList())
+        .filter { it.vehicleId != null && it.name.isNotBlank() }
+        .groupBy({ it.vehicleId }, { it.name })
+    }
+  // The local player's own machine, which has no vehicle marker: a passenger in it is under the
+  // local player's marker already.
+  val enteredVehicles =
+    remember(mapVehicles) {
+      mapVehicles?.vehicles?.filter { it.isEntered }?.mapNotNull { it.id }?.toSet() ?: emptySet()
     }
 
   val labelStyle =
@@ -1659,6 +1696,10 @@ private fun BoxScope.MapDataOverlay(
       }
     }
 
+    // The machines that got a marker, so a player seated in one is named on it instead of drawn
+    // over it. A machine filtered out or off screen is not in here, and its occupants fall through to
+    // a marker of their own below.
+    val drawnVehicles = HashSet<Int>()
     if (mapVehicles != null && vehStates.isNotEmpty()) {
       for (v in mapVehicles.vehicles) {
         // The locally driven vehicle already has the (animated) player marker on it.
@@ -1666,6 +1707,7 @@ private fun BoxScope.MapDataOverlay(
         if (vehicleStateOf(v) !in vehStates) continue
         val pos = toScreen(v.posX, v.posZ)
         if (!onCanvas(pos)) continue
+        v.id?.let { drawnVehicles += it }
         val tint = vehicleTint(v, playerFarmId, farmColors, palette)
         if (v.type in DrivableVehicleTypes) {
           // Drivables: a heading arrow.
@@ -1692,6 +1734,34 @@ private fun BoxScope.MapDataOverlay(
         }
         if (scale >= DETAIL_ZOOM && v.name.isNotBlank()) {
           drawCenteredText(textMeasurer, v.name, pos + Offset(0f, 14.dp.toPx()), detailStyle)
+        }
+        // Who is driving or riding in it, a line under the machine's name.
+        val names = if (showPlayers) occupants[v.id] else null
+        if (scale >= DETAIL_ZOOM && names != null) {
+          drawCenteredText(textMeasurer, names.joinToString(", "), pos + Offset(0f, 25.dp.toPx()), detailStyle)
+        }
+      }
+    }
+
+    // Other players: a round marker with a pointer, so a person reads apart from a machine by shape
+    // (the arrow and the square above) and not only by the farm colour both share.
+    if (mapVehicles != null && showPlayers) {
+      for (p in mapVehicles.players) {
+        if (p.vehicleId != null && (p.vehicleId in drawnVehicles || p.vehicleId in enteredVehicles)) continue
+        val pos = toScreen(p.posX, p.posZ)
+        if (!onCanvas(pos)) continue
+        val tint = farmTint(p.farmId, playerFarmId, farmColors, palette)
+        withTransform({
+          translate(pos.x, pos.y)
+          rotate(degrees = p.heading + projection.rotationDeg, pivot = Offset.Zero)
+        }) {
+          drawPath(playerPointer, tint)
+          drawPath(playerPointer, VdtColors.White, style = Stroke(width = 1.dp.toPx()))
+        }
+        drawCircle(tint, radius = 4.5.dp.toPx(), center = pos)
+        drawCircle(VdtColors.White, radius = 4.5.dp.toPx(), center = pos, style = Stroke(width = 1.dp.toPx()))
+        if (scale >= DETAIL_ZOOM && p.name.isNotBlank()) {
+          drawCenteredText(textMeasurer, p.name, pos + Offset(0f, 14.dp.toPx()), detailStyle)
         }
       }
     }
@@ -1766,8 +1836,11 @@ private fun vehicleTint(
   playerFarmId: Int?,
   farmColors: Map<Int, Color>,
   palette: VdtPalette,
-): Color {
-  val owner = vehicle.farmId ?: return palette.textSecondary
+): Color = farmTint(vehicle.farmId, playerFarmId, farmColors, palette)
+
+/** [vehicleTint] for anything with a farm — a machine's owner, or the farm another player is on. */
+private fun farmTint(farmId: Int?, playerFarmId: Int?, farmColors: Map<Int, Color>, palette: VdtPalette): Color {
+  val owner = farmId ?: return palette.textSecondary
   farmColors[owner]?.let { return it }
   return if (playerFarmId == null || owner == playerFarmId) palette.green else palette.red
 }
@@ -1948,6 +2021,8 @@ private fun BoxScope.MapFilterPanel(
   onPoiCats: (Set<String>) -> Unit,
   vehStates: Set<String>,
   onVehStates: (Set<String>) -> Unit,
+  showPlayers: Boolean,
+  onShowPlayers: (Boolean) -> Unit,
   query: String,
   onQuery: (String) -> Unit,
   onFocus: (Offset) -> Unit,
@@ -2048,6 +2123,10 @@ private fun BoxScope.MapFilterPanel(
         FilterRow(vehicleStateLabel(state), checked = state in vehStates) { on ->
           onVehStates(if (on) vehStates + state else vehStates - state)
         }
+      }
+      // Only in a session that has someone else in it: in singleplayer the row would switch nothing.
+      if (mapVehicles.players.isNotEmpty()) {
+        FilterRow("Other players", checked = showPlayers) { onShowPlayers(it) }
       }
     }
 

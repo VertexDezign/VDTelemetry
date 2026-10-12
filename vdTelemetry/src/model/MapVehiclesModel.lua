@@ -8,6 +8,7 @@
 -- posX/posZ are normalized [0,1] map coordinates in the same frame as MapModel / PlayerModel.
 
 ---@class MapVehicleModel
+---@field id number? network object id (NetworkUtil.getObjectId), what MapPlayerModel.vehicleId names
 ---@field type string VehicleHotspot.TYPE key, camelCased ("tractor", "harvester", "trailer", ...)
 ---@field name string?
 ---@field posX number
@@ -18,6 +19,15 @@
 ---@field isControlled boolean? a human is driving (any player in MP); omitted for non-enterables
 ---@field isEntered boolean? the LOCAL player is inside; omitted for non-enterables
 
+---@class MapPlayerModel
+---@field name string? the player's nickname
+---@field posX number
+---@field posZ number
+---@field heading number? compass degrees; the vehicle's own heading while in one
+---@field farmId number? the player's farm; omitted for the spectator farm
+---@field vehicleId number? the root vehicle's id while driving or riding in it; omitted on foot
+
 ---@class MapVehiclesModel
 ---@field version string
 ---@field vehicles MapVehicleModel[]?
+---@field players MapPlayerModel[]? every other player (never the local one), version 2

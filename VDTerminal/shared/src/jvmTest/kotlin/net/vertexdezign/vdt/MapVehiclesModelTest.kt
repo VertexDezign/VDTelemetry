@@ -81,6 +81,50 @@ class MapVehiclesModelTest {
     assertRoundTrips(data)
   }
 
+  /**
+   * Version 2's players, inline until a multiplayer capture replaces it (FUTURE.md → "Captures
+   * wanted as fixtures"): one on foot and one seated, joined to the vehicle by its id.
+   */
+  @Test
+  fun parsesOtherPlayers() {
+    val data =
+      VdtParser.parseMapVehicles(
+        """
+        {
+          "version": "2",
+          "vehicles": [
+            { "id": 42, "type": "tractor", "name": "Valtra T195 Active", "posX": 0.5, "posZ": 0.25,
+              "heading": 91, "farmId": 2, "isAI": false, "isControlled": true, "isEntered": false }
+          ],
+          "players": [
+            { "name": "Grisu118", "posX": 0.1, "posZ": 0.2, "heading": 270, "farmId": 1 },
+            { "name": "Farmhand", "posX": 0.5, "posZ": 0.25, "heading": 91, "vehicleId": 42 }
+          ]
+        }
+        """.trimIndent(),
+      )
+
+    assertEquals(42, data.vehicles.single().id)
+    val (walker, driver) = data.players
+    assertEquals("Grisu118", walker.name)
+    assertEquals(270, walker.heading)
+    assertEquals(1, walker.farmId)
+    assertTrue(walker.isOnFoot)
+    // The spectator farm is omitted, and the seat names the vehicle drawn there.
+    assertNull(driver.farmId)
+    assertEquals(data.vehicles.single().id, driver.vehicleId)
+    assertFalse(driver.isOnFoot)
+    assertRoundTrips(data)
+  }
+
+  @Test
+  fun versionOneHasNoIdsAndNoPlayers() {
+    val data = VdtParser.parseMapVehicles(example("basic.json"))
+
+    assertTrue(data.players.isEmpty())
+    assertTrue(data.vehicles.all { it.id == null })
+  }
+
   @Test
   fun vehiclesRideTheServerMessageDiscriminator() {
     val data = VdtParser.parseMapVehicles(example("basic.json"))
