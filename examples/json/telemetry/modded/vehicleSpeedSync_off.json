@@ -6,6 +6,7 @@
       "title": "STEYR"
     },
     "speedSync": {
+      "available": true,
       "waiting": false,
       "active": false
     },

@@ -614,21 +614,19 @@ class VdtModelTest {
   }
 
   @Test
-  fun decodesTheSpeedSyncLamp() {
-    // Vehicle Speed Sync (mod version 33). The capture is a tractor with the mod installed and nothing
-    // synced: the block is there, and says so.
-    val off = model("telemetry/modded/vehicleSpeedSync_off.json")
-    assertJsonRoundTrips(off)
-    assertEquals("33", off.version)
-    assertEquals(SpeedSync(active = false, waiting = false), off.vehicle?.speedSync)
-
-    // A live sync, inline until a capture of one is committed (FUTURE.md -> "Captures wanted").
-    val synced =
-      VdtParser.parseJson(
-        """{"version":"33","vehicle":{"speedSync":{"active":true,"waiting":true,"available":true}}}""",
-      )
-    assertJsonRoundTrips(synced)
-    assertEquals(SpeedSync(active = true, waiting = true, available = true), synced.vehicle?.speedSync)
+  fun decodesTheSpeedSyncCaptures() {
+    // Vehicle Speed Sync (mod version 33): one tractor beside a running machine, captured unsynced, synced
+    // while the other one stood still, and synced while it moved. `available` is true in all three — the
+    // partner was in range throughout, and switching off needs none.
+    fun sync(name: String): SpeedSync? {
+      val data = model("telemetry/modded/vehicleSpeedSync_$name.json")
+      assertJsonRoundTrips(data)
+      assertEquals("33", data.version)
+      return data.vehicle?.speedSync
+    }
+    assertEquals(SpeedSync(active = false, waiting = false, available = true), sync("off"))
+    assertEquals(SpeedSync(active = true, waiting = true, available = true), sync("waiting"))
+    assertEquals(SpeedSync(active = true, waiting = false, available = true), sync("on"))
 
     // Without the mod there is no block at all, which is a different answer from "not synced".
     val without = VdtParser.parseJson("""{"version":"33","vehicle":{"name":"Valtra"}}""")
