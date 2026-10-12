@@ -656,6 +656,8 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   are inline JSON in `VdtModelTest.decodesTheSpeedSyncLamp` meanwhile. Wanted: a tractor synced to a moving combine,
   and one synced but still waiting for it to move. A multiplayer client is worth a second capture, since the mod
   switches the sync on the client and the server only reports a lost connection back.
+  The terminal's toggle (`setSpeedSync`, greyed by `speedSync.available`) is unseen in game: worth checking that it
+  greys out with nothing in range or a helper driving, and that it syncs from a multiplayer client.
 - **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
   (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
 - **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file

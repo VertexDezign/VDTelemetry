@@ -160,6 +160,9 @@ local sourceFiles = {
   "src/command/LoaderControl.lua",
   "src/command/MotorControl.lua",
   "src/command/CruiseControl.lua",
+  -- Vehicle Speed Sync on/off; asks src/integrations/VehicleSpeedSync.lua for the mod's own verdict,
+  -- as CombineControl asks the aspects.
+  "src/command/SpeedSyncControl.lua",
   -- Precision Farming application rate (auto/manual + the manual step). Resolves which machine on the
   -- rig to drive through src/integrations/PrecisionFarming.lua, sourced above.
   "src/command/PrecisionFarmingControl.lua",
@@ -342,7 +345,9 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     #174): its forks are part of it, so there was no hitched tool to read. On it, role SHIFT for a
 --     sideshift (ARM2 below the lift), and on any machine `carriesLift` on a TILT that leans the mast.
 -- 33: `speedSync` -- Vehicle Speed Sync's lamp: whether the machine's speed is tied to another's, and
---     whether it is still waiting for that one to move (issue #145). Absent without the mod.
+--     whether it is still waiting for that one to move (issue #145). Absent without the mod. With
+--     `speedSync.available`, whether the mod's key would switch it right now, for the setSpeedSync
+--     command (command/SpeedSyncControl.lua).
 VDTelemetry.VERSION = 33
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3

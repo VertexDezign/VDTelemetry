@@ -33,6 +33,14 @@ class CommandWriterTest {
   }
 
   @Test
+  fun `writes the speed sync as an absolute state`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    CommandWriter(path).submit(ClientMessage.SetSpeedSync(active = true))
+    val xml = path.readText()
+    assertTrue(xml.contains("""type="setSpeedSync" active="true""""), xml)
+  }
+
+  @Test
   fun `writes complete and delete task commands with their ids`() {
     val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
     val writer = CommandWriter(path)

@@ -623,9 +623,12 @@ class VdtModelTest {
     assertEquals(SpeedSync(active = false, waiting = false), off.vehicle?.speedSync)
 
     // A live sync, inline until a capture of one is committed (FUTURE.md -> "Captures wanted").
-    val synced = VdtParser.parseJson("""{"version":"33","vehicle":{"speedSync":{"active":true,"waiting":true}}}""")
+    val synced =
+      VdtParser.parseJson(
+        """{"version":"33","vehicle":{"speedSync":{"active":true,"waiting":true,"available":true}}}""",
+      )
     assertJsonRoundTrips(synced)
-    assertEquals(SpeedSync(active = true, waiting = true), synced.vehicle?.speedSync)
+    assertEquals(SpeedSync(active = true, waiting = true, available = true), synced.vehicle?.speedSync)
 
     // Without the mod there is no block at all, which is a different answer from "not synced".
     val without = VdtParser.parseJson("""{"version":"33","vehicle":{"name":"Valtra"}}""")

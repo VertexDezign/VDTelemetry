@@ -590,6 +590,16 @@ sealed interface ClientMessage {
   }
 
   /**
+   * Vehicle Speed Sync on (`active = true`) or off — what the mod's own key does, as an absolute state
+   * so a resent command settles rather than toggling back (issue #145). On syncs to whichever machine
+   * the mod's own search finds; the mod refuses where its key would, and
+   * [net.vertexdezign.vdt.model.SpeedSync.available] says in advance whether it will.
+   */
+  @Serializable
+  @SerialName("setSpeedSync")
+  data class SetSpeedSync(val active: Boolean) : ClientMessage
+
+  /**
    * Show (`on = true`) or hide the steering-assist guide lines. Alone among the commands this one
    * targets a global client setting rather than the current vehicle, so the mod ignores which
    * vehicle is being driven when it runs it.

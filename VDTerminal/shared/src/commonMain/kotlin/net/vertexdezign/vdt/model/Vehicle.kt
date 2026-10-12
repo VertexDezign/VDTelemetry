@@ -409,6 +409,13 @@ data class SpeedSync(
   val active: Boolean = false,
   /** Synced, but the other machine has not started moving yet. Only ever true with [active]. */
   val waiting: Boolean = false,
+  /**
+   * Whether the mod's own key would switch it right now — always while [active], since switching off
+   * needs nothing; otherwise only with another machine's engine running within the mod's 25 m, no AI
+   * helper driving, and the feature on in the mod's settings. What greys out the terminal's toggle
+   * ([net.vertexdezign.vdt.ClientMessage.SetSpeedSync]), and the command asks the mod the same thing.
+   */
+  val available: Boolean = false,
 )
 
 // ---------------------------------------------------------------------------

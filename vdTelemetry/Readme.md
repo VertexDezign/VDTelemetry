@@ -384,8 +384,10 @@ version renames costs you that panel, never a Lua error.
 * [FS25_VehicleSpeedSync](https://www.farming-simulator.com/mod.php?mod_id=307815&title=fs2025) `1.0.1.0` — ties
   the driver's speed to the nearest moving machine within 25 m. Its HUD lamp lands on `vehicle.speedSync`
   (`src/integrations/VehicleSpeedSync.lua`): whether the machine is synced, and whether it is still waiting for the
-  other one to start moving. **Read only**, and the cruise-control copy is not reported separately — it sets the
-  ordinary cruise speed, which is already exported.
+  other one to start moving. **Read and write:** `speedSync.available` says whether the mod's key would switch it
+  right now, and VDTerminal's toggle sends `setSpeedSync` (`src/command/SpeedSyncControl.lua`), which runs the mod's
+  own search and setter and so refuses wherever the key would. The cruise-control copy is not reported separately —
+  it sets the ordinary cruise speed, which is already exported.
 * [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) `1.2.0.1`
   ([source](https://github.com/Ozz-Modding/FS25_TaskList)) — the farm task list, in its own
   `taskList.json` channel (`src/integrations/TaskList.lua`). **Read and write:** VDTerminal can
