@@ -381,6 +381,11 @@ version renames costs you that panel, never a Lua error.
     * The speed the limiter is currently allowing, **in singleplayer and on the host only** — the mod computes it
       server-side and never streams it, so a multiplayer client gets no `speedLimit` rather than the default it would
       otherwise read
+* [FS25_VehicleSpeedSync](https://www.farming-simulator.com/mod.php?mod_id=307815&title=fs2025) `1.0.1.0` — ties
+  the driver's speed to the nearest moving machine within 25 m. Its HUD lamp lands on `vehicle.speedSync`
+  (`src/integrations/VehicleSpeedSync.lua`): whether the machine is synced, and whether it is still waiting for the
+  other one to start moving. **Read only**, and the cruise-control copy is not reported separately — it sets the
+  ordinary cruise speed, which is already exported.
 * [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) `1.2.0.1`
   ([source](https://github.com/Ozz-Modding/FS25_TaskList)) — the farm task list, in its own
   `taskList.json` channel (`src/integrations/TaskList.lua`). **Read and write:** VDTerminal can

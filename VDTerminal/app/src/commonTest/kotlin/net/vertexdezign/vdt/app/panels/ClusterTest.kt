@@ -18,6 +18,7 @@ import net.vertexdezign.vdt.model.Motor
 import net.vertexdezign.vdt.model.MotorFillUnits
 import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.Speed
+import net.vertexdezign.vdt.model.SpeedSync
 import net.vertexdezign.vdt.model.Steering
 import net.vertexdezign.vdt.model.SteeringLayout
 import net.vertexdezign.vdt.model.SteeringMode
@@ -476,6 +477,27 @@ class ClusterReadoutTest {
     // `active` without `enabled` cannot happen from the mod, and if it ever did the mode selection is
     // still the thing that says whether the driver asked for this.
     assertNull(guidanceMark(Vehicle(gps = Gps(enabled = false, active = true))))
+  }
+
+  @Test
+  fun speedSyncIsAbsentUnlessItIsHoldingTheSpeed() {
+    // Neither "no mod" nor "the mod, not synced" draws anything: every drivable machine carries the
+    // mod's spec, and the mod's own lamp is not drawn unlit either.
+    assertNull(speedSyncMark(Vehicle()))
+    assertNull(speedSyncMark(Vehicle(speedSync = SpeedSync(active = false))))
+  }
+
+  @Test
+  fun speedSyncWaitingBlinksWhereTheModWouldTurnOrange() {
+    val holding = assertNotNull(speedSyncMark(Vehicle(speedSync = SpeedSync(active = true))))
+    val waiting = assertNotNull(speedSyncMark(Vehicle(speedSync = SpeedSync(active = true, waiting = true))))
+
+    assertEquals(ClusterIcons.SpeedSync, holding.icon)
+    assertEquals(holding.icon, waiting.icon, "one lamp in two states, not two glyphs")
+    assertEquals(holding.colour, waiting.colour, "waiting must not be told apart by hue alone")
+    assertFalse(holding.blinks)
+    assertTrue(waiting.blinks)
+    assertEquals("SYNC", holding.caption)
   }
 
   @Test

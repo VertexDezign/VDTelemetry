@@ -651,6 +651,11 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   state machine reports the vehicle there as it does on the host, and that `getPosition` on a remote player on foot
   follows them rather than sitting at their last synced spot. The exporter's header has the reasoning for which players
   are listed.
+- **Vehicle Speed Sync (#145) while synced.** The mark is confirmed in game, and
+  `examples/json/telemetry/modded/vehicleSpeedSync_off.json` pins the block with nothing synced; the two live states
+  are inline JSON in `VdtModelTest.decodesTheSpeedSyncLamp` meanwhile. Wanted: a tractor synced to a moving combine,
+  and one synced but still waiting for it to move. A multiplayer client is worth a second capture, since the mod
+  switches the sync on the client and the server only reports a lost connection back.
 - **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
   (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
 - **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file

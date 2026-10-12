@@ -116,6 +116,7 @@ local sourceFiles = {
   "src/integrations/MoreVehicleControls.lua",
   "src/integrations/AdvancedDamageSystem.lua",
   "src/integrations/CombineXP.lua",
+  "src/integrations/VehicleSpeedSync.lua",
   "src/integrations/registry.lua",
   "src/integrations/TaskList.lua",
   "src/integrations/CropRotation.lua",
@@ -340,7 +341,9 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     And `loaderTool` on a forklift, read off its forks' mount node, with joint FORKLIFT (issue
 --     #174): its forks are part of it, so there was no hitched tool to read. On it, role SHIFT for a
 --     sideshift (ARM2 below the lift), and on any machine `carriesLift` on a TILT that leans the mast.
-VDTelemetry.VERSION = 32
+-- 33: `speedSync` -- Vehicle Speed Sync's lamp: whether the machine's speed is tied to another's, and
+--     whether it is still waiting for that one to move (issue #145). Absent without the mod.
+VDTelemetry.VERSION = 33
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

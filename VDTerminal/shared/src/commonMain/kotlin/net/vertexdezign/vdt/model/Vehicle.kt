@@ -17,6 +17,8 @@ data class Vehicle(
   val gps: Gps? = null,
   val ai: Ai? = null,
   val cruiseControl: CruiseControl? = null,
+  /** Vehicle Speed Sync, when that mod is installed and handles this machine (mod version 33). */
+  val speedSync: SpeedSync? = null,
   val isTurnedOn: Boolean? = null,
   val foldable: FoldableState? = null,
   val lowered: Boolean? = null,
@@ -392,6 +394,22 @@ data class Ai(val active: Boolean = false)
 
 @Serializable
 data class CruiseControl(val targetSpeed: Float? = null, val active: Boolean? = null)
+
+/**
+ * **Vehicle Speed Sync**'s lamp (FS25_VehicleSpeedSync, issue #145): the driver has tied this machine's
+ * speed to the nearest moving one — the tractor running beside a combine it is unloading. Null when
+ * the mod isn't installed, so "not synced" is only ever said by a mod that could be.
+ *
+ * The speed being followed is the machine's own, so it is on the speedometer already; and the mod's
+ * cruise-control copy just sets [CruiseControl.targetSpeed]. See the mod's
+ * `src/integrations/VehicleSpeedSync.lua`.
+ */
+@Serializable
+data class SpeedSync(
+  val active: Boolean = false,
+  /** Synced, but the other machine has not started moving yet. Only ever true with [active]. */
+  val waiting: Boolean = false,
+)
 
 // ---------------------------------------------------------------------------
 // Wear

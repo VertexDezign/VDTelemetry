@@ -35,6 +35,8 @@ VDT.Integrations.all = {
   "AdvancedDamageSystem",
   -- Combine XP: the mod's own measurement of what the drum is taking, hung off the harvest aspect.
   "CombineXP",
+  -- Vehicle Speed Sync: the lamp it draws beside the speedometer while tied to another machine.
+  "VehicleSpeedSync",
 }
 
 -- "<integration>.<stage>" -> true once its failure has been logged, so a hook that throws on every
