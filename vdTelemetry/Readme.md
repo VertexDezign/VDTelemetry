@@ -44,7 +44,7 @@ data actually changes — and none of them rides the 100 ms tick.
 |---|---|---|
 | `vdTelemetry.json` | vehicle + environment (core) | every interval |
 | `map.json` | map overlay: POIs + fields + farms (core, `src/collect/MapExporter.lua`) | on farmland/placeable/farm change |
-| `mapVehicles.json` | vehicle markers (core, `src/collect/MapVehiclesExporter.lua`) | own interval (1 s) |
+| `mapVehicles.json` | vehicle + other-player markers (core, `src/collect/MapVehiclesExporter.lua`) | own interval (1 s) |
 | `mapLayers/` | ground layers: `index.json` (catalogue) + one raster file per plane — crops/growth/soil (core, `src/collect/MapLayersExporter.lua`) | own sweep cadence, per plane |
 | `gpsCourse.json` | the steering assist's guidance lines for the field being driven (core, `src/collect/GpsCourseExporter.lua`) | when the course itself changes (polled) |
 | `production.json` | own farm's production points + factories (core, `src/collect/ProductionExporter.lua`) | own interval (2 s) |
@@ -88,7 +88,9 @@ minimum spacing, capped at 256 points per field) to keep the file small.
 
 `mapVehicles.json` carries one marker per vehicle rig the game's own map would show (root vehicles
 with `mapHotspotAvailable`, typed via `VehicleHotspot.TYPE`): position/heading in the same normalized
-frame, owning farm, and AI/controlled/entered flags. It rewrites on its own 1 s interval — positions
+frame, owning farm, and AI/controlled/entered flags. Since version 2 it also carries every *other*
+player in the session — on foot, driving or riding as a passenger, the set the game marks with a
+player hotspot — with their nickname, farm, and the `vehicleId` of the rig they are in. It rewrites on its own 1 s interval — positions
 change constantly, but a map overview needs neither the 100 ms telemetry cadence nor event-driven
 writes.
 

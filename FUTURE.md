@@ -645,6 +645,12 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   `tensionBelts`), while the implement is working (for `speed.limit`). Once on the host and once on a multiplayer
   client — the hitch's travel and the odometer are both worked out locally on a client (see `vehicle/Hitch.lua` and
   `VehicleExporter.collectOdometer`), so the two files are the check that they agree.
+- **Other players on the map (#176)**, `mapVehicles.json` version 2, unseen in game and covered by inline JSON in
+  `MapVehiclesModelTest.parsesOtherPlayers` meanwhile. Wanted from a multiplayer session with one other player on foot
+  and one in a vehicle (ideally a passenger too), taken **on a client**: what is to confirm is that a remote player's
+  state machine reports the vehicle there as it does on the host, and that `getPosition` on a remote player on foot
+  follows them rather than sitting at their last synced spot. The exporter's header has the reasoning for which players
+  are listed.
 - **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
   (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
 - **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file
