@@ -40,6 +40,8 @@ interface Strings {
   val tasks: TasksStrings
   val rotation: RotationStrings
   val fields: FieldsStrings
+  val autoDrive: AutoDriveStrings
+  val diagnostics: DiagnosticsStrings
 }
 
 /** The languages the terminal has a catalogue for. */

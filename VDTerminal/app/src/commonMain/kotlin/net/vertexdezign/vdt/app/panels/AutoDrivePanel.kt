@@ -44,11 +44,14 @@ import net.vertexdezign.vdt.app.components.FilterChip
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.components.ToolButton
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.AutoDrive
 import net.vertexdezign.vdt.model.AutoDriveData
 import net.vertexdezign.vdt.model.AutoDriveDestination
 import net.vertexdezign.vdt.model.AutoDriveFillType
+import net.vertexdezign.vdt.model.AutoDriveMode
 import net.vertexdezign.vdt.model.AutoDriveTarget
 import net.vertexdezign.vdt.model.Vehicle
 
@@ -75,27 +78,29 @@ fun AutoDrivePanel(
 ) {
   val ad = vehicle?.autoDrive
   var picking by remember { mutableStateOf<Picking?>(null) }
+  val strings = LocalStrings.current
+  val s = strings.autoDrive
 
   Panel(
-    title = "AutoDrive",
+    title = strings.apps.autoDrive,
     icon = Icons.Filled.Route,
     modifier = modifier,
     headerActions = {
       if (picking != null) {
-        ToolButton(Icons.Filled.Close, "close the list", onClick = { picking = null })
+        ToolButton(Icons.Filled.Close, s.closeList, onClick = { picking = null })
       }
     },
   ) {
     when {
-      network == null -> Empty("AutoDrive is not installed")
+      network == null -> Empty(s.notInstalled)
 
-      ad == null -> Empty(if (vehicle == null) "Not in a vehicle" else "AutoDrive does not drive this vehicle")
+      ad == null -> Empty(if (vehicle == null) s.notInVehicle else s.notDriven)
 
       picking is Picking.Destination -> {
         val slot = (picking as Picking.Destination).slot
         val selected = if (slot == AutoDriveSlot.TARGET) ad.target else ad.unloadTarget
         PickList(
-          placeholder = "Search destinations…",
+          placeholder = s.searchDestinations,
           groups = { query -> destinationGroups(network.destinations, query) },
           key = { "d:${it.id}" },
           label = { it.name },
@@ -109,7 +114,7 @@ fun AutoDrivePanel(
 
       picking == Picking.FillType -> {
         PickList(
-          placeholder = "Search fill types…",
+          placeholder = s.searchFillTypes,
           groups = { query ->
             listOf(null to fillTypeMatches(ad.fillTypes.orEmpty(), query)).filter { it.second.isNotEmpty() }
           },
@@ -140,16 +145,18 @@ private fun Controls(
   onPick: (Picking) -> Unit,
   onCommand: (ClientMessage) -> Unit,
 ) {
+  val strings = LocalStrings.current
+  val s = strings.autoDrive
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     Status(ad)
 
-    Section("MODE") {
+    Section(s.mode) {
       FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (mode in ad.modes) {
-          FilterChip(mode.label, active = ad.mode == mode, onClick = {
+          FilterChip(modeLabel(strings, mode), active = ad.mode == mode, onClick = {
             if (ad.mode != mode) onCommand(ClientMessage.SetAutoDriveMode(mode))
           })
         }
@@ -159,11 +166,11 @@ private fun Controls(
     // In pick-up & deliver and load the first marker is where it loads; in the rest it is simply where
     // it goes. AutoDrive's HUD labels the two lists by icon only, so the words here are ours.
     val loads = ad.mode.hasUnloadTarget
-    Section(if (loads) "PICK UP AT" else "DESTINATION") {
+    Section(if (loads) s.pickUpAt else s.destination) {
       TargetButton(ad.target, network.destinations.isNotEmpty()) { onPick(Picking.Destination(AutoDriveSlot.TARGET)) }
     }
     if (ad.mode.hasUnloadTarget) {
-      Section("DELIVER TO") {
+      Section(s.deliverTo) {
         TargetButton(ad.unloadTarget, network.destinations.isNotEmpty()) {
           onPick(Picking.Destination(AutoDriveSlot.UNLOAD))
         }
@@ -174,7 +181,7 @@ private fun Controls(
     if (ad.mode.hasFillType && !fillTypes.isNullOrEmpty()) {
       // A list rather than chips: a grain trailer is offered every bulk fill type in the game — sixty-odd
       // on the first capture — which as chips would be the whole panel.
-      Section("LOAD") {
+      Section(s.load) {
         TargetButton(
           fillTypes.firstOrNull {
             it.name == ad.fillType
@@ -185,7 +192,7 @@ private fun Controls(
     }
 
     if (ad.mode.hasLoops) {
-      Section("ROUNDS") { Loops(ad, onCommand) }
+      Section(s.rounds) { Loops(ad, onCommand) }
     }
 
     StartStop(ad, network.destinations.isNotEmpty(), onCommand)
@@ -195,11 +202,12 @@ private fun Controls(
 /** Driving or not, in words — and while driving, what it is doing and how long it has left. */
 @Composable
 private fun Status(ad: AutoDrive) {
+  val s = LocalStrings.current.autoDrive
   Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       // The state is the word; the fill only reinforces it.
       Text(
-        if (ad.active) "DRIVING" else "STOPPED",
+        if (ad.active) s.driving else s.stopped,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
         color = if (ad.active) VdtColors.OnFill else VdtColors.DarkGray,
@@ -213,7 +221,7 @@ private fun Status(ad: AutoDrive) {
         val heading = ad.heading?.name
         val eta = ad.remainingSeconds?.let(::formatDriveTime)
         Text(
-          listOfNotNull(heading?.let { "to $it" }, eta).joinToString(" · "),
+          listOfNotNull(heading?.let { s.heading(it) }, eta).joinToString(" · "),
           fontSize = 12.sp,
           color = VdtColors.TextDark,
           maxLines = 1,
@@ -246,7 +254,7 @@ private fun TargetButton(label: String?, enabled: Boolean, onClick: () -> Unit) 
   val shape = RoundedCornerShape(4.dp)
   val chosen = label?.ifBlank { null }
   Text(
-    chosen ?: "Choose…",
+    chosen ?: LocalStrings.current.autoDrive.choose,
     fontSize = 13.sp,
     fontWeight = if (chosen != null) FontWeight.Bold else FontWeight.Normal,
     color = if (enabled) VdtColors.TextDark else VdtColors.TextDisabled,
@@ -271,17 +279,24 @@ private fun TargetButton(label: String?, enabled: Boolean, onClick: () -> Unit) 
 @Composable
 private fun Loops(ad: AutoDrive, onCommand: (ClientMessage) -> Unit) {
   fun set(loops: Int) = onCommand(ClientMessage.SetAutoDriveLoops(loops.coerceIn(0, AUTO_DRIVE_MAX_LOOPS)))
+  val strings = LocalStrings.current
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    ToolButton(Icons.Filled.Remove, "fewer rounds", onClick = { set(ad.loops - 1) }, enabled = ad.loops > 0)
+    ToolButton(
+      Icons.Filled.Remove,
+      strings.autoDrive.fewerRounds,
+      onClick = { set(ad.loops - 1) },
+      enabled =
+      ad.loops > 0,
+    )
     Text(
-      loopsLabel(ad),
+      loopsLabel(strings, ad),
       fontSize = 15.sp,
       fontWeight = FontWeight.Bold,
       color = VdtColors.TextDark,
     )
     ToolButton(
       Icons.Filled.Add,
-      "more rounds",
+      strings.autoDrive.moreRounds,
       onClick = { set(ad.loops + 1) },
       enabled =
       ad.loops < AUTO_DRIVE_MAX_LOOPS,
@@ -290,10 +305,20 @@ private fun Loops(ad: AutoDrive, onCommand: (ClientMessage) -> Unit) {
 }
 
 /** "Until stopped", the count, or while driving "2 of 5 left" — the HUD's own remaining count. */
-internal fun loopsLabel(ad: AutoDrive): String = when {
-  ad.loops == 0 -> "Until stopped"
-  ad.active -> "${(ad.loops - ad.loopsDone).coerceAtLeast(0)} of ${ad.loops} left"
+internal fun loopsLabel(strings: Strings, ad: AutoDrive): String = when {
+  ad.loops == 0 -> strings.autoDrive.untilStopped
+  ad.active -> strings.autoDrive.roundsLeft((ad.loops - ad.loopsDone).coerceAtLeast(0), ad.loops)
   else -> "${ad.loops}"
+}
+
+/** AutoDrive's mode, as its mode button names it. */
+internal fun modeLabel(strings: Strings, mode: AutoDriveMode): String = when (mode) {
+  AutoDriveMode.DRIVE_TO -> strings.autoDrive.modeDriveTo
+  AutoDriveMode.PICKUP_AND_DELIVER -> strings.autoDrive.modePickupAndDeliver
+  AutoDriveMode.DELIVER_TO -> strings.autoDrive.modeDeliverTo
+  AutoDriveMode.LOAD -> strings.autoDrive.modeLoad
+  AutoDriveMode.UNLOAD -> strings.autoDrive.modeUnload
+  AutoDriveMode.OTHER -> strings.autoDrive.modeOther
 }
 
 /**
@@ -306,7 +331,7 @@ private fun StartStop(ad: AutoDrive, hasNetwork: Boolean, onCommand: (ClientMess
   val enabled = ad.active || canStart
   val shape = RoundedCornerShape(4.dp)
   Text(
-    if (ad.active) "STOP" else "START",
+    if (ad.active) LocalStrings.current.autoDrive.stop else LocalStrings.current.autoDrive.start,
     fontSize = 14.sp,
     fontWeight = FontWeight.Bold,
     color = if (!enabled) VdtColors.TextDisabled else VdtColors.OnFill,
@@ -355,7 +380,7 @@ private fun <T> PickList(
   Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     SearchField(query, placeholder, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth())
     if (shown.isEmpty()) {
-      Empty("Nothing matches")
+      Empty(LocalStrings.current.common.nothingMatches)
     }
     LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
       for ((group, entries) in shown) {

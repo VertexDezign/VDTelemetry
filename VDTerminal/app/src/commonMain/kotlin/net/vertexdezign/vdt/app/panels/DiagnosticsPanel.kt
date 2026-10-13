@@ -25,6 +25,7 @@ import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import kotlin.math.roundToInt
 
@@ -39,10 +40,11 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun DiagnosticsPanel(stats: ChannelStatsData?, modifier: Modifier = Modifier) {
-  Panel(title = "Channel Diagnostics", icon = Icons.Filled.Schedule, modifier = modifier) {
+  val s = LocalStrings.current.diagnostics
+  Panel(title = s.title, icon = Icons.Filled.Schedule, modifier = modifier) {
     if (stats == null) {
       Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("WAITING FOR STATS…", color = VdtColors.DarkGray, fontSize = 12.sp)
+        Text(s.waiting, color = VdtColors.DarkGray, fontSize = 12.sp)
       }
       return@Panel
     }
@@ -58,21 +60,23 @@ fun DiagnosticsPanel(stats: ChannelStatsData?, modifier: Modifier = Modifier) {
 
 @Composable
 private fun HeaderRow() {
+  val s = LocalStrings.current.diagnostics
   Row(
     Modifier.fillMaxWidth().padding(vertical = 6.dp),
     horizontalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    HeaderCell("CHANNEL", 2.4f)
-    HeaderCell("CADENCE", 1.3f)
-    HeaderCell("MIN / MAX", 1.6f)
-    HeaderCell("LAST SEEN", 1.3f)
-    HeaderCell("WRITES", 1.0f)
+    HeaderCell(s.channel, 2.4f)
+    HeaderCell(s.cadence, 1.3f)
+    HeaderCell(s.minMax, 1.6f)
+    HeaderCell(s.lastSeen, 1.3f)
+    HeaderCell(s.writes, 1.0f)
   }
 }
 
 @Composable
 private fun ChannelRow(channel: ChannelStat, serverNowEpochMs: Long) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
   val ageMs = channel.lastWriteEpochMs?.let { (serverNowEpochMs - it).coerceAtLeast(0) }
   val stale = isStale(channel, ageMs)
   Row(
@@ -80,10 +84,10 @@ private fun ChannelRow(channel: ChannelStat, serverNowEpochMs: Long) {
     horizontalArrangement = Arrangement.spacedBy(8.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    Cell(friendlyName(channel.name), 2.4f, color = VdtColors.DarkGray, weightBold = true)
+    Cell(friendlyName(strings, channel.name), 2.4f, color = VdtColors.DarkGray, weightBold = true)
     Cell(numbers.formatInterval(channel.meanIntervalMs), 1.3f, color = if (stale) VdtColors.Amber else VdtColors.Green)
     Cell(numbers.formatMinMax(channel.minIntervalMs, channel.maxIntervalMs), 1.6f, color = VdtColors.DarkGray)
-    Cell(formatAge(ageMs), 1.3f, color = if (stale) VdtColors.Amber else VdtColors.DarkGray)
+    Cell(formatAge(strings, ageMs), 1.3f, color = if (stale) VdtColors.Amber else VdtColors.DarkGray)
     Cell(channel.writes.toString(), 1.0f, color = VdtColors.DarkGray)
   }
 }
@@ -122,9 +126,9 @@ private fun isStale(channel: ChannelStat, ageMs: Long?): Boolean {
 // The ground-layer rasters are one file per plane inside mapLayers/, and which planes exist is the
 // mod's to decide (Precision Farming will add more), so they are named by their folder rather than
 // listed above.
-private fun friendlyName(fileName: String): String = FRIENDLY_NAMES[fileName]
+private fun friendlyName(strings: Strings, fileName: String): String = strings.diagnostics.channelName(fileName)
   ?: fileName.substringAfter("mapLayers/", "").takeIf { it.isNotEmpty() }?.let {
-    "Map layer: ${it.removeSuffix(".json")}"
+    strings.diagnostics.mapLayer(it.removeSuffix(".json"))
   }
   ?: fileName
 
@@ -140,12 +144,13 @@ private fun Numbers.formatMinMax(minMs: Long?, maxMs: Long?): String {
 }
 
 /** ms age -> "just now" / "3s ago" / "2m ago"; null -> "never". */
-private fun formatAge(ms: Long?): String {
-  if (ms == null) return "never"
+private fun formatAge(strings: Strings, ms: Long?): String {
+  val s = strings.diagnostics
+  if (ms == null) return s.never
   return when {
-    ms < 1500 -> "just now"
-    ms < 60_000 -> "${(ms / 1000.0).roundToInt()}s ago"
-    else -> "${(ms / 60_000.0).roundToInt()}m ago"
+    ms < 1500 -> s.justNow
+    ms < 60_000 -> s.secondsAgo((ms / 1000.0).roundToInt())
+    else -> s.minutesAgo((ms / 60_000.0).roundToInt())
   }
 }
 
@@ -154,27 +159,3 @@ private fun Numbers.compactMs(ms: Long): String = if (ms < 1000) "${ms}ms" else 
 private fun Numbers.formatSeconds(ms: Double): String = "${trimmed(ms / 1000.0, 1)} s"
 
 private const val STALE_FLOOR_MS = 4000
-
-private val FRIENDLY_NAMES =
-  mapOf(
-    "vdTelemetry.json" to "Vehicle telemetry",
-    "map.json" to "Map",
-    "index.json" to "Map layers (catalogue)", // mapLayers/index.json; the only index.json there is
-    "mapVehicles.json" to "Map vehicles",
-    "gpsCourse.json" to "GPS course",
-    "production.json" to "Production",
-    "storage.json" to "Storage",
-    "husbandry.json" to "Animals",
-    "fleet.json" to "Fleet",
-    "prices.json" to "Prices",
-    "autoDrive.json" to "AutoDrive",
-    "missions.json" to "Missions",
-    "fieldInfo.json" to "Field info",
-    "cropCalendar.json" to "Crop calendar",
-    "weather.json" to "Weather",
-    // Missing until now, so these two listed as their raw filenames.
-    "finance.json" to "Finance",
-    "invoices.json" to "Invoices",
-    "taskList.json" to "Task list",
-    "cropRotation.json" to "Crop rotation",
-  )

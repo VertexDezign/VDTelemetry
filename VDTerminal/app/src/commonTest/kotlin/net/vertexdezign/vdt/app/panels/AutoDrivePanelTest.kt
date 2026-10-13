@@ -1,5 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.de.German
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.model.AutoDrive
 import net.vertexdezign.vdt.model.AutoDriveDestination
 import net.vertexdezign.vdt.model.AutoDriveFillType
@@ -33,10 +35,10 @@ class AutoDrivePanelTest {
 
   @Test
   fun theLoopCounterReadsAsAutoDrivesHudCountsIt() {
-    assertEquals("Until stopped", loopsLabel(AutoDrive(loops = 0, active = true)))
-    assertEquals("5", loopsLabel(AutoDrive(loops = 5)))
-    assertEquals("3 of 5 left", loopsLabel(AutoDrive(loops = 5, loopsDone = 2, active = true)))
-    assertEquals("0 of 5 left", loopsLabel(AutoDrive(loops = 5, loopsDone = 7, active = true)))
+    assertEquals("Until stopped", loopsLabel(English, AutoDrive(loops = 0, active = true)))
+    assertEquals("5", loopsLabel(English, AutoDrive(loops = 5)))
+    assertEquals("3 of 5 left", loopsLabel(English, AutoDrive(loops = 5, loopsDone = 2, active = true)))
+    assertEquals("0 of 5 left", loopsLabel(English, AutoDrive(loops = 5, loopsDone = 7, active = true)))
   }
 
   @Test
@@ -52,5 +54,11 @@ class AutoDrivePanelTest {
     assertEquals(fillTypes, fillTypeMatches(fillTypes, ""))
     assertEquals(listOf("WINTERWHEAT"), fillTypeMatches(fillTypes, "winter").map { it.name })
     assertEquals(2, fillTypeMatches(fillTypes, "wheat").size)
+  }
+
+  @Test
+  fun countsTheRoundsInGerman() {
+    assertEquals("Bis zum Stopp", loopsLabel(German, AutoDrive(loops = 0, active = true)))
+    assertEquals("noch 3 von 5", loopsLabel(German, AutoDrive(loops = 5, loopsDone = 2, active = true)))
   }
 }
