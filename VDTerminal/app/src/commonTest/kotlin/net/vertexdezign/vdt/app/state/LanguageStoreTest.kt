@@ -2,9 +2,12 @@ package net.vertexdezign.vdt.app.state
 
 import com.russhwolf.settings.MapSettings
 import net.vertexdezign.vdt.app.i18n.Language
+import net.vertexdezign.vdt.app.i18n.NumberStyle
+import net.vertexdezign.vdt.app.i18n.Numbers
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 class LanguageStoreTest {
   @Test
@@ -53,5 +56,30 @@ class LanguageStoreTest {
     assertNull(Language.of("jp"))
     assertNull(Language.of(""))
     assertNull(Language.of(null))
+  }
+
+  @Test
+  fun numbersFollowTheChoiceThenTheRegionThenTheLanguage() {
+    assertSame(Numbers.English, LanguageStore.numbers(NumberStyle.English, Language.De, "de-CH"))
+    // A Swiss browser writes Swiss numbers whatever the language.
+    assertSame(Numbers.Swiss, LanguageStore.numbers(null, Language.De, "de-CH"))
+    assertSame(Numbers.Swiss, LanguageStore.numbers(null, Language.En, "fr_CH"))
+    assertSame(Numbers.German, LanguageStore.numbers(null, Language.De, "de-DE"))
+    assertSame(Numbers.English, LanguageStore.numbers(null, Language.En, null))
+  }
+
+  @Test
+  fun aNumberStyleKeepsTheWordsAndIsPersisted() {
+    val settings = MapSettings()
+    LanguageStore(settings, null).setNumbers(NumberStyle.Swiss)
+    val reloaded = LanguageStore(settings, "de-DE")
+    val strings = reloaded.strings(Language.De, null, reloaded.numberChoice.value)
+    assertSame(Numbers.Swiss, strings.numbers)
+    assertEquals(Language.De.strings.settings.language, strings.settings.language)
+    // The same instance each time: LocalStrings is static, a new one would rebuild the tree.
+    assertSame(strings, reloaded.strings(Language.De, null, NumberStyle.Swiss))
+
+    reloaded.setNumbers(null)
+    assertNull(settings.getStringOrNull(LanguageStore.NUMBERS_KEY))
   }
 }

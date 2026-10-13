@@ -10,5 +10,7 @@ internal object DeSettings : SettingsStrings {
   override val themeDark = "Dunkel"
   override val size = "GRÖSSE"
   override val language = "SPRACHE"
+  override val numbers = "ZAHLEN"
+  override val numbersAuto = "Auto"
   override val languageGame = "Spiel"
 }

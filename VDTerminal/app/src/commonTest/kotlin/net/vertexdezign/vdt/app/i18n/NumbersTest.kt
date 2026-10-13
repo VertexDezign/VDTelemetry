@@ -26,6 +26,13 @@ class NumbersTest {
   }
 
   @Test
+  fun writesSwissNumbersWithAPointAndAnApostrophe() {
+    assertEquals("1'234'567", Numbers.Swiss.integer(1_234_567))
+    assertEquals("1'234.50", Numbers.Swiss.fixed(1234.5, 2, grouped = true))
+    assertEquals("1'234.5", NumberStyle.Swiss.example)
+  }
+
+  @Test
   fun keepsTheSignOnlyWhereTheRoundedValueHasOne() {
     assertEquals("-0,5", de.fixed(-0.5, 1))
     assertEquals("0,0", de.fixed(-0.04, 1))

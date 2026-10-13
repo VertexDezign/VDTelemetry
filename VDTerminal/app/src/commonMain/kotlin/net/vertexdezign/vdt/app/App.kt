@@ -104,7 +104,8 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
     LaunchedEffect(gameLanguage) { store.language.observeGame(gameLanguage) }
     val languageChoice by store.language.choice.collectAsState()
     val lastGameLanguage by store.language.gameLanguage.collectAsState()
-    val strings = store.language.resolve(languageChoice, lastGameLanguage).strings
+    val numberChoice by store.language.numberChoice.collectAsState()
+    val strings = store.language.strings(languageChoice, lastGameLanguage, numberChoice)
 
     val themeMode by store.theme.mode.collectAsState()
     val systemDark by store.theme.systemDark.collectAsState()
@@ -264,6 +265,7 @@ private fun Shell(
   val theme by store.theme.mode.collectAsState()
   val uiScale by store.uiScale.percent.collectAsState()
   val language by store.language.choice.collectAsState()
+  val numberStyle by store.language.numberChoice.collectAsState()
 
   Column(Modifier.fillMaxSize()) {
     Header(
@@ -281,6 +283,8 @@ private fun Shell(
       onUiScaleChange = store.uiScale::set,
       language = language,
       onLanguageChange = store.language::set,
+      numberStyle = numberStyle,
+      onNumberStyleChange = store.language::setNumbers,
       brandLogo = rememberBrandLogo(store.brandImageUrl, data.vehicle?.brand),
     )
 

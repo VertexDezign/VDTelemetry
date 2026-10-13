@@ -48,6 +48,7 @@ import net.vertexdezign.vdt.app.WakeLockStatus
 import net.vertexdezign.vdt.app.components.ViewTab
 import net.vertexdezign.vdt.app.i18n.Language
 import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.NumberStyle
 import net.vertexdezign.vdt.app.state.ThemeMode
 import net.vertexdezign.vdt.app.state.UiScaleStore
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -80,6 +81,8 @@ fun Header(
   onUiScaleChange: (Int) -> Unit = {},
   language: Language? = null,
   onLanguageChange: (Language?) -> Unit = {},
+  numberStyle: NumberStyle? = null,
+  onNumberStyleChange: (NumberStyle?) -> Unit = {},
   brandLogo: ImageBitmap? = null,
 ) {
   val strings = LocalStrings.current
@@ -150,7 +153,17 @@ fun Header(
         horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        DisplaySettings(theme, onThemeChange, uiScale, onUiScaleChange, language, onLanguageChange, accent.text)
+        DisplaySettings(
+          theme,
+          onThemeChange,
+          uiScale,
+          onUiScaleChange,
+          language,
+          onLanguageChange,
+          numberStyle,
+          onNumberStyleChange,
+          accent.text,
+        )
         WakeLockButton(wakeLock, onToggleWakeLock, accent.text)
         if (canEdit) {
           HeaderControl(
@@ -243,7 +256,7 @@ private fun WakeLockButton(status: WakeLockStatus, onToggle: () -> Unit, tint: C
 }
 
 /**
- * This device's look: light or dark, and how big it draws. Both are set once per device and then left,
+ * This device's look: light or dark, how big it draws, its language and how it writes numbers. Both are set once per device and then left,
  * so they share one control and a menu rather than taking two of the header's few slots — a phone's
  * header has room for three. The label is the size, the one of the two you can't see at a glance.
  *
@@ -259,6 +272,8 @@ private fun DisplaySettings(
   onUiScaleChange: (Int) -> Unit,
   language: Language?,
   onLanguageChange: (Language?) -> Unit,
+  numberStyle: NumberStyle?,
+  onNumberStyleChange: (NumberStyle?) -> Unit,
   tint: Color,
 ) {
   val strings = LocalStrings.current.settings
@@ -287,6 +302,13 @@ private fun DisplaySettings(
           ViewTab(strings.languageGame, language == null, { onLanguageChange(null) })
           for (option in Language.entries) {
             ViewTab(option.code.uppercase(), language == option, { onLanguageChange(option) })
+          }
+        }
+        // Each style by an example of itself, so the row needs no words beyond its Auto.
+        SettingRow(strings.numbers) {
+          ViewTab(strings.numbersAuto, numberStyle == null, { onNumberStyleChange(null) })
+          for (option in NumberStyle.entries) {
+            ViewTab(option.example, numberStyle == option, { onNumberStyleChange(option) })
           }
         }
       }

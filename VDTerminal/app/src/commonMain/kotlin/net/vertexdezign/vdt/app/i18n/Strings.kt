@@ -65,6 +65,15 @@ enum class Language(val code: String) {
     De -> German
   }
 
+  /**
+   * This catalogue writing its numbers as [numbers]. One instance per pair, kept: [LocalStrings] is
+   * static, so a fresh wrapper on every recomposition would rebuild the whole tree each time.
+   */
+  fun strings(numbers: Numbers): Strings =
+    if (numbers == strings.numbers) strings else renumbered.getOrPut(numbers) { Renumbered(strings, numbers) }
+
+  private val renumbered: MutableMap<Numbers, Strings> get() = renumberedCache.getOrPut(this) { mutableMapOf() }
+
   companion object {
     /**
      * The catalogue for a language tag, or null when there is none: matched on the primary subtag, so a
@@ -76,6 +85,11 @@ enum class Language(val code: String) {
     }
   }
 }
+
+private val renumberedCache = mutableMapOf<Language, MutableMap<Numbers, Strings>>()
+
+/** A catalogue with another [Numbers]; every word stays its own. */
+private class Renumbered(base: Strings, override val numbers: Numbers) : Strings by base
 
 /**
  * The ambient [Strings]; provided at the app root. Static: a language switch is rare and rebuilds the

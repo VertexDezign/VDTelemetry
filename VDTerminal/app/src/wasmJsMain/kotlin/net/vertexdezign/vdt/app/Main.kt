@@ -74,7 +74,7 @@ fun main() {
   val language = LanguageStore(settings, window.navigator.language)
   val alerts =
     AlertEngine(AppRegistry.apps.flatMap { it.alerts } + ModFormatAlerts.rules) {
-      language.resolve(language.choice.value, language.gameLanguage.value).strings
+      language.currentStrings()
     }
   // The document's own lang, so the browser hyphenates, spell-checks and reads aloud in the language the
   // terminal is drawn in rather than the English index.html ships with.

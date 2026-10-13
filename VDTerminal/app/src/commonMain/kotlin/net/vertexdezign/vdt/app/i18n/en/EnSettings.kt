@@ -10,5 +10,7 @@ internal object EnSettings : SettingsStrings {
   override val themeDark = "Dark"
   override val size = "SIZE"
   override val language = "LANGUAGE"
+  override val numbers = "NUMBERS"
+  override val numbersAuto = "Auto"
   override val languageGame = "Game"
 }

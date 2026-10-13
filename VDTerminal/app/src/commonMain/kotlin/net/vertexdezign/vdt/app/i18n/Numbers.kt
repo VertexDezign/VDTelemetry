@@ -4,8 +4,9 @@ import kotlin.math.abs
 import kotlin.math.roundToLong
 
 /**
- * How a language writes a number: its decimal mark and its thousands separator — `1,234.5` in English,
- * `1.234,5` in German. Every number the terminal prints goes through one of these, because Kotlin/wasm
+ * How a number is written: its decimal mark and its thousands separator — `1,234.5` in English,
+ * `1.234,5` in German, `1'234.5` in Switzerland. A language brings its own (see [Strings.numbers]); a
+ * device may pick another ([NumberStyle]), since a Swiss reader of the German screens writes neither. Every number the terminal prints goes through one of these, because Kotlin/wasm
  * has no `String.format` or `NumberFormat` to fall back on, and a hand-built `"$whole.$tenths"` is an
  * English number in a German screen.
  *
@@ -111,5 +112,34 @@ class Numbers(val decimalMark: Char, val groupMark: Char) {
 
     /** `1.234,5` */
     val German = Numbers(decimalMark = ',', groupMark = '.')
+
+    /** `1'234.5` — the plain apostrophe, not the typographic one: the wasm build has no font fallback. */
+    val Swiss = Numbers(decimalMark = '.', groupMark = '\'')
+  }
+}
+
+/**
+ * A device's pick of how numbers are written, independent of the language: German words with Swiss
+ * numbers is what a player in Switzerland reads. Keyed by [code] in the browser's storage; labelled by
+ * an example, which reads the same in every language.
+ */
+enum class NumberStyle(val code: String, val numbers: Numbers) {
+  English("en", Numbers.English),
+  German("de", Numbers.German),
+  Swiss("ch", Numbers.Swiss),
+  ;
+
+  /** `1,234.5`, `1.234,5`, `1'234.5` — the style shown as itself. */
+  val example: String get() = numbers.fixed(1234.5, 1, grouped = true)
+
+  companion object {
+    /**
+     * Swiss when the browser's region is Switzerland or Liechtenstein — whatever the language, as
+     * `fr-CH` and `it-CH` group the same way — else null, which leaves the language's own.
+     */
+    fun ofRegion(browserTag: String?): NumberStyle? {
+      val region = browserTag?.split('-', '_')?.drop(1)?.firstOrNull { it.length == 2 }?.uppercase()
+      return if (region == "CH" || region == "LI") Swiss else null
+    }
   }
 }
