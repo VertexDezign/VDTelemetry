@@ -59,6 +59,7 @@ fun EnhancedLoansSection(
 ) {
   var taking by remember { mutableStateOf(false) }
   var selectedId by remember { mutableStateOf<Int?>(null) }
+  val s = LocalStrings.current.loans
 
   Column(
     modifier
@@ -72,7 +73,7 @@ fun EnhancedLoansSection(
 
     val running = els.running
     if (running.isEmpty()) {
-      Text("No loans running", color = VdtColors.DarkGray, fontSize = 11.sp)
+      Text(s.noneRunning, color = VdtColors.DarkGray, fontSize = 11.sp)
     } else {
       running.forEach { loan ->
         LoanRow(
@@ -89,16 +90,16 @@ fun EnhancedLoansSection(
     // Cleared loans are kept by the mod and are worth a line, but not the space a row costs.
     val cleared = els.loans.count { it.paidOff }
     if (cleared > 0) {
-      Text("$cleared loan${if (cleared == 1) "" else "s"} paid off", color = VdtColors.DarkGray, fontSize = 10.sp)
+      Text(s.paidOff(cleared), color = VdtColors.DarkGray, fontSize = 10.sp)
     }
 
     if (!els.canManage) {
-      Text("You do not have the right to manage this farm's loans", color = VdtColors.DarkGray, fontSize = 10.sp)
+      Text(s.cannotManage, color = VdtColors.DarkGray, fontSize = 10.sp)
     } else if (taking) {
       TakeLoanControls(els, onDismiss = { taking = false }, onCommand = onCommand)
     } else {
       FinanceButton(
-        label = "Take a loan",
+        label = s.takeLoan,
         color = VdtColors.Green,
         onClick = { taking = true },
         enabled = (els.maxAmount ?: 0) > 0,
@@ -110,23 +111,24 @@ fun EnhancedLoansSection(
 @Composable
 private fun BankTerms(els: EnhancedLoans) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.loans
   Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-    Text("BANK", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    Text(s.bank, color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     els.interest?.let {
       // The rate drifts on its own when the server runs it dynamically, so say which it is: the number
       // a loan is signed at is fixed for that loan's life, but this one is not.
       Text(
-        "${numbers.formatRate(it)}%${if (els.dynamicInterest) " (variable)" else ""}",
+        s.rate(numbers.formatRate(it), els.dynamicInterest),
         color = VdtColors.TextDark,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
       )
     }
     els.maxDurationYears?.let {
-      Text("up to $it yr", color = VdtColors.DarkGray, fontSize = 11.sp)
+      Text(s.upToYears(it), color = VdtColors.DarkGray, fontSize = 11.sp)
     }
     els.maxAmount?.let {
-      Text("max ${numbers.formatMoney(it)}", color = VdtColors.DarkGray, fontSize = 11.sp)
+      Text(s.maxAmount(numbers.formatMoney(it)), color = VdtColors.DarkGray, fontSize = 11.sp)
     }
   }
 }
@@ -134,6 +136,7 @@ private fun BankTerms(els: EnhancedLoans) {
 @Composable
 private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.loans
   Column(
     Modifier
       .fillMaxWidth()
@@ -156,7 +159,7 @@ private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) 
         maxLines = 1,
       )
       Text(
-        "of ${numbers.formatMoney(loan.amount)} · ${numbers.formatRate(loan.interest)}%",
+        s.ofAmount(numbers.formatMoney(loan.amount), numbers.formatRate(loan.interest)),
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
         maxLines = 1,
@@ -164,7 +167,7 @@ private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) 
         modifier = Modifier.weight(1f),
       )
       Text(
-        "${loan.restMonths} mo left",
+        s.monthsLeft(loan.restMonths),
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
         maxLines = 1,
@@ -172,11 +175,12 @@ private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) 
     }
     ProgressBar(
       fraction = loan.progress,
-      leftLabel = "Repaid",
+      leftLabel = s.repaid,
       // The split is what makes an annuity loan legible: early on almost all of it is interest.
-      rightLabel = "${numbers.formatMoney(
-        loan.monthlyRate ?: 0,
-      )}/mo · ${numbers.formatMoney(loan.monthlyInterest ?: 0)} interest",
+      rightLabel = s.instalment(
+        numbers.formatMoney(loan.monthlyRate ?: 0),
+        numbers.formatMoney(loan.monthlyInterest ?: 0),
+      ),
     )
   }
 }
@@ -189,6 +193,7 @@ private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) 
 @Composable
 private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long, onCommand: (ClientMessage) -> Unit) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.loans
   val spent = loan.specialRedemptionDone && !els.multipleRedemptions
   val fractionCap =
     if (els.multipleRedemptions) {
@@ -215,13 +220,13 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
   Column(Modifier.fillMaxWidth().padding(start = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
     when {
       spent -> Text(
-        "This loan has already had its extra payment this year",
+        s.alreadyPaidExtra,
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
       )
 
       ceiling <= 0 -> Text(
-        "Nothing can be paid off right now",
+        s.nothingToPay,
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
       )
@@ -251,13 +256,13 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
             enabled = els.canManage && amount < ceiling,
           )
           FinanceButton(
-            label = "Max",
+            label = s.max,
             color = VdtColors.ProgressBlue,
             onClick = { amountText = ceiling.toString() },
             enabled = els.canManage && amount < ceiling,
           )
           FinanceButton(
-            label = "Pay off",
+            label = s.payOff,
             color = VdtColors.Green,
             onClick = { onCommand(ClientMessage.RepayLoan(loan.id, amount.toInt())) },
             enabled = els.canManage && amount > 0,
@@ -265,7 +270,7 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
         }
         if (!els.multipleRedemptions && fractionCap < loan.restAmount) {
           Text(
-            "One extra payment a year, up to ${numbers.formatMoney(fractionCap)} of this loan",
+            s.extraPaymentNote(numbers.formatMoney(fractionCap)),
             color = VdtColors.DarkGray,
             fontSize = 9.sp,
           )
@@ -279,6 +284,7 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
 @Composable
 private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onCommand: (ClientMessage) -> Unit) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.loans
   val ceiling = (els.maxAmount ?: 0).coerceIn(0, MAX_COMMAND_AMOUNT)
   val maxYears = (els.maxDurationYears ?: 1).coerceAtLeast(1)
 
@@ -298,7 +304,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
       verticalArrangement = Arrangement.spacedBy(6.dp),
       itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-      Text("AMOUNT", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+      Text(s.amount, color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
       FinanceButton(
         label = "-",
         color = VdtColors.ProgressBlue,
@@ -313,21 +319,21 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
         enabled = amount < ceiling,
       )
       FinanceButton(
-        label = "Max",
+        label = s.max,
         color = VdtColors.ProgressBlue,
         onClick = { amountText = ceiling.toString() },
         enabled = amount < ceiling,
       )
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-      Text("TERM", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+      Text(s.term, color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
       FinanceButton(
         label = "-",
         color = VdtColors.ProgressBlue,
         onClick = { years = (years - 1).coerceIn(1, maxYears) },
         enabled = years > 1,
       )
-      Text("$years yr", color = VdtColors.TextDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+      Text(s.years(years), color = VdtColors.TextDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
       FinanceButton(
         label = "+",
         color = VdtColors.ProgressBlue,
@@ -341,7 +347,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
     val rate = els.interest ?: 0f
     val monthly = annuity(amount, rate, years)
     Text(
-      "~${numbers.formatMoney(monthly)} a month for ${years * 12} months",
+      s.monthly(numbers.formatMoney(monthly), years * 12),
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
     )
@@ -350,7 +356,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
     // easier instalment and the larger bill.
     val total = totalRepayment(amount, rate, years)
     Text(
-      "Total ~${numbers.formatMoney(total)} · ${numbers.formatMoney(total - amount)} interest",
+      s.total(numbers.formatMoney(total), numbers.formatMoney(total - amount)),
       color = VdtColors.TextDark,
       fontSize = 11.sp,
       fontWeight = FontWeight.SemiBold,
@@ -358,7 +364,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
 
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
       FinanceButton(
-        label = "Borrow",
+        label = s.borrow,
         color = VdtColors.Green,
         onClick = {
           onCommand(ClientMessage.TakeLoan(amount.toInt(), years))
@@ -366,7 +372,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
         },
         enabled = amount > 0,
       )
-      FinanceButton(label = "Cancel", color = VdtColors.DarkGray, onClick = onDismiss)
+      FinanceButton(label = LocalStrings.current.common.cancel, color = VdtColors.DarkGray, onClick = onDismiss)
     }
   }
 }

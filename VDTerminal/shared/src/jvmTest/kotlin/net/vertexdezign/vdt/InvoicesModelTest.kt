@@ -346,15 +346,6 @@ class InvoicesModelTest {
   }
 
   @Test
-  fun statesHowAPriceShouldBeRead() {
-    val data = VdtParser.parseInvoices(populated)
-
-    // A liter row prices a *thousand* litres — the mod's rule, and the one the app must print.
-    assertEquals("1000 l", data.workTypes.first { it.id == 53 }.priceUnitLabel)
-    assertEquals("ha", data.workTypes.first { it.id == 2 }.priceUnitLabel)
-  }
-
-  @Test
   fun namesAFarmThatHasNoName() {
     val data = VdtParser.parseInvoices(populated)
 

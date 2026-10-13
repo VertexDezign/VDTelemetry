@@ -151,19 +151,6 @@ data class WorkType(
 ) {
   /** Whether this row can go on an invoice raised from the terminal. */
   val isUsable: Boolean get() = needsPicker == null
-
-  /** The quantity label for this unit, e.g. `3.5 ha`. */
-  val unitLabel: String
-    get() =
-      when (unit) {
-        "hectare" -> "ha"
-        "hour" -> "h"
-        "liter" -> "l"
-        else -> "pc"
-      }
-
-  /** How [price] should be read: a `liter` row prices a thousand litres, everything else one unit. */
-  val priceUnitLabel: String get() = if (unit == "liter") "1000 l" else unitLabel
 }
 
 /** One line of an invoice. */

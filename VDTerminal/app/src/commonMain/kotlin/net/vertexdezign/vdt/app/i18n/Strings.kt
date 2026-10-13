@@ -33,6 +33,9 @@ interface Strings {
   val production: ProductionStrings
   val missions: MissionsStrings
   val calendar: CalendarStrings
+  val finance: FinanceStrings
+  val loans: LoansStrings
+  val invoices: InvoicesStrings
 }
 
 /** The languages the terminal has a catalogue for. */

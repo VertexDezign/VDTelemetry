@@ -5,9 +5,12 @@ import net.vertexdezign.vdt.app.i18n.AppTitles
 import net.vertexdezign.vdt.app.i18n.CalendarStrings
 import net.vertexdezign.vdt.app.i18n.CommonStrings
 import net.vertexdezign.vdt.app.i18n.DisplayStrings
+import net.vertexdezign.vdt.app.i18n.FinanceStrings
 import net.vertexdezign.vdt.app.i18n.FleetStrings
+import net.vertexdezign.vdt.app.i18n.InvoicesStrings
 import net.vertexdezign.vdt.app.i18n.Language
 import net.vertexdezign.vdt.app.i18n.LauncherStrings
+import net.vertexdezign.vdt.app.i18n.LoansStrings
 import net.vertexdezign.vdt.app.i18n.MissionsStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.i18n.ProductionStrings
@@ -35,4 +38,7 @@ object German : Strings {
   override val production: ProductionStrings = DeProduction
   override val missions: MissionsStrings = DeMissions
   override val calendar: CalendarStrings = DeCalendar
+  override val finance: FinanceStrings = DeFinance
+  override val loans: LoansStrings = DeLoans
+  override val invoices: InvoicesStrings = DeInvoices
 }

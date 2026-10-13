@@ -43,6 +43,7 @@ import net.vertexdezign.vdt.app.components.FilterChip
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Invoice
 import net.vertexdezign.vdt.model.InvoiceLine
@@ -50,10 +51,17 @@ import net.vertexdezign.vdt.model.InvoicesData
 import net.vertexdezign.vdt.model.PenaltyTerms
 
 /** Which invoices the list is showing. */
-private enum class InvoiceFilter(val label: String) {
-  ALL("All"),
-  INCOMING("Owed"),
-  OUTGOING("Owing"),
+private enum class InvoiceFilter {
+  ALL,
+  INCOMING,
+  OUTGOING,
+  ;
+
+  fun label(strings: Strings): String = when (this) {
+    ALL -> strings.invoices.filterAll
+    INCOMING -> strings.invoices.filterOwed
+    OUTGOING -> strings.invoices.filterOwing
+  }
 }
 
 /**
@@ -76,9 +84,10 @@ fun InvoicesSection(
   modifier: Modifier = Modifier,
   onCommand: (ClientMessage) -> Unit = {},
 ) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val s = strings.invoices
   if (data == null) {
-    Centered("FS25_Invoices is not installed", modifier)
+    Centered(s.notInstalled, modifier)
     return
   }
 
@@ -111,23 +120,23 @@ fun InvoicesSection(
       ) {
         InvoiceFilter.entries.forEach { candidate ->
           FilterChip(
-            label = candidate.label,
+            label = candidate.label(strings),
             active = filter == candidate,
             onClick = { filter = candidate },
           )
         }
         Box(Modifier.weight(1f))
         if (data.canIssue) {
-          FinanceButton("New invoice", VdtColors.Green, { building = true })
+          FinanceButton(s.newInvoice, VdtColors.Green, { building = true })
         }
       }
 
       if (rows.isEmpty()) {
         Centered(
           when {
-            data.invoices.isNotEmpty() -> "Nothing in this direction"
-            data.farms.isEmpty() -> "No other farms to invoice — this needs a multiplayer session"
-            else -> "No invoices yet"
+            data.invoices.isNotEmpty() -> s.nothingThisWay
+            data.farms.isEmpty() -> s.noOtherFarms
+            else -> s.none
           },
         )
       } else {
@@ -151,7 +160,7 @@ fun InvoicesSection(
     }
 
     confirming?.let { (invoice, message) ->
-      val (title, body, label) = confirmCopy(numbers, message, invoice, balance)
+      val (title, body, label) = confirmCopy(strings, message, invoice, balance)
       ConfirmDialog(
         title = title,
         message = body,
@@ -181,6 +190,7 @@ fun InvoicesSection(
 @Composable
 private fun InvoicesHeadline(data: InvoicesData) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.invoices
   Row(
     Modifier
       .fillMaxWidth()
@@ -191,7 +201,7 @@ private fun InvoicesHeadline(data: InvoicesData) {
     verticalAlignment = Alignment.CenterVertically,
   ) {
     FinanceFigure(
-      label = if (data.hasOverdue) "You owe · overdue" else "You owe",
+      label = if (data.hasOverdue) s.youOweOverdue else s.youOwe,
       value = numbers.formatMoney(data.totalOwed),
       color = when {
         data.hasOverdue -> VdtColors.Red
@@ -200,21 +210,21 @@ private fun InvoicesHeadline(data: InvoicesData) {
       },
     )
     FinanceFigure(
-      label = "You're owed",
+      label = s.youAreOwed,
       value = numbers.formatMoney(data.totalOwing),
       color = if (data.totalOwing > 0) VdtColors.AccentText else VdtColors.DarkGray,
     )
     val pending = data.pendingProposals.size
     if (pending > 0) {
       FinanceFigure(
-        label = if (pending == 1) "Proposal to answer" else "Proposals to answer",
+        label = s.proposalsToAnswer(pending),
         value = pending.toString(),
         color = VdtColors.Amber,
       )
     }
     if (!data.canManage) {
       Text(
-        "View only — you do not have the right to manage this farm's invoices",
+        s.viewOnly,
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
       )
@@ -226,13 +236,13 @@ private fun InvoicesHeadline(data: InvoicesData) {
 @Composable
 @ReadOnlyComposable
 private fun statusOf(invoice: Invoice): Pair<String, Color> = when {
-  invoice.isPaid -> "Paid" to VdtColors.DarkGray
+  invoice.isPaid -> LocalStrings.current.invoices.statusPaid to VdtColors.DarkGray
 
-  invoice.isProposal -> "Awaiting approval" to VdtColors.Amber
+  invoice.isProposal -> LocalStrings.current.invoices.statusAwaiting to VdtColors.Amber
 
-  invoice.overdue -> "Overdue" to VdtColors.Red
+  invoice.overdue -> LocalStrings.current.invoices.statusOverdue to VdtColors.Red
 
-  invoice.isPayable -> "Pending" to VdtColors.TextDark
+  invoice.isPayable -> LocalStrings.current.invoices.statusPending to VdtColors.TextDark
 
   // A state this build does not know: print the raw token rather than inventing a label for it.
   else -> invoice.state to VdtColors.DarkGray
@@ -249,6 +259,7 @@ private fun InvoiceRow(
   onCommand: (ClientMessage) -> Unit,
 ) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.invoices
   val (status, statusColor) = statusOf(invoice)
 
   Column(
@@ -271,7 +282,7 @@ private fun InvoiceRow(
       // coverage renders as tofu (see AnimalsPanel's SortArrow, which is why that one is an Icon).
       Icon(
         if (invoice.isIncoming) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
-        contentDescription = if (invoice.isIncoming) "You owe" else "You're owed",
+        contentDescription = if (invoice.isIncoming) s.youOwe else s.youAreOwed,
         tint = if (invoice.isIncoming) VdtColors.Red else VdtColors.AccentText,
         modifier = Modifier.size(13.dp),
       )
@@ -321,7 +332,7 @@ private fun InvoiceRow(
         // amount above already carries it.
         invoice.daysUntilPenalty?.takeIf { invoice.isIncoming && invoice.isPayable }?.let { days ->
           Text(
-            if (days == 0) "penalty due" else "$days ${if (days == 1) "day" else "days"} to penalty",
+            if (days == 0) s.penaltyDue else s.daysToPenalty(days),
             color = if (days <= 1) VdtColors.Amber else VdtColors.DarkGray,
             fontSize = 9.sp,
             maxLines = 1,
@@ -345,12 +356,13 @@ private fun InvoiceDetail(
   onCommand: (ClientMessage) -> Unit,
 ) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.invoices
   Column(
     Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 10.dp),
     verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
     Box(Modifier.fillMaxWidth().padding(bottom = 2.dp)) {
-      Text("LINES", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+      Text(s.lines, color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
     invoice.lines.forEach { LineRow(it) }
 
@@ -359,11 +371,11 @@ private fun InvoiceDetail(
     invoice.penalty?.let { penalty ->
       Text(
         buildString {
-          append("Includes ${numbers.formatMoney(penalty)} of late penalty")
+          append(s.includesPenalty(numbers.formatMoney(penalty)))
           terms?.takeIf { it.enabled }?.let {
-            append(" — ${numbers.trimPercent(it.ratePercent)}% a month after ${it.gracePeriods} month")
-            if (it.gracePeriods != 1) append("s")
-            append(", capped at ${numbers.trimPercent(it.capPercent)}%")
+            append(
+              s.penaltyTerms(numbers.trimPercent(it.ratePercent), it.gracePeriods, numbers.trimPercent(it.capPercent)),
+            )
           }
         },
         color = VdtColors.Red,
@@ -377,7 +389,9 @@ private fun InvoiceDetail(
 
 @Composable
 private fun LineRow(line: InvoiceLine) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.invoices
   Row(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -385,7 +399,7 @@ private fun LineRow(line: InvoiceLine) {
   ) {
     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       Text(
-        line.name?.takeIf { it.isNotBlank() } ?: "Work type ${line.workTypeId}",
+        line.name?.takeIf { it.isNotBlank() } ?: s.workType(line.workTypeId),
         color = VdtColors.TextDark,
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
@@ -396,15 +410,15 @@ private fun LineRow(line: InvoiceLine) {
         buildString {
           append(numbers.formatQuantity(line.quantity))
           append(" ")
-          append(unitLabel(line.unit))
+          append(unitLabel(strings, line.unit))
           append(" × ")
           append(numbers.formatQuantity(line.price))
           // A litre line is priced per thousand, so the multiplication above does not read as
           // arithmetic unless it says so.
-          if (line.unit == "liter") append(" / 1000 l")
+          if (line.unit == "liter") append(s.perThousandLitres)
           line.discountRate?.let { append(" · -${numbers.trimPercent(it * 100)}%") }
-          line.vatRate?.let { append(" · VAT ${numbers.trimPercent(it * 100)}%") }
-          line.fieldId?.let { append(" · field $it") }
+          line.vatRate?.let { append(" · ${s.vat(numbers.trimPercent(it * 100))}") }
+          line.fieldId?.let { append(" · ${s.field(it)}") }
         },
         color = VdtColors.DarkGray,
         fontSize = 9.sp,
@@ -434,6 +448,7 @@ private fun LineRow(line: InvoiceLine) {
 @Composable
 private fun Totals(invoice: Invoice) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.invoices
   Column(
     Modifier
       .fillMaxWidth()
@@ -442,16 +457,16 @@ private fun Totals(invoice: Invoice) {
       .padding(horizontal = 8.dp, vertical = 6.dp),
     verticalArrangement = Arrangement.spacedBy(2.dp),
   ) {
-    TotalLine("Net", numbers.formatMoney(invoice.totalNet), VdtColors.DarkGray)
+    TotalLine(s.net, numbers.formatMoney(invoice.totalNet), VdtColors.DarkGray)
     // Between net and VAT, where the mod's own detail dialog puts it. Informational: the discount is
     // already inside every figure here, so this says what was given away, not what is still owed.
     invoice.discountTotal.takeIf { it > 0 }?.let {
-      TotalLine("Discount", "-${numbers.formatMoney(it)}", VdtColors.AccentText)
+      TotalLine(s.discount, "-${numbers.formatMoney(it)}", VdtColors.AccentText)
     }
-    invoice.vat?.let { TotalLine("VAT", numbers.formatMoney(it), VdtColors.DarkGray) }
-    invoice.penalty?.let { TotalLine("Penalty", numbers.formatMoney(it), VdtColors.Red) }
-    TotalLine("Payer pays", numbers.formatMoney(invoice.totalDue), VdtColors.TextDark, bold = true)
-    TotalLine("Issuer receives", numbers.formatMoney(invoice.credit), VdtColors.TextDark, bold = true)
+    invoice.vat?.let { TotalLine(s.vatLabel, numbers.formatMoney(it), VdtColors.DarkGray) }
+    invoice.penalty?.let { TotalLine(s.penalty, numbers.formatMoney(it), VdtColors.Red) }
+    TotalLine(s.payerPays, numbers.formatMoney(invoice.totalDue), VdtColors.TextDark, bold = true)
+    TotalLine(s.issuerReceives, numbers.formatMoney(invoice.credit), VdtColors.TextDark, bold = true)
   }
 }
 
@@ -489,6 +504,7 @@ private fun InvoiceActions(
   onCommand: (ClientMessage) -> Unit,
 ) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.invoices
   if (invoice.actions.isEmpty()) return
 
   val affordable = balance == null || balance >= invoice.totalDue
@@ -497,7 +513,7 @@ private fun InvoiceActions(
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
       if (invoice.canPay) {
         FinanceButton(
-          label = "Pay ${numbers.formatMoney(invoice.totalDue)}",
+          label = s.pay(numbers.formatMoney(invoice.totalDue)),
           color = VdtColors.Green,
           onClick = { onConfirm(ClientMessage.PayInvoice(invoice.id)) },
           enabled = affordable,
@@ -506,19 +522,19 @@ private fun InvoiceActions(
       if (invoice.canValidate) {
         // Not destructive and not a payment: accepting a proposal only turns it into a real invoice
         // for the other farm to settle, so it goes straight through.
-        FinanceButton("Accept", VdtColors.Green, { onCommand(ClientMessage.ValidateProposal(invoice.id)) })
+        FinanceButton(s.accept, VdtColors.Green, { onCommand(ClientMessage.ValidateProposal(invoice.id)) })
       }
       if (invoice.canRefuse) {
-        FinanceButton("Refuse", VdtColors.Red, { onConfirm(ClientMessage.RefuseProposal(invoice.id)) })
+        FinanceButton(s.refuse, VdtColors.Red, { onConfirm(ClientMessage.RefuseProposal(invoice.id)) })
       }
       if (invoice.canCancel) {
-        FinanceButton("Withdraw", VdtColors.Red, { onConfirm(ClientMessage.CancelInvoice(invoice.id)) })
+        FinanceButton(s.withdraw, VdtColors.Red, { onConfirm(ClientMessage.CancelInvoice(invoice.id)) })
       }
     }
 
     if (invoice.canPay && !affordable) {
       Text(
-        "Paying ${numbers.formatMoney(invoice.totalDue)} needs more than the ${numbers.formatMoney(balance)} on hand",
+        s.cannotAfford(numbers.formatMoney(invoice.totalDue), numbers.formatMoney(balance)),
         color = VdtColors.Red,
         fontSize = 10.sp,
       )
@@ -528,39 +544,35 @@ private fun InvoiceActions(
 
 /** Wording for the three actions that move money or destroy a record. */
 private fun confirmCopy(
-  numbers: Numbers,
+  strings: Strings,
   message: ClientMessage,
   invoice: Invoice,
   balance: Long?,
-): Triple<String, String, String> = when (message) {
-  is ClientMessage.PayInvoice ->
-    Triple(
-      "Pay ${numbers.formatMoney(invoice.totalDue)}?",
-      buildString {
-        append("To ${invoice.counterpartyLabel}.")
-        balance?.let { append(" That leaves ${numbers.formatMoney(it - invoice.totalDue)} on hand.") }
-        // The gap is the mod's destroyed VAT, and it is surprising enough to name up front rather
-        // than leave someone to spot afterwards.
-        if (invoice.credit != invoice.totalDue) {
-          append(" They receive ${numbers.formatMoney(invoice.credit)} — the rest is tax.")
-        }
-      },
-      "Pay",
-    )
+): Triple<String, String, String> {
+  val numbers = strings.numbers
+  val s = strings.invoices
+  return when (message) {
+    is ClientMessage.PayInvoice ->
+      Triple(
+        s.payTitle(numbers.formatMoney(invoice.totalDue)),
+        buildString {
+          append(s.payTo(invoice.counterpartyLabel))
+          balance?.let { append(s.payLeaves(numbers.formatMoney(it - invoice.totalDue))) }
+          // The gap is the mod's destroyed VAT, and it is surprising enough to name up front rather
+          // than leave someone to spot afterwards.
+          if (invoice.credit != invoice.totalDue) {
+            append(s.payTax(numbers.formatMoney(invoice.credit)))
+          }
+        },
+        s.payConfirm,
+      )
 
-  is ClientMessage.RefuseProposal ->
-    Triple(
-      "Refuse this proposal?",
-      "It will be deleted. ${invoice.counterpartyLabel} would have to raise it again.",
-      "Refuse",
-    )
+    is ClientMessage.RefuseProposal ->
+      Triple(s.refuseTitle, s.refuseMessage(invoice.counterpartyLabel), s.refuse)
 
-  else ->
-    Triple(
-      "Withdraw invoice #${invoice.id}?",
-      "It will be deleted rather than marked cancelled — the mod keeps no record of it afterwards.",
-      "Withdraw",
-    )
+    else ->
+      Triple(s.withdrawTitle(invoice.id), s.withdrawMessage, s.withdraw)
+  }
 }
 
 // ---- Widget --------------------------------------------------------------------------------------
@@ -572,14 +584,19 @@ private fun confirmCopy(
 @Composable
 fun InvoicesSummary(data: InvoicesData?, modifier: Modifier = Modifier) {
   val numbers = LocalStrings.current.numbers
-  Panel(title = "Invoices", icon = Icons.AutoMirrored.Filled.ReceiptLong, modifier = modifier) {
+  val s = LocalStrings.current.invoices
+  Panel(
+    title = LocalStrings.current.finance.invoices,
+    icon = Icons.AutoMirrored.Filled.ReceiptLong,
+    modifier = modifier,
+  ) {
     if (data == null) {
-      Centered("FS25_Invoices is not installed")
+      Centered(s.notInstalled)
       return@Panel
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       FinanceFigure(
-        label = if (data.hasOverdue) "You owe · overdue" else "You owe",
+        label = if (data.hasOverdue) s.youOweOverdue else s.youOwe,
         value = numbers.formatMoney(data.totalOwed),
         color = when {
           data.hasOverdue -> VdtColors.Red
@@ -588,14 +605,14 @@ fun InvoicesSummary(data: InvoicesData?, modifier: Modifier = Modifier) {
         },
       )
       FinanceFigure(
-        label = "You're owed",
+        label = s.youAreOwed,
         value = numbers.formatMoney(data.totalOwing),
         color = if (data.totalOwing > 0) VdtColors.AccentText else VdtColors.DarkGray,
       )
       val pending = data.pendingProposals.size
       if (pending > 0) {
         Text(
-          "$pending proposal${if (pending == 1) "" else "s"} waiting on you",
+          s.proposalsWaiting(pending),
           color = VdtColors.Amber,
           fontSize = 11.sp,
           fontWeight = FontWeight.SemiBold,
@@ -607,13 +624,17 @@ fun InvoicesSummary(data: InvoicesData?, modifier: Modifier = Modifier) {
 
 // ---- Formatting ----------------------------------------------------------------------------------
 
-/** The mod's unit tokens as the short labels a line reads with. */
-internal fun unitLabel(unit: String): String = when (unit) {
-  "hectare" -> "ha"
-  "hour" -> "h"
-  "liter" -> "l"
-  else -> "pc"
+/** The mod's unit tokens as the short labels a line reads with, e.g. the `ha` of `3.5 ha`. */
+internal fun unitLabel(strings: Strings, unit: String): String = when (unit) {
+  "hectare" -> strings.invoices.unitHectare
+  "hour" -> strings.invoices.unitHour
+  "liter" -> strings.invoices.unitLitre
+  else -> strings.invoices.unitPiece
 }
+
+/** How a work type's price should be read: a `liter` row prices a thousand litres, everything else one unit. */
+internal fun priceUnitLabel(strings: Strings, unit: String): String =
+  if (unit == "liter") "1000 ${strings.invoices.unitLitre}" else unitLabel(strings, unit)
 
 /**
  * A quantity or unit price with at most two decimals and no trailing zeros — `3.5`, `2`, `0.55`. These

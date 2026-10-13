@@ -2,6 +2,8 @@ package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.ui.text.AnnotatedString
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.de.German
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -129,5 +131,14 @@ class FinanceFormatTest {
     assertEquals(VdtPalette.Light.textSecondary, moneyColor(0, VdtPalette.Light))
     assertEquals(VdtPalette.Light.accentText, moneyColor(1, VdtPalette.Light))
     assertEquals(VdtPalette.Light.red, moneyColor(-1, VdtPalette.Light))
+  }
+
+  @Test
+  fun statesHowAnInvoicePriceShouldBeRead() {
+    // A liter row prices a *thousand* litres — the mod's rule, and the one the app must print.
+    assertEquals("1000 l", priceUnitLabel(English, "liter"))
+    assertEquals("ha", priceUnitLabel(English, "hectare"))
+    assertEquals("pc", unitLabel(English, "piece"))
+    assertEquals("Stk.", unitLabel(German, "piece"))
   }
 }

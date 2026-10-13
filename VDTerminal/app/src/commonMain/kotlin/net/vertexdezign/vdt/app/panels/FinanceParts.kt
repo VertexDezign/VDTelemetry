@@ -84,6 +84,7 @@ fun FinanceFigure(label: String, value: String, color: Color, modifier: Modifier
 @Composable
 fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.finance
   Row(
     modifier
       .fillMaxWidth()
@@ -95,7 +96,7 @@ fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
   ) {
     val balance = data.balance ?: 0
     FinanceFigure(
-      label = "Balance",
+      label = s.balance,
       value = numbers.formatMoney(balance),
       // The game's threshold, not zero: InGameMenuStatisticsFrame goes red at <= -1.
       color = if (balance <= -1) VdtColors.Red else VdtColors.TextDark,
@@ -107,24 +108,24 @@ fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
       els != null -> {
         val owed = els.totalOutstanding
         FinanceFigure(
-          label = "Loans",
+          label = s.loans,
           value = numbers.formatMoney(owed),
           color = if (owed > 0) VdtColors.Amber else VdtColors.DarkGray,
         )
         if (owed > 0) {
-          FinanceFigure(label = "Per month", value = numbers.formatMoney(-els.totalMonthlyRate), color = VdtColors.Red)
+          FinanceFigure(label = s.perMonth, value = numbers.formatMoney(-els.totalMonthlyRate), color = VdtColors.Red)
         }
       }
 
       data.loansAvailable -> {
         FinanceFigure(
-          label = "Loan",
+          label = s.loan,
           value = numbers.formatMoney(data.loan ?: 0),
           color = if ((data.loan ?: 0) > 0) VdtColors.Amber else VdtColors.DarkGray,
         )
         val interest = data.loanInterestPerDay ?: 0
         if (interest > 0) {
-          FinanceFigure(label = "Interest / day", value = numbers.formatMoney(-interest), color = VdtColors.Red)
+          FinanceFigure(label = s.interestPerDay, value = numbers.formatMoney(-interest), color = VdtColors.Red)
         }
       }
     }
@@ -139,11 +140,12 @@ fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
  */
 @Composable
 fun MoneyLog(events: List<MoneyEvent>, modifier: Modifier = Modifier) {
+  val s = LocalStrings.current.finance
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    Text("ACTIVITY", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    Text(s.activity, color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     if (events.isEmpty()) {
       Text(
-        "No transactions yet this session",
+        s.noTransactions,
         color = VdtColors.DarkGray,
         fontSize = 11.sp,
       )
@@ -173,7 +175,7 @@ private fun MoneyLogRow(event: MoneyEvent) {
     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       Text(
         // An unlabelled change is a real case — the game allows an empty notification label.
-        event.title ?: "Transaction",
+        event.title ?: LocalStrings.current.finance.transaction,
         color = VdtColors.TextDark,
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
@@ -205,18 +207,20 @@ private fun MoneyLogRow(event: MoneyEvent) {
  */
 @Composable
 fun FinanceSummary(data: FinanceData?, modifier: Modifier = Modifier) {
-  val numbers = LocalStrings.current.numbers
-  Panel(title = "Finance", icon = Icons.Filled.AccountBalance, modifier = modifier) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.finance
+  Panel(title = strings.apps.finance, icon = Icons.Filled.AccountBalance, modifier = modifier) {
     when {
-      data == null -> Centered("Waiting for finance data…")
+      data == null -> Centered(s.waiting)
 
-      !data.hasFarm -> Centered("No farm")
+      !data.hasFarm -> Centered(s.noFarm)
 
       else -> {
         val balance = data.balance ?: 0
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
           FinanceFigure(
-            label = "Balance",
+            label = s.balance,
             value = numbers.formatMoney(balance),
             color = if (balance <= -1) VdtColors.Red else VdtColors.TextDark,
           )
@@ -231,7 +235,7 @@ fun FinanceSummary(data: FinanceData?, modifier: Modifier = Modifier) {
           val owed = data.enhancedLoans?.totalOutstanding ?: (data.loan ?: 0).takeIf { data.loansAvailable } ?: 0
           if (owed > 0) {
             Text(
-              "Loan ${numbers.formatMoney(owed)}",
+              s.loanAmount(numbers.formatMoney(owed)),
               color = VdtColors.Amber,
               fontSize = 11.sp,
               fontWeight = FontWeight.SemiBold,

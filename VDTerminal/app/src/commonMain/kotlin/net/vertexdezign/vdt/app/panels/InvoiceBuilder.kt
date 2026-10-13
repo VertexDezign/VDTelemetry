@@ -115,7 +115,9 @@ fun InvoiceBuilder(
   onCommand: (ClientMessage) -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.invoices
   var farmId by remember { mutableStateOf(data.farms.firstOrNull()?.id) }
   var proposal by remember { mutableStateOf(false) }
   val lines = remember { mutableStateListOf<DraftLine>() }
@@ -145,7 +147,7 @@ fun InvoiceBuilder(
       verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
       Text(
-        if (proposal) "Ask to be billed" else "New invoice",
+        if (proposal) s.askToBeBilled else s.newInvoice,
         color = VdtColors.TextDark,
         fontSize = 15.sp,
         fontWeight = FontWeight.Bold,
@@ -154,29 +156,25 @@ fun InvoiceBuilder(
       // Which way round it is. A proposal is raised by the payer and validated by the issuer, so this
       // choice decides who ends up owing whom -- worth stating in words rather than a toggle label.
       Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        ModeChip("I did the work", !proposal) { proposal = false }
-        ModeChip("They did the work", proposal) { proposal = true }
+        ModeChip(s.iDidTheWork, !proposal) { proposal = false }
+        ModeChip(s.theyDidTheWork, proposal) { proposal = true }
       }
       Text(
-        if (proposal) {
-          "They will be asked to approve it before it becomes payable."
-        } else {
-          "Billed immediately — they can pay it as soon as it arrives."
-        },
+        if (proposal) s.proposalNote else s.invoiceNote,
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
       )
 
-      FieldLabel(if (proposal) "Who did the work" else "Who to bill")
+      FieldLabel(if (proposal) s.whoDidTheWork else s.whoToBill)
       FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         data.farms.forEach { farm ->
           ModeChip(farm.label, farmId == farm.id) { farmId = farm.id }
         }
       }
 
-      FieldLabel("Lines")
+      FieldLabel(s.linesLabel)
       if (lines.isEmpty()) {
-        Text("Nothing on it yet — add a work type below.", color = VdtColors.DarkGray, fontSize = 11.sp)
+        Text(s.noLinesYet, color = VdtColors.DarkGray, fontSize = 11.sp)
       } else {
         Column(
           Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState()),
@@ -191,10 +189,10 @@ fun InvoiceBuilder(
       // The cap is the mod's own, and ClientMessage.CreateInvoice rejects a longer list in its
       // constructor -- so it has to be unreachable from the UI, not merely discouraged.
       val atCap = lines.size >= ClientMessage.CreateInvoice.MAX_LINES
-      FinanceButton("Add line", VdtColors.ProgressBlue, { picking = true }, enabled = !atCap)
+      FinanceButton(s.addLine, VdtColors.ProgressBlue, { picking = true }, enabled = !atCap)
       if (atCap) {
         Text(
-          "An invoice can carry at most ${ClientMessage.CreateInvoice.MAX_LINES} lines.",
+          s.maxLines(ClientMessage.CreateInvoice.MAX_LINES),
           color = VdtColors.DarkGray,
           fontSize = 9.sp,
         )
@@ -202,7 +200,7 @@ fun InvoiceBuilder(
 
       if (discount > 0) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-          Text("DISCOUNT", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+          Text(s.discountCaps, color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
           Text(
             "-${numbers.formatMoney(discount)}",
             color = VdtColors.AccentText,
@@ -212,7 +210,7 @@ fun InvoiceBuilder(
         }
       }
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text("TOTAL", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(s.totalCaps, color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Text(
           numbers.formatMoney(total),
           color = VdtColors.TextDark,
@@ -224,7 +222,7 @@ fun InvoiceBuilder(
         // The preview is tax-inclusive, like every figure the mod prints, and the issuer never sees
         // the VAT part of it. Better said here than discovered after the money lands.
         Text(
-          "Includes VAT at the server's rates; the issuer receives the net amount.",
+          s.vatNote,
           color = VdtColors.DarkGray,
           fontSize = 9.sp,
         )
@@ -232,7 +230,7 @@ fun InvoiceBuilder(
 
       Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         FinanceButton(
-          label = if (proposal) "Send proposal" else "Send invoice",
+          label = if (proposal) s.sendProposal else s.sendInvoice,
           color = VdtColors.Green,
           enabled = valid && farmId != null,
           onClick = {
@@ -246,7 +244,7 @@ fun InvoiceBuilder(
             )
           },
         )
-        FinanceButton("Cancel", VdtColors.DarkGray, onDismiss)
+        FinanceButton(strings.common.cancel, VdtColors.DarkGray, onDismiss)
       }
     }
 
@@ -287,7 +285,8 @@ private fun ModeChip(label: String, active: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun DraftLineRow(line: DraftLine, onRemove: () -> Unit) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
   Column(
     Modifier
       .fillMaxWidth()
@@ -316,7 +315,7 @@ private fun DraftLineRow(line: DraftLine, onRemove: () -> Unit) {
       // bundled font's coverage renders as tofu.
       Icon(
         Icons.Filled.Close,
-        contentDescription = "Remove ${line.workType.name}",
+        contentDescription = strings.invoices.remove(line.workType.name),
         tint = VdtColors.DarkGray,
         modifier = Modifier
           .clip(RoundedCornerShape(4.dp))
@@ -326,9 +325,9 @@ private fun DraftLineRow(line: DraftLine, onRemove: () -> Unit) {
       )
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-      NumberField(line.quantity, { line.quantity = it }, unitLabel(line.workType.unit), width = 84)
-      NumberField(line.price, { line.price = it }, "@ ${line.workType.priceUnitLabel}", width = 104)
-      NumberField(line.discount, { line.discount = it }, "% off", width = 74)
+      NumberField(line.quantity, { line.quantity = it }, unitLabel(strings, line.workType.unit), width = 84)
+      NumberField(line.price, { line.price = it }, "@ ${priceUnitLabel(strings, line.workType.unit)}", width = 104)
+      NumberField(line.discount, { line.discount = it }, strings.invoices.percentOff, width = 74)
     }
     NoteField(line.note) { line.note = it }
   }
@@ -376,7 +375,7 @@ private fun NoteField(value: String, onChange: (String) -> Unit) {
     decorationBox = { inner ->
       Box {
         if (value.isEmpty()) {
-          Text("note (optional)", color = VdtColors.TextDisabled, fontSize = 10.sp)
+          Text(LocalStrings.current.invoices.noteHint, color = VdtColors.TextDisabled, fontSize = 10.sp)
         }
         inner()
       }
@@ -393,6 +392,7 @@ private fun NoteField(value: String, onChange: (String) -> Unit) {
 /** Pick a work type. The picker-only rows are listed but not selectable, with the reason. */
 @Composable
 private fun WorkTypePicker(workTypes: List<WorkType>, onPick: (WorkType) -> Unit, onDismiss: () -> Unit) {
+  val s = LocalStrings.current.invoices
   Box(
     Modifier
       .fillMaxSize()
@@ -411,7 +411,7 @@ private fun WorkTypePicker(workTypes: List<WorkType>, onPick: (WorkType) -> Unit
         .clickable(interactionSource = null, indication = null, onClick = {}),
       verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-      Text("Add a line", color = VdtColors.TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+      Text(s.addALine, color = VdtColors.TextDark, fontSize = 14.sp, fontWeight = FontWeight.Bold)
       Column(
         Modifier.fillMaxWidth().heightIn(max = 340.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -420,14 +420,15 @@ private fun WorkTypePicker(workTypes: List<WorkType>, onPick: (WorkType) -> Unit
           WorkTypeRow(workType, onPick)
         }
       }
-      FinanceButton("Close", VdtColors.DarkGray, onDismiss)
+      FinanceButton(s.close, VdtColors.DarkGray, onDismiss)
     }
   }
 }
 
 @Composable
 private fun WorkTypeRow(workType: WorkType, onPick: (WorkType) -> Unit) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
   val usable = workType.isUsable
   Row(
     Modifier
@@ -448,12 +449,12 @@ private fun WorkTypeRow(workType: WorkType, onPick: (WorkType) -> Unit) {
         overflow = TextOverflow.Ellipsis,
       )
       if (!usable) {
-        Text("built in-game only — it transfers goods", color = VdtColors.DarkGray, fontSize = 9.sp)
+        Text(strings.invoices.inGameOnly, color = VdtColors.DarkGray, fontSize = 9.sp)
       }
     }
     if (usable) {
       Text(
-        "${numbers.formatQuantity(workType.price)} / ${workType.priceUnitLabel}",
+        "${numbers.formatQuantity(workType.price)} / ${priceUnitLabel(strings, workType.unit)}",
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
         maxLines = 1,
