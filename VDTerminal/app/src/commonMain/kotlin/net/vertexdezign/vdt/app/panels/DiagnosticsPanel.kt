@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ChannelStat
 import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtColors
 import kotlin.math.roundToInt
 
@@ -70,6 +72,7 @@ private fun HeaderRow() {
 
 @Composable
 private fun ChannelRow(channel: ChannelStat, serverNowEpochMs: Long) {
+  val numbers = LocalStrings.current.numbers
   val ageMs = channel.lastWriteEpochMs?.let { (serverNowEpochMs - it).coerceAtLeast(0) }
   val stale = isStale(channel, ageMs)
   Row(
@@ -78,8 +81,8 @@ private fun ChannelRow(channel: ChannelStat, serverNowEpochMs: Long) {
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Cell(friendlyName(channel.name), 2.4f, color = VdtColors.DarkGray, weightBold = true)
-    Cell(formatInterval(channel.meanIntervalMs), 1.3f, color = if (stale) VdtColors.Amber else VdtColors.Green)
-    Cell(formatMinMax(channel.minIntervalMs, channel.maxIntervalMs), 1.6f, color = VdtColors.DarkGray)
+    Cell(numbers.formatInterval(channel.meanIntervalMs), 1.3f, color = if (stale) VdtColors.Amber else VdtColors.Green)
+    Cell(numbers.formatMinMax(channel.minIntervalMs, channel.maxIntervalMs), 1.6f, color = VdtColors.DarkGray)
     Cell(formatAge(ageMs), 1.3f, color = if (stale) VdtColors.Amber else VdtColors.DarkGray)
     Cell(channel.writes.toString(), 1.0f, color = VdtColors.DarkGray)
   }
@@ -126,12 +129,12 @@ private fun friendlyName(fileName: String): String = FRIENDLY_NAMES[fileName]
   ?: fileName
 
 /** ms interval -> "980 ms" / "2.0 s"; null (no interval yet) -> em dash. */
-private fun formatInterval(ms: Double?): String {
+private fun Numbers.formatInterval(ms: Double?): String {
   if (ms == null) return "—"
   return if (ms < 1000) "${ms.roundToInt()} ms" else formatSeconds(ms)
 }
 
-private fun formatMinMax(minMs: Long?, maxMs: Long?): String {
+private fun Numbers.formatMinMax(minMs: Long?, maxMs: Long?): String {
   if (minMs == null || maxMs == null) return "—"
   return "${compactMs(minMs)} / ${compactMs(maxMs)}"
 }
@@ -146,14 +149,9 @@ private fun formatAge(ms: Long?): String {
   }
 }
 
-private fun compactMs(ms: Long): String = if (ms < 1000) "${ms}ms" else formatSeconds(ms.toDouble())
+private fun Numbers.compactMs(ms: Long): String = if (ms < 1000) "${ms}ms" else formatSeconds(ms.toDouble())
 
-private fun formatSeconds(ms: Double): String {
-  val s = ms / 1000.0
-  // one decimal, but drop a trailing ".0"
-  val rounded = (s * 10).roundToInt() / 10.0
-  return if (rounded == rounded.toLong().toDouble()) "${rounded.toLong()} s" else "$rounded s"
-}
+private fun Numbers.formatSeconds(ms: Double): String = "${trimmed(ms / 1000.0, 1)} s"
 
 private const val STALE_FLOOR_MS = 4000
 

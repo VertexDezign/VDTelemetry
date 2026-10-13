@@ -29,6 +29,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.model.DriveDirection
 import net.vertexdezign.vdt.model.SteeringLayout
 import net.vertexdezign.vdt.model.Vehicle
@@ -96,6 +98,7 @@ private val LABEL_GAP = 6.dp
  */
 @Composable
 fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier = Modifier) {
+  val numbers = LocalStrings.current.numbers
   val motor = vehicle.motor
   val spec = tween<Float>(durationMillis = sampleIntervalMs, easing = LinearEasing)
   val rpm by animateFloatAsState((motor?.rpm?.value ?: 0).toFloat(), spec, label = "cluster-rpm")
@@ -214,7 +217,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
         // pointed is not something to lose along with it. It belongs beside a speed anyway: the two
         // together are the whole answer to "where is this going, and how fast".
         Line(
-          value = format1(speed),
+          value = numbers.fixed(speed, 1),
           cells = SPEED_CELLS,
           valueColour = ClusterColors.Digits,
           size = digit,
@@ -232,7 +235,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
         cruise?.let { target ->
           val engaged = vehicle.cruiseControl?.active == true
           Line(
-            value = format1(target),
+            value = numbers.fixed(target, 1),
             cells = SPEED_CELLS,
             valueColour = if (engaged) ClusterColors.Set else ClusterColors.Set.copy(alpha = ARMED_ALPHA),
             size = digit * CRUISE_SCALE,
@@ -272,7 +275,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
         if (odometer != null || hours != null) {
           Row(Modifier.fillMaxWidth()) {
             ClusterLabel(
-              if (dark || odometer == null) "" else "${formatOdometer(odometer.value)}${odometer.unit}",
+              if (dark || odometer == null) "" else "${numbers.formatOdometer(odometer.value)}${odometer.unit}",
               Modifier.weight(1f),
             )
             ClusterLabel(if (dark || hours == null) "" else "${hours.value}${hours.unit}", align = TextAlign.End)
@@ -775,8 +778,8 @@ private const val AT_LIMIT = 0.5f
  * The odometer, to a tenth while it is short and in whole kilometres once it is not — a tenth is a
  * field's headland on a new machine and noise on one with thousands of km behind it.
  */
-internal fun formatOdometer(km: Double): String =
-  if (km < ODOMETER_TENTHS_BELOW) format1(km.toFloat()) else km.toLong().toString()
+internal fun Numbers.formatOdometer(km: Double): String =
+  if (km < ODOMETER_TENTHS_BELOW) fixed(km, 1) else km.toLong().toString()
 
 private const val ODOMETER_TENTHS_BELOW = 1000.0
 
@@ -879,16 +882,4 @@ internal fun gearText(vehicle: Vehicle): String? {
   if (gear.isNeutral) return "N"
   val value = gear.value.takeIf { it.isNotBlank() } ?: return null
   return gear.group.takeIf { it.isNotBlank() }?.let { it + value } ?: value
-}
-
-/**
- * One decimal, without `String.format` (JVM-only; this also runs on wasmJs).
- *
- * Signed off the whole value rather than off its parts: integer division truncates towards zero, so
- * `-0.5` would otherwise lose its sign along with its integer digit and read as `0.5`.
- */
-internal fun format1(value: Float): String {
-  val scaled = (value * 10).roundToInt()
-  val magnitude = abs(scaled)
-  return "${if (scaled < 0) "-" else ""}${magnitude / 10}.${magnitude % 10}"
 }

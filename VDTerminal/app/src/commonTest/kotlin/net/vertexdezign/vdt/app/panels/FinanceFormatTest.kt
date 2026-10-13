@@ -1,10 +1,13 @@
 package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.ui.text.AnnotatedString
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+
+private val en = Numbers.English
 
 /**
  * The finance panel's money formatting. Worth pinning down because the grouping is hand-rolled (no
@@ -14,38 +17,38 @@ import kotlin.test.assertTrue
 class FinanceFormatTest {
   @Test
   fun groupsThousandsFromTheRight() {
-    assertEquals("0", formatMoney(0))
-    assertEquals("7", formatMoney(7))
-    assertEquals("999", formatMoney(999))
-    assertEquals("1,000", formatMoney(1000))
+    assertEquals("0", en.formatMoney(0))
+    assertEquals("7", en.formatMoney(7))
+    assertEquals("999", en.formatMoney(999))
+    assertEquals("1,000", en.formatMoney(1000))
     // The leading partial group is the case a naive chunk-from-the-left gets wrong.
-    assertEquals("12,345", formatMoney(12345))
-    assertEquals("123,456", formatMoney(123456))
-    assertEquals("1,234,567", formatMoney(1234567))
+    assertEquals("12,345", en.formatMoney(12345))
+    assertEquals("123,456", en.formatMoney(123456))
+    assertEquals("1,234,567", en.formatMoney(1234567))
     // Wider than Int: a long-running farm's balance is why the model carries Long.
-    assertEquals("9,999,999,999", formatMoney(9999999999L))
+    assertEquals("9,999,999,999", en.formatMoney(9999999999L))
   }
 
   @Test
   fun putsTheSignOutsideTheDigits() {
-    assertEquals("-1,250", formatMoney(-1250))
-    assertEquals("-1,250", formatMoney(-1250, withSign = true))
-    assertEquals("+1,250", formatMoney(1250, withSign = true))
-    assertEquals("1,250", formatMoney(1250))
+    assertEquals("-1,250", en.formatMoney(-1250))
+    assertEquals("-1,250", en.formatMoney(-1250, withSign = true))
+    assertEquals("+1,250", en.formatMoney(1250, withSign = true))
+    assertEquals("1,250", en.formatMoney(1250))
   }
 
   @Test
   fun survivesTheWidestNegativeLong() {
     // Not a balance anyone will hold — it is the one value where taking the magnitude with abs()
     // would return itself, still negative, and print a doubled sign.
-    assertEquals("-9,223,372,036,854,775,808", formatMoney(Long.MIN_VALUE))
-    assertEquals("-9,223,372,036,854,775,808", formatMoney(Long.MIN_VALUE, withSign = true))
+    assertEquals("-9,223,372,036,854,775,808", en.formatMoney(Long.MIN_VALUE))
+    assertEquals("-9,223,372,036,854,775,808", en.formatMoney(Long.MIN_VALUE, withSign = true))
   }
 
   @Test
   fun zeroIsNeverSigned() {
     // A "+0" in a table of transactions reads as a credit that didn't happen.
-    assertEquals("0", formatMoney(0, withSign = true))
+    assertEquals("0", en.formatMoney(0, withSign = true))
   }
 
   @Test
@@ -99,20 +102,23 @@ class FinanceFormatTest {
   fun amountGroupingKeepsEveryCursorPositionInRange() {
     // The field renders grouped digits through an offset mapping, and Compose asks it where the
     // cursor and the selection sit. An index that disagrees with the rendered string throws — so this
-    // walks every position of every group shape rather than trusting the arithmetic.
-    for (digits in listOf("", "5", "50", "500", "5000", "50000", "1234567", "999999999999")) {
-      val transformed = ThousandsGrouping.filter(AnnotatedString(digits))
-      assertEquals(groupDigits(digits), transformed.text.text)
+    // walks every position of every group shape rather than trusting the arithmetic. In both
+    // languages: the reverse mapping counts the separators it passes, and German's is a dot.
+    for (numbers in listOf(Numbers.English, Numbers.German)) {
+      for (digits in listOf("", "5", "50", "500", "5000", "50000", "1234567", "999999999999")) {
+        val transformed = ThousandsGrouping(numbers).filter(AnnotatedString(digits))
+        assertEquals(numbers.group(digits), transformed.text.text)
 
-      for (offset in 0..digits.length) {
-        val mapped = transformed.offsetMapping.originalToTransformed(offset)
-        assertTrue(mapped in 0..transformed.text.length, "digit offset $offset of '$digits' mapped to $mapped")
-        // Round-tripping is what keeps typing in the middle of a number from jumping the caret.
-        assertEquals(offset, transformed.offsetMapping.transformedToOriginal(mapped))
-      }
-      for (offset in 0..transformed.text.length) {
-        val back = transformed.offsetMapping.transformedToOriginal(offset)
-        assertTrue(back in 0..digits.length, "display offset $offset of '$digits' mapped to $back")
+        for (offset in 0..digits.length) {
+          val mapped = transformed.offsetMapping.originalToTransformed(offset)
+          assertTrue(mapped in 0..transformed.text.length, "digit offset $offset of '$digits' mapped to $mapped")
+          // Round-tripping is what keeps typing in the middle of a number from jumping the caret.
+          assertEquals(offset, transformed.offsetMapping.transformedToOriginal(mapped))
+        }
+        for (offset in 0..transformed.text.length) {
+          val back = transformed.offsetMapping.transformedToOriginal(offset)
+          assertTrue(back in 0..digits.length, "display offset $offset of '$digits' mapped to $back")
+        }
       }
     }
   }

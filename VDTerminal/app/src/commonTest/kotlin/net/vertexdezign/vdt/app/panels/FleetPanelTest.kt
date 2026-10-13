@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.model.AdsInspected
 import net.vertexdezign.vdt.model.AdsService
 import net.vertexdezign.vdt.model.AdsState
@@ -16,6 +17,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private val en = Numbers.English
 
 /**
  * What the fleet list decides for itself: which of the two condition figures is the true one, what
@@ -194,8 +197,8 @@ class FleetPanelTest {
 
   @Test
   fun theRowSaysCategoryHoursAndFuel() {
-    assertEquals("Tractors · 1234.5 h · fuel 42%", rowSubtitle(machine(hours = 1234.5f, fuel = 42)))
-    assertEquals("Ploughs · 61.2 h", rowSubtitle(machine(category = "Ploughs", hours = 61.24f, fuel = null)))
+    assertEquals("Tractors · 1234.5 h · fuel 42%", rowSubtitle(en, machine(hours = 1234.5f, fuel = 42)))
+    assertEquals("Ploughs · 61.2 h", rowSubtitle(en, machine(category = "Ploughs", hours = 61.24f, fuel = null)))
   }
 
   @Test
@@ -213,8 +216,8 @@ class FleetPanelTest {
 
   @Test
   fun formatsHoursAgeAndTimeAgo() {
-    assertEquals("1234.5", formatHours(1234.54f))
-    assertEquals("0.0", formatHours(0f))
+    assertEquals("1234.5", en.formatHours(1234.54f))
+    assertEquals("0.0", en.formatHours(0f))
     assertEquals("7 mo", formatAge(7))
     assertEquals("1 y", formatAge(12))
     assertEquals("2 y 3 mo", formatAge(27))

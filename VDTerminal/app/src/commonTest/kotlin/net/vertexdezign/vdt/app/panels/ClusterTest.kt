@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.model.Ads
 import net.vertexdezign.vdt.model.AdsLoad
 import net.vertexdezign.vdt.model.DiffLock
@@ -31,6 +32,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private val en = Numbers.English
 
 /**
  * The telltale band's one hard rule: a lamp we have no state for is **absent**, not off.
@@ -561,14 +564,14 @@ class ClusterReadoutTest {
   @Test
   fun oneDecimalWithoutStringFormat() {
     // String.format is JVM-only and this also runs on wasmJs, hence the hand-rolled version.
-    assertEquals("17.8", format1(17.83f))
-    assertEquals("0.0", format1(0f))
-    assertEquals("53.0", format1(53f))
-    assertEquals("4.0", format1(3.96f))
+    assertEquals("17.8", en.fixed(17.83f, 1))
+    assertEquals("0.0", en.fixed(0f, 1))
+    assertEquals("53.0", en.fixed(53f, 1))
+    assertEquals("4.0", en.fixed(3.96f, 1))
     // Below one, the sign lives nowhere but the sign: integer division truncates towards zero, so
     // -0.5 has no integer digit to carry it.
-    assertEquals("-0.5", format1(-0.5f))
-    assertEquals("-1.5", format1(-1.5f))
+    assertEquals("-0.5", en.fixed(-0.5f, 1))
+    assertEquals("-1.5", en.fixed(-1.5f, 1))
   }
 }
 
@@ -722,8 +725,8 @@ class ClusterReadoutLimitTest {
 
   @Test
   fun theOdometerKeepsATenthOnlyWhileItIsShort() {
-    assertEquals("12.3", formatOdometer(12.34))
-    assertEquals("999.9", formatOdometer(999.94))
-    assertEquals("12345", formatOdometer(12345.67))
+    assertEquals("12.3", en.formatOdometer(12.34))
+    assertEquals("999.9", en.formatOdometer(999.94))
+    assertEquals("12345", en.formatOdometer(12345.67))
   }
 }

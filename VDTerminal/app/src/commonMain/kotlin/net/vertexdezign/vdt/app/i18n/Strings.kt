@@ -18,6 +18,9 @@ import net.vertexdezign.vdt.app.i18n.en.English
  */
 interface Strings {
   val language: Language
+
+  /** How this language writes numbers; every formatter takes it. */
+  val numbers: Numbers
   val shell: ShellStrings
   val settings: SettingsStrings
   val launcher: LauncherStrings

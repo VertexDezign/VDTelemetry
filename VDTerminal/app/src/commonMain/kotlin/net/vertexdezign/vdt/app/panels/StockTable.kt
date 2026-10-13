@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.FilterOption
 import net.vertexdezign.vdt.app.components.FilterSelect
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.PricesData
@@ -196,6 +198,7 @@ private fun StockControls(
   prices: PricesData?,
   onFilters: (List<FilterOption>) -> Unit,
 ) {
+  val numbers = LocalStrings.current.numbers
   Row(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -209,7 +212,7 @@ private fun StockControls(
       placeholder = "Filter by commodity, form, store, station…",
     )
     Text(
-      priceNote(prices),
+      priceNote(numbers, prices),
       color = VdtColors.DarkGray,
       fontSize = 9.sp,
       textAlign = TextAlign.End,
@@ -228,9 +231,9 @@ private fun StockControls(
  * in — so a save on easy and a save on hard genuinely have different boards, and the reader is told
  * which one they are looking at rather than left to wonder.
  */
-private fun priceNote(prices: PricesData?): String = when {
+private fun priceNote(numbers: Numbers, prices: PricesData?): String = when {
   prices == null -> "no price board — amounts only"
-  else -> "prices per 1000 l · economy ×${formatMultiplier(prices.priceMultiplier)}"
+  else -> "prices per 1000 l · economy ×${numbers.formatMultiplier(prices.priceMultiplier)}"
 }
 
 // ---- The table -----------------------------------------------------------------------------------
@@ -315,6 +318,7 @@ private fun StockRowView(
 
 @Composable
 private fun RowScope.StockCell(column: StockColumn, entry: StockEntry, periods: List<String>) {
+  val numbers = LocalStrings.current.numbers
   val row = entry.row
   val valuation = entry.value
   val modifier = Modifier.weight(column.weight).padding(horizontal = 2.dp)
@@ -340,21 +344,21 @@ private fun RowScope.StockCell(column: StockColumn, entry: StockEntry, periods: 
     StockColumn.FORM -> CellText(formSummary(row), modifier = modifier)
 
     StockColumn.AMOUNT -> CellText(
-      if (row.liters > 0) "${formatInt(row.liters)} l" else "—",
+      if (row.liters > 0) "${numbers.integer(row.liters)} l" else "—",
       end = true,
       modifier = modifier,
       muted = row.liters <= 0,
     )
 
     StockColumn.PRICE -> CellText(
-      valuation.sale?.let { formatPrice(it.price) } ?: "—",
+      valuation.sale?.let { numbers.formatPrice(it.price) } ?: "—",
       end = true,
       modifier = modifier,
       muted = valuation.sale == null,
     )
 
     StockColumn.VALUE -> CellText(
-      valuation.value?.let { formatCurrency(it) } ?: "—",
+      valuation.value?.let { numbers.formatCurrency(it) } ?: "—",
       end = true,
       modifier = modifier,
       bold = true,
@@ -384,14 +388,14 @@ private fun RowScope.StockCell(column: StockColumn, entry: StockEntry, periods: 
     }
 
     StockColumn.BEST_PRICE -> CellText(
-      valuation.bestPrice?.let { formatPrice(it) } ?: "—",
+      valuation.bestPrice?.let { numbers.formatPrice(it) } ?: "—",
       end = true,
       modifier = modifier,
       muted = valuation.bestPrice == null,
     )
 
     StockColumn.BEST_VALUE -> CellText(
-      valuation.bestValue?.let { formatCurrency(it) } ?: "—",
+      valuation.bestValue?.let { numbers.formatCurrency(it) } ?: "—",
       end = true,
       modifier = modifier,
       muted = valuation.bestValue == null,
@@ -449,6 +453,7 @@ private fun WordBadge(label: String) {
  */
 @Composable
 private fun StockDetail(entry: StockEntry, periods: List<String>) {
+  val numbers = LocalStrings.current.numbers
   val valuation = entry.value
   Column(
     Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp, top = 2.dp, bottom = 8.dp),
@@ -456,15 +461,15 @@ private fun StockDetail(entry: StockEntry, periods: List<String>) {
   ) {
     // The row's own line, restated: on the narrow layouts the form and the count are columns the
     // width dropped, and this is where the claim that nothing is lost by dropping them is kept.
-    DetailLine(formSentence(entry.row))
+    DetailLine(formSentence(numbers, entry.row))
     entry.row.sources.forEach { source -> SourceLine(source) }
     val sale = valuation.sale
     if (sale == null) {
       DetailLine("No station on this map buys ${entry.row.title} — it is stock, not money.")
     } else {
-      DetailLine(saleSentence(sale, valuation))
+      DetailLine(saleSentence(numbers, sale, valuation))
       if (valuation.bestMonth > 0 && valuation.bestPrice != null && valuation.bestValue != null) {
-        DetailLine(projectionSentence(sale, valuation, periods))
+        DetailLine(projectionSentence(numbers, sale, valuation, periods))
       } else {
         DetailLine("No seasonal movement in this commodity's price — the year is flat.")
       }
@@ -482,17 +487,17 @@ internal fun formSummary(row: StockRow): String {
   return if (row.count > 0) "$forms (${row.count})" else forms
 }
 
-private fun formSentence(row: StockRow): String = buildString {
+private fun formSentence(numbers: Numbers, row: StockRow): String = buildString {
   append(formSummary(row))
-  if (row.liters > 0) append(" · ${formatInt(row.liters)} l")
+  if (row.liters > 0) append(" · ${numbers.integer(row.liters)} l")
   if (row.sources.size > 1) append(" · ${row.sources.size} places")
 }
 
 // The sentences below spell their arithmetic out in words. An arrow would be shorter and would render
 // as a box: the wasm build has no font fallback, and a mark inside a sentence cannot be an Icon
 // without an InlineTextContent (see VDTerminal/README.md -> "Design rules").
-private fun saleSentence(sale: BestSale, valuation: StockValuation): String = buildString {
-  append("Best offer ${formatPrice(sale.price)} per 1000 l at ${sale.station} (${sale.trend})")
+private fun saleSentence(numbers: Numbers, sale: BestSale, valuation: StockValuation): String = buildString {
+  append("Best offer ${numbers.formatPrice(sale.price)} per 1000 l at ${sale.station} (${sale.trend})")
   if (sale.greatDemand) {
     val premium = sale.demandMultiplier?.let { " ×$it" } ?: ""
     val left = sale.demandHoursLeft?.let { ", $it h left" } ?: ""
@@ -500,21 +505,29 @@ private fun saleSentence(sale: BestSale, valuation: StockValuation): String = bu
     // multiply it a second time.
     append(" · great demand$premium$left")
   }
-  valuation.value?.let { append(", worth ${formatCurrency(it)}") }
+  valuation.value?.let { append(", worth ${numbers.formatCurrency(it)}") }
 }
 
-private fun projectionSentence(sale: BestSale, valuation: StockValuation, periods: List<String>): String {
+private fun projectionSentence(
+  numbers: Numbers,
+  sale: BestSale,
+  valuation: StockValuation,
+  periods: List<String>,
+): String {
   val best = valuation.bestPrice ?: return ""
   val bestValue = valuation.bestValue ?: return ""
   val now = valuation.value ?: return ""
   val gain = if (now > 0f) ((bestValue - now) / now * 100).roundToInt() else 0
   val month = periodLabel(periods, valuation.bestMonth)
   return "Best month $month: the curve peaks ${if (gain >= 0) "+$gain" else "$gain"}% above now, " +
-    "which at ${sale.station} projects ${formatPrice(best)} per 1000 l, worth ${formatCurrency(bestValue)}"
+    "which at ${sale.station} projects ${numbers.formatPrice(
+      best,
+    )} per 1000 l, worth ${numbers.formatCurrency(bestValue)}"
 }
 
 @Composable
 private fun SourceLine(source: StockSource) {
+  val numbers = LocalStrings.current.numbers
   Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
     Text(
       if (source.name.isBlank()) source.place.label else "${source.place.label} · ${source.name}",
@@ -529,7 +542,7 @@ private fun SourceLine(source: StockSource) {
       Spacer(Modifier.width(6.dp))
     }
     Text(
-      sourceAmount(source),
+      sourceAmount(numbers, source),
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
@@ -542,13 +555,13 @@ private fun SourceLine(source: StockSource) {
  * what form it is in (the only place that says which of the nine pallets are big bags), how many
  * objects, how many liters, and out of what where the store states a capacity.
  */
-internal fun sourceAmount(source: StockSource): String = buildString {
+internal fun sourceAmount(numbers: Numbers, source: StockSource): String = buildString {
   if (source.form != StockForm.BULK) append(source.form.label)
   if (source.count > 0) append(" ×${source.count}")
   if (isNotEmpty() && source.liters > 0) append(" · ")
   if (source.liters > 0) {
-    append(formatInt(source.liters))
-    if (source.capacity > 0) append(" / ${formatInt(source.capacity)}")
+    append(numbers.integer(source.liters))
+    if (source.capacity > 0) append(" / ${numbers.integer(source.capacity)}")
     append(" l")
   }
 }.trim()
@@ -565,6 +578,7 @@ private fun DetailLine(text: String) {
  */
 @Composable
 private fun StockTotalRow(totals: StockTotals, columns: List<StockColumn>) {
+  val numbers = LocalStrings.current.numbers
   Row(
     Modifier
       .fillMaxWidth()
@@ -587,10 +601,15 @@ private fun StockTotalRow(totals: StockTotals, columns: List<StockColumn>) {
           modifier = modifier,
         )
 
-        StockColumn.VALUE -> CellText(formatCurrency(totals.value), end = true, modifier = modifier, bold = true)
+        StockColumn.VALUE -> CellText(
+          numbers.formatCurrency(totals.value),
+          end = true,
+          modifier = modifier,
+          bold = true,
+        )
 
         StockColumn.BEST_VALUE -> CellText(
-          formatCurrency(totals.bestValue),
+          numbers.formatCurrency(totals.bestValue),
           end = true,
           modifier = modifier,
           bold = true,

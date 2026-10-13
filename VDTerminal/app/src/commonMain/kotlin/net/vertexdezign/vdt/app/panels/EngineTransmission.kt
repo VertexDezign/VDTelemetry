@@ -50,7 +50,7 @@ import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SimpleGauge
 import net.vertexdezign.vdt.app.components.ToolButton
-import net.vertexdezign.vdt.app.components.format2
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CruiseControl
 import net.vertexdezign.vdt.model.Motor
@@ -66,6 +66,7 @@ fun EngineTransmission(
   modifier: Modifier = Modifier,
   onCommand: (ClientMessage) -> Unit = {},
 ) {
+  val numbers = LocalStrings.current.numbers
   val motor = vehicle.motor
   Panel(
     title = "Engine and Transmission",
@@ -166,7 +167,7 @@ fun EngineTransmission(
             // The working-speed limit the rig's tools set, as a mark on the scale — the speed the
             // needle will stop at however far the cruise is turned up. Absent while nothing works.
             marker = vehicle.speed?.limit,
-            markerDescription = vehicle.speed?.limit?.let { "working speed limit ${format2(it)}" },
+            markerDescription = vehicle.speed?.limit?.let { "working speed limit ${numbers.fixed(it, 2)}" },
             onClick =
             cruise?.let {
               {
@@ -230,6 +231,7 @@ fun EngineTransmission(
  */
 @Composable
 private fun CruiseAdjuster(cruise: CruiseControl, onCommand: (ClientMessage) -> Unit) {
+  val numbers = LocalStrings.current.numbers
   var editing by remember { mutableStateOf(false) }
   val current = cruise.targetSpeed ?: 0f
   val valueColor = if (cruise.active == true) VdtColors.Green else VdtColors.DarkGray
@@ -253,7 +255,7 @@ private fun CruiseAdjuster(cruise: CruiseControl, onCommand: (ClientMessage) -> 
         )
       } else {
         Text(
-          format2(cruise.targetSpeed ?: 0f),
+          numbers.fixed(cruise.targetSpeed ?: 0f, 2),
           fontSize = 18.sp,
           fontWeight = FontWeight.Bold,
           color = valueColor,
@@ -283,34 +285,19 @@ private fun CruiseInput(
   onCommit: (Float) -> Unit,
   onCancel: () -> Unit,
 ) {
+  val numbers = LocalStrings.current.numbers
   // Prefill without a trailing ".0" so a whole speed reads as "15", not "15.0".
-  val initialText = if (initial == initial.toLong().toFloat()) initial.toLong().toString() else initial.toString()
-  var text by remember { mutableStateOf(initialText) }
+  var text by remember { mutableStateOf(numbers.trimmed(initial, 1)) }
   var hadFocus by remember { mutableStateOf(false) }
   val focusRequester = remember { FocusRequester() }
 
   // A long digit string parses to Infinity rather than null, so screen for finiteness before
   // committing — an out-of-range entry cancels the edit instead of building an invalid command.
-  fun commit() = text.toFloatOrNull()?.takeIf { it.isFinite() }?.let(onCommit) ?: onCancel()
+  fun commit() = numbers.parse(text)?.toFloat()?.takeIf { it.isFinite() }?.let(onCommit) ?: onCancel()
 
   BasicTextField(
     value = text,
-    onValueChange = { new ->
-      // digits plus a single decimal point
-      val filtered = new.filter { it.isDigit() || it == '.' }
-      val dot = filtered.indexOf('.')
-      text =
-        (
-          if (dot <
-            0
-          ) {
-            filtered
-          } else {
-            filtered.substring(0, dot + 1) + filtered.substring(dot + 1).filter { it.isDigit() }
-          }
-          )
-          .take(5)
-    },
+    onValueChange = { new -> text = numbers.decimalInput(new).take(5) },
     singleLine = true,
     textStyle =
     TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = color, textAlign = TextAlign.Center),

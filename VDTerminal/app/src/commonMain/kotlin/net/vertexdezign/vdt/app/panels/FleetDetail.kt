@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.AdsState
 import net.vertexdezign.vdt.model.FleetAds
@@ -151,11 +152,12 @@ private fun ConditionCard(vehicle: FleetVehicle) {
 
 @Composable
 private fun FactsCard(vehicle: FleetVehicle, rig: FleetVehicle?) {
+  val numbers = LocalStrings.current.numbers
   DetailCard("Machine") {
     FactRow("Age", formatAge(vehicle.age))
-    FactRow("Operating hours", "${formatHours(vehicle.hours)} h")
-    vehicle.sellPrice?.let { FactRow("Sell value", formatMoney(it.toLong())) }
-    vehicle.leasePerDay?.let { FactRow("Leasing, per day", formatMoney(it.toLong())) }
+    FactRow("Operating hours", "${numbers.formatHours(vehicle.hours)} h")
+    vehicle.sellPrice?.let { FactRow("Sell value", numbers.formatMoney(it.toLong())) }
+    vehicle.leasePerDay?.let { FactRow("Leasing, per day", numbers.formatMoney(it.toLong())) }
     FactRow("Status", statusLabel(vehicle, rig))
   }
 }
@@ -195,20 +197,21 @@ internal fun statusLabel(vehicle: FleetVehicle, rig: FleetVehicle? = null): Stri
 
 @Composable
 private fun AdsCard(ads: FleetAds, today: GameDate?) {
+  val numbers = LocalStrings.current.numbers
   DetailCard("Maintenance") {
     FactRow("State", adsStateLabel(ads.state))
     ads.service?.let { service ->
       ProgressBar(
         service.fraction.coerceIn(0f, 1f),
         leftLabel = if (ads.isServiceOverdue) "SERVICE OVERDUE" else "SERVICE INTERVAL",
-        rightLabel = "${formatHours(service.hours)} / ${formatHours(service.interval)} h",
+        rightLabel = "${numbers.formatHours(service.hours)} / ${numbers.formatHours(service.interval)} h",
       )
     }
     today?.let { now ->
       ads.lastInspection?.let { FactRow("Last inspection", formatMonthsAgo(monthsBetween(it, now))) }
       ads.lastMaintenance?.let { FactRow("Last maintenance", formatMonthsAgo(monthsBetween(it, now))) }
     }
-    ads.maintenanceCost?.let { FactRow("Spent on maintenance", formatMoney(it.toLong())) }
+    ads.maintenanceCost?.let { FactRow("Spent on maintenance", numbers.formatMoney(it.toLong())) }
     ads.workshop?.let { WorkshopRows(it) }
 
     if (ads.breakdowns.isEmpty()) {
@@ -225,9 +228,10 @@ private fun AdsCard(ads: FleetAds, today: GameDate?) {
 
 @Composable
 private fun WorkshopRows(workshop: FleetWorkshop) {
-  workshop.remaining?.let { FactRow("Work left", "${formatHours(it)} h") }
+  val numbers = LocalStrings.current.numbers
+  workshop.remaining?.let { FactRow("Work left", "${numbers.formatHours(it)} h") }
   workshop.finishHour?.let { FactRow("Ready at", formatFinish(it, workshop.finishInDays)) }
-  workshop.price?.let { FactRow("Service cost", formatMoney(it.toLong())) }
+  workshop.price?.let { FactRow("Service cost", numbers.formatMoney(it.toLong())) }
 }
 
 /** ADS's finish time: an hour of the game's day, plus how many midnights away it is. */

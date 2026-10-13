@@ -78,6 +78,8 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_mixer_wagon
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -1108,6 +1110,7 @@ private fun artHeight(width: Dp, height: Dp, ingredients: Int): Dp {
  */
 @Composable
 private fun MachineArt(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier) {
+  val numbers = LocalStrings.current.numbers
   BoxWithConstraints(modifier) {
     // The largest 2:1 box that fits, letterboxed on the long axis — same treatment as [Lighting].
     val boxW: Dp
@@ -1140,21 +1143,21 @@ private fun MachineArt(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier)
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
         // White on the body's #DA1218 reads at 5.2:1; black would be 4.1:1.
-        Text("${formatInt(mixer.value.roundToInt())} l", style = type.headline, maxLines = 1)
+        Text("${numbers.integer(mixer.value.roundToInt())} l", style = type.headline, maxLines = 1)
         if (type.full) {
-          Text("of ${formatInt(mixer.capacity)}", style = type.sub, maxLines = 1)
+          Text("of ${numbers.integer(mixer.capacity)}", style = type.sub, maxLines = 1)
         }
         // The load's own weight, never the machine's mass minus its empty one — see [Mixer.mass].
         val load = mixer.mass
         if (load != null) {
           Spacer(Modifier.height(type.gap))
-          Text(formatTonnes(load), style = type.headline, maxLines = 1)
+          Text(numbers.formatTonnes(load), style = type.headline, maxLines = 1)
           if (type.full && mass != null) {
-            Text("${formatTonnes(mass.value)} total", style = type.sub, maxLines = 1)
+            Text("${numbers.formatTonnes(mass.value)} total", style = type.sub, maxLines = 1)
           }
         } else if (mass != null) {
           Spacer(Modifier.height(type.gap))
-          Text(formatTonnes(mass.value), style = type.headline, maxLines = 1)
+          Text(numbers.formatTonnes(mass.value), style = type.headline, maxLines = 1)
         }
       }
     }
@@ -1212,13 +1215,14 @@ private fun tubStyle(size: TextUnit, color: Color, weight: FontWeight) = TextSty
 /** The same two numbers as a plain row, for a tile too short to carry the picture. */
 @Composable
 private fun TubReadout(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier) {
+  val numbers = LocalStrings.current.numbers
   Row(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
-    Figure("Load", "${formatInt(mixer.value.roundToInt())} l", "of ${formatInt(mixer.capacity)}")
+    Figure("Load", "${numbers.integer(mixer.value.roundToInt())} l", "of ${numbers.integer(mixer.capacity)}")
     val load = mixer.mass
     if (load != null) {
-      Figure("Weight", formatTonnes(load), mass?.let { "${formatTonnes(it.value)} total" })
+      Figure("Weight", numbers.formatTonnes(load), mass?.let { "${numbers.formatTonnes(it.value)} total" })
     } else if (mass != null) {
-      Figure("Weight", formatTonnes(mass.value), null)
+      Figure("Weight", numbers.formatTonnes(mass.value), null)
     }
   }
 }
@@ -1283,6 +1287,7 @@ internal fun figureStyle(size: TextUnit, color: Color, weight: FontWeight) = Tex
  */
 @Composable
 private fun MixerStatus(mixer: Mixer, showState: Boolean) {
+  val numbers = LocalStrings.current.numbers
   FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1298,7 +1303,7 @@ private fun MixerStatus(mixer: Mixer, showState: Boolean) {
       !mixer.powered -> Chip(Icons.Filled.PowerOff, "No power", VdtColors.TextDisabled)
 
       mixer.running && mixer.remaining > 0 ->
-        Chip(Icons.Filled.Sync, "Mixing ${formatSeconds(mixer.remaining)}", VdtColors.AccentText)
+        Chip(Icons.Filled.Sync, "Mixing ${numbers.formatSeconds(mixer.remaining)}", VdtColors.AccentText)
 
       mixer.running -> Chip(Icons.Filled.Sync, "Running", VdtColors.AccentText)
 
@@ -1544,6 +1549,7 @@ private fun RatioBars(mixer: Mixer, width: Dp, modifier: Modifier = Modifier) {
  */
 @Composable
 private fun RatioBar(mixer: Mixer, ingredient: MixerIngredient, compact: Boolean) {
+  val numbers = LocalStrings.current.numbers
   val share = mixer.shareOf(ingredient)
   val inWindow = ingredient.holds(share)
   val judged = mixer.state == MixState.OUT_OF_RATIO
@@ -1565,7 +1571,7 @@ private fun RatioBar(mixer: Mixer, ingredient: MixerIngredient, compact: Boolean
       )
       val mass = ingredient.mass
       if (!compact && mass != null && mass > 0.0) {
-        Text(formatTonnes(mass), color = VdtColors.DarkGray, fontSize = 9.sp, maxLines = 1)
+        Text(numbers.formatTonnes(mass), color = VdtColors.DarkGray, fontSize = 9.sp, maxLines = 1)
         Spacer(Modifier.width(6.dp))
       }
       Text(
@@ -1636,7 +1642,13 @@ private fun RatioBar(mixer: Mixer, ingredient: MixerIngredient, compact: Boolean
     val short = shortfall(mixer, ingredient)
     if (short != null) {
       Text(
-        if (compact) "+${formatInt(short)} l" else "+${formatInt(short)} l to reach ${ingredient.minPercentage}%",
+        if (compact) {
+          "+${numbers.integer(
+            short,
+          )} l"
+        } else {
+          "+${numbers.integer(short)} l to reach ${ingredient.minPercentage}%"
+        },
         color = VdtColors.DarkGray,
         fontSize = 9.sp,
         maxLines = 1,
@@ -1675,9 +1687,9 @@ internal fun shortfall(mixer: Mixer, ingredient: MixerIngredient): Int? {
 // ---------------------------------------------------------------------------
 
 /** Tonnes, dropping to kilograms below one — the same switch the game's own `formatMass` makes. */
-internal fun formatTonnes(tonnes: Double): String =
-  if (tonnes < 1.0) "${formatInt((tonnes * 1000).roundToInt())} kg" else "${format1(tonnes.toFloat())} t"
+internal fun Numbers.formatTonnes(tonnes: Double): String =
+  if (tonnes < 1.0) "${integer((tonnes * 1000).roundToInt())} kg" else "${fixed(tonnes, 1)} t"
 
 /** A mix countdown, in seconds with one decimal while it is short enough to watch. */
-internal fun formatSeconds(ms: Int): String =
-  if (ms >= 10_000) "${(ms / 1000.0).roundToInt()}s" else "${format1(ms / 1000f)}s"
+internal fun Numbers.formatSeconds(ms: Int): String =
+  if (ms >= 10_000) "${(ms / 1000.0).roundToInt()}s" else "${fixed(ms / 1000f, 1)}s"

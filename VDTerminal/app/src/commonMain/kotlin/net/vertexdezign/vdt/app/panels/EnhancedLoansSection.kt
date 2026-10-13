@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.EnhancedLoan
 import net.vertexdezign.vdt.model.EnhancedLoans
@@ -107,13 +109,14 @@ fun EnhancedLoansSection(
 
 @Composable
 private fun BankTerms(els: EnhancedLoans) {
+  val numbers = LocalStrings.current.numbers
   Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
     Text("BANK", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     els.interest?.let {
       // The rate drifts on its own when the server runs it dynamically, so say which it is: the number
       // a loan is signed at is fixed for that loan's life, but this one is not.
       Text(
-        "${formatRate(it)}%${if (els.dynamicInterest) " (variable)" else ""}",
+        "${numbers.formatRate(it)}%${if (els.dynamicInterest) " (variable)" else ""}",
         color = VdtColors.TextDark,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
@@ -123,13 +126,14 @@ private fun BankTerms(els: EnhancedLoans) {
       Text("up to $it yr", color = VdtColors.DarkGray, fontSize = 11.sp)
     }
     els.maxAmount?.let {
-      Text("max ${formatMoney(it)}", color = VdtColors.DarkGray, fontSize = 11.sp)
+      Text("max ${numbers.formatMoney(it)}", color = VdtColors.DarkGray, fontSize = 11.sp)
     }
   }
 }
 
 @Composable
 private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) {
+  val numbers = LocalStrings.current.numbers
   Column(
     Modifier
       .fillMaxWidth()
@@ -145,14 +149,14 @@ private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) 
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
-        formatMoney(loan.restAmount),
+        numbers.formatMoney(loan.restAmount),
         color = VdtColors.TextDark,
         fontSize = 13.sp,
         fontWeight = FontWeight.Bold,
         maxLines = 1,
       )
       Text(
-        "of ${formatMoney(loan.amount)} · ${formatRate(loan.interest)}%",
+        "of ${numbers.formatMoney(loan.amount)} · ${numbers.formatRate(loan.interest)}%",
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
         maxLines = 1,
@@ -170,7 +174,9 @@ private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) 
       fraction = loan.progress,
       leftLabel = "Repaid",
       // The split is what makes an annuity loan legible: early on almost all of it is interest.
-      rightLabel = "${formatMoney(loan.monthlyRate ?: 0)}/mo · ${formatMoney(loan.monthlyInterest ?: 0)} interest",
+      rightLabel = "${numbers.formatMoney(
+        loan.monthlyRate ?: 0,
+      )}/mo · ${numbers.formatMoney(loan.monthlyInterest ?: 0)} interest",
     )
   }
 }
@@ -182,6 +188,7 @@ private fun LoanRow(loan: EnhancedLoan, expanded: Boolean, onClick: () -> Unit) 
  */
 @Composable
 private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long, onCommand: (ClientMessage) -> Unit) {
+  val numbers = LocalStrings.current.numbers
   val spent = loan.specialRedemptionDone && !els.multipleRedemptions
   val fractionCap =
     if (els.multipleRedemptions) {
@@ -258,7 +265,7 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
         }
         if (!els.multipleRedemptions && fractionCap < loan.restAmount) {
           Text(
-            "One extra payment a year, up to ${formatMoney(fractionCap)} of this loan",
+            "One extra payment a year, up to ${numbers.formatMoney(fractionCap)} of this loan",
             color = VdtColors.DarkGray,
             fontSize = 9.sp,
           )
@@ -271,6 +278,7 @@ private fun RepayControls(loan: EnhancedLoan, els: EnhancedLoans, balance: Long,
 /** Take a new loan: an amount and a term, both bounded by what the bank currently offers. */
 @Composable
 private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onCommand: (ClientMessage) -> Unit) {
+  val numbers = LocalStrings.current.numbers
   val ceiling = (els.maxAmount ?: 0).coerceIn(0, MAX_COMMAND_AMOUNT)
   val maxYears = (els.maxDurationYears ?: 1).coerceAtLeast(1)
 
@@ -333,7 +341,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
     val rate = els.interest ?: 0f
     val monthly = annuity(amount, rate, years)
     Text(
-      "~${formatMoney(monthly)} a month for ${years * 12} months",
+      "~${numbers.formatMoney(monthly)} a month for ${years * 12} months",
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
     )
@@ -342,7 +350,7 @@ private fun TakeLoanControls(els: EnhancedLoans, onDismiss: () -> Unit, onComman
     // easier instalment and the larger bill.
     val total = totalRepayment(amount, rate, years)
     Text(
-      "Total ~${formatMoney(total)} · ${formatMoney(total - amount)} interest",
+      "Total ~${numbers.formatMoney(total)} · ${numbers.formatMoney(total - amount)} interest",
       color = VdtColors.TextDark,
       fontSize = 11.sp,
       fontWeight = FontWeight.SemiBold,
@@ -417,7 +425,4 @@ internal fun totalRepayment(amount: Long, ratePercent: Float, years: Int): Long 
 }
 
 /** `3.5` → `"3.5"`, `3.0` → `"3"` — the mod stores a float but usually means one decimal. */
-private fun formatRate(value: Float): String {
-  val tenths = (value * 10).roundToLong()
-  return if (tenths % 10 == 0L) "${tenths / 10}" else "${tenths / 10}.${tenths % 10}"
-}
+private fun Numbers.formatRate(value: Float): String = trimmed(value, 1)

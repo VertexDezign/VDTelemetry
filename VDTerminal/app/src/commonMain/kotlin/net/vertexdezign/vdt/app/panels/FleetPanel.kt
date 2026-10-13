@@ -44,6 +44,8 @@ import net.vertexdezign.vdt.app.components.FilterChip
 import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.AdsState
 import net.vertexdezign.vdt.model.FleetData
@@ -377,6 +379,7 @@ private fun SortControl(sort: FleetSort, ascending: Boolean, onSort: (FleetSort)
 
 @Composable
 private fun FleetRow(vehicle: FleetVehicle, rig: FleetVehicle?, selected: Boolean, onClick: () -> Unit) {
+  val numbers = LocalStrings.current.numbers
   val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   val muted = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray
   Column(
@@ -407,7 +410,7 @@ private fun FleetRow(vehicle: FleetVehicle, rig: FleetVehicle?, selected: Boolea
       )
     }
     Text(
-      rowSubtitle(vehicle),
+      rowSubtitle(numbers, vehicle),
       color = muted,
       fontSize = 10.sp,
       maxLines = 1,
@@ -423,9 +426,9 @@ private fun FleetRow(vehicle: FleetVehicle, rig: FleetVehicle?, selected: Boolea
 }
 
 /** Category, hours and — for a machine that burns fuel — how much is left in it. */
-internal fun rowSubtitle(vehicle: FleetVehicle): String = buildList {
+internal fun rowSubtitle(numbers: Numbers, vehicle: FleetVehicle): String = buildList {
   vehicle.category?.takeIf { it.isNotBlank() }?.let { add(it) }
-  add("${formatHours(vehicle.hours)} h")
+  add("${numbers.formatHours(vehicle.hours)} h")
   fuelPercent(vehicle)?.let { add("fuel $it%") }
 }.joinToString(" · ")
 
@@ -491,10 +494,7 @@ private fun RowBadge(label: String, selected: Boolean) {
 // ---- Formatting ----------------------------------------------------------------------------------
 
 /** Operating hours to one decimal, the way the game prints them ("1234.5"). */
-internal fun formatHours(hours: Float): String {
-  val tenths = (hours * 10).roundToInt()
-  return "${tenths / 10}.${tenths % 10}"
-}
+internal fun Numbers.formatHours(hours: Float): String = fixed(hours, 1)
 
 /** Age, which the game counts in months, read back as years and months once there are enough. */
 internal fun formatAge(months: Int): String {

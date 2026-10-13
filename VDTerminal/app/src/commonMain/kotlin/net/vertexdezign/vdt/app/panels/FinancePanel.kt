@@ -49,6 +49,7 @@ import net.vertexdezign.vdt.app.components.ConfirmDialog
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ToolButton
 import net.vertexdezign.vdt.app.components.ViewTab
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.FinancePeriod
@@ -167,6 +168,7 @@ private fun FinanceContent(data: FinanceData, hideEmpty: Boolean, onCommand: (Cl
  */
 @Composable
 private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) {
+  val numbers = LocalStrings.current.numbers
   val loan = data.loan ?: 0
   val balance = data.balance ?: 0
   val step = data.loanStep.coerceAtLeast(1).toLong()
@@ -209,14 +211,14 @@ private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) 
     ) {
       Text("LOAN", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
       Text(
-        "${formatMoney(target)} of ${formatMoney(ceiling)} max",
+        "${numbers.formatMoney(target)} of ${numbers.formatMoney(ceiling)} max",
         color = VdtColors.TextDark,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
       )
       if (delta != 0L) {
         Text(
-          if (delta > 0) "borrow ${formatMoney(delta)}" else "repay ${formatMoney(-delta)}",
+          if (delta > 0) "borrow ${numbers.formatMoney(delta)}" else "repay ${numbers.formatMoney(-delta)}",
           color = moneyColor(-delta, VdtColors.palette),
           fontSize = 11.sp,
           fontWeight = FontWeight.SemiBold,
@@ -251,7 +253,7 @@ private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) 
       )
     } else if (delta < 0 && !affordable) {
       Text(
-        "Repaying ${formatMoney(-delta)} needs more than the ${formatMoney(balance)} on hand",
+        "Repaying ${numbers.formatMoney(-delta)} needs more than the ${numbers.formatMoney(balance)} on hand",
         color = VdtColors.Red,
         fontSize = 10.sp,
       )
@@ -260,8 +262,10 @@ private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) 
 
   if (confirming) {
     ConfirmDialog(
-      title = "Repay ${formatMoney(-delta)}?",
-      message = "That leaves ${formatMoney(balance + delta)} on hand — less than one ${formatMoney(step)} step.",
+      title = "Repay ${numbers.formatMoney(-delta)}?",
+      message = "That leaves ${numbers.formatMoney(
+        balance + delta,
+      )} on hand — less than one ${numbers.formatMoney(step)} step.",
       confirmLabel = "Repay",
       onConfirm = ::commit,
       onDismiss = { confirming = false },
@@ -442,6 +446,7 @@ private fun HeaderCell(
 
 @Composable
 private fun StatRow(row: FinanceStatRow, columns: List<FinancePeriod>, striped: Boolean) {
+  val numbers = LocalStrings.current.numbers
   Row(
     Modifier.background(if (striped) VdtColors.Surface.copy(alpha = 0.6f) else Color.Transparent),
     verticalAlignment = Alignment.CenterVertically,
@@ -458,7 +463,7 @@ private fun StatRow(row: FinanceStatRow, columns: List<FinancePeriod>, striped: 
     columns.forEach { period ->
       val value = row.values.getOrElse(period.index) { 0L }
       Text(
-        if (value == 0L) "—" else formatMoney(value),
+        if (value == 0L) "—" else numbers.formatMoney(value),
         color = moneyColor(value, VdtColors.palette),
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
@@ -473,6 +478,7 @@ private fun StatRow(row: FinanceStatRow, columns: List<FinancePeriod>, striped: 
 /** The footer the in-game screen prints: each column summed, income minus expenses. */
 @Composable
 private fun TotalsRow(columns: List<FinancePeriod>) {
+  val numbers = LocalStrings.current.numbers
   Row(Modifier.background(VdtColors.TrackGray), verticalAlignment = Alignment.CenterVertically) {
     Text(
       "TOTAL",
@@ -483,7 +489,7 @@ private fun TotalsRow(columns: List<FinancePeriod>) {
     )
     columns.forEach { period ->
       Text(
-        formatMoney(period.total, withSign = true),
+        numbers.formatMoney(period.total, withSign = true),
         color = moneyColor(period.total, VdtColors.palette),
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,

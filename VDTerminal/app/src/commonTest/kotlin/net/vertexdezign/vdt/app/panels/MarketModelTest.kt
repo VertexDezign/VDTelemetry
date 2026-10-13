@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
 import net.vertexdezign.vdt.app.components.FilterOption
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.model.BunkerSilo
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.Husbandry
@@ -24,6 +25,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private val en = Numbers.English
 
 /**
  * The Market app's stock join: what the farm holds, gathered off four channels, and what the board
@@ -596,21 +599,21 @@ class MarketModelTest {
   fun `a source line says the form, the count, the liters and what the store holds full`() {
     assertEquals(
       "30,000 / 100,000 l",
-      sourceAmount(StockSource(StockPlace.SILO, "Silo", StockForm.BULK, 30_000, capacity = 100_000)),
+      sourceAmount(en, StockSource(StockPlace.SILO, "Silo", StockForm.BULK, 30_000, capacity = 100_000)),
     )
     // A bunker's ceiling is the shape of its walls, so there is no "of" to print.
     assertEquals(
       "520,486 l",
-      sourceAmount(StockSource(StockPlace.BUNKER, "Bunkersilo", StockForm.BULK, 520_486)),
+      sourceAmount(en, StockSource(StockPlace.BUNKER, "Bunkersilo", StockForm.BULK, 520_486)),
     )
     assertEquals(
       "Bales ×183 · 915,000 l",
-      sourceAmount(StockSource(StockPlace.STORE, "Futterhalle", StockForm.BALE, 915_000, count = 183)),
+      sourceAmount(en, StockSource(StockPlace.STORE, "Futterhalle", StockForm.BALE, 915_000, count = 183)),
     )
     // A crate holds no fill type, so it has a count and nothing else.
     assertEquals(
       "Pallets ×2",
-      sourceAmount(StockSource(StockPlace.STORE, "Lager", StockForm.PALLET, 0, count = 2)),
+      sourceAmount(en, StockSource(StockPlace.STORE, "Lager", StockForm.PALLET, 0, count = 2)),
     )
   }
 

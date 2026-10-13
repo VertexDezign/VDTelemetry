@@ -42,6 +42,7 @@ import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Construction
 import net.vertexdezign.vdt.model.ProductionData
@@ -192,6 +193,7 @@ private fun LineCard(
   modes: List<OutputMode> = OutputMode.entries,
   onCommand: (ClientMessage) -> Unit,
 ) {
+  val numbers = LocalStrings.current.numbers
   Column(
     Modifier
       .fillMaxWidth()
@@ -235,7 +237,7 @@ private fun LineCard(
     }
 
     Text(
-      "${formatInt(line.cyclesPerMonth)} cycles/mo · ${formatInt(line.costsPerMonth)}/mo",
+      "${numbers.integer(line.cyclesPerMonth)} cycles/mo · ${numbers.integer(line.costsPerMonth)}/mo",
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
@@ -267,6 +269,7 @@ private fun IoRow(
   modes: List<OutputMode>,
   onSetMode: ((String, OutputMode) -> Unit)?,
 ) {
+  val numbers = LocalStrings.current.numbers
   val level = fill?.level ?: 0
   val capacity = fill?.capacity ?: 0
   val fraction = if (capacity > 0) level.toFloat() / capacity.toFloat() else 0f
@@ -292,7 +295,7 @@ private fun IoRow(
       ProgressBar(
         fraction = fraction,
         leftLabel = entry.title,
-        rightLabel = "${formatInt(level)} / ${formatInt(capacity)} L",
+        rightLabel = "${numbers.integer(level)} / ${numbers.integer(capacity)} L",
       )
       if (mode != null && onSetMode != null) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

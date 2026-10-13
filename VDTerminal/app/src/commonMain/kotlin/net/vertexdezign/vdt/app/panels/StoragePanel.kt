@@ -42,6 +42,7 @@ import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.ProductionFill
 import net.vertexdezign.vdt.model.StandaloneStorage
@@ -172,12 +173,13 @@ private fun StandaloneStorageDetail(storage: StandaloneStorage, onCommand: (Clie
  */
 @Composable
 private fun ObjectStorageBody(storage: StandaloneStorage, onCommand: (ClientMessage) -> Unit) {
+  val numbers = LocalStrings.current.numbers
   var pending by remember { mutableStateOf<StoredObject?>(null) }
   val fraction = if (storage.capacity > 0) storage.count.toFloat() / storage.capacity.toFloat() else 0f
   ProgressBar(
     fraction = fraction,
     leftLabel = "Objects",
-    rightLabel = "${formatInt(storage.count)} / ${formatInt(storage.capacity)}",
+    rightLabel = "${numbers.integer(storage.count)} / ${numbers.integer(storage.capacity)}",
   )
   if (storage.count == 0) {
     Text("This storage is empty", color = VdtColors.DarkGray, fontSize = 11.sp)
@@ -200,7 +202,7 @@ private fun ObjectStorageBody(storage: StandaloneStorage, onCommand: (ClientMess
         modifier = Modifier.weight(1f),
       )
       Text(
-        "×${formatInt(obj.count)}",
+        "×${numbers.integer(obj.count)}",
         color = VdtColors.DarkGray,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
@@ -260,11 +262,12 @@ private fun UnloadDialog(obj: StoredObject, max: Int, onConfirm: (Int) -> Unit, 
 
 @Composable
 private fun FillRow(fill: ProductionFill) {
+  val numbers = LocalStrings.current.numbers
   val fraction = if (fill.capacity > 0) fill.level.toFloat() / fill.capacity.toFloat() else 0f
   ProgressBar(
     fraction = fraction,
     leftLabel = fill.title,
-    rightLabel = "${formatInt(fill.level)} / ${formatInt(fill.capacity)} L",
+    rightLabel = "${numbers.integer(fill.level)} / ${numbers.integer(fill.capacity)} L",
   )
 }
 

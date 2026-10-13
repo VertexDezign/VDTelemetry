@@ -49,7 +49,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.ProgressBar
-import net.vertexdezign.vdt.app.components.format2
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_combine
 import net.vertexdezign.vdt.app.resources.isobus_forage_harvester
@@ -377,6 +377,7 @@ private fun CropFigure(rig: CombineRig, compact: Boolean) {
  */
 @Composable
 private fun CropColumn(rig: CombineRig, compact: Boolean, modifier: Modifier = Modifier) {
+  val numbers = LocalStrings.current.numbers
   val harvest = rig.harvest
   Column(
     modifier,
@@ -389,8 +390,8 @@ private fun CropColumn(rig: CombineRig, compact: Boolean, modifier: Modifier = M
     harvest?.hectares?.let { total ->
       Figure(
         "Worked",
-        "${format2(total.toFloat())} ha",
-        harvest.hectaresSession?.takeIf { !compact }?.let { "+${format2(it.toFloat())} this session" },
+        "${numbers.fixed(total.toFloat(), 2)} ha",
+        harvest.hectaresSession?.takeIf { !compact }?.let { "+${numbers.fixed(it.toFloat(), 2)} this session" },
         compact,
       )
     }
@@ -492,6 +493,7 @@ private fun MachineColumn(rig: CombineRig, maxArt: Dp, modifier: Modifier = Modi
  */
 @Composable
 private fun MachineArt(rig: CombineRig, modifier: Modifier = Modifier) {
+  val numbers = LocalStrings.current.numbers
   val buffer = rig.harvest?.bufferCombine == true
   BoxWithConstraints(modifier) {
     if (maxHeight < MIN_ART_HEIGHT) return@BoxWithConstraints
@@ -548,6 +550,7 @@ private fun MachineArt(rig: CombineRig, modifier: Modifier = Modifier) {
  */
 @Composable
 private fun TankLine(rig: CombineRig) {
+  val numbers = LocalStrings.current.numbers
   val tank = rig.tank
   if (tank == null) {
     val out = rig.harvest?.title ?: rig.cutter?.title
@@ -570,7 +573,7 @@ private fun TankLine(rig: CombineRig) {
       maxLines = 1,
     )
     Text(
-      "${formatInt(tank.value.roundToInt())} of ${formatInt(tank.capacity)} ${tank.unit}",
+      "${numbers.integer(tank.value.roundToInt())} of ${numbers.integer(tank.capacity)} ${tank.unit}",
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
       maxLines = 1,
@@ -599,6 +602,7 @@ private fun WorkColumn(
   compact: Boolean,
   modifier: Modifier = Modifier,
 ) {
+  val numbers = LocalStrings.current.numbers
   val harvest = rig.harvest
   val xp = harvest?.combineXp
   Column(
@@ -608,15 +612,15 @@ private fun WorkColumn(
       Alignment.CenterVertically,
     ),
   ) {
-    xp?.throughput?.let { Figure("Throughput", "${format2(it.toFloat())} t/h", null, compact) }
-    xp?.yield?.let { Figure("Yield", "${format2(it.toFloat())} t/ha", null, compact) }
+    xp?.throughput?.let { Figure("Throughput", "${numbers.fixed(it.toFloat(), 2)} t/h", null, compact) }
+    xp?.yield?.let { Figure("Yield", "${numbers.fixed(it.toFloat(), 2)} t/ha", null, compact) }
 
     LoadBar(rig)
 
     // The limiter's own ceiling, and only where it is real: the mod computes it server-side and never
     // streams it, so on a joined client it is absent rather than the load-time default.
     xp?.speedLimit?.let {
-      Chip(Icons.Filled.Speed, "Limit ${format2(it.toFloat())} km/h", VdtColors.DarkGray)
+      Chip(Icons.Filled.Speed, "Limit ${numbers.fixed(it.toFloat(), 2)} km/h", VdtColors.DarkGray)
     }
 
     StrawControl(harvest, target, onCommand, compact)
@@ -804,6 +808,7 @@ private fun BottomStrip(rig: CombineRig, note: String?, modifier: Modifier = Mod
 /** The header's own half of [BottomStrip]: what it is called, how wide it cuts, and what it is doing. */
 @Composable
 private fun HeaderRow(rig: CombineRig, header: IsoBusMachine, cutter: Cutter, modifier: Modifier = Modifier) {
+  val numbers = LocalStrings.current.numbers
   FlowRow(
     modifier,
     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -820,7 +825,7 @@ private fun HeaderRow(rig: CombineRig, header: IsoBusMachine, cutter: Cutter, mo
     )
     rig.cutWidth?.let {
       Text(
-        "${format2(it)} m",
+        "${numbers.fixed(it, 2)} m",
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
         maxLines = 1,

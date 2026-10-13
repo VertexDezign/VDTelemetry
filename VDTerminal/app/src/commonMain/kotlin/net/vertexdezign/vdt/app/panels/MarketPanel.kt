@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ViewTab
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.HusbandriesData
@@ -106,21 +107,17 @@ internal fun periodLabel(periods: List<String>, period: Int): String = periods.g
  * is comparing hundreds and the decimals are noise — and to one place below it, where water at 6.4
  * and lime at 62.5 would otherwise read as the same kind of number.
  */
-internal fun formatPrice(value: Float): String = if (abs(value) >= 100f) {
+internal fun Numbers.formatPrice(value: Float): String = if (abs(value) >= 100f) {
   formatMoney(value.roundToLong())
 } else {
-  val tenths = (value * 10).roundToInt()
-  "${formatMoney((tenths / 10).toLong())}.${abs(tenths % 10)}"
+  fixed(value, 1, grouped = true)
 }
 
 /** The economy multiplier, to one decimal — the game's own three settings are 3.0 / 1.8 / 1.0. */
-internal fun formatMultiplier(value: Float): String {
-  val tenths = (value * 10).roundToInt()
-  return "${tenths / 10}.${tenths % 10}"
-}
+internal fun Numbers.formatMultiplier(value: Float): String = fixed(value, 1)
 
 /** A total, in whole currency: nobody reads the pennies on a silo full of wheat. */
-internal fun formatCurrency(value: Float): String = formatMoney(value.roundToLong())
+internal fun Numbers.formatCurrency(value: Float): String = formatMoney(value.roundToLong())
 
 /**
  * Where a price is heading, as the game's own three-way arrow.

@@ -47,6 +47,7 @@ import net.vertexdezign.vdt.BalePart
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.BaleDoor
 import net.vertexdezign.vdt.model.BaleType
@@ -144,6 +145,7 @@ internal fun BalerSection(
  */
 @Composable
 private fun BaleColumn(machine: IsoBusMachine, compact: Boolean, modifier: Modifier = Modifier) {
+  val numbers = LocalStrings.current.numbers
   val gap = if (compact) 5.dp else 8.dp
   Column(modifier, verticalArrangement = Arrangement.spacedBy(gap, Alignment.CenterVertically)) {
     val units = FillUnits(machine.fillUnits)
@@ -155,7 +157,7 @@ private fun BaleColumn(machine: IsoBusMachine, compact: Boolean, modifier: Modif
         chamber?.let { "${it.fillLevelPercentage}%" } ?: "-",
         chamber?.takeIf {
           !compact
-        }?.let { "${formatInt(it.value.roundToInt())} of ${formatInt(it.capacity)} ${it.unit}".trim() },
+        }?.let { "${numbers.integer(it.value.roundToInt())} of ${numbers.integer(it.capacity)} ${it.unit}".trim() },
         compact,
       )
       baler.currentBaleType?.let { size ->
@@ -238,6 +240,7 @@ private fun CountColumn(
   compact: Boolean,
   modifier: Modifier = Modifier,
 ) {
+  val numbers = LocalStrings.current.numbers
   val gap = if (compact) 5.dp else 8.dp
   val units = FillUnits(machine.fillUnits)
   Column(modifier, verticalArrangement = Arrangement.spacedBy(gap, Alignment.CenterVertically)) {
@@ -245,8 +248,8 @@ private fun CountColumn(
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Figure(
           "Bales",
-          formatInt(counter.session),
-          if (compact) null else "${formatInt(counter.lifetime)} total",
+          numbers.integer(counter.session),
+          if (compact) null else "${numbers.integer(counter.lifetime)} total",
           compact,
         )
         // Gated on power, as the game's key is; the lifetime count has no reset anywhere.

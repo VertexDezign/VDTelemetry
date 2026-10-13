@@ -44,6 +44,7 @@ import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.FilterOption
 import net.vertexdezign.vdt.app.components.FilterSelect
 import net.vertexdezign.vdt.app.components.ListDetail
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.CropCalendarData
@@ -65,6 +66,7 @@ import net.vertexdezign.vdt.model.PricesStation
  */
 @Composable
 internal fun PriceBoard(data: PricesData, periods: List<String>) {
+  val numbers = LocalStrings.current.numbers
   if (data.fillTypes.isEmpty()) {
     Centered("The price board is empty")
     return
@@ -95,7 +97,7 @@ internal fun PriceBoard(data: PricesData, periods: List<String>) {
         placeholder = "Filter by commodity or station…",
       )
       Text(
-        "per 1000 l · economy ×${formatMultiplier(data.priceMultiplier)}",
+        "per 1000 l · economy ×${numbers.formatMultiplier(data.priceMultiplier)}",
         color = VdtColors.DarkGray,
         fontSize = 9.sp,
         textAlign = TextAlign.End,
@@ -146,6 +148,7 @@ internal fun PriceBoard(data: PricesData, periods: List<String>) {
 
 @Composable
 private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Boolean, onClick: () -> Unit) {
+  val numbers = LocalStrings.current.numbers
   val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   Row(
     Modifier
@@ -180,7 +183,7 @@ private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Bo
     }
     if (sale != null) {
       TrendMark(sale.trend, Modifier.padding(end = 2.dp))
-      Text(formatPrice(sale.price), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+      Text(numbers.formatPrice(sale.price), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     } else {
       Text("buy only", color = if (selected) VdtColors.OnFill else VdtColors.DarkGray, fontSize = 10.sp)
     }
@@ -191,6 +194,7 @@ private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Bo
 
 @Composable
 private fun CommodityDetail(fillType: PricesFillType, data: PricesData, sale: BestSale?, periods: List<String>) {
+  val numbers = LocalStrings.current.numbers
   val sellers = remember(data, fillType) {
     data.stations
       .mapNotNull { station -> station.sell.firstOrNull { it.type == fillType.type }?.let { station to it } }
@@ -225,15 +229,15 @@ private fun CommodityDetail(fillType: PricesFillType, data: PricesData, sale: Be
     ) {
       // The reference price, not a price anybody pays: a station's own scale puts it permanently above
       // or below this. It is here because it is the number the fluctuation is a fluctuation *of*.
-      Figure("Reference", formatPrice(fillType.basePrice))
-      Figure("Best offer", sale?.let { formatPrice(it.price) } ?: "—", sale?.station ?: "no station buys this")
+      Figure("Reference", numbers.formatPrice(fillType.basePrice))
+      Figure("Best offer", sale?.let { numbers.formatPrice(it.price) } ?: "—", sale?.station ?: "no station buys this")
       // Zero when the curve is flat, which is most of what a shop sells you: a "peak" picked out of
       // twelve identical numbers is not one.
       val month = peakMonth(fillType).takeIf { it > 0 }
       Figure(
         "Peak month",
         month?.let { periodLabel(periods, it) } ?: "—",
-        month?.let { "market avg ${formatPrice(fillType.months[it - 1])}" } ?: "no seasonal movement",
+        month?.let { "market avg ${numbers.formatPrice(fillType.months[it - 1])}" } ?: "no seasonal movement",
       )
     }
     if (fillType.months.size >= CropCalendarData.PERIODS) {
@@ -244,7 +248,7 @@ private fun CommodityDetail(fillType: PricesFillType, data: PricesData, sale: Be
       sellers.forEach { (station, row) ->
         StationLine(
           station = station,
-          price = formatPrice(row.price),
+          price = numbers.formatPrice(row.price),
           trend = row.trend,
           demand = if (row.greatDemand) demandBadge(row.demandMultiplier, row.demandHoursLeft) else "",
         )
@@ -252,11 +256,11 @@ private fun CommodityDetail(fillType: PricesFillType, data: PricesData, sale: Be
     }
     if (buyers.isNotEmpty()) {
       SectionLabel("Buy from (${buyers.size})")
-      buyers.forEach { (station, row) -> StationLine(station, formatPrice(row.price), "", "") }
+      buyers.forEach { (station, row) -> StationLine(station, numbers.formatPrice(row.price), "", "") }
     }
     if (pallets.isNotEmpty()) {
       SectionLabel("Pallets (whole pallet, not per 1000 l)")
-      pallets.forEach { (station, row) -> StationLine(station, formatPrice(row.price), "", "") }
+      pallets.forEach { (station, row) -> StationLine(station, numbers.formatPrice(row.price), "", "") }
     }
     if (sellers.isEmpty() && buyers.isEmpty() && pallets.isEmpty()) {
       Text("Nothing on this map trades it.", color = VdtColors.DarkGray, fontSize = 11.sp)

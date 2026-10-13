@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.components
 
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PfManual
@@ -20,6 +21,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private val en = Numbers.English
 
 /**
  * The section view's arithmetic — the parts that decide what a glance at the panel says.
@@ -304,13 +307,13 @@ class SectionViewTest {
   fun writesTheRateAsAReadingAndATarget() {
     assertEquals(
       RateFigures("45", "90", "kg/ha"),
-      rateFigures(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), null),
+      rateFigures(en, PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), null),
     )
     // At or above target there is nothing to aim for, so the arrow goes away rather than pointing back.
-    assertEquals(RateFigures("90", null, "kg/ha"), rateFigures(PfMode.FERTILIZER, PfValue(90f, 90f, "kg/ha"), null))
-    assertEquals(RateFigures("95", null, "kg/ha"), rateFigures(PfMode.FERTILIZER, PfValue(95f, 90f, "kg/ha"), null))
+    assertEquals(RateFigures("90", null, "kg/ha"), rateFigures(en, PfMode.FERTILIZER, PfValue(90f, 90f, "kg/ha"), null))
+    assertEquals(RateFigures("95", null, "kg/ha"), rateFigures(en, PfMode.FERTILIZER, PfValue(95f, 90f, "kg/ha"), null))
     // pH is a decimal, and carries no unit of its own.
-    assertEquals(RateFigures("5.9", "6.8", null), rateFigures(PfMode.LIME, PfValue(5.9f, 6.8f), null))
+    assertEquals(RateFigures("5.9", "6.8", null), rateFigures(en, PfMode.LIME, PfValue(5.9f, 6.8f), null))
   }
 
   // The difference between the modes, and the reason the readout could not simply keep printing the
@@ -321,17 +324,17 @@ class SectionViewTest {
     val manual = PfManual(step = 3, min = 1, max = 7, change = 15f, rate = 600f, rateUnit = "kg/ha")
     assertEquals(
       RateFigures("45", "60", "kg/ha"),
-      rateFigures(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), manual),
+      rateFigures(en, PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), manual),
     )
     // Overshooting the target is a real outcome of choosing your own rate, and is shown, not clamped.
     assertEquals(
       RateFigures("85", "100", "kg/ha"),
-      rateFigures(PfMode.FERTILIZER, PfValue(85f, 90f, "kg/ha"), manual),
+      rateFigures(en, PfMode.FERTILIZER, PfValue(85f, 90f, "kg/ha"), manual),
     )
     // A step the machine reports no change for moves nothing, so the reading stands alone.
     assertEquals(
       RateFigures("45", null, "kg/ha"),
-      rateFigures(PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), manual.copy(change = 0f)),
+      rateFigures(en, PfMode.FERTILIZER, PfValue(45f, 90f, "kg/ha"), manual.copy(change = 0f)),
     )
   }
 
@@ -430,13 +433,13 @@ class SectionViewTest {
   @Test
   fun printsWhatTheManualPassCostsInProduct() {
     val manual = PrecisionFarming(auto = false)
-    assertEquals("600 kg/ha", rateCost(manual, PfManual(rate = 600f, rateUnit = "kg/ha")))
+    assertEquals("600 kg/ha", rateCost(en, manual, PfManual(rate = 600f, rateUnit = "kg/ha")))
     // A slurry tanker is set in a couple of cubic metres per hectare; rounding that to a whole number
     // would throw the setting away.
-    assertEquals("2.4 m³/ha", rateCost(manual, PfManual(rate = 2.4f, rateUnit = "m³/ha")))
+    assertEquals("2.4 m³/ha", rateCost(en, manual, PfManual(rate = 2.4f, rateUnit = "m³/ha")))
     // Nothing in the tank, nothing to cost it against — the step is still real, the price is not ours.
-    assertNull(rateCost(manual, PfManual(rate = null, rateUnit = "kg/ha")))
-    assertNull(rateCost(manual, PfManual(rate = 600f, rateUnit = null)))
+    assertNull(rateCost(en, manual, PfManual(rate = null, rateUnit = "kg/ha")))
+    assertNull(rateCost(en, manual, PfManual(rate = 600f, rateUnit = null)))
   }
 
   @Test
@@ -444,18 +447,18 @@ class SectionViewTest {
     // Auto: the tool reads the map and picks its own rate per square metre, so the only figure there
     // is is what is actually coming out. The caller has already filtered `manual` to null here.
     val auto = PrecisionFarming(auto = true, rate = 3.2f, rateUnit = "m³/ha")
-    assertEquals("3.2 m³/ha", rateCost(auto, null))
+    assertEquals("3.2 m³/ha", rateCost(en, auto, null))
 
     // The boom comes up and PF stops refreshing the field, so the mod withholds it rather than leave
     // the rate of the pass that just ended on screen looking live.
-    assertNull(rateCost(PrecisionFarming(auto = true), null))
+    assertNull(rateCost(en, PrecisionFarming(auto = true), null))
 
     // In manual the nominal step cost wins over the live figure, exactly as PF's own HUD does: it is
     // the number the step is chosen by, and it holds with the tool stopped.
     val running = PrecisionFarming(auto = false, rate = 3.2f, rateUnit = "m³/ha")
-    assertEquals("600 kg/ha", rateCost(running, PfManual(rate = 600f, rateUnit = "kg/ha")))
+    assertEquals("600 kg/ha", rateCost(en, running, PfManual(rate = 600f, rateUnit = "kg/ha")))
     // …but a step the mod could not cost falls through to what the machine is really applying,
     // rather than printing nothing while the boom is visibly running.
-    assertEquals("3.2 m³/ha", rateCost(running, PfManual(rate = null)))
+    assertEquals("3.2 m³/ha", rateCost(en, running, PfManual(rate = null)))
   }
 }

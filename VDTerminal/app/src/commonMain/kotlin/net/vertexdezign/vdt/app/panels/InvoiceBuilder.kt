@@ -44,6 +44,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.InvoiceLineInput
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.InvoicesData
 import net.vertexdezign.vdt.model.WorkType
@@ -52,17 +54,20 @@ import net.vertexdezign.vdt.model.WorkType
  * One line being built. Held as text rather than numbers because that is what the fields contain while
  * someone is mid-edit — `"3."` is a legitimate thing to have typed and is not a Double yet.
  */
-private class DraftLine(val workType: WorkType) {
+private class DraftLine(val workType: WorkType, private val numbers: Numbers) {
   var quantity by mutableStateOf("1")
-  var price by mutableStateOf(trimTrailing(workType.price))
+
+  // Ungrouped, unlike formatQuantity: this is the text the field starts out holding, and a group
+  // separator in it would not parse back.
+  var price by mutableStateOf(numbers.trimmed(workType.price, 2))
   var discount by mutableStateOf("")
   var note by mutableStateOf("")
 
-  val quantityValue: Double get() = quantity.toDoubleOrNull() ?: 0.0
-  val priceValue: Double get() = price.toDoubleOrNull() ?: 0.0
+  val quantityValue: Double get() = numbers.parse(quantity) ?: 0.0
+  val priceValue: Double get() = numbers.parse(price) ?: 0.0
 
   /** Percent as typed, as the fraction the mod wants. Out-of-range is clamped, as the mod clamps it. */
-  val discountFraction: Double get() = ((discount.toDoubleOrNull() ?: 0.0) / 100).coerceIn(0.0, 1.0)
+  val discountFraction: Double get() = ((numbers.parse(discount) ?: 0.0) / 100).coerceIn(0.0, 1.0)
 
   /**
    * The line total, computed exactly as the mod computes it: the discount comes off the already
@@ -96,8 +101,6 @@ private class DraftLine(val workType: WorkType) {
   )
 }
 
-private fun trimTrailing(value: Double): String = formatQuantity(value).replace(",", "")
-
 /**
  * Raise a new invoice, or a proposal, without opening the in-game wizard.
  *
@@ -112,6 +115,7 @@ fun InvoiceBuilder(
   onCommand: (ClientMessage) -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val numbers = LocalStrings.current.numbers
   var farmId by remember { mutableStateOf(data.farms.firstOrNull()?.id) }
   var proposal by remember { mutableStateOf(false) }
   val lines = remember { mutableStateListOf<DraftLine>() }
@@ -200,7 +204,7 @@ fun InvoiceBuilder(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
           Text("DISCOUNT", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
           Text(
-            "-${formatMoney(discount)}",
+            "-${numbers.formatMoney(discount)}",
             color = VdtColors.AccentText,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
@@ -210,7 +214,7 @@ fun InvoiceBuilder(
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text("TOTAL", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Text(
-          formatMoney(total),
+          numbers.formatMoney(total),
           color = VdtColors.TextDark,
           fontSize = 13.sp,
           fontWeight = FontWeight.Bold,
@@ -250,7 +254,7 @@ fun InvoiceBuilder(
       WorkTypePicker(
         workTypes = data.workTypes,
         onPick = {
-          lines.add(DraftLine(it))
+          lines.add(DraftLine(it, numbers))
           picking = false
         },
         onDismiss = { picking = false },
@@ -283,6 +287,7 @@ private fun ModeChip(label: String, active: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun DraftLineRow(line: DraftLine, onRemove: () -> Unit) {
+  val numbers = LocalStrings.current.numbers
   Column(
     Modifier
       .fillMaxWidth()
@@ -302,7 +307,7 @@ private fun DraftLineRow(line: DraftLine, onRemove: () -> Unit) {
         modifier = Modifier.weight(1f),
       )
       Text(
-        formatMoney(line.amount),
+        numbers.formatMoney(line.amount),
         color = if (line.isValid) VdtColors.TextDark else VdtColors.Red,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
@@ -335,17 +340,11 @@ private fun DraftLineRow(line: DraftLine, onRemove: () -> Unit) {
  */
 @Composable
 private fun NumberField(value: String, onChange: (String) -> Unit, suffix: String, width: Int) {
+  val numbers = LocalStrings.current.numbers
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
     BasicTextField(
       value = value,
-      onValueChange = { new ->
-        val cleaned = new.filter { it.isDigit() || it == '.' }
-        // Keep the first decimal point, drop any others: "3..5" and "3.5.1" are both unparseable.
-        val dot = cleaned.indexOf('.')
-        onChange(
-          if (dot < 0) cleaned else cleaned.substring(0, dot + 1) + cleaned.substring(dot + 1).filter { it.isDigit() },
-        )
-      },
+      onValueChange = { new -> onChange(numbers.decimalInput(new)) },
       singleLine = true,
       textStyle = TextStyle(
         fontSize = 11.sp,
@@ -428,6 +427,7 @@ private fun WorkTypePicker(workTypes: List<WorkType>, onPick: (WorkType) -> Unit
 
 @Composable
 private fun WorkTypeRow(workType: WorkType, onPick: (WorkType) -> Unit) {
+  val numbers = LocalStrings.current.numbers
   val usable = workType.isUsable
   Row(
     Modifier
@@ -453,7 +453,7 @@ private fun WorkTypeRow(workType: WorkType, onPick: (WorkType) -> Unit) {
     }
     if (usable) {
       Text(
-        "${formatQuantity(workType.price)} / ${workType.priceUnitLabel}",
+        "${numbers.formatQuantity(workType.price)} / ${workType.priceUnitLabel}",
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
         maxLines = 1,

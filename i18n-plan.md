@@ -32,9 +32,17 @@ wasm, no locale override, composable-only).
 
 1. Mechanism on a small surface: `Strings`/`En`/`De`, `LocalStrings`, `LanguageStore`, mod export,
    picker; migrate the header, footer, launcher, loading screen and app titles.
-2. Formatters take separators and unit words from `Strings`; fix `InvoiceBuilder.trimTrailing`'s
-   hard-coded `,` strip, which a locale-dependent separator breaks.
-3. Migrate app by app (Fleet, Fields, Market, …), one commit each.
+2. ~~Number formatting.~~ Done: `Numbers` (`strings.numbers`) owns the decimal and group marks —
+   `integer`, `fixed`, `trimmed`, `group`, and `parse`/`decimalInput` for typed fields, which accept
+   either mark. The domain formatters (`formatMoney`, `formatHa`, …) are `Numbers` extensions; the
+   duplicate hand-rolled helpers (`format1`, `format2`, `formatInt`, `fmtLiters`, `groupDigits`,
+   `formatLevel`) are gone, and `trimTrailing`'s `,` strip with them. Grouping where it was before,
+   nowhere new.
+3. Migrate app by app (Fleet, Fields, Market, …), one commit each. Sentence builders that took
+   `numbers: Numbers` in step 2 (`rowSubtitle`, `sourceAmount`, `rateFigures`, …) take `strings` instead
+   once their words move. Still hand-building a decimal, left for their app because they carry words
+   too: `deviationLabel` (Navigation), `inclinationLabel`/`heightLabel` (Loader). `formatAge`,
+   `formatMonthsAgo` and `formatMinutes` go with Fleet and Missions.
 4. The remaining non-composable holders: widget titles, config option labels, alert rules.
 5. Pseudo-locale pass: a third `Strings` that pads by ~35 % and brackets every string, to find the
    clipping before the real German does (fixed grid, cluster readouts, section strip).

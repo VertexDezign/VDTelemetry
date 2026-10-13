@@ -53,6 +53,8 @@ import net.vertexdezign.vdt.app.components.FilterChip
 import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
@@ -249,20 +251,21 @@ private fun FieldsMasterDetail(
  */
 @Composable
 private fun FieldsSummaryRow(summary: FieldTotals) {
+  val numbers = LocalStrings.current.numbers
   FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(16.dp),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     SummaryStat("${summary.ownedFields}", "own fields")
-    SummaryStat(formatHa(summary.ownedHa), "hectares")
-    SummaryStat(summary.readyHa?.let { formatHa(it) } ?: "—", "ready to harvest")
+    SummaryStat(numbers.formatHa(summary.ownedHa), "hectares")
+    SummaryStat(summary.readyHa?.let { numbers.formatHa(it) } ?: "—", "ready to harvest")
     SummaryStat("${summary.needsWork}", "need work")
     SummaryStat("${summary.forSale}", "for sale")
     if (summary.byCrop.isNotEmpty()) {
       // The crops, biggest first, as one quiet line — it answers "what am I growing" without a chart.
       Text(
-        summary.byCrop.joinToString(" · ") { (crop, ha) -> "$crop ${formatHa(ha)}" },
+        summary.byCrop.joinToString(" · ") { (crop, ha) -> "$crop ${numbers.formatHa(ha)}" },
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
         maxLines = 1,
@@ -373,6 +376,7 @@ private fun FieldSortControl(
 
 @Composable
 private fun FieldRowTile(row: FieldRow, status: FieldStatuses?, selected: Boolean, onClick: () -> Unit) {
+  val numbers = LocalStrings.current.numbers
   val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   val muted = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray
   Column(
@@ -394,9 +398,9 @@ private fun FieldRowTile(row: FieldRow, status: FieldStatuses?, selected: Boolea
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f),
       )
-      Text(formatHa(row.mapField.areaHa), color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+      Text(numbers.formatHa(row.mapField.areaHa), color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
-    Text(rowLine(row), color = muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(rowLine(numbers, row), color = muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     if (hasBreakdown(row)) StatusBar(row, Modifier.fillMaxWidth())
     val badges = fieldBadges(row)
     if (badges.isNotEmpty()) {
@@ -412,12 +416,12 @@ private fun FieldRowTile(row: FieldRow, status: FieldStatuses?, selected: Boolea
 }
 
 /** Crop and status in one line — what the field is growing and what state that is in. */
-private fun rowLine(row: FieldRow): String = buildList {
+private fun rowLine(numbers: Numbers, row: FieldRow): String = buildList {
   val crop = fieldCrop(row)
   if (crop.isNotEmpty()) add(crop)
   val headline = fieldHeadline(row)
   if (headline.text.isNotEmpty()) add(headline.text)
-  row.mapField.price?.takeIf { row.mapField.ownerFarmId == null }?.let { add(formatMoney(it.toLong())) }
+  row.mapField.price?.takeIf { row.mapField.ownerFarmId == null }?.let { add(numbers.formatMoney(it.toLong())) }
 }.joinToString(" · ")
 
 /**
@@ -492,6 +496,7 @@ private fun StatusBar(row: FieldRow, modifier: Modifier = Modifier) {
 /** The bar's legend — the half that carries the meaning. */
 @Composable
 private fun StatusLegend(row: FieldRow, status: FieldStatusData?) {
+  val numbers = LocalStrings.current.numbers
   val breakdown = row.growth ?: return
   FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
     breakdown.slices.forEach { slice ->
@@ -500,7 +505,7 @@ private fun StatusLegend(row: FieldRow, status: FieldStatusData?) {
         Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(kindColor(slice.kind)))
         Text(kindLabel(slice.kind), color = VdtColors.TextDark, fontSize = 10.sp)
         Text("$share%", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        status?.let { Text(formatHa(it.ha(slice.cells)), color = VdtColors.DarkGray, fontSize = 10.sp) }
+        status?.let { Text(numbers.formatHa(it.ha(slice.cells)), color = VdtColors.DarkGray, fontSize = 10.sp) }
       }
     }
   }
@@ -518,6 +523,7 @@ private fun FieldDetail(
   onShowOnMap: (Float, Float) -> Unit,
   onCreate: (TaskInput) -> Unit,
 ) {
+  val numbers = LocalStrings.current.numbers
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -525,7 +531,7 @@ private fun FieldDetail(
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
       Column(Modifier.weight(1f)) {
         Text("Field ${row.label}", color = VdtColors.TextDark, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Text(ownershipLine(row), color = VdtColors.DarkGray, fontSize = 11.sp)
+        Text(ownershipLine(numbers, row), color = VdtColors.DarkGray, fontSize = 11.sp)
       }
       ActionIcon(
         Icons.Filled.Place,
@@ -674,7 +680,7 @@ private fun FieldDetail(
           mission.title.ifBlank {
             mission.type
           },
-          formatMoney((mission.totalReward ?: mission.reward).toLong()),
+          numbers.formatMoney((mission.totalReward ?: mission.reward).toLong()),
         )
         mission.completion?.let { DetailLine("Progress", "${(it * 100).roundToInt()} %") }
         if (mission.npc?.name?.isNotBlank() == true) DetailLine("For", mission.npc!!.name)
@@ -684,8 +690,8 @@ private fun FieldDetail(
 }
 
 /** Owner, size and — where it is for sale — what it costs, per hectare as well as outright. */
-private fun ownershipLine(row: FieldRow): String = buildList {
-  add(formatHa(row.mapField.areaHa))
+private fun ownershipLine(numbers: Numbers, row: FieldRow): String = buildList {
+  add(numbers.formatHa(row.mapField.areaHa))
   when {
     row.owned -> add("yours")
     row.mapField.ownerFarmId == null -> add("for sale")
@@ -693,8 +699,8 @@ private fun ownershipLine(row: FieldRow): String = buildList {
   }
   val price = row.mapField.price
   if (price != null && row.mapField.ownerFarmId == null) {
-    add(formatMoney(price.toLong()))
-    if (row.mapField.areaHa > 0f) add("${formatMoney((price / row.mapField.areaHa).toLong())}/ha")
+    add(numbers.formatMoney(price.toLong()))
+    if (row.mapField.areaHa > 0f) add("${numbers.formatMoney((price / row.mapField.areaHa).toLong())}/ha")
   }
 }.joinToString(" · ")
 
@@ -717,12 +723,12 @@ private fun DetailLine(label: String, value: String) {
 // ---- Formatting ----------------------------------------------------------------------------------
 
 /** Hectares, one decimal below ten and none above — a 43 ha field does not need a tenth. */
-internal fun formatHa(ha: Float): String = if (ha <
+internal fun Numbers.formatHa(ha: Float): String = if (ha <
   10f
 ) {
-  "${(ha * 10).roundToInt() / 10f} ha"
+  "${fixed(ha, 1)} ha"
 } else {
-  "${ha.roundToInt()} ha"
+  "${integer(ha.roundToInt())} ha"
 }
 
 // ---- Creating a task -----------------------------------------------------------------------------

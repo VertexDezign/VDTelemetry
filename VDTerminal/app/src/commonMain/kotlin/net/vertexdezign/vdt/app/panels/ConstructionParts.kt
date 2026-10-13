@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Construction
 import net.vertexdezign.vdt.model.ConstructionPart
@@ -102,6 +103,7 @@ internal fun ConstructionCard(construction: Construction) {
 
 @Composable
 private fun ConstructionPartRows(part: ConstructionPart) {
+  val numbers = LocalStrings.current.numbers
   val heading = if (part.count > 1) "${roleLabel(part.role)} (${part.count})" else roleLabel(part.role)
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
     Text(heading.uppercase(), color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -120,7 +122,7 @@ private fun ConstructionPartRows(part: ConstructionPart) {
       ProgressBar(
         fraction = if (fill.capacity > 0) fill.level.toFloat() / fill.capacity.toFloat() else 0f,
         leftLabel = fill.title,
-        rightLabel = "${formatInt(fill.level)} / ${formatInt(fill.capacity)} L",
+        rightLabel = "${numbers.integer(fill.level)} / ${numbers.integer(fill.capacity)} L",
       )
     }
     if (percent == null && part.fills.isEmpty()) {

@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.model.ControlGroup
 import net.vertexdezign.vdt.model.Cutter
 import net.vertexdezign.vdt.model.DischargeReason
@@ -19,6 +20,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private val en = Numbers.English
 
 private fun ingredient(name: String, min: Int, max: Int, value: Double) =
   MixerIngredient(name = name, title = name, minPercentage = min, maxPercentage = max, value = value)
@@ -359,16 +362,16 @@ class IsoBusTest {
 
   @Test
   fun massDropsToKilogramsBelowATonne() {
-    assertEquals("640 kg", formatTonnes(0.64))
-    assertEquals("1.0 t", formatTonnes(1.0))
-    assertEquals("12.8 t", formatTonnes(12.75))
+    assertEquals("640 kg", en.formatTonnes(0.64))
+    assertEquals("1.0 t", en.formatTonnes(1.0))
+    assertEquals("12.8 t", en.formatTonnes(12.75))
   }
 
   @Test
   fun theMixCountdownLosesItsDecimalOnceItIsNotWorthWatching() {
-    assertEquals("3.2s", formatSeconds(3200))
-    assertEquals("0.0s", formatSeconds(0))
-    assertEquals("45s", formatSeconds(45_000))
+    assertEquals("3.2s", en.formatSeconds(3200))
+    assertEquals("0.0s", en.formatSeconds(0))
+    assertEquals("45s", en.formatSeconds(45_000))
   }
 
   @Test
