@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.panels.AutoDrivePanel
 import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
 import net.vertexdezign.vdt.app.panels.FieldsSummary
@@ -105,6 +107,7 @@ object MapWidget : Widget {
     val gpsCourse by store.gpsCourse.collectAsState()
     val courseProgress by store.courseProgress.collectAsState()
     val missions by store.missions.collectAsState()
+    val autoDrive by store.autoDrive.collectAsState()
 
     val pda = telemetry?.environment?.pda
     // In a vehicle the heading is the vehicle's GPS; on foot it's the player's. Same compass
@@ -135,6 +138,7 @@ object MapWidget : Widget {
       gpsCourse = gpsCourse,
       courseProgress = courseProgress,
       missions = missions,
+      autoDrive = autoDrive,
     )
   }
 }
@@ -360,6 +364,21 @@ object FieldsWidget : Widget {
     val tasks by store.taskList.collectAsState()
     val telemetry by store.telemetry.collectAsState()
     FieldsSummary(map, info, status, tasks, telemetry?.environment?.pda?.player?.farmId, modifier)
+  }
+}
+
+/** AutoDrive's controls for the machine you are in (issue #97); the panel renders its own empty states. */
+object AutoDriveWidget : Widget {
+  override val id = "autoDrive"
+  override val title = "AutoDrive"
+  override val icon: ImageVector = Icons.Filled.Route
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val store = LocalVdtStore.current
+    val telemetry by store.telemetry.collectAsState()
+    val network by store.autoDrive.collectAsState()
+    AutoDrivePanel(telemetry?.vehicle, network, modifier, store.onCommand)
   }
 }
 

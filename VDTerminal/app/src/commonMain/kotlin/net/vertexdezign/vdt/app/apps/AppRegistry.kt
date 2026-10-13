@@ -15,6 +15,7 @@ object AppRegistry {
       MapApp,
       FieldsApp,
       FleetApp,
+      AutoDriveApp,
       ProductionApp,
       StorageApp,
       AnimalsApp,

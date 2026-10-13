@@ -182,6 +182,9 @@ fun main() {
   // refreshes a multiplayer client's prices on. Same absence rule: a stale board would value today's
   // stock at last session's prices.
   val pricesState = watcher.register("prices.json", nullOnAbsent = true) { VdtParser.parsePrices(it) }
+  // autoDrive.json is event-driven off AutoDrive's destination listener; absent = AutoDrive not
+  // installed, which the app must hear as such rather than keep last session's network.
+  val autoDriveState = watcher.register("autoDrive.json", nullOnAbsent = true) { VdtParser.parseAutoDrive(it) }
   watcher.launchIn(appScope)
 
   // The ground-layer rasters live in their own folder, one file per plane plus index.json naming the
@@ -421,6 +424,13 @@ fun main() {
               send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
             }
           }
+        val autoDriveJob =
+          launch {
+            autoDriveState.collect { data ->
+              val message: ServerMessage = ServerMessage.AutoDrive(data)
+              send(Frame.Text(json.encodeToString(ServerMessage.serializer(), message)))
+            }
+          }
         val missionsJob =
           launch {
             missionsState.collect { data ->
@@ -525,6 +535,7 @@ fun main() {
           husbandryJob.cancel()
           fleetJob.cancel()
           pricesJob.cancel()
+          autoDriveJob.cancel()
           missionsJob.cancel()
           financeJob.cancel()
           invoicesJob.cancel()

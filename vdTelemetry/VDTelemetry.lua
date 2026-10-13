@@ -117,6 +117,9 @@ local sourceFiles = {
   "src/integrations/AdvancedDamageSystem.lua",
   "src/integrations/CombineXP.lua",
   "src/integrations/VehicleSpeedSync.lua",
+  -- AutoDrive: the vehicle block (object stage) and the autoDrive.json destinations channel, which
+  -- needs MapExporter's world-size helpers at collect time.
+  "src/integrations/AutoDrive.lua",
   "src/integrations/registry.lua",
   "src/integrations/TaskList.lua",
   "src/integrations/CropRotation.lua",
@@ -163,6 +166,9 @@ local sourceFiles = {
   -- Vehicle Speed Sync on/off; asks src/integrations/VehicleSpeedSync.lua for the mod's own verdict,
   -- as CombineControl asks the aspects.
   "src/command/SpeedSyncControl.lua",
+  -- AutoDrive start/stop, mode, destinations, fill type and loop counter, through AutoDrive's own
+  -- events; reads the integration sourced above.
+  "src/command/AutoDriveControl.lua",
   -- Precision Farming application rate (auto/manual + the manual step). Resolves which machine on the
   -- rig to drive through src/integrations/PrecisionFarming.lua, sourced above.
   "src/command/PrecisionFarmingControl.lua",
@@ -348,7 +354,12 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     whether it is still waiting for that one to move (issue #145). Absent without the mod. With
 --     `speedSync.available`, whether the mod's key would switch it right now, for the setSpeedSync
 --     command (command/SpeedSyncControl.lua).
-VDTelemetry.VERSION = 33
+-- 34: `autoDrive` -- AutoDrive's state on the machine you are in (issue #97): driving or not, the mode
+--     and the modes it can take, the destination and unload destination, the fill type it loads and
+--     the ones it offers, the loop counter, and while driving its task text, drive time and the marker
+--     it is heading for. `ai.active` is raised while it drives. Absent without the mod. The marker list
+--     itself is its own channel, autoDrive.json.
+VDTelemetry.VERSION = 34
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

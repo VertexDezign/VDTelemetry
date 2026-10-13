@@ -37,6 +37,9 @@ VDT.Integrations.all = {
   "CombineXP",
   -- Vehicle Speed Sync: the lamp it draws beside the speedometer while tied to another machine.
   "VehicleSpeedSync",
+  -- AutoDrive: its HUD's state on the machine, and the AI lamp while it drives. After the core AI
+  -- collector by construction (every integration is), since it raises `ai.active` rather than setting it.
+  "AutoDrive",
 }
 
 -- "<integration>.<stage>" -> true once its failure has been logged, so a hook that throws on every
