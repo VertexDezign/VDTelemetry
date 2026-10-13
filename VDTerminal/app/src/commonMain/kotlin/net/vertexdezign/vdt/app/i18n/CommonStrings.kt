@@ -22,4 +22,10 @@ interface CommonStrings {
 
   /** An amount in litres, already formatted. */
   fun litre(amount: String): String
+
+  /** A filter box: its placeholder, its free-text token, and its overflow line. */
+  val filter: String
+  val filterText: String
+  fun moreMatches(count: Int): String
+  fun remove(label: String): String
 }

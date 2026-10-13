@@ -36,6 +36,7 @@ interface Strings {
   val finance: FinanceStrings
   val loans: LoansStrings
   val invoices: InvoicesStrings
+  val market: MarketStrings
 }
 
 /** The languages the terminal has a catalogue for. */

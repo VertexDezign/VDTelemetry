@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
 import net.vertexdezign.vdt.app.components.FilterOption
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.PricesData
 import net.vertexdezign.vdt.model.PricesFillType
@@ -33,13 +34,21 @@ import net.vertexdezign.vdt.model.StorageData
  * mod could not name — it is still countable stock, and folding it into [BULK] would print a count as
  * a liter figure.
  */
-enum class StockForm(val label: String) {
-  BULK("Bulk"),
-  BALE("Bales"),
-  PALLET("Pallets"),
-  BIGBAG("Big bags"),
-  OBJECT("Objects"),
+enum class StockForm {
+  BULK,
+  BALE,
+  PALLET,
+  BIGBAG,
+  OBJECT,
   ;
+
+  fun label(strings: Strings): String = when (this) {
+    BULK -> strings.market.formBulk
+    BALE -> strings.market.formBales
+    PALLET -> strings.market.formPallets
+    BIGBAG -> strings.market.formBigBags
+    OBJECT -> strings.market.formObjects
+  }
 
   companion object {
     fun fromKind(kind: String): StockForm = when (kind.uppercase()) {
@@ -52,13 +61,56 @@ enum class StockForm(val label: String) {
 }
 
 /** Where one part of a holding sits — the drill-in a row opens. */
-enum class StockPlace(val label: String) {
-  SILO("Silo"),
-  STORE("Object storage"),
-  BUNKER("Bunker"),
-  OUTSIDE("Outside"),
-  PRODUCTION("Production"),
-  PEN("Animal pen"),
+enum class StockPlace {
+  SILO,
+  STORE,
+  BUNKER,
+  OUTSIDE,
+  PRODUCTION,
+  PEN,
+  ;
+
+  fun label(strings: Strings): String = when (this) {
+    SILO -> strings.market.placeSilo
+    STORE -> strings.market.placeStore
+    BUNKER -> strings.market.placeBunker
+    OUTSIDE -> strings.market.placeOutside
+    PRODUCTION -> strings.market.placeProduction
+    PEN -> strings.market.placePen
+  }
+}
+
+/**
+ * The one thing about a source a reader would otherwise have to go and look at. A value, not a
+ * sentence, so two sources merge on what they mean rather than on how one language spells it.
+ */
+sealed interface StockNote {
+  /** A bunker still being filled, before it is closed. */
+  data object StillFilling : StockNote
+
+  /** A closed bunker, fermenting. */
+  data object Fermenting : StockNote
+
+  /** A bunker whose silage is ready but not yet opened. */
+  data object Ready : StockNote
+
+  /** An opened bunker, being drawn from. */
+  data object Open : StockNote
+
+  /** A pen's output, waiting for someone to take it away. */
+  data object AwaitingCollection : StockNote
+
+  /** Bales lying outside, [count] of them still fermenting. */
+  data class BalesFermenting(val count: Int) : StockNote
+
+  fun label(strings: Strings): String = when (this) {
+    StillFilling -> strings.market.noteStillFilling
+    Fermenting -> strings.market.noteFermenting
+    Ready -> strings.market.noteReady
+    Open -> strings.market.noteOpen
+    AwaitingCollection -> strings.market.noteAwaitingCollection
+    is BalesFermenting -> strings.market.noteBalesFermenting(count)
+  }
 }
 
 /**
@@ -81,7 +133,7 @@ data class StockSource(
    * have none by definition.
    */
   val capacity: Int = 0,
-  val note: String = "",
+  val note: StockNote? = null,
 )
 
 /**
@@ -298,7 +350,7 @@ fun buildStock(
       liters = loose.level,
       count = loose.count,
       source = StockPlace.OUTSIDE to "",
-      note = if (loose.fermenting > 0) "${loose.fermenting} fermenting" else "",
+      note = if (loose.fermenting > 0) StockNote.BalesFermenting(loose.fermenting) else null,
       fermenting = loose.fermenting,
     )
   }
@@ -340,7 +392,7 @@ fun buildStock(
         liters = condition.value,
         count = 0,
         source = StockPlace.PEN to pen.name,
-        note = "awaiting collection",
+        note = StockNote.AwaitingCollection,
       )
     }
   }
@@ -348,12 +400,12 @@ fun buildStock(
   return builder.rows()
 }
 
-private fun bunkerNote(state: String): String = when (state) {
-  "FILL" -> "still filling"
-  "CLOSED" -> "fermenting"
-  "FERMENTED" -> "ready"
-  "DRAIN" -> "open"
-  else -> ""
+private fun bunkerNote(state: String): StockNote? = when (state) {
+  "FILL" -> StockNote.StillFilling
+  "CLOSED" -> StockNote.Fermenting
+  "FERMENTED" -> StockNote.Ready
+  "DRAIN" -> StockNote.Open
+  else -> null
 }
 
 /** Accumulates the four walks into one row per commodity. */
@@ -371,7 +423,7 @@ private class StockBuilder(private val titles: Map<String, String>) {
     count: Int,
     source: Pair<StockPlace, String>,
     capacity: Int = 0,
-    note: String = "",
+    note: StockNote? = null,
     fermenting: Int = 0,
     /** Whether [fallbackTitle] is the fill type's own title, and so fit to name the whole row. */
     strongTitle: Boolean = true,
@@ -445,19 +497,23 @@ fun valuateAll(rows: List<StockRow>, prices: PricesData?): List<StockEntry> {
 }
 
 /** How the table is ordered — one per sortable column. */
-enum class StockSort(val label: String) {
-  NAME("Name"),
-  FORM("Type"),
-  AMOUNT("Amount"),
-  PRICE("Price"),
-  VALUE("Value"),
-  STATION("Station"),
-  BEST_PRICE("Best price"),
-  BEST_VALUE("Best value"),
-  MONTH("Best month"),
+enum class StockSort {
+  NAME,
+  FORM,
+  AMOUNT,
+  PRICE,
+  VALUE,
+  STATION,
+  BEST_PRICE,
+  BEST_VALUE,
+  MONTH,
 }
 
-/** The kinds of thing the stock table can be filtered by. Same kind ORs, different kinds AND. */
+/**
+ * The kinds of thing the stock table can be filtered by, and the categories under [CATEGORY]. Same kind
+ * ORs, different kinds AND. These are keys — what a token matches on — and never shown: the reader sees
+ * [kindLabel] and [categoryLabel].
+ */
 object StockFilter {
   const val CATEGORY: String = "Category"
   const val FORM: String = "Form"
@@ -470,6 +526,24 @@ object StockFilter {
   const val UNPRICED: String = "No buyer"
   const val DEMAND: String = "Great demand"
   const val FERMENTING: String = "Fermenting"
+
+  fun kindLabel(strings: Strings, kind: String): String = when (kind) {
+    CATEGORY -> strings.market.filterCategory
+    FORM -> strings.market.filterForm
+    PLACE -> strings.market.filterWhere
+    COMMODITY -> strings.market.filterCommodity
+    STATION -> strings.market.filterSellsTo
+    else -> kind
+  }
+
+  fun categoryLabel(strings: Strings, category: String): String = when (category) {
+    CROPS -> strings.market.categoryCrops
+    PRODUCTS -> strings.market.categoryProducts
+    UNPRICED -> strings.market.categoryNoBuyer
+    DEMAND -> strings.market.categoryDemand
+    FERMENTING -> strings.market.categoryFermenting
+    else -> category
+  }
 }
 
 /**
@@ -479,9 +553,11 @@ object StockFilter {
  * Nothing is offered that can only come back empty — the same rule the app's chip rows follow, applied
  * to a vocabulary that is far too long to spell out as chips.
  */
-fun stockOptions(entries: List<StockEntry>, crops: Set<String>): List<FilterOption> = buildList {
-  fun category(label: String, present: Boolean) {
-    if (present) add(FilterOption(StockFilter.CATEGORY, label))
+fun stockOptions(entries: List<StockEntry>, crops: Set<String>, strings: Strings): List<FilterOption> = buildList {
+  fun option(kind: String, label: String, value: String = label) =
+    add(FilterOption(kind, label, value, StockFilter.kindLabel(strings, kind)))
+  fun category(key: String, present: Boolean) {
+    if (present) option(StockFilter.CATEGORY, StockFilter.categoryLabel(strings, key), key)
   }
   category(StockFilter.CROPS, entries.any { it.row.type in crops })
   category(StockFilter.PRODUCTS, entries.any { it.value.sale != null && it.row.type !in crops })
@@ -491,47 +567,49 @@ fun stockOptions(entries: List<StockEntry>, crops: Set<String>): List<FilterOpti
 
   StockForm.entries
     .filter { form -> entries.any { entry -> entry.row.forms.contains(form) } }
-    .forEach { add(FilterOption(StockFilter.FORM, it.label)) }
+    .forEach { option(StockFilter.FORM, it.label(strings), it.name) }
 
   StockPlace.entries
     .filter { place -> entries.any { entry -> entry.row.sources.any { it.place == place } } }
-    .forEach { add(FilterOption(StockFilter.PLACE, it.label)) }
+    .forEach { option(StockFilter.PLACE, it.label(strings), it.name) }
 
   entries.map { it.row.title }.distinct().sorted()
-    .forEach { add(FilterOption(StockFilter.COMMODITY, it)) }
+    .forEach { option(StockFilter.COMMODITY, it) }
 
   entries.mapNotNull { it.value.sale?.station }.distinct().sorted()
-    .forEach { add(FilterOption(StockFilter.STATION, it)) }
+    .forEach { option(StockFilter.STATION, it) }
 }
 
 /** Whether one entry answers one token. */
-private fun stockMatches(entry: StockEntry, token: FilterOption, crops: Set<String>): Boolean = when (token.kind) {
-  StockFilter.CATEGORY -> when (token.value) {
-    StockFilter.CROPS -> entry.row.type in crops
-    StockFilter.PRODUCTS -> entry.value.sale != null && entry.row.type !in crops
-    StockFilter.UNPRICED -> entry.value.sale == null
-    StockFilter.DEMAND -> entry.value.sale?.greatDemand == true
-    StockFilter.FERMENTING -> entry.row.fermenting > 0
-    else -> false
-  }
-
-  StockFilter.FORM -> entry.row.forms.any { it.label == token.value }
-
-  StockFilter.PLACE -> entry.row.sources.any { it.place.label == token.value }
-
-  StockFilter.COMMODITY -> entry.row.title == token.value
-
-  StockFilter.STATION -> entry.value.sale?.station == token.value
-
-  // Typed rather than picked: it reaches everything the row is spelled out of, so half a word out of a
-  // barn's name finds what is in it.
-  else -> entry.row.title.contains(token.value, ignoreCase = true) ||
-    entry.row.forms.any { it.label.contains(token.value, ignoreCase = true) } ||
-    entry.value.sale?.station?.contains(token.value, ignoreCase = true) == true ||
-    entry.row.sources.any {
-      it.name.contains(token.value, ignoreCase = true) || it.place.label.contains(token.value, ignoreCase = true)
+private fun stockMatches(entry: StockEntry, token: FilterOption, crops: Set<String>, strings: Strings): Boolean =
+  when (token.kind) {
+    StockFilter.CATEGORY -> when (token.value) {
+      StockFilter.CROPS -> entry.row.type in crops
+      StockFilter.PRODUCTS -> entry.value.sale != null && entry.row.type !in crops
+      StockFilter.UNPRICED -> entry.value.sale == null
+      StockFilter.DEMAND -> entry.value.sale?.greatDemand == true
+      StockFilter.FERMENTING -> entry.row.fermenting > 0
+      else -> false
     }
-}
+
+    StockFilter.FORM -> entry.row.forms.any { it.name == token.value }
+
+    StockFilter.PLACE -> entry.row.sources.any { it.place.name == token.value }
+
+    StockFilter.COMMODITY -> entry.row.title == token.value
+
+    StockFilter.STATION -> entry.value.sale?.station == token.value
+
+    // Typed rather than picked: it reaches everything the row is spelled out of, so half a word out of a
+    // barn's name finds what is in it.
+    else -> entry.row.title.contains(token.value, ignoreCase = true) ||
+      entry.row.forms.any { it.label(strings).contains(token.value, ignoreCase = true) } ||
+      entry.value.sale?.station?.contains(token.value, ignoreCase = true) == true ||
+      entry.row.sources.any {
+        it.name.contains(token.value, ignoreCase = true) ||
+          it.place.label(strings).contains(token.value, ignoreCase = true)
+      }
+  }
 
 /**
  * The rows the tokens ask for: **OR within a kind, AND across kinds**.
@@ -540,11 +618,16 @@ private fun stockMatches(entry: StockEntry, token: FilterOption, crops: Set<Stri
  * "either of these two, and only what is in that barn". ANDing everything would make a second
  * commodity empty the table; ORing everything would make adding a storage *widen* it.
  */
-fun stockFiltered(entries: List<StockEntry>, tokens: List<FilterOption>, crops: Set<String>): List<StockEntry> {
+fun stockFiltered(
+  entries: List<StockEntry>,
+  tokens: List<FilterOption>,
+  crops: Set<String>,
+  strings: Strings,
+): List<StockEntry> {
   if (tokens.isEmpty()) return entries
   val byKind = tokens.groupBy { it.kind }
   return entries.filter { entry ->
-    byKind.values.all { group -> group.any { stockMatches(entry, it, crops) } }
+    byKind.values.all { group -> group.any { stockMatches(entry, it, crops, strings) } }
   }
 }
 
@@ -647,7 +730,7 @@ fun stockTotals(entries: List<StockEntry>): StockTotals {
 
 // ---- The price board's own filtering ---------------------------------------------------------------
 
-/** The kinds of thing the price board can be filtered by. Same kind ORs, different kinds AND. */
+/** The kinds of thing the price board can be filtered by — keys, like [StockFilter]'s. */
 object PriceFilter {
   const val CATEGORY: String = "Category"
   const val COMMODITY: String = "Commodity"
@@ -658,6 +741,22 @@ object PriceFilter {
   const val BUY: String = "Bought here"
   const val PALLETS: String = "Pallets"
   const val DEMAND: String = "Great demand"
+
+  fun kindLabel(strings: Strings, kind: String): String = when (kind) {
+    CATEGORY -> strings.market.filterCategory
+    COMMODITY -> strings.market.filterCommodity
+    STATION -> strings.market.filterStation
+    else -> kind
+  }
+
+  fun categoryLabel(strings: Strings, category: String): String = when (category) {
+    CROPS -> strings.market.categoryCrops
+    SELL -> strings.market.categorySoldHere
+    BUY -> strings.market.categoryBoughtHere
+    PALLETS -> strings.market.categoryPallets
+    DEMAND -> strings.market.categoryDemand
+    else -> category
+  }
 }
 
 /** What one commodity is traded as, gathered once so the filter does not re-walk the stations per row. */
@@ -706,9 +805,11 @@ fun boardFacts(data: PricesData): Map<String, BoardFacts> {
 }
 
 /** What this board can be filtered by — categories with a member, every commodity, every station. */
-fun priceOptions(data: PricesData, facts: Map<String, BoardFacts>): List<FilterOption> = buildList {
-  fun category(label: String, present: Boolean) {
-    if (present) add(FilterOption(PriceFilter.CATEGORY, label))
+fun priceOptions(data: PricesData, facts: Map<String, BoardFacts>, strings: Strings): List<FilterOption> = buildList {
+  fun option(kind: String, label: String, value: String = label) =
+    add(FilterOption(kind, label, value, PriceFilter.kindLabel(strings, kind)))
+  fun category(key: String, present: Boolean) {
+    if (present) option(PriceFilter.CATEGORY, PriceFilter.categoryLabel(strings, key), key)
   }
   category(PriceFilter.CROPS, data.fillTypes.any { it.isCrop })
   category(PriceFilter.SELL, facts.values.any { it.sells })
@@ -717,10 +818,10 @@ fun priceOptions(data: PricesData, facts: Map<String, BoardFacts>): List<FilterO
   category(PriceFilter.DEMAND, facts.values.any { it.greatDemand })
 
   data.fillTypes.map { it.title }.distinct().sorted()
-    .forEach { add(FilterOption(PriceFilter.COMMODITY, it)) }
+    .forEach { option(PriceFilter.COMMODITY, it) }
 
   data.stations.map { it.name }.distinct().sorted()
-    .forEach { add(FilterOption(PriceFilter.STATION, it)) }
+    .forEach { option(PriceFilter.STATION, it) }
 }
 
 private fun priceMatches(fillType: PricesFillType, facts: BoardFacts?, token: FilterOption): Boolean =

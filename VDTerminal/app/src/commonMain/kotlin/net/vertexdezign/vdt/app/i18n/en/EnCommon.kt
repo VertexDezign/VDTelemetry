@@ -15,6 +15,10 @@ internal object EnCommon : CommonStrings {
   override fun monthsShort(months: Int) = "$months mo"
   override val cancel = "Cancel"
   override val selectEntry = "Select an entry"
-  override fun litres(level: String, capacity: String): String = "$level / $capacity L"
-  override fun litre(amount: String): String = "$amount L"
+  override fun litres(level: String, capacity: String): String = "$level / $capacity l"
+  override fun litre(amount: String): String = "$amount l"
+  override val filter = "Filter…"
+  override val filterText = "Text"
+  override fun moreMatches(count: Int): String = "$count more — keep typing"
+  override fun remove(label: String): String = "remove $label"
 }

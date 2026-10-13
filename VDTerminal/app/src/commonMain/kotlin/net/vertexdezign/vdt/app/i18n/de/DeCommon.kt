@@ -17,4 +17,8 @@ internal object DeCommon : CommonStrings {
   override val selectEntry = "Eintrag wählen"
   override fun litres(level: String, capacity: String): String = "$level / $capacity l"
   override fun litre(amount: String): String = "$amount l"
+  override val filter = "Filtern…"
+  override val filterText = "Text"
+  override fun moreMatches(count: Int): String = "$count weitere — weiter tippen"
+  override fun remove(label: String): String = "$label entfernen"
 }

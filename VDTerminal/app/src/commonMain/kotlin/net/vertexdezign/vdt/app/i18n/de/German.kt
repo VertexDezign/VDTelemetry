@@ -11,6 +11,7 @@ import net.vertexdezign.vdt.app.i18n.InvoicesStrings
 import net.vertexdezign.vdt.app.i18n.Language
 import net.vertexdezign.vdt.app.i18n.LauncherStrings
 import net.vertexdezign.vdt.app.i18n.LoansStrings
+import net.vertexdezign.vdt.app.i18n.MarketStrings
 import net.vertexdezign.vdt.app.i18n.MissionsStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.i18n.ProductionStrings
@@ -41,4 +42,5 @@ object German : Strings {
   override val finance: FinanceStrings = DeFinance
   override val loans: LoansStrings = DeLoans
   override val invoices: InvoicesStrings = DeInvoices
+  override val market: MarketStrings = DeMarket
 }
