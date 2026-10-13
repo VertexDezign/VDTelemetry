@@ -359,7 +359,9 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     the ones it offers, the loop counter, and while driving its task text, drive time and the marker
 --     it is heading for. `ai.active` is raised while it drives. Absent without the mod. The marker list
 --     itself is its own channel, autoDrive.json.
-VDTelemetry.VERSION = 34
+-- 35: `environment.language` -- the game's language code, which the terminal follows by default (issue
+--     #132). Additive.
+VDTelemetry.VERSION = 35
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

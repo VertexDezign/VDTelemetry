@@ -28,5 +28,6 @@
 ---@class EnvironmentModel
 ---@field date string
 ---@field time string
+---@field language string the game's language code (g_languageShort)
 ---@field weather WeatherModel
 ---@field pda PdaModel
