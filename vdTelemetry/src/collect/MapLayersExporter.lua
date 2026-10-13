@@ -42,8 +42,9 @@
 -- disagreement means the world moved under us and arms a full resweep. See runAudit().
 --
 -- Wire format: one one-byte-per-cell plane per FILE, rows as right-trimmed hex strings (see
--- encodeRow). Legends list only values actually seen during the sweep, so the file (and the app's PNG
--- fetch) never carries color/label data for fruit types or states that don't exist on this map.
+-- encodeRow). Legends list every value the plane can carry on this save -- every crop the map grows,
+-- every state the save has switched on, as the game's own map legend does -- each flagged `present`
+-- when the sweep actually found it. See possibleEntries/toLegend.
 --
 -- The planes are separate files (mapLayers/crops.json, .../growth.json, .../soil.json) plus a small
 -- catalogue (mapLayers/index.json) naming the planes that exist, and each is its own export channel.
@@ -69,7 +70,8 @@ VDT.MapLayers.FILE_NAME = VDT.MapLayers.SUBDIR .. "index.json"
 -- 2: one file per plane + the catalogue (was a single mapLayers.json holding all three).
 -- 3: every legend entry carries a semantic `kind` token (see LEGEND_KIND).
 -- 4: the soil plane reports the game's MULCHED state (wire value 22, kind `mulched`).
-VDT.MapLayers.VERSION = 4
+-- 5: legends list every possible value, not only those seen; each entry carries `present`.
+VDT.MapLayers.VERSION = 5
 
 -- The planes this channel exports, in wire order. `label` mirrors the game's own map overlay selector
 -- (InGameMenuMapFrame's mapSelectorTexts), so the app can name a plane it has never heard of -- which
@@ -957,7 +959,7 @@ end
 
 ---One cell's value for a PF plane: read, clamped to what a row can carry, with anything unreadable
 ---degrading to "no data" rather than throwing. Also records the value's legend entry on first sight,
----so the file carries only the values this map actually shows -- same rule as every other plane.
+---which is what marks it `present` in the legend -- same rule as every other plane.
 ---@param pf table an entry from resolvePfLayers
 ---@param x number world x
 ---@param z number world z
@@ -1162,14 +1164,131 @@ local function runBatch(ctx, budget)
   return row >= gridSize
 end
 
----Sort a seen-map (value -> legend entry) into a legend list by v, or nil when empty (Json.lua can't
----distinguish {} from an empty array -- see MapExporter.lua's collect()).
----@param seen table<number, table>
+---Every value a plane CAN carry on this save, whether or not the sweep found it: value -> legend entry.
+---The game's own map legend lists the whole vocabulary -- every crop the map grows, every growth and
+---soil state the save has switched on -- and a legend that only listed what happened to be on the
+---ground read to testers as "this crop is missing". So the file carries the same list, and `present`
+---(see toLegend) says which of them the raster actually shows.
+---
+---Each plane's list follows the gates its classification follows, so a value that cannot occur on this
+---save (lime with lime off, any fertilizer level under Precision Farming) is not offered either.
+---@param ctx table sweep context
+---@param id string layer id
+---@return table<number, table>
+local function possibleEntries(ctx, id)
+  local entries = {}
+  if id == "crops" then
+    -- The game's crop legend is MapOverlayGenerator's missionFruitTypes filtered on shownOnMap, and
+    -- missionFruitTypes is every fruit type the terrain has a data plane for -- which is exactly the
+    -- fruit types FSBaseMission gave a terrainDataPlaneId. Keyed by the same clamped index classifyCell
+    -- writes, so a planted cell finds its own entry.
+    local ok, fruitTypes = pcall(function()
+      return g_fruitTypeManager:getFruitTypes()
+    end)
+    if ok and type(fruitTypes) == "table" then
+      for _, desc in ipairs(fruitTypes) do
+        if desc.shownOnMap == true and desc.terrainDataPlaneId ~= nil and desc.index ~= nil then
+          local v = math.min(desc.index, MAX_WIRE_VALUE)
+          if v > 0 and entries[v] == nil then
+            entries[v] = {
+              v = v,
+              label = fruitLabel(desc),
+              color = fruitColorHex(desc, ctx.colorBlind),
+              kind = LEGEND_KIND.CROP,
+            }
+          end
+        end
+      end
+    end
+  elseif id == "growth" then
+    for v in pairs(GROWTH_LABELS) do
+      entries[v] = growthLegendEntry(ctx, v)
+    end
+    -- The game lists withered only where the platform can wither at all; mirrored, and kept when the
+    -- platform can't be asked (the specs), since a PC save always can.
+    local gameplay = Platform ~= nil and Platform.gameplay or nil
+    if gameplay ~= nil and gameplay.supportsWithering == false then
+      entries[GROWTH_WITHERED] = nil
+    end
+    for index = 1, ctx.gradientCount or #GROWTH_GRADIENT_COLORS[false] do
+      local v = GROWTH_GRADIENT_BASE + index
+      entries[v] = growthLegendEntry(ctx, v)
+    end
+  elseif id == "soil" then
+    local function add(v)
+      entries[v] = soilLegendEntry(ctx, v)
+    end
+    if ctx.weedAvailable and ctx.weedGroupColors ~= nil then
+      for group = 1, math.min(#ctx.weedGroupColors, SOIL_WEED_MAX_GROUPS) do
+        add(SOIL_WEED_BASE + group - 1)
+      end
+    end
+    if ctx.stoneAvailable and ctx.stoneGroupColors ~= nil then
+      for group = 1, math.min(#ctx.stoneGroupColors, SOIL_STONE_MAX_GROUPS) do
+        add(SOIL_STONE_BASE + group - 1)
+      end
+    end
+    if ctx.plowingRequiredEnabled then
+      add(SOIL_NEEDS_PLOWING)
+    end
+    if ctx.maxStubbleShredLevel > 0 then
+      add(SOIL_MULCHED)
+    end
+    if ctx.limeRequired and not ctx.precisionFarming then
+      add(SOIL_NEEDS_LIME)
+    end
+    if not ctx.precisionFarming then
+      for level = 1, math.min(ctx.maxSprayLevel, MAX_WIRE_VALUE - SOIL_FERTILIZED_BASE) do
+        add(SOIL_FERTILIZED_BASE + level)
+      end
+    end
+  else
+    for _, pf in ipairs(ctx.pf or {}) do
+      if pf.id == id then
+        for v, entry in pairs(pf.legend) do
+          if type(v) == "number" and v > 0 and v <= MAX_WIRE_VALUE then
+            local color = entry.color
+            entries[v] = {
+              v = v,
+              label = entry.label,
+              color = type(color) == "table" and #color >= 3 and hex(color) or nil,
+            }
+          end
+        end
+      end
+    end
+  end
+  return entries
+end
+
+---One plane's legend: every value it can carry (see possibleEntries) plus anything the sweep saw that
+---the list doesn't name, each flagged `present` when the raster holds at least one such cell, sorted by
+---v. nil when empty (Json.lua can't distinguish {} from an empty array -- see MapExporter.lua's
+---collect()).
+---
+---`present` follows ctx.seen, which only grows between full sweeps (see the patch and audit paths), so a
+---value worked off the map mid-day stays present until the next sweep rebuilds it.
+---@param ctx table sweep context
+---@param id string layer id
 ---@return table[]|nil
-local function toLegend(seen)
+local function toLegend(ctx, id)
+  local seen = ctx.seen[id] or {}
   local list = {}
-  for _, entry in pairs(seen) do
-    list[#list + 1] = entry
+  local listed = {}
+  for v, entry in pairs(possibleEntries(ctx, id)) do
+    list[#list + 1] = {
+      v = v,
+      label = entry.label,
+      color = entry.color,
+      kind = entry.kind,
+      present = seen[v] ~= nil,
+    }
+    listed[v] = true
+  end
+  for v, entry in pairs(seen) do
+    if not listed[v] then
+      list[#list + 1] = { v = v, label = entry.label, color = entry.color, kind = entry.kind, present = true }
+    end
   end
   table.sort(list, function(a, b)
     return a.v < b.v
@@ -1194,7 +1313,7 @@ local function layerModel(ctx, layer)
     terrainSize = ctx.sizeX,
     gridSize = VDT.MapLayers.GRID_SIZE,
     id = layer.id,
-    legend = toLegend(ctx.seen[layer.id]),
+    legend = toLegend(ctx, layer.id),
     rows = ctx.rows[layer.id],
   }
 end
@@ -1356,7 +1475,7 @@ local function runPatch(ctx)
   for id in pairs(changed) do
     local model = VDT.MapLayers.models[id]
     if model ~= nil then
-      model.legend = toLegend(ctx.seen[id])
+      model.legend = toLegend(ctx, id)
     end
   end
   return changed

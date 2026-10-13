@@ -26,7 +26,11 @@ data class MapLayerData(
   val gridSize: Int = 0,
   /** "crops", "growth", "soil", … — also the `/api/map-layer/{id}` path segment. */
   val id: String = "",
-  /** Values actually seen in [rows] during the sweep that produced this plane, sorted by [MapLayerLegendEntry.v]. */
+  /**
+   * Every value this plane can carry on this save, sorted by [MapLayerLegendEntry.v] — the whole
+   * vocabulary, as the game's own map legend lists it, with [MapLayerLegendEntry.present] marking the
+   * values [rows] actually holds. (Before `mapLayers` version 5 only the present ones were listed.)
+   */
   val legend: List<MapLayerLegendEntry> = emptyList(),
   /** One right-trimmed hex string per grid row (2 chars/cell); an all-zero row is `""`. */
   val rows: List<String> = emptyList(),
@@ -153,6 +157,14 @@ data class MapLayerLegendEntry(
    * branch on it.
    */
   val kind: String? = null,
+  /**
+   * Whether the raster holds at least one cell of this value. False for a value the plane could carry
+   * but the sweep didn't find — a crop nobody has planted. Additive between the mod's full sweeps, so a
+   * value worked off the map mid-day can stay true until the next one.
+   *
+   * Defaults to true: a file older than `mapLayers` version 5 listed only the values it found.
+   */
+  val present: Boolean = true,
 ) {
   /**
    * [kind] resolved to the vocabulary this build knows, or null when it names something newer (or
@@ -297,6 +309,8 @@ private fun MapLayerData.computeContentVersion(): String {
     // derived from the plane, not only for the PNG, and a consumer that groups cells by
     // MapLayerLegendEntry.kind would keep a stale grouping across a legend that changed only there.
     mix(entry.kind)
+    // Cannot change a pixel either, but it changes what the legend shows.
+    mix(entry.present.toString())
   }
   mix(rows.size.toString())
   for (row in rows) {

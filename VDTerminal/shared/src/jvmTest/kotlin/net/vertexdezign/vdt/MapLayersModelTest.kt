@@ -175,6 +175,31 @@ class MapLayersModelTest {
   }
 
   /**
+   * From `mapLayers` version 5 a legend lists every value the plane can carry and flags the ones on
+   * the ground. An older file listed only those, so an entry with no flag is present.
+   */
+  @Test
+  fun legendPresentDefaultsToTrueForAnOlderFile() {
+    val old = VdtParser.parseMapLayer(
+      """{"version":"4","id":"crops","legend":[{"v":2,"label":"Wheat","color":"#c8b262","kind":"crop"}]}""",
+    )
+    assertTrue(old.legend.single().present)
+
+    val current = VdtParser.parseMapLayer(
+      """{"version":"5","id":"crops","legend":[""" +
+        """{"v":2,"label":"Wheat","color":"#c8b262","kind":"crop","present":true},""" +
+        """{"v":3,"label":"Barley","color":"#d8c15a","kind":"crop","present":false}]}""",
+    )
+    assertEquals(listOf(true, false), current.legend.map { it.present })
+    assertRoundTrips(current)
+    // A crop being planted changes what the legend shows, so it must move the plane's version too.
+    assertNotEquals(
+      current.contentVersion,
+      current.copy(legend = current.legend.map { it.copy(present = true) }).contentVersion,
+    )
+  }
+
+  /**
    * Why [MapLayerLegendEntry.kind] is a string and [LayerKind] is resolved from it rather than being
    * the wire type.
    *
