@@ -26,6 +26,8 @@ interface Strings {
   val launcher: LauncherStrings
   val display: DisplayStrings
   val apps: AppTitles
+  val common: CommonStrings
+  val fleet: FleetStrings
 }
 
 /** The languages the terminal has a catalogue for. */

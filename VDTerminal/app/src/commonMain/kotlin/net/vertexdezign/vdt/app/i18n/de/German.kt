@@ -1,7 +1,9 @@
 package net.vertexdezign.vdt.app.i18n.de
 
 import net.vertexdezign.vdt.app.i18n.AppTitles
+import net.vertexdezign.vdt.app.i18n.CommonStrings
 import net.vertexdezign.vdt.app.i18n.DisplayStrings
+import net.vertexdezign.vdt.app.i18n.FleetStrings
 import net.vertexdezign.vdt.app.i18n.Language
 import net.vertexdezign.vdt.app.i18n.LauncherStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
@@ -21,4 +23,6 @@ object German : Strings {
   override val launcher: LauncherStrings = DeLauncher
   override val display: DisplayStrings = DeDisplay
   override val apps: AppTitles = DeApps
+  override val common: CommonStrings = DeCommon
+  override val fleet: FleetStrings = DeFleet
 }

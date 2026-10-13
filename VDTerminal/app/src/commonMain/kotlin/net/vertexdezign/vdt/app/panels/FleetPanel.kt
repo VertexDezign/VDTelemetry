@@ -46,6 +46,7 @@ import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.AdsState
 import net.vertexdezign.vdt.model.FleetData
@@ -68,10 +69,11 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun FleetPanel(data: FleetData?, modifier: Modifier = Modifier, onShowOnMap: (FleetVehicle) -> Unit = {}) {
-  Panel(title = "Fleet", icon = Icons.Filled.Agriculture, modifier = modifier) {
+  val strings = LocalStrings.current
+  Panel(title = strings.apps.fleet, icon = Icons.Filled.Agriculture, modifier = modifier) {
     when {
-      data == null -> Centered("Waiting for fleet data…")
-      data.vehicles.isEmpty() -> Centered("This farm owns no machines")
+      data == null -> Centered(strings.fleet.waiting)
+      data.vehicles.isEmpty() -> Centered(strings.fleet.empty)
       else -> FleetMasterDetail(data, onShowOnMap)
     }
   }
@@ -80,13 +82,23 @@ fun FleetPanel(data: FleetData?, modifier: Modifier = Modifier, onShowOnMap: (Fl
 // ---- The list ------------------------------------------------------------------------------------
 
 /** How the list is ordered. The same columns both in-game lists sort on. */
-enum class FleetSort(val label: String) {
-  NAME("Name"),
-  CONDITION("Condition"),
-  HOURS("Hours"),
-  AGE("Age"),
-  SERVICE("Service due"),
-  VALUE("Value"),
+enum class FleetSort {
+  NAME,
+  CONDITION,
+  HOURS,
+  AGE,
+  SERVICE,
+  VALUE,
+  ;
+
+  fun label(strings: Strings): String = when (this) {
+    NAME -> strings.fleet.sortName
+    CONDITION -> strings.fleet.sortCondition
+    HOURS -> strings.fleet.sortHours
+    AGE -> strings.fleet.sortAge
+    SERVICE -> strings.fleet.sortService
+    VALUE -> strings.fleet.sortValue
+  }
 }
 
 /**
@@ -94,12 +106,21 @@ enum class FleetSort(val label: String) {
  * answer one question each ("what needs me", "what am I paying for"), and ANDing them together would
  * produce combinations nobody asks for.
  */
-enum class FleetView(val label: String) {
-  ALL("All"),
-  ATTENTION("Attention"),
-  WORKSHOP("Workshop"),
-  LEASED("Leased"),
-  IMPLEMENTS("Implements"),
+enum class FleetView {
+  ALL,
+  ATTENTION,
+  WORKSHOP,
+  LEASED,
+  IMPLEMENTS,
+  ;
+
+  fun label(strings: Strings): String = when (this) {
+    ALL -> strings.fleet.viewAll
+    ATTENTION -> strings.fleet.viewAttention
+    WORKSHOP -> strings.fleet.viewWorkshop
+    LEASED -> strings.fleet.viewLeased
+    IMPLEMENTS -> strings.fleet.viewImplements
+  }
 }
 
 /** Below this, a machine is worth looking at before it goes out. */
@@ -216,6 +237,7 @@ private fun compareOptional(a: Float?, b: Float?, ascending: Boolean): Int = whe
 
 @Composable
 private fun FleetMasterDetail(data: FleetData, onShowOnMap: (FleetVehicle) -> Unit) {
+  val strings = LocalStrings.current
   var query by remember { mutableStateOf("") }
   var view by remember { mutableStateOf(FleetView.ALL) }
   var sort by remember { mutableStateOf(FleetSort.NAME) }
@@ -254,12 +276,12 @@ private fun FleetMasterDetail(data: FleetData, onShowOnMap: (FleetVehicle) -> Un
     ListDetail(
       listWidth = 300.dp,
       detailOpen = detailOpen,
-      backLabel = "Machines",
+      backLabel = strings.fleet.listTitle,
       onBack = { detailOpen = false },
       list = { listModifier ->
         Box(listModifier) {
           if (shown.isEmpty()) {
-            Centered("Nothing matches")
+            Centered(strings.common.nothingMatches)
           } else {
             // The one list in the app that can run to a hundred rows on a played-in farm, which is why
             // it is lazy where the others are a plain scrolling column.
@@ -288,7 +310,7 @@ private fun FleetMasterDetail(data: FleetData, onShowOnMap: (FleetVehicle) -> Un
           onShowOnMap = onShowOnMap,
         )
       } else {
-        Centered("Select a machine")
+        Centered(strings.fleet.selectPrompt)
       }
     }
   }
@@ -306,6 +328,7 @@ private fun FleetControls(
   onSort: (FleetSort) -> Unit,
   onDirection: () -> Unit,
 ) {
+  val strings = LocalStrings.current
   // Wraps rather than squeezing: on a phone the search and the sort take a line, and the chips the
   // next, where a Row would have left the chips a sliver between them.
   FlowRow(
@@ -314,14 +337,14 @@ private fun FleetControls(
     verticalArrangement = Arrangement.spacedBy(6.dp),
     itemVerticalAlignment = Alignment.CenterVertically,
   ) {
-    SearchField(query, "Search machines", onQuery, Modifier.width(170.dp))
+    SearchField(query, strings.fleet.search, onQuery, Modifier.width(170.dp))
     FlowRow(
       Modifier.weight(1f),
       horizontalArrangement = Arrangement.spacedBy(4.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
       views.forEach { entry ->
-        FilterChip(entry.label, view == entry, { onView(entry) })
+        FilterChip(entry.label(strings), view == entry, { onView(entry) })
       }
     }
     SortControl(sort, ascending, onSort, onDirection)
@@ -330,6 +353,7 @@ private fun FleetControls(
 
 @Composable
 private fun SortControl(sort: FleetSort, ascending: Boolean, onSort: (FleetSort) -> Unit, onDirection: () -> Unit) {
+  val strings = LocalStrings.current
   var open by remember { mutableStateOf(false) }
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
     Box {
@@ -341,7 +365,12 @@ private fun SortControl(sort: FleetSort, ascending: Boolean, onSort: (FleetSort)
           .padding(horizontal = 8.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        Text(sort.label.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+        Text(
+          sort.label(strings).uppercase(),
+          fontSize = 10.sp,
+          fontWeight = FontWeight.Bold,
+          color = VdtColors.DarkGray,
+        )
         Icon(
           Icons.Filled.ArrowDropDown,
           contentDescription = null,
@@ -352,7 +381,7 @@ private fun SortControl(sort: FleetSort, ascending: Boolean, onSort: (FleetSort)
       DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
         FleetSort.entries.forEach { entry ->
           DropdownMenuItem(
-            text = { Text(entry.label, fontSize = 12.sp) },
+            text = { Text(entry.label(strings), fontSize = 12.sp) },
             onClick = {
               onSort(entry)
               open = false
@@ -365,7 +394,7 @@ private fun SortControl(sort: FleetSort, ascending: Boolean, onSort: (FleetSort)
     // would render one as tofu (see VDTerminal/README.md -> "Design rules").
     Icon(
       if (ascending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-      contentDescription = if (ascending) "Ascending" else "Descending",
+      contentDescription = if (ascending) strings.common.ascending else strings.common.descending,
       tint = VdtColors.DarkGray,
       modifier = Modifier
         .size(24.dp)
@@ -379,7 +408,7 @@ private fun SortControl(sort: FleetSort, ascending: Boolean, onSort: (FleetSort)
 
 @Composable
 private fun FleetRow(vehicle: FleetVehicle, rig: FleetVehicle?, selected: Boolean, onClick: () -> Unit) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
   val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   val muted = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray
   Column(
@@ -410,13 +439,13 @@ private fun FleetRow(vehicle: FleetVehicle, rig: FleetVehicle?, selected: Boolea
       )
     }
     Text(
-      rowSubtitle(numbers, vehicle),
+      rowSubtitle(strings, vehicle),
       color = muted,
       fontSize = 10.sp,
       maxLines = 1,
       overflow = TextOverflow.Ellipsis,
     )
-    val badges = rowBadges(vehicle, rig)
+    val badges = rowBadges(strings, vehicle, rig)
     if (badges.isNotEmpty()) {
       Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         badges.forEach { badge -> RowBadge(badge, selected) }
@@ -426,40 +455,41 @@ private fun FleetRow(vehicle: FleetVehicle, rig: FleetVehicle?, selected: Boolea
 }
 
 /** Category, hours and — for a machine that burns fuel — how much is left in it. */
-internal fun rowSubtitle(numbers: Numbers, vehicle: FleetVehicle): String = buildList {
+internal fun rowSubtitle(strings: Strings, vehicle: FleetVehicle): String = buildList {
   vehicle.category?.takeIf { it.isNotBlank() }?.let { add(it) }
-  add("${numbers.formatHours(vehicle.hours)} h")
-  fuelPercent(vehicle)?.let { add("fuel $it%") }
+  add("${strings.numbers.formatHours(vehicle.hours)} h")
+  fuelPercent(vehicle)?.let { add(strings.fleet.fuel(it)) }
 }.joinToString(" · ")
 
 /**
  * The words a row wears. Words rather than colours, and at most three: what a badge says has to
  * survive being read by someone who cannot tell the amber one from the green one.
  */
-internal fun rowBadges(vehicle: FleetVehicle, rig: FleetVehicle? = null): List<String> = buildList {
+internal fun rowBadges(strings: Strings, vehicle: FleetVehicle, rig: FleetVehicle? = null): List<String> = buildList {
+  val s = strings.fleet
   val ads = vehicle.ads
   when {
     ads == null -> Unit
 
-    ads.state == AdsState.BROKEN -> add("BROKEN")
+    ads.state == AdsState.BROKEN -> add(s.badgeBroken)
 
-    ads.isInWorkshop -> add("WORKSHOP")
+    ads.isInWorkshop -> add(s.badgeWorkshop)
 
     // A state token this build cannot name. It earns a badge because it also earns a place in the
     // attention view, and a row listed there with nothing to show for it is the worse of the two.
-    ads.state == AdsState.UNKNOWN -> add("UNKNOWN STATE")
+    ads.state == AdsState.UNKNOWN -> add(s.badgeUnknownState)
 
-    ads.isServiceOverdue -> add("SERVICE DUE")
+    ads.isServiceOverdue -> add(s.badgeServiceDue)
 
-    ads.breakdowns.isNotEmpty() -> add("FAULT")
+    ads.breakdowns.isNotEmpty() -> add(s.badgeFault)
 
     else -> Unit
   }
   when (vehicle.propertyState) {
-    PropertyState.LEASED -> add("LEASED")
+    PropertyState.LEASED -> add(s.badgeLeased)
 
     // The one machine on the list the game's own overview leaves out, so it says what it is.
-    PropertyState.MISSION -> add("CONTRACT")
+    PropertyState.MISSION -> add(s.badgeContract)
 
     else -> Unit
   }
@@ -470,10 +500,10 @@ internal fun rowBadges(vehicle: FleetVehicle, rig: FleetVehicle? = null): List<S
   // used until it is reset. Not ADS's BROKEN — that is a breakdown, this is the game's own flag for a
   // machine that went into deep water — so it gets its own words rather than borrowing that one.
   when {
-    vehicle.broken -> add("NEEDS RESET")
-    vehicle.isAI -> add("AI")
-    vehicle.isControlled || rig?.isControlled == true || rig?.isEntered == true -> add("IN USE")
-    vehicle.isParked -> add("PARKED")
+    vehicle.broken -> add(s.badgeNeedsReset)
+    vehicle.isAI -> add(s.badgeAi)
+    vehicle.isControlled || rig?.isControlled == true || rig?.isEntered == true -> add(s.badgeInUse)
+    vehicle.isParked -> add(s.badgeParked)
   }
 }
 
@@ -496,20 +526,5 @@ private fun RowBadge(label: String, selected: Boolean) {
 /** Operating hours to one decimal, the way the game prints them ("1234.5"). */
 internal fun Numbers.formatHours(hours: Float): String = fixed(hours, 1)
 
-/** Age, which the game counts in months, read back as years and months once there are enough. */
-internal fun formatAge(months: Int): String {
-  if (months < 12) return "$months mo"
-  val years = months / 12
-  val rest = months % 12
-  return if (rest == 0) "$years y" else "$years y $rest mo"
-}
-
 /** Whole months between two game dates, where a "month" is one of the game's twelve periods. */
 internal fun monthsBetween(then: GameDate, today: GameDate): Int = today.monthsSince(then).coerceAtLeast(0)
-
-/** How long ago something happened, in the game's own months — the phrasing ADS's own screens use. */
-internal fun formatMonthsAgo(months: Int): String = when (months) {
-  0 -> "this month"
-  1 -> "1 month ago"
-  else -> "$months months ago"
-}
