@@ -193,6 +193,20 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   private val _mapLayers = MutableStateFlow<MapLayersInfo?>(null)
   val mapLayers: StateFlow<MapLayersInfo?> = _mapLayers.asStateFlow()
 
+  // Channel -> the format version its file was last written in, for ModFormat's mod/terminal check.
+  // Only channels currently present: one that goes away leaves, so an uninstalled mod's old file
+  // cannot keep asking for an update.
+  private val _formatVersions = MutableStateFlow<Map<String, String>>(emptyMap())
+  val formatVersions: StateFlow<Map<String, String>> = _formatVersions.asStateFlow()
+
+  private fun noteFormatVersion(msg: ServerMessage) {
+    val (channel, version) = formatVersionOf(msg) ?: return
+    val current = _formatVersions.value
+    // Compared first, because telemetry arrives ten times a second and nearly always matches.
+    if (current[channel] == version) return
+    _formatVersions.value = if (version.isNullOrBlank()) current - channel else current + (channel to version)
+  }
+
   private val _connection = MutableStateFlow(ConnectionState.Connecting)
   val connection: StateFlow<ConnectionState> = _connection.asStateFlow()
 
@@ -250,7 +264,9 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
                   // A frame that does not decode is skipped, not fatal: letting it end the session
                   // meant a reconnect, the server restating every channel's current value -- the bad
                   // one included -- and the same failure again, every 2 s, for good.
-                  when (val msg = decoder.decode(frame.readText())) {
+                  val msg = decoder.decode(frame.readText())
+                  if (msg != null) noteFormatVersion(msg)
+                  when (msg) {
                     null -> {}
 
                     is ServerMessage.Telemetry -> {

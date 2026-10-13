@@ -22,6 +22,8 @@ data class AlertInputs(
   val fieldInfo: FieldInfoData? = null,
   /** The per-field ground breakdowns the server derives; null until a plane has been swept. */
   val fieldStatus: FieldStatuses? = null,
+  /** Channel → the format version its file is written in, for [ModFormatAlerts]; only present channels. */
+  val formatVersions: Map<String, String>? = null,
 )
 
 /**

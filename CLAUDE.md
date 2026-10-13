@@ -56,7 +56,7 @@ Plain Lua, no build system — the deliverable is `FS25_vdTelemetry.zip` (a zip 
 
 Runtime dependency: **FS25_additionalInputs** (declared in `modDesc.xml`) — action-event/input handling lives there. `examples/json/` holds sample outputs — the vehicle captures at its root and under `telemetry/`, and one folder per channel — that double as VDTerminal parser fixtures. They are **real game captures, never hand-authored** (see FUTURE.md → "Captures wanted as fixtures").
 
-When editing the JSON output, keep `VDTelemetry.VERSION` (in `VDTelemetry.lua`), the Lua model, and the Kotlin model in sync. Each secondary channel carries its **own** version, independent of `VDTelemetry.VERSION`.
+When editing the JSON output, keep `VDTelemetry.VERSION` (in `VDTelemetry.lua`), the Lua model, and the Kotlin model in sync. Each secondary channel carries its **own** version, independent of `VDTelemetry.VERSION`. A bumped version is also bumped in `ModFormat.expected` (`VDTerminal/shared`), which the terminal checks to tell players whether the mod or the terminal needs updating; `ModFormatTest` fails until the two agree.
 
 ## VDTerminal (Kotlin Multiplatform)
 
