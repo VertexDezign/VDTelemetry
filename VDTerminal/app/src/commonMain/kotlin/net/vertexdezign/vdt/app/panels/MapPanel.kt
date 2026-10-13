@@ -66,6 +66,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
@@ -114,6 +115,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.components.ScrollHints
 import net.vertexdezign.vdt.app.components.SearchField
 import net.vertexdezign.vdt.app.components.SectionStrip
 import net.vertexdezign.vdt.app.components.ToolButton
@@ -1841,8 +1843,13 @@ private fun BoxScope.MapDataOverlay(
 
 /**
  * Legend for the active ground layer: one row per legend entry, deduped by label (the growth
- * gradient's 8 steps all share the "Growing" label, so this collapses them to a single swatch).
- * Capped at ~40% of the map's side so a long soil/crop legend doesn't dominate the panel.
+ * gradient's 8 steps all share the "Growing" label, so this collapses them to a single swatch, present
+ * when any step is). Capped at ~40% of the map's side so a long soil/crop legend doesn't dominate the
+ * panel.
+ *
+ * Every value the plane can carry is listed, as the game's own legend does — one that listed only what
+ * was on the ground read as "this crop is missing". A value the raster doesn't hold is dimmed, swatch
+ * and label alike: a brightness difference, never a hue one, so the two states read without colour.
  *
  * Bottom-**end**, and the field-info popup keeps bottom-start. The two used to share that corner and
  * simply drew over each other (issue #95): tapping a field on a map with a ground layer up buried
@@ -1865,7 +1872,8 @@ private fun BoxScope.GroundLayerLegend(
   endInset: Dp = 0.dp,
 ) {
   val density = LocalDensity.current
-  Column(
+  val scroll = rememberScrollState()
+  Box(
     Modifier
       .align(Alignment.BottomEnd)
       .padding(bottom = bottomInset, end = endInset)
@@ -1873,19 +1881,32 @@ private fun BoxScope.GroundLayerLegend(
       .clip(RoundedCornerShape(4.dp))
       .background(VdtColors.Panel)
       .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(4.dp))
-      .heightIn(max = with(density) { (side * 0.4f).toDp() })
-      .verticalScroll(rememberScrollState())
-      .padding(6.dp),
-    verticalArrangement = Arrangement.spacedBy(3.dp),
+      .heightIn(max = with(density) { (side * 0.4f).toDp() }),
   ) {
-    for (entry in legend.distinctBy { it.label }) {
-      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        parseHexColor(entry.color)?.let { color -> Box(Modifier.size(8.dp).clip(CircleShape).background(color)) }
-        Text(entry.label, fontSize = 11.sp, color = VdtColors.TextDark)
+    Column(
+      Modifier.verticalScroll(scroll).padding(6.dp),
+      verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+      val presentLabels = legend.filter { it.present }.mapTo(HashSet()) { it.label }
+      for (entry in legend.distinctBy { it.label }) {
+        Row(
+          Modifier.alpha(if (entry.label in presentLabels) 1f else ABSENT_LEGEND_ALPHA),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          parseHexColor(entry.color)?.let { color -> Box(Modifier.size(8.dp).clip(CircleShape).background(color)) }
+          Text(entry.label, fontSize = 11.sp, color = VdtColors.TextDark)
+        }
       }
     }
+    // Now that every crop is listed the legend often runs past its cap, and a list cut off at a row
+    // boundary looks complete.
+    ScrollHints(scroll)
   }
 }
+
+/** How far [GroundLayerLegend] dims a value the raster doesn't hold. */
+private const val ABSENT_LEGEND_ALPHA = 0.38f
 
 /**
  * Vehicle marker tint: the owning farm's in-game map color, same lookup as [fieldTint] so land and

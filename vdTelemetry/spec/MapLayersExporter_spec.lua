@@ -836,7 +836,16 @@ describe("MapLayers.tick sweep", function()
       assert.are.equal(layer.id, model.id)
       assert.are.equal(8, model.gridSize)
       assert.are.equal(8, model.terrainSize)
-      assert.is_nil(model.legend) -- bare ground only -> nothing seen -> omitted
+      -- Bare ground only, so nothing is present. Growth still lists its whole vocabulary (every state
+      -- the game's legend shows); crops has no fruit types and soil no enabled states in this fixture,
+      -- so theirs are empty and omitted.
+      if layer.id == "growth" then
+        for _, entry in ipairs(model.legend) do
+          assert.is_false(entry.present)
+        end
+      else
+        assert.is_nil(model.legend)
+      end
       assert.are.equal(8, #model.rows)
       for _, row in ipairs(model.rows) do
         assert.are.equal("", row)
@@ -1255,7 +1264,11 @@ describe("MapLayers.tick sweep", function()
       for _ = 1, 4 do
         VDT.MapLayers.tick(stubDebugger(), 16)
       end
-      return VDT.MapLayers.collectLayer("growth").legend[1]
+      for _, entry in ipairs(VDT.MapLayers.collectLayer("growth").legend) do
+        if entry.present then
+          return entry
+        end
+      end
     end
 
     after_each(function()
@@ -1361,8 +1374,10 @@ describe("MapLayers.tick sweep", function()
       assert.are.equal("pfNitrogen", model.id)
       -- Cell centers run -3.5 .. 3.5, so the left half reads level 1 and the right half level 2.
       assert.are.equal("0101010102020202", model.rows[1])
-      -- Only the values actually seen, labelled and colored the way PF displays them.
+      -- Every value PF's own legend knows (both of the stub's levels, both on the ground here),
+      -- labelled and colored the way PF displays them.
       assert.are.equal(2, #model.legend)
+      assert.is_true(model.legend[1].present and model.legend[2].present)
       assert.are.equal(1, model.legend[1].v)
       assert.are.equal("30 kg/ha", model.legend[1].label)
       assert.are.equal("60 kg/ha", model.legend[2].label)
@@ -1577,7 +1592,10 @@ describe("MapLayers.tick sweep", function()
     assert.is_nil(VDT.MapLayers.sweep)
   end)
 
-  it("records only seen legend values, sorted by v", function()
+  -- Testers read a legend that listed only what was on the ground as "this crop is missing", so each
+  -- plane lists its whole vocabulary -- as the game's own map legend does -- and `present` says which
+  -- values the raster actually holds.
+  it("lists every possible value, sorted by v, flagging the seen ones present", function()
     g_currentMission.fieldGroundSystem.getValueAtWorldPos = function(_, densityType)
       if densityType == FieldDensityMap.GROUND_TYPE then
         return 5 -- FieldGroundType.PLOWED's stubbed value
@@ -1589,11 +1607,70 @@ describe("MapLayers.tick sweep", function()
     end
 
     local growth = VDT.MapLayers.collectLayer("growth")
-    assert.is_not_nil(growth.legend)
-    assert.are.equal(1, #growth.legend)
-    assert.are.equal(4, growth.legend[1].v) -- GROWTH_PLOWED
-    -- Each plane carries only its own legend now, so the crops one stays empty rather than riding
-    -- along in a file the app fetches for the growth overlay.
+    local values, present = {}, {}
+    for _, entry in ipairs(growth.legend) do
+      values[#values + 1] = entry.v
+      if entry.present then
+        present[#present + 1] = entry.v
+      end
+    end
+    -- The four ground states, the eight-step growing gradient, then topping/harvest/cut/withered.
+    assert.are.same({ 1, 2, 3, 4, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23 }, values)
+    assert.are.same({ 4 }, present) -- GROWTH_PLOWED
+    -- Each plane carries only its own legend, so the crops one stays empty rather than riding along
+    -- in a file the app fetches for the growth overlay.
     assert.is_nil(VDT.MapLayers.collectLayer("crops").legend)
+  end)
+
+  it("lists every fruit type the map grows and shows, planted or not", function()
+    local wheat = {
+      index = 2,
+      name = "WHEAT",
+      shownOnMap = true,
+      terrainDataPlaneId = 1,
+      minHarvestingGrowthState = -1,
+      minPreparingGrowthState = -1,
+      getGrowthStateByDensityState = function(_, state)
+        return state
+      end,
+    }
+    local barley = { index = 3, name = "BARLEY", shownOnMap = true, terrainDataPlaneId = 1 }
+    local hidden = { index = 4, name = "GRASS_HIDDEN", shownOnMap = false, terrainDataPlaneId = 1 }
+    local offMap = { index = 5, name = "RICE", shownOnMap = true } -- no data plane on this terrain
+    g_fruitTypeManager.getFruitTypes = function()
+      return { wheat, barley, hidden, offMap }
+    end
+    g_fruitTypeManager.getFruitTypeByDensityTypeIndex = function()
+      return wheat
+    end
+    rawset(_G, "getDensityTypeIndexAtWorldPos", function()
+      return 7
+    end)
+    for _ = 1, 4 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
+
+    local legend = VDT.MapLayers.collectLayer("crops").legend
+    assert.are.equal(2, #legend)
+    assert.are.same({ 2, "WHEAT", true }, { legend[1].v, legend[1].label, legend[1].present })
+    assert.are.same({ 3, "BARLEY", false }, { legend[2].v, legend[2].label, legend[2].present })
+  end)
+
+  it("lists only the soil states this save has switched on", function()
+    g_currentMission.missionInfo.limeRequired = true
+    g_currentMission.fieldGroundSystem.getMaxValue = function(_, densityType)
+      return densityType == FieldDensityMap.SPRAY_LEVEL and 2 or 0
+    end
+    for _ = 1, 4 do
+      VDT.MapLayers.tick(stubDebugger(), 16)
+    end
+
+    local values = {}
+    for _, entry in ipairs(VDT.MapLayers.collectLayer("soil").legend) do
+      values[#values + 1] = entry.v
+      assert.is_false(entry.present)
+    end
+    -- Needs lime and two fertilizer levels; plowing, mulch, weeds and stones are all off here.
+    assert.are.same({ 21, 31, 32 }, values)
   end)
 end)

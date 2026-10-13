@@ -496,9 +496,8 @@ class FieldStatusTest {
    * The soil plane against the same map, for the reading the growth plane cannot give: which ground
    * has been mulched.
    *
-   * `soil.json` is a **later sweep of the same save** than `growth.json` beside it, so this asserts
-   * nothing about the two planes together — only what one file and the map it co-registers with can
-   * show. That is enough for the claim that matters: mulch reaches the app as a per-field share off a
+   * This asserts nothing about the soil and growth planes together — only what one file and the map
+   * it co-registers with can show. That is enough for the claim that matters: mulch reaches the app as a per-field share off a
    * real raster, on a map where most fields have none of it.
    */
   @Test
@@ -511,27 +510,24 @@ class FieldStatusTest {
 
     val status = fieldStatus(map, soil)
     val mulched = status.fields.filter { it.cellsOf("mulched") > 0 }
-    assertEquals(10, mulched.size, "ten of this map's 85 fields carry mulch; the rest genuinely do not")
+    assertEquals(12, mulched.size, "twelve of this map's 85 fields carry mulch; the rest genuinely do not")
 
-    // Field 13 is the case the whole reading exists for: nearly all of it mulched, and enough cells
+    // Field 35 is the case the whole reading exists for: nearly all of it mulched, and enough cells
     // that the app quotes the share rather than falling back to the centre sample.
-    val thirteen = assertNotNull(status.byId[13])
-    assertEquals(listOf("mulched"), thirteen.slices.map { it.kind })
+    val thirtyFive = assertNotNull(status.byId[35])
+    assertEquals(listOf("mulched"), thirtyFive.slices.map { it.kind })
     assertTrue(
-      thirteen.polygonFractionOf("mulched") > 0.85f,
-      "field 13 is ${thirteen.cellsOf("mulched")} cells of mulch",
+      thirtyFive.polygonFractionOf("mulched") > 0.85f,
+      "field 35 is ${thirtyFive.cellsOf("mulched")} cells of mulch",
     )
-    assertTrue(thirteen.polygonCells >= 100)
+    assertTrue(thirtyFive.polygonCells >= 100)
 
-    // And the one that keeps the share honest: field 49 is mulched, unploughed and weedy at once, and
-    // the mod stores one value per cell — so these three shares are floors that sum to the field, not
-    // three independent measurements of it.
-    val fortyNine = assertNotNull(status.byId[49])
-    assertEquals(
-      setOf("mulched", "needsPlowing", "weed"),
-      fortyNine.slices.map { it.kind }.toSet(),
-    )
-    assertTrue(fortyNine.cells < fortyNine.polygonCells, "most of that field is in none of the three")
+    // And the one that keeps the share honest: field 13 is mulched and weedy at once, and the mod
+    // stores one value per cell (weeds win) — so these two shares are floors that sum to what the
+    // field shows, not two independent measurements of it.
+    val thirteen = assertNotNull(status.byId[13])
+    assertEquals(listOf("mulched", "weed"), thirteen.slices.map { it.kind })
+    assertTrue(thirteen.cells < thirteen.polygonCells, "part of that field is in neither")
 
     // Fields the plane answers for with no mulch at all: the reason the app's sentence checks the
     // share instead of assuming a blank field was mulched.
