@@ -9,7 +9,7 @@ and you need both:
 - a **mod** that writes the game's state to disk, and
 - **VDTerminal**, a small program that reads those files and serves the dashboard.
 
-![The dashboard](https://raw.githubusercontent.com/VertexDezign/VDTelemetry/main/screenshots/overview.png)
+![The dashboard](https://raw.githubusercontent.com/VertexDezign/VDTelemetry/main/screenshots/combine.png)
 
 ## Before you start
 

@@ -9,7 +9,7 @@ in der Kabine. Es besteht aus zwei Teilen, und du brauchst beide:
 - eine **Mod**, die den Spielzustand auf die Festplatte schreibt, und
 - **VDTerminal**, ein kleines Programm, das diese Dateien liest und das Dashboard bereitstellt.
 
-![Das Dashboard](https://raw.githubusercontent.com/VertexDezign/VDTelemetry/main/screenshots/overview.png)
+![Das Dashboard](https://raw.githubusercontent.com/VertexDezign/VDTelemetry/main/screenshots/combine.png)
 
 ## Was du brauchst
 
