@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import net.vertexdezign.vdt.app.alerts.AlertEngine
 import net.vertexdezign.vdt.app.alerts.AlertInputs
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
+import net.vertexdezign.vdt.app.alerts.ModFormatAlerts
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.net.TelemetryRepository
 import net.vertexdezign.vdt.app.pages.PageStore
@@ -68,7 +69,7 @@ fun main() {
 
   // Every app's alert rules run shell-wide over the raw data streams, whatever is on screen. A
   // tick of any channel re-evaluates all rules against the latest snapshot of every channel.
-  val alerts = AlertEngine(AppRegistry.apps.flatMap { it.alerts })
+  val alerts = AlertEngine(AppRegistry.apps.flatMap { it.alerts } + ModFormatAlerts.rules)
   scope.launch {
     combine(
       repository.telemetry,
@@ -84,7 +85,8 @@ fun main() {
         fieldInfo = fieldInfo,
         fieldStatus = fieldStatus,
       )
-    }.collect { alerts.process(it) }
+    }.combine(repository.formatVersions) { inputs, formatVersions -> inputs.copy(formatVersions = formatVersions) }
+      .collect { alerts.process(it) }
   }
 
   // Audible cue per raise, alongside the banner. Info stays silent — it's passive by definition;

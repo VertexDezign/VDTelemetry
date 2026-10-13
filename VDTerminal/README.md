@@ -145,7 +145,7 @@ Two things the release path pins that a dev build otherwise wouldn't:
   machine rather than in CI. jpackage bundles the JDK it runs from, so the release workflow's `25`
   is what the two app images ship and what the portable zip asks of a JDK you bring.
 - **The version**, via `-PvdtVersion=…`, which the workflow derives from the git tag — the only
-  place a version is authored. A tag like `v0.1.0-alpha.1` names the archives; jpackage's own
+  place a version is authored. A tag like `v1.0.0-beta.1` names the archives; jpackage's own
   metadata gets the numeric head, since that is all it accepts. The number in `build.gradle.kts` is
   a placeholder for local builds, and cutting a release never touches it.
 

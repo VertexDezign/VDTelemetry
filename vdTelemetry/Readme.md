@@ -335,6 +335,12 @@ version renames costs you that panel, never a Lua error.
       and seed rate, labelled and coloured as PF does
     * **The base-game data it supersedes is dropped** where the game drops it: no fertilized /
       needs-lime soil layers, and no yield-bonus / fertilized / needs-lime rows in the field-info popup
+* **Pumps & Hoses** (DLC) `1.0.0.0` — its biogas plants (`src/integrations/PumpsAndHoses.lua`). The
+  production channel already lists a plant the way the game's production menu does (one fermenter and
+  one power-plant entry per plant, merged by the DLC itself); this adds what that list cannot say: the
+  plant's name, which entries belong to it, and the parts that are not production points — the input
+  bunkers (which leave `storage.json`, being the plant's hopper rather than a store), the digestate
+  tank and the torch, each with the DLC's utilization. **Read only.**
 * [EnhancedVehicle](https://github.com/ZhooL/FS25_EnhancedVehicle) — extra fields on the vehicle
   telemetry (`src/integrations/EnhancedVehicle.lua`)
     * Differential

@@ -62,7 +62,8 @@ private fun layersInfo(
 ): MapLayersInfo {
   val modPlanes = catalog?.let { MapLayersInfo.from(it, rasters).layers }.orEmpty()
   return MapLayersInfo(
-    modPlanes +
+    formatVersion = catalog?.version.orEmpty(),
+    layers = modPlanes +
       MapLayerInfo(
         id = COVERAGE_LAYER_ID,
         label = "Coverage",

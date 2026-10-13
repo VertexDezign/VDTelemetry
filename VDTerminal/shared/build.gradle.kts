@@ -46,4 +46,10 @@ tasks.named<Test>("jvmTest") {
     // The tests locate a fixture by path from the repo root, so where the checkout sits does not
     // matter but what a file is called does.
     .withPathSensitivity(PathSensitivity.RELATIVE)
+  // ModFormatTest reads the mod's VERSION constants out of the Lua, for the same reason: a bumped
+  // channel must re-run the test that checks the terminal was bumped with it.
+  inputs
+    .files(layout.settingsDirectory.dir("../vdTelemetry").asFileTree.matching { include("**/*.lua") })
+    .withPropertyName("modSources")
+    .withPathSensitivity(PathSensitivity.RELATIVE)
 }

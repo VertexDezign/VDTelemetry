@@ -1,6 +1,7 @@
 # VDTelemetry
 
-**Just want to run it?** → [Setup guide (English)](docs/setup.en.md) ·
+**Just want to run it?** → [Project page](https://vertexdezign.github.io/VDTelemetry/) ·
+[Setup guide (English)](docs/setup.en.md) ·
 [Anleitung (Deutsch)](docs/setup.de.md) · [Downloads](https://github.com/VertexDezign/VDTelemetry/releases)
 
 A telemetry pipeline for **Farming Simulator 25**, in two parts:
@@ -20,12 +21,30 @@ the terminal needs JDK 25+ and a WasmGC-capable browser. Each README has the ful
 is configured and what each channel carries, and how to run the terminal in development or as a single
 production process.
 
-![The dashboard](screenshots/overview.png)
+![The dashboard in a combine](screenshots/combine.png)
 
 | | |
 |---|---|
-| ![In the tractor](screenshots/within_tractor.png) | ![Ground layers](screenshots/map_layers.png) |
-| ![Map filter and search](screenshots/map_filter_search.png) | ![Creating a task](screenshots/task_creation.png) |
+| ![A tractor with trailers](screenshots/tractor_withTrailers.png) | ![On foot: map, tasks and crop rotation](screenshots/onFoot_page.png) |
+| ![Map with a ground layer](screenshots/map_withLayer.png) | ![Editing a page](screenshots/pageEdit.png) |
+| ![Light mode](screenshots/lightMode.png) | ![The pillar display](screenshots/pillar_display.png) |
+
+<details>
+<summary>The apps</summary>
+
+| | |
+|---|---|
+| ![Map: precision-farming yield layer](screenshots/apps/map/layer_pfYield.png) | ![Map: filters and ground layers](screenshots/apps/map/map_options.png) |
+| ![Fields](screenshots/apps/fields/fieldOverview.png) | ![Crop calendar and weather](screenshots/apps/calendar/overview.png) |
+| ![Fleet](screenshots/apps/fleet/overview.png) | ![Fleet: locating a machine on the map](screenshots/apps/fleet/locate_on_map.png) |
+| ![Production](screenshots/apps/production/production.png) | ![Production: a biogas plant](screenshots/apps/production/pnh_bga.png) |
+| ![Storage](screenshots/apps/storage/silo.png) | ![Storage: unloading bales](screenshots/apps/storage/bale_unloading.png) |
+| ![Animals](screenshots/apps/animals/overview.png) | ![Market: prices](screenshots/apps/market/prices.png) |
+| ![Market: stock overview](screenshots/apps/market/stock_overview.png) | ![Market: stock details](screenshots/apps/market/stock_details.png) |
+| ![Finance](screenshots/apps/finance/overview_withLoanMod.png) | ![Finance: invoices](screenshots/apps/finance/invoices.png) |
+| ![Finance: creating an invoice](screenshots/apps/finance/create_invoice.png) | |
+
+</details>
 
 ## Licence
 

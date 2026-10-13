@@ -222,9 +222,13 @@ data class MapLayerCatalogEntry(
  *
  * Built from the catalogue, so it lists every plane the map offers — including the ones with no
  * raster yet, which carry a null [MapLayerInfo.version] and simply draw nothing until selected.
+ *
+ * [formatVersion] is the catalogue's own format version, passed through so the app can compare it
+ * against [net.vertexdezign.vdt.ModFormat] like every other channel's; empty while there is no
+ * catalogue. Not to be confused with [MapLayerInfo.version], which is a per-plane content hash.
  */
 @Serializable
-data class MapLayersInfo(val layers: List<MapLayerInfo> = emptyList()) {
+data class MapLayersInfo(val layers: List<MapLayerInfo> = emptyList(), val formatVersion: String = "") {
   companion object {
     /**
      * Combine the catalogue with whichever plane files have been parsed so far, keyed by layer id.
@@ -232,6 +236,7 @@ data class MapLayersInfo(val layers: List<MapLayerInfo> = emptyList()) {
      * statement of what this map has, and an unlisted file is last session's leftover.
      */
     fun from(catalog: MapLayersCatalog, rasters: Map<String, MapLayerData>): MapLayersInfo = MapLayersInfo(
+      formatVersion = catalog.version,
       layers =
       catalog.layers.map { entry ->
         val raster = rasters[entry.id]
