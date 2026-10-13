@@ -38,12 +38,18 @@ wasm, no locale override, composable-only).
    duplicate hand-rolled helpers (`format1`, `format2`, `formatInt`, `fmtLiters`, `groupDigits`,
    `formatLevel`) are gone, and `trimTrailing`'s `,` strip with them. Grouping where it was before,
    nowhere new.
-3. Migrate app by app (Fleet, Fields, Market, …), one commit each. Sentence builders that took
+3. ~~Migrate app by app.~~ Done for every app (one commit each). Migrate app by app (Fleet, Fields, Market, …), one commit each. Sentence builders that took
    `numbers: Numbers` in step 2 (`rowSubtitle`, `sourceAmount`, `rateFigures`, …) take `strings` instead
    once their words move. Still hand-building a decimal, left for their app because they carry words
    too: `deviationLabel` (Navigation), `inclinationLabel`/`heightLabel` (Loader). `formatAge`,
    `formatMonthsAgo` and `formatMinutes` go with Fleet and Missions.
-4. The remaining non-composable holders: widget titles, config option labels, alert rules.
+4. **Next.** The remaining non-composable holders: `Widget.title` (→ `fun title(strings)`, as `VdtApp`),
+   config option labels (make the option a `@Composable` fun, as `RigSlotWidget` now does), and alert
+   rules: `title`/`message`/`activeEntities` take `Strings`; `AlertEngine` gets a `() -> Strings` from
+   `LanguageStore` (create it before the engine in `Main.kt`). Rules live in VehicleApp, FieldsApp,
+   TasksApp and ModFormatAlerts (catalogue words for the app ones already exist). Also left:
+   NotificationCenter, layout/edit chrome (SplitLayoutView, WidgetDashboard, SplitEdits, WidgetPicker),
+   default page titles (PageStore), widget config labels ("Position", "Machine", "Lamps").
 5. Pseudo-locale pass: a third `Strings` that pads by ~35 % and brackets every string, to find the
    clipping before the real German does (fixed grid, cluster readouts, section strip).
 6. `manifest.webmanifest` and `index.html`'s `lang`.
