@@ -26,10 +26,11 @@ import kotlin.test.assertTrue
  * neither a `fertilized` nor a `needsLime` entry, because the mod withholds both while PF is active.
  * That last one is a rule several comments assert and no fixture could show until now.
  *
- * `soil.json` is a **second sweep of the same save**, taken a day later to capture the mulch (#135),
- * so it is at `mapLayers` version 4 where its siblings are at 3 and its ground has moved on from
- * theirs. Both facts are asserted below rather than smoothed over: a plane is its own file with its
- * own version by design, and nothing here pairs one plane's cells against another's.
+ * `crops.json`, `growth.json` and `soil.json` are a **later sweep of the same save**, recaptured at
+ * `mapLayers` version 5 to show the full legend — every value the plane can carry, each flagged
+ * `present` or not — so they are at version 5 where the catalogue and the PF planes are still at 3.
+ * That is asserted below rather than smoothed over: a plane is its own file with its own version by
+ * design, and nothing here pairs a base plane's cells against a PF plane's.
  */
 class MapLayersModelTest {
   private val json = Json { encodeDefaults = true }
@@ -60,7 +61,7 @@ class MapLayersModelTest {
   fun parsesOneRasterPlanePerFile() {
     val data = crops()
 
-    assertEquals("3", data.version)
+    assertEquals("5", data.version)
     assertEquals(2048f, data.terrainSize)
     assertEquals(512, data.gridSize)
     assertEquals("crops", data.id)
@@ -69,12 +70,21 @@ class MapLayersModelTest {
     // Every entry on the crops plane is a fruit type, so they share one kind and differ by label —
     // which is exactly the case where branching on `v` (a map-order-dependent fruit index) would be
     // wrong and branching on `label` (localized: this capture is a German client) would be worse.
-    assertEquals(14, data.legend.size)
+    // Every fruit type the map grows and shows, planted or not — 38 on this modded map, 17 of them
+    // on the ground when it was swept. The legend lists the lot, as the game's own does; `present`
+    // is what the app dims the other 21 by.
+    assertEquals(38, data.legend.size)
     assertTrue(data.legend.all { it.kind == "crop" })
-    assertEquals(MapLayerLegendEntry(1, "Sommerweizen", "#93a1da", "crop"), data.legend[0])
-    assertEquals(MapLayerLegendEntry(24, "Gras", "#fff936", "crop"), data.legend.single { it.v == 24 })
-    // `v` is not dense — it is the fruit-type index, so a map that loads a subset leaves gaps.
-    assertEquals(listOf(1, 3, 5, 6, 7, 11, 24, 27, 28, 29, 30, 31, 32, 33), data.legend.map { it.v })
+    assertEquals(MapLayerLegendEntry(1, "Sommerweizen", "#93a1da", "crop", present = true), data.legend[0])
+    assertEquals(MapLayerLegendEntry(24, "Gras", "#fff936", "crop", present = true), data.legend.single { it.v == 24 })
+    assertEquals(MapLayerLegendEntry(9, "Reis", "#fcf5ab", "crop", present = false), data.legend.single { it.v == 9 })
+    // `v` is not dense — it is the fruit-type index, and 12, 13 and 26 are fruit types this map
+    // doesn't show (no data plane, or not shownOnMap).
+    assertEquals(
+      listOf(1, 2, 3, 4, 5, 6, 7, 8, 14, 18, 24, 27, 28, 29, 30, 31, 32),
+      data.legend.filter { it.present }.map { it.v },
+    )
+    assertTrue(data.legend.none { it.v == 12 || it.v == 13 || it.v == 26 })
     // And colour is not the identity either: four of this map's fruits are drawn in one hex. Telling
     // them apart by colour would merge them, which is why the slice keeps the label and the value.
     assertEquals(
@@ -88,12 +98,23 @@ class MapLayersModelTest {
     assertEquals(512, growth.gridSize)
     assertEquals(2048f, growth.terrainSize)
     assertEquals(
-      listOf("cultivated", "seedbed", "growing", "growing", "topping", "harvest", "cut", "withered"),
+      listOf(
+        "cultivated", "stubble", "seedbed", "plowed",
+        "growing", "growing", "growing", "growing",
+        "topping", "harvest", "cut", "withered",
+      ),
       growth.legend.map { it.kind },
     )
-    // Two entries, one kind, one label, two colours: the growing gradient, which is the whole reason
-    // the growth plane is grouped by KIND and the crops plane by VALUE.
-    assertEquals(listOf(10, 13), growth.legend.filter { it.kind == "growing" }.map { it.v })
+    // Four entries, one kind, one label, four colours: the growing gradient, which is the whole reason
+    // the growth plane is grouped by KIND and the crops plane by VALUE. Four steps, not eight, because
+    // this capture was taken in the game's colourblind palette, which has the shorter gradient.
+    assertEquals(listOf(10, 11, 12, 13), growth.legend.filter { it.kind == "growing" }.map { it.v })
+    assertEquals(listOf(11, 12, 13), growth.legend.filter { it.kind == "growing" && it.present }.map { it.v })
+    // The states nobody had reached on this save when it was swept are still listed, just not present.
+    assertEquals(
+      listOf("growing", "topping", "withered"),
+      growth.legend.filter { !it.present }.map { it.kind },
+    )
 
     // Precision Farming is active on this save, so the mod withholds the vanilla fertiliser and lime
     // readings exactly as the game's own panel does — weeds, the plough and the mulch are all that is
@@ -107,13 +128,15 @@ class MapLayersModelTest {
       soil.legend.none { it.kind == "fertilized" || it.kind == "needsLime" },
       "PF replaces both, and the mod reports neither rather than reporting them wrong",
     )
-    // The soil plane is a **later sweep of the same save** (see the class note), so it alone carries
-    // the version this repo's mod writes; a plane owning its own version is the whole point of the
-    // one-file-per-plane split, and this is the first capture to show two of them side by side.
-    assertEquals("4", soil.version)
-    // Mulch, the state added with that version. Its colour is the game's own MULCHED entry in the
-    // *colourblind* palette, which is the palette this whole capture was taken in.
-    assertEquals(MapLayerLegendEntry(22, "Gemulcht", "#3d3e45", "mulched"), soil.legend.last())
+    // Every weed severity is listed, but only the three worst are on the ground.
+    assertEquals(listOf(false, false, true, true, true), soil.legend.filter { it.kind == "weed" }.map { it.present })
+    // The base planes were recaptured (see the class note), so they carry the version this repo's mod
+    // writes beside the catalogue's older one; a plane owning its own version is the whole point of
+    // the one-file-per-plane split.
+    assertEquals("5", soil.version)
+    // Mulch's colour is the game's own MULCHED entry in the *colourblind* palette, which is the palette
+    // this whole capture was taken in.
+    assertEquals(MapLayerLegendEntry(22, "Gemulcht", "#3d3e45", "mulched", present = true), soil.legend.last())
 
     assertRoundTrips(data)
     assertRoundTrips(growth)
