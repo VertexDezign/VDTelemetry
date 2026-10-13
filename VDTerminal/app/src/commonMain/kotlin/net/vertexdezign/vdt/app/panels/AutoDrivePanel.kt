@@ -188,7 +188,7 @@ private fun Controls(
       Section("ROUNDS") { Loops(ad, onCommand) }
     }
 
-    StartStop(ad, onCommand)
+    StartStop(ad, network.destinations.isNotEmpty(), onCommand)
   }
 }
 
@@ -298,11 +298,11 @@ internal fun loopsLabel(ad: AutoDrive): String = when {
 
 /**
  * Start or stop, as a full-width button whose word is the action. Start is refused without a
- * destination, as AutoDrive's own start/stop is.
+ * destination or without a route network, as AutoDrive's own start/stop is.
  */
 @Composable
-private fun StartStop(ad: AutoDrive, onCommand: (ClientMessage) -> Unit) {
-  val canStart = ad.target != null
+private fun StartStop(ad: AutoDrive, hasNetwork: Boolean, onCommand: (ClientMessage) -> Unit) {
+  val canStart = ad.target != null && hasNetwork
   val enabled = ad.active || canStart
   val shape = RoundedCornerShape(4.dp)
   Text(
