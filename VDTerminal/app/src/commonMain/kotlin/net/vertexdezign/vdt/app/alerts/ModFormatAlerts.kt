@@ -6,8 +6,8 @@ import net.vertexdezign.vdt.ModFormat
  * The shell's own alert rules, which belong to no app: the mod and the terminal disagreeing about a
  * channel's format (see [ModFormat] for why that is a normal state once the mod ships on ModHub).
  *
- * Keyed per channel, so the alert names the files that are off and a second channel going stale later
- * raises again. A Warning rather than Critical: everything that still matches keeps working, and
+ * Keyed per channel, so the alert names every file that is off -- kept current as channels are fixed --
+ * and a second channel going stale later raises again. A Warning rather than Critical: everything that still matches keeps working, and
  * nothing in the game is at stake -- but it needs the player to go and install something, which an
  * Info nobody hears would not get done.
  */
@@ -23,6 +23,7 @@ object ModFormatAlerts {
         title = "MOD OUTDATED",
         activeEntities = { channels(it, ModFormat.Mismatch.ModOutdated) },
         message = { "Update the VDTelemetry mod. Older format than this terminal reads: ${it.joinToString()}" },
+        restatesWholeSet = true,
       ),
       KeyedAlertRule(
         id = TERMINAL_OUTDATED_ID,
@@ -30,6 +31,7 @@ object ModFormatAlerts {
         title = "TERMINAL OUTDATED",
         activeEntities = { channels(it, ModFormat.Mismatch.TerminalOutdated) },
         message = { "Update VDTerminal. Newer format than this terminal reads: ${it.joinToString()}" },
+        restatesWholeSet = true,
       ),
     )
 

@@ -3,6 +3,7 @@ package net.vertexdezign.vdt.app.alerts
 import net.vertexdezign.vdt.ModFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ModFormatAlertsTest {
@@ -39,5 +40,18 @@ class ModFormatAlertsTest {
     process(engine, current + ("invoices" to "0"))
     process(engine, current - "invoices")
     assertTrue(engine.active.value.isEmpty())
+  }
+
+  @Test
+  fun theMessageNamesEveryOffChannelAndDropsFixedOnes() {
+    val engine = AlertEngine(ModFormatAlerts.rules)
+    process(engine, current + ("storage" to "1"))
+    val second = process(engine, current + ("storage" to "1") + ("finance" to "0")).single()
+    assertTrue("storage" in second.message && "finance" in second.message)
+
+    assertTrue(process(engine, current + ("finance" to "0")).isEmpty())
+    val message = engine.active.value.single().message
+    assertTrue("finance" in message)
+    assertFalse("storage" in message)
   }
 }

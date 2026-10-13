@@ -94,15 +94,23 @@ class AlertEngine(private val rules: List<AlertRule>) {
     val previous = entityKeysByRule[rule.id] ?: emptySet()
     entityKeysByRule[rule.id] = entities.keys
     val newLabels = entities.filterKeys { it !in previous }.values.toList()
+    val labels = if (rule.restatesWholeSet) entities.values.toList() else newLabels
+    val active = activeById[rule.id]
     return when {
       // One alert for the whole batch — ten tasks turning due on a month change is one banner.
       newLabels.isNotEmpty() -> {
-        raise(rule, rule.message(newLabels), raisedNow)
+        raise(rule, rule.message(labels), raisedNow)
         true
       }
 
-      entities.isEmpty() && rule.id in activeById -> {
+      entities.isEmpty() && active != null -> {
         activeById.remove(rule.id)
+        true
+      }
+
+      // The set shrank but is not empty: restate it in place, without a banner — a fix is no news.
+      rule.restatesWholeSet && active != null && entities.keys != previous -> {
+        activeById[rule.id] = ActiveAlert(rule, rule.message(labels), active.at)
         true
       }
 

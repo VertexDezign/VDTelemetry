@@ -67,6 +67,10 @@ class ThresholdAlertRule(
  * last tick raise **one** alert for the whole batch (message built by [message] from the new
  * labels); the alert stays active until the set empties. Return `null` — not an empty map — when
  * the backing channel is absent, so the rule freezes instead of clearing.
+ *
+ * With [restatesWholeSet], [message] gets every label in the condition rather than just the new ones,
+ * and the active alert's message follows the set as it shrinks too — for a rule whose alert is a
+ * standing list (which channels are off) rather than news (which tasks just turned due).
  */
 class KeyedAlertRule(
   override val id: String,
@@ -74,6 +78,7 @@ class KeyedAlertRule(
   override val title: String,
   val activeEntities: (AlertInputs) -> Map<String, String>?,
   val message: (List<String>) -> String,
+  val restatesWholeSet: Boolean = false,
 ) : AlertRule
 
 /**
