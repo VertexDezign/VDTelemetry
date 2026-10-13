@@ -39,6 +39,7 @@ interface Strings {
   val market: MarketStrings
   val tasks: TasksStrings
   val rotation: RotationStrings
+  val fields: FieldsStrings
 }
 
 /** The languages the terminal has a catalogue for. */

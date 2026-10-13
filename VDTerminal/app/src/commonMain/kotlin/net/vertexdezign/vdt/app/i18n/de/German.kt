@@ -5,6 +5,7 @@ import net.vertexdezign.vdt.app.i18n.AppTitles
 import net.vertexdezign.vdt.app.i18n.CalendarStrings
 import net.vertexdezign.vdt.app.i18n.CommonStrings
 import net.vertexdezign.vdt.app.i18n.DisplayStrings
+import net.vertexdezign.vdt.app.i18n.FieldsStrings
 import net.vertexdezign.vdt.app.i18n.FinanceStrings
 import net.vertexdezign.vdt.app.i18n.FleetStrings
 import net.vertexdezign.vdt.app.i18n.InvoicesStrings
@@ -47,4 +48,5 @@ object German : Strings {
   override val market: MarketStrings = DeMarket
   override val tasks: TasksStrings = DeTasks
   override val rotation: RotationStrings = DeRotation
+  override val fields: FieldsStrings = DeFields
 }
