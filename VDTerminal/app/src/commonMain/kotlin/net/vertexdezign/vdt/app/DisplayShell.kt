@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import net.vertexdezign.vdt.app.apps.AppRegistry
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.layout.WidgetDashboard
 import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.state.LocalVdtStore
@@ -160,11 +161,12 @@ fun DisplayShell(
 private fun DisplayControls(onExit: () -> Unit, onEdit: (() -> Unit)?, modifier: Modifier = Modifier) {
   val store = LocalVdtStore.current
   val wakeLock by store.wakeLock.collectAsState()
+  val strings = LocalStrings.current.display
   val (wakeIcon, wakeLabel) =
     when (wakeLock) {
-      WakeLockStatus.On -> Icons.Filled.Coffee to "AWAKE"
-      WakeLockStatus.Off -> Icons.Filled.Bedtime to "SCREEN MAY SLEEP"
-      WakeLockStatus.Unsupported -> Icons.Filled.Bedtime to "NO WAKE LOCK"
+      WakeLockStatus.On -> Icons.Filled.Coffee to strings.wakeOn
+      WakeLockStatus.Off -> Icons.Filled.Bedtime to strings.wakeOff
+      WakeLockStatus.Unsupported -> Icons.Filled.Bedtime to strings.wakeUnsupported
     }
 
   // Wraps rather than squeezing: a phone held upright is too narrow for all four on one line, and a
@@ -180,7 +182,7 @@ private fun DisplayControls(onExit: () -> Unit, onEdit: (() -> Unit)?, modifier:
     verticalArrangement = Arrangement.spacedBy(10.dp),
     itemVerticalAlignment = Alignment.CenterVertically,
   ) {
-    Text("DISPLAY MODE", color = VdtColors.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, softWrap = false)
+    Text(strings.title, color = VdtColors.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, softWrap = false)
 
     Row(
       // Tappable whenever the API exists, so a lock the browser refused without a gesture can be
@@ -195,12 +197,12 @@ private fun DisplayControls(onExit: () -> Unit, onEdit: (() -> Unit)?, modifier:
       horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
       val tint = VdtColors.White.copy(alpha = if (wakeLock == WakeLockStatus.On) 1f else 0.55f)
-      Icon(wakeIcon, "screen wake lock: $wakeLabel", tint = tint, modifier = Modifier.size(16.dp))
+      Icon(wakeIcon, strings.wakeLockDescription(wakeLabel), tint = tint, modifier = Modifier.size(16.dp))
       Text(wakeLabel, color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold, softWrap = false)
     }
 
-    if (onEdit != null) ShellButton(Icons.Filled.Edit, "EDIT LAYOUT", onEdit)
-    ShellButton(Icons.Filled.Close, "EXIT DISPLAY", onExit)
+    if (onEdit != null) ShellButton(Icons.Filled.Edit, strings.editLayout, onEdit)
+    ShellButton(Icons.Filled.Close, strings.exit, onExit)
   }
 }
 
@@ -216,6 +218,7 @@ private fun DisplayControls(onExit: () -> Unit, onEdit: (() -> Unit)?, modifier:
  */
 @Composable
 private fun DisplayEditBar(atTop: Boolean, onMove: () -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
+  val strings = LocalStrings.current.display
   Row(
     modifier
       .padding(horizontal = 12.dp)
@@ -227,7 +230,7 @@ private fun DisplayEditBar(atTop: Boolean, onMove: () -> Unit, onDone: () -> Uni
   ) {
     // The label gives way first on a narrow screen: the two buttons are what the pill is for.
     Text(
-      "EDITING LAYOUT",
+      strings.editing,
       color = VdtColors.Accent,
       fontSize = 11.sp,
       fontWeight = FontWeight.Bold,
@@ -237,10 +240,10 @@ private fun DisplayEditBar(atTop: Boolean, onMove: () -> Unit, onDone: () -> Uni
     )
     ShellButton(
       if (atTop) Icons.Filled.VerticalAlignBottom else Icons.Filled.VerticalAlignTop,
-      "MOVE",
+      strings.move,
       onMove,
     )
-    ShellButton(Icons.Filled.Check, "DONE", onDone)
+    ShellButton(Icons.Filled.Check, strings.done, onDone)
   }
 }
 
@@ -270,10 +273,10 @@ private fun MissingTarget(target: String) {
     verticalArrangement = Arrangement.Center,
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    Text("NO SUCH SCREEN", color = VdtColors.Amber, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+    val strings = LocalStrings.current.display
+    Text(strings.noSuchScreen, color = VdtColors.Amber, fontSize = 22.sp, fontWeight = FontWeight.Bold)
     Text(
-      "This device is pinned to “$target”, which no longer exists.\n" +
-        "Exit display mode, or open ?display=<page> for one that does.",
+      strings.noSuchScreenDetail(target),
       color = VdtColors.OnBlackMuted,
       fontSize = 13.sp,
       textAlign = TextAlign.Center,

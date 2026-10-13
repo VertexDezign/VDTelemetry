@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.MarketPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 
@@ -23,7 +24,7 @@ import net.vertexdezign.vdt.app.state.LocalVdtStore
  */
 object MarketApp : VdtApp {
   override val id = "market"
-  override val title = "Market"
+  override fun title(strings: Strings) = strings.apps.market
   override val icon: ImageVector = Icons.Filled.Storefront
 
   @Composable

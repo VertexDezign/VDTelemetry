@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.Screen
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.apps.availableApps
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.state.Favourite
 import net.vertexdezign.vdt.app.state.LocalVdtStore
@@ -92,7 +93,12 @@ fun Footer(
           .clickable(onClick = onOpenLauncher),
         contentAlignment = Alignment.Center,
       ) {
-        Icon(Icons.Filled.Menu, "open app launcher", tint = VdtColors.White, modifier = Modifier.size(20.dp))
+        Icon(
+          Icons.Filled.Menu,
+          LocalStrings.current.shell.openLauncher,
+          tint = VdtColors.White,
+          modifier = Modifier.size(20.dp),
+        )
       }
 
       // Resolved against what exists *now*: a pin whose page was deleted or whose mod was removed
@@ -102,7 +108,7 @@ fun Footer(
         when (favourite.kind) {
           Favourite.Kind.App ->
             apps.firstOrNull { it.id == favourite.id }?.let { app ->
-              FavouriteButton(app.icon, app.title, target == screen) { onOpenScreen(target) }
+              FavouriteButton(app.icon, app.title(LocalStrings.current), target == screen) { onOpenScreen(target) }
             }
 
           Favourite.Kind.Page ->
@@ -190,7 +196,7 @@ private fun NotificationBell(count: Int, onClick: () -> Unit) {
     ) {
       Icon(
         Icons.Filled.Notifications,
-        "open notifications",
+        LocalStrings.current.shell.openNotifications,
         tint = VdtColors.White.copy(alpha = 0.8f),
         modifier = Modifier.size(19.dp),
       )

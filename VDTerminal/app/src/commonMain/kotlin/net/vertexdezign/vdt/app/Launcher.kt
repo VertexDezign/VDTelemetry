@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import net.vertexdezign.vdt.app.apps.VdtApp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.theme.VdtColors
 
@@ -87,9 +88,9 @@ fun Launcher(
         .padding(20.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-      Section("APPS") {
+      Section(LocalStrings.current.launcher.apps) {
         Tiles(
-          apps.map { Entry(it.icon, it.title, Screen.OpenApp(it.id)) },
+          apps.map { Entry(it.icon, it.title(LocalStrings.current), Screen.OpenApp(it.id)) },
           screen,
           onOpen,
           pinned,
@@ -97,7 +98,7 @@ fun Launcher(
           onTogglePin,
         )
       }
-      Section("PAGES") {
+      Section(LocalStrings.current.launcher.pages) {
         // Long-press a page tile to drag it into a new slot; the order is what drives both the swipe
         // order and which page auto-shows, so reordering here is the single knob for both.
         ReorderablePageGrid(
@@ -108,7 +109,9 @@ fun Launcher(
           pinned,
           canPinMore,
           onTogglePin,
-          trailing = { Tile(Icons.Filled.Add, "New page", active = false, onClick = onCreatePage) },
+          trailing = {
+            Tile(Icons.Filled.Add, LocalStrings.current.launcher.newPage, active = false, onClick = onCreatePage)
+          },
         )
         // With every page gone there's no path back to the seeded dashboards — offer to restore them.
         if (pages.isEmpty()) RestoreDefaultsRow(onRestoreDefaults)
@@ -135,7 +138,7 @@ private fun RestoreDefaultsRow(onClick: () -> Unit) {
   ) {
     Icon(Icons.Filled.Refresh, contentDescription = null, tint = VdtColors.DarkGray, modifier = Modifier.size(20.dp))
     Text(
-      "RESTORE DEFAULT PAGES",
+      LocalStrings.current.launcher.restoreDefaultPages,
       fontSize = 12.sp,
       fontWeight = FontWeight.Bold,
       color = VdtColors.DarkGray,
@@ -229,7 +232,7 @@ private fun PinStar(pinned: Boolean, canPin: Boolean, onToggle: () -> Unit, modi
   ) {
     Icon(
       if (pinned) Icons.Filled.Star else Icons.Filled.StarBorder,
-      if (pinned) "unpin from bar" else "pin to bar",
+      if (pinned) LocalStrings.current.launcher.unpin else LocalStrings.current.launcher.pin,
       tint = tint,
       modifier = Modifier.size(16.dp),
     )

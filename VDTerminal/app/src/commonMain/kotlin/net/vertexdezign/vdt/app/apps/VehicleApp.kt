@@ -13,6 +13,7 @@ import net.vertexdezign.vdt.app.alerts.AlertInputs
 import net.vertexdezign.vdt.app.alerts.AlertRule
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.alerts.ThresholdAlertRule
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.widgets.ClusterLevelsWidget
 import net.vertexdezign.vdt.app.widgets.ClusterReadoutWidget
@@ -38,7 +39,7 @@ object VehicleApp : VdtApp {
   const val LOW_FUEL_ALERT_ID = "vehicle.fuel.low"
 
   override val id = "vehicle"
-  override val title = "Vehicle"
+  override fun title(strings: Strings) = strings.apps.vehicle
   override val icon: ImageVector = Icons.Filled.Agriculture
   override val widgets: List<Widget> =
     listOf(

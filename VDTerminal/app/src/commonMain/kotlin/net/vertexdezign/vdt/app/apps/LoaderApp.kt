@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.LoaderPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.widgets.LoaderWidget
@@ -24,7 +25,7 @@ import net.vertexdezign.vdt.app.widgets.Widget
  */
 object LoaderApp : VdtApp {
   override val id = "loader"
-  override val title = "Loader"
+  override fun title(strings: Strings) = strings.apps.loader
   override val icon: ImageVector = Icons.Filled.Construction
 
   override val widgets: List<Widget> = listOf(LoaderWidget)

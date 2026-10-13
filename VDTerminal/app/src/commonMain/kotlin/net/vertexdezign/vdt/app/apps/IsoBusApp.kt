@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.IsoBusPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.widgets.IsoBusWidget
@@ -34,7 +35,7 @@ import net.vertexdezign.vdt.app.widgets.Widget
  */
 object IsoBusApp : VdtApp {
   override val id = "isobus"
-  override val title = "ISOBUS"
+  override fun title(strings: Strings) = strings.apps.isobus
   override val icon: ImageVector = Icons.Filled.Memory
 
   override val widgets: List<Widget> = listOf(IsoBusWidget)

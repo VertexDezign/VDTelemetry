@@ -22,6 +22,7 @@ import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.app.state.DisplayRequest
 import net.vertexdezign.vdt.app.state.DisplayStore
 import net.vertexdezign.vdt.app.state.FavouritesStore
+import net.vertexdezign.vdt.app.state.LanguageStore
 import net.vertexdezign.vdt.app.state.ThemeStore
 import net.vertexdezign.vdt.app.state.UiScaleStore
 import net.vertexdezign.vdt.app.state.VdtStore
@@ -140,6 +141,7 @@ fun main() {
       display = display,
       theme = ThemeStore(settings, systemPrefersDark()),
       uiScale = UiScaleStore(settings),
+      language = LanguageStore(settings, window.navigator.language),
       onToggleWakeLock = {
         WakeLock.toggle()
         wakeLock.value = currentWakeStatus()

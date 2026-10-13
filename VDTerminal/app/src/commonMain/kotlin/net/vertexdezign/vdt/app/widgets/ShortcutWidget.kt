@@ -28,6 +28,7 @@ import net.vertexdezign.vdt.app.LocalNavigator
 import net.vertexdezign.vdt.app.Screen
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.apps.availableApps
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
@@ -69,7 +70,7 @@ object ShortcutWidget : Widget {
   private fun appOption() = ConfigOption(
     key = APP_KEY,
     label = "Opens",
-    choices = availableApps().map { ConfigOption.Choice(it.id, it.title, it.icon) },
+    choices = availableApps().map { ConfigOption.Choice(it.id, it.title(LocalStrings.current), it.icon) },
   )
 
   @Composable
@@ -96,7 +97,9 @@ object ShortcutWidget : Widget {
         modifier = modifier,
       )
     } else {
-      ShortcutTile(app.icon, app.title, onClick = { open(Screen.OpenApp(app.id)) }, modifier = modifier)
+      ShortcutTile(app.icon, app.title(LocalStrings.current), onClick = {
+        open(Screen.OpenApp(app.id))
+      }, modifier = modifier)
     }
   }
 }

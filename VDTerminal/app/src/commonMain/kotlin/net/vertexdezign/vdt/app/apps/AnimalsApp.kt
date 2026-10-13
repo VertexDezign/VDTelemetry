@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.AnimalsPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 
@@ -17,7 +18,7 @@ import net.vertexdezign.vdt.app.state.LocalVdtStore
  */
 object AnimalsApp : VdtApp {
   override val id = "animals"
-  override val title = "Animals"
+  override fun title(strings: Strings) = strings.apps.animals
   override val icon: ImageVector = Icons.Filled.Pets
 
   @Composable

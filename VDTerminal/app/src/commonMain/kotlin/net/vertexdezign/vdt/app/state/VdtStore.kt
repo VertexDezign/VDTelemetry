@@ -124,6 +124,8 @@ class VdtStore(
   val theme: ThemeStore,
   /** How big this device draws everything; see [UiScaleStore]. */
   val uiScale: UiScaleStore,
+  /** Which language this device draws in; see [LanguageStore]. */
+  val language: LanguageStore,
   val onToggleWakeLock: () -> Unit,
   val onCommand: (ClientMessage) -> Unit,
 )

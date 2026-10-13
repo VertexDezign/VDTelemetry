@@ -17,6 +17,7 @@ import net.vertexdezign.vdt.app.alerts.AlertInputs
 import net.vertexdezign.vdt.app.alerts.AlertRule
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.alerts.KeyedAlertRule
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.FieldTaskType
 import net.vertexdezign.vdt.app.panels.FieldsPanel
 import net.vertexdezign.vdt.app.panels.fieldRows
@@ -61,7 +62,7 @@ object FieldsApp : VdtApp {
   const val HARVEST_ALERT_ID = "fields.harvest"
 
   override val id = "fields"
-  override val title = "Fields"
+  override fun title(strings: Strings) = strings.apps.fields
   override val icon: ImageVector = Icons.Filled.Grass
   override val widgets: List<Widget> = listOf(FieldsWidget)
 

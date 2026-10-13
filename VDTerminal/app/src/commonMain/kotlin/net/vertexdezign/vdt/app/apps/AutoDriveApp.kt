@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.AutoDrivePanel
 import net.vertexdezign.vdt.app.panels.MapPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
@@ -34,7 +35,7 @@ private val SIDE_BY_SIDE_WIDTH = 720.dp
  */
 object AutoDriveApp : VdtApp {
   override val id = "autoDrive"
-  override val title = "AutoDrive"
+  override fun title(strings: Strings) = strings.apps.autoDrive
   override val icon: ImageVector = Icons.Filled.Route
   override val widgets: List<Widget> = listOf(AutoDriveWidget)
 

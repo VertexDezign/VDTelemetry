@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import net.vertexdezign.vdt.app.alerts.AlertRule
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.alerts.KeyedAlertRule
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.widgets.TaskListWidget
 import net.vertexdezign.vdt.app.widgets.Widget
@@ -19,7 +20,7 @@ object TasksApp : VdtApp {
   const val TASKS_DUE_ALERT_ID = "tasks.due"
 
   override val id = "tasks"
-  override val title = "Tasks"
+  override fun title(strings: Strings) = strings.apps.tasks
   override val icon: ImageVector = Icons.Filled.Checklist
   override val widgets: List<Widget> = listOf(TaskListWidget)
 

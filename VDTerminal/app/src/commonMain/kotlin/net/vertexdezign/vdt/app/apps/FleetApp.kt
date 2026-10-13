@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import net.vertexdezign.vdt.app.LocalNavigator
 import net.vertexdezign.vdt.app.Screen
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.FleetPanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.state.MapFocus
@@ -25,7 +26,7 @@ import net.vertexdezign.vdt.app.state.MapFocus
  */
 object FleetApp : VdtApp {
   override val id = "fleet"
-  override val title = "Fleet"
+  override fun title(strings: Strings) = strings.apps.fleet
   override val icon: ImageVector = Icons.Filled.Agriculture
 
   @Composable
