@@ -340,6 +340,23 @@ only where you make them.
 Pages from before this (the 12 × 7 cell grid, `vdt.pages.v2`) are converted to trees on first load
 and saved under `vdt.pages.v3`; the old key is left in storage untouched.
 
+## Languages
+
+The terminal speaks English and German, and by default the language the game runs in: the mod sends
+it as `environment.language`, because fill types, vehicle names and mission texts already arrive in
+it. Each device can override that in the header's display settings (Game / EN / DE); a game language
+with no catalogue falls back to the browser's, then English.
+
+Every word lives in `app/.../i18n/`: one `<Area>Strings` interface per app or area, and one package per
+language with one `<Lang><Area>` object per interface. A missing translation is a compile error. To add
+a language, add a package beside `en/` and `de/` implementing every interface, an entry to `Language`,
+and its `Numbers` (decimal and group marks). Composables read `LocalStrings.current`; code outside
+composition takes `strings: Strings` as a parameter.
+
+Game text is never translated here. Field tasks are the one thing the terminal *writes* in a language:
+their detail (`F12 - Säen`) shows in the game's own task list, so it is written in the reader's
+language and parsed back in any of them.
+
 ## Design rules
 
 Four constraints that apply to **every** new panel, widget and mark. Each has cost a round of rework

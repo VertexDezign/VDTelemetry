@@ -76,6 +76,12 @@ fun main() {
     AlertEngine(AppRegistry.apps.flatMap { it.alerts } + ModFormatAlerts.rules) {
       language.resolve(language.choice.value, language.gameLanguage.value).strings
     }
+  // The document's own lang, so the browser hyphenates, spell-checks and reads aloud in the language the
+  // terminal is drawn in rather than the English index.html ships with.
+  scope.launch {
+    combine(language.choice, language.gameLanguage) { choice, game -> language.resolve(choice, game) }
+      .collect { document.documentElement?.setAttribute("lang", it.code) }
+  }
   scope.launch {
     combine(
       repository.telemetry,

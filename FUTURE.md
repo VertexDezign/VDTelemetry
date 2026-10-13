@@ -645,6 +645,18 @@ choice rather than by blocker:
 - **The mode command counts from the last synced mode.** Two mode taps on a multiplayer client faster than the
   server's answer can overshoot; the panel shows the server's mode, so a third tap corrects it.
 
+## Languages (#132), what it left
+
+- **Nobody has seen it in game.** The language export (telemetry v35), the "follow the game" default
+  and the German wording all want a session — a German game, then an English device against it.
+- **German wording wants a native read**, above all where space is short: the header controls
+  (ÄNDERN/FERTIG, WACH/SCHLAF), the cluster captions (U/MIN, GANG, ADBLUE, TEMPOMAT), the field
+  badges and the ISOBUS chips. Nothing has been checked for clipping at the smaller UI sizes.
+- **The pseudo-locale pass was skipped**: German itself is the long-text test now that it exists. A
+  padded third catalogue is still worth having if a third language is on the way.
+- **The web manifest's description** is English; it is only read when the app is installed.
+- **A capture with `environment.language`** for the fixtures (see "Captures wanted as fixtures").
+
 ## Captures wanted as fixtures
 
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
