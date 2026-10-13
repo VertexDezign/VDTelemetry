@@ -671,14 +671,9 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   state machine reports the vehicle there as it does on the host, and that `getPosition` on a remote player on foot
   follows them rather than sitting at their last synced spot. The exporter's header has the reasoning for which players
   are listed.
-- **Vehicle Speed Sync (#145) from a multiplayer client.** Built and checked in singleplayer — the cluster mark,
-  its blink while waiting, and the terminal toggle greying out of range — with the three states captured under
-  `examples/json/telemetry/modded/vehicleSpeedSync_*.json`. Nothing is expected to differ on a client (the mod switches
-  the sync there and the server only reports a lost connection back), which is what one client capture would confirm.
-- **AutoDrive (#97) from a multiplayer client.** Every command checked in singleplayer, and `examples/json/autodrive/`
-  has the network, a parked pick-up & deliver, a drive-to and a pick-up & deliver under way. Still wanted: the same
-  from a client, which is the case the event-driven write path exists for. Nice to have: a round counter that is not
-  endless (`loops` > 0 with `loopsDone` counting) and a moment where `heading` differs from `target`.
+- **AutoDrive (#97), two states no capture has yet.** Every command is checked in singleplayer and from a multiplayer
+  client, and `examples/json/autodrive/` pins the reads. Not yet seen in a file: a round counter that is not endless
+  (`loops` > 0 with `loopsDone` counting) and a moment where `heading` differs from `target`.
 - **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
   (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
 - **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file
