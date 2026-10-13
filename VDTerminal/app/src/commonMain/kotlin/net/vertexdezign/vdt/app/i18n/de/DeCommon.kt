@@ -7,4 +7,14 @@ internal object DeCommon : CommonStrings {
   override val ascending = "Aufsteigend"
   override val descending = "Absteigend"
   override val showOnMap = "Auf Karte zeigen"
+
+  override val notSorted = "nicht sortiert"
+  override val sortedAscending = "aufsteigend sortiert"
+  override val sortedDescending = "absteigend sortiert"
+
+  override fun monthsShort(months: Int) = "$months Mon."
+  override val cancel = "Abbrechen"
+  override val selectEntry = "Eintrag wählen"
+  override fun litres(level: String, capacity: String): String = "$level / $capacity l"
+  override fun litre(amount: String): String = "$amount l"
 }

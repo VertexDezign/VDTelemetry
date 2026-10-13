@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.i18n.de
 
+import net.vertexdezign.vdt.app.i18n.AnimalsStrings
 import net.vertexdezign.vdt.app.i18n.AppTitles
 import net.vertexdezign.vdt.app.i18n.CommonStrings
 import net.vertexdezign.vdt.app.i18n.DisplayStrings
@@ -7,8 +8,10 @@ import net.vertexdezign.vdt.app.i18n.FleetStrings
 import net.vertexdezign.vdt.app.i18n.Language
 import net.vertexdezign.vdt.app.i18n.LauncherStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.ProductionStrings
 import net.vertexdezign.vdt.app.i18n.SettingsStrings
 import net.vertexdezign.vdt.app.i18n.ShellStrings
+import net.vertexdezign.vdt.app.i18n.StorageStrings
 import net.vertexdezign.vdt.app.i18n.Strings
 
 /**
@@ -25,4 +28,7 @@ object German : Strings {
   override val apps: AppTitles = DeApps
   override val common: CommonStrings = DeCommon
   override val fleet: FleetStrings = DeFleet
+  override val animals: AnimalsStrings = DeAnimals
+  override val storage: StorageStrings = DeStorage
+  override val production: ProductionStrings = DeProduction
 }

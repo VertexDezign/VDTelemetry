@@ -28,6 +28,9 @@ interface Strings {
   val apps: AppTitles
   val common: CommonStrings
   val fleet: FleetStrings
+  val animals: AnimalsStrings
+  val storage: StorageStrings
+  val production: ProductionStrings
 }
 
 /** The languages the terminal has a catalogue for. */

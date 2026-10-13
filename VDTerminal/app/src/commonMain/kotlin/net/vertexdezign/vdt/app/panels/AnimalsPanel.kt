@@ -45,6 +45,7 @@ import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.Husbandry
@@ -62,10 +63,11 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun AnimalsPanel(data: HusbandriesData?, modifier: Modifier = Modifier) {
-  Panel(title = "Animals", icon = Icons.Filled.Pets, modifier = modifier) {
+  val strings = LocalStrings.current
+  Panel(title = strings.apps.animals, icon = Icons.Filled.Pets, modifier = modifier) {
     when {
-      data == null -> Centered("Waiting for animal data…")
-      data.husbandries.isEmpty() -> Centered("No owned animals")
+      data == null -> Centered(strings.animals.waiting)
+      data.husbandries.isEmpty() -> Centered(strings.animals.empty)
       else -> AnimalsMasterDetail(data)
     }
   }
@@ -73,6 +75,7 @@ fun AnimalsPanel(data: HusbandriesData?, modifier: Modifier = Modifier) {
 
 @Composable
 private fun AnimalsMasterDetail(data: HusbandriesData) {
+  val s = LocalStrings.current.animals
   var selectedId by remember { mutableStateOf<String?>(null) }
   val ids = remember(data) { data.husbandries.map { it.id } }
   val currentId = selectedId.takeIf { it in ids } ?: ids.firstOrNull()
@@ -83,7 +86,7 @@ private fun AnimalsMasterDetail(data: HusbandriesData) {
   ListDetail(
     listWidth = 240.dp,
     detailOpen = detailOpen,
-    backLabel = "Pens",
+    backLabel = s.listTitle,
     onBack = { detailOpen = false },
     list = { listModifier ->
       Column(
@@ -93,7 +96,7 @@ private fun AnimalsMasterDetail(data: HusbandriesData) {
         data.husbandries.forEach { pen ->
           PenRow(
             name = pen.name,
-            subtitle = "${pen.numAnimals} / ${pen.maxNumAnimals} animals",
+            subtitle = s.penSubtitle(pen.numAnimals, pen.maxNumAnimals),
             selected = pen.id == currentId,
             onClick = {
               selectedId = pen.id
@@ -108,7 +111,7 @@ private fun AnimalsMasterDetail(data: HusbandriesData) {
     if (pen != null) {
       HusbandryDetail(pen, sort, onSort = { sort = nextSort(sort, it) })
     } else {
-      Centered("Select a pen")
+      Centered(s.selectPrompt)
     }
   }
 }
@@ -139,6 +142,7 @@ private fun PenRow(name: String, subtitle: String, selected: Boolean, onClick: (
 
 @Composable
 private fun HusbandryDetail(pen: Husbandry, sort: AnimalSort?, onSort: (AnimalColumn) -> Unit) {
+  val s = LocalStrings.current.animals
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -148,29 +152,29 @@ private fun HusbandryDetail(pen: Husbandry, sort: AnimalSort?, onSort: (AnimalCo
     pen.productivity?.let { productivity ->
       ProgressBar(
         fraction = productivity,
-        leftLabel = "Productivity",
+        leftLabel = s.productivity,
         rightLabel = "${(productivity * 100).roundToInt()}%",
       )
     }
     val animalFraction = if (pen.maxNumAnimals > 0) pen.numAnimals.toFloat() / pen.maxNumAnimals.toFloat() else 0f
     ProgressBar(
       fraction = animalFraction,
-      leftLabel = "Animals",
+      leftLabel = s.animals,
       rightLabel = "${pen.numAnimals} / ${pen.maxNumAnimals}",
     )
 
     if (pen.food.isNotEmpty()) {
-      SectionLabel("Food")
+      SectionLabel(s.food)
       pen.food.forEach { ConditionBar(it) }
     }
 
     if (pen.conditions.isNotEmpty()) {
-      SectionLabel("Conditions")
+      SectionLabel(s.conditions)
       pen.conditions.forEach { ConditionBar(it) }
     }
 
     if (pen.animals.isNotEmpty()) {
-      SectionLabel("Animals")
+      SectionLabel(s.animals)
       AnimalTable(pen.animals, sort, onSort)
     }
   }
@@ -183,13 +187,14 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun ConditionBar(condition: HusbandryCondition) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
   // Actual liters rather than a bare % — with the capacity when known (food groups carry one).
   val right =
     if (condition.capacity > 0) {
-      "${numbers.integer(condition.value)} / ${numbers.integer(condition.capacity)} L"
+      strings.common.litres(numbers.integer(condition.value), numbers.integer(condition.capacity))
     } else {
-      "${numbers.integer(condition.value)} L"
+      strings.common.litre(numbers.integer(condition.value))
     }
   ProgressBar(fraction = condition.ratio, leftLabel = condition.title, rightLabel = right)
 }
@@ -200,23 +205,31 @@ private fun ConditionBar(condition: HusbandryCondition) {
  * One column of the animal table. [width] is a fixed width for the figures — so their digits line up
  * down the column and against the header — and null for the name, which takes the remaining slack.
  */
-private enum class AnimalColumn(val label: String, val width: Dp?) {
-  NAME("Animal", null),
-  COUNT("Count", 60.dp),
-  AGE("Age", 62.dp),
-  HEALTH("Health", 70.dp),
-  REPRO("Repro", 70.dp),
+private enum class AnimalColumn(val width: Dp?) {
+  NAME(null),
+  COUNT(60.dp),
+  AGE(62.dp),
+  HEALTH(70.dp),
+  REPRO(70.dp),
   ;
+
+  fun label(strings: Strings): String = when (this) {
+    NAME -> strings.animals.columnAnimal
+    COUNT -> strings.animals.columnCount
+    AGE -> strings.animals.columnAge
+    HEALTH -> strings.animals.columnHealth
+    REPRO -> strings.animals.columnRepro
+  }
 
   /** Figures are end-aligned; the name is not. */
   val numeric: Boolean get() = this != NAME
 
-  fun cellText(group: HusbandryAnimalGroup): String = when (this) {
+  fun cellText(strings: Strings, group: HusbandryAnimalGroup): String = when (this) {
     NAME -> group.name
 
     COUNT -> group.count.toString()
 
-    AGE -> "${group.age} mo"
+    AGE -> strings.common.monthsShort(group.age)
 
     HEALTH -> "${group.health}%"
 
@@ -264,6 +277,7 @@ private fun comparatorFor(sort: AnimalSort): Comparator<HusbandryAnimalGroup> {
  */
 @Composable
 private fun AnimalTable(groups: List<HusbandryAnimalGroup>, sort: AnimalSort?, onSort: (AnimalColumn) -> Unit) {
+  val strings = LocalStrings.current
   val rows = remember(groups, sort) { sort?.let { groups.sortedWith(comparatorFor(it)) } ?: groups }
   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))) {
     AnimalTableHeader(sort, onSort)
@@ -276,7 +290,7 @@ private fun AnimalTable(groups: List<HusbandryAnimalGroup>, sort: AnimalSort?, o
       ) {
         AnimalColumn.entries.forEach { column ->
           Text(
-            column.cellText(group),
+            column.cellText(strings, group),
             color = if (column == AnimalColumn.NAME) VdtColors.TextDark else VdtColors.DarkGray,
             fontSize = 12.sp,
             fontWeight = if (column == AnimalColumn.NAME) FontWeight.SemiBold else FontWeight.Bold,
@@ -293,6 +307,7 @@ private fun AnimalTable(groups: List<HusbandryAnimalGroup>, sort: AnimalSort?, o
 
 @Composable
 private fun AnimalTableHeader(sort: AnimalSort?, onSort: (AnimalColumn) -> Unit) {
+  val strings = LocalStrings.current
   Row(Modifier.fillMaxWidth().background(VdtColors.TrackGray), verticalAlignment = Alignment.CenterVertically) {
     AnimalColumn.entries.forEach { column ->
       val active = sort?.column == column
@@ -305,9 +320,9 @@ private fun AnimalTableHeader(sort: AnimalSort?, onSort: (AnimalColumn) -> Unit)
           .clickable(role = Role.Button) { onSort(column) }
           .semantics {
             stateDescription = when {
-              !active -> "not sorted"
-              descending -> "sorted descending"
-              else -> "sorted ascending"
+              !active -> strings.common.notSorted
+              descending -> strings.common.sortedDescending
+              else -> strings.common.sortedAscending
             }
           }
           .padding(horizontal = 6.dp, vertical = 6.dp),
@@ -318,7 +333,7 @@ private fun AnimalTableHeader(sort: AnimalSort?, onSort: (AnimalColumn) -> Unit)
         // the values below it, and its slot is reserved even when inactive so nothing shifts on click.
         if (column.numeric) SortArrow(active, descending)
         Text(
-          column.label.uppercase(),
+          column.label(strings).uppercase(),
           color = if (active) VdtColors.TextDark else VdtColors.DarkGray,
           fontSize = 9.sp,
           fontWeight = FontWeight.Bold,

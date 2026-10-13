@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Construction
 import net.vertexdezign.vdt.model.ConstructionPart
@@ -37,12 +38,12 @@ import net.vertexdezign.vdt.model.ConstructionPart
  * "Silos" is deliberately not the word: this app already uses it for the farm's grain silos, and the
  * only silo a plant ever contains is its digestate store.
  */
-internal fun roleLabel(role: String): String = when (role) {
-  "BUNKER" -> "Bunkers"
-  "FERMENTER" -> "Fermenters"
-  "POWERPLANT" -> "Cogeneration"
-  "SILO" -> "Digestate tanks"
-  "TORCH" -> "Gas torch"
+internal fun roleLabel(strings: Strings, role: String): String = when (role) {
+  "BUNKER" -> strings.production.roleBunkers
+  "FERMENTER" -> strings.production.roleFermenters
+  "POWERPLANT" -> strings.production.roleCogeneration
+  "SILO" -> strings.production.roleDigestate
+  "TORCH" -> strings.production.roleTorch
   else -> role.lowercase().replaceFirstChar { it.uppercase() }
 }
 
@@ -62,13 +63,13 @@ internal fun roleLabel(role: String): String = when (role) {
  * it reports as running *perfectly*. Calling that "stopped" would flag the healthy state as a fault,
  * which is the first thing a real capture showed: a working plant, torch at 0.
  */
-internal fun utilizationWord(percent: Int, role: String = ""): String = when {
-  role == "TORCH" -> if (percent > 0) "burning" else "idle"
-  percent > 100 -> "at limit"
-  percent >= 75 -> "optimal"
-  percent > 25 -> "ok"
-  percent > 0 -> "poor"
-  else -> "stopped"
+internal fun utilizationWord(strings: Strings, percent: Int, role: String = ""): String = when {
+  role == "TORCH" -> if (percent > 0) strings.production.torchBurning else strings.production.torchIdle
+  percent > 100 -> strings.production.atLimit
+  percent >= 75 -> strings.production.optimal
+  percent > 25 -> strings.production.ok
+  percent > 0 -> strings.production.poor
+  else -> strings.production.stopped
 }
 
 /**
@@ -78,6 +79,7 @@ internal fun utilizationWord(percent: Int, role: String = ""): String = when {
  */
 @Composable
 internal fun ConstructionCard(construction: Construction) {
+  val strings = LocalStrings.current
   Column(
     Modifier
       .fillMaxWidth()
@@ -95,7 +97,7 @@ internal fun ConstructionCard(construction: Construction) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
       )
-      Text("PLANT", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+      Text(strings.production.plant, color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
     construction.parts.forEach { part -> ConstructionPartRows(part) }
   }
@@ -103,8 +105,15 @@ internal fun ConstructionCard(construction: Construction) {
 
 @Composable
 private fun ConstructionPartRows(part: ConstructionPart) {
-  val numbers = LocalStrings.current.numbers
-  val heading = if (part.count > 1) "${roleLabel(part.role)} (${part.count})" else roleLabel(part.role)
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val heading = if (part.count >
+    1
+  ) {
+    "${roleLabel(strings, part.role)} (${part.count})"
+  } else {
+    roleLabel(strings, part.role)
+  }
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
     Text(heading.uppercase(), color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     // The digestate tank is the one role the DLC never gave a utilization: it answers a flat 0, which
@@ -114,19 +123,19 @@ private fun ConstructionPartRows(part: ConstructionPart) {
     if (percent != null) {
       ProgressBar(
         fraction = percent / 100f,
-        leftLabel = "Utilization",
-        rightLabel = "$percent% · ${utilizationWord(percent, part.role)}",
+        leftLabel = strings.production.utilization,
+        rightLabel = "$percent% · ${utilizationWord(strings, percent, part.role)}",
       )
     }
     part.fills.forEach { fill ->
       ProgressBar(
         fraction = if (fill.capacity > 0) fill.level.toFloat() / fill.capacity.toFloat() else 0f,
         leftLabel = fill.title,
-        rightLabel = "${numbers.integer(fill.level)} / ${numbers.integer(fill.capacity)} L",
+        rightLabel = strings.common.litres(numbers.integer(fill.level), numbers.integer(fill.capacity)),
       )
     }
     if (percent == null && part.fills.isEmpty()) {
-      Text("No reading", color = VdtColors.DarkGray, fontSize = 10.sp)
+      Text(strings.production.noReading, color = VdtColors.DarkGray, fontSize = 10.sp)
     }
   }
 }

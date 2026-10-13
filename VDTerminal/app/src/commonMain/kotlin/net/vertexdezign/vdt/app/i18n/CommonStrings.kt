@@ -6,4 +6,20 @@ interface CommonStrings {
   val ascending: String
   val descending: String
   val showOnMap: String
+
+  /** A sortable column header's state, read out for a screen reader. */
+  val notSorted: String
+  val sortedAscending: String
+  val sortedDescending: String
+
+  /** A count of the game's months, short: an animal's age, a machine's. */
+  fun monthsShort(months: Int): String
+  val cancel: String
+  val selectEntry: String
+
+  /** A fill level against its capacity, both already formatted. */
+  fun litres(level: String, capacity: String): String
+
+  /** An amount in litres, already formatted. */
+  fun litre(amount: String): String
 }
