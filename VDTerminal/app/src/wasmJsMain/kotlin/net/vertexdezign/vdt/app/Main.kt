@@ -70,7 +70,12 @@ fun main() {
 
   // Every app's alert rules run shell-wide over the raw data streams, whatever is on screen. A
   // tick of any channel re-evaluates all rules against the latest snapshot of every channel.
-  val alerts = AlertEngine(AppRegistry.apps.flatMap { it.alerts } + ModFormatAlerts.rules)
+  // Ahead of the alert engine, which writes each message in the language this device is showing.
+  val language = LanguageStore(settings, window.navigator.language)
+  val alerts =
+    AlertEngine(AppRegistry.apps.flatMap { it.alerts } + ModFormatAlerts.rules) {
+      language.resolve(language.choice.value, language.gameLanguage.value).strings
+    }
   scope.launch {
     combine(
       repository.telemetry,
@@ -141,7 +146,7 @@ fun main() {
       display = display,
       theme = ThemeStore(settings, systemPrefersDark()),
       uiScale = UiScaleStore(settings),
-      language = LanguageStore(settings, window.navigator.language),
+      language = language,
       onToggleWakeLock = {
         WakeLock.toggle()
         wakeLock.value = currentWakeStatus()

@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.vertexdezign.vdt.app.i18n.Strings
+import net.vertexdezign.vdt.app.i18n.en.English
 
 /**
  * Runs the registered [AlertRule]s' edge-detection state machines over the data streams. Plain
@@ -17,7 +19,15 @@ import kotlinx.coroutines.flow.asStateFlow
  * - [active] — the sticky set of currently-active alerts, for anything that renders ongoing state
  *   (the footer's fuel icon, a future badge/history).
  */
-class AlertEngine(private val rules: List<AlertRule>) {
+class AlertEngine(
+  private val rules: List<AlertRule>,
+  /**
+   * The language a message is written in when it is raised. A raised alert keeps its message as it
+   * was written — it is a record of what happened — while its title is read off the rule each time it
+   * is drawn.
+   */
+  private val strings: () -> Strings = { English },
+) {
   init {
     require(rules.distinctBy { it.id }.size == rules.size) { "duplicate alert rule ids" }
   }
@@ -84,13 +94,13 @@ class AlertEngine(private val rules: List<AlertRule>) {
       activeById.remove(rule.id)
     } else {
       if (!rule.enter(inputs)) return false
-      raise(rule, rule.message(inputs), raisedNow)
+      raise(rule, rule.message(strings(), inputs), raisedNow)
     }
     return true
   }
 
   private fun processKeyed(rule: KeyedAlertRule, inputs: AlertInputs, raisedNow: MutableList<ActiveAlert>): Boolean {
-    val entities = rule.activeEntities(inputs) ?: return false
+    val entities = rule.activeEntities(strings(), inputs) ?: return false
     val previous = entityKeysByRule[rule.id] ?: emptySet()
     entityKeysByRule[rule.id] = entities.keys
     val newLabels = entities.filterKeys { it !in previous }.values.toList()
@@ -99,7 +109,7 @@ class AlertEngine(private val rules: List<AlertRule>) {
     return when {
       // One alert for the whole batch — ten tasks turning due on a month change is one banner.
       newLabels.isNotEmpty() -> {
-        raise(rule, rule.message(labels), raisedNow)
+        raise(rule, rule.message(strings(), labels), raisedNow)
         true
       }
 
@@ -110,7 +120,7 @@ class AlertEngine(private val rules: List<AlertRule>) {
 
       // The set shrank but is not empty: restate it in place, without a banner — a fix is no news.
       rule.restatesWholeSet && active != null && entities.keys != previous -> {
-        activeById[rule.id] = ActiveAlert(rule, rule.message(labels), active.at)
+        activeById[rule.id] = ActiveAlert(rule, rule.message(strings(), labels), active.at)
         true
       }
 

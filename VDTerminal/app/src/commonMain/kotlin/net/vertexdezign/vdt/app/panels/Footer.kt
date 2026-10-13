@@ -151,7 +151,7 @@ fun Footer(
     ) {
       alerts.maxByOrNull { it.rule.severity.ordinal }?.let { top ->
         AlertChip(
-          top.rule.title,
+          top.rule.title(LocalStrings.current),
           top.rule.severity,
           extra = alerts.size - 1,
           onClick = onOpenNotifications,

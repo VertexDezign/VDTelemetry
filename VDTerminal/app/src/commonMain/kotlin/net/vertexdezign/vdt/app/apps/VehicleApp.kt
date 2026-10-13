@@ -60,8 +60,8 @@ object VehicleApp : VdtApp {
       ThresholdAlertRule(
         id = LOW_FUEL_ALERT_ID,
         severity = AlertSeverity.Warning,
-        title = "LOW FUEL",
-        message = { "Fuel at ${it.fuelPercent}%" },
+        title = { it.vehicle.lowFuel },
+        message = { strings, data -> strings.vehicle.fuelAt(data.fuelPercent ?: 0) },
         enter = { data -> data.fuelPercent?.let { it <= FUEL_ENTER_PERCENT } == true },
         exit = { data -> data.fuelPercent?.let { it > FUEL_EXIT_PERCENT } == true },
       ),

@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
@@ -76,10 +77,15 @@ fun NotificationCenter(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        Text("NOTIFICATIONS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+        Text(
+          LocalStrings.current.alerts.notifications,
+          fontSize = 11.sp,
+          fontWeight = FontWeight.Bold,
+          color = VdtColors.DarkGray,
+        )
         if (history.isNotEmpty()) {
           Text(
-            "CLEAR",
+            LocalStrings.current.alerts.clear,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = VdtColors.Green,
@@ -100,7 +106,7 @@ fun NotificationCenter(
               tint = VdtColors.TextDisabled,
               modifier = Modifier.size(28.dp),
             )
-            Text("Nothing has come up", fontSize = 12.sp, color = VdtColors.DarkGray)
+            Text(LocalStrings.current.alerts.nothingYet, fontSize = 12.sp, color = VdtColors.DarkGray)
           }
         }
       } else {
@@ -130,14 +136,14 @@ private fun NotificationRow(alert: ActiveAlert, stillActive: Boolean) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
-          alert.rule.title.uppercase(),
+          alert.rule.title(LocalStrings.current).uppercase(),
           fontSize = 11.sp,
           fontWeight = FontWeight.Bold,
           color = VdtColors.TextDark,
         )
         if (stillActive) {
           Text(
-            "ACTIVE",
+            LocalStrings.current.alerts.active,
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
             color = VdtColors.OnFill,

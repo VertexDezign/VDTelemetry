@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /** How long a banner stays up before expiring on its own. */
@@ -115,7 +116,12 @@ private fun Banner(alert: ActiveAlert, onDismiss: () -> Unit) {
       modifier = Modifier.padding(start = 12.dp),
     )
     Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 10.dp)) {
-      Text(alert.rule.title, color = VdtColors.TextDark, fontSize = 13.sp, fontWeight = FontWeight.Black)
+      Text(
+        alert.rule.title(LocalStrings.current),
+        color = VdtColors.TextDark,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Black,
+      )
       Text(alert.message, color = VdtColors.DarkGray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
   }

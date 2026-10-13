@@ -20,17 +20,17 @@ object ModFormatAlerts {
       KeyedAlertRule(
         id = MOD_OUTDATED_ID,
         severity = AlertSeverity.Warning,
-        title = "MOD OUTDATED",
-        activeEntities = { channels(it, ModFormat.Mismatch.ModOutdated) },
-        message = { "Update the VDTelemetry mod. Older format than this terminal reads: ${it.joinToString()}" },
+        title = { it.alerts.modOutdated },
+        activeEntities = { _, inputs -> channels(inputs, ModFormat.Mismatch.ModOutdated) },
+        message = { strings, channels -> strings.alerts.modOutdatedMessage(channels.joinToString()) },
         restatesWholeSet = true,
       ),
       KeyedAlertRule(
         id = TERMINAL_OUTDATED_ID,
         severity = AlertSeverity.Warning,
-        title = "TERMINAL OUTDATED",
-        activeEntities = { channels(it, ModFormat.Mismatch.TerminalOutdated) },
-        message = { "Update VDTerminal. Newer format than this terminal reads: ${it.joinToString()}" },
+        title = { it.alerts.terminalOutdated },
+        activeEntities = { _, inputs -> channels(inputs, ModFormat.Mismatch.TerminalOutdated) },
+        message = { strings, channels -> strings.alerts.terminalOutdatedMessage(channels.joinToString()) },
         restatesWholeSet = true,
       ),
     )

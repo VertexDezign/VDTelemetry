@@ -2,6 +2,7 @@ package net.vertexdezign.vdt.app.alerts
 
 import net.vertexdezign.vdt.app.apps.TasksApp
 import net.vertexdezign.vdt.app.apps.VehicleApp
+import net.vertexdezign.vdt.app.i18n.de.German
 import net.vertexdezign.vdt.model.Environment
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.Motor
@@ -24,8 +25,8 @@ class AlertEngineTest {
       ThresholdAlertRule(
         id = "test.low",
         severity = AlertSeverity.Warning,
-        title = "LOW",
-        message = { "at ${it.fuel}%" },
+        title = { "LOW" },
+        message = { _, data -> "at ${data.fuel}%" },
         enter = { data -> data.fuel?.let { it <= 10 } == true },
         exit = { data -> data.fuel?.let { it > 15 } == true },
       ),
@@ -185,6 +186,14 @@ class AlertEngineTest {
     assertEquals(0, engine.process(AlertInputs()).size)
     assertEquals(1, engine.active.value.size)
     assertEquals(0, engine.process(taskData("a" to "Feed cows")).size)
+  }
+
+  @Test
+  fun writesTheMessageInTheLanguageItIsGiven() {
+    val engine = AlertEngine(VehicleApp.alerts) { German }
+    val raised = engine.process(fuelData(10)).single()
+    assertEquals("Diesel bei 10%", raised.message)
+    assertEquals("WENIG DIESEL", raised.rule.title(German))
   }
 }
 

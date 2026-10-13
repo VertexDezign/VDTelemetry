@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.i18n.de
 
+import net.vertexdezign.vdt.app.i18n.AlertsStrings
 import net.vertexdezign.vdt.app.i18n.AnimalsStrings
 import net.vertexdezign.vdt.app.i18n.AppTitles
 import net.vertexdezign.vdt.app.i18n.AutoDriveStrings
@@ -69,4 +70,5 @@ object German : Strings {
   override val loader: LoaderStrings = DeLoader
   override val section: SectionStrings = DeSection
   override val map: MapStrings = DeMap
+  override val alerts: AlertsStrings = DeAlerts
 }

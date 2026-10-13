@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.alerts
 
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldStatuses
 import net.vertexdezign.vdt.model.MapData
@@ -41,8 +42,8 @@ sealed interface AlertRule {
   val id: String
   val severity: AlertSeverity
 
-  /** Short headline, e.g. "LOW FUEL". */
-  val title: String
+  /** Short headline, e.g. "LOW FUEL", in the language asked for — read at display time, so it follows a switch. */
+  val title: (Strings) -> String
 }
 
 /**
@@ -54,9 +55,9 @@ sealed interface AlertRule {
 class ThresholdAlertRule(
   override val id: String,
   override val severity: AlertSeverity,
-  override val title: String,
+  override val title: (Strings) -> String,
   /** Detail line, built at raise time so it can quote the offending value. */
-  val message: (AlertInputs) -> String,
+  val message: (Strings, AlertInputs) -> String,
   val enter: (AlertInputs) -> Boolean,
   val exit: (AlertInputs) -> Boolean,
 ) : AlertRule
@@ -75,9 +76,10 @@ class ThresholdAlertRule(
 class KeyedAlertRule(
   override val id: String,
   override val severity: AlertSeverity,
-  override val title: String,
-  val activeEntities: (AlertInputs) -> Map<String, String>?,
-  val message: (List<String>) -> String,
+  override val title: (Strings) -> String,
+  /** Labels in [Strings]' language; the keys are what the edge detection runs on, so they stay neutral. */
+  val activeEntities: (Strings, AlertInputs) -> Map<String, String>?,
+  val message: (Strings, List<String>) -> String,
   val restatesWholeSet: Boolean = false,
 ) : AlertRule
 

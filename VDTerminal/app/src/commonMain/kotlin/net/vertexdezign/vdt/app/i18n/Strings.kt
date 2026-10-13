@@ -50,6 +50,7 @@ interface Strings {
   val loader: LoaderStrings
   val section: SectionStrings
   val map: MapStrings
+  val alerts: AlertsStrings
 }
 
 /** The languages the terminal has a catalogue for. */
