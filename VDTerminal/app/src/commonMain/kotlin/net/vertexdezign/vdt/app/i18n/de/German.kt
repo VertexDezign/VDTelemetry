@@ -19,6 +19,7 @@ import net.vertexdezign.vdt.app.i18n.Language
 import net.vertexdezign.vdt.app.i18n.LauncherStrings
 import net.vertexdezign.vdt.app.i18n.LoaderStrings
 import net.vertexdezign.vdt.app.i18n.LoansStrings
+import net.vertexdezign.vdt.app.i18n.MapStrings
 import net.vertexdezign.vdt.app.i18n.MarketStrings
 import net.vertexdezign.vdt.app.i18n.MissionsStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
@@ -67,4 +68,5 @@ object German : Strings {
   override val combine: CombineStrings = DeCombine
   override val loader: LoaderStrings = DeLoader
   override val section: SectionStrings = DeSection
+  override val map: MapStrings = DeMap
 }

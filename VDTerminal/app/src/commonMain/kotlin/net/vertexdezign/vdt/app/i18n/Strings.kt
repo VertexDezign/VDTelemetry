@@ -49,6 +49,7 @@ interface Strings {
   val combine: CombineStrings
   val loader: LoaderStrings
   val section: SectionStrings
+  val map: MapStrings
 }
 
 /** The languages the terminal has a catalogue for. */
