@@ -127,3 +127,9 @@ footer p { margin: 0 0 8px; }
   .feature:nth-child(even) .text { order: 0; }
   section { padding: 40px 0; }
 }
+
+/* A linked mod name: the arrow, not only the colour, says it leads somewhere. */
+.mod-group li a { color: var(--text); text-decoration: none; }
+.mod-group li a:hover { text-decoration: underline; }
+.ext { width: 0.8em; height: 0.8em; margin-left: 5px; vertical-align: -1px; fill: var(--text-2); }
+.mod-group li a:hover .ext { fill: var(--green); }
