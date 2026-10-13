@@ -31,6 +31,8 @@ interface Strings {
   val animals: AnimalsStrings
   val storage: StorageStrings
   val production: ProductionStrings
+  val missions: MissionsStrings
+  val calendar: CalendarStrings
 }
 
 /** The languages the terminal has a catalogue for. */

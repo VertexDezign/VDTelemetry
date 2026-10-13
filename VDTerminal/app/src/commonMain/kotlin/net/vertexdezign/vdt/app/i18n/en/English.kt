@@ -2,11 +2,13 @@ package net.vertexdezign.vdt.app.i18n.en
 
 import net.vertexdezign.vdt.app.i18n.AnimalsStrings
 import net.vertexdezign.vdt.app.i18n.AppTitles
+import net.vertexdezign.vdt.app.i18n.CalendarStrings
 import net.vertexdezign.vdt.app.i18n.CommonStrings
 import net.vertexdezign.vdt.app.i18n.DisplayStrings
 import net.vertexdezign.vdt.app.i18n.FleetStrings
 import net.vertexdezign.vdt.app.i18n.Language
 import net.vertexdezign.vdt.app.i18n.LauncherStrings
+import net.vertexdezign.vdt.app.i18n.MissionsStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.i18n.ProductionStrings
 import net.vertexdezign.vdt.app.i18n.SettingsStrings
@@ -28,4 +30,6 @@ object English : Strings {
   override val animals: AnimalsStrings = EnAnimals
   override val storage: StorageStrings = EnStorage
   override val production: ProductionStrings = EnProduction
+  override val missions: MissionsStrings = EnMissions
+  override val calendar: CalendarStrings = EnCalendar
 }

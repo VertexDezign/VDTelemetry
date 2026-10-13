@@ -1,5 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.de.German
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Mission
 import net.vertexdezign.vdt.model.MissionFinishState
@@ -40,29 +42,29 @@ class MissionsPanelTest {
 
   @Test
   fun anOfferedContractCountsDownToItsDeadline() {
-    assertEquals("2d 4h", statusLine(mission(minutesLeft = 2 * 1440 + 4 * 60)))
-    assertEquals("3h", statusLine(mission(minutesLeft = 200)))
-    assertEquals("45m", statusLine(mission(minutesLeft = 45)))
-    assertEquals("expired", statusLine(mission(minutesLeft = 0)))
+    assertEquals("2d 4h", statusLine(English, mission(minutesLeft = 2 * 1440 + 4 * 60)))
+    assertEquals("3h", statusLine(English, mission(minutesLeft = 200)))
+    assertEquals("45m", statusLine(English, mission(minutesLeft = 45)))
+    assertEquals("expired", statusLine(English, mission(minutesLeft = 0)))
   }
 
   @Test
   fun aRunningContractShowsHowFarAlongItIs() {
-    assertEquals("42%", statusLine(mission(status = MissionStatus.RUNNING, completion = 0.4237f)))
+    assertEquals("42%", statusLine(English, mission(status = MissionStatus.RUNNING, completion = 0.4237f)))
     // Accepted but not yet under way: the engine has no completion for it, and the countdown is not
     // the answer to "how is it going".
-    assertEquals("Preparing", statusLine(mission(status = MissionStatus.PREPARING, minutesLeft = 600)))
+    assertEquals("Preparing", statusLine(English, mission(status = MissionStatus.PREPARING, minutesLeft = 600)))
   }
 
   @Test
   fun aFinishedContractSaysHowItEnded() {
     val done = MissionStatus.FINISHED
-    assertEquals("Done", statusLine(mission(done, MissionFinishState.SUCCESS)))
-    assertEquals("Failed", statusLine(mission(done, MissionFinishState.FAILED)))
-    assertEquals("Timed out", statusLine(mission(done, MissionFinishState.TIMED_OUT)))
-    assertEquals("Cancelled", statusLine(mission(done, MissionFinishState.CANCELED)))
+    assertEquals("Done", statusLine(English, mission(done, MissionFinishState.SUCCESS)))
+    assertEquals("Failed", statusLine(English, mission(done, MissionFinishState.FAILED)))
+    assertEquals("Timed out", statusLine(English, mission(done, MissionFinishState.TIMED_OUT)))
+    assertEquals("Cancelled", statusLine(English, mission(done, MissionFinishState.CANCELED)))
     // The outcome outranks the clock: a contract that ran out of time reads "Timed out", not "expired".
-    assertEquals("Timed out", statusLine(mission(done, MissionFinishState.TIMED_OUT, minutesLeft = 0)))
+    assertEquals("Timed out", statusLine(English, mission(done, MissionFinishState.TIMED_OUT, minutesLeft = 0)))
   }
 
   @Test
@@ -249,11 +251,19 @@ class MissionsPanelTest {
 
   @Test
   fun moneyReadsAsMoney() {
-    assertEquals("5,400", money(5400))
-    assertEquals("980", money(980))
-    assertEquals("1,234,567", money(1234567))
-    assertEquals("0", money(0))
+    assertEquals("5,400", English.numbers.integer(5400))
+    assertEquals("980", English.numbers.integer(980))
+    assertEquals("1,234,567", English.numbers.integer(1234567))
+    assertEquals("0", English.numbers.integer(0))
     // A collected contract can pay out less than nothing once the leased machines are paid for.
-    assertEquals("-1,200", money(-1200))
+    assertEquals("-1,200", English.numbers.integer(-1200))
+  }
+
+  @Test
+  fun speaksGerman() {
+    assertEquals("2 T 4 h", statusLine(German, mission(minutesLeft = 2 * 1440 + 4 * 60)))
+    assertEquals("45 min", statusLine(German, mission(minutesLeft = 45)))
+    assertEquals("Abgelaufen", statusLine(German, mission(MissionStatus.FINISHED, MissionFinishState.TIMED_OUT)))
+    assertEquals("1.234.567", German.numbers.integer(1234567))
   }
 }

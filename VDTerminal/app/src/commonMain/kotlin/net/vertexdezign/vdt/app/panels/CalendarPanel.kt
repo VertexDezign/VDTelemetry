@@ -51,6 +51,8 @@ import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.FilterChip
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CalendarCrop
 import net.vertexdezign.vdt.model.CropCalendarData
@@ -71,9 +73,10 @@ import net.vertexdezign.vdt.model.periodRuns
  */
 @Composable
 fun CalendarPanel(calendar: CropCalendarData?, weather: WeatherForecastData?, modifier: Modifier = Modifier) {
-  Panel(title = "Calendar", icon = Icons.Filled.CalendarMonth, modifier = modifier) {
+  val strings = LocalStrings.current
+  Panel(title = strings.apps.calendar, icon = Icons.Filled.CalendarMonth, modifier = modifier) {
     if (calendar == null && weather == null) {
-      Centered("Waiting for calendar data…")
+      Centered(strings.calendar.waiting)
       return@Panel
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -87,9 +90,10 @@ fun CalendarPanel(calendar: CropCalendarData?, weather: WeatherForecastData?, mo
 
 @Composable
 private fun CropCalendarSection(data: CropCalendarData?, modifier: Modifier = Modifier) {
+  val s = LocalStrings.current.calendar
   if (data == null || data.crops.isEmpty()) {
     Box(modifier.fillMaxWidth()) {
-      Centered(if (data == null) "Waiting for the crop calendar…" else "No crops on this map")
+      Centered(if (data == null) s.waitingCrops else s.noCrops)
     }
     return
   }
@@ -116,14 +120,14 @@ private fun CropCalendarSection(data: CropCalendarData?, modifier: Modifier = Mo
     ) {
       SearchField(
         value = query,
-        placeholder = "Search crop…",
+        placeholder = s.search,
         onValueChange = { query = it },
         modifier = Modifier.width(180.dp),
       )
       // The counts sit in the labels so the answer is there without clicking: the whole reason to
       // open this screen is usually just "how many can I sow today".
-      FilterChip("Sow now ($sowable)", sowNow, { sowNow = !sowNow })
-      FilterChip("Harvest now ($harvestable)", harvestNow, { harvestNow = !harvestNow })
+      FilterChip(s.sowNow(sowable), sowNow, { sowNow = !sowNow })
+      FilterChip(s.harvestNow(harvestable), harvestNow, { harvestNow = !harvestNow })
       Spacer(Modifier.weight(1f))
       Legend()
     }
@@ -135,7 +139,7 @@ private fun CropCalendarSection(data: CropCalendarData?, modifier: Modifier = Mo
     }
 
     if (rows.isEmpty()) {
-      Box(Modifier.fillMaxWidth().weight(1f)) { Centered("No crops match") }
+      Box(Modifier.fillMaxWidth().weight(1f)) { Centered(s.noMatch) }
       return@Column
     }
 
@@ -229,7 +233,7 @@ private fun CalendarHeader(data: CropCalendarData, periodWidth: Dp, gridWidth: D
           contentAlignment = Alignment.Center,
         ) {
           Text(
-            seasonLabel(byPeriod[season * SEASON_PERIODS + 1]?.season ?: ""),
+            seasonLabel(LocalStrings.current, byPeriod[season * SEASON_PERIODS + 1]?.season ?: ""),
             fontSize = 8.sp,
             fontWeight = FontWeight.Bold,
             color = VdtColors.DarkGray,
@@ -311,12 +315,17 @@ private fun CropNameCell(
         // Every ink on a selected row is TextDark: DarkGray reads at only 3.9:1 on the selection
         // wash, under AA. Quiet-vs-loud inside the row is carried by weight and size instead, which
         // is what the palette asks for anyway (see VdtColors) — never by a paler grey.
-        Text("Cover crop", fontSize = 8.sp, color = rowInk(selected, quiet = true), maxLines = 1)
+        Text(
+          LocalStrings.current.calendar.coverCrop,
+          fontSize = 8.sp,
+          color = rowInk(selected, quiet = true),
+          maxLines = 1,
+        )
       }
     }
     Column(verticalArrangement = Arrangement.spacedBy(LANE_GAP)) {
-      LaneKey("S", currentPeriod in crop.plant, selected)
-      LaneKey("H", currentPeriod in crop.harvest, selected)
+      LaneKey(LocalStrings.current.calendar.sowKey, currentPeriod in crop.plant, selected)
+      LaneKey(LocalStrings.current.calendar.harvestKey, currentPeriod in crop.harvest, selected)
     }
   }
 }
@@ -444,8 +453,8 @@ private fun DrawScope.drawTodayLine(fraction: Float, color: Color) {
 @Composable
 private fun Legend() {
   Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-    LegendEntry("Sow", VdtColors.Green, RectangleShape)
-    LegendEntry("Harvest", VdtColors.ProgressBlue, RoundedCornerShape(percent = 50))
+    LegendEntry(LocalStrings.current.calendar.sow, VdtColors.Green, RectangleShape)
+    LegendEntry(LocalStrings.current.calendar.harvest, VdtColors.ProgressBlue, RoundedCornerShape(percent = 50))
   }
 }
 
@@ -460,7 +469,7 @@ private fun LegendEntry(label: String, color: Color, shape: Shape) {
 @Composable
 private fun GrowthModeBanner(growthMode: String) {
   Text(
-    growthModeNotice(growthMode),
+    growthModeNotice(LocalStrings.current, growthMode),
     fontSize = 10.sp,
     color = VdtColors.TextDark,
     modifier = Modifier
@@ -483,7 +492,7 @@ private fun WeatherSection(data: WeatherForecastData?, modifier: Modifier = Modi
       .background(VdtColors.Surface.copy(alpha = 0.6f)),
   ) {
     if (data == null) {
-      Centered("Waiting for the forecast…")
+      Centered(LocalStrings.current.calendar.waitingForecast)
       return@Box
     }
     // The three blocks scroll as one strip rather than shrinking: a forecast that has squeezed its
@@ -512,9 +521,10 @@ private fun WeatherSection(data: WeatherForecastData?, modifier: Modifier = Modi
  */
 @Composable
 fun WeatherSummary(data: WeatherForecastData?, modifier: Modifier = Modifier) {
-  Panel(title = "Weather", icon = WeatherIcons.PartiallyCloudy, modifier = modifier) {
+  val strings = LocalStrings.current
+  Panel(title = strings.calendar.weather, icon = WeatherIcons.PartiallyCloudy, modifier = modifier) {
     if (data == null) {
-      Centered("Waiting for the forecast…")
+      Centered(strings.calendar.waitingForecast)
       return@Panel
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -534,6 +544,7 @@ fun WeatherSummary(data: WeatherForecastData?, modifier: Modifier = Modifier) {
 
 @Composable
 private fun NowBlock(data: WeatherForecastData) {
+  val strings = LocalStrings.current
   val now: ForecastNow? = data.current
   Row(
     Modifier.fillMaxHeight(),
@@ -543,14 +554,14 @@ private fun NowBlock(data: WeatherForecastData) {
     if (now != null) {
       Icon(
         WeatherIcons.of(now.kind),
-        contentDescription = WeatherIcons.labelOf(now.kind),
+        contentDescription = WeatherIcons.labelOf(strings, now.kind),
         tint = VdtColors.TextDark,
         modifier = Modifier.size(NOW_ICON_SIZE),
       )
     }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
       Text(
-        (data.today?.label ?: "Today").uppercase(),
+        (data.today?.label ?: strings.calendar.today).uppercase(),
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
         color = VdtColors.DarkGray,
@@ -563,10 +574,10 @@ private fun NowBlock(data: WeatherForecastData) {
           fontWeight = FontWeight.Bold,
           color = VdtColors.TextDark,
         )
-        Text(WeatherIcons.labelOf(now.kind), fontSize = 10.sp, color = VdtColors.DarkGray, maxLines = 1)
+        Text(WeatherIcons.labelOf(strings, now.kind), fontSize = 10.sp, color = VdtColors.DarkGray, maxLines = 1)
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
           WindVane(now.windDirection, 12.dp)
-          Text("Bft ${now.windBeaufort}", fontSize = 10.sp, color = VdtColors.DarkGray, maxLines = 1)
+          Text(strings.calendar.beaufort(now.windBeaufort), fontSize = 10.sp, color = VdtColors.DarkGray, maxLines = 1)
         }
       }
     }
@@ -575,6 +586,7 @@ private fun NowBlock(data: WeatherForecastData) {
 
 @Composable
 private fun HourBlock(hour: ForecastHour, unit: String) {
+  val strings = LocalStrings.current
   Column(
     Modifier.width(FORECAST_COLUMN_WIDTH).fillMaxHeight(),
     horizontalAlignment = Alignment.CenterHorizontally,
@@ -583,7 +595,7 @@ private fun HourBlock(hour: ForecastHour, unit: String) {
     Text(formatHour(hour.hour), fontSize = 9.sp, color = VdtColors.DarkGray, maxLines = 1)
     Icon(
       WeatherIcons.of(hour.kind),
-      contentDescription = WeatherIcons.labelOf(hour.kind),
+      contentDescription = WeatherIcons.labelOf(strings, hour.kind),
       tint = VdtColors.TextDark,
       modifier = Modifier.size(FORECAST_ICON_SIZE).padding(vertical = 2.dp),
     )
@@ -603,6 +615,7 @@ private fun HourBlock(hour: ForecastHour, unit: String) {
 
 @Composable
 private fun DayBlock(day: ForecastDay, unit: String) {
+  val strings = LocalStrings.current
   Column(
     Modifier.width(FORECAST_COLUMN_WIDTH).fillMaxHeight(),
     horizontalAlignment = Alignment.CenterHorizontally,
@@ -611,7 +624,7 @@ private fun DayBlock(day: ForecastDay, unit: String) {
     Text(day.label.uppercase(), fontSize = 9.sp, color = VdtColors.DarkGray, maxLines = 1)
     Icon(
       WeatherIcons.of(day.kind),
-      contentDescription = WeatherIcons.labelOf(day.kind),
+      contentDescription = WeatherIcons.labelOf(strings, day.kind),
       tint = VdtColors.TextDark,
       modifier = Modifier.size(FORECAST_ICON_SIZE).padding(vertical = 2.dp),
     )
@@ -634,7 +647,7 @@ private fun DayBlock(day: ForecastDay, unit: String) {
 internal fun WindVane(windDirection: Int, size: Dp) {
   Icon(
     WeatherIcons.WindArrow,
-    contentDescription = "Wind from $windDirection°",
+    contentDescription = LocalStrings.current.calendar.windFrom(windDirection),
     tint = VdtColors.DarkGray,
     modifier = Modifier.size(size).rotate(windArrowRotation(windDirection)),
   )
@@ -687,19 +700,19 @@ internal fun formatHour(hour: Int): String = "${hour.toString().padStart(2, '0')
  */
 internal fun windArrowRotation(windDirection: Int): Float = (180 - windDirection).mod(360).toFloat()
 
-internal fun seasonLabel(season: String): String = when (season) {
-  "SPRING" -> "Spring"
-  "SUMMER" -> "Summer"
-  "AUTUMN" -> "Autumn"
-  "WINTER" -> "Winter"
+internal fun seasonLabel(strings: Strings, season: String): String = when (season) {
+  "SPRING" -> strings.calendar.spring
+  "SUMMER" -> strings.calendar.summer
+  "AUTUMN" -> strings.calendar.autumn
+  "WINTER" -> strings.calendar.winter
   else -> season
 }
 
 /** What the banner says when the savegame is not on seasonal growth. */
-internal fun growthModeNotice(growthMode: String): String = when (growthMode) {
-  "DAILY" -> "Growth is set to Daily — every crop can be sown and harvested in any period."
-  "DISABLED" -> "Growth is disabled — every crop can be sown and harvested in any period."
-  else -> "This savegame is not on seasonal growth — every crop can be sown and harvested in any period."
+internal fun growthModeNotice(strings: Strings, growthMode: String): String = when (growthMode) {
+  "DAILY" -> strings.calendar.growthDaily
+  "DISABLED" -> strings.calendar.growthDisabled
+  else -> strings.calendar.growthOther
 }
 
 /** Whether the crop row at [index] carries the guidance shade. */
