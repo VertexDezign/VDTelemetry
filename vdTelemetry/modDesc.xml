@@ -12,22 +12,76 @@
   </title>
   <description>
     <en>
-      <![CDATA[Exports live game state - vehicle, map, productions, animals, contracts, finances - to JSON files that external dashboards can read, and takes commands back so a dashboard can operate the machine and the farm.
+      <![CDATA[VDTelemetry turns a tablet, phone or second screen into a terminal for your farm.
 
-Pair it with VDTerminal, which turns that into a live dashboard in any browser: on this PC, or on a tablet or phone in the cab.
+The mod exports the live game state to files that the free companion app VDTerminal reads and shows as a live dashboard in any browser - on this PC, or on a tablet or phone on your home network. It works both ways: the dashboard can also operate the machine and the farm.
 
-Requires FS25_additionalInputs.
+What you get:
+- Machine: speed, engine, fuel, lights, cruise control, steering assist and the attached implements, with screens for sprayers, spreaders, combines, balers, mixer wagons and front loaders
+- Map: fields, vehicles, points of interest and the game's ground layers
+- Farm: fields, productions, storage, animals, fleet, contracts, market prices, crop calendar, weather and finances
+- Commands: switch lights, implements and cruise control, accept contracts, unload from storage, manage loans and more
 
-Download and setup guide: https://github.com/VertexDezign/VDTelemetry]]>
+Supported mods and DLCs (all optional, used when installed):
+- Precision Farming
+- Pumps & Hoses Pack (biogas plants)
+- AutoDrive
+- Advanced Damage System
+- CombineXP
+- Crop Rotation
+- Enhanced Loan System
+- Enhanced Vehicle
+- Invoices
+- More Vehicle Controls
+- Task List
+- Vehicle Speed Sync
+
+Build your own:
+VDTerminal is just one way to use the data. Everything is written as plain JSON files to modSettings/FS25_vdTelemetry/telemetry, and commands are read back from a simple XML file - so your own dashboard, stream overlay, button box or home cockpit can use them too. The data format is documented on GitHub, with example files.
+
+Requires: Additional Inputs (FS25_additionalInputs)
+
+Download VDTerminal, setup guide and data format:
+https://github.com/VertexDezign/VDTelemetry
+
+Please report bugs, ideas and other feedback on GitHub:
+https://github.com/VertexDezign/VDTelemetry/issues]]>
     </en>
     <de>
-      <![CDATA[Exportiert den laufenden Spielzustand - Fahrzeug, Karte, Produktionen, Tiere, Verträge, Finanzen - in JSON-Dateien, die externe Dashboards lesen können, und nimmt Befehle entgegen, damit ein Dashboard Maschine und Hof auch bedienen kann.
+      <![CDATA[VDTelemetry macht ein Tablet, Handy oder einen zweiten Bildschirm zum Terminal für deinen Hof.
 
-Zusammen mit VDTerminal wird daraus ein Live-Dashboard in jedem Browser: auf diesem PC oder auf einem Tablet oder Handy in der Kabine.
+Der Mod exportiert den laufenden Spielzustand in Dateien, die die kostenlose Begleit-App VDTerminal liest und als Live-Dashboard in jedem Browser anzeigt - auf diesem PC oder auf einem Tablet oder Handy im Heimnetz. Das geht in beide Richtungen: Über das Dashboard lassen sich Maschine und Hof auch bedienen.
 
-Benötigt FS25_additionalInputs.
+Was du bekommst:
+- Maschine: Geschwindigkeit, Motor, Tank, Licht, Tempomat, Lenkhilfe und die angehängten Geräte, mit eigenen Ansichten für Spritzen, Streuer, Mähdrescher, Pressen, Futtermischwagen und Frontlader
+- Karte: Felder, Fahrzeuge, Points of Interest und die Bodenebenen des Spiels
+- Hof: Felder, Produktionen, Lager, Tiere, Fuhrpark, Aufträge, Marktpreise, Anbaukalender, Wetter und Finanzen
+- Befehle: Licht, Geräte und Tempomat schalten, Aufträge annehmen, aus Lagern entladen, Kredite verwalten und mehr
 
-Download und Anleitung: https://github.com/VertexDezign/VDTelemetry]]>
+Unterstützte Mods und DLCs (alle optional, genutzt wenn installiert):
+- Precision Farming
+- Pumps & Hoses Pack (Biogasanlagen)
+- AutoDrive
+- Advanced Damage System
+- CombineXP
+- Crop Rotation
+- Enhanced Loan System
+- Enhanced Vehicle
+- Invoices
+- More Vehicle Controls
+- Task List
+- Vehicle Speed Sync
+
+Bau dein eigenes:
+VDTerminal ist nur eine Möglichkeit, die Daten zu nutzen. Alles wird als einfache JSON-Dateien nach modSettings/FS25_vdTelemetry/telemetry geschrieben, und Befehle werden aus einer einfachen XML-Datei zurückgelesen - so kann auch dein eigenes Dashboard, Stream-Overlay, Button-Box oder Heim-Cockpit damit arbeiten. Das Datenformat ist auf GitHub dokumentiert, mit Beispieldateien.
+
+Benötigt: Additional Inputs (FS25_additionalInputs)
+
+VDTerminal, Anleitung und Datenformat:
+https://github.com/VertexDezign/VDTelemetry
+
+Fehler, Ideen und anderes Feedback bitte auf GitHub melden:
+https://github.com/VertexDezign/VDTelemetry/issues]]>
     </de>
   </description>
   <iconFilename>icon_vdTelemetry.png</iconFilename>
