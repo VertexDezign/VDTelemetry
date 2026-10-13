@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Implement
@@ -128,7 +129,7 @@ fun SectionView(
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(status.color(VdtColors.palette)))
         Text(
-          status.label,
+          status.label(LocalStrings.current),
           fontSize = 9.sp,
           fontWeight = FontWeight.Bold,
           color = VdtColors.DarkGray,
@@ -384,7 +385,7 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue, onCommand: ((Clien
 private fun RateModeControls(pf: PrecisionFarming, manual: PfManual?, onCommand: ((ClientMessage) -> Unit)?) {
   Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
     if (manual != null) {
-      StepButton(Icons.Filled.Remove, "lower the application rate", manual.canStep(-1), onCommand) {
+      StepButton(Icons.Filled.Remove, LocalStrings.current.section.lowerRate, manual.canStep(-1), onCommand) {
         ClientMessage.SetSprayAmountStep(manual.stepped(-1))
       }
     }
@@ -411,7 +412,7 @@ private fun RateModeControls(pf: PrecisionFarming, manual: PfManual?, onCommand:
         .padding(horizontal = 3.dp, vertical = 1.dp),
     )
     if (manual != null) {
-      StepButton(Icons.Filled.Add, "raise the application rate", manual.canStep(1), onCommand) {
+      StepButton(Icons.Filled.Add, LocalStrings.current.section.raiseRate, manual.canStep(1), onCommand) {
         ClientMessage.SetSprayAmountStep(manual.stepped(1))
       }
     }
@@ -471,7 +472,7 @@ private fun SpotReadout(nozzles: PfNozzles, live: Boolean) {
       color = if (live) VdtColors.ProgressBlue else VdtColors.DarkGray,
     )
     Text(
-      if (live) "${(nozzles.saved * 100f).roundToInt()}% saved" else "—",
+      if (live) LocalStrings.current.section.saved((nozzles.saved * 100f).roundToInt()) else "—",
       fontSize = READOUT_TEXT_SIZE,
       fontWeight = FontWeight.Bold,
       overflow = TextOverflow.Ellipsis,
@@ -483,7 +484,7 @@ private fun SpotReadout(nozzles: PfNozzles, live: Boolean) {
     )
     if (live) {
       Text(
-        "${(nozzles.fraction * 100f).roundToInt()}% rate",
+        LocalStrings.current.section.rate((nozzles.fraction * 100f).roundToInt()),
         fontSize = 9.sp,
         color = VdtColors.DarkGray,
         maxLines = 1,
@@ -603,7 +604,17 @@ private const val MIN_SLICE_FILL = 0.2f
  * a lamp with and the wrong thing to lay a row out with: a spot sprayer over clean crop, or any tool
  * passing over ground it already worked, flips it several times a second.
  */
-internal data class WorkStatus(val label: String, val active: Boolean, val working: Boolean) {
+internal data class WorkStatus(val type: String?, val active: Boolean, val working: Boolean) {
+  /** The status line: the tool's job and what it is doing, e.g. `Cultivator · working`. */
+  fun label(strings: Strings): String {
+    val tool = type ?: strings.section.tool
+    return when {
+      working -> strings.section.working(tool)
+      active -> strings.section.ready(tool)
+      else -> strings.section.off(tool)
+    }
+  }
+
   /** The status dot's colour: green working, amber ready, disabled off. A second cue — [label] says it. */
   fun color(palette: VdtPalette): Color = when {
     working -> palette.green
@@ -626,13 +637,7 @@ internal fun workAreaStatus(areas: List<WorkArea>): WorkStatus? {
   val type = areas.firstOrNull { it.type != null }?.type?.lowercase()?.replaceFirstChar { it.uppercase() }
   val working = areas.count { it.processing }
   val active = areas.count { it.active }
-  val label =
-    when {
-      working > 0 -> "${type ?: "Tool"} · working"
-      active > 0 -> "${type ?: "Tool"} · ready"
-      else -> "${type ?: "Tool"} · off"
-    }
-  return WorkStatus(label, active = active > 0, working = working > 0)
+  return WorkStatus(type, active = active > 0, working = working > 0)
 }
 
 /**
@@ -931,7 +936,7 @@ private fun arrowGlyph(tint: Color) = InlineTextContent(
 ) {
   Icon(
     Icons.AutoMirrored.Filled.ArrowRightAlt,
-    contentDescription = "to",
+    contentDescription = LocalStrings.current.section.to,
     tint = tint,
     modifier = Modifier.fillMaxSize(),
   )

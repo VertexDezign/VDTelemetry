@@ -50,6 +50,7 @@ import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.ProgressBar
 import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_combine
 import net.vertexdezign.vdt.app.resources.isobus_forage_harvester
@@ -306,7 +307,7 @@ internal fun CombineSection(
         }
       }
 
-      BottomStrip(rig, strawRefusal(rig.harvest), Modifier.fillMaxWidth())
+      BottomStrip(rig, strawRefusal(LocalStrings.current, rig.harvest), Modifier.fillMaxWidth())
     }
   }
 }
@@ -326,7 +327,7 @@ internal fun CombineSection(
 internal fun RowScope.HarvestChip(rig: CombineRig) {
   val harvest = rig.harvest
   val filling = harvest?.filling == true
-  val name = rig.cutter?.title ?: harvest?.title ?: harvest?.fruitType ?: "Idle"
+  val name = rig.cutter?.title ?: harvest?.title ?: harvest?.fruitType ?: LocalStrings.current.combine.idle
   val tint = if (filling) VdtColors.AccentText else VdtColors.DarkGray
   Icon(
     if (filling) Icons.Filled.ArrowDownward else Icons.Filled.Pause,
@@ -355,12 +356,13 @@ private fun CropFigure(rig: CombineRig, compact: Boolean) {
   val title = rig.cutter?.title ?: harvest?.title
   val fill = rig.cutter?.fillType ?: harvest?.fillType
   val converted = fruit != null && fill != null && fruit != fill
+  val s = LocalStrings.current.combine
   Figure(
-    label = "Crop",
+    label = s.crop,
     value = title ?: fruit ?: "—",
     // The conversion is the first thing to go on a short tile: the material in the tank is named
     // either way, and what it was cut from is context rather than a reading.
-    sub = if (converted && !compact) "from $fruit" else null,
+    sub = if (converted && !compact) s.from(fruit) else null,
     compact = compact,
   )
 }
@@ -378,6 +380,7 @@ private fun CropFigure(rig: CombineRig, compact: Boolean) {
 @Composable
 private fun CropColumn(rig: CombineRig, compact: Boolean, modifier: Modifier = Modifier) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.combine
   val harvest = rig.harvest
   Column(
     modifier,
@@ -389,9 +392,9 @@ private fun CropColumn(rig: CombineRig, compact: Boolean, modifier: Modifier = M
     CropFigure(rig, compact)
     harvest?.hectares?.let { total ->
       Figure(
-        "Worked",
+        s.worked,
         "${numbers.fixed(total.toFloat(), 2)} ha",
-        harvest.hectaresSession?.takeIf { !compact }?.let { "+${numbers.fixed(it.toFloat(), 2)} this session" },
+        harvest.hectaresSession?.takeIf { !compact }?.let { s.thisSession(numbers.fixed(it.toFloat(), 2)) },
         compact,
       )
     }
@@ -421,9 +424,9 @@ private fun CropColumn(rig: CombineRig, compact: Boolean, modifier: Modifier = M
 private fun FlowChip(rig: CombineRig) {
   val harvest = rig.harvest ?: return
   if (harvest.filling) {
-    Chip(Icons.Filled.ArrowDownward, "Filling", VdtColors.AccentText)
+    Chip(Icons.Filled.ArrowDownward, LocalStrings.current.combine.filling, VdtColors.AccentText)
   } else {
-    Chip(Icons.Filled.Pause, "No flow", VdtColors.DarkGray)
+    Chip(Icons.Filled.Pause, LocalStrings.current.combine.noFlow, VdtColors.DarkGray)
   }
 }
 
@@ -441,8 +444,8 @@ private fun FlowChip(rig: CombineRig) {
 @Composable
 private fun RainChip(harvest: Harvest?) {
   when {
-    harvest?.rainBlocked == true -> Chip(WeatherIcons.Rain, "Rain — stopped", VdtColors.Red)
-    harvest?.rainWarning == true -> Chip(WeatherIcons.Rain, "Rain coming", VdtColors.Amber)
+    harvest?.rainBlocked == true -> Chip(WeatherIcons.Rain, LocalStrings.current.combine.rainStopped, VdtColors.Red)
+    harvest?.rainWarning == true -> Chip(WeatherIcons.Rain, LocalStrings.current.combine.rainComing, VdtColors.Amber)
     else -> Unit
   }
 }
@@ -451,7 +454,7 @@ private fun RainChip(harvest: Harvest?) {
 @Composable
 private fun MoistureChip(harvest: Harvest?) {
   if (harvest?.combineXp?.highMoisture == true) {
-    Chip(Icons.Filled.WaterDrop, "Damp crop", VdtColors.Amber)
+    Chip(Icons.Filled.WaterDrop, LocalStrings.current.combine.damp, VdtColors.Amber)
   }
 }
 
@@ -551,11 +554,12 @@ private fun MachineArt(rig: CombineRig, modifier: Modifier = Modifier) {
 @Composable
 private fun TankLine(rig: CombineRig) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.combine
   val tank = rig.tank
   if (tank == null) {
     val out = rig.harvest?.title ?: rig.cutter?.title
     Text(
-      if (out != null) "No tank — $out straight out the spout" else "No tank — straight out the spout",
+      if (out != null) s.noTankOut(out) else s.noTank,
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
       maxLines = 1,
@@ -573,7 +577,7 @@ private fun TankLine(rig: CombineRig) {
       maxLines = 1,
     )
     Text(
-      "${numbers.integer(tank.value.roundToInt())} of ${numbers.integer(tank.capacity)} ${tank.unit}",
+      s.ofCapacity(numbers.integer(tank.value.roundToInt()), numbers.integer(tank.capacity), tank.unit),
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
       maxLines = 1,
@@ -603,6 +607,7 @@ private fun WorkColumn(
   modifier: Modifier = Modifier,
 ) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.combine
   val harvest = rig.harvest
   val xp = harvest?.combineXp
   Column(
@@ -612,15 +617,15 @@ private fun WorkColumn(
       Alignment.CenterVertically,
     ),
   ) {
-    xp?.throughput?.let { Figure("Throughput", "${numbers.fixed(it.toFloat(), 2)} t/h", null, compact) }
-    xp?.yield?.let { Figure("Yield", "${numbers.fixed(it.toFloat(), 2)} t/ha", null, compact) }
+    xp?.throughput?.let { Figure(s.throughput, "${numbers.fixed(it.toFloat(), 2)} t/h", null, compact) }
+    xp?.yield?.let { Figure(s.yield, "${numbers.fixed(it.toFloat(), 2)} t/ha", null, compact) }
 
     LoadBar(rig)
 
     // The limiter's own ceiling, and only where it is real: the mod computes it server-side and never
     // streams it, so on a joined client it is absent rather than the load-time default.
     xp?.speedLimit?.let {
-      Chip(Icons.Filled.Speed, "Limit ${numbers.fixed(it.toFloat(), 2)} km/h", VdtColors.DarkGray)
+      Chip(Icons.Filled.Speed, s.limit(numbers.fixed(it.toFloat(), 2)), VdtColors.DarkGray)
     }
 
     StrawControl(harvest, target, onCommand, compact)
@@ -641,9 +646,10 @@ private fun WorkColumn(
 private fun LoadBar(rig: CombineRig) {
   val drum = rig.harvest?.combineXp?.load
   val head = rig.cutter?.load
+  val s = LocalStrings.current.combine
   val (fraction, label) = when {
-    drum != null -> drum.toFloat() to "DRUM"
-    head != null -> head.toFloat() to "HEADER"
+    drum != null -> drum.toFloat() to s.drum
+    head != null -> head.toFloat() to s.header
     else -> return
   }
   ProgressBar(
@@ -695,12 +701,31 @@ private fun StrawControl(
     // The caption goes first on a short tile: the two buttons already say "Swath" and "Chop", which
     // is the only place in this panel where a label repeats what the control under it reads.
     if (!compact) {
-      Text("STRAW", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+      Text(
+        LocalStrings.current.combine.straw,
+        color = VdtColors.DarkGray,
+        fontSize = 9.sp,
+        fontWeight = FontWeight.Bold,
+      )
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-      StrawOption("Swath", Icons.Filled.Grass, harvest.swathActive, send?.let { { it(true) } })
+      StrawOption(
+        LocalStrings.current.combine.swath,
+        Icons.Filled.Grass,
+        harvest.swathActive,
+        send?.let {
+          { it(true) }
+        },
+      )
       if (hasChopper) {
-        StrawOption("Chop", Icons.Filled.ContentCut, !harvest.swathActive, send?.let { { it(false) } })
+        StrawOption(
+          LocalStrings.current.combine.chop,
+          Icons.Filled.ContentCut,
+          !harvest.swathActive,
+          send?.let {
+            { it(false) }
+          },
+        )
       }
     }
   }
@@ -721,10 +746,10 @@ private fun StrawControl(
  * difference between an engine that refuses and an export from before mod version 22 that was never
  * asked, and only the first of those has a reason to give.
  */
-internal fun strawRefusal(harvest: Harvest?): String? {
+internal fun strawRefusal(strings: Strings, harvest: Harvest?): String? {
   if (harvest == null) return null
   if (harvest.swathAvailable != true || harvest.chopperAvailable != true) return null
-  return if (harvest.canToggleSwath == false) "This crop leaves no straw" else null
+  return if (harvest.canToggleSwath == false) strings.combine.noStraw else null
 }
 
 /**
@@ -809,6 +834,7 @@ private fun BottomStrip(rig: CombineRig, note: String?, modifier: Modifier = Mod
 @Composable
 private fun HeaderRow(rig: CombineRig, header: IsoBusMachine, cutter: Cutter, modifier: Modifier = Modifier) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.combine
   FlowRow(
     modifier,
     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -834,22 +860,22 @@ private fun HeaderRow(rig: CombineRig, header: IsoBusMachine, cutter: Cutter, mo
     }
 
     when {
-      cutter.working && cutter.windrow -> Chip(Icons.Filled.Grass, "Picking up", VdtColors.AccentText)
-      cutter.working -> Chip(Icons.Filled.ContentCut, "Cutting", VdtColors.AccentText)
-      cutter.windrow -> Chip(Icons.Filled.Grass, "Windrow pickup", VdtColors.DarkGray)
-      else -> Chip(Icons.Filled.Pause, "Not cutting", VdtColors.DarkGray)
+      cutter.working && cutter.windrow -> Chip(Icons.Filled.Grass, s.pickingUp, VdtColors.AccentText)
+      cutter.working -> Chip(Icons.Filled.ContentCut, s.cutting, VdtColors.AccentText)
+      cutter.windrow -> Chip(Icons.Filled.Grass, s.windrowPickup, VdtColors.DarkGray)
+      else -> Chip(Icons.Filled.Pause, s.notCutting, VdtColors.DarkGray)
     }
 
     // Only where it explains something: a header up and still taking crop looks like a fault in the
     // readout unless the machine is one of the drapers and pickups that declare they may.
     if (cutter.cutWhileRaised && header.lowered == false) {
-      Chip(Icons.Filled.PriorityHigh, "Cuts raised", VdtColors.DarkGray)
+      Chip(Icons.Filled.PriorityHigh, s.cutsRaised, VdtColors.DarkGray)
     }
 
     // What the swath will be made of, and only while there is going to be one — this is a machine
     // constant, and it is the reason two headers on the same field leave different swaths.
     if (rig.harvest?.swathActive == true) {
-      cutter.strawRatio?.let { Chip(Icons.Filled.Grass, "Straw ${(it * 100).roundToInt()}%", VdtColors.DarkGray) }
+      cutter.strawRatio?.let { Chip(Icons.Filled.Grass, s.strawShare((it * 100).roundToInt()), VdtColors.DarkGray) }
     }
   }
 }

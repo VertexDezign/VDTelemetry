@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.model.ControlGroup
 import net.vertexdezign.vdt.model.Cutter
 import net.vertexdezign.vdt.model.DischargeReason
@@ -165,7 +166,7 @@ class IsoBusTest {
   fun everyDischargeRefusalHasWordsOfItsOwn() {
     // A `when` over the enum, so a reason added to the model breaks the build rather than falling
     // through to a default that would show the driver a blank chip at the trough.
-    val phrases = DischargeReason.entries.map { refusalOf(it) }
+    val phrases = DischargeReason.entries.map { refusalOf(English, it) }
     assertEquals(DischargeReason.entries.size, phrases.toSet().size, "each reason gets its own words")
     assertTrue(phrases.none { it.isBlank() })
   }
@@ -342,18 +343,18 @@ class IsoBusTest {
 
     // The one case with an explanation: the machine offers both and the engine still says no, which
     // can only be the crop.
-    assertEquals("This crop leaves no straw", strawRefusal(both.copy(canToggleSwath = false)))
-    assertNull(strawRefusal(both.copy(canToggleSwath = true)))
+    assertEquals("This crop leaves no straw", strawRefusal(English, both.copy(canToggleSwath = false)))
+    assertNull(strawRefusal(English, both.copy(canToggleSwath = true)))
 
     // **Null is not false.** An export from before mod version 22 never answered the question, so the
     // control is inert for want of an answer rather than because the crop was refused — claiming a
     // reason there would be inventing one.
-    assertNull(strawRefusal(both))
+    assertNull(strawRefusal(English, both))
 
     // A machine that offers only one of the two never had a choice to explain.
-    assertNull(strawRefusal(Harvest(swathAvailable = true, canToggleSwath = false)))
-    assertNull(strawRefusal(Harvest(chopperAvailable = true, canToggleSwath = false)))
-    assertNull(strawRefusal(null))
+    assertNull(strawRefusal(English, Harvest(swathAvailable = true, canToggleSwath = false)))
+    assertNull(strawRefusal(English, Harvest(chopperAvailable = true, canToggleSwath = false)))
+    assertNull(strawRefusal(English, null))
   }
 
   // -------------------------------------------------------------------------
@@ -392,9 +393,9 @@ class IsoBusTest {
 
   @Test
   fun theStrapsSayAWordWhereOneFitsAndACountOtherwise() {
-    assertEquals("Strapped", strapsLabel(TensionBelts(fastened = 3, count = 3)))
-    assertEquals("Unstrapped", strapsLabel(TensionBelts(fastened = 0, count = 3)))
-    assertEquals("Straps 2/3", strapsLabel(TensionBelts(fastened = 2, count = 3)))
-    assertEquals("Hitch 85%", hitchLabel(Hitch(position = 85)))
+    assertEquals("Strapped", strapsLabel(English, TensionBelts(fastened = 3, count = 3)))
+    assertEquals("Unstrapped", strapsLabel(English, TensionBelts(fastened = 0, count = 3)))
+    assertEquals("Straps 2/3", strapsLabel(English, TensionBelts(fastened = 2, count = 3)))
+    assertEquals("Hitch 85%", hitchLabel(English, Hitch(position = 85)))
   }
 }

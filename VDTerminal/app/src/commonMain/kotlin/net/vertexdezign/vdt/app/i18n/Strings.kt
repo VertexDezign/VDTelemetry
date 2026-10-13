@@ -44,6 +44,11 @@ interface Strings {
   val diagnostics: DiagnosticsStrings
   val vehicle: VehicleStrings
   val cluster: ClusterStrings
+  val isoBus: IsoBusStrings
+  val baler: BalerStrings
+  val combine: CombineStrings
+  val loader: LoaderStrings
+  val section: SectionStrings
 }
 
 /** The languages the terminal has a catalogue for. */

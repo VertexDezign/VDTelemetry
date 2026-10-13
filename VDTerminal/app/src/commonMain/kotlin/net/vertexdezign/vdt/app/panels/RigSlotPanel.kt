@@ -338,12 +338,12 @@ fun RigSlotPanel(
             if (state.broken) SlotFact(Icons.Filled.WaterDrop, strings.vehicle.needsReset, VdtColors.Amber)
             // Where the linkage is, worded as the ISOBUS strip words it. A fact in this row rather than a
             // bar under the controls: a bar there sat among the fill levels and read as one of them.
-            state.hitch?.let { SlotFact(Icons.Filled.Height, hitchLabel(it), VdtColors.DarkGray) }
+            state.hitch?.let { SlotFact(Icons.Filled.Height, hitchLabel(strings, it), VdtColors.DarkGray) }
             state.tensionBelts?.let { belts ->
               val done = belts.fastened == belts.count
               SlotFact(
                 if (done) Icons.Filled.Link else Icons.Filled.LinkOff,
-                strapsLabel(belts),
+                strapsLabel(strings, belts),
                 if (done) VdtColors.AccentText else VdtColors.DarkGray,
               )
             }

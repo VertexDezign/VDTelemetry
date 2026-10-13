@@ -3,8 +3,10 @@ package net.vertexdezign.vdt.app.i18n.de
 import net.vertexdezign.vdt.app.i18n.AnimalsStrings
 import net.vertexdezign.vdt.app.i18n.AppTitles
 import net.vertexdezign.vdt.app.i18n.AutoDriveStrings
+import net.vertexdezign.vdt.app.i18n.BalerStrings
 import net.vertexdezign.vdt.app.i18n.CalendarStrings
 import net.vertexdezign.vdt.app.i18n.ClusterStrings
+import net.vertexdezign.vdt.app.i18n.CombineStrings
 import net.vertexdezign.vdt.app.i18n.CommonStrings
 import net.vertexdezign.vdt.app.i18n.DiagnosticsStrings
 import net.vertexdezign.vdt.app.i18n.DisplayStrings
@@ -12,14 +14,17 @@ import net.vertexdezign.vdt.app.i18n.FieldsStrings
 import net.vertexdezign.vdt.app.i18n.FinanceStrings
 import net.vertexdezign.vdt.app.i18n.FleetStrings
 import net.vertexdezign.vdt.app.i18n.InvoicesStrings
+import net.vertexdezign.vdt.app.i18n.IsoBusStrings
 import net.vertexdezign.vdt.app.i18n.Language
 import net.vertexdezign.vdt.app.i18n.LauncherStrings
+import net.vertexdezign.vdt.app.i18n.LoaderStrings
 import net.vertexdezign.vdt.app.i18n.LoansStrings
 import net.vertexdezign.vdt.app.i18n.MarketStrings
 import net.vertexdezign.vdt.app.i18n.MissionsStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.i18n.ProductionStrings
 import net.vertexdezign.vdt.app.i18n.RotationStrings
+import net.vertexdezign.vdt.app.i18n.SectionStrings
 import net.vertexdezign.vdt.app.i18n.SettingsStrings
 import net.vertexdezign.vdt.app.i18n.ShellStrings
 import net.vertexdezign.vdt.app.i18n.StorageStrings
@@ -57,4 +62,9 @@ object German : Strings {
   override val diagnostics: DiagnosticsStrings = DeDiagnostics
   override val vehicle: VehicleStrings = DeVehicle
   override val cluster: ClusterStrings = DeCluster
+  override val isoBus: IsoBusStrings = DeIsoBus
+  override val baler: BalerStrings = DeBaler
+  override val combine: CombineStrings = DeCombine
+  override val loader: LoaderStrings = DeLoader
+  override val section: SectionStrings = DeSection
 }

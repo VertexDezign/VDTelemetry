@@ -80,6 +80,7 @@ import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.isobus_mixer_wagon
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -533,9 +534,9 @@ fun IsoBusPanel(
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
           Text(
             when {
-              vehicle == null -> "No vehicle connected"
-              slot == null -> "Nothing on the rig"
-              else -> "Nothing attached to ${slot.label(LocalStrings.current).lowercase()}"
+              vehicle == null -> LocalStrings.current.isoBus.noVehicle
+              slot == null -> LocalStrings.current.isoBus.nothingOnRig
+              else -> LocalStrings.current.isoBus.nothingAttached(slot.label(LocalStrings.current))
             },
             color = VdtColors.DarkGray,
             fontSize = 12.sp,
@@ -686,11 +687,7 @@ private fun MachineDetail(
     // line comes back with the panel's state unchanged.
     if (target == null && !awaitingSelection) {
       Text(
-        if (machine.selectable) {
-          "Select it on the diagram to fold, power or unload it"
-        } else {
-          "Fold, power and unload reach the tractor, its front and rear, and the selected machine"
-        },
+        if (machine.selectable) LocalStrings.current.isoBus.selectToControl else LocalStrings.current.isoBus.reachNote,
         color = VdtColors.TextDisabled,
         fontSize = 9.sp,
         lineHeight = 11.sp,
@@ -738,6 +735,8 @@ private fun MachineStatus(
   showIdentity: Boolean,
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalStrings.current
+  val s = strings.isoBus
   FlowRow(
     modifier,
     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -752,14 +751,14 @@ private fun MachineStatus(
     // Ahead of everything it can do, because it can do nothing: a drowned machine is neither active
     // nor interactive until someone resets it, and every chip after this one is moot until then.
     // Read-only — a reset is the game's menu, not something to put a tap on in the cab.
-    if (machine.broken) Chip(Icons.Filled.WaterDrop, "Needs reset", VdtColors.Amber)
+    if (machine.broken) Chip(Icons.Filled.WaterDrop, s.needsReset, VdtColors.Amber)
 
     // The three any machine on the rig might have, first: they are its operating state, where the
     // rest of the strip is situational.
     machine.isTurnedOn?.let { on ->
       Chip(
         if (on) Icons.Filled.PowerSettingsNew else Icons.Filled.PowerOff,
-        if (on) "On" else "Off",
+        if (on) s.on else s.off,
         if (on) VdtColors.AccentText else VdtColors.DarkGray,
         onClick = target?.let { { onCommand(ClientMessage.SetActivated(it, on = !on)) } },
       )
@@ -768,26 +767,26 @@ private fun MachineStatus(
     machine.lowered?.let { down ->
       Chip(
         if (down) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
-        if (down) "Lowered" else "Raised",
+        if (down) s.lowered else s.raised,
         if (down) VdtColors.AccentText else VdtColors.DarkGray,
         onClick = target?.let { { onCommand(ClientMessage.SetLowered(it, on = !down)) } },
       )
     }
     // Beside the raise chip, because it is what that chip moves: where the linkage actually is, which
     // the lowered/raised word cannot say while the arm is on its way or parked at a headland height.
-    machine.hitch?.let { Chip(Icons.Filled.Height, hitchLabel(it), VdtColors.DarkGray) }
+    machine.hitch?.let { Chip(Icons.Filled.Height, hitchLabel(strings, it), VdtColors.DarkGray) }
 
     when (machine.foldable) {
       FoldableState.FOLDED -> Chip(
         Icons.Filled.UnfoldLess,
-        "Folded",
+        s.folded,
         VdtColors.DarkGray,
         onClick = target?.let { { onCommand(ClientMessage.SetFolded(it, on = false)) } },
       )
 
       FoldableState.EXTENDED -> Chip(
         Icons.Filled.UnfoldMore,
-        "Unfolded",
+        s.unfolded,
         VdtColors.AccentText,
         onClick = target?.let { { onCommand(ClientMessage.SetFolded(it, on = true)) } },
       )
@@ -803,7 +802,7 @@ private fun MachineStatus(
     // the tip side is open, the drum is turning, and the reason it is not unloading is a fact only
     // the game has. Absent whenever nothing is wrong, which is most of the time — and read-only,
     // because it is an explanation rather than a state anything here can set.
-    machine.discharge?.reason?.let { Chip(Icons.Filled.PriorityHigh, refusalOf(it), VdtColors.Amber) }
+    machine.discharge?.reason?.let { Chip(Icons.Filled.PriorityHigh, refusalOf(strings, it), VdtColors.Amber) }
 
     machine.pipe?.let { PipeChip(it, target, onCommand) }
     machine.cover?.let { CoverChip(it, target, onCommand) }
@@ -812,7 +811,7 @@ private fun MachineStatus(
       // (TOGGLE_TENSION_BELTS, every strap at once), so this is a chip that could become a control.
       Chip(
         if (belts.fastened == belts.count) Icons.Filled.Link else Icons.Filled.LinkOff,
-        strapsLabel(belts),
+        strapsLabel(strings, belts),
         if (belts.fastened == belts.count) VdtColors.AccentText else VdtColors.DarkGray,
       )
     }
@@ -925,15 +924,16 @@ private fun DamageChip(machine: IsoBusMachine) {
 @Composable
 private fun PipeChip(pipe: Pipe, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
   val moving = pipe.state == PipeState.MOVING || (pipe.current != 0 && pipe.current != pipe.target)
+  val s = LocalStrings.current.isoBus
   val label = when {
-    moving -> "Pipe moving"
+    moving -> s.pipeMoving
 
-    pipe.state == PipeState.RETRACTED -> "Pipe in"
+    pipe.state == PipeState.RETRACTED -> s.pipeIn
 
     // 1 is fully retracted, so anything above it is a real position worth naming on a multi-state pipe.
-    pipe.numStates > 2 && pipe.current > 0 -> "Pipe ${pipe.current}/${pipe.numStates}"
+    pipe.numStates > 2 && pipe.current > 0 -> s.pipeAt(pipe.current, pipe.numStates)
 
-    else -> "Pipe out"
+    else -> s.pipeOut
   }
   Chip(
     if (pipe.state == PipeState.RETRACTED) Icons.Filled.UnfoldLess else Icons.Filled.UnfoldMore,
@@ -958,10 +958,11 @@ private fun PipeChip(pipe: Pipe, target: ControlTarget?, onCommand: (ClientMessa
 @Composable
 private fun CoverChip(cover: Cover, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
   val open = cover.state == CoverType.OPEN || cover.index > 0
+  val s = LocalStrings.current.isoBus
   val label = when {
-    !open -> "Cover closed"
-    cover.count > 1 -> "Cover ${cover.index} of ${cover.count}"
-    else -> "Cover open"
+    !open -> s.coverClosed
+    cover.count > 1 -> s.coverOf(cover.index, cover.count)
+    else -> s.coverOpen
   }
   Chip(
     if (open) Icons.Filled.LockOpen else Icons.Filled.Lock,
@@ -1010,7 +1011,7 @@ private fun DischargeChip(
   if (!toggleable && !unloading && !alwaysShown) return
   Chip(
     Icons.Filled.Download,
-    if (unloading) "Unloading" else "Unload",
+    if (unloading) LocalStrings.current.isoBus.unloading else LocalStrings.current.isoBus.unload,
     if (unloading) VdtColors.AccentText else VdtColors.DarkGray,
     onClick = target?.takeIf {
       toggleable || unloading
@@ -1143,9 +1144,13 @@ private fun MachineArt(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier)
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
         // White on the body's #DA1218 reads at 5.2:1; black would be 4.1:1.
-        Text("${numbers.integer(mixer.value.roundToInt())} l", style = type.headline, maxLines = 1)
+        Text(
+          LocalStrings.current.common.litre(numbers.integer(mixer.value.roundToInt())),
+          style = type.headline,
+          maxLines = 1,
+        )
         if (type.full) {
-          Text("of ${numbers.integer(mixer.capacity)}", style = type.sub, maxLines = 1)
+          Text(LocalStrings.current.isoBus.ofCapacity(numbers.integer(mixer.capacity)), style = type.sub, maxLines = 1)
         }
         // The load's own weight, never the machine's mass minus its empty one — see [Mixer.mass].
         val load = mixer.mass
@@ -1153,7 +1158,11 @@ private fun MachineArt(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier)
           Spacer(Modifier.height(type.gap))
           Text(numbers.formatTonnes(load), style = type.headline, maxLines = 1)
           if (type.full && mass != null) {
-            Text("${numbers.formatTonnes(mass.value)} total", style = type.sub, maxLines = 1)
+            Text(
+              LocalStrings.current.isoBus.totalMass(numbers.formatTonnes(mass.value)),
+              style = type.sub,
+              maxLines = 1,
+            )
           }
         } else if (mass != null) {
           Spacer(Modifier.height(type.gap))
@@ -1215,14 +1224,20 @@ private fun tubStyle(size: TextUnit, color: Color, weight: FontWeight) = TextSty
 /** The same two numbers as a plain row, for a tile too short to carry the picture. */
 @Composable
 private fun TubReadout(mixer: Mixer, mass: Mass?, modifier: Modifier = Modifier) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.isoBus
   Row(modifier, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
-    Figure("Load", "${numbers.integer(mixer.value.roundToInt())} l", "of ${numbers.integer(mixer.capacity)}")
+    Figure(
+      s.load,
+      strings.common.litre(numbers.integer(mixer.value.roundToInt())),
+      s.ofCapacity(numbers.integer(mixer.capacity)),
+    )
     val load = mixer.mass
     if (load != null) {
-      Figure("Weight", numbers.formatTonnes(load), mass?.let { "${numbers.formatTonnes(it.value)} total" })
+      Figure(s.weight, numbers.formatTonnes(load), mass?.let { s.totalMass(numbers.formatTonnes(it.value)) })
     } else if (mass != null) {
-      Figure("Weight", numbers.formatTonnes(mass.value), null)
+      Figure(s.weight, numbers.formatTonnes(mass.value), null)
     }
   }
 }
@@ -1287,7 +1302,9 @@ internal fun figureStyle(size: TextUnit, color: Color, weight: FontWeight) = Tex
  */
 @Composable
 private fun MixerStatus(mixer: Mixer, showState: Boolean) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.isoBus
   FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1296,18 +1313,18 @@ private fun MixerStatus(mixer: Mixer, showState: Boolean) {
     // Narrow, the header gave up the mix state; it leads the strip instead of being lost.
     if (showState) {
       val (icon, tint) = mixStateMark(mixer)
-      Chip(icon, mixStateLabel(mixer), tint)
+      Chip(icon, mixStateLabel(strings, mixer), tint)
     }
 
     when {
-      !mixer.powered -> Chip(Icons.Filled.PowerOff, "No power", VdtColors.TextDisabled)
+      !mixer.powered -> Chip(Icons.Filled.PowerOff, s.noPower, VdtColors.TextDisabled)
 
       mixer.running && mixer.remaining > 0 ->
-        Chip(Icons.Filled.Sync, "Mixing ${numbers.formatSeconds(mixer.remaining)}", VdtColors.AccentText)
+        Chip(Icons.Filled.Sync, s.mixing(numbers.formatSeconds(mixer.remaining)), VdtColors.AccentText)
 
-      mixer.running -> Chip(Icons.Filled.Sync, "Running", VdtColors.AccentText)
+      mixer.running -> Chip(Icons.Filled.Sync, s.running, VdtColors.AccentText)
 
-      else -> Chip(Icons.Filled.Pause, "Idle", VdtColors.DarkGray)
+      else -> Chip(Icons.Filled.Pause, s.idle, VdtColors.DarkGray)
     }
   }
 }
@@ -1324,7 +1341,7 @@ private fun MixerStatus(mixer: Mixer, showState: Boolean) {
  */
 @Composable
 private fun WorkModeChip(mode: WorkMode, target: ControlTarget?, onCommand: (ClientMessage) -> Unit) {
-  val label = mode.name?.takeIf { it.isNotBlank() } ?: "Mode ${mode.current}/${mode.count}"
+  val label = mode.name?.takeIf { it.isNotBlank() } ?: LocalStrings.current.isoBus.workMode(mode.current, mode.count)
   val next = nextWorkMode(mode)
   Chip(
     Icons.Filled.SwapHoriz,
@@ -1362,18 +1379,19 @@ private fun TipChip(tipping: Tipping, target: ControlTarget?, onCommand: (Client
   val open = tipping.state != TipState.CLOSED
   val index = if (open) tipping.side ?: tipping.preferredSide else tipping.preferredSide
   val name = index?.let { tipping.sides.getOrNull(it - 1) }?.ifBlank { null }
+  val s = LocalStrings.current.isoBus
   val label = when (tipping.state) {
-    TipState.CLOSED -> name?.let { "Tip: $it" } ?: "Closed"
+    TipState.CLOSED -> name?.let { s.tipTo(it) } ?: s.closed
 
-    TipState.OPENING -> name?.let { "Opening $it" } ?: "Opening"
+    TipState.OPENING -> name?.let { s.openingTo(it) } ?: s.opening
 
     // "Open", not "Unloading": this aspect is the trough moving, and [DischargeChip] beside it is the
     // material actually leaving. A trough can sit fully open with nothing coming out, which is the
     // window this chip exists to show — and with both on one strip the old wording read as a
     // contradiction whenever the engine was refusing the spot.
-    TipState.OPEN -> name?.let { "Open: $it" } ?: "Open"
+    TipState.OPEN -> name?.let { s.openTo(it) } ?: s.open
 
-    TipState.CLOSING -> name?.let { "Closing $it" } ?: "Closing"
+    TipState.CLOSING -> name?.let { s.closingFrom(it) } ?: s.closing
   }
   // The trough has to be shut to change sides — the engine refuses otherwise — so the chip goes
   // read-only mid-tip rather than sending a command the mod would drop. A machine with one side has
@@ -1395,30 +1413,30 @@ private fun TipChip(tipping: Tipping, target: ControlTarget?, onCommand: (Client
 }
 
 /** The linkage's place in its travel, 100% at the top as the game's own dashboard reads it. */
-internal fun hitchLabel(hitch: Hitch): String = "Hitch ${hitch.position}%"
+internal fun hitchLabel(strings: Strings, hitch: Hitch): String = strings.isoBus.hitch(hitch.position)
 
 /**
  * The load straps in a word where one fits — every strap done up or none — and as a count while the
  * driver is part way round the trailer. The glyph says the same (a link, or a broken one), so the
  * state never rests on the tint.
  */
-internal fun strapsLabel(belts: TensionBelts): String = when (belts.fastened) {
-  belts.count -> "Strapped"
-  0 -> "Unstrapped"
-  else -> "Straps ${belts.fastened}/${belts.count}"
+internal fun strapsLabel(strings: Strings, belts: TensionBelts): String = when (belts.fastened) {
+  belts.count -> strings.isoBus.strapped
+  0 -> strings.isoBus.unstrapped
+  else -> strings.isoBus.straps(belts.fastened, belts.count)
 }
 
 /**
  * The engine's discharge refusals, in the words that fit a machine unloading into a feeding trough —
  * which is what every one of these means on a mixer wagon.
  */
-internal fun refusalOf(reason: DischargeReason): String = when (reason) {
-  DischargeReason.NOT_ALLOWED_HERE -> "Can't unload here"
-  DischargeReason.NO_FREE_CAPACITY -> "Trough full"
-  DischargeReason.FILLTYPE_NOT_SUPPORTED -> "Won't take this feed"
-  DischargeReason.TOOLTYPE_NOT_SUPPORTED -> "Wrong tool for it"
-  DischargeReason.NO_ACCESS -> "Not your trough"
-  DischargeReason.NO_ACCESS_LAND -> "Not your land"
+internal fun refusalOf(strings: Strings, reason: DischargeReason): String = when (reason) {
+  DischargeReason.NOT_ALLOWED_HERE -> strings.isoBus.refusedHere
+  DischargeReason.NO_FREE_CAPACITY -> strings.isoBus.refusedFull
+  DischargeReason.FILLTYPE_NOT_SUPPORTED -> strings.isoBus.refusedFillType
+  DischargeReason.TOOLTYPE_NOT_SUPPORTED -> strings.isoBus.refusedTool
+  DischargeReason.NO_ACCESS -> strings.isoBus.refusedAccess
+  DischargeReason.NO_ACCESS_LAND -> strings.isoBus.refusedLand
 }
 
 @Composable
@@ -1469,7 +1487,13 @@ internal fun Chip(
 private fun RowScope.MixStateChip(mixer: Mixer) {
   val (icon, tint) = mixStateMark(mixer)
   Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(12.dp))
-  Text(mixStateLabel(mixer).uppercase(), color = tint, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+  Text(
+    mixStateLabel(LocalStrings.current, mixer).uppercase(),
+    color = tint,
+    fontSize = 10.sp,
+    fontWeight = FontWeight.Bold,
+    maxLines = 1,
+  )
 }
 
 /**
@@ -1482,10 +1506,10 @@ private fun RowScope.MixStateChip(mixer: Mixer) {
  * gets a word of our own — deliberately not "mixing", which the status strip already uses for the
  * drum turning.
  */
-private fun mixStateLabel(mixer: Mixer): String = when (mixer.state) {
-  MixState.EMPTY -> "Empty"
-  MixState.OUT_OF_RATIO -> "Off ratio"
-  else -> mixer.title ?: mixer.fillType ?: "Loaded"
+private fun mixStateLabel(strings: Strings, mixer: Mixer): String = when (mixer.state) {
+  MixState.EMPTY -> strings.isoBus.empty
+  MixState.OUT_OF_RATIO -> strings.isoBus.offRatio
+  else -> mixer.title ?: mixer.fillType ?: strings.isoBus.loaded
 }
 
 /** The glyph that carries the verdict, so hue is never the only thing saying it. */
@@ -1514,7 +1538,7 @@ private fun RatioBars(mixer: Mixer, width: Dp, modifier: Modifier = Modifier) {
   if (mixer.ingredients.isEmpty()) {
     // A mixer whose XML names no recipe: a trailer with a drum. Nothing to be short of.
     Box(modifier.fillMaxWidth().padding(top = 4.dp)) {
-      Text("No recipe — takes one material at a time", color = VdtColors.DarkGray, fontSize = 10.sp)
+      Text(LocalStrings.current.isoBus.noRecipe, color = VdtColors.DarkGray, fontSize = 10.sp)
     }
     return
   }
@@ -1585,7 +1609,7 @@ private fun RatioBar(mixer: Mixer, ingredient: MixerIngredient, compact: Boolean
         Spacer(Modifier.width(3.dp))
         Icon(
           Icons.Filled.PriorityHigh,
-          contentDescription = "outside its window",
+          contentDescription = LocalStrings.current.isoBus.outsideWindow,
           tint = VdtColors.Amber,
           modifier = Modifier.size(11.dp),
         )
@@ -1593,7 +1617,7 @@ private fun RatioBar(mixer: Mixer, ingredient: MixerIngredient, compact: Boolean
         Spacer(Modifier.width(3.dp))
         Icon(
           Icons.Filled.Check,
-          contentDescription = "in its window",
+          contentDescription = LocalStrings.current.isoBus.inWindow,
           tint = VdtColors.AccentText,
           modifier = Modifier.size(11.dp),
         )
@@ -1643,11 +1667,9 @@ private fun RatioBar(mixer: Mixer, ingredient: MixerIngredient, compact: Boolean
     if (short != null) {
       Text(
         if (compact) {
-          "+${numbers.integer(
-            short,
-          )} l"
+          "+${LocalStrings.current.common.litre(numbers.integer(short))}"
         } else {
-          "+${numbers.integer(short)} l to reach ${ingredient.minPercentage}%"
+          LocalStrings.current.isoBus.toReach(numbers.integer(short), ingredient.minPercentage)
         },
         color = VdtColors.DarkGray,
         fontSize = 9.sp,

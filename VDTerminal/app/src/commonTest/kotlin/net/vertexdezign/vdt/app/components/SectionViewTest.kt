@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt.app.components
 
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Implement
 import net.vertexdezign.vdt.model.PfManual
@@ -39,16 +40,16 @@ class SectionViewTest {
   fun tellsWorkingApartFromMerelyReady() {
     // Lowered, in gear, section on — but nothing has gone under it in the last 200 ms.
     val ready = workAreaStatus(listOf(area()))!!
-    assertEquals("Sprayer · ready", ready.label)
+    assertEquals("Sprayer · ready", ready.label(English))
     assertEquals(VdtPalette.Light.amber, ready.color(VdtPalette.Light))
 
     val working = workAreaStatus(listOf(area(processing = true)))!!
-    assertEquals("Sprayer · working", working.label)
+    assertEquals("Sprayer · working", working.label(English))
     assertEquals(VdtPalette.Light.green, working.color(VdtPalette.Light))
 
     // Raised, or driving backwards, or switched off: the tool covers nothing.
     val off = workAreaStatus(listOf(area(active = false)))!!
-    assertEquals("Sprayer · off", off.label)
+    assertEquals("Sprayer · off", off.label(English))
     assertEquals(VdtPalette.Light.textDisabled, off.color(VdtPalette.Light))
   }
 
@@ -58,14 +59,14 @@ class SectionViewTest {
     val status = workAreaStatus(listOf(area(type = "CULTIVATOR"), area(type = "SOWINGMACHINE", processing = true)))!!
     assertEquals(VdtPalette.Light.green, status.color(VdtPalette.Light))
     // Named by what it leads with, not by whichever part happens to be busy.
-    assertTrue(status.label.startsWith("Cultivator"))
+    assertTrue(status.label(English).startsWith("Cultivator"))
   }
 
   @Test
   fun aToolWithNoWorkAreasHasNoStatusLine() {
     assertNull(workAreaStatus(emptyList()))
     // A modded type with no name still gets a line — the state is the point, the word is decoration.
-    assertEquals("Tool · ready", workAreaStatus(listOf(area(type = null)))!!.label)
+    assertEquals("Tool · ready", workAreaStatus(listOf(area(type = null)))!!.label(English))
   }
 
   @Test

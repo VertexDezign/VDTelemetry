@@ -34,6 +34,13 @@ class NumbersTest {
   }
 
   @Test
+  fun roundsHalfUpAndInTheFloatItWasGiven() {
+    assertEquals("3", en.fixed(2.5, 0))
+    assertEquals("-0.01", en.fixed(-0.005f, 2))
+    assertEquals("0.3", en.fixed(0.25f, 1))
+  }
+
+  @Test
   fun trimsTrailingZerosAndABareMark() {
     assertEquals("3,5", de.trimmed(3.50, 2))
     assertEquals("2", de.trimmed(2.0, 2))

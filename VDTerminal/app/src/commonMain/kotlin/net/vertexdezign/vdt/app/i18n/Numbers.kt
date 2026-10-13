@@ -1,7 +1,7 @@
 package net.vertexdezign.vdt.app.i18n
 
 import kotlin.math.abs
-import kotlin.math.round
+import kotlin.math.roundToLong
 
 /**
  * How a language writes a number: its decimal mark and its thousands separator — `1,234.5` in English,
@@ -49,17 +49,33 @@ class Numbers(val decimalMark: Char, val groupMark: Char) {
    */
   fun fixed(value: Double, places: Int, grouped: Boolean = false): String {
     if (value.isNaN() || value.isInfinite()) return "—"
+    return render((abs(value) * scaleOf(places)).roundToLong(), value < 0, places, grouped)
+  }
+
+  /**
+   * Scaled in Float, not widened to Double first: `0.005f` is `0.004999…` as a Double and would round
+   * down, where every readout built on Floats before this class rounded it up. Half-up either way,
+   * never the half-even `round()` would give — a speed of 2.5 reads 3, as it always did.
+   */
+  fun fixed(value: Float, places: Int, grouped: Boolean = false): String {
+    if (value.isNaN() || value.isInfinite()) return "—"
+    return render((abs(value) * scaleOf(places)).roundToLong(), value < 0, places, grouped)
+  }
+
+  private fun scaleOf(places: Int): Long {
     var scale = 1L
     repeat(places) { scale *= 10 }
-    val scaled = round(abs(value) * scale).toLong()
+    return scale
+  }
+
+  private fun render(scaled: Long, negative: Boolean, places: Int, grouped: Boolean): String {
+    val scale = scaleOf(places)
     val whole = (scaled / scale).toString()
-    val sign = if (value < 0 && scaled != 0L) "-" else ""
+    val sign = if (negative && scaled != 0L) "-" else ""
     val wholePart = if (grouped) group(whole) else whole
     if (places <= 0) return sign + wholePart
     return "$sign$wholePart$decimalMark${(scaled % scale).toString().padStart(places, '0')}"
   }
-
-  fun fixed(value: Float, places: Int, grouped: Boolean = false): String = fixed(value.toDouble(), places, grouped)
 
   /** Like [fixed], but at most [places] decimals: trailing zeros go, and a bare mark with them — `3.5`, `2`. */
   fun trimmed(value: Double, places: Int, grouped: Boolean = false): String {

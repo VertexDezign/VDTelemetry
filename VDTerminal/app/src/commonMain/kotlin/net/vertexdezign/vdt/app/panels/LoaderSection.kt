@@ -39,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.LoaderCylinder
@@ -145,45 +147,43 @@ internal val IsoBusMachine.isLoaderPart: Boolean get() = loaderTool != null || l
  * Degrees off level in the words the screen uses: `LEVEL` inside [LEVEL_TOLERANCE_DEG], otherwise the
  * signed angle to a tenth. ASCII `-`: the wasm build has no glyph for U+2212.
  */
-internal fun inclinationLabel(degrees: Float): String {
-  if (abs(degrees) < LEVEL_TOLERANCE_DEG) return "LEVEL"
-  val tenths = (degrees * 10).roundToInt()
-  val sign = if (tenths > 0) "+" else "-"
-  return "$sign${abs(tenths) / 10}.${abs(tenths) % 10}°"
+internal fun inclinationLabel(strings: Strings, degrees: Float): String {
+  if (abs(degrees) < LEVEL_TOLERANCE_DEG) return strings.loader.level
+  val sign = if (degrees > 0) "+" else "-"
+  return "$sign${strings.numbers.fixed(abs(degrees), 1)}°"
 }
 
 /** Metres to a centimetre, to a decimetre past ten metres where centimetres stop meaning anything. */
-internal fun heightLabel(metres: Float): String {
-  val sign = if (metres < 0) "-" else ""
+internal fun heightLabel(strings: Strings, metres: Float): String {
   val m = abs(metres)
-  return if (m >= 10f) {
-    val tenths = (m * 10).roundToInt()
-    "$sign${tenths / 10}.${tenths % 10} m"
-  } else {
-    val cm = (m * 100).roundToInt()
-    "$sign${cm / 100}.${(cm % 100).toString().padStart(2, '0')} m"
-  }
+  val figure = strings.numbers.fixed(m, if (m >= 10f) 1 else 2)
+  // Signed off the rounded figure, as Numbers signs: a hair under zero that rounds to it reads 0.00.
+  val sign = if (metres < 0 && figure.any { it in '1'..'9' }) "-" else ""
+  return "$sign$figure m"
 }
 
 /**
  * A cylinder's name on the screen: what it does, and for a tool's own, which one it is. On a [forklift]
  * the second arm axis slides the mast out rather than running a boom out, so it is the reach.
  */
-internal fun cylinderLabel(cylinder: LoaderCylinder, forklift: Boolean = false): String = when (cylinder.role) {
-  LoaderCylinderRole.LIFT -> "Lift"
+internal fun cylinderLabel(strings: Strings, cylinder: LoaderCylinder, forklift: Boolean = false): String {
+  val s = strings.loader
+  return when (cylinder.role) {
+    LoaderCylinderRole.LIFT -> s.lift
 
-  LoaderCylinderRole.TELESCOPE -> if (forklift) "Reach" else "Telescope"
+    LoaderCylinderRole.TELESCOPE -> if (forklift) s.reach else s.telescope
 
-  LoaderCylinderRole.SHIFT -> "Side shift"
+    LoaderCylinderRole.SHIFT -> s.sideShift
 
-  LoaderCylinderRole.TILT -> "Tilt"
+    LoaderCylinderRole.TILT -> s.tilt
 
-  LoaderCylinderRole.TIP -> "High tip"
+    LoaderCylinderRole.TIP -> s.highTip
 
-  LoaderCylinderRole.AUX -> when {
-    cylinder.isClamp -> "Clamp"
-    cylinder.icon == WIDTH_ICON -> "Width"
-    else -> "Tool " + cylinder.axis.removePrefix("AXIS_FRONTLOADER_TOOL").ifEmpty { "1" }
+    LoaderCylinderRole.AUX -> when {
+      cylinder.isClamp -> s.clamp
+      cylinder.icon == WIDTH_ICON -> s.width
+      else -> s.tool(cylinder.axis.removePrefix("AXIS_FRONTLOADER_TOOL").ifEmpty { "1" })
+    }
   }
 }
 
@@ -198,7 +198,7 @@ private fun inclinationMark(degrees: Float): ImageVector = when {
 @Composable
 internal fun RowScope.LoaderStateChip(rig: LoaderRig) {
   val inclination = rig.inclination ?: return
-  Chip(inclinationMark(inclination), inclinationLabel(inclination), VdtColors.TextDark)
+  Chip(inclinationMark(inclination), inclinationLabel(LocalStrings.current, inclination), VdtColors.TextDark)
 }
 
 /**
@@ -245,30 +245,32 @@ private fun LoaderReadouts(rig: LoaderRig, modifier: Modifier = Modifier) {
 
 @Composable
 private fun LoaderReadoutColumn(rig: LoaderRig, modifier: Modifier = Modifier) {
+  val strings = LocalStrings.current
+  val s = strings.loader
   Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
     rig.reading?.let { reading ->
       AngleReadout(reading, rig.inclination ?: reading.inclination)
       val metres = reading.height
       Figure(
-        "Height",
-        metres?.let(::heightLabel) ?: "-",
+        s.height,
+        metres?.let { heightLabel(strings, it) } ?: "-",
         when {
-          metres == null -> "nothing below in reach"
-          reading.reference?.distance != null -> "above your zero"
-          else -> "above what is below"
+          metres == null -> s.nothingBelow
+          reading.reference?.distance != null -> s.aboveYourZero
+          else -> s.aboveGround
         },
       )
     }
     // The tool's own fill units are not drawn by the panel's generic block once the loader screen is
     // open (it stands down for any machine with a section), so the load is printed here.
     rig.load?.let { unit ->
-      Figure("Load", "${unit.fillLevelPercentage}%", unit.title.takeIf { unit.value > 0f && it.isNotBlank() })
+      Figure(s.load, "${unit.fillLevelPercentage}%", unit.title.takeIf { unit.value > 0f && it.isNotBlank() })
     }
     if (rig.cylinders.isNotEmpty()) {
       @OptIn(ExperimentalLayoutApi::class)
       FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         rig.cylinders.forEach {
-          Figure(cylinderLabel(it, rig.forklift), "${(it.travel * 100).roundToInt()}%", null, compact = true)
+          Figure(cylinderLabel(strings, it, rig.forklift), "${(it.travel * 100).roundToInt()}%", null, compact = true)
         }
       }
     }
@@ -281,8 +283,9 @@ private fun LoaderReadoutColumn(rig: LoaderRig, modifier: Modifier = Modifier) {
  */
 @Composable
 private fun AngleReadout(reading: LoaderTool, inclination: Float) {
+  val strings = LocalStrings.current
   Column {
-    Text("ANGLE", style = figureStyle(9.sp, VdtColors.DarkGray, FontWeight.Bold), maxLines = 1)
+    Text(strings.loader.angle, style = figureStyle(9.sp, VdtColors.DarkGray, FontWeight.Bold), maxLines = 1)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
       Icon(
         inclinationMark(inclination),
@@ -291,13 +294,13 @@ private fun AngleReadout(reading: LoaderTool, inclination: Float) {
         modifier = Modifier.size(18.dp),
       )
       Text(
-        inclinationLabel(inclination),
+        inclinationLabel(strings, inclination),
         style = figureStyle(20.sp, VdtColors.TextDark, FontWeight.Bold),
         maxLines = 1,
       )
     }
     Text(
-      angleCaption(inclination, reading.reference != null),
+      angleCaption(strings, inclination, reading.reference != null),
       style = figureStyle(10.sp, VdtColors.DarkGray, FontWeight.Normal),
       maxLines = 1,
     )
@@ -305,13 +308,14 @@ private fun AngleReadout(reading: LoaderTool, inclination: Float) {
 }
 
 /** The line under the angle: which way it is off, and off whose level. */
-internal fun angleCaption(inclination: Float, ownLevel: Boolean): String {
+internal fun angleCaption(strings: Strings, inclination: Float, ownLevel: Boolean): String {
+  val s = strings.loader
   val off = when {
-    abs(inclination) < LEVEL_TOLERANCE_DEG -> if (ownLevel) "on your level" else "on the default level"
-    inclination > 0 -> "nose up"
-    else -> "nose down"
+    abs(inclination) < LEVEL_TOLERANCE_DEG -> if (ownLevel) s.onYourLevel else s.onDefaultLevel
+    inclination > 0 -> s.noseUp
+    else -> s.noseDown
   }
-  return if (abs(inclination) < LEVEL_TOLERANCE_DEG || ownLevel) off else "$off, default level"
+  return if (abs(inclination) < LEVEL_TOLERANCE_DEG || ownLevel) off else s.offDefault(off)
 }
 
 /**
@@ -333,7 +337,7 @@ private fun LoaderControls(rig: LoaderRig, onCommand: (ClientMessage) -> Unit, m
   ) {
     Chip(
       Icons.Filled.Straighten,
-      if (reading.reference == null) "Set level" else "Set level here",
+      if (reading.reference == null) LocalStrings.current.loader.setLevel else LocalStrings.current.loader.setLevelHere,
       VdtColors.TextDark,
       onClick = node?.let { { onCommand(ClientMessage.SetLoaderReference(it, on = true)) } },
       control = true,
@@ -341,7 +345,7 @@ private fun LoaderControls(rig: LoaderRig, onCommand: (ClientMessage) -> Unit, m
     if (reading.reference != null) {
       Chip(
         Icons.Filled.Close,
-        "Clear level",
+        LocalStrings.current.loader.clearLevel,
         VdtColors.TextDark,
         onClick = node?.let { { onCommand(ClientMessage.SetLoaderReference(it, on = false)) } },
         control = true,

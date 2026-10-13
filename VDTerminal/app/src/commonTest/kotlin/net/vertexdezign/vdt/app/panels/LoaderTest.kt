@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.FillUnits
 import net.vertexdezign.vdt.model.Implement
@@ -76,26 +77,29 @@ class LoaderTest {
 
   @Test
   fun levelIsAWordAndEverythingElseASignedAngle() {
-    assertEquals("LEVEL", inclinationLabel(0.4f))
-    assertEquals("LEVEL", inclinationLabel(-0.99f))
-    assertEquals("+3.2°", inclinationLabel(3.24f))
+    assertEquals("LEVEL", inclinationLabel(English, 0.4f))
+    assertEquals("LEVEL", inclinationLabel(English, -0.99f))
+    assertEquals("+3.2°", inclinationLabel(English, 3.24f))
     // ASCII minus: U+2212 is a tofu box in the wasm build.
-    assertEquals("-48.6°", inclinationLabel(-48.57f))
+    assertEquals("-48.6°", inclinationLabel(English, -48.57f))
   }
 
   @Test
   fun heightIsInCentimetresUntilTenMetres() {
-    assertEquals("0.00 m", heightLabel(0.001f))
-    assertEquals("2.44 m", heightLabel(2.439f))
-    assertEquals("-0.01 m", heightLabel(-0.005f))
+    assertEquals("0.00 m", heightLabel(English, 0.001f))
+    assertEquals("2.44 m", heightLabel(English, 2.439f))
+    assertEquals("-0.01 m", heightLabel(English, -0.005f))
     // The telehandler at full height: past ten metres a centimetre is noise.
-    assertEquals("10.1 m", heightLabel(10.146f))
+    assertEquals("10.1 m", heightLabel(English, 10.146f))
   }
 
   @Test
   fun aToolsOwnCylinderIsNamedByItsAxis() {
-    assertEquals("Lift", cylinderLabel(lift))
-    assertEquals("Tool 2", cylinderLabel(LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.334f)))
+    assertEquals("Lift", cylinderLabel(English, lift))
+    assertEquals(
+      "Tool 2",
+      cylinderLabel(English, LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.334f)),
+    )
   }
 
   @Test
@@ -107,9 +111,9 @@ class LoaderTest {
       LoaderCylinder(LoaderCylinderRole.AUX, "AXIS_FRONTLOADER_TOOL2", 0.3f, icon = "WORKING_WIDTH_TRANSLATE_X")
     assertTrue(clamp.isClamp)
     assertFalse(spread.isClamp)
-    assertEquals("Clamp", cylinderLabel(clamp))
-    assertEquals("Width", cylinderLabel(spread))
-    assertEquals("Tool 2", cylinderLabel(spread.copy(icon = null)))
+    assertEquals("Clamp", cylinderLabel(English, clamp))
+    assertEquals("Width", cylinderLabel(English, spread))
+    assertEquals("Tool 2", cylinderLabel(English, spread.copy(icon = null)))
   }
 
   @Test
@@ -151,7 +155,7 @@ class LoaderTest {
     )!!
     assertNull(rig.clamp)
     assertEquals(-54.6f, rig.inclination!!, 0.001f)
-    assertEquals("High tip", cylinderLabel(tip))
+    assertEquals("High tip", cylinderLabel(English, tip))
   }
 
   @Test
@@ -183,29 +187,29 @@ class LoaderTest {
     assertTrue(rig.forklift)
     assertEquals(
       "Side shift",
-      cylinderLabel(LoaderCylinder(LoaderCylinderRole.SHIFT, "AXIS_FRONTLOADER_ARM2", 0.5f), forklift = true),
+      cylinderLabel(English, LoaderCylinder(LoaderCylinderRole.SHIFT, "AXIS_FRONTLOADER_ARM2", 0.5f), forklift = true),
     )
-    assertEquals(listOf("Reach", "Width"), rig.cylinders.map { cylinderLabel(it, rig.forklift) })
+    assertEquals(listOf("Reach", "Width"), rig.cylinders.map { cylinderLabel(English, it, rig.forklift) })
     // On a telehandler the same axis runs the boom out.
-    assertEquals("Telescope", cylinderLabel(rig.cylinders.first()))
+    assertEquals("Telescope", cylinderLabel(English, rig.cylinders.first()))
   }
 
   @Test
   fun withoutAReferenceTheRootNodeIsLevelAndTheScreenSaysSo() {
     val rig = loaderRigOf(rigMachines(frontLoader()).map { null to it })!!
     assertEquals(-0.69f, rig.reading?.inclination)
-    assertEquals("LEVEL", inclinationLabel(rig.reading!!.inclination))
-    assertEquals("on the default level", angleCaption(-0.69f, ownLevel = false))
-    assertEquals("nose down, default level", angleCaption(-12f, ownLevel = false))
+    assertEquals("LEVEL", inclinationLabel(English, rig.reading!!.inclination))
+    assertEquals("on the default level", angleCaption(English, -0.69f, ownLevel = false))
+    assertEquals("nose down, default level", angleCaption(English, -12f, ownLevel = false))
   }
 
   @Test
   fun thePlayersLevelReplacesTheDefault() {
     val tool = LoaderTool(pitch = 4.2f, distance = 0.4f, reference = LoaderReference(4.0f, 0.001f))
     val rig = loaderRigOf(rigMachines(frontLoader(tool)).map { null to it })!!
-    assertEquals("LEVEL", inclinationLabel(rig.reading!!.inclination))
-    assertEquals("on your level", angleCaption(rig.reading!!.inclination, ownLevel = true))
-    assertEquals("nose up", angleCaption(6f, ownLevel = true))
+    assertEquals("LEVEL", inclinationLabel(English, rig.reading!!.inclination))
+    assertEquals("on your level", angleCaption(English, rig.reading!!.inclination, ownLevel = true))
+    assertEquals("nose up", angleCaption(English, 6f, ownLevel = true))
   }
 
   @Test

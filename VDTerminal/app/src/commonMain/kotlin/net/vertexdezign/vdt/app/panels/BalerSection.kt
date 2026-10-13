@@ -48,6 +48,7 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ControlTarget
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.BaleDoor
 import net.vertexdezign.vdt.model.BaleType
@@ -145,7 +146,9 @@ internal fun BalerSection(
  */
 @Composable
 private fun BaleColumn(machine: IsoBusMachine, compact: Boolean, modifier: Modifier = Modifier) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.baler
   val gap = if (compact) 5.dp else 8.dp
   Column(modifier, verticalArrangement = Arrangement.spacedBy(gap, Alignment.CenterVertically)) {
     val units = FillUnits(machine.fillUnits)
@@ -153,36 +156,36 @@ private fun BaleColumn(machine: IsoBusMachine, compact: Boolean, modifier: Modif
     if (baler != null) {
       val chamber = baler.chamberIn(units)
       Figure(
-        "Bale",
+        s.bale,
         chamber?.let { "${it.fillLevelPercentage}%" } ?: "-",
         chamber?.takeIf {
           !compact
-        }?.let { "${numbers.integer(it.value.roundToInt())} of ${numbers.integer(it.capacity)} ${it.unit}".trim() },
+        }?.let { s.ofCapacity(numbers.integer(it.value.roundToInt()), numbers.integer(it.capacity), it.unit) },
         compact,
       )
       baler.currentBaleType?.let { size ->
         val next = baler.nextBaleType?.let { baler.baleTypes.getOrNull(it - 1) }
         Figure(
-          "Size",
+          s.size,
           baleSizeLabel(size),
           if (next != null) {
-            "${baleSizeLabel(next)} after this bale"
+            s.afterThisBale(baleSizeLabel(next))
           } else if (compact) {
             null
           } else {
-            baleShapeLabel(size)
+            baleShapeLabel(strings, size)
           },
           compact,
         )
       }
-      balesOnMachine(baler, units)?.let { (label, value) -> Figure(label, value, null, compact) }
+      balesOnMachine(strings, baler, units)?.let { (label, value) -> Figure(label, value, null, compact) }
       // A non-stop baler's pre-chamber, which keeps taking crop while the chamber ties and drops.
       baler.buffer?.let { buffer ->
         units.at(buffer.fillUnit)?.let { unit ->
           Figure(
-            "Buffer",
+            s.buffer,
             "${unit.fillLevelPercentage}%",
-            if (buffer.overloading) "emptying into the chamber" else null,
+            if (buffer.overloading) s.bufferEmptying else null,
             compact,
           )
         }
@@ -190,11 +193,11 @@ private fun BaleColumn(machine: IsoBusMachine, compact: Boolean, modifier: Modif
     } else {
       machine.baleWrapper?.let { wrapper ->
         Figure(
-          "Wrap",
+          s.wrap,
           wrapper.progress?.let {
             "${(it * 100).roundToInt()}%"
           } ?: "-",
-          wrapperStateLabel(wrapper),
+          wrapperStateLabel(strings, wrapper),
           compact,
         )
       }
@@ -203,10 +206,10 @@ private fun BaleColumn(machine: IsoBusMachine, compact: Boolean, modifier: Modif
 }
 
 /** What is on the machine besides the bale forming: the collector's rack, or the channel's bales. */
-internal fun balesOnMachine(baler: Baler, units: FillUnits): Pair<String, String>? {
+internal fun balesOnMachine(strings: Strings, baler: Baler, units: FillUnits): Pair<String, String>? {
   val rack = baler.collector?.let { units.at(it.fillUnit) }
-  if (rack != null) return "Collector" to "${rack.value.roundToInt()} / ${rack.capacity}"
-  if (!baler.round && baler.bales.isNotEmpty()) return "In channel" to "${baler.bales.size}"
+  if (rack != null) return strings.baler.collector to "${rack.value.roundToInt()} / ${rack.capacity}"
+  if (!baler.round && baler.bales.isNotEmpty()) return strings.baler.inChannel to "${baler.bales.size}"
   return null
 }
 
@@ -219,8 +222,11 @@ internal fun baleSizeLabel(type: BaleType): String {
   return "${formatCm(metres)} cm"
 }
 
-private fun baleShapeLabel(type: BaleType): String =
-  if (type.diameter != null) "diameter" else "long, ${formatCm(type.width)} x ${formatCm(type.height ?: 0.0)} cm"
+private fun baleShapeLabel(strings: Strings, type: BaleType): String = if (type.diameter != null) {
+  strings.baler.diameter
+} else {
+  strings.baler.squareShape(formatCm(type.width), formatCm(type.height ?: 0.0))
+}
 
 private fun formatCm(metres: Double): String = (metres * 100).roundToInt().toString()
 
@@ -241,21 +247,22 @@ private fun CountColumn(
   modifier: Modifier = Modifier,
 ) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.baler
   val gap = if (compact) 5.dp else 8.dp
   val units = FillUnits(machine.fillUnits)
   Column(modifier, verticalArrangement = Arrangement.spacedBy(gap, Alignment.CenterVertically)) {
     machine.baleCounter?.let { counter ->
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Figure(
-          "Bales",
+          s.bales,
           numbers.integer(counter.session),
-          if (compact) null else "${numbers.integer(counter.lifetime)} total",
+          if (compact) null else s.total(numbers.integer(counter.lifetime)),
           compact,
         )
         // Gated on power, as the game's key is; the lifetime count has no reset anywhere.
         Chip(
           Icons.Filled.Refresh,
-          "Reset",
+          s.reset,
           VdtColors.TextDark,
           onClick = target?.takeIf { machine.baler?.powered == true && counter.session > 0 }?.let {
             { onCommand(ClientMessage.ResetBaleCounter(it)) }
@@ -265,8 +272,8 @@ private fun CountColumn(
       }
     }
     val baler = machine.baler
-    baler?.consumableIn(units)?.let { RollFigure(if (baler.round) "Net" else "Twine", it, compact) }
-    machine.baleWrapper?.consumableIn(units)?.let { RollFigure("Film", it, compact) }
+    baler?.consumableIn(units)?.let { RollFigure(if (baler.round) s.net else s.twine, it, compact) }
+    machine.baleWrapper?.consumableIn(units)?.let { RollFigure(s.film, it, compact) }
     // Whatever else is on the machine (an additive tank), where there is height for it.
     if (!compact) {
       val others = otherUnits(machine)
@@ -277,7 +284,7 @@ private fun CountColumn(
 
 @Composable
 private fun RollFigure(label: String, unit: FillUnit, compact: Boolean) {
-  Figure(label, rollsLabel(unit), if (compact) null else "rolls", compact)
+  Figure(label, rollsLabel(unit), if (compact) null else LocalStrings.current.baler.rolls, compact)
 }
 
 /**
@@ -303,6 +310,8 @@ private fun BalerControls(
   onCommand: (ClientMessage) -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val strings = LocalStrings.current
+  val s = strings.baler
   FlowRow(
     modifier,
     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -311,12 +320,12 @@ private fun BalerControls(
     machine.baler?.let { baler ->
       BaleSizeChip(baler, target, onCommand)
       baler.autoDrop?.let {
-        AutoDropChip("Auto drop", it.on, it.canToggle && baler.powered, target, BalePart.BALER, onCommand)
+        AutoDropChip(s.autoDrop, it.on, it.canToggle && baler.powered, target, BalePart.BALER, onCommand)
       }
       baler.unload?.let { action ->
         Chip(
           Icons.Filled.Download,
-          unloadLabel(action),
+          unloadLabel(strings, action),
           VdtColors.TextDark,
           onClick = target?.let { { onCommand(ClientMessage.UnloadBale(it, action)) } },
           control = true,
@@ -325,7 +334,7 @@ private fun BalerControls(
     }
     machine.baleWrapper?.let { wrapper ->
       AutoDropChip(
-        if (machine.baler != null) "Auto drop wrapped" else "Auto drop",
+        if (machine.baler != null) s.autoDropWrapped else s.autoDrop,
         wrapper.autoDrop.on,
         wrapper.autoDrop.canToggle,
         target,
@@ -335,23 +344,23 @@ private fun BalerControls(
       if (wrapper.state == WrapperState.WRAPPED && !wrapper.autoDrop.on) {
         Chip(
           Icons.Filled.VerticalAlignBottom,
-          "Drop wrapped bale",
+          s.dropWrapped,
           VdtColors.TextDark,
           onClick = target?.takeIf { wrapper.canDrop }?.let { { onCommand(ClientMessage.DropWrappedBale(it)) } },
           control = true,
         )
       }
-      if (wrapper.unsupportedBale) Chip(Icons.Filled.WarningAmber, "Bale cannot be wrapped", VdtColors.Amber)
+      if (wrapper.unsupportedBale) Chip(Icons.Filled.WarningAmber, s.cannotWrap, VdtColors.Amber)
     }
   }
 }
 
 /** The game's words for its drop key, one per action it offers. */
-internal fun unloadLabel(action: BaleUnloadAction): String = when (action) {
-  BaleUnloadAction.UNLOAD -> "Drop bale"
-  BaleUnloadAction.UNLOAD_UNFINISHED -> "Drop unfinished bale"
-  BaleUnloadAction.CLOSE -> "Close tailgate"
-  BaleUnloadAction.DROP_PLATFORM -> "Tip platform"
+internal fun unloadLabel(strings: Strings, action: BaleUnloadAction): String = when (action) {
+  BaleUnloadAction.UNLOAD -> strings.baler.dropBale
+  BaleUnloadAction.UNLOAD_UNFINISHED -> strings.baler.dropUnfinished
+  BaleUnloadAction.CLOSE -> strings.baler.closeTailgate
+  BaleUnloadAction.DROP_PLATFORM -> strings.baler.tipPlatform
 }
 
 /**
@@ -437,18 +446,19 @@ internal fun RowScope.BalerStateChip(machine: IsoBusMachine) {
   // Held like the art's rotor, so "Baling" does not flicker to "Idle" on every thin spot in the swath.
   val working = heldWorking(machine.baler?.working == true)
   val held = machine.baler?.let { machine.copy(baler = it.copy(working = working)) } ?: machine
-  val (icon, label, active) = balerState(held) ?: return
+  val (icon, label, active) = balerState(LocalStrings.current, held) ?: return
   Chip(icon, label, if (active) VdtColors.AccentText else VdtColors.DarkGray)
 }
 
 internal data class BalerStateLabel(val icon: ImageVector, val label: String, val active: Boolean)
 
 /** The one line the header says. The wrapper wins while it is busy: that is what is moving. */
-internal fun balerState(machine: IsoBusMachine): BalerStateLabel? {
+internal fun balerState(strings: Strings, machine: IsoBusMachine): BalerStateLabel? {
+  val s = strings.baler
   val baler = machine.baler
   val wrapper = machine.baleWrapper
   if (wrapper != null && (baler == null || wrapper.state != WrapperState.EMPTY)) {
-    val label = wrapperStateLabel(wrapper)
+    val label = wrapperStateLabel(strings, wrapper)
     return when (wrapper.state) {
       WrapperState.WRAPPING -> BalerStateLabel(Icons.Filled.Sync, label, true)
       WrapperState.WRAPPED -> BalerStateLabel(Icons.Filled.Check, label, true)
@@ -461,28 +471,28 @@ internal fun balerState(machine: IsoBusMachine): BalerStateLabel? {
   return when {
     baler.door == BaleDoor.OPENING || baler.door == BaleDoor.OPEN -> BalerStateLabel(
       Icons.Filled.ArrowUpward,
-      "Tailgate open",
+      s.tailgateOpen,
       true,
     )
 
-    baler.door == BaleDoor.CLOSING -> BalerStateLabel(Icons.Filled.ArrowDownward, "Tailgate closing", true)
+    baler.door == BaleDoor.CLOSING -> BalerStateLabel(Icons.Filled.ArrowDownward, s.tailgateClosing, true)
 
-    baler.round && baler.bales.isNotEmpty() -> BalerStateLabel(Icons.Filled.Check, "Bale ready", true)
+    baler.round && baler.bales.isNotEmpty() -> BalerStateLabel(Icons.Filled.Check, s.baleReady, true)
 
-    baler.working -> BalerStateLabel(Icons.Filled.Grass, "Baling", true)
+    baler.working -> BalerStateLabel(Icons.Filled.Grass, s.baling, true)
 
-    else -> BalerStateLabel(Icons.Filled.Pause, "Idle", false)
+    else -> BalerStateLabel(Icons.Filled.Pause, s.idle, false)
   }
 }
 
-internal fun wrapperStateLabel(wrapper: BaleWrapper): String = when (wrapper.state) {
-  WrapperState.EMPTY -> "Waiting for a bale"
-  WrapperState.LOADING -> "Loading"
-  WrapperState.LOADED -> "Bale on table"
-  WrapperState.WRAPPING -> "Wrapping"
-  WrapperState.WRAPPED -> "Wrapped"
-  WrapperState.DROPPING -> "Dropping"
-  WrapperState.RESETTING -> "Table returning"
+internal fun wrapperStateLabel(strings: Strings, wrapper: BaleWrapper): String = when (wrapper.state) {
+  WrapperState.EMPTY -> strings.baler.waitingForBale
+  WrapperState.LOADING -> strings.baler.loading
+  WrapperState.LOADED -> strings.baler.baleOnTable
+  WrapperState.WRAPPING -> strings.baler.wrapping
+  WrapperState.WRAPPED -> strings.baler.wrapped
+  WrapperState.DROPPING -> strings.baler.dropping
+  WrapperState.RESETTING -> strings.baler.tableReturning
 }
 
 /**
