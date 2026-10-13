@@ -46,6 +46,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.panels.EmptyPanel
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.LocalWidgetInstance
@@ -310,7 +311,7 @@ private fun TileView(
         if (roomForHint) {
           Icon(
             Icons.Filled.OpenWith,
-            contentDescription = "drag to swap",
+            contentDescription = LocalStrings.current.widgets.dragToSwap,
             tint = VdtColors.White,
             modifier = Modifier.align(Alignment.Center).size(28.dp),
           )
@@ -318,7 +319,7 @@ private fun TileView(
         if (configurable) {
           CtrlButton(
             Icons.Filled.Settings,
-            "configure widget",
+            LocalStrings.current.widgets.configureWidget,
             onClick = edits.configure,
             size = ctrlSize,
             modifier = Modifier.align(Alignment.TopStart).padding(4.dp),
@@ -326,7 +327,7 @@ private fun TileView(
         }
         CtrlButton(
           Icons.Filled.Close,
-          "remove widget",
+          LocalStrings.current.widgets.removeWidget,
           onClick = edits.remove,
           size = ctrlSize,
           modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
@@ -338,8 +339,8 @@ private fun TileView(
           Modifier.align(Alignment.BottomEnd).padding(4.dp),
           horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-          SlotButton(Icons.Filled.VerticalSplit, "split right", edits.splitRight, ctrlSize)
-          SlotButton(Icons.Filled.HorizontalSplit, "split below", edits.splitBelow, ctrlSize)
+          SlotButton(Icons.Filled.VerticalSplit, LocalStrings.current.widgets.splitRight, edits.splitRight, ctrlSize)
+          SlotButton(Icons.Filled.HorizontalSplit, LocalStrings.current.widgets.splitBelow, edits.splitBelow, ctrlSize)
         }
       }
     }
@@ -365,8 +366,12 @@ private fun EmptyView(onAdd: () -> Unit, onClose: (() -> Unit)?, dropTarget: Boo
     contentAlignment = Alignment.Center,
   ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-      CtrlButton(Icons.Filled.Add, "add widget", onClick = onAdd, size = CTRL_MAX)
-      if (onClose != null) CtrlButton(Icons.Filled.Close, "close empty space", onClick = onClose, size = CTRL_MAX)
+      CtrlButton(Icons.Filled.Add, LocalStrings.current.widgets.addWidgetAction, onClick = onAdd, size = CTRL_MAX)
+      if (onClose !=
+        null
+      ) {
+        CtrlButton(Icons.Filled.Close, LocalStrings.current.widgets.closeEmpty, onClick = onClose, size = CTRL_MAX)
+      }
     }
   }
 }
@@ -451,7 +456,7 @@ private fun DividerHandle(divider: Divider, active: Boolean, modifier: Modifier 
   ) {
     Icon(
       Icons.Filled.DragHandle,
-      "drag divider",
+      LocalStrings.current.widgets.dragDivider,
       tint = VdtColors.DarkGray,
       modifier = Modifier.size(20.dp).then(if (across) Modifier.rotate(90f) else Modifier),
     )
@@ -473,7 +478,7 @@ private fun EqualizeButton(divider: Divider, onClick: () -> Unit) {
   val y = if (across) center.y + h / 2 + gap else center.y - size / 2
   CtrlButton(
     if (across) Icons.Filled.ViewColumn else Icons.Filled.TableRows,
-    "make equal",
+    LocalStrings.current.widgets.makeEqual,
     onClick = onClick,
     size = size.dp,
     modifier = Modifier.zIndex(2f).offset(x.dp, y.dp),
@@ -519,7 +524,14 @@ private fun EdgeButton(edge: PageEdge, bounds: Rect, onClick: () -> Unit) {
   ) {
     Icon(
       Icons.Filled.Add,
-      "add ${edge.name.lowercase()} band",
+      LocalStrings.current.widgets.addBand(
+        when (edge) {
+          PageEdge.Top -> LocalStrings.current.widgets.edgeTop
+          PageEdge.Bottom -> LocalStrings.current.widgets.edgeBottom
+          PageEdge.Left -> LocalStrings.current.widgets.edgeStart
+          PageEdge.Right -> LocalStrings.current.widgets.edgeEnd
+        },
+      ),
       tint = VdtColors.DarkGray,
       modifier = Modifier.size(18.dp),
     )

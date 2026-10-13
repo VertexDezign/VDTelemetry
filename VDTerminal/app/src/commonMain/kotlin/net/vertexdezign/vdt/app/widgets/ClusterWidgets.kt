@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.ClusterEmpty
 import net.vertexdezign.vdt.app.panels.ClusterLevels
 import net.vertexdezign.vdt.app.panels.ClusterReadout
@@ -34,7 +35,7 @@ import net.vertexdezign.vdt.app.state.LocalVdtStore
 /** The band of warning and status lamps; which lamps is per instance. */
 object TelltaleWidget : Widget {
   override val id = "telltales"
-  override val title = "Telltales"
+  override fun title(strings: Strings) = strings.widgets.telltales
   override val icon: ImageVector = Icons.Filled.WarningAmber
 
   // A row of lamps that wraps: it needs width far more than height, and one row of them is a
@@ -48,7 +49,7 @@ object TelltaleWidget : Widget {
   @Composable
   private fun lampsOption() = ConfigOption(
     key = LAMPS_KEY,
-    label = "Lamps",
+    label = LocalStrings.current.widgets.lamps,
     choices = Telltale.entries.map { ConfigOption.Choice(it.key, it.label(LocalStrings.current), it.icon) },
     // Which lamps matter differs per rig, and without this the band is the part of the cluster that
     // would grow forever as the model gains states.
@@ -77,7 +78,7 @@ object TelltaleWidget : Widget {
 /** Engine speed, ground speed, gear and cruise, in the largest type that fits. */
 object ClusterReadoutWidget : Widget {
   override val id = "clusterReadout"
-  override val title = "Cluster Readout"
+  override fun title(strings: Strings) = strings.widgets.clusterReadout
   override val icon: ImageVector = Icons.Filled.Speed
 
   override val minWidth = 120.dp
@@ -106,7 +107,7 @@ object ClusterReadoutWidget : Widget {
  */
 object ClusterServiceWidget : Widget {
   override val id = "clusterService"
-  override val title = "Service"
+  override fun title(strings: Strings) = strings.widgets.service
   override val icon: ImageVector = Icons.Filled.Build
 
   // A wide short tile: with the walk-round chores gone there is only the interval and the volts left
@@ -133,7 +134,7 @@ object ClusterServiceWidget : Widget {
 /** Vertical bars for the engine's own levels — the temperatures and the tanks. Never cargo. */
 object ClusterLevelsWidget : Widget {
   override val id = "clusterLevels"
-  override val title = "Level Strip"
+  override fun title(strings: Strings) = strings.widgets.levelStrip
   override val icon: ImageVector = Icons.Filled.Straighten
 
   // Bars are read by height, so height is what it wants; it narrows to about 120dp before the bars

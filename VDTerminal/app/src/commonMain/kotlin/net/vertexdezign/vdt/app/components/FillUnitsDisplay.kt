@@ -30,7 +30,7 @@ fun FillUnitsDisplay(fillUnits: List<FillUnit>, modifier: Modifier = Modifier, s
       // The segmented renderer is deferred to the UI redesign; the level itself is correct either way.
       ProgressBar(
         fraction = fraction,
-        leftLabel = title.ifBlank { "Fill" },
+        leftLabel = title.ifBlank { LocalStrings.current.widgets.fill },
         rightLabel = "${numbers.fixed(fu.value, fu.precision)}${fu.unit}",
       )
     }

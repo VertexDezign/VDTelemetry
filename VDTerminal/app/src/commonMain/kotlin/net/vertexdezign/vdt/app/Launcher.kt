@@ -46,6 +46,7 @@ import androidx.compose.ui.zIndex
 import net.vertexdezign.vdt.app.apps.VdtApp
 import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.pages.Page
+import net.vertexdezign.vdt.app.pages.displayTitle
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 private const val TILES_PER_ROW = 3
@@ -321,7 +322,7 @@ private fun ReorderablePageGrid(
           val dragging = dragIndex == i
           Tile(
             page.icon.vector,
-            page.title,
+            page.displayTitle(LocalStrings.current),
             active = Screen.OpenPage(page.id) == screen,
             onClick = { onOpen(Screen.OpenPage(page.id)) },
             highlighted = !dragging && dropTarget == i,

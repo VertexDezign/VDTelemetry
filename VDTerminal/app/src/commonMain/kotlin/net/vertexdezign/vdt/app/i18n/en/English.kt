@@ -33,6 +33,7 @@ import net.vertexdezign.vdt.app.i18n.StorageStrings
 import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.i18n.TasksStrings
 import net.vertexdezign.vdt.app.i18n.VehicleStrings
+import net.vertexdezign.vdt.app.i18n.WidgetsStrings
 
 /** The English catalogue, and the reference the others are translated from. */
 object English : Strings {
@@ -68,4 +69,5 @@ object English : Strings {
   override val section: SectionStrings = EnSection
   override val map: MapStrings = EnMap
   override val alerts: AlertsStrings = EnAlerts
+  override val widgets: WidgetsStrings = EnWidgets
 }

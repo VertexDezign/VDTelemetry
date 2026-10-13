@@ -34,6 +34,7 @@ import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.apps.availableApps
 import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.pages.Page
+import net.vertexdezign.vdt.app.pages.displayTitle
 import net.vertexdezign.vdt.app.state.Favourite
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -113,7 +114,9 @@ fun Footer(
 
           Favourite.Kind.Page ->
             pages.firstOrNull { it.id == favourite.id }?.let { page ->
-              FavouriteButton(page.icon.vector, page.title, target == screen) { onOpenScreen(target) }
+              FavouriteButton(page.icon.vector, page.displayTitle(LocalStrings.current), target == screen) {
+                onOpenScreen(target)
+              }
             }
         }
       }
@@ -128,7 +131,7 @@ fun Footer(
     ) {
       pages.firstOrNull { it.id == currentPageId }?.let { current ->
         Text(
-          current.title.uppercase(),
+          current.displayTitle(LocalStrings.current).uppercase(),
           color = VdtColors.White,
           fontSize = 12.sp,
           fontWeight = FontWeight.Bold,

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.serialization.Serializable
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.layout.GridAspect
 import net.vertexdezign.vdt.app.layout.LayoutNode
 import net.vertexdezign.vdt.app.layout.flipped
@@ -69,12 +70,11 @@ enum class AutoShow {
   OnFoot,
   ;
 
-  val label: String
-    get() = when (this) {
-      Never -> "Manual"
-      InVehicle -> "In vehicle"
-      OnFoot -> "On foot"
-    }
+  fun label(strings: Strings): String = when (this) {
+    Never -> strings.widgets.showManual
+    InVehicle -> strings.widgets.showInVehicle
+    OnFoot -> strings.widgets.showOnFoot
+  }
 }
 
 /**
@@ -104,4 +104,17 @@ enum class PageIcon {
       Star -> Icons.Filled.Star
       Grid -> Icons.Filled.GridView
     }
+}
+
+/**
+ * The page's name as the reader sees it. A seeded page's name is stored once, in English, and is the
+ * player's from then on — so it is translated only while it is still exactly the name it was seeded
+ * with; renamed, it is shown as written.
+ */
+fun Page.displayTitle(strings: Strings): String = when {
+  id == "vehicle" && title == "Vehicle" -> strings.widgets.pageVehicle
+  id == "farm" && title == "Farm" -> strings.widgets.pageFarm
+  id == "pillar" && title == "Pillar" -> strings.widgets.pagePillar
+  title == "New Page" -> strings.widgets.pageNew
+  else -> title
 }

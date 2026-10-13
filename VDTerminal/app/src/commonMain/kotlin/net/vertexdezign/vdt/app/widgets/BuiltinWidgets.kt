@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.AutoDrivePanel
 import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
@@ -51,7 +52,7 @@ import net.vertexdezign.vdt.app.theme.VdtColors
 /** The PDA map with overlays; unifies the vehicle-GPS and on-foot player heading into one widget. */
 object MapWidget : Widget {
   override val id = "map"
-  override val title = "Map"
+  override fun title(strings: Strings) = strings.apps.map
   override val icon: ImageVector = Icons.Filled.Map
 
   // The one widget that is mostly picture: it wants area, and below roughly a third of the page the
@@ -62,39 +63,39 @@ object MapWidget : Widget {
   /** The config key deciding whether this map carries the navigation strip. */
   const val GUIDANCE_KEY = "guidance"
 
-  private val guidanceOption =
-    ConfigOption(
-      key = GUIDANCE_KEY,
-      label = "Navigation strip",
-      // "Off" first, so resolve()'s default keeps an unconfigured map exactly as it was — the strip
-      // covers terrain, and a map placed as an overview never asked for it. A map placed as a run
-      // screen turns it on and gets the heading where the driving happens.
-      choices =
-      listOf(
-        ConfigOption.Choice(GUIDANCE_OFF, "Off"),
-        ConfigOption.Choice(GUIDANCE_ON, "On"),
-      ),
-    )
+  @Composable
+  private fun guidanceOption() = ConfigOption(
+    key = GUIDANCE_KEY,
+    label = LocalStrings.current.widgets.navigationStrip,
+    // "Off" first, so resolve()'s default keeps an unconfigured map exactly as it was — the strip
+    // covers terrain, and a map placed as an overview never asked for it. A map placed as a run
+    // screen turns it on and gets the heading where the driving happens.
+    choices =
+    listOf(
+      ConfigOption.Choice(GUIDANCE_OFF, LocalStrings.current.widgets.off),
+      ConfigOption.Choice(GUIDANCE_ON, LocalStrings.current.widgets.on),
+    ),
+  )
 
   /** The config key deciding whether this map carries the boom along its bottom edge. */
   const val SECTIONS_KEY = "sections"
 
-  private val sectionsOption =
-    ConfigOption(
-      key = SECTIONS_KEY,
-      label = "Section bar",
-      // Off first for the same reason as the navigation strip: it covers terrain, and it is only ever
-      // wanted on a map placed as a run screen. Separate from that strip rather than folded into one
-      // "run screen" switch — a sprayer wants the boom, and a map watched from the yard wants neither.
-      choices =
-      listOf(
-        ConfigOption.Choice(SECTIONS_OFF, "Off"),
-        ConfigOption.Choice(SECTIONS_ON, "On"),
-      ),
-    )
+  @Composable
+  private fun sectionsOption() = ConfigOption(
+    key = SECTIONS_KEY,
+    label = LocalStrings.current.widgets.sectionBar,
+    // Off first for the same reason as the navigation strip: it covers terrain, and it is only ever
+    // wanted on a map placed as a run screen. Separate from that strip rather than folded into one
+    // "run screen" switch — a sprayer wants the boom, and a map watched from the yard wants neither.
+    choices =
+    listOf(
+      ConfigOption.Choice(SECTIONS_OFF, LocalStrings.current.widgets.off),
+      ConfigOption.Choice(SECTIONS_ON, LocalStrings.current.widgets.on),
+    ),
+  )
 
   @Composable
-  override fun configOptions(): List<ConfigOption> = listOf(guidanceOption, sectionsOption)
+  override fun configOptions(): List<ConfigOption> = listOf(guidanceOption(), sectionsOption())
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -133,8 +134,8 @@ object MapWidget : Widget {
       vehicle = telemetry?.vehicle,
       // A stored value this widget no longer offers falls back to off: the choices are fixed, so
       // anything else is a stale key rather than a preference worth honouring.
-      showGuidance = guidanceOption.resolve(config) == GUIDANCE_ON,
-      showSections = sectionsOption.resolve(config) == SECTIONS_ON,
+      showGuidance = guidanceOption().resolve(config) == GUIDANCE_ON,
+      showSections = sectionsOption().resolve(config) == SECTIONS_ON,
       onCommand = store.onCommand,
       gpsCourse = gpsCourse,
       courseProgress = courseProgress,
@@ -155,7 +156,7 @@ private const val SECTIONS_ON = "on"
 /** Engine / transmission — needs a vehicle; shows an empty tile when on foot. */
 object EngineWidget : Widget {
   override val id = "engine"
-  override val title = "Engine and Transmission"
+  override fun title(strings: Strings) = strings.vehicle.engineTitle
   override val icon: ImageVector = Icons.Filled.Agriculture
 
   @Composable
@@ -165,7 +166,7 @@ object EngineWidget : Widget {
     val sampleIntervalMs by store.sampleIntervalMs.collectAsState()
     val vehicle = telemetry?.vehicle
     if (vehicle == null) {
-      MissingPanel(title, icon, modifier)
+      MissingPanel(title(LocalStrings.current), icon, modifier)
     } else {
       EngineTransmission(vehicle, sampleIntervalMs, modifier, onCommand = store.onCommand)
     }
@@ -180,7 +181,7 @@ object EngineWidget : Widget {
  */
 object RigSlotWidget : Widget {
   override val id = "rigSlot"
-  override val title = "Rig Position"
+  override fun title(strings: Strings) = strings.widgets.rigPosition
   override val icon: ImageVector = Icons.Filled.Anchor
 
   // Taller than wide: the panel is a stack (name, condition, controls, load) that reads as a column
@@ -197,7 +198,7 @@ object RigSlotWidget : Widget {
   @Composable
   private fun slotOption() = ConfigOption(
     key = SLOT_KEY,
-    label = "Position",
+    label = LocalStrings.current.widgets.position,
     // Fixed choices — every rig has all three positions, whether or not something is in them — so
     // unlike the shortcut's apps these never narrow, and resolve()'s default is always meaningful.
     choices = RigSlot.entries.map { ConfigOption.Choice(it.name, it.label(LocalStrings.current)) },
@@ -233,7 +234,7 @@ object RigSlotWidget : Widget {
  */
 object IsoBusWidget : Widget {
   override val id = "isobus"
-  override val title = "ISOBUS"
+  override fun title(strings: Strings) = strings.apps.isobus
   override val icon: ImageVector = Icons.Filled.Memory
 
   // Wide rather than tall: the machine art is 2:1 and the ratio bars want width to be readable. The
@@ -251,9 +252,9 @@ object IsoBusWidget : Widget {
   @Composable
   private fun slotOption() = ConfigOption(
     key = SLOT_KEY,
-    label = "Machine",
+    label = LocalStrings.current.widgets.machine,
     choices =
-    listOf(ConfigOption.Choice(AUTO_SLOT, "Auto")) +
+    listOf(ConfigOption.Choice(AUTO_SLOT, LocalStrings.current.widgets.auto)) +
       RigSlot.entries.map { ConfigOption.Choice(it.name, it.label(LocalStrings.current)) },
   )
 
@@ -277,7 +278,7 @@ object IsoBusWidget : Widget {
  */
 object LoaderWidget : Widget {
   override val id = "loader"
-  override val title = "Loader"
+  override fun title(strings: Strings) = strings.apps.loader
   override val icon: ImageVector = Icons.Filled.Construction
 
   // The readouts alone fit a narrow tile; the side view joins them from 300dp wide.
@@ -300,7 +301,7 @@ object LoaderWidget : Widget {
  */
 object NavigationWidget : Widget {
   override val id = "navigation"
-  override val title = "Navigation"
+  override fun title(strings: Strings) = strings.vehicle.navigation
   override val icon: ImageVector = Icons.Filled.Explore
 
   // A heading and a row of status icons — it squeezes further than the readout panels do.
@@ -314,7 +315,7 @@ object NavigationWidget : Widget {
     val courseProgress by store.courseProgress.collectAsState()
     val vehicle = telemetry?.vehicle
     if (vehicle == null) {
-      MissingPanel(title, icon, modifier)
+      MissingPanel(title(LocalStrings.current), icon, modifier)
     } else {
       Navigation(vehicle, modifier, courseProgress, onCommand = store.onCommand)
     }
@@ -324,7 +325,7 @@ object NavigationWidget : Widget {
 /** Vehicle lighting — needs a vehicle. */
 object LightingWidget : Widget {
   override val id = "lighting"
-  override val title = "Lighting"
+  override fun title(strings: Strings) = strings.vehicle.lighting
   override val icon: ImageVector = Icons.Filled.Lightbulb
 
   // A grid of toggle buttons, so it stays usable small — it just fits fewer per row.
@@ -337,7 +338,7 @@ object LightingWidget : Widget {
     val telemetry by store.telemetry.collectAsState()
     val vehicle = telemetry?.vehicle
     if (vehicle == null) {
-      MissingPanel(title, icon, modifier)
+      MissingPanel(title(LocalStrings.current), icon, modifier)
     } else {
       Lighting(vehicle, modifier, onCommand = store.onCommand)
     }
@@ -354,7 +355,7 @@ object LightingWidget : Widget {
  */
 object FieldsWidget : Widget {
   override val id = "fields"
-  override val title = "Fields"
+  override fun title(strings: Strings) = strings.apps.fields
   override val icon: ImageVector = Icons.Filled.Grass
 
   @Composable
@@ -372,7 +373,7 @@ object FieldsWidget : Widget {
 /** AutoDrive's controls for the machine you are in (issue #97); the panel renders its own empty states. */
 object AutoDriveWidget : Widget {
   override val id = "autoDrive"
-  override val title = "AutoDrive"
+  override fun title(strings: Strings) = strings.apps.autoDrive
   override val icon: ImageVector = Icons.Filled.Route
 
   @Composable
@@ -387,7 +388,7 @@ object AutoDriveWidget : Widget {
 /** FS25_TaskList tasks (its own channel); the panel renders its own empty state. */
 object TaskListWidget : Widget {
   override val id = "tasks"
-  override val title = "Tasks"
+  override fun title(strings: Strings) = strings.apps.tasks
   override val icon: ImageVector = Icons.Filled.Checklist
 
   @Composable
@@ -402,7 +403,7 @@ object TaskListWidget : Widget {
 /** Contract progress at a glance; the full accept/collect flow lives in the Missions app. */
 object MissionsWidget : Widget {
   override val id = "missions"
-  override val title = "Contracts"
+  override fun title(strings: Strings) = strings.apps.missions
   override val icon: ImageVector = Icons.AutoMirrored.Filled.Assignment
 
   @Composable
@@ -418,7 +419,7 @@ object MissionsWidget : Widget {
  */
 object FinanceWidget : Widget {
   override val id = "finance"
-  override val title = "Finance"
+  override fun title(strings: Strings) = strings.apps.finance
   override val icon: ImageVector = Icons.Filled.AccountBalance
 
   @Composable
@@ -435,7 +436,7 @@ object FinanceWidget : Widget {
  */
 object InvoicesWidget : Widget {
   override val id = "invoices"
-  override val title = "Invoices"
+  override fun title(strings: Strings) = strings.finance.invoices
   override val icon: ImageVector = Icons.AutoMirrored.Filled.ReceiptLong
 
   @Composable
@@ -448,7 +449,7 @@ object InvoicesWidget : Widget {
 /** FS25_CropRotation planner (its own channel); the panel renders its own empty state. */
 object CropRotationWidget : Widget {
   override val id = "cropRotation"
-  override val title = "Crop Rotation"
+  override fun title(strings: Strings) = strings.apps.cropRotation
   override val icon: ImageVector = Icons.Filled.Grass
 
   @Composable
@@ -466,7 +467,7 @@ object CropRotationWidget : Widget {
  */
 object WeatherWidget : Widget {
   override val id = "weather"
-  override val title = "Weather"
+  override fun title(strings: Strings) = strings.calendar.weather
   override val icon: ImageVector = WeatherIcons.PartiallyCloudy
   override val minWidth = 120.dp
   override val minHeight = 120.dp
@@ -483,7 +484,7 @@ object WeatherWidget : Widget {
 private fun MissingPanel(title: String, icon: ImageVector, modifier: Modifier = Modifier) {
   Panel(title = title, icon = icon, modifier = modifier) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-      Text("No vehicle connected", color = VdtColors.DarkGray, fontSize = 12.sp)
+      Text(LocalStrings.current.isoBus.noVehicle, color = VdtColors.DarkGray, fontSize = 12.sp)
     }
   }
 }

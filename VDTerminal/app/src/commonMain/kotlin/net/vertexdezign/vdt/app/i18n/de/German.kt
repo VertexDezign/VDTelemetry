@@ -33,6 +33,7 @@ import net.vertexdezign.vdt.app.i18n.StorageStrings
 import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.i18n.TasksStrings
 import net.vertexdezign.vdt.app.i18n.VehicleStrings
+import net.vertexdezign.vdt.app.i18n.WidgetsStrings
 
 /**
  * The German catalogue. Where the game has a word for a thing, it is the game's word ("Aufträge", not
@@ -71,4 +72,5 @@ object German : Strings {
   override val section: SectionStrings = DeSection
   override val map: MapStrings = DeMap
   override val alerts: AlertsStrings = DeAlerts
+  override val widgets: WidgetsStrings = DeWidgets
 }

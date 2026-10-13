@@ -51,6 +51,7 @@ interface Strings {
   val section: SectionStrings
   val map: MapStrings
   val alerts: AlertsStrings
+  val widgets: WidgetsStrings
 }
 
 /** The languages the terminal has a catalogue for. */

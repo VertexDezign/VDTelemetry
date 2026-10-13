@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
@@ -63,7 +64,12 @@ fun ConfirmDialog(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
       ) {
-        DialogButton("CANCEL", accent = VdtColors.DarkGray, filled = false, onClick = onDismiss)
+        DialogButton(
+          LocalStrings.current.widgets.cancel,
+          accent = VdtColors.DarkGray,
+          filled = false,
+          onClick = onDismiss,
+        )
         DialogButton(confirmLabel, accent = VdtColors.Red, filled = true, onClick = onConfirm)
       }
     }

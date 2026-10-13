@@ -29,6 +29,7 @@ import net.vertexdezign.vdt.app.Screen
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.apps.availableApps
 import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
@@ -47,7 +48,7 @@ import net.vertexdezign.vdt.app.theme.VdtColors
  */
 object ShortcutWidget : Widget {
   override val id = "shortcut"
-  override val title = "Shortcut"
+  override fun title(strings: Strings) = strings.widgets.shortcut
   override val icon: ImageVector = Icons.Filled.Apps
 
   // A thumb-sized square, comfortably over a thumb's 44dp — the smallest thing a page holds. A row of
@@ -69,7 +70,7 @@ object ShortcutWidget : Widget {
   @Composable
   private fun appOption() = ConfigOption(
     key = APP_KEY,
-    label = "Opens",
+    label = LocalStrings.current.widgets.opens,
     choices = availableApps().map { ConfigOption.Choice(it.id, it.title(LocalStrings.current), it.icon) },
   )
 
@@ -91,7 +92,7 @@ object ShortcutWidget : Widget {
     if (app == null) {
       ShortcutTile(
         Icons.AutoMirrored.Filled.HelpOutline,
-        "Unavailable",
+        LocalStrings.current.widgets.unavailable,
         tint = VdtColors.TextDisabled,
         onClick = null,
         modifier = modifier,

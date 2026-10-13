@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
@@ -57,11 +58,16 @@ fun WidgetPicker(
         .padding(16.dp),
       verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-      Text("ADD WIDGET", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+      Text(
+        LocalStrings.current.widgets.addWidget,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        color = VdtColors.DarkGray,
+      )
       if (available.isEmpty()) {
         // Covers both reasons the list can come back empty: everything is placed already, or nothing
         // left fits in the room this slot has.
-        Text("No widget fits this slot.", fontSize = 12.sp, color = VdtColors.DarkGray)
+        Text(LocalStrings.current.widgets.noWidgetFits, fontSize = 12.sp, color = VdtColors.DarkGray)
       } else {
         Column(
           Modifier.verticalScroll(rememberScrollState()),
@@ -90,6 +96,6 @@ private fun WidgetRow(widget: Widget, onClick: () -> Unit) {
     horizontalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     Icon(widget.icon, contentDescription = null, tint = VdtColors.DarkGray, modifier = Modifier.size(20.dp))
-    Text(widget.title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
+    Text(widget.title(LocalStrings.current), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
   }
 }
