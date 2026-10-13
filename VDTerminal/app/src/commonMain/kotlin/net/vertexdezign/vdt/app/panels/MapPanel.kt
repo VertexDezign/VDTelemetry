@@ -150,7 +150,7 @@ import net.vertexdezign.vdt.model.Player
 import net.vertexdezign.vdt.model.SweptArea
 import net.vertexdezign.vdt.model.Vehicle
 import net.vertexdezign.vdt.model.WorkArea
-import net.vertexdezign.vdt.model.activeWorkAreas
+import net.vertexdezign.vdt.model.allWorkAreas
 import net.vertexdezign.vdt.model.coversGround
 import net.vertexdezign.vdt.model.slicePolyline
 import org.jetbrains.skia.Image
@@ -1339,7 +1339,7 @@ private fun splitDriven(p: List<Float>, spans: List<Float>): DrivenSplit {
 }
 
 /**
- * The working footprint: every work area of the rig that is able to work, drawn where it is.
+ * The working footprint: every work area of the rig, drawn where it is.
  *
  * The mod exports three corners of each area — the engine's own start / width / height nodes — and the
  * fourth is `width + height - start`, so a swath is a parallelogram rather than a rectangle whenever
@@ -1348,8 +1348,10 @@ private fun splitDriven(p: List<Float>, spans: List<Float>): DrivenSplit {
  *
  * Filled where the area is *processing* (it touched ground within the last 200 ms) and outlined where
  * it is merely active — the difference between a tool that is working and one that is lowered over a
- * finished patch. Areas that are off entirely are not drawn: a raised implement covers nothing, and
- * painting its resting footprint would read as coverage.
+ * finished patch. Areas that are off — raised, or their section switched off — are still drawn, dashed:
+ * lining up for the next pass with every HUD element hidden wants to see where the tool *would* work
+ * before it is lowered. The dash is what keeps a resting footprint from reading as coverage; it differs
+ * from the working outline in shape, not just in strength.
  *
  * Not remembered on the vehicle: the whole point is that it moves every tick.
  */
@@ -1369,24 +1371,31 @@ private fun BoxScope.WorkOverlay(vehicle: Vehicle, projection: MapProjection) {
       scale(factor, factor, pivot = Offset.Zero)
     }) {
       val hairline = 1.dp.toPx() / factor
+      // In map units like the hairline, so the dash keeps its on-screen length at any zoom.
+      val dash = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx() / factor, 3.dp.toPx() / factor))
       for (area in areas) {
         val path = quadPath(area.shape)
-        if (area.processing) {
-          drawPath(path, palette.accent.copy(alpha = 0.45f))
+        when {
+          area.processing -> {
+            drawPath(path, palette.accent.copy(alpha = 0.45f))
+            drawPath(path, palette.accent, style = Stroke(hairline))
+          }
+
+          area.active -> drawPath(path, palette.accent, style = Stroke(hairline))
+
+          else -> drawPath(path, palette.accent.copy(alpha = 0.8f), style = Stroke(hairline, pathEffect = dash))
         }
-        drawPath(path, palette.accent, style = Stroke(hairline))
       }
     }
   }
 }
 
 /**
- * Every work area of the rig that can currently work ground and knows where it is, tractor and tools
- * alike — minus the ones that only spread material behind the machine ([coversGround]), which are the
+ * Every work area of the rig that knows where it is, working or not, tractor and tools alike — minus the ones that only spread material behind the machine ([coversGround]), which are the
  * combine's straw areas and are not a picture of what it is cutting.
  */
 private fun workFootprints(vehicle: Vehicle): List<WorkArea> =
-  vehicle.activeWorkAreas().filter { it.coversGround && it.shape.size >= 6 }
+  vehicle.allWorkAreas().filter { it.coversGround && it.shape.size >= 6 }
 
 /** The work area's parallelogram, from the three corners the engine describes it by. */
 private fun quadPath(shape: List<Float>): Path = Path().apply {
