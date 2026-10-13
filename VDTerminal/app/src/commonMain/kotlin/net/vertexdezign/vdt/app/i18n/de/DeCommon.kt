@@ -21,4 +21,10 @@ internal object DeCommon : CommonStrings {
   override val filterText = "Text"
   override fun moreMatches(count: Int): String = "$count weitere — weiter tippen"
   override fun remove(label: String): String = "$label entfernen"
+  override val save = "Speichern"
+  override val delete = "Löschen"
+  override val create = "Erstellen"
+  override val edit = "Bearbeiten"
+  override val name = "Name"
+  override val monthsShort = listOf("Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez")
 }

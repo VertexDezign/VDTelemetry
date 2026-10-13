@@ -668,7 +668,17 @@ private fun FieldDetail(
     if (row.tasks.isNotEmpty()) {
       DetailSection("Tasks") {
         row.tasks.forEach { ref ->
-          DetailLine(fieldTaskLabel(ref), if (ref.task.active) "due now" else MONTH_LABELS[taskMonth(ref.task) - 1])
+          DetailLine(
+            fieldTaskLabel(ref),
+            if (ref.task.active) {
+              "due now"
+            } else {
+              LocalStrings.current.common.monthsShort[
+                taskMonth(ref.task) -
+                  1,
+              ]
+            },
+          )
         }
       }
     }
@@ -760,7 +770,7 @@ internal fun taskInputFor(suggestion: FieldSuggestion, todayPeriod: Int?): TaskI
  */
 @Composable
 private fun SuggestionChip(suggestion: FieldSuggestion, onClick: () -> Unit) {
-  val month = suggestion.month?.let { " · ${MONTH_LABELS[it - 1]}" }.orEmpty()
+  val month = suggestion.month?.let { " · ${LocalStrings.current.common.monthsShort[it - 1]}" }.orEmpty()
   Row(
     Modifier
       .clip(RoundedCornerShape(3.dp))

@@ -42,6 +42,8 @@ import net.vertexdezign.vdt.TaskInput
 import net.vertexdezign.vdt.app.components.ActionIcon
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Task
 import net.vertexdezign.vdt.model.TaskGroup
@@ -69,12 +71,14 @@ fun TaskListPanel(
 ) {
   var form by remember { mutableStateOf<FormRequest?>(null) }
   var pendingDelete by remember { mutableStateOf<Pair<String, Task>?>(null) }
+  val strings = LocalStrings.current
+  val s = strings.tasks
 
-  Panel(title = "Tasks", icon = Icons.Filled.Checklist, modifier = modifier) {
+  Panel(title = strings.apps.tasks, icon = Icons.Filled.Checklist, modifier = modifier) {
     when {
-      data == null -> Centered("TaskList mod not installed")
+      data == null -> Centered(s.notInstalled)
 
-      data.groups.isEmpty() -> Centered("No task groups — create one in the game menu")
+      data.groups.isEmpty() -> Centered(s.noGroups)
 
       else -> {
         val activeCount = data.groups.sumOf { group -> group.tasks.count { it.active } }
@@ -83,7 +87,7 @@ fun TaskListPanel(
           verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
           Text(
-            "$activeCount DUE NOW",
+            s.dueNow(activeCount),
             color = if (activeCount > 0) VdtColors.Green else VdtColors.DarkGray,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
@@ -104,7 +108,7 @@ fun TaskListPanel(
 
   form?.let { request ->
     TaskFormDialog(
-      title = if (request.taskId == null) "New task" else "Edit task",
+      title = if (request.taskId == null) s.newTask else s.editTask,
       initial = request.initial,
       onSave = { input ->
         onCommand(
@@ -124,15 +128,15 @@ fun TaskListPanel(
   pendingDelete?.let { (groupId, task) ->
     AlertDialog(
       onDismissRequest = { pendingDelete = null },
-      title = { Text("Delete task?") },
-      text = { Text(task.label()) },
+      title = { Text(s.deleteTitle) },
+      text = { Text(task.label(strings)) },
       confirmButton = {
         TextButton(onClick = {
           onCommand(ClientMessage.DeleteTask(groupId, task.id))
           pendingDelete = null
-        }) { Text("Delete") }
+        }) { Text(strings.common.delete) }
       },
-      dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+      dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text(strings.common.cancel) } },
     )
   }
 }
@@ -145,6 +149,7 @@ private fun GroupSection(
   onEdit: (Task) -> Unit,
   onDelete: (Task) -> Unit,
 ) {
+  val s = LocalStrings.current.tasks
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
     Row(
       Modifier.fillMaxWidth(),
@@ -152,7 +157,7 @@ private fun GroupSection(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
-        group.name.ifBlank { "Unnamed group" }.uppercase(),
+        group.name.ifBlank { s.unnamedGroup }.uppercase(),
         color = VdtColors.DarkGray,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
@@ -160,10 +165,10 @@ private fun GroupSection(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f, fill = false),
       )
-      ActionIcon(Icons.Filled.Add, "add task", VdtColors.Green, onAdd)
+      ActionIcon(Icons.Filled.Add, s.addTask, VdtColors.Green, onAdd)
     }
     if (group.tasks.isEmpty()) {
-      Text("No tasks yet", color = VdtColors.DarkGray, fontSize = 11.sp)
+      Text(s.noTasks, color = VdtColors.DarkGray, fontSize = 11.sp)
     } else {
       // Due tasks first, then the rest — the "what to do now" list is what the farm page is for.
       group.tasks
@@ -175,6 +180,7 @@ private fun GroupSection(
 
 @Composable
 private fun TaskRow(task: Task, onComplete: (Task) -> Unit, onEdit: (Task) -> Unit, onDelete: (Task) -> Unit) {
+  val strings = LocalStrings.current
   Row(
     Modifier.fillMaxWidth().padding(start = 4.dp),
     verticalAlignment = Alignment.CenterVertically,
@@ -185,7 +191,7 @@ private fun TaskRow(task: Task, onComplete: (Task) -> Unit, onEdit: (Task) -> Un
       Modifier.size(8.dp).clip(CircleShape).background(if (task.active) VdtColors.Green else VdtColors.TrackGray),
     )
     Text(
-      task.label(),
+      task.label(strings),
       color = if (task.active) VdtColors.TextDark else VdtColors.DarkGray,
       fontSize = 12.sp,
       fontWeight = if (task.active) FontWeight.SemiBold else FontWeight.Normal,
@@ -193,12 +199,16 @@ private fun TaskRow(task: Task, onComplete: (Task) -> Unit, onEdit: (Task) -> Un
       overflow = TextOverflow.Ellipsis,
       modifier = Modifier.weight(1f),
     )
-    if (task.active) ActionIcon(Icons.Filled.Check, "complete", VdtColors.Green, onClick = { onComplete(task) })
-    if (task.type == TASK_TYPE_STANDARD) {
-      ActionIcon(Icons.Filled.Edit, "edit", VdtColors.DarkGray, onClick = { onEdit(task) })
+    if (task.active) {
+      ActionIcon(Icons.Filled.Check, strings.tasks.complete, VdtColors.Green, onClick = {
+        onComplete(task)
+      })
     }
-    ActionIcon(Icons.Filled.Delete, "delete", VdtColors.DarkGray, onClick = { onDelete(task) })
+    if (task.type == TASK_TYPE_STANDARD) {
+      ActionIcon(Icons.Filled.Edit, strings.common.edit, VdtColors.DarkGray, onClick = { onEdit(task) })
+    }
+    ActionIcon(Icons.Filled.Delete, strings.common.delete, VdtColors.DarkGray, onClick = { onDelete(task) })
   }
 }
 
-private fun Task.label(): String = description.ifBlank { detail }.ifBlank { "(untitled task)" }
+private fun Task.label(strings: Strings): String = description.ifBlank { detail }.ifBlank { strings.tasks.untitled }

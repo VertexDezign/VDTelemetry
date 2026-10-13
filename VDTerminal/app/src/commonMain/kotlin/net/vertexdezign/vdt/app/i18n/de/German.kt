@@ -15,10 +15,12 @@ import net.vertexdezign.vdt.app.i18n.MarketStrings
 import net.vertexdezign.vdt.app.i18n.MissionsStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.i18n.ProductionStrings
+import net.vertexdezign.vdt.app.i18n.RotationStrings
 import net.vertexdezign.vdt.app.i18n.SettingsStrings
 import net.vertexdezign.vdt.app.i18n.ShellStrings
 import net.vertexdezign.vdt.app.i18n.StorageStrings
 import net.vertexdezign.vdt.app.i18n.Strings
+import net.vertexdezign.vdt.app.i18n.TasksStrings
 
 /**
  * The German catalogue. Where the game has a word for a thing, it is the game's word ("Aufträge", not
@@ -43,4 +45,6 @@ object German : Strings {
   override val loans: LoansStrings = DeLoans
   override val invoices: InvoicesStrings = DeInvoices
   override val market: MarketStrings = DeMarket
+  override val tasks: TasksStrings = DeTasks
+  override val rotation: RotationStrings = DeRotation
 }

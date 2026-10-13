@@ -15,10 +15,12 @@ import net.vertexdezign.vdt.app.i18n.MarketStrings
 import net.vertexdezign.vdt.app.i18n.MissionsStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.i18n.ProductionStrings
+import net.vertexdezign.vdt.app.i18n.RotationStrings
 import net.vertexdezign.vdt.app.i18n.SettingsStrings
 import net.vertexdezign.vdt.app.i18n.ShellStrings
 import net.vertexdezign.vdt.app.i18n.StorageStrings
 import net.vertexdezign.vdt.app.i18n.Strings
+import net.vertexdezign.vdt.app.i18n.TasksStrings
 
 /** The English catalogue, and the reference the others are translated from. */
 object English : Strings {
@@ -40,4 +42,6 @@ object English : Strings {
   override val loans: LoansStrings = EnLoans
   override val invoices: InvoicesStrings = EnInvoices
   override val market: MarketStrings = EnMarket
+  override val tasks: TasksStrings = EnTasks
+  override val rotation: RotationStrings = EnRotation
 }

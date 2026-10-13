@@ -21,4 +21,10 @@ internal object EnCommon : CommonStrings {
   override val filterText = "Text"
   override fun moreMatches(count: Int): String = "$count more — keep typing"
   override fun remove(label: String): String = "remove $label"
+  override val save = "Save"
+  override val delete = "Delete"
+  override val create = "Create"
+  override val edit = "Edit"
+  override val name = "Name"
+  override val monthsShort = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 }

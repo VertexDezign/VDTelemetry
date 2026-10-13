@@ -28,4 +28,14 @@ interface CommonStrings {
   val filterText: String
   fun moreMatches(count: Int): String
   fun remove(label: String): String
+
+  /** Dialog and row actions. */
+  val save: String
+  val delete: String
+  val create: String
+  val edit: String
+  val name: String
+
+  /** The calendar months, short, January first. */
+  val monthsShort: List<String>
 }
