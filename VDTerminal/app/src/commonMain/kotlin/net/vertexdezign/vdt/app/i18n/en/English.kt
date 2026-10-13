@@ -4,6 +4,7 @@ import net.vertexdezign.vdt.app.i18n.AnimalsStrings
 import net.vertexdezign.vdt.app.i18n.AppTitles
 import net.vertexdezign.vdt.app.i18n.AutoDriveStrings
 import net.vertexdezign.vdt.app.i18n.CalendarStrings
+import net.vertexdezign.vdt.app.i18n.ClusterStrings
 import net.vertexdezign.vdt.app.i18n.CommonStrings
 import net.vertexdezign.vdt.app.i18n.DiagnosticsStrings
 import net.vertexdezign.vdt.app.i18n.DisplayStrings
@@ -24,6 +25,7 @@ import net.vertexdezign.vdt.app.i18n.ShellStrings
 import net.vertexdezign.vdt.app.i18n.StorageStrings
 import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.i18n.TasksStrings
+import net.vertexdezign.vdt.app.i18n.VehicleStrings
 
 /** The English catalogue, and the reference the others are translated from. */
 object English : Strings {
@@ -50,4 +52,6 @@ object English : Strings {
   override val fields: FieldsStrings = EnFields
   override val autoDrive: AutoDriveStrings = EnAutoDrive
   override val diagnostics: DiagnosticsStrings = EnDiagnostics
+  override val vehicle: VehicleStrings = EnVehicle
+  override val cluster: ClusterStrings = EnCluster
 }

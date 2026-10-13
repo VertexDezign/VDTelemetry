@@ -4,6 +4,7 @@ import net.vertexdezign.vdt.app.i18n.AnimalsStrings
 import net.vertexdezign.vdt.app.i18n.AppTitles
 import net.vertexdezign.vdt.app.i18n.AutoDriveStrings
 import net.vertexdezign.vdt.app.i18n.CalendarStrings
+import net.vertexdezign.vdt.app.i18n.ClusterStrings
 import net.vertexdezign.vdt.app.i18n.CommonStrings
 import net.vertexdezign.vdt.app.i18n.DiagnosticsStrings
 import net.vertexdezign.vdt.app.i18n.DisplayStrings
@@ -24,6 +25,7 @@ import net.vertexdezign.vdt.app.i18n.ShellStrings
 import net.vertexdezign.vdt.app.i18n.StorageStrings
 import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.i18n.TasksStrings
+import net.vertexdezign.vdt.app.i18n.VehicleStrings
 
 /**
  * The German catalogue. Where the game has a word for a thing, it is the game's word ("Aufträge", not
@@ -53,4 +55,6 @@ object German : Strings {
   override val fields: FieldsStrings = DeFields
   override val autoDrive: AutoDriveStrings = DeAutoDrive
   override val diagnostics: DiagnosticsStrings = DeDiagnostics
+  override val vehicle: VehicleStrings = DeVehicle
+  override val cluster: ClusterStrings = DeCluster
 }

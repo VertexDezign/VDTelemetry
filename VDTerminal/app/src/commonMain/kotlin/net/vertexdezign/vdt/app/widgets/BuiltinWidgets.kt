@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.panels.AutoDrivePanel
 import net.vertexdezign.vdt.app.panels.CropRotationPanel
 import net.vertexdezign.vdt.app.panels.EngineTransmission
@@ -192,26 +193,27 @@ object RigSlotWidget : Widget {
   /** The config key naming the position this tile renders. */
   const val SLOT_KEY = "slot"
 
-  private val slotOption =
-    ConfigOption(
-      key = SLOT_KEY,
-      label = "Position",
-      // Fixed choices — every rig has all three positions, whether or not something is in them — so
-      // unlike the shortcut's apps these never narrow, and resolve()'s default is always meaningful.
-      choices = RigSlot.entries.map { ConfigOption.Choice(it.name, it.label) },
-    )
+  // Composable, like the shortcut's: the choices are the positions' names in the reader's language.
+  @Composable
+  private fun slotOption() = ConfigOption(
+    key = SLOT_KEY,
+    label = "Position",
+    // Fixed choices — every rig has all three positions, whether or not something is in them — so
+    // unlike the shortcut's apps these never narrow, and resolve()'s default is always meaningful.
+    choices = RigSlot.entries.map { ConfigOption.Choice(it.name, it.label(LocalStrings.current)) },
+  )
 
   @Composable
-  override fun configOptions(): List<ConfigOption> = listOf(slotOption)
+  override fun configOptions(): List<ConfigOption> = listOf(slotOption())
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
     val store = LocalVdtStore.current
     val telemetry by store.telemetry.collectAsState()
-    val slot = RigSlot.entries.firstOrNull { it.name == slotOption.resolve(config) } ?: RigSlot.VEHICLE
+    val slot = RigSlot.entries.firstOrNull { it.name == slotOption().resolve(config) } ?: RigSlot.VEHICLE
     val vehicle = telemetry?.vehicle
     if (vehicle == null) {
-      MissingPanel(slot.label, icon, modifier)
+      MissingPanel(slot.label(LocalStrings.current), icon, modifier)
     } else {
       // Scoped to this tile: whether the load reads merged per fill type is per placed slot.
       RigSlotPanel(slot, vehicle, rememberWidgetSettings(store.settings), modifier, onCommand = store.onCommand)
@@ -246,17 +248,17 @@ object IsoBusWidget : Widget {
   /** The stored value for "follow whatever is on the bus". Not a [RigSlot], deliberately. */
   const val AUTO_SLOT = "AUTO"
 
-  private val slotOption =
-    ConfigOption(
-      key = SLOT_KEY,
-      label = "Machine",
-      choices =
-      listOf(ConfigOption.Choice(AUTO_SLOT, "Auto")) +
-        RigSlot.entries.map { ConfigOption.Choice(it.name, it.label) },
-    )
+  @Composable
+  private fun slotOption() = ConfigOption(
+    key = SLOT_KEY,
+    label = "Machine",
+    choices =
+    listOf(ConfigOption.Choice(AUTO_SLOT, "Auto")) +
+      RigSlot.entries.map { ConfigOption.Choice(it.name, it.label(LocalStrings.current)) },
+  )
 
   @Composable
-  override fun configOptions(): List<ConfigOption> = listOf(slotOption)
+  override fun configOptions(): List<ConfigOption> = listOf(slotOption())
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -264,7 +266,7 @@ object IsoBusWidget : Widget {
     val telemetry by store.telemetry.collectAsState()
     // Anything that is not one of the three positions means auto — including a value this widget has
     // stopped offering, which is the fallback the option's docs leave to the widget.
-    val slot = RigSlot.entries.firstOrNull { it.name == slotOption.resolve(config) }
+    val slot = RigSlot.entries.firstOrNull { it.name == slotOption().resolve(config) }
     IsoBusPanel(telemetry?.vehicle, slot, modifier, onCommand = store.onCommand)
   }
 }

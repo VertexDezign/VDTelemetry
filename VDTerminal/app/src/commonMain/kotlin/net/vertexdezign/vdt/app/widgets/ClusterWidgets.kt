@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.panels.ClusterEmpty
 import net.vertexdezign.vdt.app.panels.ClusterLevels
 import net.vertexdezign.vdt.app.panels.ClusterReadout
@@ -44,18 +45,18 @@ object TelltaleWidget : Widget {
   /** The config key holding which lamps this band shows. */
   const val LAMPS_KEY = "lamps"
 
-  private val lampsOption =
-    ConfigOption(
-      key = LAMPS_KEY,
-      label = "Lamps",
-      choices = Telltale.entries.map { ConfigOption.Choice(it.key, it.label, it.icon) },
-      // Which lamps matter differs per rig, and without this the band is the part of the cluster that
-      // would grow forever as the model gains states.
-      multi = true,
-    )
+  @Composable
+  private fun lampsOption() = ConfigOption(
+    key = LAMPS_KEY,
+    label = "Lamps",
+    choices = Telltale.entries.map { ConfigOption.Choice(it.key, it.label(LocalStrings.current), it.icon) },
+    // Which lamps matter differs per rig, and without this the band is the part of the cluster that
+    // would grow forever as the model gains states.
+    multi = true,
+  )
 
   @Composable
-  override fun configOptions(): List<ConfigOption> = listOf(lampsOption)
+  override fun configOptions(): List<ConfigOption> = listOf(lampsOption())
 
   @Composable
   override fun Content(modifier: Modifier, config: WidgetConfig) {
@@ -67,7 +68,7 @@ object TelltaleWidget : Widget {
     } else {
       // Resolved against the enum, so a key from a lamp that has since been renamed away simply
       // isn't shown — for a set, a stale entry is one missing lamp rather than a broken tile.
-      val chosen = lampsOption.resolveAll(config).toSet()
+      val chosen = lampsOption().resolveAll(config).toSet()
       TelltaleBand(vehicle, Telltale.entries.filter { it.key in chosen }, modifier)
     }
   }

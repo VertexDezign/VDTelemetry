@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.model.AdsLamp
 import net.vertexdezign.vdt.model.MotorState
 import net.vertexdezign.vdt.model.Vehicle
@@ -75,34 +77,55 @@ enum class BandSide { Start, Middle, End }
  */
 enum class Telltale(
   val key: String,
-  val label: String,
   val icon: ImageVector,
   val colour: Color,
   val blinks: Boolean = false,
   val side: BandSide = BandSide.Middle,
 ) {
-  TurnLeft("turnLeft", "Turn left", ClusterIcons.TurnLeft, ClusterColors.Go, blinks = true, side = BandSide.Start),
-  TurnRight("turnRight", "Turn right", ClusterIcons.TurnRight, ClusterColors.Go, blinks = true, side = BandSide.End),
-  HighBeam("highBeam", "High beam", ClusterIcons.HighBeam, ClusterColors.Beam),
-  LowBeam("lowBeam", "Low beam", ClusterIcons.LowBeam, ClusterColors.Go),
-  WorkFront("workFront", "Work lights front", ClusterIcons.WorkFront, ClusterColors.Set),
-  WorkRear("workRear", "Work lights rear", ClusterIcons.WorkRear, ClusterColors.Set),
-  Beacon("beacon", "Beacon", ClusterIcons.Beacon, ClusterColors.Set),
-  ParkingBrake("parkingBrake", "Parking brake", ClusterIcons.ParkingBrake, ClusterColors.Go),
-  DiffLock("diffLock", "Diff lock", ClusterIcons.DiffLockBoth, ClusterColors.Set),
-  Awd("awd", "All-wheel drive", ClusterIcons.Awd, ClusterColors.Go),
+  TurnLeft("turnLeft", ClusterIcons.TurnLeft, ClusterColors.Go, blinks = true, side = BandSide.Start),
+  TurnRight("turnRight", ClusterIcons.TurnRight, ClusterColors.Go, blinks = true, side = BandSide.End),
+  HighBeam("highBeam", ClusterIcons.HighBeam, ClusterColors.Beam),
+  LowBeam("lowBeam", ClusterIcons.LowBeam, ClusterColors.Go),
+  WorkFront("workFront", ClusterIcons.WorkFront, ClusterColors.Set),
+  WorkRear("workRear", ClusterIcons.WorkRear, ClusterColors.Set),
+  Beacon("beacon", ClusterIcons.Beacon, ClusterColors.Set),
+  ParkingBrake("parkingBrake", ClusterIcons.ParkingBrake, ClusterColors.Go),
+  DiffLock("diffLock", ClusterIcons.DiffLockBoth, ClusterColors.Set),
+  Awd("awd", ClusterIcons.Awd, ClusterColors.Go),
 
   // The maintenance family, at the end because that is the order a cluster reads in: what you are
   // doing, then what the machine is doing, then what is wrong with it. All six come from Advanced
   // Damage System and are absent without it — the same rule the drivetrain lamps follow, and one that
   // costs nothing but a line in the band's config dialog on a game that doesn't run the mod.
-  EngineWarning("engineWarning", "Engine warning", ClusterIcons.EngineWarning, ClusterColors.Warn),
-  Temperature("temperature", "Coolant temperature", ClusterIcons.Temperature, ClusterColors.Warn),
-  Battery("battery", "Charging system", ClusterIcons.Battery, ClusterColors.Warn),
-  BrakeSystem("brakeSystem", "Brake system", ClusterIcons.BrakeSystem, ClusterColors.Warn),
-  Service("service", "Service due", ClusterIcons.Service, ClusterColors.Set),
-  GeneralWarning("generalWarning", "Needs attention", ClusterIcons.GeneralWarning, ClusterColors.Set),
+  EngineWarning("engineWarning", ClusterIcons.EngineWarning, ClusterColors.Warn),
+  Temperature("temperature", ClusterIcons.Temperature, ClusterColors.Warn),
+  Battery("battery", ClusterIcons.Battery, ClusterColors.Warn),
+  BrakeSystem("brakeSystem", ClusterIcons.BrakeSystem, ClusterColors.Warn),
+  Service("service", ClusterIcons.Service, ClusterColors.Set),
+  GeneralWarning("generalWarning", ClusterIcons.GeneralWarning, ClusterColors.Set),
   ;
+
+  /** What the lamp says, for a screen reader and for the band's config dialog. */
+  fun label(strings: Strings): String = with(strings.cluster) {
+    when (this@Telltale) {
+      TurnLeft -> turnLeft
+      TurnRight -> turnRight
+      HighBeam -> highBeam
+      LowBeam -> lowBeam
+      WorkFront -> workFront
+      WorkRear -> workRear
+      Beacon -> beacon
+      ParkingBrake -> parkingBrake
+      DiffLock -> diffLock
+      Awd -> awd
+      EngineWarning -> engineWarning
+      Temperature -> coolant
+      Battery -> charging
+      BrakeSystem -> brakes
+      Service -> service
+      GeneralWarning -> attention
+    }
+  }
 
   /** The lamp Advanced Damage System drives this one from, or null for the lamps that are ours. */
   internal fun adsLampIn(vehicle: Vehicle): AdsLamp? = vehicle.ads?.lamps?.let {
@@ -345,7 +368,7 @@ private fun Lamp(reading: Reading, size: Dp, checking: Boolean, blink: (() -> Fl
   // regardless of state would bury the two that are actually saying something.
   Icon(
     icon,
-    contentDescription = if (on) lamp.label else null,
+    contentDescription = if (on) lamp.label(LocalStrings.current) else null,
     tint = colour,
     modifier = modifier.size(size).graphicsLayer {
       alpha = when {

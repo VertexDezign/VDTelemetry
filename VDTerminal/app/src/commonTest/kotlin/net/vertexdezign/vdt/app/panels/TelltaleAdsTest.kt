@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.model.Ads
 import net.vertexdezign.vdt.model.AdsLamp
 import net.vertexdezign.vdt.model.AdsLamps
@@ -166,16 +167,16 @@ class ClusterLevelsAdsTest {
       ads = Ads(transmissionTemperatur = Temperatur(value = 71, min = 20, max = 120)),
     )
     // Condition before contents: adding it must not move the fuel bar the driver has learned.
-    assertEquals(listOf("TEMP", "TRANS", "FUEL"), levelsOf(vehicle).map { it.label })
-    assertEquals(0.51f, levelsOf(vehicle)[1].fraction)
+    assertEquals(listOf("TEMP", "TRANS", "FUEL"), levelsOf(English, vehicle).map { it.label })
+    assertEquals(0.51f, levelsOf(English, vehicle)[1].fraction)
     // A temperature is in trouble at the top of its gauge, not the bottom.
-    assertEquals(Danger.High, levelsOf(vehicle)[1].danger)
+    assertEquals(Danger.High, levelsOf(English, vehicle)[1].danger)
   }
 
   @Test
   fun aMachineWithNoCvtGetsNoSecondBar() {
-    assertEquals(listOf("TEMP"), levelsOf(Vehicle(motor = coolant)).map { it.label })
-    assertEquals(listOf("TEMP"), levelsOf(Vehicle(motor = coolant, ads = Ads())).map { it.label })
+    assertEquals(listOf("TEMP"), levelsOf(English, Vehicle(motor = coolant)).map { it.label })
+    assertEquals(listOf("TEMP"), levelsOf(English, Vehicle(motor = coolant, ads = Ads())).map { it.label })
   }
 
   @Test
@@ -186,7 +187,7 @@ class ClusterLevelsAdsTest {
       motor = coolant,
       ads = Ads(transmissionTemperatur = Temperatur(value = 71, min = 20, max = 120)),
     )
-    val icons = levelsOf(vehicle).map { it.icon }
+    val icons = levelsOf(English, vehicle).map { it.icon }
     assertEquals(icons.toSet().size, icons.size, "two bars share a glyph")
   }
 }

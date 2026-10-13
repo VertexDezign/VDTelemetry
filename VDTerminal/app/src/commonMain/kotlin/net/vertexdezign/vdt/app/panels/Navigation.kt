@@ -32,6 +32,8 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.GpsCourseState
@@ -40,11 +42,15 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-/** Compass point for a heading in degrees, matching the game's own 8-point rounding. */
-internal fun directionFromHeading(heading: Int): String {
-  val dirs = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
-  val index = floor(heading / 22.5 + 0.5).toInt() % 8
-  return dirs[(index + 8) % 8]
+/**
+ * Compass point for a heading in degrees, matching the game's own 8-point rounding: eight 45° sectors
+ * centred on the points, as `AIAutomaticSteering`'s heading letter cuts them. It used to divide by
+ * 22.5° instead, which put every heading past north-north-east two points too far round — east read
+ * "S".
+ */
+internal fun directionFromHeading(strings: Strings, heading: Int): String {
+  val index = floor(heading / 45.0 + 0.5).toInt() % 8
+  return strings.vehicle.compass((index + 8) % 8)
 }
 
 /** Cells in the lightbar. Odd, so there is a true centre cell to sit on when you are on the line. */
@@ -85,16 +91,15 @@ internal fun lightbarCell(
  * Cross-track error as a driver reads it: centimetres up to a metre, then metres, with the side it is
  * on. Dead centre drops the side rather than flickering L/R around zero.
  */
-internal fun deviationLabel(deviationM: Float): String {
+internal fun deviationLabel(strings: Strings, deviationM: Float): String {
   val cm = (abs(deviationM) * 100).roundToInt()
   if (cm == 0) return "0 cm"
-  val side = if (deviationM > 0) "R" else "L"
+  val side = if (deviationM > 0) strings.vehicle.right else strings.vehicle.left
   if (cm < 100) return "$side $cm cm"
-  // Built from integer tenths rather than formatting a Double: Double.toString() is target-dependent
-  // ("1.0" on the JVM the tests run on, "1" in the browser this actually renders in), and a lightbar
-  // that reads "1 m" here and "1.0 m" there is a difference the driver would notice.
-  val tenths = (abs(deviationM) * 10).roundToInt()
-  return "$side ${tenths / 10}.${tenths % 10} m"
+  // Through Numbers rather than by formatting a Double: Double.toString() is target-dependent ("1.0"
+  // on the JVM the tests run on, "1" in the browser this actually renders in), and a lightbar that
+  // reads "1 m" here and "1.0 m" there is a difference the driver would notice.
+  return "$side ${strings.numbers.fixed(abs(deviationM), 1)} m"
 }
 
 /**
@@ -113,7 +118,8 @@ fun Navigation(
   progress: CourseProgress? = null,
   onCommand: (ClientMessage) -> Unit = {},
 ) {
-  Panel("Navigation", modifier, icon = Icons.Filled.Explore) {
+  val strings = LocalStrings.current
+  Panel(strings.vehicle.navigation, modifier, icon = Icons.Filled.Explore) {
     val gps = vehicle.gps
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -128,7 +134,7 @@ fun Navigation(
         )
         if (gps != null) {
           Text(
-            "${gps.headingUnit.ifBlank { "°" }} ${directionFromHeading(gps.heading)}",
+            "${gps.headingUnit.ifBlank { "°" }} ${directionFromHeading(strings, gps.heading)}",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = VdtColors.DarkGray,
@@ -142,14 +148,14 @@ fun Navigation(
         // but is idle, green while it is actually steering.
         GuidanceLamp(
           Icons.Filled.SatelliteAlt,
-          "Steering assist",
+          strings.vehicle.steeringAssist,
           enabled = gps?.enabled == true,
           active = gps?.active == true,
         )
         // Same three states: no ai subtree is *absent*, not idle.
         GuidanceLamp(
           Icons.Filled.Memory,
-          "AI helper",
+          strings.vehicle.aiHelper,
           enabled = vehicle.ai != null,
           active = vehicle.ai?.active == true,
         )
@@ -227,10 +233,11 @@ internal fun CourseReadout(
   modifier: Modifier = Modifier,
   fontSize: TextUnit = 12.sp,
 ) {
+  val strings = LocalStrings.current
   Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
     course.deviationM?.let {
       Text(
-        deviationLabel(it),
+        deviationLabel(strings, it),
         fontSize = fontSize,
         fontWeight = FontWeight.Bold,
         color = if (abs(it) <= ON_LINE_M) VdtColors.Green else VdtColors.TextDark,
@@ -248,7 +255,7 @@ internal fun CourseReadout(
       val line = if (course.segmentIndex > 0) course.segmentIndex.toString() else "–"
       val done = progress?.takeIf { it.courseId == course.courseId && it.courseId.isNotBlank() }?.doneCount
       Text(
-        "$line/${course.segmentCount}" + if (done != null) " · $done done" else "",
+        "$line/${course.segmentCount}" + if (done != null) strings.vehicle.linesDone(done) else "",
         fontSize = fontSize,
         color = VdtColors.DarkGray,
       )
@@ -297,10 +304,11 @@ internal fun GuidanceLamp(
     enabled -> VdtColors.DarkGray
     else -> VdtColors.TextDisabled
   }
+  val strings = LocalStrings.current.vehicle
   val state = when {
-    active -> "on"
-    enabled -> "off"
-    else -> "not available"
+    active -> strings.lampOn
+    enabled -> strings.lampOff
+    else -> strings.lampUnavailable
   }
   Row(
     Modifier
@@ -358,7 +366,7 @@ fun BoxScope.GuidanceStrip(
       Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         Text("$heading°", fontSize = 16.sp, fontWeight = FontWeight.Black, color = VdtColors.TextDark)
         Text(
-          directionFromHeading(heading),
+          directionFromHeading(LocalStrings.current, heading),
           fontSize = 10.sp,
           fontWeight = FontWeight.Bold,
           color = VdtColors.DarkGray,
@@ -370,7 +378,7 @@ fun BoxScope.GuidanceStrip(
       if (vehicle != null) {
         GuidanceLamp(
           Icons.Filled.SatelliteAlt,
-          "Steering assist",
+          LocalStrings.current.vehicle.steeringAssist,
           enabled = gps?.enabled == true,
           active = gps?.active == true,
           showLabel = false,
@@ -378,7 +386,7 @@ fun BoxScope.GuidanceStrip(
         )
         GuidanceLamp(
           Icons.Filled.Memory,
-          "AI helper",
+          LocalStrings.current.vehicle.aiHelper,
           enabled = vehicle.ai != null,
           active = vehicle.ai?.active == true,
           showLabel = false,
@@ -394,7 +402,7 @@ fun BoxScope.GuidanceStrip(
         if (gps != null) {
           GuidanceLamp(
             Icons.Filled.Timeline,
-            "Guide lines",
+            LocalStrings.current.vehicle.guideLines,
             enabled = true,
             active = gps.linesVisible,
             showLabel = false,

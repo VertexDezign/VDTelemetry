@@ -42,6 +42,8 @@ interface Strings {
   val fields: FieldsStrings
   val autoDrive: AutoDriveStrings
   val diagnostics: DiagnosticsStrings
+  val vehicle: VehicleStrings
+  val cluster: ClusterStrings
 }
 
 /** The languages the terminal has a catalogue for. */

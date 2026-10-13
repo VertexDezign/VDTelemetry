@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.model.FillUnit
 import net.vertexdezign.vdt.model.Temperatur
 import net.vertexdezign.vdt.model.Vehicle
@@ -80,7 +82,7 @@ internal data class Level(
  */
 @Composable
 fun ClusterLevels(vehicle: Vehicle, modifier: Modifier = Modifier) {
-  val levels = levelsOf(vehicle)
+  val levels = levelsOf(LocalStrings.current, vehicle)
   // Switched off: empty frames and ghosted icons, the same tile with its power off. Which bars the
   // machine has is still worked out, because a strip that changed shape as the key turned would be a
   // different gauge cluster rather than the same one lighting up. See [clusterDark].
@@ -115,18 +117,19 @@ fun ClusterLevels(vehicle: Vehicle, modifier: Modifier = Modifier) {
  * beside the coolant one rather than shoving the fuel bar the driver has learned the position of, and
  * anything else Advanced Damage System comes to export belongs in the same place.
  */
-internal fun levelsOf(vehicle: Vehicle): List<Level> = buildList {
-  vehicle.motor?.temperatur?.level("TEMP", ClusterIcons.Temperature)?.let { add(it) }
+internal fun levelsOf(strings: Strings, vehicle: Vehicle): List<Level> = buildList {
+  val s = strings.cluster
+  vehicle.motor?.temperatur?.level(s.temp, ClusterIcons.Temperature)?.let { add(it) }
   // A CVT's own oil, which Advanced Damage System models separately — on slow heavy work it is the
   // one that cooks while the coolant still reads fine. Straight after the coolant it is compared
   // against, and only on a machine that has one, which is most of the point of a bar being here at
   // all. Its glyph is a thermometer over a gear rather than a second plain thermometer: this strip is
   // read by icon alone, so two identical marks would be two bars nobody could tell apart.
-  vehicle.ads?.transmissionTemperatur?.level("TRANS", ClusterIcons.TemperatureTransmission)?.let { add(it) }
+  vehicle.ads?.transmissionTemperatur?.level(s.trans, ClusterIcons.TemperatureTransmission)?.let { add(it) }
   val engine = vehicle.motor?.fillUnits ?: return@buildList
-  engine.fuel?.let { add(it.level(ClusterIcons.Fuel, "FUEL")) }
-  engine.def?.let { add(it.level(ClusterIcons.Def, "DEF")) }
-  engine.air?.let { add(it.level(ClusterIcons.Air, "AIR")) }
+  engine.fuel?.let { add(it.level(ClusterIcons.Fuel, s.fuel)) }
+  engine.def?.let { add(it.level(ClusterIcons.Def, s.def)) }
+  engine.air?.let { add(it.level(ClusterIcons.Air, s.air)) }
 }
 
 /**

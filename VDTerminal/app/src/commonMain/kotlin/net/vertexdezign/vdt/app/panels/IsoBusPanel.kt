@@ -535,7 +535,7 @@ fun IsoBusPanel(
             when {
               vehicle == null -> "No vehicle connected"
               slot == null -> "Nothing on the rig"
-              else -> "Nothing attached to ${slot.label.lowercase()}"
+              else -> "Nothing attached to ${slot.label(LocalStrings.current).lowercase()}"
             },
             color = VdtColors.DarkGray,
             fontSize = 12.sp,

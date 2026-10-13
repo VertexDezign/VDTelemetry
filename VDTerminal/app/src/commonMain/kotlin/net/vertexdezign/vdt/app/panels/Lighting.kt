@@ -28,6 +28,7 @@ import net.vertexdezign.vdt.TurnLightState
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.StatusColor
 import net.vertexdezign.vdt.app.components.StatusIconButton
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.resources.Res
 import net.vertexdezign.vdt.app.resources.mb_trac
 import net.vertexdezign.vdt.model.Vehicle
@@ -95,36 +96,37 @@ fun Lighting(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (Client
   val highBeam = lights?.light?.highBeam == true
   val lowBeam = lights?.light?.lowBeam == true
 
+  val s = LocalStrings.current.vehicle
   // The cluster's own glyphs rather than Material's: every one of these buttons is a lamp the telltale
   // band also draws, and a panel where "work lights" is a lightbulb and the band shows a tractor
   // throwing a beam is two names for one switch. In reading order, which is also the grid's order.
   val lamps =
     listOf(
       // Beacon — top of cabin.
-      Lamp(0.591f, 0.085f, ClusterIcons.Beacon, "beacon", beaconOn) { setLight(LightTarget.BEACON, !beaconOn) },
+      Lamp(0.591f, 0.085f, ClusterIcons.Beacon, s.beacon, beaconOn) { setLight(LightTarget.BEACON, !beaconOn) },
       // Work lights — front / back of cabin.
-      Lamp(0.419f, 0.207f, ClusterIcons.WorkFront, "front work lights", workFront) {
+      Lamp(0.419f, 0.207f, ClusterIcons.WorkFront, s.workFront, workFront) {
         setLight(LightTarget.WORK_FRONT, !workFront)
       },
-      Lamp(0.763f, 0.207f, ClusterIcons.WorkRear, "rear work lights", workBack) {
+      Lamp(0.763f, 0.207f, ClusterIcons.WorkRear, s.workRear, workBack) {
         setLight(LightTarget.WORK_BACK, !workBack)
       },
       // Head lights — upper / lower front.
-      Lamp(0.075f, 0.415f, ClusterIcons.HighBeam, "high beam", highBeam) { setLight(LightTarget.HIGH_BEAM, !highBeam) },
-      Lamp(0.075f, 0.573f, ClusterIcons.LowBeam, "low beam", lowBeam) { setLight(LightTarget.LOW_BEAM, !lowBeam) },
+      Lamp(0.075f, 0.415f, ClusterIcons.HighBeam, s.highBeam, highBeam) { setLight(LightTarget.HIGH_BEAM, !highBeam) },
+      Lamp(0.075f, 0.573f, ClusterIcons.LowBeam, s.lowBeam, lowBeam) { setLight(LightTarget.LOW_BEAM, !lowBeam) },
       // Indicators — bottom row. One enum state; tapping the active signal clears it.
-      Lamp(0.344f, 0.915f, ClusterIcons.TurnLeft, "left indicator", leftActive) {
+      Lamp(0.344f, 0.915f, ClusterIcons.TurnLeft, s.turnLeft, leftActive) {
         setTurn(if (leftActive) TurnLightState.OFF else TurnLightState.LEFT)
       },
-      Lamp(0.505f, 0.915f, ClusterIcons.Hazard, "hazard lights", hazardActive) {
+      Lamp(0.505f, 0.915f, ClusterIcons.Hazard, s.hazard, hazardActive) {
         setTurn(if (hazardActive) TurnLightState.OFF else TurnLightState.HAZARD)
       },
-      Lamp(0.667f, 0.915f, ClusterIcons.TurnRight, "right indicator", rightActive) {
+      Lamp(0.667f, 0.915f, ClusterIcons.TurnRight, s.turnRight, rightActive) {
         setTurn(if (rightActive) TurnLightState.OFF else TurnLightState.RIGHT)
       },
     )
 
-  Panel(title = "Lighting", icon = Icons.Filled.Lightbulb, modifier = modifier) {
+  Panel(title = s.lighting, icon = Icons.Filled.Lightbulb, modifier = modifier) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
       // Largest box with the image's aspect that fits the panel (letterbox on the long axis).
       val boxW: Dp
@@ -144,7 +146,7 @@ fun Lighting(vehicle: Vehicle, modifier: Modifier = Modifier, onCommand: (Client
         Box(Modifier.size(boxW, boxH).align(Alignment.Center)) {
           Image(
             painter = painterResource(Res.drawable.mb_trac),
-            contentDescription = "Tractor Schematic",
+            contentDescription = s.schematic,
             modifier = Modifier.fillMaxSize().alpha(0.5f),
             contentScale = ContentScale.Fit,
           )

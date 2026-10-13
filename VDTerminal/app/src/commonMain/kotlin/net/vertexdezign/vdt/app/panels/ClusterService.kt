@@ -38,18 +38,19 @@ import kotlin.math.abs
 @Composable
 fun ClusterService(vehicle: Vehicle, modifier: Modifier = Modifier) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.cluster
   val ads = vehicle.ads
   ClusterSurface(modifier) {
     if (ads?.service == null && ads?.electrical == null) {
       // No ADS, or a machine it does not manage. Nothing to say beats a tile of zeroes.
-      ClusterLabel("NO SERVICE DATA", Modifier.align(Alignment.Center), ClusterColors.Dim)
+      ClusterLabel(s.noService, Modifier.align(Alignment.Center), ClusterColors.Dim)
       return@ClusterSurface
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
       ads.service?.let { ServiceInterval(it) }
       ads.electrical?.let {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-          ClusterLabel("VOLTS", Modifier.weight(1f))
+          ClusterLabel(s.volts, Modifier.weight(1f))
           ClusterDigits(
             numbers.fixed(it.systemVoltage, 1),
             cells = 4,
@@ -73,6 +74,7 @@ fun ClusterService(vehicle: Vehicle, modifier: Modifier = Modifier) {
 @Composable
 private fun ServiceInterval(service: AdsService) {
   val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.cluster
   val remaining = service.interval - service.hours
   val overdue = remaining < 0f
   val colour = when {
@@ -82,9 +84,9 @@ private fun ServiceInterval(service: AdsService) {
   }
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-      ClusterLabel(if (overdue) "OVERDUE BY" else "SERVICE IN", Modifier.weight(1f))
+      ClusterLabel(if (overdue) s.overdueBy else s.serviceIn, Modifier.weight(1f))
       ClusterDigits(numbers.fixed(abs(remaining), 1), cells = 4, size = VALUE_SP.sp, colour = colour)
-      ClusterLabel("H", Modifier.padding(start = 3.dp))
+      ClusterLabel(s.hours, Modifier.padding(start = 3.dp))
     }
     ServiceBar(service.fraction, colour, Modifier.fillMaxWidth().height(BAR_HEIGHT))
   }

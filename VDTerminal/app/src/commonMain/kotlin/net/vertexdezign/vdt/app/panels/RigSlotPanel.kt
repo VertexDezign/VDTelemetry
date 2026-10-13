@@ -54,6 +54,8 @@ import net.vertexdezign.vdt.app.components.SectionView
 import net.vertexdezign.vdt.app.components.ToolButton
 import net.vertexdezign.vdt.app.components.ownRates
 import net.vertexdezign.vdt.app.components.sectionMember
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
 import net.vertexdezign.vdt.model.FillUnit
@@ -85,11 +87,17 @@ private const val KEY_MERGED = "merged"
  * configurable widget is what lets a page put front on the left, the map in the middle and rear on the
  * right — an arrangement the fixed two-column panel could not express.
  */
-enum class RigSlot(val label: String, val target: ControlTarget) {
-  VEHICLE("Vehicle", ControlTarget.VEHICLE),
-  FRONT("Front", ControlTarget.FRONT),
-  REAR("Rear", ControlTarget.BACK),
+enum class RigSlot(val target: ControlTarget) {
+  VEHICLE(ControlTarget.VEHICLE),
+  FRONT(ControlTarget.FRONT),
+  REAR(ControlTarget.BACK),
   ;
+
+  fun label(strings: Strings): String = when (this) {
+    VEHICLE -> strings.vehicle.slotVehicle
+    FRONT -> strings.vehicle.slotFront
+    REAR -> strings.vehicle.slotRear
+  }
 
   /** The `position` the mod exports for this slot; null for the vehicle, which is not an implement. */
   val implementPosition: String?
@@ -252,6 +260,7 @@ fun RigSlotPanel(
   modifier: Modifier = Modifier,
   onCommand: (ClientMessage) -> Unit = {},
 ) {
+  val strings = LocalStrings.current
   var merged by remember { mutableStateOf(settings.getBoolean(KEY_MERGED, false)) }
   LaunchedEffect(merged) { settings.putBoolean(KEY_MERGED, merged) }
 
@@ -269,7 +278,7 @@ fun RigSlotPanel(
     val bareHeader = maxWidth < BARE_HEADER_BELOW
 
     Panel(
-      title = slot.label,
+      title = slot.label(strings),
       icon = if (bareHeader) null else slot.icon,
       modifier = Modifier.fillMaxSize(),
       headerActions = {
@@ -278,7 +287,7 @@ fun RigSlotPanel(
         if (!bareHeader) {
           ToolButton(
             if (merged) Icons.AutoMirrored.Filled.ViewList else Icons.Filled.Layers,
-            "merge by fill type",
+            strings.vehicle.mergeByFillType,
             active = merged,
             onClick = { merged = !merged },
           )
@@ -292,7 +301,7 @@ fun RigSlotPanel(
           Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             if (!bareHeader) {
               Text(
-                slot.label.uppercase(),
+                slot.label(strings).uppercase(),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = VdtColors.DarkGray,
@@ -307,7 +316,7 @@ fun RigSlotPanel(
           }
         }
 
-        NameBox(state, empty = if (slot == RigSlot.VEHICLE) "No Vehicle" else "No Implement")
+        NameBox(state, empty = if (slot == RigSlot.VEHICLE) strings.vehicle.noVehicle else strings.vehicle.noImplement)
 
         if (state != null) {
           // Wraps rather than clipping: a one-cell slot is narrow, and the straps and the reset are
@@ -326,7 +335,7 @@ fun RigSlotPanel(
             )
             // The machine's condition in the other sense: a drowned one is useless whatever its wear
             // says, until it is reset. A word with its glyph, so the amber is never the whole message.
-            if (state.broken) SlotFact(Icons.Filled.WaterDrop, "Needs reset", VdtColors.Amber)
+            if (state.broken) SlotFact(Icons.Filled.WaterDrop, strings.vehicle.needsReset, VdtColors.Amber)
             // Where the linkage is, worded as the ISOBUS strip words it. A fact in this row rather than a
             // bar under the controls: a bar there sat among the fill levels and read as one of them.
             state.hitch?.let { SlotFact(Icons.Filled.Height, hitchLabel(it), VdtColors.DarkGray) }

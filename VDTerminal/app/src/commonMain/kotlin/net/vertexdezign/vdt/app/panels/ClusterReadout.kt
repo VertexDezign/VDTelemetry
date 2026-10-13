@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.model.DriveDirection
 import net.vertexdezign.vdt.model.SteeringLayout
 import net.vertexdezign.vdt.model.Vehicle
@@ -98,7 +99,8 @@ private val LABEL_GAP = 6.dp
  */
 @Composable
 fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier = Modifier) {
-  val numbers = LocalStrings.current.numbers
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
   val motor = vehicle.motor
   val spec = tween<Float>(durationMillis = sampleIntervalMs, easing = LinearEasing)
   val rpm by animateFloatAsState((motor?.rpm?.value ?: 0).toFloat(), spec, label = "cluster-rpm")
@@ -107,7 +109,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // How hard the engine is working, as a gauge beside the speed it is working at — see [engineLoad].
   // Tweened like the two numbers, and for the same reason: a bar that stepped once a sample would
   // twitch where the load is genuinely continuous.
-  val load = engineLoad(vehicle)
+  val load = engineLoad(strings, vehicle)
   val loadFill by animateFloatAsState(load?.fraction ?: 0f, spec, label = "cluster-load")
 
   val redline =
@@ -140,8 +142,8 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // Beside whatever line is actually drawn, though, rather than beside the gear specifically: a
   // machine with steering modes is quite likely to report no gear at all (a telehandler does), and
   // these must not disappear along with a field they have nothing to do with.
-  val steering = steeringMarks(vehicle)
-  val sync = speedSyncMark(vehicle)
+  val steering = steeringMarks(strings, vehicle)
+  val sync = speedSyncMark(strings, vehicle)
   val blink =
     if (!dark && (holding || steering.any { it.blinks } || sync?.blinks == true)) clusterBlinkPhase() else null
 
@@ -151,7 +153,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   //
   // Speed sync follows it, for the same reason: it is the machine holding a speed for the driver —
   // someone else's. It is the one that comes and goes, so it stands after the lamp that holds still.
-  val guidance = listOfNotNull(guidanceMark(vehicle), sync)
+  val guidance = listOfNotNull(guidanceMark(strings, vehicle), sync)
 
   // Which line the marks land on, decided once so the width budget below can see it too. Guidance
   // leads the cruise line so it holds one place: the steering marks beside it come and go with the
@@ -169,10 +171,10 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
   // marks on three cells is still narrower than the rpm's four. Only a machine that also had guidance
   // on this line (no cruise target at all, see above) would resize when it appeared.
   val speedMarks =
-    listOfNotNull(symbol?.mark(holding)) +
+    listOfNotNull(symbol?.mark(strings, holding)) +
       (if (cruise == null) guidance else emptyList()) +
       (if (cruise == null && gear == null) steering else emptyList()) +
-      listOfNotNull(speedLimitMark(vehicle))
+      listOfNotNull(speedLimitMark(strings, vehicle))
 
   ClusterSurface(modifier) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -208,7 +210,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           cells = RPM_CELLS,
           valueColour = if (redline) ClusterColors.Warn else ClusterColors.Digits,
           size = digit,
-          label = "RPM",
+          label = strings.cluster.rpm,
           gauge = load?.let { LineGauge(loadFill, it.threshold, it.overloaded, it.description) },
           unlit = dark,
         )
@@ -221,7 +223,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
           cells = SPEED_CELLS,
           valueColour = ClusterColors.Digits,
           size = digit,
-          label = vehicle.speed?.unit.orEmpty().ifBlank { "SPEED" },
+          label = vehicle.speed?.unit.orEmpty().ifBlank { strings.cluster.speed },
           marks = speedMarks,
           note = symbol?.letter,
           noteColour = symbol?.colour ?: ClusterColors.Digits,
@@ -239,7 +241,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             cells = SPEED_CELLS,
             valueColour = if (engaged) ClusterColors.Set else ClusterColors.Set.copy(alpha = ARMED_ALPHA),
             size = digit * CRUISE_SCALE,
-            label = "CRUISE",
+            label = strings.cluster.cruise,
             labelColour = if (engaged) ClusterColors.Set else ClusterColors.Label,
             marks = cruiseMarks,
             blink = blink,
@@ -259,7 +261,7 @@ fun ClusterReadout(vehicle: Vehicle, sampleIntervalMs: Int, modifier: Modifier =
             cells = GEAR_CELLS,
             valueColour = ClusterColors.Set,
             size = digit * GEAR_SCALE,
-            label = "GEAR",
+            label = strings.cluster.gear,
             face = SegmentFace.Alphanumeric,
             marks = gearMarks,
             blink = blink,
@@ -602,18 +604,25 @@ private fun blinkAlpha(blink: (() -> Float)?): Float = if (blink == null) {
  * [Neutral] has no arrow, because there is no direction to point in; it keeps the slot and prints its
  * letter. That is why [icon] is nullable rather than there being a third arrow.
  */
-enum class DriveSymbol(val icon: ImageVector?, val letter: String, val label: String, val colour: Color) {
-  Forward(ClusterIcons.DriveForward, "F", "Transmission in forward", ClusterColors.Go),
-  Reverse(ClusterIcons.DriveReverse, "R", "Transmission in reverse", ClusterColors.Set),
+enum class DriveSymbol(val icon: ImageVector?, val letter: String, val colour: Color) {
+  Forward(ClusterIcons.DriveForward, "F", ClusterColors.Go),
+  Reverse(ClusterIcons.DriveReverse, "R", ClusterColors.Set),
 
   // Not [ClusterColors.Label]: neutral is a current state, as true as the other two, and the label
   // grey sits close enough to its own ghost that the N came out barely legible.
-  Neutral(null, "N", "Transmission in neutral", ClusterColors.Digits),
+  Neutral(null, "N", ClusterColors.Digits),
   ;
 
+  /** What a screen reader says for this symbol. */
+  fun label(strings: Strings): String = when (this) {
+    Forward -> strings.cluster.forward
+    Reverse -> strings.cluster.reverse
+    Neutral -> strings.cluster.neutral
+  }
+
   /** As a mark in the line's leading slot. [flashing] while the machine is held at a standstill in gear. */
-  internal fun mark(flashing: Boolean): LineMark? =
-    icon?.let { LineMark(icon = it, label = label, colour = colour, blinks = flashing) }
+  internal fun mark(strings: Strings, flashing: Boolean): LineMark? =
+    icon?.let { LineMark(icon = it, label = label(strings), colour = colour, blinks = flashing) }
 }
 
 /**
@@ -628,7 +637,7 @@ enum class DriveSymbol(val icon: ImageVector?, val letter: String, val label: St
  * no such resting state — its glyph always says something — so it is simply absent when there is
  * nothing to choose between.
  */
-internal fun steeringMarks(vehicle: Vehicle): List<LineMark> {
+internal fun steeringMarks(strings: Strings, vehicle: Vehicle): List<LineMark> {
   val steering = vehicle.steering ?: return emptyList()
   val marks = mutableListOf<LineMark>()
 
@@ -642,7 +651,7 @@ internal fun steeringMarks(vehicle: Vehicle): List<LineMark> {
         // Where the shape couldn't be derived, the mode's number — which is what the driver of that
         // machine knows it by, and which claims nothing about geometry we couldn't read.
         text = if (icon == null) mode.index.toString() else null,
-        label = mode.name.ifBlank { "Steering mode ${mode.index} of ${mode.count}" },
+        label = mode.name.ifBlank { strings.cluster.steeringMode(mode.index, mode.count) },
         // Mode 1 is the one every machine loads in, so anything else is a mode the driver picked.
         colour = if (mode.index == 1) ClusterColors.Digits else ClusterColors.Set,
       )
@@ -652,7 +661,7 @@ internal fun steeringMarks(vehicle: Vehicle): List<LineMark> {
     marks +=
       LineMark(
         icon = ClusterIcons.SeatReversed,
-        label = if (reversed) "Driving position reversed" else "Driving position facing forward",
+        label = if (reversed) strings.cluster.seatReversed else strings.cluster.seatForward,
         colour = if (reversed) ClusterColors.Set else ClusterColors.Digits,
         alpha = if (reversed) 1f else GHOST_ALPHA,
         // Mid-swivel the machine is neither way round, and the seat says so rather than jumping.
@@ -682,18 +691,18 @@ internal fun steeringMarks(vehicle: Vehicle): List<LineMark> {
  * [ClusterColors.Set] because it is exactly the cruise line's own state, in the mark slot of that
  * same line: a thing the driver set, holding or about to hold. The two now dim and brighten together.
  */
-internal fun guidanceMark(vehicle: Vehicle): LineMark? {
+internal fun guidanceMark(strings: Strings, vehicle: Vehicle): LineMark? {
   val gps = vehicle.gps ?: return null
   if (!gps.enabled) return null
   return LineMark(
     icon = ClusterIcons.AutoSteer,
-    label = if (gps.active) "Steering assist engaged" else "Steering assist armed",
+    label = if (gps.active) strings.cluster.assistEngaged else strings.cluster.assistArmed,
     colour = ClusterColors.Set,
     alpha = if (gps.active) 1f else ARMED_ALPHA,
     // Captioned like the lamp it is copied from, and it earns the room twice over here: the glyph is
     // borrowed rather than self-evident, and a word is one more thing about this mark that survives
     // being read in any colour.
-    caption = "AUTO",
+    caption = strings.cluster.auto,
   )
 }
 
@@ -707,15 +716,15 @@ internal fun guidanceMark(vehicle: Vehicle): LineMark? {
  * two never rest on hue. Captioned like [guidanceMark], whose neighbour it is: the glyph is the mod's,
  * not a symbol a driver will have met on a real cluster.
  */
-internal fun speedSyncMark(vehicle: Vehicle): LineMark? {
+internal fun speedSyncMark(strings: Strings, vehicle: Vehicle): LineMark? {
   val sync = vehicle.speedSync ?: return null
   if (!sync.active) return null
   return LineMark(
     icon = ClusterIcons.SpeedSync,
-    label = if (sync.waiting) "Speed sync waiting for the other machine" else "Speed synced",
+    label = if (sync.waiting) strings.cluster.syncWaiting else strings.cluster.synced,
     colour = ClusterColors.Set,
     blinks = sync.waiting,
-    caption = "SYNC",
+    caption = strings.cluster.sync,
   )
 }
 
@@ -758,14 +767,14 @@ internal fun steeringLayoutIcon(layout: SteeringLayout?): ImageVector? = when (l
  * Whole km/h, as a sign prints it. The mod sends a tenth, and the tenth only exists for a damaged
  * machine, whose limit the game cuts by its damage — not a figure anyone drives to.
  */
-internal fun speedLimitMark(vehicle: Vehicle): LineMark? {
+internal fun speedLimitMark(strings: Strings, vehicle: Vehicle): LineMark? {
   val limit = vehicle.speed?.limit ?: return null
   val speed = vehicle.speed?.value ?: 0f
   val figure = limit.roundToInt()
   return LineMark(
     icon = ClusterIcons.SpeedLimit,
     text = figure.toString(),
-    label = "Working speed limit $figure ${vehicle.speed?.unit.orEmpty()}".trim(),
+    label = strings.cluster.speedLimit(figure, vehicle.speed?.unit.orEmpty()),
     colour = ClusterColors.Digits,
     alpha = if (speed >= limit - AT_LIMIT) 1f else ARMED_ALPHA,
   )
@@ -827,7 +836,7 @@ private fun legacyDriveSymbol(vehicle: Vehicle): DriveSymbol? = when (vehicle.sp
  * Being *over* the point is carried separately, by [EngineLoad.overloaded] — a notch is a place to
  * draw and can be missing, whereas the state is true either way.
  */
-internal fun engineLoad(vehicle: Vehicle): EngineLoad? {
+internal fun engineLoad(strings: Strings, vehicle: Vehicle): EngineLoad? {
   vehicle.ads?.load?.let { load ->
     return EngineLoad(
       value = (load.value / FULL_LOAD).toFloat(),
@@ -836,7 +845,7 @@ internal fun engineLoad(vehicle: Vehicle): EngineLoad? {
       // Transmission panel colours its figure by, and one of the two reading an engine as overloaded
       // while the other didn't is exactly the disagreement this whole function exists to avoid.
       overloaded = load.overloaded,
-      description = loadDescription(load.value, load.overloaded),
+      description = strings.cluster.engineLoad(load.value.roundToInt(), load.overloaded),
     )
   }
   val load = vehicle.motor?.load ?: return null
@@ -846,7 +855,12 @@ internal fun engineLoad(vehicle: Vehicle): EngineLoad? {
   val value = if (span > 0f) (load.value.toFloat() - load.min) / span else (load.value / FULL_LOAD).toFloat()
   // No threshold and no overload without ADS: the base game charges nothing for a hard-working
   // engine, and a zone we invented would be a warning about something that is not wrong.
-  return EngineLoad(value, threshold = null, overloaded = false, description = loadDescription(load.value, false))
+  return EngineLoad(
+    value,
+    threshold = null,
+    overloaded = false,
+    description = strings.cluster.engineLoad(load.value.roundToInt(), false),
+  )
 }
 
 /**
@@ -865,9 +879,6 @@ internal data class EngineLoad(
 ) {
   val fraction: Float get() = value.coerceIn(0f, 1f)
 }
-
-private fun loadDescription(percent: Double, overloaded: Boolean): String =
-  "Engine load ${percent.roundToInt()}%" + if (overloaded) ", overloaded" else ""
 
 /** Both load figures are percentages, so the bar's full length is 100 of them. */
 private const val FULL_LOAD = 100.0
