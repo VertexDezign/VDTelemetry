@@ -1,6 +1,7 @@
 # VDTelemetry
 
-**Just want to run it?** → [Setup guide (English)](docs/setup.en.md) ·
+**Just want to run it?** → [Project page](https://vertexdezign.github.io/VDTelemetry/) ·
+[Setup guide (English)](docs/setup.en.md) ·
 [Anleitung (Deutsch)](docs/setup.de.md) · [Downloads](https://github.com/VertexDezign/VDTelemetry/releases)
 
 A telemetry pipeline for **Farming Simulator 25**, in two parts:

@@ -1,0 +1,57 @@
+name: Pages
+
+# The project page at https://vertexdezign.github.io/VDTelemetry/ -- what the ModHub description links
+# to. Built by site/build.sh, the same script that previews it locally, and redeployed whenever
+# something it is made of changes on main.
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'site/**'
+      - 'screenshots/**'
+      - 'vdTelemetry/icon_vdTelemetry.png'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time, and never cancelled halfway: a newer push queues behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Not on every runner image, so installed rather than assumed.
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends imagemagick
+
+      - name: Build site
+        run: site/build.sh _site
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    # The only job that writes anything, and the only one granted it.
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

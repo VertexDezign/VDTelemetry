@@ -41,7 +41,10 @@ VDTerminal is just one way to use the data. Everything is written as plain JSON 
 
 Requires: Additional Inputs (FS25_additionalInputs)
 
-Download VDTerminal, setup guide and data format:
+Download VDTerminal and the setup guide:
+https://vertexdezign.github.io/VDTelemetry
+
+Source code and data format:
 https://github.com/VertexDezign/VDTelemetry
 
 Please report bugs, ideas and other feedback on GitHub:
@@ -77,7 +80,10 @@ VDTerminal ist nur eine Möglichkeit, die Daten zu nutzen. Alles wird als einfac
 
 Benötigt: Additional Inputs (FS25_additionalInputs)
 
-VDTerminal, Anleitung und Datenformat:
+VDTerminal und Anleitung herunterladen:
+https://vertexdezign.github.io/VDTelemetry/de/
+
+Quellcode und Datenformat:
 https://github.com/VertexDezign/VDTelemetry
 
 Fehler, Ideen und anderes Feedback bitte auf GitHub melden:
