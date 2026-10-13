@@ -1,7 +1,7 @@
 name: Release
 
-# Tag-driven: `git tag v0.1.0-alpha.1 && git push --tags` publishes a draft-free prerelease with the
-# mod zip and a ready-to-run terminal per OS. `workflow_dispatch` builds the same artifacts without
+# Tag-driven: `git tag v1.0.0-beta.1 && git push --tags` publishes a draft-free prerelease with the
+# mod zip (a tag without a suffix, `v1.0.0`, publishes a full release) and a ready-to-run terminal per OS. `workflow_dispatch` builds the same artifacts without
 # publishing anything, so the packaging can be exercised before a tag is spent on it.
 on:
   push:
@@ -59,12 +59,12 @@ jobs:
 
           # Insisting on the tag's shape is the whole check now, so it is worth being strict: a
           # prerelease has to be *numbered*, because that number is the only thing separating two
-          # alphas once they reach the game (see mod_version). jpackage takes the numeric head and
+          # betas once they reach the game (see mod_version). jpackage takes the numeric head and
           # accepts three components at most, which is the other half of why this is the shape.
           #
           # The counter is [1-9][0-9]*, not [0-9]+, on both counts a number can be written twice:
           # `-beta.0` would derive the same 0.1.0.0 as the final release v0.1.0, leaving the game
-          # with no update to offer between them, and `-alpha.01` the same 0.1.0.1 as `-alpha.1`
+          # with no update to offer between them, and `-beta.01` the same 0.1.0.1 as `-beta.1`
           # from a tag that does not look like it. Semver bars leading zeros here for that reason.
           if [[ ! "$version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*\.([1-9][0-9]*))?$ ]]; then
             echo "::error::version '$version' is not MAJOR.MINOR.PATCH[-<name>.<n>], n from 1 and unpadded"
@@ -73,8 +73,8 @@ jobs:
           numeric="${BASH_REMATCH[1]}"
 
           # FS25's modDesc version is four numbers and can express nothing else, so the prerelease
-          # counter becomes the fourth: 0.1.0-alpha.2 ships as 0.1.0.2, a final release as 0.1.0.0.
-          # Flattening every prerelease to .0 instead would leave the game unable to tell one alpha
+          # counter becomes the fourth: 1.0.0-beta.2 ships as 1.0.0.2, a final release as 1.0.0.0.
+          # Flattening every prerelease to .0 instead would leave the game unable to tell one beta
           # from the next, and so unable to offer players the update.
           mod_version="$numeric.${BASH_REMATCH[4]:-0}"
 
@@ -372,7 +372,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish prerelease
+    name: Publish release
     needs: [ version, mod, terminal ]
     if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-latest
@@ -405,7 +405,7 @@ jobs:
       - name: Write release notes
         run: |
           cat > notes.md <<'EOF'
-          **This is an alpha.** It is usable, it is not finished, and it is unsigned — Windows
+          **This is a beta.** It is usable, it is not finished, and it is unsigned — Windows
           SmartScreen and some antivirus tools will say so.
 
           ### Setup
@@ -414,7 +414,7 @@ jobs:
           - 📖 [Anleitung (Deutsch)](https://github.com/VertexDezign/VDTelemetry/blob/main/docs/setup.de.md)
 
           You need **two** mods in your `mods` folder: `FS25_vdTelemetry.zip` from below, and
-          [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs/releases) 1.1+,
+          [FS25_additionalInputs](https://github.com/VertexDezign/AdditionalInputs/releases) 1.2+,
           without which VDTelemetry switches itself off.
 
           ### Which download
@@ -428,15 +428,22 @@ jobs:
 
           The three terminal downloads are the same program; the first two bring their own Java.
 
+          If the dashboard says **MOD OUTDATED** or **TERMINAL OUTDATED**, the two are from different
+          releases and it names the one to update.
+
           The dashboard has no password and is meant for your own network. Don't forward port 3001.
           EOF
 
-      - name: Create prerelease
+      - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.version.outputs.version }}
+        # A suffixed tag (`v1.0.0-beta.1`) is a prerelease; a bare one (`v1.0.0`) is a full release,
+        # which GitHub then marks as the latest.
         run: |
+          prerelease=()
+          [[ "$VERSION" == *-* ]] && prerelease=(--prerelease)
           gh release create "$GITHUB_REF_NAME" dist/* \
             --title "VDTelemetry $VERSION" \
             --notes-file notes.md \
-            --prerelease
+            "${prerelease[@]}"

@@ -24,7 +24,7 @@ val composeRulesRuleSet = "io.nlopez.compose.rules:ktlint:${libs.versions.compos
 
 allprojects {
   group = "net.vertexdezign"
-  // The release workflow passes the git tag through as -PvdtVersion=0.1.0-alpha.1, so the published
+  // The release workflow passes the git tag through as -PvdtVersion=1.0.0-beta.1, so the published
   // archives carry the tag's name. The fallback is a placeholder for local builds and nothing else:
   // the tag is the only place a version is authored, and a real-looking number here would only be a
   // second one to forget to bump. It keeps the release's shape -- MAJOR.MINOR.PATCH plus a

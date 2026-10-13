@@ -177,7 +177,7 @@ Im Spiel unter *Einstellungen → Allgemeine Einstellungen → VDTelemetry*:
 Alles Weitere stellst du im Terminal selbst ein oder in
 `modSettings/FS25_vdTelemetry/vdTelemetrySettings.xml`.
 
-## Das hier ist eine Alpha — bitte lesen
+## Das hier ist eine Beta — bitte lesen
 
 - **Die Programme sind nicht signiert.** Windows SmartScreen und manche Virenscanner melden sich bei
   jeder neuen unsignierten Anwendung. Genau das bedeutet die Warnung — nicht mehr.
@@ -185,6 +185,10 @@ Alles Weitere stellst du im Terminal selbst ein oder in
   eigenes Netzwerk gedacht. Richte im Router keine Portweiterleitung darauf ein.
 - **Das Dashboard gibt es nur auf Englisch.** Die Einstellungen der Mod im Spiel sind übersetzt, die
   Texte des Terminals bisher nicht.
+- **„MOD OUTDATED" oder „TERMINAL OUTDATED"?** Das Terminal prüft, ob die Mod das Datenformat
+  schreibt, das es erwartet, und sagt dir bei einem Unterschied, welches von beiden du aktualisieren
+  musst. Updates der Mod erscheinen auf dem ModHub etwas nach dem Terminal, ein neues Terminal kann
+  deiner Mod also ein paar Tage voraus sein.
 - **Mehrspieler:** Die Telemetrie wird auf deinem eigenen PC geschrieben. Wer ein Dashboard möchte,
   lässt also seine eigene Kopie laufen. Auf einem Dedicated Server ist nichts zu installieren.
 - Einen Fehler gefunden, oder passt etwas in dieser Anleitung nicht zu dem, was du siehst? Dann

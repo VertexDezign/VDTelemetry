@@ -169,7 +169,7 @@ In game, under *Settings → General Settings → VDTelemetry*:
 Everything else is tuned from the terminal itself or from
 `modSettings/FS25_vdTelemetry/vdTelemetrySettings.xml`.
 
-## This is an alpha — please read
+## This is a beta — please read
 
 - **The programs are unsigned.** Windows SmartScreen and some antivirus tools will complain about
   any new unsigned executable. That's what the warning means; nothing more.
@@ -177,6 +177,10 @@ Everything else is tuned from the terminal itself or from
   own network only. Do not forward the port on your router.
 - **The dashboard is in English only.** The mod's in-game settings are translated; the terminal's
   own text isn't yet.
+- **"MOD OUTDATED" or "TERMINAL OUTDATED"?** The terminal checks that the mod writes the data
+  format it expects, and says which of the two to update when they don't match. Mod updates reach
+  ModHub a little after the terminal's release, so a new terminal can be ahead of your mod for a
+  few days.
 - **Multiplayer:** the telemetry is written on your own PC, so each player who wants a dashboard
   runs their own copy. On a dedicated server there is nothing to install.
 - Found a bug, or something in this guide that didn't match what you saw? Please open an issue at
