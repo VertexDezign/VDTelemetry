@@ -124,6 +124,8 @@ import net.vertexdezign.vdt.app.state.MapFocus
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.app.widgets.WidgetSettings
+import net.vertexdezign.vdt.model.AutoDrive
+import net.vertexdezign.vdt.model.AutoDriveData
 import net.vertexdezign.vdt.model.COVERAGE_LAYER_ID
 import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.FieldCropRotation
@@ -186,6 +188,7 @@ private const val KEY_COURSE_NEARBY = "courseNearby"
 private const val KEY_POI_CATS = "poiCats"
 private const val KEY_VEH_STATES = "vehStates"
 private const val KEY_SHOW_PLAYERS = "showPlayers"
+private const val KEY_SHOW_AUTO_DRIVE = "showAutoDrive"
 private const val KEY_GROUND_LAYER = "groundLayer"
 
 /**
@@ -295,6 +298,13 @@ fun MapPanel(
   courseProgress: CourseProgress? = null,
   /** The farm's contracts, drawn as markers and as a tint on the field each one is on. */
   missions: MissionsData? = null,
+  /** AutoDrive's route network, drawn as destination markers behind a filter row (issue #97). */
+  autoDrive: AutoDriveData? = null,
+  /**
+   * Whether the destinations start switched on for a map that has never been told — off on the
+   * ordinary map, where a big network is hundreds of markers, on in the AutoDrive app's own map.
+   */
+  showAutoDriveByDefault: Boolean = false,
 ) {
   var scale by remember { mutableStateOf(settings.getFloat(KEY_ZOOM, 1f)) }
   var autoCenter by remember { mutableStateOf(settings.getBoolean(KEY_AUTO_CENTER, true)) }
@@ -319,6 +329,7 @@ fun MapPanel(
   // state missing from a stored set reads as switched off — players would start out hidden for
   // everyone who had ever touched the vehicle filter.
   var showPlayers by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_PLAYERS, true)) }
+  var showAutoDrive by remember { mutableStateOf(settings.getBoolean(KEY_SHOW_AUTO_DRIVE, showAutoDriveByDefault)) }
   var groundLayer by remember { mutableStateOf(settings.getString(KEY_GROUND_LAYER, NO_GROUND_LAYER)) }
   var filterOpen by remember { mutableStateOf(false) }
   // The field whose info popup is open (its id / farmland number), or null when none. Set by tapping
@@ -480,6 +491,7 @@ fun MapPanel(
   LaunchedEffect(poiCats) { settings.putString(KEY_POI_CATS, poiCats.joinToString(",")) }
   LaunchedEffect(vehStates) { settings.putString(KEY_VEH_STATES, vehStates.joinToString(",")) }
   LaunchedEffect(showPlayers) { settings.putBoolean(KEY_SHOW_PLAYERS, showPlayers) }
+  LaunchedEffect(showAutoDrive) { settings.putBoolean(KEY_SHOW_AUTO_DRIVE, showAutoDrive) }
   LaunchedEffect(groundLayer) { settings.putString(KEY_GROUND_LAYER, groundLayer) }
 
   // Tell the mod which plane to sweep: it grid-samples only what a dashboard is actually showing, so
@@ -772,7 +784,7 @@ fun MapPanel(
       // OUTSIDE the zoom-scaled graphicsLayer — the layer rasterizes, so vectors inside it blur at
       // high zoom. The outlines are re-projected each draw through the same MapProjection the image
       // is transformed by, the labels/markers stay constant-size.
-      if (mapData != null || mapVehicles != null) {
+      if (mapData != null || mapVehicles != null || autoDrive != null) {
         MapDataOverlay(
           mapData,
           mapVehicles,
@@ -784,6 +796,9 @@ fun MapPanel(
           showPlayers,
           highlight,
           if (showMissions) shownMissions(accepted, missionChoices) else emptyList(),
+          autoDrive = autoDrive,
+          showAutoDrive = showAutoDrive,
+          autoDriveVehicle = vehicle?.autoDrive,
         )
       }
 
@@ -921,6 +936,9 @@ fun MapPanel(
           onVehStates = { vehStates = it },
           showPlayers = showPlayers,
           onShowPlayers = { showPlayers = it },
+          autoDrive = autoDrive,
+          showAutoDrive = showAutoDrive,
+          onShowAutoDrive = { showAutoDrive = it },
           query = searchQuery,
           onQuery = {
             searchQuery = it
@@ -1440,6 +1458,10 @@ private fun BoxScope.MapDataOverlay(
   highlight: Offset?,
   /** The contracts to draw — already filtered by the panel; see [shownMissions]. */
   accepted: List<Mission>,
+  autoDrive: AutoDriveData? = null,
+  showAutoDrive: Boolean = false,
+  /** The machine's own AutoDrive state, whose destinations are marked whatever the filter says. */
+  autoDriveVehicle: AutoDrive? = null,
 ) {
   val density = LocalDensity.current
   val textMeasurer = rememberTextMeasurer()
@@ -1766,6 +1788,45 @@ private fun BoxScope.MapDataOverlay(
       }
     }
 
+    // AutoDrive destinations: a diamond, so a destination reads apart from a POI's dot, a contract's
+    // ring and a machine's arrow by shape. The whole network only behind its filter row; the
+    // machine's own destination and unload destination always, larger and named at any zoom —
+    // destination filled, unload destination hollow, so the two differ in shape and not by a hue.
+    autoDrive?.let { network ->
+      val target = autoDriveVehicle?.target?.id
+      val unload = autoDriveVehicle?.unloadTarget?.id
+      for (destination in network.destinations) {
+        val own = destination.id == target || destination.id == unload
+        if (!own && !showAutoDrive) continue
+        val pos = toScreen(destination.posX, destination.posZ)
+        if (!onCanvas(pos)) continue
+        val half = (if (own) 7.dp else 4.dp).toPx()
+        val diamond =
+          Path().apply {
+            moveTo(pos.x, pos.y - half)
+            lineTo(pos.x + half, pos.y)
+            lineTo(pos.x, pos.y + half)
+            lineTo(pos.x - half, pos.y)
+            close()
+          }
+        if (destination.id == unload && destination.id != target) {
+          drawPath(diamond, VdtColors.White)
+          drawPath(diamond, palette.progressBlue, style = Stroke(width = 2.5.dp.toPx()))
+        } else {
+          drawPath(diamond, palette.progressBlue)
+          drawPath(diamond, VdtColors.White, style = Stroke(width = 1.dp.toPx()))
+        }
+        if ((own || scale >= DETAIL_ZOOM) && destination.name.isNotBlank()) {
+          drawCenteredText(
+            textMeasurer,
+            destination.name,
+            pos + Offset(0f, half + 7.dp.toPx()),
+            if (own) labelStyle else detailStyle,
+          )
+        }
+      }
+    }
+
     // Search-hit ring, always on top of the markers it points at.
     highlight?.let {
       drawCircle(
@@ -2023,6 +2084,9 @@ private fun BoxScope.MapFilterPanel(
   onVehStates: (Set<String>) -> Unit,
   showPlayers: Boolean,
   onShowPlayers: (Boolean) -> Unit,
+  autoDrive: AutoDriveData?,
+  showAutoDrive: Boolean,
+  onShowAutoDrive: (Boolean) -> Unit,
   query: String,
   onQuery: (String) -> Unit,
   onFocus: (Offset) -> Unit,
@@ -2052,7 +2116,7 @@ private fun BoxScope.MapFilterPanel(
 
     if (query.isNotBlank()) {
       val hits =
-        remember(query, mapData) {
+        remember(query, mapData, autoDrive) {
           val q = query.trim().lowercase()
           buildList {
             for (field in mapData?.fields ?: emptyList()) {
@@ -2061,6 +2125,13 @@ private fun BoxScope.MapFilterPanel(
             }
             for (poi in mapData?.pois ?: emptyList()) {
               if (poi.name.lowercase().contains(q)) add(SearchHit(poi.name, Offset(poi.posX, poi.posZ)))
+            }
+            // Found whether or not they are being drawn: a hit pans the map there and rings it, which
+            // answers "where is that destination" without switching the whole network on.
+            for (destination in autoDrive?.destinations ?: emptyList()) {
+              if (destination.name.lowercase().contains(q)) {
+                add(SearchHit("AD ${destination.name}", Offset(destination.posX, destination.posZ)))
+              }
             }
           }.take(6)
         }
@@ -2087,6 +2158,13 @@ private fun BoxScope.MapFilterPanel(
           dot = poiCategoryColor(category),
         ) { on -> onPoiCats(if (on) poiCats + category else poiCats - category) }
       }
+    }
+
+    // Only with a network to draw. The machine's own destinations are drawn either way (see
+    // MapDataOverlay); this switches the rest of the network.
+    // Under the POIs, because that is what a destination is: a named place on the map, not a machine.
+    if (autoDrive != null && autoDrive.destinations.isNotEmpty()) {
+      FilterRow("AutoDrive destinations", checked = showAutoDrive, dot = VdtColors.ProgressBlue) { onShowAutoDrive(it) }
     }
 
     // Only while this farm has contracts of its own: with none, the section would switch nothing. In

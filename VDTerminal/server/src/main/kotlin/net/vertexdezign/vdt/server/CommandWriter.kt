@@ -154,6 +154,30 @@ class CommandWriter(private val path: Path, private val ringSize: Int = 16) {
       """<command id="$id" type="setSpeedSync" active="${message.active}"/>"""
     }
 
+    is ClientMessage.SetAutoDriveActive -> {
+      """<command id="$id" type="setAutoDriveActive" active="${message.active}"/>"""
+    }
+
+    is ClientMessage.SetAutoDriveMode -> {
+      """<command id="$id" type="setAutoDriveMode" mode="${message.mode.name}"/>"""
+    }
+
+    // `markerId`, not `id`: that attribute is the command's own. The marker's name is a player's own
+    // text, so it is escaped; it is compared against AutoDrive's list on arrival (see
+    // ClientMessage.SetAutoDriveTarget).
+    is ClientMessage.SetAutoDriveTarget -> {
+      """<command id="$id" type="setAutoDriveTarget" slot="${message.slot.token}" markerId="${message.id}" """ +
+        """name="${esc(message.name)}"/>"""
+    }
+
+    is ClientMessage.SetAutoDriveFillType -> {
+      """<command id="$id" type="setAutoDriveFillType" fillType="${esc(message.fillType)}"/>"""
+    }
+
+    is ClientMessage.SetAutoDriveLoops -> {
+      """<command id="$id" type="setAutoDriveLoops" loops="${message.loops}"/>"""
+    }
+
     is ClientMessage.SetGpsLinesVisible -> {
       """<command id="$id" type="setGpsLinesVisible" on="${message.on}"/>"""
     }

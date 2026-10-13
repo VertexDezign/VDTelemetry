@@ -1,0 +1,125 @@
+{
+  "version": "1",
+  "destinations": [
+    {
+      "id": 1,
+      "posZ": 0.85255,
+      "name": "Shop",
+      "posX": 0.413
+    },
+    {
+      "folder": "Hof",
+      "name": "Hof",
+      "posX": 0.38772,
+      "id": 2,
+      "posZ": 0.51305
+    },
+    {
+      "folder": "Einkauf",
+      "name": "Einkauf Kalk/Dünger",
+      "posX": 0.29296,
+      "id": 3,
+      "posZ": 0.29316
+    },
+    {
+      "id": 4,
+      "posZ": 0.81809,
+      "name": "F35.E",
+      "posX": 0.14395
+    },
+    {
+      "id": 5,
+      "posZ": 0.87554,
+      "name": "F3.E",
+      "posX": 0.86223
+    },
+    {
+      "id": 6,
+      "posZ": 0.47799,
+      "name": "F60.S",
+      "posX": 0.86835
+    },
+    {
+      "id": 7,
+      "posZ": 0.49791,
+      "name": "F55.S",
+      "posX": 0.86712
+    },
+    {
+      "folder": "Verkauf",
+      "name": "Verkauf Agraria Markt - Getrei",
+      "posX": 0.26886,
+      "id": 8,
+      "posZ": 0.27417
+    },
+    {
+      "id": 9,
+      "posZ": 0.2944,
+      "name": "Tankstelle Agraria",
+      "posX": 0.26618
+    },
+    {
+      "folder": "Einkauf",
+      "name": "Einkauf Gülle",
+      "posX": 0.29244,
+      "id": 10,
+      "posZ": 0.27426
+    },
+    {
+      "id": 11,
+      "posZ": 0.17037,
+      "name": "Rela Industries",
+      "posX": 0.57915
+    },
+    {
+      "folder": "Hof",
+      "name": "BGA - Gärreste",
+      "posX": 0.41297,
+      "id": 12,
+      "posZ": 0.4671
+    },
+    {
+      "id": 13,
+      "posZ": 0.16308,
+      "name": "F77.F",
+      "posX": 0.53198
+    },
+    {
+      "id": 14,
+      "posZ": 0.68193,
+      "name": "F50.S",
+      "posX": 0.67183
+    },
+    {
+      "id": 15,
+      "posZ": 0.67338,
+      "name": "F50.F",
+      "posX": 0.65694
+    },
+    {
+      "id": 16,
+      "posZ": 0.8135,
+      "name": "F35.F",
+      "posX": 0.16815
+    },
+    {
+      "id": 17,
+      "posZ": 0.11012,
+      "name": "F80.E",
+      "posX": 0.86433
+    },
+    {
+      "folder": "Verkauf",
+      "name": "Verkauf - Getreidemühle",
+      "posX": 0.24383,
+      "id": 18,
+      "posZ": 0.67075
+    },
+    {
+      "id": 19,
+      "posZ": 0.83567,
+      "name": "F13.S",
+      "posX": 0.75771
+    }
+  ]
+}

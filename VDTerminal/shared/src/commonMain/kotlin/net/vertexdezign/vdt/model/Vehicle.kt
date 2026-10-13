@@ -19,6 +19,8 @@ data class Vehicle(
   val cruiseControl: CruiseControl? = null,
   /** Vehicle Speed Sync, when that mod is installed and handles this machine (mod version 33). */
   val speedSync: SpeedSync? = null,
+  /** AutoDrive, when that mod is installed and drives this machine (mod version 34). */
+  val autoDrive: AutoDrive? = null,
   val isTurnedOn: Boolean? = null,
   val foldable: FoldableState? = null,
   val lowered: Boolean? = null,

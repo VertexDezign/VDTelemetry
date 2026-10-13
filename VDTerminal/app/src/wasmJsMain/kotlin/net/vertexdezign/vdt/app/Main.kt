@@ -124,6 +124,7 @@ fun main() {
       invoices = repository.invoices,
       cropCalendar = repository.cropCalendar,
       weather = repository.weather,
+      autoDrive = repository.autoDrive,
       channelStats = repository.channelStats,
       wakeLock = wakeLock.asStateFlow(),
       mapUrl = mapUrl,

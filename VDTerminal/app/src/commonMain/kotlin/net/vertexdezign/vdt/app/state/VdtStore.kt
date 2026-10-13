@@ -9,6 +9,7 @@ import net.vertexdezign.vdt.app.WakeLockStatus
 import net.vertexdezign.vdt.app.alerts.AlertEngine
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.PageStore
+import net.vertexdezign.vdt.model.AutoDriveData
 import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
@@ -91,6 +92,11 @@ class VdtStore(
   val cropCalendar: StateFlow<CropCalendarData?>,
   /** The forecast: now, twelve two-hourly steps, six days out; null when the channel is absent. */
   val weather: StateFlow<WeatherForecastData?>,
+  /**
+   * AutoDrive's route network — every destination, with its folder and map position. Null means
+   * **AutoDrive is not installed**; the machine's own AutoDrive state rides on the telemetry.
+   */
+  val autoDrive: StateFlow<AutoDriveData?>,
   /** Server-measured observed cadence of each channel file (diagnostics app); null until first frame. */
   val channelStats: StateFlow<ChannelStatsData?>,
   val wakeLock: StateFlow<WakeLockStatus>,

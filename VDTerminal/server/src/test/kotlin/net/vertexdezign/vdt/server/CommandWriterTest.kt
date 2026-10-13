@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.server
 
+import net.vertexdezign.vdt.AutoDriveSlot
 import net.vertexdezign.vdt.BalePart
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ControlTarget
@@ -7,6 +8,7 @@ import net.vertexdezign.vdt.CruiseAction
 import net.vertexdezign.vdt.InvoiceLineInput
 import net.vertexdezign.vdt.OutputMode
 import net.vertexdezign.vdt.TaskInput
+import net.vertexdezign.vdt.model.AutoDriveMode
 import net.vertexdezign.vdt.model.BaleUnloadAction
 import java.nio.file.Files
 import kotlin.io.path.readText
@@ -30,6 +32,27 @@ class CommandWriterTest {
     writer.submit(ClientMessage.SetCruiseControl(CruiseAction.ENABLE))
     writer.submit(ClientMessage.SetCruiseControl(CruiseAction.DISABLE))
     assertEquals(2, Regex("<command ").findAll(path.readText()).count())
+  }
+
+  @Test
+  fun `writes the AutoDrive commands, the marker under its own attribute and its name escaped`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    val writer = CommandWriter(path)
+    writer.submit(ClientMessage.SetAutoDriveActive(true))
+    writer.submit(ClientMessage.SetAutoDriveMode(AutoDriveMode.PICKUP_AND_DELIVER))
+    writer.submit(ClientMessage.SetAutoDriveTarget(AutoDriveSlot.UNLOAD, 12, "Silo \"North\" & Co"))
+    writer.submit(ClientMessage.SetAutoDriveFillType("WHEAT"))
+    writer.submit(ClientMessage.SetAutoDriveLoops(5))
+    val xml = path.readText()
+    assertTrue(xml.contains("""type="setAutoDriveActive" active="true""""), xml)
+    assertTrue(xml.contains("""type="setAutoDriveMode" mode="PICKUP_AND_DELIVER""""), xml)
+    // `markerId`, never a second `id` on the element, which would make the whole file unreadable.
+    assertTrue(
+      xml.contains("""type="setAutoDriveTarget" slot="unload" markerId="12" name="Silo &quot;North&quot; &amp; Co""""),
+      xml,
+    )
+    assertTrue(xml.contains("""type="setAutoDriveFillType" fillType="WHEAT""""), xml)
+    assertTrue(xml.contains("""type="setAutoDriveLoops" loops="5""""), xml)
   }
 
   @Test

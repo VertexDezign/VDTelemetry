@@ -2,6 +2,8 @@ package net.vertexdezign.vdt
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.vertexdezign.vdt.model.AutoDriveData
+import net.vertexdezign.vdt.model.AutoDriveMode
 import net.vertexdezign.vdt.model.BaleUnloadAction
 import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.CropCalendarData
@@ -48,6 +50,15 @@ sealed interface ServerMessage {
   @Serializable
   @SerialName("taskList")
   data class TaskList(val data: TaskListData? = null) : ServerMessage
+
+  /**
+   * The optional AutoDrive channel (`autoDrive.json`): the route network's destinations, event-driven
+   * off AutoDrive's own destination listener (issue #97). [data] is **null when AutoDrive is not
+   * installed** — the same explicit "it's gone" as [TaskList], for the same reason.
+   */
+  @Serializable
+  @SerialName("autoDrive")
+  data class AutoDrive(val data: AutoDriveData? = null) : ServerMessage
 
   /**
    * The optional FS25_CropRotation channel. Like [TaskList], a distinct event-driven message (not a
@@ -599,6 +610,43 @@ sealed interface ClientMessage {
   @SerialName("setSpeedSync")
   data class SetSpeedSync(val active: Boolean) : ClientMessage
 
+  // ---- AutoDrive (issue #97). Every one is an absolute state; the mod drives AutoDrive's own events, and
+  // works out the button presses where AutoDrive only offers a step (the mode, the loop counter).
+
+  /** Start (`active = true`) or stop AutoDrive on the vehicle you are in — its own start/stop input. */
+  @Serializable
+  @SerialName("setAutoDriveActive")
+  data class SetAutoDriveActive(val active: Boolean) : ClientMessage
+
+  /** Switch AutoDrive to [mode]; one of the vehicle's [net.vertexdezign.vdt.model.AutoDrive.modes]. */
+  @Serializable
+  @SerialName("setAutoDriveMode")
+  data class SetAutoDriveMode(val mode: AutoDriveMode) : ClientMessage
+
+  /**
+   * Set the destination ([AutoDriveSlot.TARGET]) or the unload destination ([AutoDriveSlot.UNLOAD]) to
+   * the marker [id]. [name] travels with it as a guard: AutoDrive's ids are list positions that shift
+   * when a marker is deleted, and the mod refuses a command whose id no longer carries this name
+   * rather than sending the machine to whatever marker now holds it.
+   */
+  @Serializable
+  @SerialName("setAutoDriveTarget")
+  data class SetAutoDriveTarget(val slot: AutoDriveSlot, val id: Int, val name: String) : ClientMessage
+
+  /** The fill type AutoDrive loads, by engine name — one of [net.vertexdezign.vdt.model.AutoDrive.fillTypes]. */
+  @Serializable
+  @SerialName("setAutoDriveFillType")
+  data class SetAutoDriveFillType(val fillType: String) : ClientMessage
+
+  /** The loop counter: rounds pick up & deliver runs, 0 for "until stopped", at most 99. */
+  @Serializable
+  @SerialName("setAutoDriveLoops")
+  data class SetAutoDriveLoops(val loops: Int) : ClientMessage {
+    init {
+      require(loops in 0..AUTO_DRIVE_MAX_LOOPS) { "loops must be 0..$AUTO_DRIVE_MAX_LOOPS, was $loops" }
+    }
+  }
+
   /**
    * Show (`on = true`) or hide the steering-assist guide lines. Alone among the commands this one
    * targets a global client setting rather than the current vehicle, so the mod ignores which
@@ -987,6 +1035,16 @@ data class TaskInput(
     require(n >= 1) { "n must be >= 1, was $n" }
   }
 }
+
+/** AutoDrive's two destination slots. [token] is the wire vocabulary (`slot=` in `commands.xml`). */
+@Serializable
+enum class AutoDriveSlot(val token: String) {
+  TARGET("target"),
+  UNLOAD("unload"),
+}
+
+/** AutoDrive's loop counter ceiling — `ADStateModule:changeLoopCounter` keeps it at 99. */
+const val AUTO_DRIVE_MAX_LOOPS = 99
 
 /**
  * A cruise-control action. [token] is the wire vocabulary (the `action=` attribute in

@@ -57,6 +57,7 @@ data actually changes — and none of them rides the 100 ms tick.
 | `prices.json` | the map's price board: what every station pays or charges, plus the twelve-month curve per commodity (core, `src/collect/PricesExporter.lua`) | own interval (30 s) |
 | `cropCalendar.json` | which periods each crop may be sown and harvested in (core, `src/collect/CropCalendarExporter.lua`) | on day / season-length change, + a 2 s growth-mode watch |
 | `weather.json` | the forecast: now, twelve two-hourly steps, six days (core, `src/collect/WeatherExporter.lua`) | on hour / day / weather change |
+| `autoDrive.json` | [FS25_AutoDrive](https://github.com/Stephan-S/FS25_AutoDrive) — the route network's destinations | on marker change (AutoDrive's own destination listener) |
 | `taskList.json` | [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) | on task/group change |
 | `cropRotation.json` | [FS25_CropRotation](https://www.farming-simulator.com/mod.php?mod_id=347316&title=fs2025) | on planner change |
 | `invoices.json` | [FS25_Invoices](https://github.com/Squallqt/FS25_Invoices) | on invoice or player-farm change |
@@ -388,6 +389,19 @@ version renames costs you that panel, never a Lua error.
   right now, and VDTerminal's toggle sends `setSpeedSync` (`src/command/SpeedSyncControl.lua`), which runs the mod's
   own search and setter and so refuses wherever the key would. The cruise-control copy is not reported separately —
   it sets the ordinary cruise speed, which is already exported.
+* [FS25_AutoDrive](https://github.com/Stephan-S/FS25_AutoDrive) `3.0.1.4` — the route network's autopilot
+  (`src/integrations/AutoDrive.lua`). **Read and write:**
+    * `vehicle.autoDrive` on the machine you are in: driving or not, the mode, the destination and unload
+      destination, the fill type it loads and the ones it offers for the rig, the loop counter, and while driving
+      its task text, drive time and the marker it is heading for. `ai.active` is raised while it drives — the map
+      and fleet channels already counted it, since AutoDrive overrides `getIsAIActive`
+    * `autoDrive.json`: every destination, with its folder and map position, rewritten whenever a marker changes
+    * Five commands (`src/command/AutoDriveControl.lua`) — start/stop, mode, destination, fill type, loop counter —
+      all sent through AutoDrive's own events, the ones its HUD sends, so they work from a multiplayer client.
+      AutoDrive's state module only applies its setters on the server; calling them on a client would change a
+      copy nobody drives with. Where AutoDrive offers only a step (the mode button, the loop counter's +/-), the
+      mod works out the presses from the state it finds. A destination travels with its name, and is refused if
+      the marker list shifted under the tap
 * [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) `1.2.0.1`
   ([source](https://github.com/Ozz-Modding/FS25_TaskList)) — the farm task list, in its own
   `taskList.json` channel (`src/integrations/TaskList.lua`). **Read and write:** VDTerminal can

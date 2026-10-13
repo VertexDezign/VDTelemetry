@@ -1,6 +1,7 @@
 package net.vertexdezign.vdt
 
 import kotlinx.serialization.json.Json
+import net.vertexdezign.vdt.model.AutoDriveData
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.FieldInfoData
@@ -85,6 +86,9 @@ object VdtParser {
 
   /** Parse the `fleet.json` channel (the farm's machines and their condition) into [FleetData]. */
   fun parseFleet(text: String): FleetData = json.decodeFromString(FleetData.serializer(), text)
+
+  /** Parse the `autoDrive.json` channel (AutoDrive's destinations) into [AutoDriveData]. */
+  fun parseAutoDrive(text: String): AutoDriveData = json.decodeFromString(AutoDriveData.serializer(), text)
 
   /** Parse the `prices.json` channel (the map's price board) into [PricesData]. */
   fun parsePrices(text: String): PricesData = json.decodeFromString(PricesData.serializer(), text)

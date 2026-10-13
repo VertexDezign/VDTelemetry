@@ -625,6 +625,26 @@ level on every tool tried, so automatic level detection is not wanted.
 - **A tile pinned to a rig position cannot set level.** The command is addressed by the rig diagram's path to the
   tool, and a pinned ISOBUS tile has no diagram; the Loader app always has one.
 
+## AutoDrive (#97), what it left
+
+Built: the HUD as a panel (mode, both destinations, fill type, loop counter, start/stop), an AutoDrive app with its
+own map of the network, and the network behind a filter row on the ordinary map. Left out of round one, each by
+choice rather than by blocker:
+
+- **Park and refuel.** AutoDrive's `input_parkVehicle` / `input_refuelVehicle`; both are a plain input through the
+  same `ADInputManager:onInputCall` path the start/stop uses, so the mod side is a line each.
+- **Other machines.** Everything here addresses the machine you are in. AutoDrive drives machines nobody sits in,
+  and the fleet list is the natural place to start one — the commands would need a vehicle address (the fleet's
+  network id) instead of the current vehicle.
+- **Picking a destination on the map.** Tapping a diamond could set it; the map has no tap-to-command path yet.
+- **The route itself.** `drivePathModule:getWayPoints()` is the path it is driving; drawing it would be a polyline
+  channel of its own, at a cadence the network does not need.
+- **Several fill types at once.** AutoDrive's list also toggles extra fill types into a selection
+  (`TYPE_TOGGLE_FILLTYPE_SELECTION`); that event is a toggle, so an absolute command would have to diff against the
+  selection the state module streams. Single selection — what a plain click in its HUD does — is built.
+- **The mode command counts from the last synced mode.** Two mode taps on a multiplayer client faster than the
+  server's answer can overshoot; the panel shows the server's mode, so a third tap corrects it.
+
 ## Captures wanted as fixtures
 
 The work aspects are still tested synthetically, because none of the committed captures contains a machine that has
@@ -655,6 +675,10 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
   its blink while waiting, and the terminal toggle greying out of range — with the three states captured under
   `examples/json/telemetry/modded/vehicleSpeedSync_*.json`. Nothing is expected to differ on a client (the mod switches
   the sync there and the server only reports a lost connection back), which is what one client capture would confirm.
+- **AutoDrive (#97) from a multiplayer client.** Every command checked in singleplayer, and `examples/json/autodrive/`
+  has the network, a parked pick-up & deliver, a drive-to and a pick-up & deliver under way. Still wanted: the same
+  from a client, which is the case the event-driven write path exists for. Nice to have: a round counter that is not
+  endless (`loops` > 0 with `loopsDone` counting) and a moment where `heading` differs from `target`.
 - **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
   (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
 - **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file

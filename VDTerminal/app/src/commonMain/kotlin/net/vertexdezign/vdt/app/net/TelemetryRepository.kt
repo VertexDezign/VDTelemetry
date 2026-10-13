@@ -15,6 +15,7 @@ import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.ChannelStatsData
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.ServerMessage
+import net.vertexdezign.vdt.model.AutoDriveData
 import net.vertexdezign.vdt.model.CourseProgress
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
@@ -151,6 +152,11 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
   // contract as production -- a board that has stopped being reported must not keep pricing stock.
   private val _prices = MutableStateFlow<PricesData?>(null)
   val prices: StateFlow<PricesData?> = _prices.asStateFlow()
+
+  // AutoDrive's destinations, event-driven off its own listener. Null = AutoDrive not installed; an
+  // installed AutoDrive on a map with no network sends an empty list.
+  private val _autoDrive = MutableStateFlow<AutoDriveData?>(null)
+  val autoDrive: StateFlow<AutoDriveData?> = _autoDrive.asStateFlow()
 
   // The farm's contracts, event-driven plus the mod's slow countdown interval; same
   // null-when-absent contract as production.
@@ -302,6 +308,10 @@ class TelemetryRepository(private val scope: CoroutineScope, private val wsUrl: 
 
                     is ServerMessage.Prices -> {
                       _prices.value = msg.data
+                    }
+
+                    is ServerMessage.AutoDrive -> {
+                      _autoDrive.value = msg.data
                     }
 
                     is ServerMessage.Missions -> {
