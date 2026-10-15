@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt
 
+import net.vertexdezign.vdt.model.AdsElectrical
 import net.vertexdezign.vdt.model.AdsLamp
 import net.vertexdezign.vdt.model.AdsLoad
 import kotlin.test.Test
@@ -32,9 +33,9 @@ class AdsModelTest {
                 "motor": { "temperatur": { "value": 93, "min": 20, "max": 120, "unit": "°C" } },
                 "ads": {
                   "lamps": { "engine": "OFF", "warning": "WARN", "brakes": "OFF",
-                             "battery": "CRIT", "coolant": "COLD", "service": "OFF" },
+                             "battery": "CRIT", "coolant": "COLD", "service": "OFF",
+                             "transmission": "WARN", "oil": "OFF" },
                   "service": { "hours": 3.3, "interval": 5.4 },
-                  "inspected": { "condition": 73, "service": 42, "complete": true },
                   "electrical": { "systemVoltage": 13.8, "unit": "V" },
                   "load": { "value": 112, "overloadAt": 85, "unit": "%" },
                   "transmissionTemperatur": { "value": 71, "min": 20, "max": 120, "unit": "°C" }
@@ -51,16 +52,13 @@ class AdsModelTest {
     assertEquals(AdsLamp.WARN, lamps.warning)
     assertEquals(AdsLamp.CRIT, lamps.battery)
     assertEquals(AdsLamp.COLD, lamps.coolant)
+    assertEquals(AdsLamp.WARN, lamps.transmission)
+    assertEquals(AdsLamp.OFF, lamps.oil)
 
     val service = assertNotNull(ads.service)
     assertEquals(3.3f, service.hours)
     assertEquals(5.4f, service.interval)
     assertTrue(service.fraction < 1f, "3.3 of 5.4 hours is not yet due")
-
-    val inspected = assertNotNull(ads.inspected)
-    assertEquals(73, inspected.condition)
-    assertEquals(42, inspected.service)
-    assertTrue(inspected.complete)
 
     val load = assertNotNull(ads.load)
     // Past 100 on purpose: ADS lets the draft term take it to 115, and the overrun is the point.
@@ -71,12 +69,18 @@ class AdsModelTest {
     assertFalse(AdsLoad(value = 50.0, overloadAt = 0.0).overloaded)
 
     assertEquals(13.8f, assertNotNull(ads.electrical).systemVoltage)
+    // An export from before 31 carries no threshold; it is on the 12 V scale throughout.
+    assertFalse(assertNotNull(ads.electrical).low)
+    assertTrue(AdsElectrical(systemVoltage = 11.9f).low)
+    // A 24 V system: healthy at 27.6, low under its own 24, not under 12.
+    assertFalse(AdsElectrical(systemVoltage = 27.6f, lowBelow = 24f).low)
+    assertTrue(AdsElectrical(systemVoltage = 23.5f, lowBelow = 24f).low)
     assertEquals(71, assertNotNull(ads.transmissionTemperatur).value)
   }
 
   @Test
   fun everyAbsentPartStaysNullRatherThanBecomingZero() {
-    // What a plain tractor under ADS looks like: no CVT, never inspected, and too old for four of
+    // What a plain tractor under ADS looks like: no CVT, and too old for four of
     // the six lamps. Each of those is a distinct answer from a zero or an OFF.
     val ads =
       assertNotNull(
@@ -94,8 +98,9 @@ class AdsModelTest {
     assertEquals(AdsLamp.OFF, lamps.battery)
     assertNull(lamps.engine, "a lamp the machine does not have must not decode as OFF")
     assertNull(lamps.service)
+    assertNull(lamps.transmission, "a plain manual has no transmission lamp, not a dark one")
+    assertNull(lamps.oil)
     assertNull(ads.service)
-    assertNull(ads.inspected)
     assertNull(ads.electrical)
     assertNull(ads.load)
     assertNull(ads.transmissionTemperatur, "no CVT is not a very cold one")

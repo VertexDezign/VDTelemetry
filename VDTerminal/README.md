@@ -25,7 +25,7 @@ whose mod isn't installed is not listed at all, rather than showing an empty scr
 | **Vehicle**                                | the machine you're driving: engine and transmission, lighting, and a rig laid out the way it sits — front, machine, rear — with each slot's fill units, sections and rates                                                                                                                                                                                                                                                                                                                                                                                                   |
 | **Map**                                    | the PDA map: the DDS map image, POIs, fields, vehicle markers, the steering course, and the ground-layer overlays below                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Fields**                                 | what is on the farm's land: every field as a row with its crop, its area, its price if it is for sale, what state the ground is in and what condition it is in (plough, weeds) — all three counted across the whole field off the crops, growth and soil rasters rather than sampled at its centre, so a field half cut reads as half cut, a field whose middle is a track still names its crop, and a multiplayer client's one stale cell no longer decides — filterable to what is yours, what is for sale, what needs work and what is ready, and cross-linked to the map |
-| **Fleet**                                  | every machine the farm owns, the way the game's own vehicle overview lists them — condition, operating hours, age, what each is worth — searchable and sortable, with Advanced Damage System's maintenance record (state, service interval, faults found, what is in the workshop) where that mod is installed, and a row that puts itself on the map                                                                                                                                                                                                                        |
+| **Fleet**                                  | every machine the farm owns, the way the game's own vehicle overview lists them — condition, operating hours, age, what each is worth — searchable and sortable, with Advanced Damage System's workshop state and service interval where that mod is installed, and a row that puts itself on the map                                                                                                                                                                                                                                                                        |
 | **Production** / **Storage** / **Animals** | the farm's production points and factories, its silos and object storages, and its animal pens                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Market**                                 | the map's price board and what the farm is sitting on: every commodity with the stations that buy and sell it and its twelve-month curve, and a sortable stock table joining silos, bunkers, bales, pallets, what the production points have made and what the pens are waiting to be emptied of against it — one line per commodity however many containers it is spread over, with what it is worth now, where it sells best, and what the year's peak would make of it; both tabs filter through a type-ahead box that takes several tokens at once                       |
 | **Contracts**                              | the farm's missions — on offer, running, waiting to be collected — with accept / cancel / collect                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -222,14 +222,15 @@ Four widgets that stack into an A-pillar instrument cluster, after the small dis
 tractor puts between the windscreen and the right-hand window:
 
 - **Telltales** — a wrapping band of lamps (turn signals, beams, work lights, beacon, parking brake,
-  diff locks, AWD, and the six maintenance lamps). Which lamps a band shows is per instance, since
+  diff locks, AWD, and the eight maintenance lamps). Which lamps a band shows is per instance, since
   what matters differs per rig. A lamp the vehicle reports *nothing* about is absent rather than
   unlit — the drivetrain trio comes from Enhanced Vehicle or More Vehicle Controls, and an unlit diff-lock
   lamp is a claim we can't make without one of them.
 
-  The maintenance six (engine warning, coolant temperature, battery, brake system, service, needs
-  attention) come from **Advanced Damage System**, and follow the same rule twice over: without the
-  mod there is nothing to say, and *with* it a lamp the machine is too old to have stays absent too —
+  The maintenance eight (engine warning, coolant temperature, battery, brake system, service, needs
+  attention, transmission, engine oil) come from **Advanced Damage System**, and follow the same rule
+  twice over: without the mod there is nothing to say, and *with* it a lamp the machine does not have
+  stays absent too — a plain manual gearbox has no transmission lamp, and
   ADS gates each on the vehicle's production year, so a 1960s tractor's band doesn't grow lamps its
   dashboard never had. Two of them keep a base-game fallback for a game without the mod: coolant
   temperature off the gauge, and "needs attention" off vanilla damage.
@@ -262,8 +263,8 @@ tractor puts between the windscreen and the right-hand window:
   and reads zeros until the engine catches. The **telltale band stays lit**, because a parked machine
   can genuinely have its beacon on or its hazards going (`Lights:onStopMotor` re-applies the light
   mask rather than clearing it) and the band is the only place that shows it.
-- **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, a CVT's own
-  transmission temperature where Advanced Damage System reports one, then the engine's fuel, DEF and
+- **Level Strip** — the compact vertical form of the fill-unit bars: coolant temperature, the
+  transmission's own temperature where Advanced Damage System shows one (any gearbox but a plain manual), then the engine's fuel, DEF and
   air. The two temperatures are told apart by their glyphs — a thermometer over water, and one over a
   gear — because the strip is read by icon alone. Each is an open-topped frame — green over the working range, red
   across

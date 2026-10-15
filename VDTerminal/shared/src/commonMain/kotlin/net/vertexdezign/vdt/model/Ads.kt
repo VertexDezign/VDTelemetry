@@ -14,9 +14,9 @@ import kotlinx.serialization.Serializable
  * and the vanilla temperature it overwrites was never synced in multiplayer at all.
  *
  * **Nothing here is a value ADS hides.** Condition, per-system condition and stress and the live
- * service level are known to a player only through a workshop inspection, and as exact percentages
- * only after a full defectoscopy — so [inspected] carries what an inspection actually reported and
- * nothing else. The pre-shift chores (radiator and air-intake clogging, lubrication) are absent for
+ * service level are known to a player only through a workshop inspection, so no condition of any kind
+ * is here. (What an inspection reported was, until mod version 28; ADS 0.9.9.3 rewrote the record it
+ * came from, and the integration was cut back to the parts of ADS that survived.) The pre-shift chores (radiator and air-intake clogging, lubrication) are absent for
  * the same reason: a driver learns those by getting out and walking round the machine. The dashboard
  * never knows more than the driver does. See the mod's `src/integrations/AdvancedDamageSystem.lua`.
  */
@@ -24,12 +24,13 @@ import kotlinx.serialization.Serializable
 data class Ads(
   val lamps: AdsLamps? = null,
   val service: AdsService? = null,
-  val inspected: AdsInspected? = null,
   val electrical: AdsElectrical? = null,
   val load: AdsLoad? = null,
   /**
-   * A CVT's own oil temperature, which ADS models separately and which can cook while the engine
-   * still reads fine. Null on any machine without one — never a very cold reading.
+   * The transmission's own oil temperature, which ADS models separately and which can cook while the
+   * engine still reads fine. Present exactly where ADS's dashboard prints it — every gearbox but a
+   * plain manual, on a machine new enough for the transmission lamp (mod version 29; before that,
+   * CVTs only). Null everywhere else — never a very cold reading.
    */
   val transmissionTemperatur: Temperatur? = null,
 )
@@ -42,9 +43,10 @@ data class Ads(
  * coolant lamp and genuinely nothing else. That is the same rule the drivetrain lamps already
  * follow, and the reason these are nullable rather than defaulted.
  *
- * ADS defines two more, `transmission` and `oil`, which are deliberately not here: the first is
- * declared and never used by any breakdown in the mod itself, and the second it computes but refuses
- * to draw — so drawing it would tell the player something ADS chose to withhold.
+ * Two lamps have a gate beyond the year, both ADS's own: a plain manual gearbox has no [transmission]
+ * lamp, and an electric machine no [coolant] one. [transmission] and [oil] arrived with mod version
+ * 29, when ADS 0.9.9.3 started drawing them. [service] lights only once the service interval is
+ * past, as in ADS's own HUD.
  */
 @Serializable
 data class AdsLamps(
@@ -54,6 +56,8 @@ data class AdsLamps(
   val battery: AdsLamp? = null,
   val coolant: AdsLamp? = null,
   val service: AdsLamp? = null,
+  val transmission: AdsLamp? = null,
+  val oil: AdsLamp? = null,
 )
 
 /**
@@ -82,17 +86,6 @@ data class AdsService(val hours: Float = 0f, val interval: Float = 0f) {
 }
 
 /**
- * What the last workshop inspection found, as percentages — the only form in which a player knows
- * these numbers at all. Null until the machine has been inspected once.
- *
- * [complete] is ADS's own flag for a full defectoscopy as against a routine check: a complete report
- * is exact, an ordinary one is the mod's approximation, and a readout that did not distinguish them
- * would be quoting a guess as a measurement.
- */
-@Serializable
-data class AdsInspected(val condition: Int? = null, val service: Int? = null, val complete: Boolean = false)
-
-/**
  * The load Advanced Damage System wears the engine on.
  *
  * **Not the same quantity as [Motor.load]**, which is the plain engine load and is still exported and
@@ -114,7 +107,19 @@ data class AdsLoad(val value: Double = 0.0, val overloadAt: Double = 0.0, val un
 /**
  * The electrical system. [systemVoltage] is what the machine's electrics see rather than the
  * battery's own terminal voltage — the figure ADS puts on its dashboard, and the one that sags when
- * the alternator cannot keep up with the load.
+ * the alternator cannot keep up with the load. On the dashboard's scale, so about 28 V on a machine
+ * ADS gives a 24 V system (mod version 31; before that, always the 12 V scale).
+ *
+ * [lowBelow] is where ADS's dashboard warns, on the same scale. Absent from an older export, which is
+ * on the 12 V scale throughout, hence the fallback.
  */
 @Serializable
-data class AdsElectrical(val systemVoltage: Float = 0f, val unit: String = "")
+data class AdsElectrical(val systemVoltage: Float = 0f, val lowBelow: Float = 0f, val unit: String = "") {
+  val low: Boolean get() = systemVoltage < threshold
+
+  private val threshold: Float get() = if (lowBelow > 0f) lowBelow else LOW_VOLTAGE_12V
+
+  private companion object {
+    const val LOW_VOLTAGE_12V = 12f
+  }
+}

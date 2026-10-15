@@ -28,7 +28,6 @@ internal object DeFleet : FleetStrings {
   override val badgeWorkshop = "WERKSTATT"
   override val badgeUnknownState = "UNBEK. ZUSTAND"
   override val badgeServiceDue = "WARTUNG FÄLLIG"
-  override val badgeFault = "FEHLER"
   override val badgeLeased = "GELEAST"
   override val badgeContract = "AUFTRAG"
   override val badgeNeedsReset = "RESET NÖTIG"
@@ -46,11 +45,9 @@ internal object DeFleet : FleetStrings {
   override val cardMachine = "Maschine"
   override val cardMaintenance = "Wartung"
 
-  override val neverInspected = "Nie inspiziert — eine Werkstatt muss sie ansehen"
+  override val keptByAds = "Von Advanced Damage System geführt — in einer Werkstatt inspizieren lassen"
   override val noCondition = "Kein Zustand gemeldet"
   override val condition = "ZUSTAND"
-  override val conditionEstimate = "ZUSTAND (GESCHÄTZT)"
-  override val estimateNote = "Aus einer einfachen Inspektion, keiner vollständigen"
   override val wear = "VERSCHLEISS"
   override val dirt = "SCHMUTZ"
 
@@ -71,26 +68,11 @@ internal object DeFleet : FleetStrings {
   override val state = "Zustand"
   override val serviceOverdue = "WARTUNG ÜBERFÄLLIG"
   override val serviceInterval = "WARTUNGSINTERVALL"
-  override val lastInspection = "Letzte Inspektion"
-  override val lastMaintenance = "Letzte Wartung"
-  override val maintenanceSpent = "Bisherige Wartungskosten"
-  override val noFaults = "Keine Fehler gefunden"
-  override val noFaultsYet = "Noch keine Fehler gefunden"
-  override val workLeft = "Verbleibende Arbeit"
-  override val readyAt = "Fertig um"
-  override val serviceCost = "Werkstattkosten"
-
-  override fun finish(clock: String, inDays: Int) = when (inDays) {
-    0 -> clock
-    1 -> "$clock morgen"
-    else -> "$clock, in $inDays Tagen"
-  }
 
   override val adsReady = "Einsatzbereit"
   override val adsInspection = "In der Werkstatt — Inspektion"
   override val adsMaintenance = "In der Werkstatt — Wartung"
   override val adsRepair = "In der Werkstatt — Reparatur"
-  override val adsOverhaul = "In der Werkstatt — Überholung"
   override val adsBroken = "Ausgefallen"
   override val adsUnknown = "Zustand unbekannt"
 
@@ -99,11 +81,5 @@ internal object DeFleet : FleetStrings {
     val years = months / 12
     val rest = months % 12
     return if (rest == 0) "$years J." else "$years J. $rest Mon."
-  }
-
-  override fun monthsAgo(months: Int) = when (months) {
-    0 -> "diesen Monat"
-    1 -> "vor 1 Monat"
-    else -> "vor $months Monaten"
   }
 }

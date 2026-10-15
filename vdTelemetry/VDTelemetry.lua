@@ -255,7 +255,7 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --    same units. The rate PF's HUD leads with in AUTO, where the tool picks its own and no step
 --    describes it; absent whenever the boom is up, because PF never clears the field. See issue #77.
 -- 13: `ads` — Advanced Damage System: the dashboard lamps it drives, where the machine is in its
---     service interval, what the last inspection found, and system voltage. Also
+--     service interval, what the last inspection found (gone in 28), and system voltage. Also
 --     *changes* `motor.temperatur.value`, which is ADS's engine temperature when ADS is installed —
 --     the first correct engine temperature this mod has exported to a multiplayer client, since the
 --     vanilla figure is never synced. Also `ads.load`, which is a DIFFERENT number from
@@ -333,15 +333,21 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     `hitch` on an implement (where the linkage it hangs off sits in its travel -- the
 --     bottomArmPosition dashboard), `tensionBelts` (how many load straps are done up) and `broken`
 --     (the machine drowned and needs a reset). All optional; nothing existing changed shape.
--- 28, 29: held for the Advanced Damage System 0.9.9.3 work (branch ads-rework), which waits on ADS
---     going public; the loader captures were taken with it, so they say 30.
+-- 28: `ads.inspected` is gone. Advanced Damage System 0.9.9.3 rewrote the inspection record it was
+--     read from, and the integration was cut back to the parts of ADS that survived the rewrite (see
+--     src/integrations/AdvancedDamageSystem.lua). Everything else in `ads` is unchanged.
+-- 29: `ads.lamps.transmission` and `ads.lamps.oil`, the two lamps ADS 0.9.9.3 started drawing, and
+--     `ads.transmissionTemperatur` on every gearbox ADS shows it for (all but a plain manual, from
+--     the transmission lamp's year on) rather than on CVTs only. Additive.
 -- 30: `loaderTool` on a tool hitched to a loader's tool joint -- its pitch against the horizon and the
 --     distance to whatever is under it (issue #169) -- and `loaderCylinders` on anything with a
 --     front-loader-driven cylinder, each one's travel along its stroke; `loaderTool.reference`, the
 --     player's "this is level" for that tool model, set by the new setLoaderReference command and kept
 --     in modSettings/<modName>/loaderReferences.xml; `loaderTool.kind`, which tool it is (shovel, fork,
 --     bale grab, log grab) by its specialization. Additive.
--- 31: held for the Advanced Damage System work (branch ads-rework), like 28 and 29.
+-- 31: `ads.electrical.systemVoltage` on the dashboard's scale -- doubled on a machine ADS gives a 24 V
+--     system (its largest battery grade), where it used to stay on the 12 V scale ADS simulates -- and
+--     `ads.electrical.lowBelow`, the voltage its dashboard warns under, on that same scale.
 -- 32: `loaderCylinders[].icon` -- the engine icon the author gave the cylinder's control, the only
 --     place a tool cylinder says what it does: a clamp opens and closes, a pallet fork's tines
 --     spread. Lets a terminal draw a muck grab's top clamp without drawing one on every fork. And

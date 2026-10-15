@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 /**
  * Typed model of the **fleet** channel the mod writes to `fleet.json` (separate file, interval-driven
  * cadence — see the mod's `src/collect/FleetExporter.lua`): every machine the local farm owns, with
- * its condition, its hours and what it is worth, plus Advanced Damage System's maintenance record
- * where that mod is installed.
+ * its condition, its hours and what it is worth, plus whether Advanced Damage System has it in the
+ * workshop or due for service where that mod is installed.
  *
  * It is the game's own vehicle overview (ESC → Statistics) on a second screen — the list you consult
  * *before* getting in, which in game costs a pause. One row per machine rather than per rig: an
@@ -21,33 +21,15 @@ import kotlinx.serialization.Serializable
  * Its own [version], independent of [VdtData.version]. Omitted keys fall back to these defaults.
  */
 @Serializable
-data class FleetData(
-  val version: String = "",
-  /**
-   * Today, as the game counts it. Carried because the ADS log dates below are only meaningful
-   * against it — "serviced in period 5 of year 2" is not something a reader can render on its own.
-   */
-  val date: GameDate? = null,
-  val vehicles: List<FleetVehicle> = emptyList(),
-)
-
-/**
- * A date the way the game keeps them: [month] is the **period** (1..12), not a calendar month, and
- * [year] counts from the start of the save.
- */
-@Serializable
-data class GameDate(val year: Int = 0, val month: Int = 0, val day: Int = 1) {
-  /** Months since [other], for the "3 months ago" the game's own maintenance screens print. */
-  fun monthsSince(other: GameDate): Int = (year * 12 + month) - (other.year * 12 + other.month)
-}
+data class FleetData(val version: String = "", val vehicles: List<FleetVehicle> = emptyList())
 
 /**
  * One machine of the farm's fleet.
  *
- * **Condition has two sources and only one is right at a time.** [wearable] carries the vanilla
- * damage figure, which Advanced Damage System pins to 0 on every machine it manages — so a reader
- * takes [Ads.inspected][FleetAds.inspected] where [ads] is present and [wearable] otherwise.
- * Printing the vanilla figure on an ADS machine would report every tractor as brand new.
+ * **Condition is only known without ADS.** [wearable] carries the vanilla damage figure, which
+ * Advanced Damage System pins to 0 on every machine it manages — so a reader takes condition from
+ * [wearable] only where [ads] is absent, and reports none where it is present. Printing the vanilla
+ * figure on an ADS machine would report every tractor as brand new.
  *
  * [id] is the network object id, not the game's `uniqueId`: the latter is nil on a multiplayer
  * client, so it cannot key a row. It is stable for a session, not across saves.
@@ -136,18 +118,18 @@ enum class PropertyState {
 }
 
 /**
- * What **Advanced Damage System** says about a machine nobody is sitting in — its own fleet menu, as
- * a data block. Null when ADS isn't installed, when the machine is an implement (ADS attaches to
- * motorized vehicles only), or when it is one of the machines ADS excludes.
+ * What **Advanced Damage System** says about a machine nobody is sitting in: whether it is in the
+ * workshop, and where it is in its service interval. Null when ADS isn't installed, when the machine
+ * is an implement (ADS attaches to motorized vehicles only), or when it is one of the machines ADS
+ * excludes.
  *
  * This is a different block from [Ads], and deliberately so: that one is the *dashboard* of the
  * machine you are in — lamps, load, temperatures, all live readings that say nothing about a tractor
- * parked in a shed. This one is the maintenance record.
+ * parked in a shed.
  *
- * **Nothing here is a number ADS hides.** [inspected] is what an inspection told the player and
- * [breakdowns] holds only the faults they have already found; the mod's exact condition, service
- * level and undiscovered faults are what its workshop diagnostic is *for*, and are not on the wire in
- * any form — not even as a count.
+ * Deliberately this small since fleet version 3: ADS 0.9.9.3 rewrote the inspection record, the
+ * breakdowns and the workshop jobs the rest of its fleet menu was read from, so those are not on the
+ * wire until that mod settles. Nothing here is a number ADS hides.
  */
 @Serializable
 data class FleetAds(
@@ -157,18 +139,8 @@ data class FleetAds(
    * ADS invents must not read as "ready to work" on a machine that is standing in a workshop.
    */
   val state: AdsState = AdsState.UNKNOWN,
-  /** What the last inspection found. Null until the machine has had one. */
-  val inspected: AdsInspected? = null,
   /** Hours since the last maintenance against the interval this machine wants. */
   val service: AdsService? = null,
-  val lastInspection: GameDate? = null,
-  val lastMaintenance: GameDate? = null,
-  /** Only the faults the player has discovered, ordered by id so the list doesn't reshuffle itself. */
-  val breakdowns: List<FleetBreakdown> = emptyList(),
-  /** Present only while the machine is in a workshop, i.e. while [state] is not [AdsState.READY]. */
-  val workshop: FleetWorkshop? = null,
-  /** What this machine has cost in maintenance so far. */
-  val maintenanceCost: Int? = null,
 ) {
   /**
    * In a workshop right now: the one state where the machine cannot be worked. Named states rather
@@ -176,11 +148,7 @@ data class FleetAds(
    * workshop it was never read as being in.
    */
   val isInWorkshop: Boolean
-    get() =
-      state == AdsState.INSPECTION ||
-        state == AdsState.MAINTENANCE ||
-        state == AdsState.REPAIR ||
-        state == AdsState.OVERHAUL
+    get() = state == AdsState.INSPECTION || state == AdsState.MAINTENANCE || state == AdsState.REPAIR
 
   /** Past the interval its manufacturer recommends — the same test that lights ADS's service lamp. */
   val isServiceOverdue: Boolean get() = (service?.fraction ?: 0f) > 1f
@@ -190,53 +158,15 @@ data class FleetAds(
    * a state this build cannot name, which is not READY whatever else it is.
    */
   val needsAttention: Boolean
-    get() =
-      state == AdsState.BROKEN ||
-        state == AdsState.UNKNOWN ||
-        isInWorkshop ||
-        isServiceOverdue ||
-        breakdowns.isNotEmpty()
+    get() = state == AdsState.BROKEN || state == AdsState.UNKNOWN || isInWorkshop || isServiceOverdue
 }
 
 /**
- * Where ADS has the machine: ready to work, in the shop for one of four jobs, or broken down.
+ * Where ADS has the machine: ready to work, in the shop for one of three jobs, or broken down.
  *
- * [UNKNOWN] is the sixth answer and never comes from ADS: it is what a state token this build does
+ * [UNKNOWN] is the fifth answer and never comes from ADS: it is what a state token this build does
  * not know decodes to — a state a later ADS added, or one the mod could not resolve. It is reported
  * as unknown rather than guessed at, because the only guess available would be the reassuring one.
  */
 @Serializable
-enum class AdsState { READY, INSPECTION, MAINTENANCE, REPAIR, OVERHAUL, BROKEN, UNKNOWN }
-
-/**
- * One fault the player knows about, rendered the way ADS's own workshop dialog renders it: the part
- * it is on, and how bad the stage it has reached is.
- *
- * A fault ADS has *suspended* — quick-fixed, or left with a poor part — says that instead of its
- * stage, because that is what the player is actually looking at.
- */
-@Serializable
-data class FleetBreakdown(
-  /** ADS's registry id (`ENGINE_OIL_LEAK`, …); stable, and what the list is ordered by. */
-  val id: String = "",
-  /** Localized part name, ADS's own — its `part`, falling back to the system the fault is in. */
-  val part: String? = null,
-  val severity: String? = null,
-  val description: String? = null,
-  /** Which stage the fault has progressed to; 1 is the first, and they get worse. */
-  val stage: Int = 1,
-)
-
-/**
- * What the workshop is doing to a machine right now. Times are **in-game hours**: [remaining] is the
- * work left, [finishHour] the hour of the day it comes back and [finishInDays] how many day
- * rollovers away that is (0 = today).
- */
-@Serializable
-data class FleetWorkshop(
-  val remaining: Float? = null,
-  val finishHour: Float? = null,
-  val finishInDays: Int = 0,
-  /** What the service under way will cost. */
-  val price: Int? = null,
-)
+enum class AdsState { READY, INSPECTION, MAINTENANCE, REPAIR, BROKEN, UNKNOWN }

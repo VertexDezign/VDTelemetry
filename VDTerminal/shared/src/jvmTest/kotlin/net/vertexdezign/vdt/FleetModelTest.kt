@@ -4,7 +4,6 @@ import kotlinx.serialization.json.Json
 import net.vertexdezign.vdt.model.AdsState
 import net.vertexdezign.vdt.model.FillDisplayType
 import net.vertexdezign.vdt.model.FleetData
-import net.vertexdezign.vdt.model.GameDate
 import net.vertexdezign.vdt.model.PropertyState
 import java.io.File
 import kotlin.test.Test
@@ -21,7 +20,11 @@ import kotlin.test.assertTrue
  *
  * [parsesTheCapture] runs the committed `examples/json/fleet` capture through the real server path.
  * The rest use inline JSON, for the states that capture does not contain — a machine in a workshop,
- * one carrying a fault, one ADS has never looked at — and say so where they do.
+ * one overdue for service — and say so where they do.
+ *
+ * Both captures predate fleet version 3 and still carry the ADS fields that version dropped
+ * (inspection, dates, breakdowns, cost) and the document's `date`. They are real captures and stay
+ * as they are; the parser ignoring those keys is part of what they now pin.
  *
  * What is worth pinning down either way is where **absent means something**: a machine with no
  * condition reported is not a machine in perfect condition, a leased one has no sell value rather
@@ -49,7 +52,6 @@ class FleetModelTest {
   fun parsesTheCapture() {
     val data = VdtParser.parseFleet(example("fleet.json"))
     assertEquals("1", data.version)
-    assertEquals(GameDate(year = 1, month = 6, day = 1), data.date)
     assertEquals(31, data.vehicles.size)
     assertRoundTrips(data)
 
@@ -113,42 +115,26 @@ class FleetModelTest {
     assertEquals(17, assertNotNull(baler.wearable).wear)
 
     // A fresh save, so every ADS record is the one its purchase wrote: nothing overdue, nothing
-    // broken, and no inspection thorough enough to make its condition figure exact.
+    // broken.
     val ads = assertNotNull(deutz.ads)
     assertEquals(AdsState.READY, ads.state)
     assertFalse(ads.isServiceOverdue)
     assertFalse(ads.needsAttention)
-    assertEquals(100, assertNotNull(ads.inspected).condition)
-    assertFalse(assertNotNull(ads.inspected).complete)
-    assertEquals(GameDate(year = 1, month = 6, day = 1), ads.lastInspection)
-    assertNull(ads.lastMaintenance, "never serviced")
-    assertNull(ads.maintenanceCost)
   }
 
   @Test
   fun parsesTheMultiplayerCapture() {
     val data = VdtParser.parseFleet(example("mp.json"))
-    val today = assertNotNull(data.date)
-    assertEquals(GameDate(year = 2, month = 6, day = 1), today)
     assertEquals(63, data.vehicles.size)
     assertRoundTrips(data)
 
     val byId = data.vehicles.associateBy { it.id }
 
-    // THE ONE THAT MATTERS. Advanced Damage System's per-vehicle spec syncs to a client — state,
-    // condition and the whole maintenance log — which is why the collector reads it rather than the
-    // mod's own ADS_Main.vehicles table, keyed by a uniqueId that is nil on a client. Thirteen of
-    // these machines carry the block, six with a service history behind them.
+    // THE ONE THAT MATTERS. Advanced Damage System's per-vehicle spec syncs to a client, which is
+    // why the collector reads it rather than the mod's own ADS_Main.vehicles table, keyed by a
+    // uniqueId that is nil on a client. Thirteen of these machines carry the block.
     assertEquals(13, data.vehicles.count { it.ads != null })
-    val vredo = assertNotNull(assertNotNull(byId[434]).ads)
-    assertEquals(95, assertNotNull(vredo.inspected).condition)
-    assertEquals(5290, vredo.maintenanceCost)
-    assertEquals(GameDate(year = 2, month = 6, day = 1), vredo.lastMaintenance)
-    assertEquals(0, today.monthsSince(assertNotNull(vredo.lastMaintenance)), "serviced this month")
-
-    val jd6m = assertNotNull(assertNotNull(byId[442]).ads)
-    assertEquals(91, assertNotNull(jd6m.inspected).condition)
-    assertEquals(9, today.monthsSince(assertNotNull(jd6m.lastInspection)), "inspected nine months ago")
+    assertEquals(AdsState.READY, assertNotNull(assertNotNull(byId[434]).ads).state)
 
     // A played-in fleet: vanilla damage is real on the implements ADS does not manage, and pinned to
     // zero on the machines it does — the two-source rule the app reads condition by.
@@ -156,7 +142,6 @@ class FleetModelTest {
     val valtra = assertNotNull(byId[464])
     assertEquals(0, assertNotNull(valtra.wearable).damage, "ADS pins it")
     assertEquals(100, assertNotNull(valtra.wearable).wear, "but the paint is still real, and gone")
-    assertEquals(79, assertNotNull(assertNotNull(valtra.ads).inspected).condition)
 
     // Seven machines put away with the parking mod, a forage harvester among them.
     assertEquals(7, data.vehicles.count { it.isParked })
@@ -180,7 +165,6 @@ class FleetModelTest {
         """
         {
           "version": "1",
-          "date": { "year": 2, "month": 7, "day": 11 },
           "vehicles": [
             {
               "id": 42,
@@ -205,7 +189,6 @@ class FleetModelTest {
       )
 
     assertEquals("1", data.version)
-    assertEquals(GameDate(2, 7, 11), data.date)
     val machine = data.vehicles.single()
     assertEquals(42, machine.id)
     assertEquals("Tractors", machine.category)
@@ -277,15 +260,14 @@ class FleetModelTest {
   }
 
   @Test
-  fun decodesTheAdsMaintenanceBlock() {
+  fun decodesTheAdsBlock() {
     val ads =
       assertNotNull(
         VdtParser
           .parseFleet(
             """
             {
-              "version": "1",
-              "date": { "year": 2, "month": 7, "day": 11 },
+              "version": "3",
               "vehicles": [
                 {
                   "id": 1, "name": "Deutz-Fahr 6190", "type": "tractor", "age": 26, "hours": 812.4,
@@ -293,16 +275,7 @@ class FleetModelTest {
                   "wearable": { "damage": 0, "wear": 44, "dirt": 12, "unit": "%" },
                   "ads": {
                     "state": "MAINTENANCE",
-                    "inspected": { "condition": 61, "service": 18, "complete": false },
-                    "service": { "hours": 71.5, "interval": 60 },
-                    "lastInspection": { "year": 2, "month": 4, "day": 3 },
-                    "lastMaintenance": { "year": 1, "month": 12, "day": 20 },
-                    "breakdowns": [
-                      { "id": "ENGINE_OIL_LEAK", "part": "Engine", "severity": "Major",
-                        "description": "Oil is dripping from the sump", "stage": 2 }
-                    ],
-                    "workshop": { "remaining": 4.3, "finishHour": 16.5, "finishInDays": 1, "price": 1450 },
-                    "maintenanceCost": 8600
+                    "service": { "hours": 71.5, "interval": 60 }
                   }
                 }
               ]
@@ -317,27 +290,16 @@ class FleetModelTest {
     assertTrue(ads.isInWorkshop)
     assertTrue(ads.isServiceOverdue, "71.5 hours into a 60-hour interval")
     assertTrue(ads.needsAttention)
-    assertEquals(61, assertNotNull(ads.inspected).condition)
-    assertFalse(assertNotNull(ads.inspected).complete, "an ordinary inspection, not a full one")
-    assertEquals("ENGINE_OIL_LEAK", ads.breakdowns.single().id)
-    assertEquals(2, ads.breakdowns.single().stage)
-    assertEquals(1, assertNotNull(ads.workshop).finishInDays)
-    assertEquals(8600, ads.maintenanceCost)
-
-    // The two dates read against the document's own "today", which is why it is carried.
-    val today = GameDate(2, 7, 11)
-    assertEquals(3, today.monthsSince(assertNotNull(ads.lastInspection)))
-    assertEquals(7, today.monthsSince(assertNotNull(ads.lastMaintenance)))
   }
 
   @Test
-  fun toleratesAMachineAdsHasNeverLookedAt() {
+  fun toleratesAMachineWithNoServiceRecord() {
     val ads =
       assertNotNull(
         VdtParser
           .parseFleet(
             """
-            { "version": "1", "vehicles": [
+            { "version": "3", "vehicles": [
               { "id": 1, "name": "Massey Ferguson 8S", "type": "tractor", "age": 1, "hours": 12.0,
                 "propertyState": "OWNED", "ads": { "state": "READY" } }
             ] }
@@ -348,9 +310,8 @@ class FleetModelTest {
       )
 
     assertEquals(AdsState.READY, ads.state)
-    assertNull(ads.inspected, "never inspected — and that is not a condition of 100%")
-    assertNull(ads.workshop)
-    assertTrue(ads.breakdowns.isEmpty())
+    assertNull(ads.service)
+    assertFalse(ads.isServiceOverdue)
     assertFalse(ads.needsAttention)
   }
 
@@ -408,6 +369,5 @@ class FleetModelTest {
     val data = VdtParser.parseFleet("""{ "version": "1" }""")
     assertEquals("1", data.version)
     assertTrue(data.vehicles.isEmpty())
-    assertNull(data.date)
   }
 }
