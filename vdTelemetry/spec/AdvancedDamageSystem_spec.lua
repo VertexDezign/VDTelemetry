@@ -149,10 +149,10 @@ local function makeVehicle(over)
     return { minForwardGearRatio = over.cvt and 0.1 or nil }
   end
   if over.serviceHours ~= nil then
-    function vehicle:getHoursSinceLastMaintenance()
+    function vehicle:getServiceIntervalElapsedHours()
       return over.serviceHours
     end
-    function vehicle:getMaintenanceInterval()
+    function vehicle:getServiceInterval()
       return over.serviceInterval or 5
     end
   end
@@ -509,7 +509,7 @@ describe("AdvancedDamageSystem integration", function()
       -- ADS's getters walk the machine's maintenance log; this collector runs inside the
       -- latency-critical telemetry write, so a throw must cost one field and not the tick.
       local vehicle = makeVehicle({ serviceHours = 3, systemVoltageV = 13.8 })
-      vehicle.getMaintenanceInterval = function()
+      vehicle.getServiceInterval = function()
         error("malformed maintenance log")
       end
       local ads = contribute(vehicle).ads

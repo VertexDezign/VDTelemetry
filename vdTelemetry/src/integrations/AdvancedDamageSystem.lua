@@ -38,11 +38,12 @@
 -- functions ADS registers on the vehicle type are on the vehicle itself, so those are called
 -- directly.
 --
--- **Written against FS25_AdvancedDamageSystem 0.9.9.3** -- everything here reads that mod's internals,
--- which it is free to rename in any release, and it does: 0.9.2.7 turned the exclusion flag into the
--- method `getIsADSExcluded()`, and 0.9.9.3 rewrote the mod (breakdowns became component conditions,
--- `ADS_Breakdowns` was folded into `ADS_VehiclePerformance`, the config was regrouped under
--- `ADS_Config.FACTORS`, and most workshop jobs became work orders).
+-- **Written against FS25_AdvancedDamageSystem 0.9.9.3, checked against 0.10.0.3** -- everything here
+-- reads that mod's internals, which it is free to rename in any release, and it does: 0.9.2.7 turned
+-- the exclusion flag into the method `getIsADSExcluded()`, and 0.9.9.3 rewrote the mod (breakdowns
+-- became component conditions, `ADS_Breakdowns` was folded into `ADS_VehiclePerformance`, the config
+-- was regrouped under `ADS_Config.FACTORS`, and most workshop jobs became work orders). 0.10.0.3
+-- left everything read here as it was; only the service getters were moved onto their new names.
 -- One version is tracked rather than several, as with every other integration here; a player on an
 -- older ADS gets no `vehicle.ads` block rather than a plausible wrong one.
 --
@@ -491,13 +492,15 @@ local function voltageScale(vehicle)
 end
 
 ---How far into its service interval this machine is, as hours-since and hours-recommended. Both
----come from ADS's own getters, which fold in the maintenance it has actually had.
+---come from the getters ADS's own HUD draws its service fraction from, which fold in the maintenance
+---it has actually had and the interval the player picked. (The older `getHoursSinceLastMaintenance` /
+---`getMaintenanceInterval` still exist, but ADS keeps them only as compatibility wrappers.)
 ---@param vehicle table
 ---@return AdsServiceModel|nil nil when either getter is missing or the interval is degenerate
 local function collectService(vehicle)
   -- Parenthesised: `call` returns two values, and tonumber's second argument is a *base*.
-  local hours = tonumber((call(vehicle, "getHoursSinceLastMaintenance")))
-  local interval = tonumber((call(vehicle, "getMaintenanceInterval")))
+  local hours = tonumber((call(vehicle, "getServiceIntervalElapsedHours")))
+  local interval = tonumber((call(vehicle, "getServiceInterval")))
   if hours == nil or interval == nil or interval <= 0 then
     return nil
   end
