@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import net.vertexdezign.vdt.app.alerts.AlertRule
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.widgets.Widget
 
 /**
@@ -18,7 +19,9 @@ import net.vertexdezign.vdt.app.widgets.Widget
 interface VdtApp {
   /** Stable identifier, persisted as the open app. */
   val id: String
-  val title: String
+
+  /** The app's name in [strings]' language — the launcher's, the bottom bar's and the shortcut tile's. */
+  fun title(strings: Strings): String
   val icon: ImageVector
 
   /**

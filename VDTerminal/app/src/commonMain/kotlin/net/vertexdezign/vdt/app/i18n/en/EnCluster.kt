@@ -1,0 +1,53 @@
+package net.vertexdezign.vdt.app.i18n.en
+
+import net.vertexdezign.vdt.app.i18n.ClusterStrings
+
+internal object EnCluster : ClusterStrings {
+  override val rpm = "RPM"
+  override val speed = "SPEED"
+  override val cruise = "CRUISE"
+  override val gear = "GEAR"
+  override val auto = "AUTO"
+  override val sync = "SYNC"
+  override val temp = "TEMP"
+  override val trans = "TRANS"
+  override val fuel = "FUEL"
+  override val def = "DEF"
+  override val air = "AIR"
+  override val noService = "NO SERVICE DATA"
+  override val volts = "VOLTS"
+  override val overdueBy = "OVERDUE BY"
+  override val serviceIn = "SERVICE IN"
+  override val hours = "H"
+
+  override val forward = "Transmission in forward"
+  override val reverse = "Transmission in reverse"
+  override val neutral = "Transmission in neutral"
+  override fun steeringMode(index: Int, count: Int): String = "Steering mode $index of $count"
+  override val seatReversed = "Driving position reversed"
+  override val seatForward = "Driving position facing forward"
+  override val assistEngaged = "Steering assist engaged"
+  override val assistArmed = "Steering assist armed"
+  override val syncWaiting = "Speed sync waiting for the other machine"
+  override val synced = "Speed synced"
+  override fun speedLimit(figure: Int, unit: String): String = "Working speed limit $figure $unit".trim()
+  override fun engineLoad(percent: Int, overloaded: Boolean): String =
+    "Engine load $percent%" + if (overloaded) ", overloaded" else ""
+
+  override val turnLeft = "Turn left"
+  override val turnRight = "Turn right"
+  override val highBeam = "High beam"
+  override val lowBeam = "Low beam"
+  override val workFront = "Work lights front"
+  override val workRear = "Work lights rear"
+  override val beacon = "Beacon"
+  override val parkingBrake = "Parking brake"
+  override val diffLock = "Diff lock"
+  override val awd = "All-wheel drive"
+  override val engineWarning = "Engine warning"
+  override val coolant = "Coolant temperature"
+  override val charging = "Charging system"
+  override val brakes = "Brake system"
+  override val service = "Service due"
+  override val attention = "Needs attention"
+}

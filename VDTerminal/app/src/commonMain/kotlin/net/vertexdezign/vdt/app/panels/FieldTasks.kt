@@ -1,5 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.Language
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
 import net.vertexdezign.vdt.model.Task
@@ -34,27 +36,56 @@ const val MAX_TASK_DETAIL = 45
  * Farming the readings that would drive them are withheld by the mod or meaningless, so those tasks
  * are planned ahead by hand rather than triggered (see [fieldWork]).
  */
-enum class FieldTaskType(val label: String) {
-  SOW("Sow"),
-  FERTILIZE("Fertilize"),
-  LIME("Lime"),
-  PLOW("Plow"),
-  CULTIVATE("Cultivate"),
-  ROLL("Roll"),
-  HARVEST("Harvest"),
-  WEED("Weed"),
-  SPRAY("Spray"),
-  MULCH("Mulch"),
-  STONES("Stones"),
+enum class FieldTaskType {
+  SOW,
+  FERTILIZE,
+  LIME,
+  PLOW,
+  CULTIVATE,
+  ROLL,
+  HARVEST,
+  WEED,
+  SPRAY,
+  MULCH,
+  STONES,
 
   /** A type this app didn't write. Kept as its own value so a hand-typed task still attaches. */
-  OTHER("Other"),
+  OTHER,
   ;
 
+  /**
+   * The word for this work in [strings]' language, and the word the app *writes* into a task's
+   * detail: the detail is shown in the game's own task list, which a German player reads in German.
+   */
+  fun label(strings: Strings): String = with(strings.fields) {
+    when (this@FieldTaskType) {
+      SOW -> taskSow
+      FERTILIZE -> taskFertilize
+      LIME -> taskLime
+      PLOW -> taskPlow
+      CULTIVATE -> taskCultivate
+      ROLL -> taskRoll
+      HARVEST -> taskHarvest
+      WEED -> taskWeed
+      SPRAY -> taskSpray
+      MULCH -> taskMulch
+      STONES -> taskStones
+      OTHER -> taskOther
+    }
+  }
+
   companion object {
-    /** Match a written type, case-insensitively; anything unrecognised is [OTHER]. */
-    fun of(text: String): FieldTaskType =
-      entries.firstOrNull { it != OTHER && it.label.equals(text.trim(), ignoreCase = true) } ?: OTHER
+    /**
+     * Match a written type, case-insensitively, in **any** language the terminal speaks: a task one
+     * player's German terminal wrote must still attach on another player's English one. Anything
+     * unrecognised is [OTHER].
+     */
+    fun of(text: String): FieldTaskType {
+      val word = text.trim()
+      return entries.firstOrNull { type ->
+        type != OTHER && Language.entries.any { type.label(it.strings).equals(word, ignoreCase = true) }
+      } ?: OTHER
+    }
   }
 }
 
@@ -99,8 +130,8 @@ fun fieldTasks(data: TaskListData?): Map<Int, List<FieldTaskRef>> = data
  * characters, and a form that counted only what the user typed would let the mod silently truncate
  * what the app thought it had saved.
  */
-fun composeTaskDetail(fieldId: Int, type: FieldTaskType, note: String = ""): String {
-  val head = "F$fieldId - ${type.label}"
+fun composeTaskDetail(strings: Strings, fieldId: Int, type: FieldTaskType, note: String = ""): String {
+  val head = "F$fieldId - ${type.label(strings)}"
   val tail = note.trim()
   if (tail.isEmpty()) return head.take(MAX_TASK_DETAIL)
   val room = MAX_TASK_DETAIL - head.length - 3 // " - "
@@ -116,8 +147,8 @@ fun composeTaskDetail(fieldId: Int, type: FieldTaskType, note: String = ""): Str
 fun taskMonth(task: Task): Int = if (task.recurMode == 3) periodToMonth(task.nextN) else periodToMonth(task.period)
 
 /** How a field task reads in a list: its type, then whatever note came with it. */
-fun fieldTaskLabel(ref: FieldTaskRef): String {
-  val type = if (ref.type == FieldTaskType.OTHER) ref.typeText else ref.type.label
+fun fieldTaskLabel(strings: Strings, ref: FieldTaskRef): String {
+  val type = if (ref.type == FieldTaskType.OTHER) ref.typeText else ref.type.label(strings)
   return if (ref.note.isEmpty()) type else "$type — ${ref.note}"
 }
 
@@ -141,14 +172,19 @@ data class FieldSuggestion(val type: FieldTaskType, val detail: String, val mont
  * the field's own add-task control, which is where scheduling a month or three ahead earns its place:
  * crop care is *planned* forward, not triggered by a reading.
  */
-fun fieldSuggestions(row: FieldRow, rotation: CropRotationData?, calendar: CropCalendarData?): List<FieldSuggestion> {
+fun fieldSuggestions(
+  strings: Strings,
+  row: FieldRow,
+  rotation: CropRotationData?,
+  calendar: CropCalendarData?,
+): List<FieldSuggestion> {
   val taken = row.tasks.map { it.type }.toSet()
   return fieldWork(row).filterNot { it in taken }.map { type ->
     if (type != FieldTaskType.SOW) {
-      FieldSuggestion(type, composeTaskDetail(row.id, type), month = null)
+      FieldSuggestion(type, composeTaskDetail(strings, row.id, type), month = null)
     } else {
       val crop = suggestedCrop(row, rotation)
-      FieldSuggestion(type, composeTaskDetail(row.id, type, crop.orEmpty()), month = sowMonth(crop, calendar))
+      FieldSuggestion(type, composeTaskDetail(strings, row.id, type, crop.orEmpty()), month = sowMonth(crop, calendar))
     }
   }
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Vehicle
 
@@ -37,7 +38,7 @@ fun LoaderPanel(vehicle: Vehicle?, modifier: Modifier = Modifier, onCommand: (Cl
   }
 
   Panel(
-    title = rig?.tool?.name ?: "Loader",
+    title = rig?.tool?.name ?: LocalStrings.current.loader.loader,
     icon = Icons.Filled.Construction,
     modifier = modifier,
     headerActions = { rig?.let { LoaderStateChip(it) } },
@@ -45,7 +46,7 @@ fun LoaderPanel(vehicle: Vehicle?, modifier: Modifier = Modifier, onCommand: (Cl
     if (rig == null) {
       Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
-          if (vehicle == null) "No vehicle connected" else "No loader on this rig",
+          if (vehicle == null) LocalStrings.current.isoBus.noVehicle else LocalStrings.current.loader.noLoader,
           color = VdtColors.DarkGray,
           fontSize = 12.sp,
           textAlign = TextAlign.Center,

@@ -36,6 +36,8 @@ import net.vertexdezign.vdt.app.components.ConfirmDialog
 import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Mission
@@ -67,12 +69,14 @@ fun MissionsPanel(
   onCommand: (ClientMessage) -> Unit = {},
 ) {
   var pendingCancel by remember { mutableStateOf<Mission?>(null) }
+  val strings = LocalStrings.current
+  val s = strings.missions
 
-  Panel(title = "Contracts", icon = Icons.AutoMirrored.Filled.Assignment, modifier = modifier) {
+  Panel(title = strings.apps.missions, icon = Icons.AutoMirrored.Filled.Assignment, modifier = modifier) {
     when {
-      data == null -> Centered("Waiting for contract data…")
+      data == null -> Centered(s.waiting)
 
-      data.missions.isEmpty() -> Centered("No contracts on offer")
+      data.missions.isEmpty() -> Centered(s.empty)
 
       else -> {
         // The caller may drive the selection (the map does); otherwise the panel keeps its own.
@@ -98,7 +102,7 @@ fun MissionsPanel(
         ListDetail(
           listWidth = 250.dp,
           detailOpen = detailOpen,
-          backLabel = "Contracts",
+          backLabel = strings.apps.missions,
           onBack = { detailOpen = false },
           list = { listModifier ->
             MissionList(
@@ -132,9 +136,9 @@ fun MissionsPanel(
     // Giving up a contract forfeits it, which is why the game asks too.
     pendingCancel?.let { mission ->
       ConfirmDialog(
-        title = "Give up contract?",
-        message = "\"${mission.title}\" ${mission.location} will be cancelled and pays nothing.",
-        confirmLabel = "Give up",
+        title = s.confirmTitle,
+        message = s.confirmMessage(mission.title, mission.location),
+        confirmLabel = s.giveUp,
         onConfirm = {
           onCommand(ClientMessage.CancelMission(mission.id))
           pendingCancel = null
@@ -156,6 +160,7 @@ private fun MissionList(
   onSelect: (Int) -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val s = LocalStrings.current.missions
   // The game's own two sections: on offer, and everything this farm has taken on (running or done).
   val offered = missions.filter { it.isOffered }
   val taken = missions.filterNot { it.isOffered }
@@ -166,7 +171,7 @@ private fun MissionList(
   ) {
     if (limit != null) {
       Text(
-        "${limit.active} / ${limit.max} ACTIVE",
+        s.active(limit.active, limit.max),
         color = if (limit.isReached) VdtColors.Amber else VdtColors.DarkGray,
         fontSize = 9.sp,
         fontWeight = FontWeight.Bold,
@@ -187,11 +192,11 @@ private fun MissionList(
       }
     }
     if (taken.isNotEmpty()) {
-      ListLabel("Yours")
+      ListLabel(s.yours)
       taken.forEach { MissionRow(it, it.id == currentId) { onSelect(it.id) } }
     }
     if (offered.isNotEmpty()) {
-      ListLabel("On offer")
+      ListLabel(s.onOffer)
       offered.forEach { MissionRow(it, it.id == currentId) { onSelect(it.id) } }
     }
   }
@@ -249,6 +254,7 @@ private fun ListLabel(text: String) {
 
 @Composable
 private fun MissionRow(mission: Mission, selected: Boolean, onClick: () -> Unit) {
+  val strings = LocalStrings.current
   val bg = if (selected) VdtColors.Green else VdtColors.TrackGray
   val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   val subFg = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray
@@ -273,7 +279,7 @@ private fun MissionRow(mission: Mission, selected: Boolean, onClick: () -> Unit)
       )
       // A finished contract shows what it pays out, not what it was advertised at.
       Text(
-        money(mission.totalReward ?: mission.reward),
+        strings.numbers.integer(mission.totalReward ?: mission.reward),
         color = if (selected) VdtColors.OnFill else VdtColors.DarkGray,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
@@ -289,7 +295,7 @@ private fun MissionRow(mission: Mission, selected: Boolean, onClick: () -> Unit)
         modifier = Modifier.weight(1f, fill = false),
       )
       Text(
-        statusLine(mission),
+        statusLine(strings, mission),
         color = statusColor(mission, selected, VdtColors.palette),
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
@@ -307,6 +313,8 @@ private fun MissionDetailView(
   onCollect: () -> Unit,
   onCancel: () -> Unit,
 ) {
+  val strings = LocalStrings.current
+  val s = strings.missions
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -327,7 +335,7 @@ private fun MissionDetailView(
     mission.completion?.let { completion ->
       ProgressBar(
         fraction = completion,
-        leftLabel = mission.extraProgress.ifEmpty { "Progress" },
+        leftLabel = mission.extraProgress.ifEmpty { s.progress },
         rightLabel = "${(completion * 100).roundToInt()}%",
       )
     }
@@ -337,11 +345,11 @@ private fun MissionDetailView(
     // reward breakdown, and the one thing missing from them is what collecting it actually pays —
     // which is not the advertised reward, and on a leased contract can be negative.
     if (mission.isFinished) {
-      mission.totalReward?.let { KeyValue("Payout", money(it)) }
+      mission.totalReward?.let { KeyValue(s.payout, strings.numbers.integer(it)) }
     } else {
-      KeyValue("Reward", money(mission.reward))
+      KeyValue(s.reward, strings.numbers.integer(mission.reward))
     }
-    mission.minutesLeft?.let { KeyValue("Time left", formatMinutes(it)) }
+    mission.minutesLeft?.let { KeyValue(s.timeLeft, formatMinutes(strings, it)) }
 
     // The game's own rows, rendered as given — including the lease cost, which it prints in the
     // player's own currency (ours is the raw engine value, and the two differ by its currency
@@ -368,11 +376,12 @@ private fun MissionActions(
   onCollect: () -> Unit,
   onCancel: () -> Unit,
 ) {
+  val s = LocalStrings.current.missions
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     if (!canManage) {
       // Saying why beats three dead buttons: the right is granted per farmhand in the game's own menu.
       Text(
-        "You may not manage this farm's contracts",
+        s.cannotManage,
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
@@ -384,19 +393,19 @@ private fun MissionActions(
       when {
         mission.isOffered -> {
           // At the cap the engine refuses the accept, so the button says so instead of firing.
-          ActionButton("Accept", VdtColors.Green, enabled = !limitReached) { onAccept(false) }
+          ActionButton(s.accept, VdtColors.Green, enabled = !limitReached) { onAccept(false) }
           if (mission.leasable) {
-            ActionButton("With equipment", VdtColors.ProgressBlue, enabled = !limitReached) { onAccept(true) }
+            ActionButton(s.withEquipment, VdtColors.ProgressBlue, enabled = !limitReached) { onAccept(true) }
           }
         }
 
-        mission.isActive -> ActionButton("Give up", VdtColors.Red) { onCancel() }
+        mission.isActive -> ActionButton(s.giveUp, VdtColors.Red) { onCancel() }
 
-        mission.isFinished -> ActionButton("Collect", VdtColors.Green) { onCollect() }
+        mission.isFinished -> ActionButton(s.collect, VdtColors.Green) { onCollect() }
       }
     }
     if (mission.isOffered && limitReached) {
-      Text("This farm is already running its maximum contracts", color = VdtColors.Amber, fontSize = 10.sp)
+      Text(s.limitReached, color = VdtColors.Amber, fontSize = 10.sp)
     }
   }
 }
@@ -442,16 +451,18 @@ private fun KeyValue(key: String, value: String) {
  */
 @Composable
 fun MissionsSummary(data: MissionsData?, modifier: Modifier = Modifier) {
-  Panel(title = "Contracts", icon = Icons.AutoMirrored.Filled.Assignment, modifier = modifier) {
+  val strings = LocalStrings.current
+  val s = strings.missions
+  Panel(title = strings.apps.missions, icon = Icons.AutoMirrored.Filled.Assignment, modifier = modifier) {
     val active = data?.missions?.filter { it.isActive }.orEmpty()
     val finished = data?.missions?.count { it.isFinished } ?: 0
     val offered = data?.missions?.count { it.isOffered } ?: 0
 
     when {
-      data == null -> Centered("Waiting for contract data…")
+      data == null -> Centered(s.waiting)
 
       active.isEmpty() && finished == 0 ->
-        Centered(if (offered > 0) "$offered on offer" else "No contracts")
+        Centered(if (offered > 0) s.offeredCount(offered) else s.none)
 
       else ->
         Column(
@@ -484,21 +495,21 @@ fun MissionsSummary(data: MissionsData?, modifier: Modifier = Modifier) {
               ProgressBar(
                 fraction = mission.completion ?: 0f,
                 leftLabel = widgetProgressLabel(mission),
-                rightLabel = mission.minutesLeft?.let { formatMinutes(it) } ?: statusLine(mission),
+                rightLabel = mission.minutesLeft?.let { formatMinutes(strings, it) } ?: statusLine(strings, mission),
               )
             }
           }
           // Both are calls to action — one pays out now, the other is work available.
           if (finished > 0) {
             Text(
-              "$finished READY TO COLLECT",
+              s.readyToCollect(finished),
               color = VdtColors.Green,
               fontSize = 10.sp,
               fontWeight = FontWeight.Bold,
             )
           }
           if (offered > 0) {
-            Text("$offered ON OFFER", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text(s.onOfferCaps(offered), color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
           }
         }
     }
@@ -527,7 +538,8 @@ internal fun rowSubject(mission: Mission): String {
 }
 
 /** The one-line state for a row: how it ended, how far along it is, or how long it is on offer for. */
-internal fun statusLine(mission: Mission): String {
+internal fun statusLine(strings: Strings, mission: Mission): String {
+  val s = strings.missions
   // Bound to locals rather than smart-cast: the model is a different module, so the compiler will
   // not narrow its nullable properties for us.
   val finish = mission.finishState
@@ -536,19 +548,19 @@ internal fun statusLine(mission: Mission): String {
   return when {
     finish != null ->
       when (finish) {
-        MissionFinishState.SUCCESS -> "Done"
-        MissionFinishState.FAILED -> "Failed"
-        MissionFinishState.TIMED_OUT -> "Timed out"
-        MissionFinishState.CANCELED -> "Cancelled"
+        MissionFinishState.SUCCESS -> s.done
+        MissionFinishState.FAILED -> s.failed
+        MissionFinishState.TIMED_OUT -> s.timedOut
+        MissionFinishState.CANCELED -> s.cancelled
       }
 
-    mission.isFinished -> "Done"
+    mission.isFinished -> s.done
 
     completion != null && mission.isActive -> "${(completion * 100).roundToInt()}%"
 
-    mission.isActive -> "Preparing"
+    mission.isActive -> s.preparing
 
-    minutesLeft != null -> formatMinutes(minutesLeft)
+    minutesLeft != null -> formatMinutes(strings, minutesLeft)
 
     else -> ""
   }
@@ -568,29 +580,14 @@ internal fun statusColor(mission: Mission, selected: Boolean, palette: VdtPalett
 }
 
 /** In-game minutes as the contract list prints them: days and hours, down to minutes near the end. */
-internal fun formatMinutes(minutes: Int): String {
-  if (minutes <= 0) return "expired"
+internal fun formatMinutes(strings: Strings, minutes: Int): String {
+  val s = strings.missions
+  if (minutes <= 0) return s.expired
   val days = minutes / 1440
   val hours = (minutes % 1440) / 60
   return when {
-    days > 0 -> "${days}d ${hours}h"
-    hours > 0 -> "${hours}h"
-    else -> "${minutes}m"
+    days > 0 -> s.daysHours(days, hours)
+    hours > 0 -> s.hours(hours)
+    else -> s.minutes(minutes)
   }
-}
-
-/** Whole currency units with thousands separators; the mod already rounded away the cents. */
-internal fun money(value: Int): String {
-  val negative = value < 0
-  val digits = (if (negative) -value else value).toString()
-  val sb = StringBuilder()
-  val firstGroup = digits.length % 3
-  if (firstGroup > 0) sb.append(digits, 0, firstGroup)
-  var i = firstGroup
-  while (i < digits.length) {
-    if (sb.isNotEmpty()) sb.append(',')
-    sb.append(digits, i, i + 3)
-    i += 3
-  }
-  return (if (negative) "-" else "") + sb.toString()
 }

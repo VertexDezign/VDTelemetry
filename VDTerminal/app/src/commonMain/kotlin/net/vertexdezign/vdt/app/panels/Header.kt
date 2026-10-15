@@ -46,6 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.WakeLockStatus
 import net.vertexdezign.vdt.app.components.ViewTab
+import net.vertexdezign.vdt.app.i18n.Language
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.NumberStyle
 import net.vertexdezign.vdt.app.state.ThemeMode
 import net.vertexdezign.vdt.app.state.UiScaleStore
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -76,8 +79,13 @@ fun Header(
   onThemeChange: (ThemeMode) -> Unit = {},
   uiScale: Int = UiScaleStore.DEFAULT,
   onUiScaleChange: (Int) -> Unit = {},
+  language: Language? = null,
+  onLanguageChange: (Language?) -> Unit = {},
+  numberStyle: NumberStyle? = null,
+  onNumberStyleChange: (NumberStyle?) -> Unit = {},
   brandLogo: ImageBitmap? = null,
 ) {
+  val strings = LocalStrings.current
   val accent = brandAccentFor(vehicle?.brand?.name)
   val brandName = vehicle?.brand?.title?.takeIf { it.isNotBlank() } ?: "VDTerminal"
   val temp = env?.weather?.temperature
@@ -145,13 +153,23 @@ fun Header(
         horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        DisplaySettings(theme, onThemeChange, uiScale, onUiScaleChange, accent.text)
+        DisplaySettings(
+          theme,
+          onThemeChange,
+          uiScale,
+          onUiScaleChange,
+          language,
+          onLanguageChange,
+          numberStyle,
+          onNumberStyleChange,
+          accent.text,
+        )
         WakeLockButton(wakeLock, onToggleWakeLock, accent.text)
         if (canEdit) {
           HeaderControl(
             if (editing) Icons.Filled.Check else Icons.Filled.Edit,
-            if (editing) "DONE" else "EDIT",
-            "edit layout",
+            if (editing) strings.shell.done else strings.shell.edit,
+            strings.shell.editLayoutDescription,
             accent.text,
             onClick = onToggleEdit,
           )
@@ -221,23 +239,24 @@ private fun HeaderControl(icon: ImageVector, label: String, description: String,
  */
 @Composable
 private fun WakeLockButton(status: WakeLockStatus, onToggle: () -> Unit, tint: Color) {
+  val strings = LocalStrings.current.shell
   val (icon, label, alpha) =
     when (status) {
-      WakeLockStatus.On -> Triple(Icons.Filled.Coffee, "AWAKE", 1f)
-      WakeLockStatus.Off -> Triple(Icons.Filled.Bedtime, "SLEEP", 0.55f)
-      WakeLockStatus.Unsupported -> Triple(Icons.Filled.Bedtime, "N/A", 0.35f)
+      WakeLockStatus.On -> Triple(Icons.Filled.Coffee, strings.wakeOn, 1f)
+      WakeLockStatus.Off -> Triple(Icons.Filled.Bedtime, strings.wakeOff, 0.55f)
+      WakeLockStatus.Unsupported -> Triple(Icons.Filled.Bedtime, strings.wakeUnsupported, 0.35f)
     }
   HeaderControl(
     icon,
     label,
-    "screen wake lock",
+    strings.wakeLockDescription,
     tint.copy(alpha = alpha),
     onClick = onToggle.takeIf { status != WakeLockStatus.Unsupported },
   )
 }
 
 /**
- * This device's look: light or dark, and how big it draws. Both are set once per device and then left,
+ * This device's look: light or dark, how big it draws, its language and how it writes numbers. Both are set once per device and then left,
  * so they share one control and a menu rather than taking two of the header's few slots — a phone's
  * header has room for three. The label is the size, the one of the two you can't see at a glance.
  *
@@ -251,25 +270,45 @@ private fun DisplaySettings(
   onThemeChange: (ThemeMode) -> Unit,
   uiScale: Int,
   onUiScaleChange: (Int) -> Unit,
+  language: Language?,
+  onLanguageChange: (Language?) -> Unit,
+  numberStyle: NumberStyle?,
+  onNumberStyleChange: (NumberStyle?) -> Unit,
   tint: Color,
 ) {
+  val strings = LocalStrings.current.settings
   var open by remember { mutableStateOf(false) }
   Box {
-    HeaderControl(Icons.Filled.DisplaySettings, "$uiScale%", "display settings", tint, onClick = { open = true })
+    HeaderControl(Icons.Filled.DisplaySettings, "$uiScale%", strings.description, tint, onClick = { open = true })
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
       Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SettingRow("THEME") {
+        SettingRow(strings.theme) {
           for ((mode, label) in listOf(
-            ThemeMode.System to "Auto",
-            ThemeMode.Light to "Light",
-            ThemeMode.Dark to "Dark",
+            ThemeMode.System to strings.themeAuto,
+            ThemeMode.Light to strings.themeLight,
+            ThemeMode.Dark to strings.themeDark,
           )) {
             ViewTab(label, theme == mode, { onThemeChange(mode) })
           }
         }
-        SettingRow("SIZE") {
+        SettingRow(strings.size) {
           for (step in UiScaleStore.STEPS) {
             ViewTab("$step%", uiScale == step, { onUiScaleChange(step) })
+          }
+        }
+        // The languages by their code, which reads the same in every language — someone who switched
+        // to one they cannot read still finds their way back.
+        SettingRow(strings.language) {
+          ViewTab(strings.languageGame, language == null, { onLanguageChange(null) })
+          for (option in Language.entries) {
+            ViewTab(option.code.uppercase(), language == option, { onLanguageChange(option) })
+          }
+        }
+        // Each style by an example of itself, so the row needs no words beyond its Auto.
+        SettingRow(strings.numbers) {
+          ViewTab(strings.numbersAuto, numberStyle == null, { onNumberStyleChange(null) })
+          for (option in NumberStyle.entries) {
+            ViewTab(option.example, numberStyle == option, { onNumberStyleChange(option) })
           }
         }
       }

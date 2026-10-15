@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.model.FieldInfoEntry
 import net.vertexdezign.vdt.model.FieldStatus
 import net.vertexdezign.vdt.model.FieldStatusSlice
@@ -84,7 +85,7 @@ class FieldsModelTest {
     assertTrue(fieldCropMix(coarse).isEmpty(), "sixty cells cannot carry two significant figures")
 
     val growth = row(growth = growthStatus("harvest" to 50, "cut" to 10))
-    assertEquals(FieldHeadline("Ready", fromRaster = true), fieldHeadline(growth))
+    assertEquals(FieldHeadline("Ready", fromRaster = true), fieldHeadline(English, growth))
     assertTrue(!hasBreakdown(growth), "the bar quotes exact shares; this field has none to quote")
   }
 
@@ -138,11 +139,14 @@ class FieldsModelTest {
     val mulched = row(growth = growthStatus(blank = 500), crop = "")
 
     assertTrue(isBareByRaster(mulched))
-    assertEquals(FieldHeadline("Bare", fromRaster = true), fieldHeadline(mulched))
+    assertEquals(FieldHeadline("Bare", fromRaster = true), fieldHeadline(English, mulched))
 
     // The bug this fixes: it used to fall through to the centre sample and label itself with it.
-    assertEquals("Bare", fieldHeadline(mulched).text)
-    assertTrue(fieldHeadline(mulched).fromRaster, "the raster answered; saying otherwise sends the reader out there")
+    assertEquals("Bare", fieldHeadline(English, mulched).text)
+    assertTrue(
+      fieldHeadline(English, mulched).fromRaster,
+      "the raster answered; saying otherwise sends the reader out there",
+    )
   }
 
   @Test
@@ -151,7 +155,7 @@ class FieldsModelTest {
     // question, and it is the sliver this guard exists for rather than any field on a real map.
     val thin = row(growth = growthStatus(blank = SLIVER_CELLS_2KM), crop = "")
     assertTrue(!isBareByRaster(thin))
-    assertTrue(!fieldHeadline(thin).fromRaster)
+    assertTrue(!fieldHeadline(English, thin).fromRaster)
 
     // No raster yet is not a bare field either, however the app opens.
     assertTrue(!isBareByRaster(row(growth = null)))
@@ -159,7 +163,7 @@ class FieldsModelTest {
     // And a field that has growth on it is answered by the growth, not by this.
     val growing = row(growth = growthStatus("growing" to 400, blank = 30))
     assertTrue(!isBareByRaster(growing))
-    assertEquals(FieldHeadline("Growing", fromRaster = true), fieldHeadline(growing))
+    assertEquals(FieldHeadline("Growing", fromRaster = true), fieldHeadline(English, growing))
   }
 
   /**
@@ -181,15 +185,15 @@ class FieldsModelTest {
     // FieldStatusTest.countsMulchPerFieldOffTheRealSoilRaster, which is where the raster can be read.
     val mulched = row(growth = growthStatus(blank = 500), soil = soilStatus("mulched" to 300, blank = 200))
     assertEquals(0.6f, mulchShare(mulched))
-    assertEquals("Nothing growing on any of it — the ground is mulched.", bareGroundNote(mulched))
+    assertEquals("Nothing growing on any of it — the ground is mulched.", bareGroundNote(English, mulched))
 
     val bare = row(growth = growthStatus(blank = 500), soil = soilStatus(blank = 500))
     assertEquals(0f, mulchShare(bare))
-    assertEquals("Nothing growing on any of it.", bareGroundNote(bare))
+    assertEquals("Nothing growing on any of it.", bareGroundNote(English, bare))
 
     // Both are still "Bare" in one word: the headline is the growth plane's answer, and it has not
     // changed. The mulch is the explanation underneath it.
-    assertEquals(FieldHeadline("Bare", fromRaster = true), fieldHeadline(mulched))
+    assertEquals(FieldHeadline("Bare", fromRaster = true), fieldHeadline(English, mulched))
   }
 
   @Test
@@ -198,7 +202,7 @@ class FieldsModelTest {
     // alone can support rather than claiming the field is unmulched.
     val unswept = row(growth = growthStatus(blank = 500))
     assertEquals(null, mulchShare(unswept))
-    assertEquals("Nothing growing on any of it.", bareGroundNote(unswept))
+    assertEquals("Nothing growing on any of it.", bareGroundNote(English, unswept))
 
     // Too little of the polygon resolved to read a share off, exactly as for the plough and the weeds.
     val thin = row(soil = soilStatus("mulched" to SLIVER_CELLS_2KM))

@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /** How big a [ToolButton] is drawn. The touch area is at least 48dp either way — see [ToolButton]. */
@@ -64,6 +65,7 @@ fun ToolButton(
 ) {
   val shape = RoundedCornerShape(6.dp)
   val on = active == true
+  val switchWords = LocalStrings.current.widgets.let { it.switchOn to it.switchOff }
   val ink =
     when {
       !enabled -> VdtColors.TextDisabled
@@ -73,7 +75,7 @@ fun ToolButton(
   val interaction =
     if (active != null && setsOnly) {
       Modifier
-        .semantics { stateDescription = if (on) "on" else "off" }
+        .semantics { stateDescription = if (on) switchWords.first else switchWords.second }
         .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
     } else if (active != null) {
       Modifier.toggleable(value = on, enabled = enabled, role = Role.Switch, onValueChange = { onClick() })

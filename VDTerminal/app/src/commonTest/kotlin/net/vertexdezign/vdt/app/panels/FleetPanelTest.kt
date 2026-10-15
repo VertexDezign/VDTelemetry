@@ -1,5 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.de.German
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.model.AdsInspected
 import net.vertexdezign.vdt.model.AdsService
 import net.vertexdezign.vdt.model.AdsState
@@ -16,6 +18,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private val en = English
 
 /**
  * What the fleet list decides for itself: which of the two condition figures is the true one, what
@@ -194,30 +198,30 @@ class FleetPanelTest {
 
   @Test
   fun theRowSaysCategoryHoursAndFuel() {
-    assertEquals("Tractors · 1234.5 h · fuel 42%", rowSubtitle(machine(hours = 1234.5f, fuel = 42)))
-    assertEquals("Ploughs · 61.2 h", rowSubtitle(machine(category = "Ploughs", hours = 61.24f, fuel = null)))
+    assertEquals("Tractors · 1234.5 h · fuel 42%", rowSubtitle(en, machine(hours = 1234.5f, fuel = 42)))
+    assertEquals("Ploughs · 61.2 h", rowSubtitle(en, machine(category = "Ploughs", hours = 61.24f, fuel = null)))
   }
 
   @Test
   fun theRowsBadgesAreWordsAndTheWorstOneWins() {
-    assertEquals(listOf("BROKEN"), rowBadges(machine(ads = ads(state = AdsState.BROKEN))))
-    assertEquals(listOf("WORKSHOP"), rowBadges(machine(ads = ads(state = AdsState.OVERHAUL))))
-    assertEquals(listOf("SERVICE DUE"), rowBadges(machine(ads = ads(hours = 90f, interval = 60f))))
-    assertEquals(listOf("FAULT"), rowBadges(machine(ads = ads(breakdowns = listOf(FleetBreakdown(id = "OIL"))))))
-    assertEquals(emptyList(), rowBadges(machine()))
-    assertEquals(listOf("LEASED"), rowBadges(machine(propertyState = PropertyState.LEASED)))
-    assertEquals(listOf("CONTRACT"), rowBadges(machine(propertyState = PropertyState.MISSION)))
-    assertEquals(listOf("PARKED"), rowBadges(machine().copy(isTabbable = false)))
-    assertEquals(listOf("AI"), rowBadges(machine().copy(isTabbable = false, isAI = true)))
+    assertEquals(listOf("BROKEN"), rowBadges(en, machine(ads = ads(state = AdsState.BROKEN))))
+    assertEquals(listOf("WORKSHOP"), rowBadges(en, machine(ads = ads(state = AdsState.OVERHAUL))))
+    assertEquals(listOf("SERVICE DUE"), rowBadges(en, machine(ads = ads(hours = 90f, interval = 60f))))
+    assertEquals(listOf("FAULT"), rowBadges(en, machine(ads = ads(breakdowns = listOf(FleetBreakdown(id = "OIL"))))))
+    assertEquals(emptyList(), rowBadges(en, machine()))
+    assertEquals(listOf("LEASED"), rowBadges(en, machine(propertyState = PropertyState.LEASED)))
+    assertEquals(listOf("CONTRACT"), rowBadges(en, machine(propertyState = PropertyState.MISSION)))
+    assertEquals(listOf("PARKED"), rowBadges(en, machine().copy(isTabbable = false)))
+    assertEquals(listOf("AI"), rowBadges(en, machine().copy(isTabbable = false, isAI = true)))
   }
 
   @Test
   fun formatsHoursAgeAndTimeAgo() {
-    assertEquals("1234.5", formatHours(1234.54f))
-    assertEquals("0.0", formatHours(0f))
-    assertEquals("7 mo", formatAge(7))
-    assertEquals("1 y", formatAge(12))
-    assertEquals("2 y 3 mo", formatAge(27))
+    assertEquals("1234.5", en.numbers.formatHours(1234.54f))
+    assertEquals("0.0", en.numbers.formatHours(0f))
+    assertEquals("7 mo", en.fleet.age(7))
+    assertEquals("1 y", en.fleet.age(12))
+    assertEquals("2 y 3 mo", en.fleet.age(27))
 
     val today = GameDate(year = 2, month = 7, day = 11)
     assertEquals(0, monthsBetween(GameDate(2, 7, 1), today))
@@ -227,25 +231,25 @@ class FleetPanelTest {
     // rather than as "-2 months ago".
     assertEquals(0, monthsBetween(GameDate(3, 1, 1), today))
 
-    assertEquals("this month", formatMonthsAgo(0))
-    assertEquals("1 month ago", formatMonthsAgo(1))
-    assertEquals("5 months ago", formatMonthsAgo(5))
+    assertEquals("this month", en.fleet.monthsAgo(0))
+    assertEquals("1 month ago", en.fleet.monthsAgo(1))
+    assertEquals("5 months ago", en.fleet.monthsAgo(5))
   }
 
   @Test
   fun formatsTheWorkshopFinishTime() {
-    assertEquals("16:30", formatFinish(16.5f, 0))
-    assertEquals("07:00 tomorrow", formatFinish(7f, 1))
-    assertEquals("09:15, in 3 days", formatFinish(9.25f, 3))
+    assertEquals("16:30", formatFinish(en, 16.5f, 0))
+    assertEquals("07:00 tomorrow", formatFinish(en, 7f, 1))
+    assertEquals("09:15, in 3 days", formatFinish(en, 9.25f, 3))
   }
 
   @Test
   fun saysWhoHasTheMachine() {
-    assertEquals("Idle", statusLabel(machine()))
-    assertEquals("Helper driving", statusLabel(machine().copy(isAI = true)))
-    assertEquals("In use", statusLabel(machine().copy(isControlled = true)))
-    assertEquals("You are in it", statusLabel(machine().copy(isEntered = true, isControlled = true)))
-    assertEquals("Attached", statusLabel(machine().copy(attachedTo = 9)))
+    assertEquals("Idle", statusLabel(en, machine()))
+    assertEquals("Helper driving", statusLabel(en, machine().copy(isAI = true)))
+    assertEquals("In use", statusLabel(en, machine().copy(isControlled = true)))
+    assertEquals("You are in it", statusLabel(en, machine().copy(isEntered = true, isControlled = true)))
+    assertEquals("Attached", statusLabel(en, machine().copy(attachedTo = 9)))
   }
 
   @Test
@@ -256,39 +260,54 @@ class FleetPanelTest {
     val driven = machine(id = 1, name = "Puma").copy(isEntered = true, isControlled = true)
     val plough = machine(id = 2, name = "Bomech", fuel = null).copy(attachedTo = 1)
 
-    assertEquals("In use", statusLabel(plough, driven))
-    assertEquals(listOf("IN USE"), rowBadges(plough, driven))
-    assertEquals("Attached", statusLabel(plough, machine(id = 1)), "on a rig nobody is driving")
-    assertEquals("Attached", statusLabel(plough), "and the same when the rig is out of view")
+    assertEquals("In use", statusLabel(en, plough, driven))
+    assertEquals(listOf("IN USE"), rowBadges(en, plough, driven))
+    assertEquals("Attached", statusLabel(en, plough, machine(id = 1)), "on a rig nobody is driving")
+    assertEquals("Attached", statusLabel(en, plough), "and the same when the rig is out of view")
   }
 
   @Test
   fun parkedIsPutAwayRatherThanMerelyStandingStill() {
     // The tab-rotation flag is what a parking mod turns off, so it is the player's own act; a machine
     // nobody has parked and nobody is driving is idle, and the two must not share a word.
-    assertEquals("Parked", statusLabel(machine().copy(isTabbable = false)))
-    assertEquals("Idle", statusLabel(machine().copy(isTabbable = true)))
+    assertEquals("Parked", statusLabel(en, machine().copy(isTabbable = false)))
+    assertEquals("Idle", statusLabel(en, machine().copy(isTabbable = true)))
     // No seat at all is a third answer, and not "out of the rotation".
-    assertEquals("Idle", statusLabel(machine(fuel = null).copy(isTabbable = null)))
+    assertEquals("Idle", statusLabel(en, machine(fuel = null).copy(isTabbable = null)))
     // Someone in the seat outranks it: a parked machine being driven is being driven.
-    assertEquals("In use", statusLabel(machine().copy(isTabbable = false, isControlled = true)))
+    assertEquals("In use", statusLabel(en, machine().copy(isTabbable = false, isControlled = true)))
   }
 
   @Test
   fun theHeadlineNamesTheRigAnImplementIsOn() {
-    assertEquals("Ploughs · on Fendt 942", headline(machine(category = "Ploughs", fuel = null), "Fendt 942"))
-    assertEquals("Tractors · leased", headline(machine(propertyState = PropertyState.LEASED), null))
+    assertEquals("Ploughs · on Fendt 942", headline(en, machine(category = "Ploughs", fuel = null), "Fendt 942"))
+    assertEquals("Tractors · leased", headline(en, machine(propertyState = PropertyState.LEASED), null))
   }
 
   @Test
   fun aDrownedMachineNeedsAttentionAndSaysWhy() {
     val drowned = machine(broken = true, damage = 0, fuel = 100)
     assertTrue(needsAttention(drowned), "a brand-new machine that drowned is still unusable")
-    assertEquals("Drowned — needs a reset", statusLabel(drowned))
+    assertEquals("Drowned — needs a reset", statusLabel(en, drowned))
     // Its own words, not ADS's BROKEN, which is a breakdown; and it takes the who-has-it rung, so a
     // row still wears at most three badges.
     val badges =
-      rowBadges(machine(broken = true, propertyState = PropertyState.LEASED, ads = ads(state = AdsState.BROKEN)))
+      rowBadges(en, machine(broken = true, propertyState = PropertyState.LEASED, ads = ads(state = AdsState.BROKEN)))
     assertEquals(listOf("BROKEN", "LEASED", "NEEDS RESET"), badges)
+  }
+
+  @Test
+  fun speaksGermanWithGermanNumbers() {
+    val de = German
+    assertEquals("Tractors · 1234,5 h · Tank 42%", rowSubtitle(de, machine(hours = 1234.5f, fuel = 42)))
+    assertEquals(
+      listOf("GELEAST", "GEPARKT"),
+      rowBadges(de, machine(propertyState = PropertyState.LEASED).copy(isTabbable = false)),
+    )
+    assertEquals("2 J. 3 Mon.", de.fleet.age(27))
+    assertEquals("vor 5 Monaten", de.fleet.monthsAgo(5))
+    assertEquals("07:00 morgen", formatFinish(de, 7f, 1))
+    assertEquals("Ploughs · an Fendt 942", headline(de, machine(category = "Ploughs", fuel = null), "Fendt 942"))
+    assertEquals("Wartung fällig", FleetSort.SERVICE.label(de))
   }
 }

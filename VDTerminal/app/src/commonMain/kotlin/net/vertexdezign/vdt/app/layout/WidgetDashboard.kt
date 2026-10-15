@@ -34,10 +34,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.ConfirmDialog
 import net.vertexdezign.vdt.app.components.ToolButton
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.pages.AutoShow
 import net.vertexdezign.vdt.app.pages.Page
 import net.vertexdezign.vdt.app.pages.PageIcon
 import net.vertexdezign.vdt.app.pages.PageStore
+import net.vertexdezign.vdt.app.pages.displayTitle
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.widgets.Widget
@@ -156,10 +158,10 @@ fun ColumnScope.WidgetDashboard(
 
       is ConfigTarget.New ->
         WidgetConfigDialog(
-          title = "Add ${target.widget.title}",
+          title = LocalStrings.current.widgets.addTitle(target.widget.title(LocalStrings.current)),
           options = target.widget.configOptions(),
           initial = emptyMap(),
-          confirmLabel = "ADD",
+          confirmLabel = LocalStrings.current.widgets.add,
           onConfirm = { config ->
             apply(place(target.widget, target.emptyId, config))
             configuring = null
@@ -174,10 +176,10 @@ fun ColumnScope.WidgetDashboard(
       is ConfigTarget.Placed ->
         WidgetRegistry.byId(target.tile.widgetId)?.let { widget ->
           WidgetConfigDialog(
-            title = widget.title,
+            title = widget.title(LocalStrings.current),
             options = widget.configOptions(),
             initial = target.tile.config,
-            confirmLabel = "SAVE",
+            confirmLabel = LocalStrings.current.widgets.save,
             onConfirm = { config ->
               apply(layout.reconfigure(target.tile.instanceId, config))
               configuring = null
@@ -189,9 +191,9 @@ fun ColumnScope.WidgetDashboard(
 
     if (confirmDelete) {
       ConfirmDialog(
-        title = "DELETE PAGE?",
-        message = "“${page.title}” and its layout will be permanently removed.",
-        confirmLabel = "DELETE",
+        title = LocalStrings.current.widgets.deletePageTitle,
+        message = LocalStrings.current.widgets.deletePageMessage(page.displayTitle(LocalStrings.current)),
+        confirmLabel = LocalStrings.current.widgets.delete,
         onConfirm = {
           confirmDelete = false
           pageStore.remove(page.id)
@@ -221,7 +223,7 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
     horizontalArrangement = Arrangement.spacedBy(16.dp),
   ) {
     BasicTextField(
-      value = page.title,
+      value = page.displayTitle(LocalStrings.current),
       onValueChange = { store.update(page.copy(title = it)) },
       singleLine = true,
       textStyle = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark),
@@ -238,7 +240,7 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
       for (option in PageIcon.entries) {
         ToolButton(
           option.vector,
-          "icon ${option.name}",
+          LocalStrings.current.widgets.icon(option.name),
           active = page.icon == option,
           onClick = { store.update(page.copy(icon = option)) },
         )
@@ -246,9 +248,11 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
     }
 
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-      Label("SHOW")
+      Label(LocalStrings.current.widgets.show)
       for (mode in AutoShow.entries) {
-        Chip(mode.label, selected = page.autoShow == mode) { store.update(page.copy(autoShow = mode)) }
+        Chip(mode.label(LocalStrings.current), selected = page.autoShow == mode) {
+          store.update(page.copy(autoShow = mode))
+        }
       }
     }
 
@@ -258,7 +262,7 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
     // has a generated id, which is otherwise only visible by reading browser storage — without this,
     // display mode would only reach the seeded pages and the apps.
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-      Label("DISPLAY")
+      Label(LocalStrings.current.widgets.display)
       // Selectable: a generated id is a dozen random characters, which is exactly the kind of thing
       // you want to copy rather than re-read letter by letter onto the other device.
       SelectionContainer {
@@ -270,7 +274,12 @@ private fun PageEditToolbar(page: Page, store: PageStore, onDeleteRequest: () ->
 
     Spacer(Modifier.weight(1f))
 
-    ToolButton(Icons.Filled.Delete, "delete page", tint = VdtColors.Red, onClick = onDeleteRequest)
+    ToolButton(
+      Icons.Filled.Delete,
+      LocalStrings.current.widgets.deletePage,
+      tint = VdtColors.Red,
+      onClick = onDeleteRequest,
+    )
   }
 }
 

@@ -22,7 +22,7 @@ object ModFormat {
   /** Channel → the format version this build reads, as the mod writes it (a decimal string). */
   val expected: Map<String, Int> =
     mapOf(
-      "telemetry" to 34,
+      "telemetry" to 35,
       "map" to 2,
       "mapVehicles" to 2,
       "mapLayers" to 5,

@@ -44,6 +44,8 @@ import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.FilterOption
 import net.vertexdezign.vdt.app.components.FilterSelect
 import net.vertexdezign.vdt.app.components.ListDetail
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.CropCalendarData
@@ -65,8 +67,11 @@ import net.vertexdezign.vdt.model.PricesStation
  */
 @Composable
 internal fun PriceBoard(data: PricesData, periods: List<String>) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.market
   if (data.fillTypes.isEmpty()) {
-    Centered("The price board is empty")
+    Centered(s.boardEmpty)
     return
   }
   var filters by remember { mutableStateOf(emptyList<FilterOption>()) }
@@ -74,7 +79,7 @@ internal fun PriceBoard(data: PricesData, periods: List<String>) {
 
   val sales = remember(data) { bestSales(data) }
   val facts = remember(data) { boardFacts(data) }
-  val options = remember(data, facts) { priceOptions(data, facts) }
+  val options = remember(data, facts, strings) { priceOptions(data, facts, strings) }
   val shown = remember(data, facts, filters) {
     priceFiltered(data.fillTypes, facts, filters).sortedBy { it.title.lowercase() }
   }
@@ -92,10 +97,10 @@ internal fun PriceBoard(data: PricesData, periods: List<String>) {
         selected = filters,
         onSelectedChange = { filters = it },
         modifier = Modifier.weight(1f),
-        placeholder = "Filter by commodity or station…",
+        placeholder = s.boardFilterHint,
       )
       Text(
-        "per 1000 l · economy ×${formatMultiplier(data.priceMultiplier)}",
+        s.boardUnit(numbers.formatMultiplier(data.priceMultiplier)),
         color = VdtColors.DarkGray,
         fontSize = 9.sp,
         textAlign = TextAlign.End,
@@ -109,12 +114,12 @@ internal fun PriceBoard(data: PricesData, periods: List<String>) {
     ListDetail(
       listWidth = 230.dp,
       detailOpen = detailOpen,
-      backLabel = "Commodities",
+      backLabel = s.commodities,
       onBack = { detailOpen = false },
       list = { listModifier ->
         Box(listModifier) {
           if (shown.isEmpty()) {
-            Centered("Nothing matches")
+            Centered(strings.common.nothingMatches)
           } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(3.dp)) {
               items(shown, key = { it.type }) { fillType ->
@@ -134,7 +139,7 @@ internal fun PriceBoard(data: PricesData, periods: List<String>) {
       },
     ) {
       if (selected == null) {
-        Centered("Select a commodity")
+        Centered(s.selectCommodity)
       } else {
         CommodityDetail(selected, data, sales[selected.type], periods)
       }
@@ -146,6 +151,8 @@ internal fun PriceBoard(data: PricesData, periods: List<String>) {
 
 @Composable
 private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Boolean, onClick: () -> Unit) {
+  val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.market
   val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   Row(
     Modifier
@@ -167,7 +174,7 @@ private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Bo
     )
     if (sale?.greatDemand == true) {
       Text(
-        "DEMAND",
+        s.demandBadge,
         fontSize = 8.sp,
         fontWeight = FontWeight.Bold,
         color = if (selected) VdtColors.Green else VdtColors.OnFill,
@@ -180,9 +187,9 @@ private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Bo
     }
     if (sale != null) {
       TrendMark(sale.trend, Modifier.padding(end = 2.dp))
-      Text(formatPrice(sale.price), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+      Text(numbers.formatPrice(sale.price), color = fg, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     } else {
-      Text("buy only", color = if (selected) VdtColors.OnFill else VdtColors.DarkGray, fontSize = 10.sp)
+      Text(s.buyOnly, color = if (selected) VdtColors.OnFill else VdtColors.DarkGray, fontSize = 10.sp)
     }
   }
 }
@@ -191,6 +198,9 @@ private fun CommodityRow(fillType: PricesFillType, sale: BestSale?, selected: Bo
 
 @Composable
 private fun CommodityDetail(fillType: PricesFillType, data: PricesData, sale: BestSale?, periods: List<String>) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.market
   val sellers = remember(data, fillType) {
     data.stations
       .mapNotNull { station -> station.sell.firstOrNull { it.type == fillType.type }?.let { station to it } }
@@ -214,7 +224,7 @@ private fun CommodityDetail(fillType: PricesFillType, data: PricesData, sale: Be
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
       Text(fillType.title, color = VdtColors.TextDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
       if (fillType.isCrop) {
-        Text("CROP", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+        Text(s.crop, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
       }
     }
     // Wrapping, not a Row: three figures with a station name under one of them will not fit a narrow
@@ -225,49 +235,50 @@ private fun CommodityDetail(fillType: PricesFillType, data: PricesData, sale: Be
     ) {
       // The reference price, not a price anybody pays: a station's own scale puts it permanently above
       // or below this. It is here because it is the number the fluctuation is a fluctuation *of*.
-      Figure("Reference", formatPrice(fillType.basePrice))
-      Figure("Best offer", sale?.let { formatPrice(it.price) } ?: "—", sale?.station ?: "no station buys this")
+      Figure(s.reference, numbers.formatPrice(fillType.basePrice))
+      Figure(s.bestOfferLabel, sale?.let { numbers.formatPrice(it.price) } ?: "—", sale?.station ?: s.noStationBuysThis)
       // Zero when the curve is flat, which is most of what a shop sells you: a "peak" picked out of
       // twelve identical numbers is not one.
       val month = peakMonth(fillType).takeIf { it > 0 }
       Figure(
-        "Peak month",
+        s.peakMonth,
         month?.let { periodLabel(periods, it) } ?: "—",
-        month?.let { "market avg ${formatPrice(fillType.months[it - 1])}" } ?: "no seasonal movement",
+        month?.let { s.marketAverage(numbers.formatPrice(fillType.months[it - 1])) } ?: s.noSeasonalMovement,
       )
     }
     if (fillType.months.size >= CropCalendarData.PERIODS) {
       PriceCurve(fillType, data.period, periods)
     }
     if (sellers.isNotEmpty()) {
-      SectionLabel("Sells to (${sellers.size})")
+      SectionLabel(s.sellsTo(sellers.size))
       sellers.forEach { (station, row) ->
         StationLine(
           station = station,
-          price = formatPrice(row.price),
+          price = numbers.formatPrice(row.price),
           trend = row.trend,
-          demand = if (row.greatDemand) demandBadge(row.demandMultiplier, row.demandHoursLeft) else "",
+          demand = if (row.greatDemand) demandBadge(strings, row.demandMultiplier, row.demandHoursLeft) else "",
         )
       }
     }
     if (buyers.isNotEmpty()) {
-      SectionLabel("Buy from (${buyers.size})")
-      buyers.forEach { (station, row) -> StationLine(station, formatPrice(row.price), "", "") }
+      SectionLabel(s.buyFrom(buyers.size))
+      buyers.forEach { (station, row) -> StationLine(station, numbers.formatPrice(row.price), "", "") }
     }
     if (pallets.isNotEmpty()) {
-      SectionLabel("Pallets (whole pallet, not per 1000 l)")
-      pallets.forEach { (station, row) -> StationLine(station, formatPrice(row.price), "", "") }
+      SectionLabel(s.palletsNote)
+      pallets.forEach { (station, row) -> StationLine(station, numbers.formatPrice(row.price), "", "") }
     }
     if (sellers.isEmpty() && buyers.isEmpty() && pallets.isEmpty()) {
-      Text("Nothing on this map trades it.", color = VdtColors.DarkGray, fontSize = 11.sp)
+      Text(s.nothingTrades, color = VdtColors.DarkGray, fontSize = 11.sp)
     }
   }
 }
 
-private fun demandBadge(multiplier: Float?, hoursLeft: Int?): String {
-  val premium = multiplier?.let { "×$it" } ?: ""
+private fun demandBadge(strings: Strings, multiplier: Float?, hoursLeft: Int?): String {
+  val premium = multiplier?.let { "×${strings.numbers.trimmed(it, 2)}" } ?: ""
   val left = hoursLeft?.let { if (premium.isEmpty()) "$it h" else " · $it h" } ?: ""
-  return if (premium.isEmpty() && left.isEmpty()) "DEMAND" else "DEMAND $premium$left"
+  val badge = strings.market.demandBadge
+  return if (premium.isEmpty() && left.isEmpty()) badge else "$badge $premium$left"
 }
 
 @Composable
@@ -304,7 +315,7 @@ private fun StationLine(station: PricesStation, price: String, trend: String, de
     // The game flags a train station because you cannot simply drive there — a price you can't reach
     // with a trailer is a different offer, so the row says so.
     if (station.isTrainStation) {
-      Text("TRAIN", color = VdtColors.DarkGray, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+      Text(LocalStrings.current.market.train, color = VdtColors.DarkGray, fontSize = 8.sp, fontWeight = FontWeight.Bold)
       Spacer(Modifier.width(6.dp))
     }
     if (demand.isNotBlank()) {
@@ -354,9 +365,19 @@ private fun PriceCurve(fillType: PricesFillType, period: Int, periods: List<Stri
             maxLines = 1,
           )
           if (isNow) {
-            Text("NOW", color = VdtColors.TextDark, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+            Text(
+              LocalStrings.current.market.now,
+              color = VdtColors.TextDark,
+              fontSize = 7.sp,
+              fontWeight = FontWeight.Bold,
+            )
           } else if (index == peakMonth) {
-            Text("PEAK", color = VdtColors.TextDark, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+            Text(
+              LocalStrings.current.market.peak,
+              color = VdtColors.TextDark,
+              fontSize = 7.sp,
+              fontWeight = FontWeight.Bold,
+            )
           }
         }
       }

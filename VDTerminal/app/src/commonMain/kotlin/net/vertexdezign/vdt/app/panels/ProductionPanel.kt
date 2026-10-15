@@ -42,6 +42,8 @@ import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.Construction
 import net.vertexdezign.vdt.model.ProductionData
@@ -68,10 +70,11 @@ import net.vertexdezign.vdt.model.ProductionPoint
  */
 @Composable
 fun ProductionPanel(data: ProductionData?, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
-  Panel(title = "Production", icon = Icons.Filled.Factory, modifier = modifier) {
+  val strings = LocalStrings.current
+  Panel(title = strings.apps.production, icon = Icons.Filled.Factory, modifier = modifier) {
     when {
-      data == null -> Centered("Waiting for production data…")
-      data.productionPoints.isEmpty() -> Centered("No owned productions")
+      data == null -> Centered(strings.production.waiting)
+      data.productionPoints.isEmpty() -> Centered(strings.production.empty)
       else -> ProductionMasterDetail(data, onCommand)
     }
   }
@@ -79,6 +82,7 @@ fun ProductionPanel(data: ProductionData?, modifier: Modifier = Modifier, onComm
 
 @Composable
 private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessage) -> Unit) {
+  val strings = LocalStrings.current
   // Selection is by id so it survives the ~2 s refreshes; falls back to the first entry when the
   // selected placeable disappears (sold / demolished) or on first render.
   var selectedId by remember { mutableStateOf<String?>(null) }
@@ -96,7 +100,7 @@ private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessa
   ListDetail(
     listWidth = 240.dp,
     detailOpen = detailOpen,
-    backLabel = "Productions",
+    backLabel = strings.production.listTitle,
     onBack = { detailOpen = false },
     list = { listModifier ->
       Column(
@@ -106,7 +110,7 @@ private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessa
         loose.forEach { point ->
           OwnedRow(
             name = point.name,
-            subtitle = lineCountLabel(point.lines.size),
+            subtitle = strings.production.lines(point.lines.size),
             selected = point.id == currentId,
             onClick = {
               selectedId = point.id
@@ -123,8 +127,8 @@ private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessa
                 // The point's own name is the machine's ("BGA (1): Fermenter 30m"), which under the
                 // header would repeat the plant and then name one of the three machines the entry
                 // actually speaks for. Its role is the honest label.
-                name = point.construction?.role?.let { roleLabel(it) } ?: point.name,
-                subtitle = lineCountLabel(point.lines.size),
+                name = point.construction?.role?.let { roleLabel(strings, it) } ?: point.name,
+                subtitle = strings.production.lines(point.lines.size),
                 selected = point.id == currentId,
                 onClick = {
                   selectedId = point.id
@@ -141,7 +145,7 @@ private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessa
     if (point != null) {
       ProductionPointDetail(point, byId[point.construction?.id], onCommand)
     } else {
-      Centered("Select an entry")
+      Centered(strings.common.selectEntry)
     }
   }
 }
@@ -154,6 +158,7 @@ private fun ProductionPointDetail(
   construction: Construction?,
   onCommand: (ClientMessage) -> Unit,
 ) {
+  val strings = LocalStrings.current
   // The shared storage joined by fill type, so each line's inputs/outputs resolve their live level.
   val byType = remember(point) { point.storage.associateBy { it.type } }
   Column(
@@ -162,14 +167,14 @@ private fun ProductionPointDetail(
   ) {
     Text(point.name, color = VdtColors.TextDark, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     if (point.lines.isEmpty()) {
-      Text("This production has no production lines", color = VdtColors.DarkGray, fontSize = 11.sp)
+      Text(strings.production.noLines, color = VdtColors.DarkGray, fontSize = 11.sp)
     }
     // A plant's production carries no name in the game — the DLC keys it by sandbox type and leaves
     // the name blank, so the mod's generic "Line 1" is all there is to print, under a title that
     // already says which machine this is. The role names it honestly instead. Only when there is a
     // single line: a point with several needs each card to say which one it is.
     val single = point.lines.size == 1
-    val roleName = point.construction?.role?.takeIf { single }?.let { roleLabel(it) }
+    val roleName = point.construction?.role?.takeIf { single }?.let { roleLabel(strings, it) }
     // The DLC's fourth mode exists only inside a plant, so it is offered only there — a base-game
     // production would send the mod a mode the game has no value for.
     val modes = remember(point.construction) {
@@ -192,6 +197,8 @@ private fun LineCard(
   modes: List<OutputMode> = OutputMode.entries,
   onCommand: (ClientMessage) -> Unit,
 ) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
   Column(
     Modifier
       .fillMaxWidth()
@@ -217,11 +224,11 @@ private fun LineCard(
         modifier = Modifier.padding(start = if (isFactory) 0.dp else 8.dp).weight(1f, fill = false),
       )
       Box(Modifier.weight(1f))
-      if (isFactory) NeutralTag("Factory") else StatusBadge(line.status)
+      if (isFactory) NeutralTag(strings.production.factory) else StatusBadge(line.status)
     }
 
     if (line.inputs.isNotEmpty()) {
-      IoGroup("Inputs", line.inputs, storageByType, modes, onSetMode = null)
+      IoGroup(strings.production.inputs, line.inputs, storageByType, modes, onSetMode = null)
     }
     if (line.outputs.isNotEmpty()) {
       // A factory's output is sold, not stored/routed — no mode control (onSetMode stays null).
@@ -231,11 +238,11 @@ private fun LineCard(
         } else {
           { fillType, mode -> onCommand(ClientMessage.SetProductionOutputMode(pointId, fillType, mode)) }
         }
-      IoGroup("Outputs", line.outputs, storageByType, modes, onSetMode = onSetMode)
+      IoGroup(strings.production.outputs, line.outputs, storageByType, modes, onSetMode = onSetMode)
     }
 
     Text(
-      "${formatInt(line.cyclesPerMonth)} cycles/mo · ${formatInt(line.costsPerMonth)}/mo",
+      strings.production.perMonth(numbers.integer(line.cyclesPerMonth), numbers.integer(line.costsPerMonth)),
       color = VdtColors.DarkGray,
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
@@ -267,6 +274,8 @@ private fun IoRow(
   modes: List<OutputMode>,
   onSetMode: ((String, OutputMode) -> Unit)?,
 ) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
   val level = fill?.level ?: 0
   val capacity = fill?.capacity ?: 0
   val fraction = if (capacity > 0) level.toFloat() / capacity.toFloat() else 0f
@@ -292,7 +301,7 @@ private fun IoRow(
       ProgressBar(
         fraction = fraction,
         leftLabel = entry.title,
-        rightLabel = "${formatInt(level)} / ${formatInt(capacity)} L",
+        rightLabel = strings.common.litres(numbers.integer(level), numbers.integer(capacity)),
       )
       if (mode != null && onSetMode != null) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -310,10 +319,11 @@ private fun IoRow(
 /** Tappable on/off chip for a production line — green ON / gray OFF; a tap requests the opposite. */
 @Composable
 private fun EnableToggle(enabled: Boolean, onToggle: (Boolean) -> Unit) {
+  val strings = LocalStrings.current.production
   val bg = if (enabled) VdtColors.Green else VdtColors.TrackGray
   val fg = if (enabled) VdtColors.OnFill else VdtColors.DarkGray
   Text(
-    if (enabled) "ON" else "OFF",
+    if (enabled) strings.on else strings.off,
     color = fg,
     fontSize = 9.sp,
     fontWeight = FontWeight.Bold,
@@ -328,6 +338,7 @@ private fun EnableToggle(enabled: Boolean, onToggle: (Boolean) -> Unit) {
 /** The current output mode as a tappable chip; the dropdown picks another (absolute-state command). */
 @Composable
 private fun ModeDropdown(current: OutputMode, modes: List<OutputMode>, onSelect: (OutputMode) -> Unit) {
+  val strings = LocalStrings.current
   var expanded by remember { mutableStateOf(false) }
   Box {
     Row(
@@ -339,19 +350,24 @@ private fun ModeDropdown(current: OutputMode, modes: List<OutputMode>, onSelect:
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
-        modeLabel(current.token).uppercase(),
+        modeLabel(strings, current.token).uppercase(),
         color = VdtColors.DarkGray,
         fontSize = 9.sp,
         fontWeight = FontWeight.Bold,
       )
-      Icon(Icons.Filled.ArrowDropDown, "change mode", tint = VdtColors.DarkGray, modifier = Modifier.size(14.dp))
+      Icon(
+        Icons.Filled.ArrowDropDown,
+        strings.production.changeMode,
+        tint = VdtColors.DarkGray,
+        modifier = Modifier.size(14.dp),
+      )
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
       // `current` is always offered even when it is not in `modes`: a mode the game somehow put the
       // production in must stay selectable, or the dropdown becomes a one-way door out of it.
       (if (current in modes) modes else modes + current).forEach { mode ->
         DropdownMenuItem(
-          text = { Text(modeLabel(mode.token)) },
+          text = { Text(modeLabel(strings, mode.token)) },
           onClick = {
             if (mode != current) onSelect(mode)
             expanded = false
@@ -392,7 +408,7 @@ private fun NeutralTag(text: String) {
 @Composable
 private fun ModeTag(mode: String) {
   Text(
-    modeLabel(mode).uppercase(),
+    modeLabel(LocalStrings.current, mode).uppercase(),
     color = VdtColors.DarkGray,
     fontSize = 9.sp,
     fontWeight = FontWeight.Bold,
@@ -404,11 +420,14 @@ private fun ModeTag(mode: String) {
 
 @Composable
 @ReadOnlyComposable
-private fun statusStyle(status: String): Pair<Color, String> = when (status) {
-  "running" -> VdtColors.Green to "Running"
-  "missingInputs" -> VdtColors.Amber to "Missing input"
-  "noOutputSpace" -> VdtColors.Red to "Out of space"
-  else -> VdtColors.DarkGray to "Inactive"
+private fun statusStyle(status: String): Pair<Color, String> {
+  val strings = LocalStrings.current.production
+  return when (status) {
+    "running" -> VdtColors.Green to strings.statusRunning
+    "missingInputs" -> VdtColors.Amber to strings.statusMissingInput
+    "noOutputSpace" -> VdtColors.Red to strings.statusNoSpace
+    else -> VdtColors.DarkGray to strings.statusInactive
+  }
 }
 
 /**
@@ -417,11 +436,9 @@ private fun statusStyle(status: String): Pair<Color, String> = when (status) {
  * longer way of saying what looks like the same thing. "Within plant" is the difference that matters:
  * that one ships to the farm's other productions, this one stays inside the building.
  */
-private fun modeLabel(mode: String): String = when (mode) {
-  "directSell" -> "Direct sell"
-  "autoDeliver" -> "Distribute"
-  "autoDistribution" -> "Within plant"
-  else -> "Keep"
+private fun modeLabel(strings: Strings, mode: String): String = when (mode) {
+  "directSell" -> strings.production.modeDirectSell
+  "autoDeliver" -> strings.production.modeDistribute
+  "autoDistribution" -> strings.production.modeWithinPlant
+  else -> strings.production.modeKeep
 }
-
-private fun lineCountLabel(n: Int): String = if (n == 1) "1 line" else "$n lines"

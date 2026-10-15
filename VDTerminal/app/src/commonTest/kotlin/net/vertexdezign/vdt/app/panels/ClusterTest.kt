@@ -1,6 +1,8 @@
 package net.vertexdezign.vdt.app.panels
 
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.model.Ads
 import net.vertexdezign.vdt.model.AdsLoad
 import net.vertexdezign.vdt.model.DiffLock
@@ -31,6 +33,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private val en = Numbers.English
 
 /**
  * The telltale band's one hard rule: a lamp we have no state for is **absent**, not off.
@@ -286,16 +290,16 @@ class ClusterReadoutTest {
         motor = Motor(load = Load(value = 40.0, max = 100)),
         ads = Ads(load = AdsLoad(value = 70.0, overloadAt = 85.0)),
       )
-    assertEquals(0.7f, engineLoad(both)?.fraction)
+    assertEquals(0.7f, engineLoad(English, both)?.fraction)
     // …and the plain engine load on a game without the mod.
-    assertEquals(0.4f, engineLoad(Vehicle(motor = Motor(load = Load(value = 40.0, max = 100))))?.fraction)
+    assertEquals(0.4f, engineLoad(English, Vehicle(motor = Motor(load = Load(value = 40.0, max = 100))))?.fraction)
   }
 
   @Test
   fun aMachineThatReportsNoLoadDrawsNoBar() {
     // An empty bar is a claim about an engine; no bar is the absence of one, which is the truth here.
-    assertNull(engineLoad(Vehicle()))
-    assertNull(engineLoad(Vehicle(motor = Motor())))
+    assertNull(engineLoad(English, Vehicle()))
+    assertNull(engineLoad(English, Vehicle(motor = Motor())))
   }
 
   @Test
@@ -304,18 +308,22 @@ class ClusterReadoutTest {
     // the bar's own end cap says nothing. Losing the notch is not losing the state — see
     // [beingOverThePointSurvivesHavingNowhereToDrawIt].
     val shipped = Vehicle(ads = Ads(load = AdsLoad(value = 50.0, overloadAt = 85.0)))
-    assertEquals(0.85f, engineLoad(shipped)?.threshold)
-    assertNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 50.0, overloadAt = 100.0))))?.threshold)
-    assertNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 50.0))))?.threshold, "no threshold reported")
+    assertEquals(0.85f, engineLoad(English, shipped)?.threshold)
+    assertNull(engineLoad(English, Vehicle(ads = Ads(load = AdsLoad(value = 50.0, overloadAt = 100.0))))?.threshold)
+    assertNull(
+      engineLoad(English, Vehicle(ads = Ads(load = AdsLoad(value = 50.0))))?.threshold,
+      "no threshold reported",
+    )
     // The base game charges nothing for a hard-working engine, so there is no point to mark at all.
-    assertNull(engineLoad(Vehicle(motor = Motor(load = Load(value = 99.0, max = 100))))?.threshold)
+    assertNull(engineLoad(English, Vehicle(motor = Motor(load = Load(value = 99.0, max = 100))))?.threshold)
   }
 
   @Test
   fun anOverloadedEngineFillsTheBarAndKeepsItsRealFigure() {
     // ADS reads past 100 under draft and is not clipped where it is printed; a bar has an end, so it
     // pins — but the value it pinned from survives for anything that wants the real number.
-    val flatOut = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 130.0, overloadAt = 85.0)))))
+    val flatOut =
+      assertNotNull(engineLoad(English, Vehicle(ads = Ads(load = AdsLoad(value = 130.0, overloadAt = 85.0)))))
     assertEquals(1f, flatOut.fraction)
     assertEquals(1.3f, flatOut.value)
     assertTrue(flatOut.overloaded)
@@ -327,19 +335,21 @@ class ClusterReadoutTest {
     // A player who moves ADS's point to 100% loses the notch — there is no room for one at the top —
     // and must not lose the overload along with it. The state comes off the machine's own flag, so
     // the bar can still colour itself and the screen reader still hears the word.
-    val topped = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 130.0, overloadAt = 100.0)))))
+    val topped =
+      assertNotNull(engineLoad(English, Vehicle(ads = Ads(load = AdsLoad(value = 130.0, overloadAt = 100.0)))))
     assertNull(topped.threshold, "nothing to mark at the very top")
     assertTrue(topped.overloaded)
     assertEquals(1f, topped.fraction)
     assertEquals("Engine load 130%, overloaded", topped.description)
 
     // …and the same machine working hard but inside its point is not overloaded.
-    val working = assertNotNull(engineLoad(Vehicle(ads = Ads(load = AdsLoad(value = 99.0, overloadAt = 100.0)))))
+    val working =
+      assertNotNull(engineLoad(English, Vehicle(ads = Ads(load = AdsLoad(value = 99.0, overloadAt = 100.0)))))
     assertFalse(working.overloaded)
     assertEquals("Engine load 99%", working.description)
 
     // No ADS, no overload: the base game never charges for a hard-working engine.
-    val plain = assertNotNull(engineLoad(Vehicle(motor = Motor(load = Load(value = 100.0, max = 100)))))
+    val plain = assertNotNull(engineLoad(English, Vehicle(motor = Motor(load = Load(value = 100.0, max = 100)))))
     assertFalse(plain.overloaded)
     assertEquals("Engine load 100%", plain.description)
   }
@@ -414,18 +424,21 @@ class ClusterReadoutTest {
 
   @Test
   fun theSteeringMarksAreAbsentOnAMachineThatHasNeither() {
-    assertTrue(steeringMarks(Vehicle()).isEmpty())
-    assertTrue(steeringMarks(Vehicle(steering = Steering())).isEmpty())
+    assertTrue(steeringMarks(English, Vehicle()).isEmpty())
+    assertTrue(steeringMarks(English, Vehicle(steering = Steering())).isEmpty())
     // One mode is no choice at all — the game hides its own steering box on the same test.
     assertTrue(
-      steeringMarks(Vehicle(steering = Steering(mode = SteeringMode(name = "Front", index = 1, count = 1)))).isEmpty(),
+      steeringMarks(
+        English,
+        Vehicle(steering = Steering(mode = SteeringMode(name = "Front", index = 1, count = 1))),
+      ).isEmpty(),
     )
   }
 
   @Test
   fun theSteeringModeDrawsItsShapeAndFallsBackToItsNumber() {
     fun mode(layout: SteeringLayout?, index: Int = 2) =
-      steeringMarks(Vehicle(steering = Steering(mode = SteeringMode("Crab", index, 3, layout)))).single()
+      steeringMarks(English, Vehicle(steering = Steering(mode = SteeringMode("Crab", index, 3, layout)))).single()
 
     assertEquals(ClusterIcons.SteerCrabLeft, mode(SteeringLayout.CRAB).icon)
     assertNull(mode(SteeringLayout.CRAB).text, "a glyph and a number would be the same fact twice")
@@ -444,17 +457,17 @@ class ClusterReadoutTest {
   fun theSeatKeepsItsSlotWhenItIsTheNormalWayRound() {
     // Ghosted rather than dropped: a machine that *has* a reversible position and isn't using it is a
     // different thing from one that hasn't got one, and only the first is something to act on.
-    val forward = steeringMarks(Vehicle(steering = Steering(reversed = false))).single()
+    val forward = steeringMarks(English, Vehicle(steering = Steering(reversed = false))).single()
     assertEquals(ClusterIcons.SeatReversed, forward.icon)
     assertEquals(GHOST_ALPHA, forward.alpha)
 
-    val reversed = steeringMarks(Vehicle(steering = Steering(reversed = true))).single()
+    val reversed = steeringMarks(English, Vehicle(steering = Steering(reversed = true))).single()
     assertEquals(1f, reversed.alpha)
     assertEquals(ClusterColors.Set, reversed.colour)
     assertFalse(reversed.blinks)
 
     // Mid-swivel it is neither way round, and says so.
-    assertTrue(steeringMarks(Vehicle(steering = Steering(reversed = true, changing = true))).single().blinks)
+    assertTrue(steeringMarks(English, Vehicle(steering = Steering(reversed = true, changing = true))).single().blinks)
   }
 
   @Test
@@ -463,6 +476,7 @@ class ClusterReadoutTest {
     // and a mark must not move sideways because the other one appeared.
     val both =
       steeringMarks(
+        English,
         Vehicle(steering = Steering(mode = SteeringMode("Crab", 2, 3, SteeringLayout.CRAB), reversed = true)),
       )
     assertEquals(listOf(ClusterIcons.SteerCrabLeft, ClusterIcons.SeatReversed), both.map { it.icon })
@@ -472,25 +486,25 @@ class ClusterReadoutTest {
   fun guidanceIsAbsentUntilTheDriverAsksToBeGuided() {
     // Off is *nothing*, not a dim lamp: a machine with the steering spec and the mode unselected is
     // every tractor in the yard, and a mark lit on all of them is one nobody reads.
-    assertNull(guidanceMark(Vehicle()), "a machine with no steering spec has no guidance to report")
-    assertNull(guidanceMark(Vehicle(gps = Gps(enabled = false))))
+    assertNull(guidanceMark(English, Vehicle()), "a machine with no steering spec has no guidance to report")
+    assertNull(guidanceMark(English, Vehicle(gps = Gps(enabled = false))))
     // `active` without `enabled` cannot happen from the mod, and if it ever did the mode selection is
     // still the thing that says whether the driver asked for this.
-    assertNull(guidanceMark(Vehicle(gps = Gps(enabled = false, active = true))))
+    assertNull(guidanceMark(English, Vehicle(gps = Gps(enabled = false, active = true))))
   }
 
   @Test
   fun speedSyncIsAbsentUnlessItIsHoldingTheSpeed() {
     // Neither "no mod" nor "the mod, not synced" draws anything: every drivable machine carries the
     // mod's spec, and the mod's own lamp is not drawn unlit either.
-    assertNull(speedSyncMark(Vehicle()))
-    assertNull(speedSyncMark(Vehicle(speedSync = SpeedSync(active = false))))
+    assertNull(speedSyncMark(English, Vehicle()))
+    assertNull(speedSyncMark(English, Vehicle(speedSync = SpeedSync(active = false))))
   }
 
   @Test
   fun speedSyncWaitingBlinksWhereTheModWouldTurnOrange() {
-    val holding = assertNotNull(speedSyncMark(Vehicle(speedSync = SpeedSync(active = true))))
-    val waiting = assertNotNull(speedSyncMark(Vehicle(speedSync = SpeedSync(active = true, waiting = true))))
+    val holding = assertNotNull(speedSyncMark(English, Vehicle(speedSync = SpeedSync(active = true))))
+    val waiting = assertNotNull(speedSyncMark(English, Vehicle(speedSync = SpeedSync(active = true, waiting = true))))
 
     assertEquals(ClusterIcons.SpeedSync, holding.icon)
     assertEquals(holding.icon, waiting.icon, "one lamp in two states, not two glyphs")
@@ -505,8 +519,8 @@ class ClusterReadoutTest {
     // The accessibility rule this mark exists under: armed and engaged differ in *brightness only*.
     // A driver who cannot separate amber from green has no signal at all if the hue carries it, and
     // this is read at speed and off-axis. Cruise, on the same line, does the same thing.
-    val armed = assertNotNull(guidanceMark(Vehicle(gps = Gps(enabled = true, active = false))))
-    val steering = assertNotNull(guidanceMark(Vehicle(gps = Gps(enabled = true, active = true))))
+    val armed = assertNotNull(guidanceMark(English, Vehicle(gps = Gps(enabled = true, active = false))))
+    val steering = assertNotNull(guidanceMark(English, Vehicle(gps = Gps(enabled = true, active = true))))
 
     assertEquals(armed.colour, steering.colour, "engaging must not change hue — see ARMED_ALPHA")
     assertEquals(ClusterColors.Set, armed.colour, "guidance is a driver-set state, like the cruise beside it")
@@ -527,12 +541,12 @@ class ClusterReadoutTest {
   fun guidanceNamesItselfUnderTheGlyph() {
     // AUTO, as on the lamp this is copied from. The mark is the one glyph here a driver hasn't
     // necessarily met before, and a word is an identity that doesn't depend on colour.
-    assertEquals("AUTO", guidanceMark(Vehicle(gps = Gps(enabled = true)))?.caption)
+    assertEquals("AUTO", guidanceMark(English, Vehicle(gps = Gps(enabled = true)))?.caption)
     // Nothing else captions itself: on the marks whose picture *is* the answer, a word under it would
     // be the same fact twice in a slot that has room for neither.
     val busy = Vehicle(steering = Steering(mode = SteeringMode("Crab", 2, 3, SteeringLayout.CRAB), reversed = true))
-    assertTrue(steeringMarks(busy).all { it.caption == null })
-    assertNull(DriveSymbol.Forward.mark(false)?.caption)
+    assertTrue(steeringMarks(English, busy).all { it.caption == null })
+    assertNull(DriveSymbol.Forward.mark(English, false)?.caption)
   }
 
   @Test
@@ -561,14 +575,14 @@ class ClusterReadoutTest {
   @Test
   fun oneDecimalWithoutStringFormat() {
     // String.format is JVM-only and this also runs on wasmJs, hence the hand-rolled version.
-    assertEquals("17.8", format1(17.83f))
-    assertEquals("0.0", format1(0f))
-    assertEquals("53.0", format1(53f))
-    assertEquals("4.0", format1(3.96f))
+    assertEquals("17.8", en.fixed(17.83f, 1))
+    assertEquals("0.0", en.fixed(0f, 1))
+    assertEquals("53.0", en.fixed(53f, 1))
+    assertEquals("4.0", en.fixed(3.96f, 1))
     // Below one, the sign lives nowhere but the sign: integer division truncates towards zero, so
     // -0.5 has no integer digit to carry it.
-    assertEquals("-0.5", format1(-0.5f))
-    assertEquals("-1.5", format1(-1.5f))
+    assertEquals("-0.5", en.fixed(-0.5f, 1))
+    assertEquals("-1.5", en.fixed(-1.5f, 1))
   }
 }
 
@@ -587,16 +601,16 @@ class ClusterLevelsTest {
           MotorFillUnits(fuel = tank(190f, 380), def = tank(70f, 70), air = tank(2364f, 3000)),
         ),
       )
-    assertEquals(listOf("FUEL", "DEF", "AIR"), levelsOf(vehicle).map { it.label })
-    assertEquals(0.5f, levelsOf(vehicle).first().fraction)
+    assertEquals(listOf("FUEL", "DEF", "AIR"), levelsOf(English, vehicle).map { it.label })
+    assertEquals(0.5f, levelsOf(English, vehicle).first().fraction)
   }
 
   @Test
   fun aFullTankStillGetsABar() {
     // A missing air bar reads as a fault rather than as "fine", so a named engine tank always shows.
     val vehicle = Vehicle(motor = Motor(fillUnits = MotorFillUnits(air = tank(3000f, 3000))))
-    assertEquals(listOf("AIR"), levelsOf(vehicle).map { it.label })
-    assertEquals(1f, levelsOf(vehicle).single().fraction)
+    assertEquals(listOf("AIR"), levelsOf(English, vehicle).map { it.label })
+    assertEquals(1f, levelsOf(English, vehicle).single().fraction)
   }
 
   @Test
@@ -617,7 +631,7 @@ class ClusterLevelsTest {
           ),
         ),
       )
-    assertEquals(listOf("FUEL"), levelsOf(vehicle).map { it.label })
+    assertEquals(listOf("FUEL"), levelsOf(English, vehicle).map { it.label })
   }
 
   @Test
@@ -625,13 +639,13 @@ class ClusterLevelsTest {
     // fillLevelPercentage staircases ~1% at a time and judders visibly on a bar this size.
     val precise = FillUnit(value = 123f, capacity = 380, fillLevelPercentage = 32)
     val vehicle = Vehicle(motor = Motor(fillUnits = MotorFillUnits(fuel = precise)))
-    assertEquals(123f / 380f, levelsOf(vehicle).single().fraction)
+    assertEquals(123f / 380f, levelsOf(English, vehicle).single().fraction)
   }
 
   @Test
   fun aVehicleWithNoTanksAtAllHasNoBars() {
-    assertTrue(levelsOf(Vehicle()).isEmpty())
-    assertFalse(levelsOf(Vehicle(motor = Motor())).isNotEmpty())
+    assertTrue(levelsOf(English, Vehicle()).isEmpty())
+    assertFalse(levelsOf(English, Vehicle(motor = Motor())).isNotEmpty())
   }
 }
 
@@ -685,8 +699,8 @@ class ClusterReadoutLimitTest {
   fun theSpeedLimitSignIsThereOnlyWhileSomethingIsWorking() {
     // No limit on the wire is the game imposing none — nothing on the rig is working — and a sign with
     // nothing to say would be a lamp lit for no reason.
-    assertNull(speedLimitMark(Vehicle(speed = Speed(value = 20f, unit = "km/h"))))
-    val sign = assertNotNull(speedLimitMark(Vehicle(speed = Speed(value = 8f, unit = "km/h", limit = 12f))))
+    assertNull(speedLimitMark(English, Vehicle(speed = Speed(value = 20f, unit = "km/h"))))
+    val sign = assertNotNull(speedLimitMark(English, Vehicle(speed = Speed(value = 8f, unit = "km/h", limit = 12f))))
     assertEquals(ClusterIcons.SpeedLimit, sign.icon)
     assertEquals("12", sign.text)
     assertEquals("Working speed limit 12 km/h", sign.label)
@@ -696,8 +710,8 @@ class ClusterReadoutLimitTest {
   fun theSpeedLimitSignBrightensWhenItIsWhatHoldsTheMachine() {
     // Below the limit it is only a ceiling, and dim; at it, the limit is deciding the speed. Brightness,
     // never a second colour.
-    val below = assertNotNull(speedLimitMark(Vehicle(speed = Speed(value = 8f, limit = 12f))))
-    val held = assertNotNull(speedLimitMark(Vehicle(speed = Speed(value = 11.7f, limit = 12f))))
+    val below = assertNotNull(speedLimitMark(English, Vehicle(speed = Speed(value = 8f, limit = 12f))))
+    val held = assertNotNull(speedLimitMark(English, Vehicle(speed = Speed(value = 11.7f, limit = 12f))))
     assertEquals(ARMED_ALPHA, below.alpha)
     assertEquals(1f, held.alpha)
     assertEquals(below.colour, held.colour)
@@ -706,8 +720,8 @@ class ClusterReadoutLimitTest {
   @Test
   fun theSpeedLimitPrintsWholeKilometresAsASignDoes() {
     // A tenth only exists on a damaged machine, whose limit the game cuts by its damage.
-    assertEquals("11", speedLimitMark(Vehicle(speed = Speed(limit = 11.4f)))?.text)
-    assertEquals("12", speedLimitMark(Vehicle(speed = Speed(limit = 11.6f)))?.text)
+    assertEquals("11", speedLimitMark(English, Vehicle(speed = Speed(limit = 11.4f)))?.text)
+    assertEquals("12", speedLimitMark(English, Vehicle(speed = Speed(limit = 11.6f)))?.text)
   }
 
   @Test
@@ -722,8 +736,8 @@ class ClusterReadoutLimitTest {
 
   @Test
   fun theOdometerKeepsATenthOnlyWhileItIsShort() {
-    assertEquals("12.3", formatOdometer(12.34))
-    assertEquals("999.9", formatOdometer(999.94))
-    assertEquals("12345", formatOdometer(12345.67))
+    assertEquals("12.3", en.formatOdometer(12.34))
+    assertEquals("999.9", en.formatOdometer(999.94))
+    assertEquals("12345", en.formatOdometer(12345.67))
   }
 }

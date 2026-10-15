@@ -46,6 +46,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.ClientMessage
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.Implement
@@ -112,6 +115,7 @@ fun SectionView(
   modifier: Modifier = Modifier,
   onCommand: ((ClientMessage) -> Unit)? = null,
 ) {
+  val numbers = LocalStrings.current.numbers
   val status = workAreaStatus(workAreas)
   val bar = sprayBar(workWidth, precisionFarming)
   val strip = activeStrip(precisionFarming)
@@ -125,7 +129,7 @@ fun SectionView(
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(status.color(VdtColors.palette)))
         Text(
-          status.label,
+          status.label(LocalStrings.current),
           fontSize = 9.sp,
           fontWeight = FontWeight.Bold,
           color = VdtColors.DarkGray,
@@ -149,7 +153,7 @@ fun SectionView(
         val width = workWidth?.total ?: workAreas.firstOrNull { it.active }?.width
         if (width != null && width > 0f) {
           Text(
-            "${formatMeters(width)} m",
+            "${numbers.formatMeters(width)} m",
             fontSize = 9.sp,
             color = VdtColors.DarkGray,
             maxLines = 1,
@@ -320,8 +324,9 @@ private const val NOZZLE_MIN_ALPHA = 0.45f
  */
 @Composable
 private fun RateReadout(pf: PrecisionFarming, value: PfValue, onCommand: ((ClientMessage) -> Unit)?) {
+  val numbers = LocalStrings.current.numbers
   val manual = pf.manual?.takeUnless { pf.auto }
-  val figures = rateFigures(pf.mode, value, manual)
+  val figures = rateFigures(numbers, pf.mode, value, manual)
   Row(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -353,7 +358,7 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue, onCommand: ((Clien
     // step, which stands whether or not the tool is running and is what a step is picked by; in auto
     // the live output, because there the tool picks its own rate per square metre and nothing else
     // describes it. Auto therefore has it only while the boom is down and working.
-    rateCost(pf, manual)?.let {
+    rateCost(numbers, pf, manual)?.let {
       Text(it, fontSize = 9.sp, color = VdtColors.DarkGray, maxLines = 1)
     }
     RateModeControls(pf, manual, onCommand)
@@ -380,7 +385,7 @@ private fun RateReadout(pf: PrecisionFarming, value: PfValue, onCommand: ((Clien
 private fun RateModeControls(pf: PrecisionFarming, manual: PfManual?, onCommand: ((ClientMessage) -> Unit)?) {
   Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
     if (manual != null) {
-      StepButton(Icons.Filled.Remove, "lower the application rate", manual.canStep(-1), onCommand) {
+      StepButton(Icons.Filled.Remove, LocalStrings.current.section.lowerRate, manual.canStep(-1), onCommand) {
         ClientMessage.SetSprayAmountStep(manual.stepped(-1))
       }
     }
@@ -407,7 +412,7 @@ private fun RateModeControls(pf: PrecisionFarming, manual: PfManual?, onCommand:
         .padding(horizontal = 3.dp, vertical = 1.dp),
     )
     if (manual != null) {
-      StepButton(Icons.Filled.Add, "raise the application rate", manual.canStep(1), onCommand) {
+      StepButton(Icons.Filled.Add, LocalStrings.current.section.raiseRate, manual.canStep(1), onCommand) {
         ClientMessage.SetSprayAmountStep(manual.stepped(1))
       }
     }
@@ -467,7 +472,7 @@ private fun SpotReadout(nozzles: PfNozzles, live: Boolean) {
       color = if (live) VdtColors.ProgressBlue else VdtColors.DarkGray,
     )
     Text(
-      if (live) "${(nozzles.saved * 100f).roundToInt()}% saved" else "—",
+      if (live) LocalStrings.current.section.saved((nozzles.saved * 100f).roundToInt()) else "—",
       fontSize = READOUT_TEXT_SIZE,
       fontWeight = FontWeight.Bold,
       overflow = TextOverflow.Ellipsis,
@@ -479,7 +484,7 @@ private fun SpotReadout(nozzles: PfNozzles, live: Boolean) {
     )
     if (live) {
       Text(
-        "${(nozzles.fraction * 100f).roundToInt()}% rate",
+        LocalStrings.current.section.rate((nozzles.fraction * 100f).roundToInt()),
         fontSize = 9.sp,
         color = VdtColors.DarkGray,
         maxLines = 1,
@@ -599,7 +604,17 @@ private const val MIN_SLICE_FILL = 0.2f
  * a lamp with and the wrong thing to lay a row out with: a spot sprayer over clean crop, or any tool
  * passing over ground it already worked, flips it several times a second.
  */
-internal data class WorkStatus(val label: String, val active: Boolean, val working: Boolean) {
+internal data class WorkStatus(val type: String?, val active: Boolean, val working: Boolean) {
+  /** The status line: the tool's job and what it is doing, e.g. `Cultivator · working`. */
+  fun label(strings: Strings): String {
+    val tool = type ?: strings.section.tool
+    return when {
+      working -> strings.section.working(tool)
+      active -> strings.section.ready(tool)
+      else -> strings.section.off(tool)
+    }
+  }
+
   /** The status dot's colour: green working, amber ready, disabled off. A second cue — [label] says it. */
   fun color(palette: VdtPalette): Color = when {
     working -> palette.green
@@ -622,13 +637,7 @@ internal fun workAreaStatus(areas: List<WorkArea>): WorkStatus? {
   val type = areas.firstOrNull { it.type != null }?.type?.lowercase()?.replaceFirstChar { it.uppercase() }
   val working = areas.count { it.processing }
   val active = areas.count { it.active }
-  val label =
-    when {
-      working > 0 -> "${type ?: "Tool"} · working"
-      active > 0 -> "${type ?: "Tool"} · ready"
-      else -> "${type ?: "Tool"} · off"
-    }
-  return WorkStatus(label, active = active > 0, working = working > 0)
+  return WorkStatus(type, active = active > 0, working = working > 0)
 }
 
 /**
@@ -795,6 +804,7 @@ internal fun boomOf(vehicle: Vehicle?): Boom? {
  */
 @Composable
 internal fun BoxScope.SectionStrip(boom: Boom, modifier: Modifier = Modifier, onHeight: (Dp) -> Unit = {}) {
+  val numbers = LocalStrings.current.numbers
   val density = LocalDensity.current
   Column(
     modifier
@@ -828,7 +838,7 @@ internal fun BoxScope.SectionStrip(boom: Boom, modifier: Modifier = Modifier, on
       }
       Spacer(Modifier.weight(1f))
       boom.width?.takeIf { it > 0f }?.let { width ->
-        Text("${formatMeters(width)} m", fontSize = 9.sp, color = VdtColors.DarkGray, maxLines = 1)
+        Text("${numbers.formatMeters(width)} m", fontSize = 9.sp, color = VdtColors.DarkGray, maxLines = 1)
       }
     }
     when (val bar = boom.bar) {
@@ -855,12 +865,12 @@ internal data class RateFigures(val level: String, val setPoint: String?, val un
  * The manual figure is deliberately **not** clamped to the target: overshooting is a real outcome of
  * choosing your own rate, and a readout that hid it would hide the reason to turn the step down.
  */
-internal fun rateFigures(mode: PfMode, value: PfValue, manual: PfManual?): RateFigures {
-  val level = formatRate(mode, value.level)
+internal fun rateFigures(numbers: Numbers, mode: PfMode, value: PfValue, manual: PfManual?): RateFigures {
+  val level = numbers.formatRate(mode, value.level)
   val change = manual?.change
   val setPoint = when {
-    manual != null -> if (change != null && change > 0f) formatRate(mode, value.level + change) else null
-    value.deficit > 0f -> formatRate(mode, value.target)
+    manual != null -> if (change != null && change > 0f) numbers.formatRate(mode, value.level + change) else null
+    value.deficit > 0f -> numbers.formatRate(mode, value.target)
     else -> null
   }
   return RateFigures(level, setPoint, value.unit)
@@ -886,12 +896,12 @@ internal fun modeLabel(auto: Boolean, manual: PfManual?): String = when {
  * holds with the boom up. Without one — auto — the answer is what is actually leaving the machine,
  * which is the only rate auto has and which goes absent the moment the tool stops working.
  */
-internal fun rateCost(pf: PrecisionFarming, manual: PfManual?): String? {
+internal fun rateCost(numbers: Numbers, pf: PrecisionFarming, manual: PfManual?): String? {
   val rate = manual?.rate ?: pf.rate ?: return null
   val unit = (if (manual?.rate != null) manual.rateUnit else pf.rateUnit) ?: return null
   // Whole units above 10, one decimal below: a spreader is set in kilos per hectare and a slurry
   // tanker in a couple of cubic metres, and rounding the tanker to "2" loses the setting.
-  val text = if (rate >= 10f) rate.roundToInt().toString() else formatMeters(rate)
+  val text = if (rate >= 10f) rate.roundToInt().toString() else numbers.formatMeters(rate)
   return "$text $unit"
 }
 
@@ -926,17 +936,14 @@ private fun arrowGlyph(tint: Color) = InlineTextContent(
 ) {
   Icon(
     Icons.AutoMirrored.Filled.ArrowRightAlt,
-    contentDescription = "to",
+    contentDescription = LocalStrings.current.section.to,
     tint = tint,
     modifier = Modifier.fillMaxSize(),
   )
 }
 
-private fun formatRate(mode: PfMode, value: Float): String =
+private fun Numbers.formatRate(mode: PfMode, value: Float): String =
   if (mode == PfMode.LIME) formatMeters(value) else value.roundToInt().toString()
 
 /** One decimal, and none when it would be `.0` — the width of a boom is not a lab measurement. */
-private fun formatMeters(value: Float): String {
-  val tenths = (value * 10f).roundToInt()
-  return if (tenths % 10 == 0) (tenths / 10).toString() else "${tenths / 10}.${tenths % 10}"
-}
+private fun Numbers.formatMeters(value: Float): String = trimmed(value, 1)

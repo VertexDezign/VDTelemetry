@@ -27,6 +27,7 @@ import net.vertexdezign.vdt.app.alerts.AlertBannerHost
 import net.vertexdezign.vdt.app.alerts.NotificationCenter
 import net.vertexdezign.vdt.app.apps.AppRegistry
 import net.vertexdezign.vdt.app.apps.availableApps
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.net.ConnectionState
 import net.vertexdezign.vdt.app.pages.AutoShow
 import net.vertexdezign.vdt.app.pages.Page
@@ -97,6 +98,15 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
         }
       }
 
+    // The language: the device's pick, else the game's. Recorded as it arrives so a cold load or a
+    // dropped connection keeps speaking it; see LanguageStore.
+    val gameLanguage = telemetry?.environment?.language
+    LaunchedEffect(gameLanguage) { store.language.observeGame(gameLanguage) }
+    val languageChoice by store.language.choice.collectAsState()
+    val lastGameLanguage by store.language.gameLanguage.collectAsState()
+    val numberChoice by store.language.numberChoice.collectAsState()
+    val strings = store.language.strings(languageChoice, lastGameLanguage, numberChoice)
+
     val themeMode by store.theme.mode.collectAsState()
     val systemDark by store.theme.systemDark.collectAsState()
     val uiScale by store.uiScale.percent.collectAsState()
@@ -104,7 +114,7 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
     // targets included, so nothing has to know about it. See UiScaleStore.
     val baseDensity = LocalDensity.current
     val scaled = remember(baseDensity, uiScale) { Density(baseDensity.density * uiScale / 100f, baseDensity.fontScale) }
-    CompositionLocalProvider(LocalDensity provides scaled) {
+    CompositionLocalProvider(LocalDensity provides scaled, LocalStrings provides strings) {
       VdtTheme(if (ThemeStore.isDark(themeMode, systemDark)) VdtPalette.Dark else VdtPalette.Light) {
         val pinned = display
         // A pinned display goes black, and only a pinned display. The tablet is a thing you hold under
@@ -215,13 +225,7 @@ fun App(store: VdtStore, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center,
           ) {
             Text(
-              if (connection ==
-                ConnectionState.Connecting
-              ) {
-                "CONNECTING…"
-              } else {
-                "CONNECTION LOST — RECONNECTING…"
-              },
+              if (connection == ConnectionState.Connecting) strings.shell.connecting else strings.shell.connectionLost,
               color = VdtColors.White,
               fontSize = 22.sp,
               fontWeight = FontWeight.Bold,
@@ -241,7 +245,7 @@ private fun initialScreen(autoPageId: String?, pages: List<Page>): Screen = auto
 @Composable
 internal fun LoadingScreen() {
   Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-    Text("VDTERMINAL LOADING…", color = VdtColors.Green, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+    Text(LocalStrings.current.shell.loading, color = VdtColors.Green, fontSize = 28.sp, fontWeight = FontWeight.Bold)
   }
 }
 
@@ -260,6 +264,8 @@ private fun Shell(
   val wakeLock by store.wakeLock.collectAsState()
   val theme by store.theme.mode.collectAsState()
   val uiScale by store.uiScale.percent.collectAsState()
+  val language by store.language.choice.collectAsState()
+  val numberStyle by store.language.numberChoice.collectAsState()
 
   Column(Modifier.fillMaxSize()) {
     Header(
@@ -275,6 +281,10 @@ private fun Shell(
       onThemeChange = store.theme::set,
       uiScale = uiScale,
       onUiScaleChange = store.uiScale::set,
+      language = language,
+      onLanguageChange = store.language::set,
+      numberStyle = numberStyle,
+      onNumberStyleChange = store.language::setNumbers,
       brandLogo = rememberBrandLogo(store.brandImageUrl, data.vehicle?.brand),
     )
 

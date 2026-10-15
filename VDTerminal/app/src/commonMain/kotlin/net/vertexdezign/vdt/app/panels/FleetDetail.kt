@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.AdsState
 import net.vertexdezign.vdt.model.FleetAds
@@ -48,6 +50,7 @@ internal fun FleetVehicleDetail(
   rig: FleetVehicle?,
   onShowOnMap: (FleetVehicle) -> Unit,
 ) {
+  val strings = LocalStrings.current
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -62,10 +65,10 @@ internal fun FleetVehicleDetail(
           maxLines = 2,
           overflow = TextOverflow.Ellipsis,
         )
-        Text(headline(vehicle, rig?.name), color = VdtColors.DarkGray, fontSize = 11.sp)
+        Text(headline(strings, vehicle, rig?.name), color = VdtColors.DarkGray, fontSize = 11.sp)
       }
       if (vehicle.posX != null && vehicle.posZ != null) {
-        FinanceButton("Show on map", VdtColors.Green, { onShowOnMap(vehicle) })
+        FinanceButton(strings.common.showOnMap, VdtColors.Green, { onShowOnMap(vehicle) })
       }
     }
 
@@ -77,7 +80,7 @@ internal fun FleetVehicleDetail(
       vehicle.fillUnits?.let { addAll(it.fillUnit) }
     }
     if (fillUnits.isNotEmpty()) {
-      DetailCard("Levels") { FillUnitsDisplay(fillUnits) }
+      DetailCard(strings.fleet.cardLevels) { FillUnitsDisplay(fillUnits) }
     }
 
     vehicle.ads?.let { AdsCard(it, today) }
@@ -85,14 +88,14 @@ internal fun FleetVehicleDetail(
 }
 
 /** Category, how the farm holds it, and the rig it is on — the line under the name. */
-internal fun headline(vehicle: FleetVehicle, attachedToName: String?): String = buildList {
+internal fun headline(strings: Strings, vehicle: FleetVehicle, attachedToName: String?): String = buildList {
   vehicle.category?.takeIf { it.isNotBlank() }?.let { add(it) }
   when (vehicle.propertyState) {
-    PropertyState.LEASED -> add("leased")
-    PropertyState.MISSION -> add("contract equipment")
+    PropertyState.LEASED -> add(strings.fleet.leased)
+    PropertyState.MISSION -> add(strings.fleet.contractEquipment)
     else -> Unit
   }
-  attachedToName?.let { add("on $it") }
+  attachedToName?.let { add(strings.fleet.attachedTo(it)) }
 }.joinToString(" · ")
 
 // ---- Cards ---------------------------------------------------------------------------------------
@@ -115,25 +118,26 @@ private fun DetailCard(title: String, content: @Composable () -> Unit) {
 
 @Composable
 private fun ConditionCard(vehicle: FleetVehicle) {
+  val s = LocalStrings.current.fleet
   val condition = fleetCondition(vehicle)
-  DetailCard("Condition") {
+  DetailCard(s.cardCondition) {
     if (condition == null) {
       Text(
-        if (vehicle.ads != null) "Never inspected — a workshop has to look at it" else "No condition reported",
+        if (vehicle.ads != null) s.neverInspected else s.noCondition,
         color = VdtColors.DarkGray,
         fontSize = 11.sp,
       )
     } else {
       ProgressBar(
         condition / 100f,
-        leftLabel = if (conditionIsApproximate(vehicle)) "CONDITION (ESTIMATE)" else "CONDITION",
+        leftLabel = if (conditionIsApproximate(vehicle)) s.conditionEstimate else s.condition,
         rightLabel = "$condition%",
       )
       if (conditionIsApproximate(vehicle)) {
         // ADS gives an exact figure only after a full defectoscopy; anything else is its own coarse
         // band. Saying so is the difference between a reading and a guess.
         Text(
-          "From an ordinary inspection, not a full one",
+          s.estimateNote,
           color = VdtColors.DarkGray,
           fontSize = 10.sp,
         )
@@ -143,20 +147,23 @@ private fun ConditionCard(vehicle: FleetVehicle) {
     // *damage* figure and nothing else, so these two stay live under it — the multiplayer capture has
     // a 6R 215 reading 83% condition on ADS's own inspection with its paint worn clean through.
     vehicle.wearable?.let { wearable ->
-      ProgressBar(wearable.wear / 100f, leftLabel = "WEAR", rightLabel = "${wearable.wear}%")
-      ProgressBar(wearable.dirt / 100f, leftLabel = "DIRT", rightLabel = "${wearable.dirt}%")
+      ProgressBar(wearable.wear / 100f, leftLabel = s.wear, rightLabel = "${wearable.wear}%")
+      ProgressBar(wearable.dirt / 100f, leftLabel = s.dirt, rightLabel = "${wearable.dirt}%")
     }
   }
 }
 
 @Composable
 private fun FactsCard(vehicle: FleetVehicle, rig: FleetVehicle?) {
-  DetailCard("Machine") {
-    FactRow("Age", formatAge(vehicle.age))
-    FactRow("Operating hours", "${formatHours(vehicle.hours)} h")
-    vehicle.sellPrice?.let { FactRow("Sell value", formatMoney(it.toLong())) }
-    vehicle.leasePerDay?.let { FactRow("Leasing, per day", formatMoney(it.toLong())) }
-    FactRow("Status", statusLabel(vehicle, rig))
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.fleet
+  DetailCard(s.cardMachine) {
+    FactRow(s.age, s.age(vehicle.age))
+    FactRow(s.operatingHours, "${numbers.formatHours(vehicle.hours)} h")
+    vehicle.sellPrice?.let { FactRow(s.sellValue, numbers.formatMoney(it.toLong())) }
+    vehicle.leasePerDay?.let { FactRow(s.leasePerDay, numbers.formatMoney(it.toLong())) }
+    FactRow(s.status, statusLabel(strings, vehicle, rig))
   }
 }
 
@@ -174,46 +181,49 @@ private fun FactsCard(vehicle: FleetVehicle, rig: FleetVehicle?) {
  * `isControlled` lives on the seat, which an implement does not have, so one behind a tractor a
  * *person* is driving would otherwise sit there claiming to be merely attached while it works.
  */
-internal fun statusLabel(vehicle: FleetVehicle, rig: FleetVehicle? = null): String = when {
+internal fun statusLabel(strings: Strings, vehicle: FleetVehicle, rig: FleetVehicle? = null): String = when {
   // First, because it answers the question the others are about: nobody is taking this one anywhere.
-  vehicle.broken -> "Drowned — needs a reset"
+  vehicle.broken -> strings.fleet.statusDrowned
 
-  vehicle.isEntered -> "You are in it"
+  vehicle.isEntered -> strings.fleet.statusEntered
 
-  vehicle.isAI -> "Helper driving"
+  vehicle.isAI -> strings.fleet.statusAi
 
-  vehicle.isControlled -> "In use"
+  vehicle.isControlled -> strings.fleet.statusInUse
 
-  rig != null && (rig.isControlled || rig.isEntered) -> "In use"
+  rig != null && (rig.isControlled || rig.isEntered) -> strings.fleet.statusInUse
 
-  vehicle.isParked -> "Parked"
+  vehicle.isParked -> strings.fleet.statusParked
 
-  vehicle.attachedTo != null -> "Attached"
+  vehicle.attachedTo != null -> strings.fleet.statusAttached
 
-  else -> "Idle"
+  else -> strings.fleet.statusIdle
 }
 
 @Composable
 private fun AdsCard(ads: FleetAds, today: GameDate?) {
-  DetailCard("Maintenance") {
-    FactRow("State", adsStateLabel(ads.state))
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.fleet
+  DetailCard(s.cardMaintenance) {
+    FactRow(s.state, adsStateLabel(strings, ads.state))
     ads.service?.let { service ->
       ProgressBar(
         service.fraction.coerceIn(0f, 1f),
-        leftLabel = if (ads.isServiceOverdue) "SERVICE OVERDUE" else "SERVICE INTERVAL",
-        rightLabel = "${formatHours(service.hours)} / ${formatHours(service.interval)} h",
+        leftLabel = if (ads.isServiceOverdue) s.serviceOverdue else s.serviceInterval,
+        rightLabel = "${numbers.formatHours(service.hours)} / ${numbers.formatHours(service.interval)} h",
       )
     }
     today?.let { now ->
-      ads.lastInspection?.let { FactRow("Last inspection", formatMonthsAgo(monthsBetween(it, now))) }
-      ads.lastMaintenance?.let { FactRow("Last maintenance", formatMonthsAgo(monthsBetween(it, now))) }
+      ads.lastInspection?.let { FactRow(s.lastInspection, s.monthsAgo(monthsBetween(it, now))) }
+      ads.lastMaintenance?.let { FactRow(s.lastMaintenance, s.monthsAgo(monthsBetween(it, now))) }
     }
-    ads.maintenanceCost?.let { FactRow("Spent on maintenance", formatMoney(it.toLong())) }
+    ads.maintenanceCost?.let { FactRow(s.maintenanceSpent, numbers.formatMoney(it.toLong())) }
     ads.workshop?.let { WorkshopRows(it) }
 
     if (ads.breakdowns.isEmpty()) {
       Text(
-        if (ads.state == AdsState.READY) "No faults found" else "No faults found yet",
+        if (ads.state == AdsState.READY) s.noFaults else s.noFaultsYet,
         color = VdtColors.DarkGray,
         fontSize = 11.sp,
       )
@@ -225,39 +235,37 @@ private fun AdsCard(ads: FleetAds, today: GameDate?) {
 
 @Composable
 private fun WorkshopRows(workshop: FleetWorkshop) {
-  workshop.remaining?.let { FactRow("Work left", "${formatHours(it)} h") }
-  workshop.finishHour?.let { FactRow("Ready at", formatFinish(it, workshop.finishInDays)) }
-  workshop.price?.let { FactRow("Service cost", formatMoney(it.toLong())) }
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  workshop.remaining?.let { FactRow(strings.fleet.workLeft, "${numbers.formatHours(it)} h") }
+  workshop.finishHour?.let { FactRow(strings.fleet.readyAt, formatFinish(strings, it, workshop.finishInDays)) }
+  workshop.price?.let { FactRow(strings.fleet.serviceCost, numbers.formatMoney(it.toLong())) }
 }
 
 /** ADS's finish time: an hour of the game's day, plus how many midnights away it is. */
-internal fun formatFinish(hour: Float, inDays: Int): String {
+internal fun formatFinish(strings: Strings, hour: Float, inDays: Int): String {
   val minutes = ((hour % 24f) * 60).toInt().coerceAtLeast(0)
   val clock = "${(minutes / 60).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}"
-  return when (inDays) {
-    0 -> clock
-    1 -> "$clock tomorrow"
-    else -> "$clock, in $inDays days"
-  }
+  return strings.fleet.finish(clock, inDays)
 }
 
 /** ADS's states, as the sentence a driver would say rather than the enum name. */
-internal fun adsStateLabel(state: AdsState): String = when (state) {
-  AdsState.READY -> "Ready to work"
+internal fun adsStateLabel(strings: Strings, state: AdsState): String = when (state) {
+  AdsState.READY -> strings.fleet.adsReady
 
-  AdsState.INSPECTION -> "In the workshop — inspection"
+  AdsState.INSPECTION -> strings.fleet.adsInspection
 
-  AdsState.MAINTENANCE -> "In the workshop — maintenance"
+  AdsState.MAINTENANCE -> strings.fleet.adsMaintenance
 
-  AdsState.REPAIR -> "In the workshop — repair"
+  AdsState.REPAIR -> strings.fleet.adsRepair
 
-  AdsState.OVERHAUL -> "In the workshop — overhaul"
+  AdsState.OVERHAUL -> strings.fleet.adsOverhaul
 
-  AdsState.BROKEN -> "Broken down"
+  AdsState.BROKEN -> strings.fleet.adsBroken
 
   // Not a state ADS has: a token this build could not name. Said plainly, because the alternative is
   // to print one of the five above over a machine nobody has read the state of.
-  AdsState.UNKNOWN -> "State not recognised"
+  AdsState.UNKNOWN -> strings.fleet.adsUnknown
 }
 
 @Composable

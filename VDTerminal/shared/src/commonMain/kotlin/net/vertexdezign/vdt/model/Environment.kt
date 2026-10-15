@@ -6,6 +6,11 @@ import kotlinx.serialization.Serializable
 data class Environment(
   val date: String? = null,
   val time: String? = null,
+  /**
+   * The game's language code as FS25 names it (`g_languageShort`: "en", "de", "fr", "jp", …), which the
+   * terminal follows by default. Since mod version 35; absent before.
+   */
+  val language: String? = null,
   val weather: Weather? = null,
   val pda: Pda? = null,
 )

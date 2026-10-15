@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import kotlin.math.PI
 import kotlin.math.abs
@@ -49,6 +50,7 @@ fun SimpleGauge(
   marker: Float? = null,
   markerDescription: String? = null,
 ) {
+  val numbers = LocalStrings.current.numbers
   val range = (max - min)
   val percentage = if (range > 0f) ((value.coerceIn(min, max) - min) / range) else 0f
   val trackColor = VdtColors.TrackGray
@@ -104,7 +106,7 @@ fun SimpleGauge(
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
       Text(
-        text = if (max < 100f) format2(value) else value.roundToInt().toString(),
+        text = if (max < 100f) numbers.fixed(value, 2) else value.roundToInt().toString(),
         fontSize = 26.sp,
         fontWeight = FontWeight.Bold,
         color = if (isActive) VdtColors.Green else VdtColors.TextDark,
@@ -119,10 +121,3 @@ private const val MARKER_REACH = 0.9f
 
 /** The marker's thickness, in track widths. */
 private const val MARKER_WIDTH = 0.28f
-
-internal fun format2(v: Float): String {
-  val scaled = (v * 100f).roundToInt()
-  val whole = scaled / 100
-  val frac = abs(scaled % 100)
-  return "$whole.${frac.toString().padStart(2, '0')}"
-}

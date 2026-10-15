@@ -17,6 +17,7 @@ import net.vertexdezign.vdt.app.alerts.AlertInputs
 import net.vertexdezign.vdt.app.alerts.AlertRule
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.alerts.KeyedAlertRule
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.FieldTaskType
 import net.vertexdezign.vdt.app.panels.FieldsPanel
 import net.vertexdezign.vdt.app.panels.fieldRows
@@ -61,7 +62,7 @@ object FieldsApp : VdtApp {
   const val HARVEST_ALERT_ID = "fields.harvest"
 
   override val id = "fields"
-  override val title = "Fields"
+  override fun title(strings: Strings) = strings.apps.fields
   override val icon: ImageVector = Icons.Filled.Grass
   override val widgets: List<Widget> = listOf(FieldsWidget)
 
@@ -82,15 +83,15 @@ object FieldsApp : VdtApp {
       KeyedAlertRule(
         id = WITHERED_ALERT_ID,
         severity = AlertSeverity.Warning,
-        title = "CROP WITHERED",
-        activeEntities = { inputs -> ownFieldsWhere(inputs, FieldTaskType.CULTIVATE) },
+        title = { it.fields.alertWithered },
+        activeEntities = { strings, inputs -> ownFieldsWhere(strings, inputs, FieldTaskType.CULTIVATE) },
         message = ::fieldAlertMessage,
       ),
       KeyedAlertRule(
         id = HARVEST_ALERT_ID,
         severity = AlertSeverity.Info,
-        title = "READY TO HARVEST",
-        activeEntities = { inputs -> ownFieldsWhere(inputs, FieldTaskType.HARVEST) },
+        title = { it.fields.alertHarvest },
+        activeEntities = { strings, inputs -> ownFieldsWhere(strings, inputs, FieldTaskType.HARVEST) },
         message = ::fieldAlertMessage,
       ),
     )
@@ -151,18 +152,18 @@ object FieldsApp : VdtApp {
  * "nothing is wrong with them", and clearing an alert on missing data is how a dashboard tells its
  * worst kind of lie.
  */
-private fun ownFieldsWhere(inputs: AlertInputs, type: FieldTaskType): Map<String, String>? {
+private fun ownFieldsWhere(strings: Strings, inputs: AlertInputs, type: FieldTaskType): Map<String, String>? {
   val map = inputs.mapData ?: return null
   val info = inputs.fieldInfo ?: return null
   val farmId = inputs.telemetry?.environment?.pda?.player?.farmId ?: return null
   return fieldRows(map, info, inputs.fieldStatus, null, null, farmId)
     .filter { it.owned && type in fieldWork(it) }
-    .associate { it.id.toString() to "Field ${it.label}" }
+    .associate { it.id.toString() to strings.fields.field(it.label) }
 }
 
 /** One field by name, several as a count and the first few — the same shape the task alert uses. */
-private fun fieldAlertMessage(labels: List<String>): String = if (labels.size == 1) {
+private fun fieldAlertMessage(strings: Strings, labels: List<String>): String = if (labels.size == 1) {
   labels.single()
 } else {
-  "${labels.size} fields: " + labels.take(3).joinToString(", ") + if (labels.size > 3) ", …" else ""
+  strings.fields.alertFields(labels.size, labels.take(3).joinToString(", ") + if (labels.size > 3) ", …" else "")
 }

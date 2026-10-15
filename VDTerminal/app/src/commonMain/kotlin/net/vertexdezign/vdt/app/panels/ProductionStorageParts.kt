@@ -48,21 +48,3 @@ internal fun OwnedRow(name: String, subtitle: String, selected: Boolean, onClick
     )
   }
 }
-
-/** Group a non-negative liter/object count with thousands separators (e.g. 145000 -> "145,000"). */
-internal fun formatInt(value: Int): String {
-  val digits = value.toString()
-  if (digits.length <= 3) return digits
-  val sb = StringBuilder()
-  val firstGroup = digits.length % 3
-  if (firstGroup > 0) {
-    sb.append(digits, 0, firstGroup)
-  }
-  var i = firstGroup
-  while (i < digits.length) {
-    if (sb.isNotEmpty()) sb.append(',')
-    sb.append(digits, i, i + 3)
-    i += 3
-  }
-  return sb.toString()
-}

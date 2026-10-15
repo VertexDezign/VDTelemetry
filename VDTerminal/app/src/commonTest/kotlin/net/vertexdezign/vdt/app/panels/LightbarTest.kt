@@ -1,5 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.de.German
+import net.vertexdezign.vdt.app.i18n.en.English
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -40,28 +42,48 @@ class LightbarTest {
 
   @Test
   fun readsOutCentimetresThenMetres() {
-    assertEquals("R 14 cm", deviationLabel(0.14f))
-    assertEquals("L 14 cm", deviationLabel(-0.14f))
-    assertEquals("R 99 cm", deviationLabel(0.99f))
-    assertEquals("L 1.2 m", deviationLabel(-1.23f))
+    assertEquals("R 14 cm", deviationLabel(English, 0.14f))
+    assertEquals("L 14 cm", deviationLabel(English, -0.14f))
+    assertEquals("R 99 cm", deviationLabel(English, 0.99f))
+    assertEquals("L 1.2 m", deviationLabel(English, -1.23f))
   }
 
   @Test
   fun readsMetresToOneDecimalOnEveryTarget() {
     // The metre label is built from integer tenths, because Double.toString() differs between the
     // JVM these tests run on and the browser the dashboard runs in — "1.0 m" vs "1 m".
-    assertEquals("R 1.0 m", deviationLabel(1f))
-    assertEquals("R 1.1 m", deviationLabel(1.14f))
-    assertEquals("L 2.0 m", deviationLabel(-1.96f))
+    assertEquals("R 1.0 m", deviationLabel(English, 1f))
+    assertEquals("R 1.1 m", deviationLabel(English, 1.14f))
+    assertEquals("L 2.0 m", deviationLabel(English, -1.96f))
     // A hair under a metre still rounds up into the metre label rather than reading "R 100 cm".
-    assertEquals("R 1.0 m", deviationLabel(0.999f))
+    assertEquals("R 1.0 m", deviationLabel(English, 0.999f))
   }
 
   @Test
   fun dropsTheSideAtDeadCentre() {
     // Otherwise the label flickers between L and R while the error hovers around zero.
-    assertEquals("0 cm", deviationLabel(0f))
-    assertEquals("0 cm", deviationLabel(0.004f))
-    assertEquals("0 cm", deviationLabel(-0.004f))
+    assertEquals("0 cm", deviationLabel(English, 0f))
+    assertEquals("0 cm", deviationLabel(English, 0.004f))
+    assertEquals("0 cm", deviationLabel(English, -0.004f))
+  }
+
+  @Test
+  fun readsOutInGerman() {
+    // The decimal comma, and the compass's Ost where English says East.
+    assertEquals("L 1,2 m", deviationLabel(German, -1.23f))
+    assertEquals("O", directionFromHeading(German, 90))
+    assertEquals("SO", directionFromHeading(German, 135))
+  }
+
+  @Test
+  fun cutsTheCompassIntoTheGamesFortyFiveDegreeSectors() {
+    assertEquals("N", directionFromHeading(English, 0))
+    assertEquals("N", directionFromHeading(English, 22))
+    assertEquals("NE", directionFromHeading(English, 23))
+    assertEquals("E", directionFromHeading(English, 90))
+    assertEquals("S", directionFromHeading(English, 180))
+    assertEquals("W", directionFromHeading(English, 270))
+    assertEquals("NW", directionFromHeading(English, 337))
+    assertEquals("N", directionFromHeading(English, 338))
   }
 }

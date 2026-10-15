@@ -53,6 +53,9 @@ import net.vertexdezign.vdt.app.components.FilterChip
 import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SearchField
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.CropRotationData
@@ -114,15 +117,17 @@ fun FieldsPanel(
   val groupId =
     tasks?.groups?.firstOrNull { it.type == TASK_GROUP_STANDARD }?.id ?: tasks?.groups?.firstOrNull()?.id
   var form by remember { mutableStateOf<TaskInput?>(null) }
+  val strings = LocalStrings.current
+  val s = strings.fields
 
-  Panel(title = "Fields", icon = Icons.Filled.Grass, modifier = modifier) {
+  Panel(title = strings.apps.fields, icon = Icons.Filled.Grass, modifier = modifier) {
     val rows = remember(map, info, status, missions, tasks, playerFarmId) {
       fieldRows(map, info, status, missions, tasks, playerFarmId)
     }
     when {
-      map == null -> Centered("Waiting for map data…")
+      map == null -> Centered(s.waitingMap)
 
-      rows.isEmpty() -> Centered("This map has no fields")
+      rows.isEmpty() -> Centered(s.noFields)
 
       else ->
         FieldsMasterDetail(
@@ -143,7 +148,7 @@ fun FieldsPanel(
       form = null
     } else {
       TaskFormDialog(
-        title = "New task",
+        title = s.newTask,
         initial = initial,
         onSave = {
           onCommand(ClientMessage.CreateTask(target, it))
@@ -169,6 +174,7 @@ private fun FieldsMasterDetail(
   onShowOnMap: (Float, Float) -> Unit,
   onCreate: (TaskInput) -> Unit,
 ) {
+  val strings = LocalStrings.current
   var query by remember { mutableStateOf("") }
   // Opens on your own fields, not on the map's. The list exists to answer "what does my land need",
   // and on a vanilla map ALL is 77 rows of which a handful are yours — the reader would filter every
@@ -184,8 +190,8 @@ private fun FieldsMasterDetail(
   // default: a farm that owns nothing yet is not offered the chip, and opens on ALL.
   val views = remember(rows) { fieldViews(rows) }
   val activeView = if (view in views) view else FieldView.ALL
-  val shown = remember(rows, query, activeView, sort, ascending) {
-    fieldSorted(fieldSearch(fieldView(rows, activeView), query), sort, ascending)
+  val shown = remember(rows, query, activeView, sort, ascending, strings) {
+    fieldSorted(strings, fieldSearch(fieldView(rows, activeView), query), sort, ascending)
   }
   val currentId = selectedId.takeIf { id -> shown.any { it.id == id } } ?: shown.firstOrNull()?.id
   val selected = shown.firstOrNull { it.id == currentId }
@@ -210,12 +216,12 @@ private fun FieldsMasterDetail(
     ListDetail(
       listWidth = 300.dp,
       detailOpen = detailOpen,
-      backLabel = "Fields",
+      backLabel = strings.apps.fields,
       onBack = { detailOpen = false },
       list = { listModifier ->
         Box(listModifier) {
           if (shown.isEmpty()) {
-            Centered("Nothing matches")
+            Centered(strings.common.nothingMatches)
           } else {
             // A played-in map is 80-odd fields, so this is lazy for the same reason the fleet list is.
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -233,7 +239,7 @@ private fun FieldsMasterDetail(
       if (selected != null) {
         FieldDetail(selected, status, rotation, calendar, canCreate, onShowOnMap, onCreate)
       } else {
-        Centered("Select a field")
+        Centered(strings.fields.selectPrompt)
       }
     }
   }
@@ -249,20 +255,22 @@ private fun FieldsMasterDetail(
  */
 @Composable
 private fun FieldsSummaryRow(summary: FieldTotals) {
+  val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.fields
   FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(16.dp),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
-    SummaryStat("${summary.ownedFields}", "own fields")
-    SummaryStat(formatHa(summary.ownedHa), "hectares")
-    SummaryStat(summary.readyHa?.let { formatHa(it) } ?: "—", "ready to harvest")
-    SummaryStat("${summary.needsWork}", "need work")
-    SummaryStat("${summary.forSale}", "for sale")
+    SummaryStat("${summary.ownedFields}", s.ownFields)
+    SummaryStat(numbers.formatHa(summary.ownedHa), s.hectares)
+    SummaryStat(summary.readyHa?.let { numbers.formatHa(it) } ?: "—", s.readyToHarvest)
+    SummaryStat("${summary.needsWork}", s.needWork)
+    SummaryStat("${summary.forSale}", s.forSale)
     if (summary.byCrop.isNotEmpty()) {
       // The crops, biggest first, as one quiet line — it answers "what am I growing" without a chart.
       Text(
-        summary.byCrop.joinToString(" · ") { (crop, ha) -> "$crop ${formatHa(ha)}" },
+        summary.byCrop.joinToString(" · ") { (crop, ha) -> "$crop ${numbers.formatHa(ha)}" },
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
         maxLines = 1,
@@ -295,6 +303,7 @@ private fun FieldsControls(
   onSort: (FieldSort) -> Unit,
   onDirection: () -> Unit,
 ) {
+  val strings = LocalStrings.current
   // Wraps rather than squeezing: on a phone the search and the sort take a line, and the chips the
   // next, where a Row would have left the chips a sliver between them.
   FlowRow(
@@ -303,13 +312,13 @@ private fun FieldsControls(
     verticalArrangement = Arrangement.spacedBy(6.dp),
     itemVerticalAlignment = Alignment.CenterVertically,
   ) {
-    SearchField(query, "Search fields", onQuery, Modifier.width(150.dp))
+    SearchField(query, strings.fields.search, onQuery, Modifier.width(150.dp))
     FlowRow(
       Modifier.weight(1f),
       horizontalArrangement = Arrangement.spacedBy(4.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-      views.forEach { entry -> FilterChip(entry.label, view == entry, { onView(entry) }) }
+      views.forEach { entry -> FilterChip(entry.label(strings), view == entry, { onView(entry) }) }
     }
     FieldSortControl(sort, ascending, onSort, onDirection)
   }
@@ -322,6 +331,7 @@ private fun FieldSortControl(
   onSort: (FieldSort) -> Unit,
   onDirection: () -> Unit,
 ) {
+  val strings = LocalStrings.current
   var open by remember { mutableStateOf(false) }
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
     Box {
@@ -333,7 +343,12 @@ private fun FieldSortControl(
           .padding(horizontal = 8.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        Text(sort.label.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+        Text(
+          sort.label(strings).uppercase(),
+          fontSize = 10.sp,
+          fontWeight = FontWeight.Bold,
+          color = VdtColors.DarkGray,
+        )
         Icon(
           Icons.Filled.ArrowDropDown,
           contentDescription = null,
@@ -344,7 +359,7 @@ private fun FieldSortControl(
       DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
         FieldSort.entries.forEach { entry ->
           DropdownMenuItem(
-            text = { Text(entry.label, fontSize = 12.sp) },
+            text = { Text(entry.label(strings), fontSize = 12.sp) },
             onClick = {
               onSort(entry)
               open = false
@@ -357,7 +372,7 @@ private fun FieldSortControl(
     // tofu (see VDTerminal/README.md -> "Design rules").
     Icon(
       if (ascending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
-      contentDescription = if (ascending) "Ascending" else "Descending",
+      contentDescription = if (ascending) strings.common.ascending else strings.common.descending,
       tint = VdtColors.DarkGray,
       modifier = Modifier
         .size(24.dp)
@@ -373,6 +388,8 @@ private fun FieldSortControl(
 
 @Composable
 private fun FieldRowTile(row: FieldRow, status: FieldStatuses?, selected: Boolean, onClick: () -> Unit) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
   val fg = if (selected) VdtColors.OnFill else VdtColors.TextDark
   val muted = if (selected) VdtColors.OnFill.copy(alpha = 0.85f) else VdtColors.DarkGray
   Column(
@@ -394,11 +411,11 @@ private fun FieldRowTile(row: FieldRow, status: FieldStatuses?, selected: Boolea
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f),
       )
-      Text(formatHa(row.mapField.areaHa), color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+      Text(numbers.formatHa(row.mapField.areaHa), color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
-    Text(rowLine(row), color = muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(rowLine(strings, row), color = muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     if (hasBreakdown(row)) StatusBar(row, Modifier.fillMaxWidth())
-    val badges = fieldBadges(row)
+    val badges = fieldBadges(strings, row)
     if (badges.isNotEmpty()) {
       FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         badges.forEach { badge -> FieldBadge(badge, selected) }
@@ -406,35 +423,36 @@ private fun FieldRowTile(row: FieldRow, status: FieldStatuses?, selected: Boolea
     }
     // Suppressed on the selected row: the detail beside it says the same thing with the numbers.
     if (!selected && status == null) {
-      Text("sampling…", color = muted, fontSize = 9.sp)
+      Text(strings.fields.sampling, color = muted, fontSize = 9.sp)
     }
   }
 }
 
 /** Crop and status in one line — what the field is growing and what state that is in. */
-private fun rowLine(row: FieldRow): String = buildList {
+private fun rowLine(strings: Strings, row: FieldRow): String = buildList {
   val crop = fieldCrop(row)
   if (crop.isNotEmpty()) add(crop)
-  val headline = fieldHeadline(row)
+  val headline = fieldHeadline(strings, row)
   if (headline.text.isNotEmpty()) add(headline.text)
-  row.mapField.price?.takeIf { row.mapField.ownerFarmId == null }?.let { add(formatMoney(it.toLong())) }
+  row.mapField.price?.takeIf { row.mapField.ownerFarmId == null }?.let { add(strings.numbers.formatMoney(it.toLong())) }
 }.joinToString(" · ")
 
 /**
  * The words a row wears. Words rather than colours, and short: what a badge says has to survive being
  * read by someone who cannot tell the amber one from the green one.
  */
-internal fun fieldBadges(row: FieldRow): List<String> = buildList {
+internal fun fieldBadges(strings: Strings, row: FieldRow): List<String> = buildList {
+  val s = strings.fields
   if (row.mapField.ownerFarmId == null) {
-    add("FOR SALE")
+    add(s.badgeForSale)
   } else if (!row.owned) {
-    add("OTHER FARM")
+    add(s.badgeOtherFarm)
   }
-  row.mission?.let { add(if (it.isActive) "CONTRACT" else "CONTRACT OFFER") }
-  fieldWork(row).forEach { add(it.label.uppercase()) }
+  row.mission?.let { add(if (it.isActive) s.badgeContract else s.badgeContractOffer) }
+  fieldWork(row).forEach { add(it.label(strings).uppercase()) }
   // The count, not the tasks: a row is scanned, and three task names would push everything else off
   // it. What it has to answer is "is this one already on the list".
-  if (row.tasks.isNotEmpty()) add(if (row.tasks.size == 1) "1 TASK" else "${row.tasks.size} TASKS")
+  if (row.tasks.isNotEmpty()) add(s.badgeTasks(row.tasks.size))
 }
 
 @Composable
@@ -492,15 +510,16 @@ private fun StatusBar(row: FieldRow, modifier: Modifier = Modifier) {
 /** The bar's legend — the half that carries the meaning. */
 @Composable
 private fun StatusLegend(row: FieldRow, status: FieldStatusData?) {
+  val numbers = LocalStrings.current.numbers
   val breakdown = row.growth ?: return
   FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
     breakdown.slices.forEach { slice ->
       val share = (breakdown.fraction(slice.cells) * 100).roundToInt()
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(kindColor(slice.kind)))
-        Text(kindLabel(slice.kind), color = VdtColors.TextDark, fontSize = 10.sp)
+        Text(kindLabel(LocalStrings.current, slice.kind), color = VdtColors.TextDark, fontSize = 10.sp)
         Text("$share%", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        status?.let { Text(formatHa(it.ha(slice.cells)), color = VdtColors.DarkGray, fontSize = 10.sp) }
+        status?.let { Text(numbers.formatHa(it.ha(slice.cells)), color = VdtColors.DarkGray, fontSize = 10.sp) }
       }
     }
   }
@@ -518,31 +537,34 @@ private fun FieldDetail(
   onShowOnMap: (Float, Float) -> Unit,
   onCreate: (TaskInput) -> Unit,
 ) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.fields
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
       Column(Modifier.weight(1f)) {
-        Text("Field ${row.label}", color = VdtColors.TextDark, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Text(ownershipLine(row), color = VdtColors.DarkGray, fontSize = 11.sp)
+        Text(s.field(row.label), color = VdtColors.TextDark, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(ownershipLine(strings, row), color = VdtColors.DarkGray, fontSize = 11.sp)
       }
       ActionIcon(
         Icons.Filled.Place,
-        "Show on map",
+        strings.common.showOnMap,
         VdtColors.DarkGray,
         { onShowOnMap(row.mapField.labelX, row.mapField.labelZ) },
       )
     }
 
-    DetailSection("Ground") {
-      val headline = fieldHeadline(row)
+    DetailSection(s.sectionGround) {
+      val headline = fieldHeadline(strings, row)
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(headline.text, color = VdtColors.TextDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         // Say which of the two answered. The raster is the whole field; the point sample is its
         // middle, and a reader deciding whether to drive out there deserves to know which they have.
         Text(
-          if (headline.fromRaster) "across the field" else "at the field centre",
+          if (headline.fromRaster) s.acrossField else s.atCentre,
           color = VdtColors.DarkGray,
           fontSize = 10.sp,
         )
@@ -556,11 +578,11 @@ private fun FieldDetail(
         // Ahead of the two below, because this field has a breakdown -- it is all one thing, and that
         // thing is nothing. Calling it too small would be the same mistake in a second place.
         isBareByRaster(row) ->
-          Text(bareGroundNote(row), color = VdtColors.DarkGray, fontSize = 10.sp)
+          Text(bareGroundNote(strings, row), color = VdtColors.DarkGray, fontSize = 10.sp)
 
         status == null ->
           Text(
-            "Sampling the ground — the first sweep takes a few seconds.",
+            s.samplingGround,
             color = VdtColors.DarkGray,
             fontSize = 10.sp,
           )
@@ -577,18 +599,14 @@ private fun FieldDetail(
         // keeps the flat sentence.
         headline.fromRaster ->
           Text(
-            if ((row.growth?.slices?.size ?: 0) > 1) {
-              "Too few cells to break down; the field is mixed and the state above is its largest part."
-            } else {
-              "Too few cells to break down; the state above is the whole field."
-            },
+            if ((row.growth?.slices?.size ?: 0) > 1) s.fewCellsMixed else s.fewCellsWhole,
             color = VdtColors.DarkGray,
             fontSize = 10.sp,
           )
 
         else ->
           Text(
-            "Too small to break down; showing the reading at the field centre.",
+            s.tooSmall,
             color = VdtColors.DarkGray,
             fontSize = 10.sp,
           )
@@ -600,17 +618,17 @@ private fun FieldDetail(
     val info = row.info
     if (info != null) {
       val mix = fieldCropMix(row)
-      DetailSection("Crop") {
-        DetailLine("Crop", fieldCrop(row).ifBlank { "none" })
+      DetailSection(s.sectionCrop) {
+        DetailLine(s.crop, fieldCrop(row).ifBlank { s.none })
         // Only when the field really carries more than one; a single-crop field would just be told its
         // own crop is 100 % of itself. The share is of the planted ground -- see fieldCropMix.
         if (mix.size > 1) {
-          DetailLine("Mix", mix.joinToString(", ") { (crop, share) -> "$crop ${(share * 100).roundToInt()} %" })
+          DetailLine(s.mix, mix.joinToString(", ") { (crop, share) -> "$crop ${(share * 100).roundToInt()} %" })
         }
         // Both of these are the centre reading and only make sense there: a growth state is a number
         // for one point, and averaging it across a half-cut field would invent a stage nothing is at.
-        if (info.maxGrowthState > 0) DetailLine("Growth", "${info.growthState} / ${info.maxGrowthState}")
-        info.yieldBonusPercent?.let { DetailLine("Yield bonus", "+ $it %") }
+        if (info.maxGrowthState > 0) DetailLine(s.growth, "${info.growthState} / ${info.maxGrowthState}")
+        info.yieldBonusPercent?.let { DetailLine(s.yieldBonus, "+ $it %") }
       }
     }
 
@@ -618,10 +636,10 @@ private fun FieldDetail(
     // read off the rasters, so a field the channel never named can still be asking for work -- and its
     // row in the list already says so in its badges, which is the worst place to disagree with. Only
     // the sow chip needs the point sample, and fieldWork withholds it by itself.
-    val suggestions = fieldSuggestions(row, rotation, calendar)
+    val suggestions = fieldSuggestions(strings, row, rotation, calendar)
     val work = fieldWork(row)
     if (work.isNotEmpty() || canCreate) {
-      DetailSection("Asking for") {
+      DetailSection(s.sectionAskingFor) {
         FlowRow(
           horizontalArrangement = Arrangement.spacedBy(4.dp),
           verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -631,12 +649,12 @@ private fun FieldDetail(
             when {
               // Already written down: the chip degrades to a plain label rather than offering the
               // same work twice, which is the fastest way to make a suggester worth ignoring.
-              suggestion == null -> FieldBadge("${type.label.uppercase()} · ON THE LIST", selected = false)
+              suggestion == null -> FieldBadge(s.onTheList(type.label(strings).uppercase()), selected = false)
 
               canCreate ->
                 SuggestionChip(suggestion) { onCreate(taskInputFor(suggestion, calendar?.today?.period)) }
 
-              else -> FieldBadge(type.label.uppercase(), selected = false)
+              else -> FieldBadge(type.label(strings).uppercase(), selected = false)
             }
           }
           if (canCreate) AddTaskChip(row.id, calendar?.today?.period, onCreate)
@@ -644,57 +662,70 @@ private fun FieldDetail(
         // Said where the sow chip is, rather than left for the reader to work out: outside seasonal
         // growth the calendar answers "yes" to every period, so there is no best month to date it.
         if (calendar?.isSeasonal == false && suggestions.any { it.type == FieldTaskType.SOW }) {
-          Text("No sowing window on this map — growth isn't seasonal.", color = VdtColors.DarkGray, fontSize = 10.sp)
+          Text(s.noSowingWindow, color = VdtColors.DarkGray, fontSize = 10.sp)
         }
       }
     }
 
     val cropRotation = info?.cropRotation
     if (cropRotation != null) {
-      DetailSection("Rotation") {
-        if (cropRotation.lastCrop.isNotBlank()) DetailLine("Last crop", cropRotation.lastCrop)
-        if (cropRotation.prevCrop.isNotBlank()) DetailLine("Before that", cropRotation.prevCrop)
-        cropRotation.yieldPercent?.let { DetailLine("Rotation yield", "$it %") }
-        cropRotation.catchCrop?.let { DetailLine("Catch crop", it) }
+      DetailSection(s.sectionRotation) {
+        if (cropRotation.lastCrop.isNotBlank()) DetailLine(s.lastCrop, cropRotation.lastCrop)
+        if (cropRotation.prevCrop.isNotBlank()) DetailLine(s.beforeThat, cropRotation.prevCrop)
+        cropRotation.yieldPercent?.let { DetailLine(s.rotationYield, "$it %") }
+        cropRotation.catchCrop?.let { DetailLine(s.catchCrop, it) }
       }
     }
 
     if (row.tasks.isNotEmpty()) {
-      DetailSection("Tasks") {
+      DetailSection(s.sectionTasks) {
         row.tasks.forEach { ref ->
-          DetailLine(fieldTaskLabel(ref), if (ref.task.active) "due now" else MONTH_LABELS[taskMonth(ref.task) - 1])
+          DetailLine(
+            fieldTaskLabel(strings, ref),
+            if (ref.task.active) {
+              s.dueNow
+            } else {
+              strings.common.monthsShort[taskMonth(ref.task) - 1]
+            },
+          )
         }
       }
     }
 
     val mission = row.mission
     if (mission != null) {
-      DetailSection("Contract") {
+      DetailSection(s.sectionContract) {
         DetailLine(
           mission.title.ifBlank {
             mission.type
           },
-          formatMoney((mission.totalReward ?: mission.reward).toLong()),
+          numbers.formatMoney((mission.totalReward ?: mission.reward).toLong()),
         )
-        mission.completion?.let { DetailLine("Progress", "${(it * 100).roundToInt()} %") }
-        if (mission.npc?.name?.isNotBlank() == true) DetailLine("For", mission.npc!!.name)
+        mission.completion?.let { DetailLine(s.progress, "${(it * 100).roundToInt()} %") }
+        if (mission.npc?.name?.isNotBlank() == true) DetailLine(s.forNpc, mission.npc!!.name)
       }
     }
   }
 }
 
 /** Owner, size and — where it is for sale — what it costs, per hectare as well as outright. */
-private fun ownershipLine(row: FieldRow): String = buildList {
-  add(formatHa(row.mapField.areaHa))
+private fun ownershipLine(strings: Strings, row: FieldRow): String = buildList {
+  val numbers = strings.numbers
+  add(numbers.formatHa(row.mapField.areaHa))
+  val owner = row.mapField.ownerFarmId
   when {
-    row.owned -> add("yours")
-    row.mapField.ownerFarmId == null -> add("for sale")
-    else -> add("farm ${row.mapField.ownerFarmId}")
+    row.owned -> add(strings.fields.yours)
+    owner == null -> add(strings.fields.forSale)
+    else -> add(strings.fields.farm(owner))
   }
   val price = row.mapField.price
   if (price != null && row.mapField.ownerFarmId == null) {
-    add(formatMoney(price.toLong()))
-    if (row.mapField.areaHa > 0f) add("${formatMoney((price / row.mapField.areaHa).toLong())}/ha")
+    add(numbers.formatMoney(price.toLong()))
+    if (row.mapField.areaHa >
+      0f
+    ) {
+      add(strings.fields.perHectare(numbers.formatMoney((price / row.mapField.areaHa).toLong())))
+    }
   }
 }.joinToString(" · ")
 
@@ -717,12 +748,12 @@ private fun DetailLine(label: String, value: String) {
 // ---- Formatting ----------------------------------------------------------------------------------
 
 /** Hectares, one decimal below ten and none above — a 43 ha field does not need a tenth. */
-internal fun formatHa(ha: Float): String = if (ha <
+internal fun Numbers.formatHa(ha: Float): String = if (ha <
   10f
 ) {
-  "${(ha * 10).roundToInt() / 10f} ha"
+  "${fixed(ha, 1)} ha"
 } else {
-  "${ha.roundToInt()} ha"
+  "${integer(ha.roundToInt())} ha"
 }
 
 // ---- Creating a task -----------------------------------------------------------------------------
@@ -754,7 +785,7 @@ internal fun taskInputFor(suggestion: FieldSuggestion, todayPeriod: Int?): TaskI
  */
 @Composable
 private fun SuggestionChip(suggestion: FieldSuggestion, onClick: () -> Unit) {
-  val month = suggestion.month?.let { " · ${MONTH_LABELS[it - 1]}" }.orEmpty()
+  val month = suggestion.month?.let { " · ${LocalStrings.current.common.monthsShort[it - 1]}" }.orEmpty()
   Row(
     Modifier
       .clip(RoundedCornerShape(3.dp))
@@ -784,6 +815,7 @@ private fun SuggestionChip(suggestion: FieldSuggestion, onClick: () -> Unit) {
  */
 @Composable
 private fun AddTaskChip(fieldId: Int, todayPeriod: Int?, onCreate: (TaskInput) -> Unit) {
+  val strings = LocalStrings.current
   var open by remember { mutableStateOf(false) }
   Box {
     Row(
@@ -796,16 +828,16 @@ private fun AddTaskChip(fieldId: Int, todayPeriod: Int?, onCreate: (TaskInput) -
       horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
       Icon(Icons.Filled.Add, contentDescription = null, tint = VdtColors.DarkGray, modifier = Modifier.size(10.dp))
-      Text("ADD TASK", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+      Text(strings.fields.addTask, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
     }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
       FieldTaskType.entries.filter { it != FieldTaskType.OTHER }.forEach { type ->
         DropdownMenuItem(
-          text = { Text(type.label, fontSize = 12.sp) },
+          text = { Text(type.label(strings), fontSize = 12.sp) },
           onClick = {
             open = false
             val month = todayPeriod?.let { monthFromNow(it, 0) }
-            val detail = composeTaskDetail(fieldId, type)
+            val detail = composeTaskDetail(strings, fieldId, type)
             onCreate(if (month == null) TaskInput(detail = detail) else TaskInput(detail = detail, month = month))
           },
         )
@@ -835,17 +867,19 @@ fun FieldsSummary(
   playerFarmId: Int?,
   modifier: Modifier = Modifier,
 ) {
-  Panel(title = "Fields", icon = Icons.Filled.Grass, modifier = modifier) {
+  val strings = LocalStrings.current
+  val s = strings.fields
+  Panel(title = strings.apps.fields, icon = Icons.Filled.Grass, modifier = modifier) {
     val rows = remember(map, info, status, tasks, playerFarmId) {
       fieldRows(map, info, status, null, tasks, playerFarmId).filter { it.owned }
     }
     val needing = remember(rows) { rows.filter { fieldWork(it).isNotEmpty() } }
     when {
-      map == null -> Centered("Waiting for map data…")
+      map == null -> Centered(s.waitingMap)
 
-      rows.isEmpty() -> Centered("No fields owned")
+      rows.isEmpty() -> Centered(s.noneOwned)
 
-      needing.isEmpty() -> Centered("${rows.size} fields, nothing outstanding")
+      needing.isEmpty() -> Centered(s.nothingOutstanding(rows.size))
 
       else ->
         Column(
@@ -853,7 +887,7 @@ fun FieldsSummary(
           verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
           Text(
-            if (needing.size == 1) "1 FIELD NEEDS WORK" else "${needing.size} FIELDS NEED WORK",
+            s.needWorkCaps(needing.size),
             color = VdtColors.Green,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
@@ -870,7 +904,7 @@ fun FieldsSummary(
                 modifier = Modifier.weight(1f, fill = false),
               )
               Text(
-                fieldWork(row).joinToString(" · ") { it.label },
+                fieldWork(row).joinToString(" · ") { it.label(strings) },
                 color = VdtColors.DarkGray,
                 fontSize = 11.sp,
                 maxLines = 1,
@@ -879,7 +913,7 @@ fun FieldsSummary(
             }
           }
           if (needing.size > SUMMARY_FIELDS) {
-            Text("+ ${needing.size - SUMMARY_FIELDS} more", color = VdtColors.DarkGray, fontSize = 10.sp)
+            Text(s.more(needing.size - SUMMARY_FIELDS), color = VdtColors.DarkGray, fontSize = 10.sp)
           }
         }
     }
@@ -913,28 +947,30 @@ private fun ConditionSection(row: FieldRow) {
   val sampledWeed = info?.weed.orEmpty()
   // Nothing measured and nothing sampled: the field has no condition worth a heading.
   if (plow == null && weeds == null && info?.needsPlowing != true && sampledWeed.isEmpty()) return
+  val strings = LocalStrings.current
+  val s = strings.fields
 
-  DetailSection("Condition") {
+  DetailSection(s.sectionCondition) {
     when {
-      plow != null -> DetailLine("Needs plowing", shareLine(plow))
+      plow != null -> DetailLine(s.needsPlowing, shareLine(strings, plow))
 
       // The point sample is the fallback, and it is labelled as one: it is a single ~4 m cell at the
       // field-number anchor, and on a multiplayer client it can be a stale one.
-      info?.needsPlowing == true -> DetailLine("Needs plowing", "at the field centre")
+      info?.needsPlowing == true -> DetailLine(s.needsPlowing, s.atCentre)
 
       else -> Unit
     }
     when {
-      weeds != null -> DetailLine("Weeds", shareLine(weeds))
-      sampledWeed.isNotEmpty() -> DetailLine("Weeds", "$sampledWeed at the field centre")
+      weeds != null -> DetailLine(s.weeds, shareLine(strings, weeds))
+      sampledWeed.isNotEmpty() -> DetailLine(s.weeds, s.weedsAtCentre(sampledWeed))
       else -> Unit
     }
     // No point-sample fallback: `fieldInfo` carries no mulch reading, so this row is the raster's or
     // it is absent. Nothing to add — a field with no soil breakdown has already said so above.
-    if (mulch != null) DetailLine("Mulched", shareLine(mulch))
+    if (mulch != null) DetailLine(s.mulched, shareLine(strings, mulch))
     if (plow == null && weeds == null) {
       Text(
-        "Sampling the soil — the first sweep takes a few seconds.",
+        s.samplingSoil,
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
       )
@@ -949,11 +985,11 @@ private fun ConditionSection(row: FieldRow) {
  * print a lower bound the measurement does not support. For the same reason "the whole field" waits
  * for a real 100 % — every cell classified — rather than settling for a rounded one.
  */
-private fun shareLine(share: Float): String {
+private fun shareLine(strings: Strings, share: Float): String {
   val percent = (share * 100).toInt()
   return when {
-    percent <= 0 -> "none"
-    percent >= 100 -> "the whole field"
-    else -> "at least $percent %"
+    percent <= 0 -> strings.fields.shareNone
+    percent >= 100 -> strings.fields.shareWhole
+    else -> strings.fields.shareAtLeast(percent)
   }
 }

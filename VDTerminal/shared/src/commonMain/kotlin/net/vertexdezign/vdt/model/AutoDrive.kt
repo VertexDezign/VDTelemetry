@@ -55,15 +55,15 @@ data class AutoDriveFillType(
 
 /** AutoDrive's modes, as its mode button cycles them. */
 @Serializable
-enum class AutoDriveMode(val label: String) {
-  DRIVE_TO("Drive to"),
-  PICKUP_AND_DELIVER("Pick up & deliver"),
-  DELIVER_TO("Deliver to"),
-  LOAD("Load"),
-  UNLOAD("Unload combine"),
+enum class AutoDriveMode {
+  DRIVE_TO,
+  PICKUP_AND_DELIVER,
+  DELIVER_TO,
+  LOAD,
+  UNLOAD,
 
   /** A mode this app doesn't know (a later AutoDrive). Never offered, only reported. */
-  OTHER("Other"),
+  OTHER,
   ;
 
   /** Whether [AutoDrive.unloadTarget] means anything in this mode — the modes AutoDrive shows its second list in. */

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.app.theme.VdtPalette
 import net.vertexdezign.vdt.model.FinanceData
@@ -51,33 +54,7 @@ import net.vertexdezign.vdt.model.MoneyEvent
  * Deliberately no currency symbol: the game's own unit is a per-install setting the mod does not
  * export, so printing one would be a guess. The panel labels its columns instead.
  */
-fun formatMoney(value: Long, withSign: Boolean = false): String {
-  // The magnitude comes off the string, not off abs(): abs(Long.MIN_VALUE) is still negative, and
-  // grouping a "-" as a digit would print a doubled sign and a ragged first group.
-  val sign = when {
-    value < 0 -> "-"
-    withSign && value > 0 -> "+"
-    else -> ""
-  }
-  return sign + groupDigits(value.toString().removePrefix("-"))
-}
-
-/**
- * Thousands-group an unsigned digit string, from the right. Split out from [formatMoney] because the
- * amount field groups what the user is typing, which is a string and not yet a number.
- */
-internal fun groupDigits(digits: String): String {
-  val grouped = StringBuilder()
-  val firstGroup = digits.length % 3
-  if (firstGroup > 0) grouped.append(digits, 0, firstGroup)
-  var i = firstGroup
-  while (i < digits.length) {
-    if (grouped.isNotEmpty()) grouped.append(',')
-    grouped.append(digits, i, i + 3)
-    i += 3
-  }
-  return grouped.toString()
-}
+fun Numbers.formatMoney(value: Long, withSign: Boolean = false): String = integer(value, withSign)
 
 /**
  * Ink for a signed amount. A plain zero stays muted rather than green — most of the table is zeroes
@@ -106,6 +83,8 @@ fun FinanceFigure(label: String, value: String, color: Color, modifier: Modifier
  */
 @Composable
 fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
+  val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.finance
   Row(
     modifier
       .fillMaxWidth()
@@ -117,8 +96,8 @@ fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
   ) {
     val balance = data.balance ?: 0
     FinanceFigure(
-      label = "Balance",
-      value = formatMoney(balance),
+      label = s.balance,
+      value = numbers.formatMoney(balance),
       // The game's threshold, not zero: InGameMenuStatisticsFrame goes red at <= -1.
       color = if (balance <= -1) VdtColors.Red else VdtColors.TextDark,
     )
@@ -129,24 +108,24 @@ fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
       els != null -> {
         val owed = els.totalOutstanding
         FinanceFigure(
-          label = "Loans",
-          value = formatMoney(owed),
+          label = s.loans,
+          value = numbers.formatMoney(owed),
           color = if (owed > 0) VdtColors.Amber else VdtColors.DarkGray,
         )
         if (owed > 0) {
-          FinanceFigure(label = "Per month", value = formatMoney(-els.totalMonthlyRate), color = VdtColors.Red)
+          FinanceFigure(label = s.perMonth, value = numbers.formatMoney(-els.totalMonthlyRate), color = VdtColors.Red)
         }
       }
 
       data.loansAvailable -> {
         FinanceFigure(
-          label = "Loan",
-          value = formatMoney(data.loan ?: 0),
+          label = s.loan,
+          value = numbers.formatMoney(data.loan ?: 0),
           color = if ((data.loan ?: 0) > 0) VdtColors.Amber else VdtColors.DarkGray,
         )
         val interest = data.loanInterestPerDay ?: 0
         if (interest > 0) {
-          FinanceFigure(label = "Interest / day", value = formatMoney(-interest), color = VdtColors.Red)
+          FinanceFigure(label = s.interestPerDay, value = numbers.formatMoney(-interest), color = VdtColors.Red)
         }
       }
     }
@@ -161,11 +140,12 @@ fun FinanceHeadline(data: FinanceData, modifier: Modifier = Modifier) {
  */
 @Composable
 fun MoneyLog(events: List<MoneyEvent>, modifier: Modifier = Modifier) {
+  val s = LocalStrings.current.finance
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    Text("ACTIVITY", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    Text(s.activity, color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     if (events.isEmpty()) {
       Text(
-        "No transactions yet this session",
+        s.noTransactions,
         color = VdtColors.DarkGray,
         fontSize = 11.sp,
       )
@@ -182,6 +162,7 @@ fun MoneyLog(events: List<MoneyEvent>, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MoneyLogRow(event: MoneyEvent) {
+  val numbers = LocalStrings.current.numbers
   Row(
     Modifier
       .fillMaxWidth()
@@ -194,7 +175,7 @@ private fun MoneyLogRow(event: MoneyEvent) {
     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       Text(
         // An unlabelled change is a real case — the game allows an empty notification label.
-        event.title ?: "Transaction",
+        event.title ?: LocalStrings.current.finance.transaction,
         color = VdtColors.TextDark,
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
@@ -207,7 +188,7 @@ private fun MoneyLogRow(event: MoneyEvent) {
       }
     }
     Text(
-      formatMoney(event.amount, withSign = true),
+      numbers.formatMoney(event.amount, withSign = true),
       color = moneyColor(event.amount, VdtColors.palette),
       fontSize = 12.sp,
       fontWeight = FontWeight.Bold,
@@ -226,24 +207,27 @@ private fun MoneyLogRow(event: MoneyEvent) {
  */
 @Composable
 fun FinanceSummary(data: FinanceData?, modifier: Modifier = Modifier) {
-  Panel(title = "Finance", icon = Icons.Filled.AccountBalance, modifier = modifier) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val s = strings.finance
+  Panel(title = strings.apps.finance, icon = Icons.Filled.AccountBalance, modifier = modifier) {
     when {
-      data == null -> Centered("Waiting for finance data…")
+      data == null -> Centered(s.waiting)
 
-      !data.hasFarm -> Centered("No farm")
+      !data.hasFarm -> Centered(s.noFarm)
 
       else -> {
         val balance = data.balance ?: 0
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
           FinanceFigure(
-            label = "Balance",
-            value = formatMoney(balance),
+            label = s.balance,
+            value = numbers.formatMoney(balance),
             color = if (balance <= -1) VdtColors.Red else VdtColors.TextDark,
           )
           data.periods.firstOrNull()?.let { current ->
             FinanceFigure(
               label = current.label,
-              value = formatMoney(current.total, withSign = true),
+              value = numbers.formatMoney(current.total, withSign = true),
               color = moneyColor(current.total, VdtColors.palette),
             )
           }
@@ -251,7 +235,7 @@ fun FinanceSummary(data: FinanceData?, modifier: Modifier = Modifier) {
           val owed = data.enhancedLoans?.totalOutstanding ?: (data.loan ?: 0).takeIf { data.loansAvailable } ?: 0
           if (owed > 0) {
             Text(
-              "Loan ${formatMoney(owed)}",
+              s.loanAmount(numbers.formatMoney(owed)),
               color = VdtColors.Amber,
               fontSize = 11.sp,
               fontWeight = FontWeight.SemiBold,
@@ -310,6 +294,7 @@ internal fun AmountField(
   modifier: Modifier = Modifier,
   enabled: Boolean = true,
 ) {
+  val numbers = LocalStrings.current.numbers
   BasicTextField(
     value = text,
     onValueChange = { new ->
@@ -328,7 +313,7 @@ internal fun AmountField(
       textAlign = TextAlign.End,
     ),
     cursorBrush = SolidColor(VdtColors.TextDark),
-    visualTransformation = ThousandsGrouping,
+    visualTransformation = remember(numbers) { ThousandsGrouping(numbers) },
     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
     modifier = modifier
       .width(110.dp)
@@ -340,15 +325,15 @@ internal fun AmountField(
 }
 
 /**
- * Groups the digits of an amount field for display only — `250000` reads as `250,000` while what the
+ * Groups the digits of an amount field for display only — `250000` reads as `250,000` (or `250.000`) while what the
  * field stores stays parseable. The offset mapping is the part that matters: Compose places the cursor
  * and the selection through it, and an index that disagrees with the rendered string by even one
  * throws rather than merely looking wrong.
  */
-internal object ThousandsGrouping : VisualTransformation {
+internal class ThousandsGrouping(private val numbers: Numbers) : VisualTransformation {
   override fun filter(text: AnnotatedString): TransformedText {
     val digits = text.text
-    val grouped = groupDigits(digits)
+    val grouped = numbers.group(digits)
     val mapping = object : OffsetMapping {
       /** Commas sit *between* groups, so the count before a digit is the total minus those after it. */
       override fun originalToTransformed(offset: Int): Int {
@@ -361,7 +346,7 @@ internal object ThousandsGrouping : VisualTransformation {
       /** Counting the commas passed is exact by construction, which a second formula would not be. */
       override fun transformedToOriginal(offset: Int): Int {
         val at = offset.coerceIn(0, grouped.length)
-        return at - grouped.take(at).count { it == ',' }
+        return at - grouped.take(at).count { it == numbers.groupMark }
       }
     }
     return TransformedText(AnnotatedString(grouped), mapping)

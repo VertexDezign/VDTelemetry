@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.panels.FinancePanel
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.widgets.FinanceWidget
@@ -23,7 +24,7 @@ import net.vertexdezign.vdt.app.widgets.Widget
  */
 object FinanceApp : VdtApp {
   override val id = "finance"
-  override val title = "Finance"
+  override fun title(strings: Strings) = strings.apps.finance
   override val icon: ImageVector = Icons.Filled.AccountBalance
   override val widgets: List<Widget> = listOf(FinanceWidget, InvoicesWidget)
 

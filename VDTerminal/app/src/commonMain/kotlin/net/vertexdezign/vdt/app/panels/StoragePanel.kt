@@ -42,6 +42,8 @@ import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.ListDetail
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ProgressBar
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.ProductionFill
 import net.vertexdezign.vdt.model.StandaloneStorage
@@ -66,10 +68,11 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun StoragePanel(data: StorageData?, modifier: Modifier = Modifier, onCommand: (ClientMessage) -> Unit = {}) {
-  Panel(title = "Storage", icon = Icons.Filled.Warehouse, modifier = modifier) {
+  val strings = LocalStrings.current
+  Panel(title = strings.apps.storage, icon = Icons.Filled.Warehouse, modifier = modifier) {
     when {
-      data == null -> Centered("Waiting for storage data…")
-      data.storages.isEmpty() -> Centered("No owned storages")
+      data == null -> Centered(strings.storage.waiting)
+      data.storages.isEmpty() -> Centered(strings.storage.empty)
       else -> StorageMasterDetail(data, onCommand)
     }
   }
@@ -77,6 +80,7 @@ fun StoragePanel(data: StorageData?, modifier: Modifier = Modifier, onCommand: (
 
 @Composable
 private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) -> Unit) {
+  val strings = LocalStrings.current
   // Selection is by id so it survives the ~2 s refreshes; falls back to the first entry when the
   // selected placeable disappears (sold / demolished) or on first render.
   var selectedId by remember { mutableStateOf<String?>(null) }
@@ -94,7 +98,7 @@ private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) ->
   ListDetail(
     listWidth = 240.dp,
     detailOpen = detailOpen,
-    backLabel = "Storage",
+    backLabel = strings.storage.listTitle,
     onBack = { detailOpen = false },
     list = { listModifier ->
       Column(
@@ -104,7 +108,7 @@ private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) ->
         loose.forEach { storage ->
           OwnedRow(
             name = storage.name,
-            subtitle = storageSubtitle(storage),
+            subtitle = storageSubtitle(strings, storage),
             selected = storage.id == currentId,
             onClick = {
               selectedId = storage.id
@@ -119,7 +123,7 @@ private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) ->
           members.forEach { storage ->
             OwnedRow(
               name = storage.name,
-              subtitle = storageSubtitle(storage),
+              subtitle = storageSubtitle(strings, storage),
               selected = storage.id == currentId,
               onClick = {
                 selectedId = storage.id
@@ -132,7 +136,7 @@ private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) ->
     },
   ) {
     val storage = data.storages.firstOrNull { it.id == currentId }
-    if (storage != null) StandaloneStorageDetail(storage, onCommand) else Centered("Select an entry")
+    if (storage != null) StandaloneStorageDetail(storage, onCommand) else Centered(strings.common.selectEntry)
   }
 }
 
@@ -140,6 +144,7 @@ private fun StorageMasterDetail(data: StorageData, onCommand: (ClientMessage) ->
 
 @Composable
 private fun StandaloneStorageDetail(storage: StandaloneStorage, onCommand: (ClientMessage) -> Unit) {
+  val s = LocalStrings.current.storage
   val isObject = storage.kind == "object"
   Column(
     Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -158,7 +163,7 @@ private fun StandaloneStorageDetail(storage: StandaloneStorage, onCommand: (Clie
       ObjectStorageBody(storage, onCommand)
     } else {
       if (storage.fills.isEmpty()) {
-        Text("This storage is empty", color = VdtColors.DarkGray, fontSize = 11.sp)
+        Text(s.storageEmpty, color = VdtColors.DarkGray, fontSize = 11.sp)
       }
       storage.fills.forEach { fill -> FillRow(fill) }
     }
@@ -172,15 +177,17 @@ private fun StandaloneStorageDetail(storage: StandaloneStorage, onCommand: (Clie
  */
 @Composable
 private fun ObjectStorageBody(storage: StandaloneStorage, onCommand: (ClientMessage) -> Unit) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
   var pending by remember { mutableStateOf<StoredObject?>(null) }
   val fraction = if (storage.capacity > 0) storage.count.toFloat() / storage.capacity.toFloat() else 0f
   ProgressBar(
     fraction = fraction,
-    leftLabel = "Objects",
-    rightLabel = "${formatInt(storage.count)} / ${formatInt(storage.capacity)}",
+    leftLabel = strings.storage.objects,
+    rightLabel = "${numbers.integer(storage.count)} / ${numbers.integer(storage.capacity)}",
   )
   if (storage.count == 0) {
-    Text("This storage is empty", color = VdtColors.DarkGray, fontSize = 11.sp)
+    Text(strings.storage.storageEmpty, color = VdtColors.DarkGray, fontSize = 11.sp)
   }
   storage.objects.forEach { obj ->
     Row(
@@ -200,14 +207,17 @@ private fun ObjectStorageBody(storage: StandaloneStorage, onCommand: (ClientMess
         modifier = Modifier.weight(1f),
       )
       Text(
-        "×${formatInt(obj.count)}",
+        "×${numbers.integer(obj.count)}",
         color = VdtColors.DarkGray,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.End,
         modifier = Modifier.widthIn(min = 44.dp),
       )
-      ActionIcon(Icons.Filled.Download, "unload ${obj.title}", VdtColors.Green, onClick = { pending = obj })
+      ActionIcon(Icons.Filled.Download, strings.storage.unloadDescription(obj.title), VdtColors.Green, onClick = {
+        pending =
+          obj
+      })
     }
   }
 
@@ -229,14 +239,20 @@ private fun ObjectStorageBody(storage: StandaloneStorage, onCommand: (ClientMess
 /** Amount picker for unloading one object group — a slider and a synced numeric field, capped at [max]. */
 @Composable
 private fun UnloadDialog(obj: StoredObject, max: Int, onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
+  val strings = LocalStrings.current
   val cap = max.coerceAtLeast(1)
   var amount by remember(obj, cap) { mutableStateOf(cap) }
   AlertDialog(
     onDismissRequest = onDismiss,
-    title = { Text("Unload ${obj.title}") },
+    title = { Text(strings.storage.unloadTitle(obj.title)) },
     text = {
       Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("$amount of $cap", color = VdtColors.DarkGray, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(
+          strings.storage.amountOf(amount, cap),
+          color = VdtColors.DarkGray,
+          fontSize = 13.sp,
+          fontWeight = FontWeight.Bold,
+        )
         if (cap > 1) {
           Slider(
             value = amount.toFloat(),
@@ -247,28 +263,30 @@ private fun UnloadDialog(obj: StoredObject, max: Int, onConfirm: (Int) -> Unit, 
         OutlinedTextField(
           value = amount.toString(),
           onValueChange = { s -> s.toIntOrNull()?.let { amount = it.coerceIn(1, cap) } },
-          label = { Text("Amount") },
+          label = { Text(strings.storage.amount) },
           singleLine = true,
           modifier = Modifier.fillMaxWidth(),
         )
       }
     },
-    confirmButton = { TextButton(onClick = { onConfirm(amount) }) { Text("Unload") } },
-    dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    confirmButton = { TextButton(onClick = { onConfirm(amount) }) { Text(strings.storage.unload) } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(strings.common.cancel) } },
   )
 }
 
 @Composable
 private fun FillRow(fill: ProductionFill) {
+  val numbers = LocalStrings.current.numbers
   val fraction = if (fill.capacity > 0) fill.level.toFloat() / fill.capacity.toFloat() else 0f
   ProgressBar(
     fraction = fraction,
     leftLabel = fill.title,
-    rightLabel = "${formatInt(fill.level)} / ${formatInt(fill.capacity)} L",
+    rightLabel = LocalStrings.current.common.litres(numbers.integer(fill.level), numbers.integer(fill.capacity)),
   )
 }
 
-private fun typeCountLabel(n: Int): String = if (n == 1) "1 fill type" else "$n fill types"
-
-private fun storageSubtitle(storage: StandaloneStorage): String =
-  if (storage.kind == "object") "${storage.count} / ${storage.capacity}" else typeCountLabel(storage.fills.size)
+private fun storageSubtitle(strings: Strings, storage: StandaloneStorage): String = if (storage.kind == "object") {
+  "${strings.numbers.integer(storage.count)} / ${strings.numbers.integer(storage.capacity)}"
+} else {
+  strings.storage.fillTypes(storage.fills.size)
+}

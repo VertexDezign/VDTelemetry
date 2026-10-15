@@ -50,7 +50,8 @@ import net.vertexdezign.vdt.app.components.FillUnitsDisplay
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.SimpleGauge
 import net.vertexdezign.vdt.app.components.ToolButton
-import net.vertexdezign.vdt.app.components.format2
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CruiseControl
 import net.vertexdezign.vdt.model.Motor
@@ -66,9 +67,11 @@ fun EngineTransmission(
   modifier: Modifier = Modifier,
   onCommand: (ClientMessage) -> Unit = {},
 ) {
+  val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.vehicle
   val motor = vehicle.motor
   Panel(
-    title = "Engine and Transmission",
+    title = s.engineTitle,
     icon = Icons.Filled.Agriculture,
     modifier = modifier,
     headerActions = {
@@ -89,7 +92,7 @@ fun EngineTransmission(
         val running = motor.state.isRunning
         ToolButton(
           if (motor.state == MotorState.OFF) Icons.Filled.KeyOff else Icons.Filled.Key,
-          "engine running",
+          s.engineRunning,
           active = running,
           onClick = { onCommand(ClientMessage.SetMotorState(on = !running)) },
         )
@@ -103,7 +106,7 @@ fun EngineTransmission(
       vehicle.speedSync?.let { sync ->
         ToolButton(
           ClusterIcons.SpeedSync,
-          "speed sync",
+          s.speedSync,
           active = sync.active,
           enabled = sync.available,
           onClick = { onCommand(ClientMessage.SetSpeedSync(active = !sync.active)) },
@@ -112,7 +115,7 @@ fun EngineTransmission(
     },
   ) {
     if (motor == null) {
-      Text("No engine data", color = VdtColors.DarkGray)
+      Text(s.noEngine, color = VdtColors.DarkGray)
       return@Panel
     }
     val cruise = vehicle.cruiseControl
@@ -137,7 +140,7 @@ fun EngineTransmission(
           horizontalAlignment = Alignment.CenterHorizontally,
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          Metric("${animRpm.roundToInt()}", "RPM")
+          Metric("${animRpm.roundToInt()}", s.rpm)
           // Engine load, which the mod has exported all along and nothing has ever drawn. Advanced
           // Damage System's figure where there is one: it is what the mod shows in the cab, and the
           // one it charges engine wear against — and it reads past 100% under draft, which is the
@@ -146,13 +149,13 @@ fun EngineTransmission(
           if (load != null) {
             Metric(
               "${load.value.roundToInt()}${load.unit}",
-              "LOAD",
+              s.load,
               if (load.overloaded) VdtColors.Amber else VdtColors.DarkGray,
             )
           } else {
-            motor.load?.let { Metric("${it.value.roundToInt()}${it.unit}", "LOAD") }
+            motor.load?.let { Metric("${it.value.roundToInt()}${it.unit}", s.load) }
           }
-          Metric(usage(motor.fuel()?.usage, motor.fuel()?.unit), "FUEL/HR")
+          Metric(numbers.usage(motor.fuel()?.usage, motor.fuel()?.unit), s.fuelPerHour)
         }
         // Center: speed gauge (tap toggles cruise) + cruise speed adjuster
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -166,7 +169,7 @@ fun EngineTransmission(
             // The working-speed limit the rig's tools set, as a mark on the scale — the speed the
             // needle will stop at however far the cruise is turned up. Absent while nothing works.
             marker = vehicle.speed?.limit,
-            markerDescription = vehicle.speed?.limit?.let { "working speed limit ${format2(it)}" },
+            markerDescription = vehicle.speed?.limit?.let { s.speedLimit(numbers.fixed(it, 2)) },
             onClick =
             cruise?.let {
               {
@@ -188,12 +191,12 @@ fun EngineTransmission(
           horizontalAlignment = Alignment.CenterHorizontally,
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          Metric("${motor.temperatur?.value ?: 0}${motor.temperatur?.unit ?: ""}", "WATER")
+          Metric("${motor.temperatur?.value ?: 0}${motor.temperatur?.unit ?: ""}", s.water)
           // A CVT's oil, which Advanced Damage System models separately and which on slow heavy work
           // cooks before the coolant does. Only shown on a machine that has one — nothing else here
           // is a reading that only some machines can take.
-          vehicle.ads?.transmissionTemperatur?.let { Metric("${it.value}${it.unit}", "TRANS") }
-          Metric(usage(motor.def()?.usage, null), "DEF/HR")
+          vehicle.ads?.transmissionTemperatur?.let { Metric("${it.value}${it.unit}", s.trans) }
+          Metric(numbers.usage(motor.def()?.usage, null), s.defPerHour)
         }
       }
 
@@ -217,7 +220,7 @@ fun EngineTransmission(
       // An unnamed mode still gets the row, showing where it sits in the list — the machine has modes
       // either way, and dropping the row entirely would say it hasn't.
       vehicle.steering?.mode?.takeIf { it.count > 1 }?.let { mode ->
-        Metric(mode.name.ifBlank { "${mode.index} / ${mode.count}" }, "STEERING")
+        Metric(mode.name.ifBlank { "${mode.index} / ${mode.count}" }, s.steering)
       }
     }
   }
@@ -230,6 +233,7 @@ fun EngineTransmission(
  */
 @Composable
 private fun CruiseAdjuster(cruise: CruiseControl, onCommand: (ClientMessage) -> Unit) {
+  val numbers = LocalStrings.current.numbers
   var editing by remember { mutableStateOf(false) }
   val current = cruise.targetSpeed ?: 0f
   val valueColor = if (cruise.active == true) VdtColors.Green else VdtColors.DarkGray
@@ -253,7 +257,7 @@ private fun CruiseAdjuster(cruise: CruiseControl, onCommand: (ClientMessage) -> 
         )
       } else {
         Text(
-          format2(cruise.targetSpeed ?: 0f),
+          numbers.fixed(cruise.targetSpeed ?: 0f, 2),
           fontSize = 18.sp,
           fontWeight = FontWeight.Bold,
           color = valueColor,
@@ -262,14 +266,15 @@ private fun CruiseAdjuster(cruise: CruiseControl, onCommand: (ClientMessage) -> 
       }
       AdjustButton(Icons.Filled.Add) { setSpeed(current + 1f) }
     }
-    Text("CRUISE", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+    Text(LocalStrings.current.vehicle.cruise, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
   }
 }
 
 /** Small round ± icon button for the cruise adjuster. */
 @Composable
 private fun AdjustButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-  ToolButton(icon, if (icon == Icons.Filled.Add) "cruise faster" else "cruise slower", onClick = onClick)
+  val s = LocalStrings.current.vehicle
+  ToolButton(icon, if (icon == Icons.Filled.Add) s.cruiseFaster else s.cruiseSlower, onClick = onClick)
 }
 
 /**
@@ -283,34 +288,19 @@ private fun CruiseInput(
   onCommit: (Float) -> Unit,
   onCancel: () -> Unit,
 ) {
+  val numbers = LocalStrings.current.numbers
   // Prefill without a trailing ".0" so a whole speed reads as "15", not "15.0".
-  val initialText = if (initial == initial.toLong().toFloat()) initial.toLong().toString() else initial.toString()
-  var text by remember { mutableStateOf(initialText) }
+  var text by remember { mutableStateOf(numbers.trimmed(initial, 1)) }
   var hadFocus by remember { mutableStateOf(false) }
   val focusRequester = remember { FocusRequester() }
 
   // A long digit string parses to Infinity rather than null, so screen for finiteness before
   // committing — an out-of-range entry cancels the edit instead of building an invalid command.
-  fun commit() = text.toFloatOrNull()?.takeIf { it.isFinite() }?.let(onCommit) ?: onCancel()
+  fun commit() = numbers.parse(text)?.toFloat()?.takeIf { it.isFinite() }?.let(onCommit) ?: onCancel()
 
   BasicTextField(
     value = text,
-    onValueChange = { new ->
-      // digits plus a single decimal point
-      val filtered = new.filter { it.isDigit() || it == '.' }
-      val dot = filtered.indexOf('.')
-      text =
-        (
-          if (dot <
-            0
-          ) {
-            filtered
-          } else {
-            filtered.substring(0, dot + 1) + filtered.substring(dot + 1).filter { it.isDigit() }
-          }
-          )
-          .take(5)
-    },
+    onValueChange = { new -> text = numbers.decimalInput(new).take(5) },
     singleLine = true,
     textStyle =
     TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = color, textAlign = TextAlign.Center),
@@ -336,7 +326,13 @@ private fun Motor.fuel() = fillUnits?.fuel
 
 private fun Motor.def() = fillUnits?.def
 
-private fun usage(value: Float?, unit: String?): String = if (value == null) "--" else "$value${unit ?: ""}"
+private fun Numbers.usage(value: Float?, unit: String?): String = if (value ==
+  null
+) {
+  "--"
+} else {
+  "${trimmed(value, 2)}${unit ?: ""}"
+}
 
 /** [colour] is the value's only; the caption stays neutral, so the eye lands on the figure. */
 @Composable

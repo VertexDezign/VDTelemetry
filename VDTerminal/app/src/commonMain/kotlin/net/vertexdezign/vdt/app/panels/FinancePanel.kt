@@ -49,6 +49,7 @@ import net.vertexdezign.vdt.app.components.ConfirmDialog
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ToolButton
 import net.vertexdezign.vdt.app.components.ViewTab
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.FinanceData
 import net.vertexdezign.vdt.model.FinancePeriod
@@ -90,20 +91,22 @@ fun FinancePanel(
   // player without it sees exactly the page they had before.
   var showInvoices by remember { mutableStateOf(false) }
   val hasInvoices = invoices != null
+  val strings = LocalStrings.current
+  val s = strings.finance
 
   Panel(
-    title = "Finance",
+    title = strings.apps.finance,
     icon = Icons.Filled.AccountBalance,
     modifier = modifier,
     headerActions = {
       if (hasInvoices) {
-        ViewTab("Books", !showInvoices, { showInvoices = false })
-        ViewTab("Invoices", showInvoices, { showInvoices = true })
+        ViewTab(s.books, !showInvoices, { showInvoices = false })
+        ViewTab(s.invoices, showInvoices, { showInvoices = true })
       }
       if (!showInvoices && data?.stats?.isNotEmpty() == true) {
         ToolButton(
           if (hideEmpty) Icons.Filled.FilterAlt else Icons.Filled.FilterAltOff,
-          "hide rows with no movement",
+          s.hideEmpty,
           active = hideEmpty,
           onClick = { hideEmpty = !hideEmpty },
         )
@@ -115,9 +118,9 @@ fun FinancePanel(
       // it is worth reading even while the books are still waiting for their first write.
       showInvoices && hasInvoices -> InvoicesSection(invoices, data?.balance, onCommand = onCommand)
 
-      data == null -> Centered("Waiting for finance data…")
+      data == null -> Centered(s.waiting)
 
-      !data.hasFarm -> Centered("No farm")
+      !data.hasFarm -> Centered(s.noFarm)
 
       else -> FinanceContent(data, hideEmpty, onCommand)
     }
@@ -167,6 +170,8 @@ private fun FinanceContent(data: FinanceData, hideEmpty: Boolean, onCommand: (Cl
  */
 @Composable
 private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) {
+  val numbers = LocalStrings.current.numbers
+  val s = LocalStrings.current.finance
   val loan = data.loan ?: 0
   val balance = data.balance ?: 0
   val step = data.loanStep.coerceAtLeast(1).toLong()
@@ -207,16 +212,16 @@ private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) 
       horizontalArrangement = Arrangement.spacedBy(8.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      Text("LOAN", color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+      Text(s.loanCaps, color = VdtColors.DarkGray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
       Text(
-        "${formatMoney(target)} of ${formatMoney(ceiling)} max",
+        s.loanOfMax(numbers.formatMoney(target), numbers.formatMoney(ceiling)),
         color = VdtColors.TextDark,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
       )
       if (delta != 0L) {
         Text(
-          if (delta > 0) "borrow ${formatMoney(delta)}" else "repay ${formatMoney(-delta)}",
+          if (delta > 0) s.borrowAmount(numbers.formatMoney(delta)) else s.repayAmount(numbers.formatMoney(-delta)),
           color = moneyColor(-delta, VdtColors.palette),
           fontSize = 11.sp,
           fontWeight = FontWeight.SemiBold,
@@ -232,26 +237,26 @@ private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) 
 
       if (delta != 0L) {
         FinanceButton(
-          label = if (delta > 0) "Borrow" else "Repay",
+          label = if (delta > 0) s.borrow else s.repay,
           color = VdtColors.Green,
           // Confirm only when a repayment would very nearly empty the account -- the case where the
           // next fuel stop bounces. The game itself never confirms, so anything broader would nag.
           onClick = { if (delta < 0 && balance + delta < step) confirming = true else commit() },
           enabled = canManage && affordable,
         )
-        FinanceButton("Reset", VdtColors.DarkGray, { target = loan })
+        FinanceButton(s.reset, VdtColors.DarkGray, { target = loan })
       }
     }
 
     if (!canManage) {
       Text(
-        "You do not have the right to manage this farm's loan",
+        s.cannotManageLoan,
         color = VdtColors.DarkGray,
         fontSize = 10.sp,
       )
     } else if (delta < 0 && !affordable) {
       Text(
-        "Repaying ${formatMoney(-delta)} needs more than the ${formatMoney(balance)} on hand",
+        s.cannotAfford(numbers.formatMoney(-delta), numbers.formatMoney(balance)),
         color = VdtColors.Red,
         fontSize = 10.sp,
       )
@@ -260,9 +265,9 @@ private fun LoanControls(data: FinanceData, onCommand: (ClientMessage) -> Unit) 
 
   if (confirming) {
     ConfirmDialog(
-      title = "Repay ${formatMoney(-delta)}?",
-      message = "That leaves ${formatMoney(balance + delta)} on hand — less than one ${formatMoney(step)} step.",
-      confirmLabel = "Repay",
+      title = s.repayTitle(numbers.formatMoney(-delta)),
+      message = s.repayMessage(numbers.formatMoney(balance + delta), numbers.formatMoney(step)),
+      confirmLabel = s.repay,
       onConfirm = ::commit,
       onDismiss = { confirming = false },
     )
@@ -310,6 +315,7 @@ private fun comparatorFor(sort: StatSort): Comparator<FinanceStatRow> {
  */
 @Composable
 private fun MonthTable(data: FinanceData, hideEmpty: Boolean) {
+  val s = LocalStrings.current.finance
   var sort by remember { mutableStateOf<StatSort?>(null) }
   var allColumns by remember { mutableStateOf(false) }
 
@@ -330,7 +336,7 @@ private fun MonthTable(data: FinanceData, hideEmpty: Boolean) {
   Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     if (data.periods.size > DEFAULT_COLUMNS) {
       Text(
-        if (allColumns) "Show ${DEFAULT_COLUMNS} months" else "Show all ${data.periods.size} months",
+        if (allColumns) s.showMonths(DEFAULT_COLUMNS) else s.showAllMonths(data.periods.size),
         color = VdtColors.AccentText,
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
@@ -346,7 +352,7 @@ private fun MonthTable(data: FinanceData, hideEmpty: Boolean) {
       Column(Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false)) {
         if (rows.isEmpty()) {
           Text(
-            "Nothing moved in these months",
+            s.nothingMoved,
             color = VdtColors.DarkGray,
             fontSize = 11.sp,
             modifier = Modifier.padding(vertical = 8.dp),
@@ -363,9 +369,10 @@ private fun MonthTable(data: FinanceData, hideEmpty: Boolean) {
 
 @Composable
 private fun TableHeader(columns: List<FinancePeriod>, sort: StatSort?, onSort: (Int?) -> Unit) {
+  val s = LocalStrings.current.finance
   Row(Modifier.background(VdtColors.TrackGray), verticalAlignment = Alignment.Bottom) {
     HeaderCell(
-      label = "Category",
+      label = s.category,
       width = NAME_WIDTH,
       numeric = false,
       active = sort?.periodIndex == null && sort != null,
@@ -377,7 +384,7 @@ private fun TableHeader(columns: List<FinancePeriod>, sort: StatSort?, onSort: (
         label = period.label,
         // A year of columns repeats month names, so the settled ones carry their year; the current
         // month is unambiguous and gets the more useful label instead.
-        sublabel = if (period.current) "current" else period.year.toString(),
+        sublabel = if (period.current) s.current else period.year.toString(),
         width = COLUMN_WIDTH,
         numeric = true,
         active = sort?.periodIndex == period.index,
@@ -398,6 +405,7 @@ private fun HeaderCell(
   onClick: () -> Unit,
   sublabel: String? = null,
 ) {
+  val common = LocalStrings.current.common
   Column(
     Modifier
       .width(width)
@@ -406,9 +414,9 @@ private fun HeaderCell(
       .clickable(role = Role.Button, onClick = onClick)
       .semantics {
         stateDescription = when {
-          !active -> "not sorted"
-          descending -> "sorted descending"
-          else -> "sorted ascending"
+          !active -> common.notSorted
+          descending -> common.sortedDescending
+          else -> common.sortedAscending
         }
       }
       .padding(horizontal = 6.dp, vertical = 6.dp),
@@ -442,6 +450,7 @@ private fun HeaderCell(
 
 @Composable
 private fun StatRow(row: FinanceStatRow, columns: List<FinancePeriod>, striped: Boolean) {
+  val numbers = LocalStrings.current.numbers
   Row(
     Modifier.background(if (striped) VdtColors.Surface.copy(alpha = 0.6f) else Color.Transparent),
     verticalAlignment = Alignment.CenterVertically,
@@ -458,7 +467,7 @@ private fun StatRow(row: FinanceStatRow, columns: List<FinancePeriod>, striped: 
     columns.forEach { period ->
       val value = row.values.getOrElse(period.index) { 0L }
       Text(
-        if (value == 0L) "—" else formatMoney(value),
+        if (value == 0L) "—" else numbers.formatMoney(value),
         color = moneyColor(value, VdtColors.palette),
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
@@ -473,9 +482,10 @@ private fun StatRow(row: FinanceStatRow, columns: List<FinancePeriod>, striped: 
 /** The footer the in-game screen prints: each column summed, income minus expenses. */
 @Composable
 private fun TotalsRow(columns: List<FinancePeriod>) {
+  val numbers = LocalStrings.current.numbers
   Row(Modifier.background(VdtColors.TrackGray), verticalAlignment = Alignment.CenterVertically) {
     Text(
-      "TOTAL",
+      LocalStrings.current.finance.total,
       color = VdtColors.TextDark,
       fontSize = 10.sp,
       fontWeight = FontWeight.Bold,
@@ -483,7 +493,7 @@ private fun TotalsRow(columns: List<FinancePeriod>) {
     )
     columns.forEach { period ->
       Text(
-        formatMoney(period.total, withSign = true),
+        numbers.formatMoney(period.total, withSign = true),
         color = moneyColor(period.total, VdtColors.palette),
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,

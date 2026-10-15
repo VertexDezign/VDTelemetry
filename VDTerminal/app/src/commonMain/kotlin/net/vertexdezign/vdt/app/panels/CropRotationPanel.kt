@@ -47,6 +47,8 @@ import net.vertexdezign.vdt.ClientMessage
 import net.vertexdezign.vdt.app.components.ActionIcon
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CropOption
 import net.vertexdezign.vdt.model.CropRotationData
@@ -71,12 +73,14 @@ fun CropRotationPanel(data: CropRotationData?, modifier: Modifier = Modifier, on
   var showCreate by remember { mutableStateOf(false) }
   var pendingDelete by remember { mutableStateOf<CropRotationPlan?>(null) }
 
-  Panel(title = "Crop Rotation", icon = Icons.Filled.Agriculture, modifier = modifier) {
+  val strings = LocalStrings.current
+  val s = strings.rotation
+  Panel(title = strings.apps.cropRotation, icon = Icons.Filled.Agriculture, modifier = modifier) {
     when {
-      data == null -> Centered("CropRotation mod not installed")
+      data == null -> Centered(s.notInstalled)
 
       data.rotations.isEmpty() && !data.editable() ->
-        Centered("No rotation plans — create one in the game menu")
+        Centered(s.noPlans)
 
       else -> {
         Column(
@@ -89,12 +93,12 @@ fun CropRotationPanel(data: CropRotationData?, modifier: Modifier = Modifier, on
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically,
             ) {
-              Text("PLANS", color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-              ActionIcon(Icons.Filled.Add, "new rotation", VdtColors.Green, onClick = { showCreate = true })
+              Text(s.plans, color = VdtColors.DarkGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+              ActionIcon(Icons.Filled.Add, s.newRotation, VdtColors.Green, onClick = { showCreate = true })
             }
           }
           if (data.rotations.isEmpty()) {
-            Text("No rotation plans yet", color = VdtColors.DarkGray, fontSize = 11.sp)
+            Text(s.noPlansYet, color = VdtColors.DarkGray, fontSize = 11.sp)
           }
           data.rotations
             .sortedBy { it.index }
@@ -114,7 +118,7 @@ fun CropRotationPanel(data: CropRotationData?, modifier: Modifier = Modifier, on
 
   if (showCreate) {
     NameDialog(
-      title = "New rotation",
+      title = s.newRotation,
       onConfirm = { name ->
         onCommand(ClientMessage.CreateRotation(name))
         showCreate = false
@@ -126,15 +130,15 @@ fun CropRotationPanel(data: CropRotationData?, modifier: Modifier = Modifier, on
   pendingDelete?.let { plan ->
     AlertDialog(
       onDismissRequest = { pendingDelete = null },
-      title = { Text("Delete rotation?") },
-      text = { Text(plan.name.ifBlank { "Unnamed rotation" }) },
+      title = { Text(s.deleteTitle) },
+      text = { Text(plan.name.ifBlank { s.unnamed }) },
       confirmButton = {
         TextButton(onClick = {
           onCommand(ClientMessage.DeleteRotation(plan.index))
           pendingDelete = null
-        }) { Text("Delete") }
+        }) { Text(strings.common.delete) }
       },
-      dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+      dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text(strings.common.cancel) } },
     )
   }
 }
@@ -150,6 +154,7 @@ private fun PlanSection(
   onDelete: () -> Unit,
 ) {
   val editable = crops.isNotEmpty()
+  val s = LocalStrings.current.rotation
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     Row(
       Modifier.fillMaxWidth(),
@@ -157,7 +162,7 @@ private fun PlanSection(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
-        plan.name.ifBlank { "Unnamed rotation" }.uppercase(),
+        plan.name.ifBlank { s.unnamed }.uppercase(),
         color = VdtColors.DarkGray,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
@@ -165,11 +170,11 @@ private fun PlanSection(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f, fill = false),
       )
-      if (editable) ActionIcon(Icons.Filled.Delete, "delete rotation", VdtColors.DarkGray, onDelete)
+      if (editable) ActionIcon(Icons.Filled.Delete, s.deleteRotation, VdtColors.DarkGray, onDelete)
     }
 
     if (plan.sequence.isEmpty()) {
-      Text("No crops in this rotation", color = VdtColors.DarkGray, fontSize = 11.sp)
+      Text(s.noCrops, color = VdtColors.DarkGray, fontSize = 11.sp)
     } else {
       plan.sequence.forEachIndexed { i, slot ->
         SlotRow(
@@ -187,7 +192,7 @@ private fun PlanSection(
       Row(Modifier.padding(start = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         ActionIcon(
           Icons.Filled.Add,
-          "add slot",
+          s.addSlot,
           VdtColors.Green,
           onClick = { onCommand(ClientMessage.AddRotationSlot(plan.index)) },
         )
@@ -195,7 +200,7 @@ private fun PlanSection(
         if (plan.sequence.size > 1) {
           ActionIcon(
             Icons.Filled.Remove,
-            "remove last slot",
+            s.removeSlot,
             VdtColors.DarkGray,
             onClick = { onCommand(ClientMessage.RemoveRotationSlot(plan.index)) },
           )
@@ -233,7 +238,9 @@ private fun SlotRow(
       options = crops,
       yields = cropYields,
       selectedState = slot.state,
-      fallback = slot.crop.ifBlank { if (fallow) "Fallow" else "Crop ${slot.state}" },
+      fallback = slot.crop.ifBlank {
+        if (fallow) LocalStrings.current.rotation.fallow else LocalStrings.current.rotation.crop(slot.state)
+      },
       isCatch = false,
       onSelect = onCrop,
     )
@@ -250,9 +257,9 @@ private fun SlotRow(
   }
 }
 
-/** Catch-crop 0 is "no catch crop"; label it in English (the mod string follows the game language). */
-private fun displayName(state: Int, name: String, isCatch: Boolean): String =
-  if (isCatch && state == FALLOW_STATE) "No catch crop" else name
+/** Catch-crop 0 is "no catch crop", which the terminal names itself; every other name is the mod's own. */
+private fun displayName(strings: Strings, state: Int, name: String, isCatch: Boolean): String =
+  if (isCatch && state == FALLOW_STATE) strings.rotation.noCatchCrop else name
 
 /**
  * The selected crop with a dropdown to change it; each menu option shows the % this slot would yield
@@ -270,7 +277,7 @@ private fun CropDropdown(
   modifier: Modifier = Modifier,
 ) {
   val rawName = options.firstOrNull { it.state == selectedState }?.name ?: fallback
-  val name = displayName(selectedState, rawName, isCatch)
+  val name = displayName(LocalStrings.current, selectedState, rawName, isCatch)
 
   val color = if (isCatch) VdtColors.DarkGray else VdtColors.TextDark
   val size = if (isCatch) 11.sp else 13.sp
@@ -303,12 +310,19 @@ private fun CropDropdown(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f, fill = false),
       )
-      Icon(Icons.Filled.ArrowDropDown, "change", tint = VdtColors.DarkGray, modifier = Modifier.size(14.dp))
+      Icon(
+        Icons.Filled.ArrowDropDown,
+        LocalStrings.current.rotation.change,
+        tint = VdtColors.DarkGray,
+        modifier = Modifier.size(14.dp),
+      )
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
       options.forEach { option ->
         DropdownMenuItem(
-          text = { OptionRow(displayName(option.state, option.name, isCatch), yields[option.state]) },
+          text = {
+            OptionRow(displayName(LocalStrings.current, option.state, option.name, isCatch), yields[option.state])
+          },
           onClick = {
             onSelect(option.state)
             expanded = false
@@ -364,15 +378,17 @@ private fun NameDialog(title: String, onConfirm: (String) -> Unit, onDismiss: ()
       OutlinedTextField(
         value = name,
         onValueChange = { if (it.length <= MAX_NAME) name = it },
-        label = { Text("Name") },
+        label = { Text(LocalStrings.current.common.name) },
         singleLine = true,
         supportingText = { Text("${name.length}/$MAX_NAME") },
         modifier = Modifier.fillMaxWidth(),
       )
     },
     confirmButton = {
-      TextButton(enabled = name.isNotBlank(), onClick = { onConfirm(name.trim()) }) { Text("Create") }
+      TextButton(enabled = name.isNotBlank(), onClick = {
+        onConfirm(name.trim())
+      }) { Text(LocalStrings.current.common.create) }
     },
-    dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(LocalStrings.current.common.cancel) } },
   )
 }

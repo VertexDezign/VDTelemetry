@@ -60,7 +60,8 @@ allprojects {
             // and which placed tile is rendering, which only the few widgets holding view state of
             // their own ever read, so it isn't worth a parameter on every widget (widgets/WidgetSettings.kt);
             // and the light/dark palette every colour is read from (theme/Theme.kt).
-            "compose_allowed_composition_locals" to "LocalVdtStore,LocalNavigator,LocalWidgetInstance,LocalVdtPalette",
+            "compose_allowed_composition_locals" to
+              "LocalVdtStore,LocalNavigator,LocalWidgetInstance,LocalVdtPalette,LocalStrings",
           ),
         )
       }

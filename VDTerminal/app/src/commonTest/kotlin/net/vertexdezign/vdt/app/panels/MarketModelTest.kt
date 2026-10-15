@@ -1,6 +1,9 @@
 package net.vertexdezign.vdt.app.panels
 
 import net.vertexdezign.vdt.app.components.FilterOption
+import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.de.German
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.model.BunkerSilo
 import net.vertexdezign.vdt.model.HusbandriesData
 import net.vertexdezign.vdt.model.Husbandry
@@ -24,6 +27,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+
+private val en = English
 
 /**
  * The Market app's stock join: what the farm holds, gathered off four channels, and what the board
@@ -372,7 +377,7 @@ class MarketModelTest {
     // Milk is the pen's output and counts; the straw is what it eats, and an input is not stock you
     // can sell back. The egg bar carries no fill type at all, so it is nobody's liters yet.
     assertEquals(listOf("MILK"), rows.map { it.type })
-    assertEquals("awaiting collection", rows[0].sources[0].note)
+    assertEquals(StockNote.AwaitingCollection, rows[0].sources[0].note)
   }
 
   @Test
@@ -413,7 +418,7 @@ class MarketModelTest {
 
     val rows = buildStock(storage, null, null, null)
 
-    assertEquals("fermenting", rows[0].sources[0].note)
+    assertEquals(StockNote.Fermenting, rows[0].sources[0].note)
     assertEquals(StockPlace.BUNKER, rows[0].sources[0].place)
   }
 
@@ -596,21 +601,21 @@ class MarketModelTest {
   fun `a source line says the form, the count, the liters and what the store holds full`() {
     assertEquals(
       "30,000 / 100,000 l",
-      sourceAmount(StockSource(StockPlace.SILO, "Silo", StockForm.BULK, 30_000, capacity = 100_000)),
+      sourceAmount(en, StockSource(StockPlace.SILO, "Silo", StockForm.BULK, 30_000, capacity = 100_000)),
     )
     // A bunker's ceiling is the shape of its walls, so there is no "of" to print.
     assertEquals(
       "520,486 l",
-      sourceAmount(StockSource(StockPlace.BUNKER, "Bunkersilo", StockForm.BULK, 520_486)),
+      sourceAmount(en, StockSource(StockPlace.BUNKER, "Bunkersilo", StockForm.BULK, 520_486)),
     )
     assertEquals(
       "Bales ×183 · 915,000 l",
-      sourceAmount(StockSource(StockPlace.STORE, "Futterhalle", StockForm.BALE, 915_000, count = 183)),
+      sourceAmount(en, StockSource(StockPlace.STORE, "Futterhalle", StockForm.BALE, 915_000, count = 183)),
     )
     // A crate holds no fill type, so it has a count and nothing else.
     assertEquals(
       "Pallets ×2",
-      sourceAmount(StockSource(StockPlace.STORE, "Lager", StockForm.PALLET, 0, count = 2)),
+      sourceAmount(en, StockSource(StockPlace.STORE, "Lager", StockForm.PALLET, 0, count = 2)),
     )
   }
 
@@ -625,20 +630,20 @@ class MarketModelTest {
       board(fillTypes = emptyList(), stations = emptyList()),
     )
 
-    val offered = stockOptions(onlyUnpriced, crops)
+    val offered = stockOptions(onlyUnpriced, crops, en)
 
     assertEquals(
-      listOf(StockFilter.UNPRICED, StockForm.BALE.label, StockPlace.SILO.label, "Grassilage"),
+      listOf("No buyer", "Bales", "Silo", "Grassilage"),
       offered.map { it.label },
     )
     // The stock in `entries()` has a crop in it, so that category is on offer there and not here.
-    assertTrue(stockOptions(entries(), crops).any { it.label == StockFilter.CROPS })
-    assertTrue(offered.none { it.label == StockFilter.CROPS })
+    assertTrue(stockOptions(entries(), crops, en).any { it.value == StockFilter.CROPS })
+    assertTrue(offered.none { it.value == StockFilter.CROPS })
   }
 
   @Test
   fun `no tokens is everything`() {
-    assertEquals(entries().size, stockFiltered(entries(), emptyList(), crops).size)
+    assertEquals(entries().size, stockFiltered(entries(), emptyList(), crops, en).size)
   }
 
   @Test
@@ -650,14 +655,14 @@ class MarketModelTest {
     val unpriced = FilterOption(StockFilter.CATEGORY, StockFilter.UNPRICED)
 
     // Same kind: either of the two.
-    assertEquals(2, stockFiltered(all, listOf(barley, silage), crops).size)
+    assertEquals(2, stockFiltered(all, listOf(barley, silage), crops, en).size)
     // Different kinds: both at once, so the priced one drops out.
     assertEquals(
       listOf("Rundballen (Grassilage 3.000 l)"),
-      stockFiltered(all, listOf(barley, silage, unpriced), crops).map { it.row.title },
+      stockFiltered(all, listOf(barley, silage, unpriced), crops, en).map { it.row.title },
     )
     // And a pair that can never both hold comes back empty rather than widening.
-    assertTrue(stockFiltered(all, listOf(barley, unpriced), crops).isEmpty())
+    assertTrue(stockFiltered(all, listOf(barley, unpriced), crops, en).isEmpty())
   }
 
   @Test
@@ -675,10 +680,21 @@ class MarketModelTest {
     )
     val mixed = valuateAll(buildStock(storage, null, null, null), null)
 
-    assertEquals(1, stockFiltered(mixed, listOf(FilterOption(StockFilter.FORM, StockForm.BALE.label)), crops).size)
-    assertEquals(1, stockFiltered(mixed, listOf(FilterOption(StockFilter.FORM, StockForm.BULK.label)), crops).size)
+    assertEquals(
+      1,
+      stockFiltered(mixed, listOf(FilterOption(StockFilter.FORM, "Bales", StockForm.BALE.name)), crops, en).size,
+    )
+    assertEquals(
+      1,
+      stockFiltered(mixed, listOf(FilterOption(StockFilter.FORM, "Bulk", StockForm.BULK.name)), crops, en).size,
+    )
     assertTrue(
-      stockFiltered(mixed, listOf(FilterOption(StockFilter.FORM, StockForm.PALLET.label)), crops).isEmpty(),
+      stockFiltered(
+        mixed,
+        listOf(FilterOption(StockFilter.FORM, "Pallets", StockForm.PALLET.name)),
+        crops,
+        en,
+      ).isEmpty(),
     )
   }
 
@@ -686,7 +702,7 @@ class MarketModelTest {
   fun `typed text reaches the station and the store, not only the name`() {
     val all = entries()
 
-    fun text(value: String) = stockFiltered(all, listOf(FilterOption(FilterOption.TEXT, value)), crops)
+    fun text(value: String) = stockFiltered(all, listOf(FilterOption(FilterOption.TEXT, value)), crops, en)
 
     assertEquals(1, text("gerste").size)
     assertEquals(1, text("getreide").size)
@@ -707,7 +723,7 @@ class MarketModelTest {
     )
     val facts = boardFacts(data)
 
-    val labels = priceOptions(data, facts).map { it.label }
+    val labels = priceOptions(data, facts, en).map { it.value }
 
     assertEquals(
       listOf(PriceFilter.CROPS, PriceFilter.SELL, PriceFilter.BUY, "Diesel", "Gerste", "Getreidemühle", "Tankstelle"),
@@ -732,5 +748,19 @@ class MarketModelTest {
 
     assertEquals(listOf("DIESEL"), shown.map { it.type })
     assertEquals(2, priceFiltered(data.fillTypes, facts, emptyList()).size)
+  }
+
+  @Test
+  fun `the filter vocabulary speaks the reader's language and still matches`() {
+    val onlyUnpriced = valuateAll(
+      listOf(row("GRASS_FERMENTED", StockForm.BALE, 150_000, title = "Grassilage")),
+      board(fillTypes = emptyList(), stations = emptyList()),
+    )
+    val offered = stockOptions(onlyUnpriced, crops, German)
+
+    assertEquals(listOf("Kein Käufer", "Ballen", "Silo", "Grassilage"), offered.map { it.label })
+    assertEquals("KATEGORIE", offered.first().kindLabel.uppercase())
+    // A token picked in German matches on its key, so it filters the same rows the English one does.
+    assertEquals(1, stockFiltered(onlyUnpriced, listOf(offered[1]), crops, German).size)
   }
 }

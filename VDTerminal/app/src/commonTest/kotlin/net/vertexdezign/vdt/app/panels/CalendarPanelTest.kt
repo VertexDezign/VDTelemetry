@@ -1,5 +1,7 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.de.German
+import net.vertexdezign.vdt.app.i18n.en.English
 import net.vertexdezign.vdt.model.CalendarCrop
 import net.vertexdezign.vdt.model.CalendarToday
 import net.vertexdezign.vdt.model.CropCalendarData
@@ -129,10 +131,10 @@ class CalendarPanelTest {
 
   @Test
   fun theNonSeasonalNoticeNamesTheModeItFound() {
-    assertTrue(growthModeNotice("DAILY").contains("Daily"))
-    assertTrue(growthModeNotice("DISABLED").contains("disabled"))
+    assertTrue(growthModeNotice(English, "DAILY").contains("Daily"))
+    assertTrue(growthModeNotice(English, "DISABLED").contains("disabled"))
     // An unrecognised mode still gets a sentence rather than an empty banner.
-    assertTrue(growthModeNotice("SOMETHING_NEW").isNotEmpty())
+    assertTrue(growthModeNotice(English, "SOMETHING_NEW").isNotEmpty())
   }
 
   @Test
@@ -144,7 +146,8 @@ class CalendarPanelTest {
         assertNotEquals(glyphs[i].name, glyphs[j].name, "${WeatherKind.entries[i]} and ${WeatherKind.entries[j]}")
       }
     }
-    assertEquals(WeatherKind.entries.size, WeatherKind.entries.map { WeatherIcons.labelOf(it) }.toSet().size)
+    assertEquals(WeatherKind.entries.size, WeatherKind.entries.map { WeatherIcons.labelOf(English, it) }.toSet().size)
+    assertEquals(WeatherKind.entries.size, WeatherKind.entries.map { WeatherIcons.labelOf(German, it) }.toSet().size)
     assertSame(WeatherIcons.Unknown, WeatherIcons.of(WeatherKind.UNKNOWN))
   }
 }

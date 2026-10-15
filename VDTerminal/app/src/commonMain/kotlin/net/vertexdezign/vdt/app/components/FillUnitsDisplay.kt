@@ -5,25 +5,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.model.FillUnit
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/**
- * Formats a fill level with the unit's own [precision], since `String.format` is JVM-only and this
- * also runs on wasmJs. Fill levels are non-negative, so the sign is not handled.
- */
-private fun formatLevel(value: Float, precision: Int): String {
-  if (precision <= 0) return value.roundToInt().toString()
-  var scale = 1
-  repeat(precision) { scale *= 10 }
-  val scaled = (value * scale).roundToInt()
-  return "${scaled / scale}.${(scaled % scale).toString().padStart(precision, '0')}"
-}
-
 /** Renders a list of fill units as labeled progress bars. Port of `FillUnitsDisplay`. */
 @Composable
 fun FillUnitsDisplay(fillUnits: List<FillUnit>, modifier: Modifier = Modifier, spacing: Int = 8) {
+  val numbers = LocalStrings.current.numbers
   Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.dp)) {
     for (fu in fillUnits) {
       val title = fu.title.ifBlank { fu.type.orEmpty() }
@@ -40,8 +30,8 @@ fun FillUnitsDisplay(fillUnits: List<FillUnit>, modifier: Modifier = Modifier, s
       // The segmented renderer is deferred to the UI redesign; the level itself is correct either way.
       ProgressBar(
         fraction = fraction,
-        leftLabel = title.ifBlank { "Fill" },
-        rightLabel = "${formatLevel(fu.value, fu.precision)}${fu.unit}",
+        leftLabel = title.ifBlank { LocalStrings.current.widgets.fill },
+        rightLabel = "${numbers.fixed(fu.value, fu.precision)}${fu.unit}",
       )
     }
   }

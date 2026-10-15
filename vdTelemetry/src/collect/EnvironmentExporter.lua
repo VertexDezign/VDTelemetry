@@ -15,6 +15,10 @@ function VDT.EnvironmentExporter.collect(pda)
     -- date/time, and the two must not drift apart.
     date = ValueMapper.formatGameDate(environment),
     time = ValueMapper.formatGameTime(environment),
+    -- The game's own language code ("en", "de", "fr", "jp", ...), so a terminal can follow it: fill
+    -- types, vehicle names and mission texts all reach it already translated into this language, and
+    -- chrome in another language beside them reads as two. Set once at startup in the game's main.lua.
+    language = g_languageShort,
   }
 
   -- weather. Only the temperature: the forecast is its own channel on its own cadence

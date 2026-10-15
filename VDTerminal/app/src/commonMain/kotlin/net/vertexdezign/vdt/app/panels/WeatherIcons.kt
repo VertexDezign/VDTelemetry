@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.model.WeatherKind
 
 /**
@@ -93,16 +94,16 @@ object WeatherIcons {
   }
 
   /** What a screen reader says, and the caption under the "now" block. */
-  fun labelOf(kind: WeatherKind): String = when (kind) {
-    WeatherKind.SUN -> "Sunny"
-    WeatherKind.PARTIALLY_CLOUDY -> "Partly cloudy"
-    WeatherKind.CLOUDY -> "Cloudy"
-    WeatherKind.RAIN -> "Rain"
-    WeatherKind.SNOW -> "Snow"
-    WeatherKind.HAIL -> "Hail"
-    WeatherKind.TWISTER -> "Twister"
-    WeatherKind.THUNDER -> "Thunderstorm"
-    WeatherKind.UNKNOWN -> "Unknown"
+  fun labelOf(strings: Strings, kind: WeatherKind): String = when (kind) {
+    WeatherKind.SUN -> strings.calendar.sunny
+    WeatherKind.PARTIALLY_CLOUDY -> strings.calendar.partlyCloudy
+    WeatherKind.CLOUDY -> strings.calendar.cloudy
+    WeatherKind.RAIN -> strings.calendar.rain
+    WeatherKind.SNOW -> strings.calendar.snow
+    WeatherKind.HAIL -> strings.calendar.hail
+    WeatherKind.TWISTER -> strings.calendar.twister
+    WeatherKind.THUNDER -> strings.calendar.thunderstorm
+    WeatherKind.UNKNOWN -> strings.calendar.unknown
   }
 }
 

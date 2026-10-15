@@ -1,5 +1,6 @@
 package net.vertexdezign.vdt.app.panels
 
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.model.FieldInfoData
 import net.vertexdezign.vdt.model.FieldInfoEntry
 import net.vertexdezign.vdt.model.FieldStatus
@@ -112,26 +113,26 @@ private fun FieldRow.resolves(cells: Int): Boolean = haPerCell <= 0f || cells * 
  * this vocabulary and may extend it, and a word from a newer mod is more use to the reader than a
  * bucket that hides it.
  */
-fun kindLabel(kind: String): String = when (LayerKind.of(kind)) {
-  LayerKind.CULTIVATED -> "Cultivated"
+fun kindLabel(strings: Strings, kind: String): String = when (LayerKind.of(kind)) {
+  LayerKind.CULTIVATED -> strings.fields.cultivated
 
-  LayerKind.STUBBLE -> "Stubble"
+  LayerKind.STUBBLE -> strings.fields.stubble
 
-  LayerKind.SEEDBED -> "Seedbed"
+  LayerKind.SEEDBED -> strings.fields.seedbed
 
-  LayerKind.PLOWED -> "Plowed"
+  LayerKind.PLOWED -> strings.fields.plowed
 
-  LayerKind.GROWING -> "Growing"
+  LayerKind.GROWING -> strings.fields.growing
 
-  LayerKind.TOPPING -> "Toppable"
+  LayerKind.TOPPING -> strings.fields.toppable
 
-  LayerKind.HARVEST -> "Ready"
+  LayerKind.HARVEST -> strings.fields.ready
 
-  LayerKind.CUT -> "Cut"
+  LayerKind.CUT -> strings.fields.cut
 
-  LayerKind.WITHERED -> "Withered"
+  LayerKind.WITHERED -> strings.fields.withered
 
-  LayerKind.CROP -> "Planted"
+  LayerKind.CROP -> strings.fields.planted
 
   // The soil plane's kinds all read correctly as their own capitalised token — "Mulched", "Weed",
   // "Fertilized" — and this ladder is for the growth and crops breakdowns, so none of them earns a
@@ -139,7 +140,7 @@ fun kindLabel(kind: String): String = when (LayerKind.of(kind)) {
   LayerKind.WEED, LayerKind.STONE, LayerKind.NEEDS_PLOWING, LayerKind.MULCHED, LayerKind.NEEDS_LIME,
   LayerKind.FERTILIZED,
   null,
-  -> if (kind == UNKNOWN_FIELD_KIND) "Unknown" else kind.replaceFirstChar { it.uppercase() }
+  -> if (kind == UNKNOWN_FIELD_KIND) strings.fields.unknown else kind.replaceFirstChar { it.uppercase() }
 }
 
 /**
@@ -150,12 +151,12 @@ fun kindLabel(kind: String): String = when (LayerKind.of(kind)) {
  * a price. Same vocabulary as [kindLabel] on purpose, so a field does not change its wording when the
  * raster takes over from the point sample.
  */
-fun growthWord(growth: String): String = when (growth) {
-  "growing" -> "Growing"
-  "readyToPrepare" -> "Toppable"
-  "readyToHarvest" -> "Ready"
-  "cut" -> "Cut"
-  "withered" -> "Withered"
+fun growthWord(strings: Strings, growth: String): String = when (growth) {
+  "growing" -> strings.fields.growing
+  "readyToPrepare" -> strings.fields.toppable
+  "readyToHarvest" -> strings.fields.ready
+  "cut" -> strings.fields.cut
+  "withered" -> strings.fields.withered
   else -> ""
 }
 
@@ -170,17 +171,17 @@ fun growthWord(growth: String): String = when (growth) {
  */
 data class FieldHeadline(val text: String, val fromRaster: Boolean)
 
-fun fieldHeadline(row: FieldRow): FieldHeadline {
+fun fieldHeadline(strings: Strings, row: FieldRow): FieldHeadline {
   val dominant = row.growth?.takeIf { row.resolves(it.cells) }?.dominant
-  if (dominant != null) return FieldHeadline(kindLabel(dominant.kind), fromRaster = true)
+  if (dominant != null) return FieldHeadline(kindLabel(strings, dominant.kind), fromRaster = true)
   // The raster answered, and the answer is "nothing" — see [isBareByRaster].
-  if (isBareByRaster(row)) return FieldHeadline("Bare", fromRaster = true)
+  if (isBareByRaster(row)) return FieldHeadline(strings.fields.bareWord, fromRaster = true)
   val info = row.info
-  val word = growthWord(info?.growth.orEmpty())
+  val word = growthWord(strings, info?.growth.orEmpty())
   if (word.isNotEmpty()) return FieldHeadline(word, fromRaster = false)
   // No crop and nothing sampled. "Bare" is a statement about the field; "—" would be a statement
   // about the data, and the two are worth telling apart in a list that exists to be scanned.
-  return FieldHeadline(if (info != null) "Bare" else "—", fromRaster = false)
+  return FieldHeadline(if (info != null) strings.fields.bareWord else "—", fromRaster = false)
 }
 
 /**
@@ -219,11 +220,8 @@ fun isBareByRaster(row: FieldRow): Boolean {
  * — because none of them is a claim this app can make about the ground, and the honest sentence for
  * all three is the one that says only what the growth plane saw.
  */
-fun bareGroundNote(row: FieldRow): String = if ((mulchShare(row) ?: 0f) >= WORK_SHARE) {
-  "Nothing growing on any of it — the ground is mulched."
-} else {
-  "Nothing growing on any of it."
-}
+fun bareGroundNote(strings: Strings, row: FieldRow): String =
+  if ((mulchShare(row) ?: 0f) >= WORK_SHARE) strings.fields.bareMulched else strings.fields.bare
 
 /**
  * Whether the breakdown is worth drawing at all, rather than a bar made of four cells.
@@ -367,22 +365,41 @@ fun needsPlowing(row: FieldRow): Boolean {
 private const val WORK_SHARE = 0.25f
 
 /** Which slice of the map is listed. Single-select: each answers one question, and ANDing them is noise. */
-enum class FieldView(val label: String) {
-  ALL("All"),
-  MINE("Mine"),
-  UNOWNED("For sale"),
-  WORK("Needs work"),
-  HARVEST("Ready"),
-  CONTRACT("Contract"),
+enum class FieldView {
+  ALL,
+  MINE,
+  UNOWNED,
+  WORK,
+  HARVEST,
+  CONTRACT,
+  ;
+
+  fun label(strings: Strings): String = when (this) {
+    ALL -> strings.fields.viewAll
+    MINE -> strings.fields.viewMine
+    UNOWNED -> strings.fields.viewForSale
+    WORK -> strings.fields.viewNeedsWork
+    HARVEST -> strings.fields.viewReady
+    CONTRACT -> strings.fields.viewContract
+  }
 }
 
 /** How the list is ordered. */
-enum class FieldSort(val label: String) {
-  NUMBER("Number"),
-  AREA("Area"),
-  CROP("Crop"),
-  STATUS("Status"),
-  PRICE("Price"),
+enum class FieldSort {
+  NUMBER,
+  AREA,
+  CROP,
+  STATUS,
+  PRICE,
+  ;
+
+  fun label(strings: Strings): String = when (this) {
+    NUMBER -> strings.fields.sortNumber
+    AREA -> strings.fields.sortArea
+    CROP -> strings.fields.sortCrop
+    STATUS -> strings.fields.sortStatus
+    PRICE -> strings.fields.sortPrice
+  }
 }
 
 /** Build the rows. Every field on the map appears; the other three channels fill in what they have. */
@@ -466,23 +483,24 @@ fun fieldSearch(rows: List<FieldRow>, query: String): List<FieldRow> {
  * whichever way the sort runs. Unknown is not a low value, and floating an unpriced field to the top
  * of a "cheapest first" list is exactly the lie the buy planner must not tell.
  */
-fun fieldSorted(rows: List<FieldRow>, sort: FieldSort, ascending: Boolean): List<FieldRow> = rows.sortedWith { a, b ->
-  val primary = when (sort) {
-    FieldSort.NUMBER -> 0
-    FieldSort.AREA -> compareOptionalField(a.mapField.areaHa, b.mapField.areaHa, ascending)
-    FieldSort.CROP -> compareText(fieldCrop(a), fieldCrop(b), ascending)
-    FieldSort.STATUS -> compareText(fieldHeadline(a).text, fieldHeadline(b).text, ascending)
-    FieldSort.PRICE -> compareOptionalField(a.mapField.price?.toFloat(), b.mapField.price?.toFloat(), ascending)
+fun fieldSorted(strings: Strings, rows: List<FieldRow>, sort: FieldSort, ascending: Boolean): List<FieldRow> =
+  rows.sortedWith { a, b ->
+    val primary = when (sort) {
+      FieldSort.NUMBER -> 0
+      FieldSort.AREA -> compareOptionalField(a.mapField.areaHa, b.mapField.areaHa, ascending)
+      FieldSort.CROP -> compareText(fieldCrop(a), fieldCrop(b), ascending)
+      FieldSort.STATUS -> compareText(fieldHeadline(strings, a).text, fieldHeadline(strings, b).text, ascending)
+      FieldSort.PRICE -> compareOptionalField(a.mapField.price?.toFloat(), b.mapField.price?.toFloat(), ascending)
+    }
+    if (primary != 0) {
+      primary
+    } else {
+      val byNumber = a.id.compareTo(b.id)
+      // Only the number sort reverses its own tie-break; everywhere else the number is the stable
+      // spelling of "equal", and reversing it would make the list jump when nothing changed.
+      if (sort == FieldSort.NUMBER && !ascending) -byNumber else byNumber
+    }
   }
-  if (primary != 0) {
-    primary
-  } else {
-    val byNumber = a.id.compareTo(b.id)
-    // Only the number sort reverses its own tie-break; everywhere else the number is the stable
-    // spelling of "equal", and reversing it would make the list jump when nothing changed.
-    if (sort == FieldSort.NUMBER && !ascending) -byNumber else byNumber
-  }
-}
 
 /** Compare two optional numbers, with "no value" sorting to the end whichever way the sort runs. */
 private fun compareOptionalField(a: Float?, b: Float?, ascending: Boolean): Int = when {

@@ -32,7 +32,9 @@ import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.app.Screen
 import net.vertexdezign.vdt.app.alerts.AlertSeverity
 import net.vertexdezign.vdt.app.apps.availableApps
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.pages.Page
+import net.vertexdezign.vdt.app.pages.displayTitle
 import net.vertexdezign.vdt.app.state.Favourite
 import net.vertexdezign.vdt.app.state.LocalVdtStore
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -92,7 +94,12 @@ fun Footer(
           .clickable(onClick = onOpenLauncher),
         contentAlignment = Alignment.Center,
       ) {
-        Icon(Icons.Filled.Menu, "open app launcher", tint = VdtColors.White, modifier = Modifier.size(20.dp))
+        Icon(
+          Icons.Filled.Menu,
+          LocalStrings.current.shell.openLauncher,
+          tint = VdtColors.White,
+          modifier = Modifier.size(20.dp),
+        )
       }
 
       // Resolved against what exists *now*: a pin whose page was deleted or whose mod was removed
@@ -102,12 +109,14 @@ fun Footer(
         when (favourite.kind) {
           Favourite.Kind.App ->
             apps.firstOrNull { it.id == favourite.id }?.let { app ->
-              FavouriteButton(app.icon, app.title, target == screen) { onOpenScreen(target) }
+              FavouriteButton(app.icon, app.title(LocalStrings.current), target == screen) { onOpenScreen(target) }
             }
 
           Favourite.Kind.Page ->
             pages.firstOrNull { it.id == favourite.id }?.let { page ->
-              FavouriteButton(page.icon.vector, page.title, target == screen) { onOpenScreen(target) }
+              FavouriteButton(page.icon.vector, page.displayTitle(LocalStrings.current), target == screen) {
+                onOpenScreen(target)
+              }
             }
         }
       }
@@ -122,7 +131,7 @@ fun Footer(
     ) {
       pages.firstOrNull { it.id == currentPageId }?.let { current ->
         Text(
-          current.title.uppercase(),
+          current.displayTitle(LocalStrings.current).uppercase(),
           color = VdtColors.White,
           fontSize = 12.sp,
           fontWeight = FontWeight.Bold,
@@ -145,7 +154,7 @@ fun Footer(
     ) {
       alerts.maxByOrNull { it.rule.severity.ordinal }?.let { top ->
         AlertChip(
-          top.rule.title,
+          top.rule.title(LocalStrings.current),
           top.rule.severity,
           extra = alerts.size - 1,
           onClick = onOpenNotifications,
@@ -190,7 +199,7 @@ private fun NotificationBell(count: Int, onClick: () -> Unit) {
     ) {
       Icon(
         Icons.Filled.Notifications,
-        "open notifications",
+        LocalStrings.current.shell.openNotifications,
         tint = VdtColors.White.copy(alpha = 0.8f),
         modifier = Modifier.size(19.dp),
       )

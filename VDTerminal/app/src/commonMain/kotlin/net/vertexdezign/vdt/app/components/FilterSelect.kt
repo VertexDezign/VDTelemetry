@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
@@ -54,10 +55,12 @@ import net.vertexdezign.vdt.app.theme.VdtColors
  * (OR), options of different kinds narrow it (AND). That is the only reading under which picking two
  * commodities and one storage means what a reader expects.
  *
- * [value] is what the domain matches against; [label] is what the reader sees. They are usually the
- * same string, and differ where a token stands for a set (a category) rather than a name.
+ * [kind] and [value] are what the domain matches against; [label] and [kindLabel] are what the reader
+ * sees, in the reader's language. They are the same string where the token is a name the game sent
+ * (a commodity, a station), and differ where it stands for something the terminal names itself — a
+ * category, a form — so a token keeps matching whatever language the screen is in.
  */
-data class FilterOption(val kind: String, val label: String, val value: String = label) {
+data class FilterOption(val kind: String, val label: String, val value: String = label, val kindLabel: String = kind) {
   companion object {
     /**
      * The kind a token typed rather than picked gets. Anything the vocabulary does not name is still
@@ -91,8 +94,9 @@ fun FilterSelect(
   selected: List<FilterOption>,
   onSelectedChange: (List<FilterOption>) -> Unit,
   modifier: Modifier = Modifier,
-  placeholder: String = "Filter…",
+  placeholder: String = LocalStrings.current.common.filter,
 ) {
+  val common = LocalStrings.current.common
   var query by remember { mutableStateOf("") }
   // Whether the list is showing, tracked apart from the focus rather than derived from it: Escape has
   // to be able to shut it whatever the focus does next, and on this target a blur is not something to
@@ -164,7 +168,7 @@ fun FilterSelect(
                     pick != null -> add(pick)
 
                     // Nothing in the vocabulary matches, so the words themselves become the filter.
-                    typed.isNotEmpty() -> add(FilterOption(FilterOption.TEXT, typed))
+                    typed.isNotEmpty() -> add(FilterOption(FilterOption.TEXT, typed, kindLabel = common.filterText))
 
                     else -> Unit
                   }
@@ -229,7 +233,7 @@ fun FilterSelect(
         DropdownMenuItem(
           text = {
             Text(
-              "${matches.size - visible.size} more — keep typing",
+              common.moreMatches(matches.size - visible.size),
               fontSize = 10.sp,
               color = VdtColors.DarkGray,
             )
@@ -260,7 +264,7 @@ private fun SuggestionRow(option: FilterOption, highlighted: Boolean) {
       modifier = Modifier.weight(1f),
     )
     Spacer(Modifier.width(8.dp))
-    Text(option.kind.uppercase(), fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
+    Text(option.kindLabel.uppercase(), fontSize = 8.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
   }
 }
 
@@ -285,7 +289,7 @@ private fun Token(option: FilterOption, onRemove: () -> Unit) {
     // An Icon, not an "x": the wasm build has no font fallback and would render the character as tofu.
     Icon(
       Icons.Filled.Close,
-      contentDescription = "remove ${option.label}",
+      contentDescription = LocalStrings.current.common.remove(option.label),
       tint = VdtColors.OnFill,
       modifier = Modifier
         .padding(start = 2.dp)

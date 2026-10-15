@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.dp
 import net.vertexdezign.vdt.app.components.Centered
 import net.vertexdezign.vdt.app.components.Panel
 import net.vertexdezign.vdt.app.components.ViewTab
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Numbers
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.theme.VdtColors
 import net.vertexdezign.vdt.model.CropCalendarData
 import net.vertexdezign.vdt.model.HusbandriesData
@@ -56,13 +59,14 @@ fun MarketPanel(
   modifier: Modifier = Modifier,
 ) {
   var tab by remember { mutableStateOf(MarketTab.STOCK) }
+  val strings = LocalStrings.current
   Panel(
-    title = "Market",
+    title = strings.apps.market,
     icon = Icons.Filled.Storefront,
     modifier = modifier,
     headerActions = {
       MarketTab.entries.forEach { entry ->
-        ViewTab(entry.label, tab == entry, { tab = entry })
+        ViewTab(entry.label(strings), tab == entry, { tab = entry })
       }
     },
   ) {
@@ -71,14 +75,20 @@ fun MarketPanel(
       MarketTab.STOCK -> StockTable(prices, storage, production, husbandry, periods)
 
       MarketTab.PRICES ->
-        if (prices == null) Centered("Waiting for the price board…") else PriceBoard(prices, periods)
+        if (prices == null) Centered(strings.market.waitingBoard) else PriceBoard(prices, periods)
     }
   }
 }
 
-enum class MarketTab(val label: String) {
-  STOCK("Stock"),
-  PRICES("Prices"),
+enum class MarketTab {
+  STOCK,
+  PRICES,
+  ;
+
+  fun label(strings: Strings): String = when (this) {
+    STOCK -> strings.market.tabStock
+    PRICES -> strings.market.tabPrices
+  }
 }
 
 // ---- Shared pieces -------------------------------------------------------------------------------
@@ -106,21 +116,17 @@ internal fun periodLabel(periods: List<String>, period: Int): String = periods.g
  * is comparing hundreds and the decimals are noise — and to one place below it, where water at 6.4
  * and lime at 62.5 would otherwise read as the same kind of number.
  */
-internal fun formatPrice(value: Float): String = if (abs(value) >= 100f) {
+internal fun Numbers.formatPrice(value: Float): String = if (abs(value) >= 100f) {
   formatMoney(value.roundToLong())
 } else {
-  val tenths = (value * 10).roundToInt()
-  "${formatMoney((tenths / 10).toLong())}.${abs(tenths % 10)}"
+  fixed(value, 1, grouped = true)
 }
 
 /** The economy multiplier, to one decimal — the game's own three settings are 3.0 / 1.8 / 1.0. */
-internal fun formatMultiplier(value: Float): String {
-  val tenths = (value * 10).roundToInt()
-  return "${tenths / 10}.${tenths % 10}"
-}
+internal fun Numbers.formatMultiplier(value: Float): String = fixed(value, 1)
 
 /** A total, in whole currency: nobody reads the pennies on a silo full of wheat. */
-internal fun formatCurrency(value: Float): String = formatMoney(value.roundToLong())
+internal fun Numbers.formatCurrency(value: Float): String = formatMoney(value.roundToLong())
 
 /**
  * Where a price is heading, as the game's own three-way arrow.
@@ -131,12 +137,19 @@ internal fun formatCurrency(value: Float): String = formatMoney(value.roundToLon
  */
 @Composable
 internal fun TrendMark(trend: String, modifier: Modifier = Modifier) {
-  val (icon, tint, label) = when (trend) {
-    "climbing" -> Triple(Icons.Filled.TrendingUp, VdtColors.AccentText, "climbing")
-    "falling" -> Triple(Icons.Filled.TrendingDown, VdtColors.Red, "falling")
-    else -> Triple(Icons.Filled.TrendingFlat, VdtColors.DarkGray, "steady")
+  val (icon, tint) = when (trend) {
+    "climbing" -> Icons.Filled.TrendingUp to VdtColors.AccentText
+    "falling" -> Icons.Filled.TrendingDown to VdtColors.Red
+    else -> Icons.Filled.TrendingFlat to VdtColors.DarkGray
   }
-  Icon(icon, contentDescription = label, tint = tint, modifier = modifier.size(14.dp))
+  Icon(icon, contentDescription = trendLabel(LocalStrings.current, trend), tint = tint, modifier = modifier.size(14.dp))
+}
+
+/** A price trend token as a word. */
+internal fun trendLabel(strings: Strings, trend: String): String = when (trend) {
+  "climbing" -> strings.market.trendClimbing
+  "falling" -> strings.market.trendFalling
+  else -> strings.market.trendSteady
 }
 
 /** Ink for a projection: the same green the app uses for money earned, muted when there is none. */

@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
@@ -102,7 +103,7 @@ fun WidgetConfigDialog(
           Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(option.label.uppercase(), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = VdtColors.DarkGray)
             if (option.choices.isEmpty()) {
-              Text("Nothing to choose from right now.", fontSize = 12.sp, color = VdtColors.DarkGray)
+              Text(LocalStrings.current.widgets.nothingToChoose, fontSize = 12.sp, color = VdtColors.DarkGray)
             } else if (option.multi) {
               // A set rather than a pick: every row toggles independently, and clearing them all is a
               // legitimate answer (an empty band) rather than a state to guard against.
@@ -137,7 +138,12 @@ fun WidgetConfigDialog(
       }
 
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-        DialogButton("CANCEL", accent = VdtColors.DarkGray, filled = false, onClick = onDismiss)
+        DialogButton(
+          LocalStrings.current.widgets.cancel,
+          accent = VdtColors.DarkGray,
+          filled = false,
+          onClick = onDismiss,
+        )
         DialogButton(confirmLabel, accent = VdtColors.Green, filled = true) { onConfirm(selection.toMap()) }
       }
     }

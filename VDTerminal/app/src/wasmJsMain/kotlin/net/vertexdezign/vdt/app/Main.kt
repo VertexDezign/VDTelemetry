@@ -22,6 +22,7 @@ import net.vertexdezign.vdt.app.pages.PageStore
 import net.vertexdezign.vdt.app.state.DisplayRequest
 import net.vertexdezign.vdt.app.state.DisplayStore
 import net.vertexdezign.vdt.app.state.FavouritesStore
+import net.vertexdezign.vdt.app.state.LanguageStore
 import net.vertexdezign.vdt.app.state.ThemeStore
 import net.vertexdezign.vdt.app.state.UiScaleStore
 import net.vertexdezign.vdt.app.state.VdtStore
@@ -69,7 +70,18 @@ fun main() {
 
   // Every app's alert rules run shell-wide over the raw data streams, whatever is on screen. A
   // tick of any channel re-evaluates all rules against the latest snapshot of every channel.
-  val alerts = AlertEngine(AppRegistry.apps.flatMap { it.alerts } + ModFormatAlerts.rules)
+  // Ahead of the alert engine, which writes each message in the language this device is showing.
+  val language = LanguageStore(settings, window.navigator.language)
+  val alerts =
+    AlertEngine(AppRegistry.apps.flatMap { it.alerts } + ModFormatAlerts.rules) {
+      language.currentStrings()
+    }
+  // The document's own lang, so the browser hyphenates, spell-checks and reads aloud in the language the
+  // terminal is drawn in rather than the English index.html ships with.
+  scope.launch {
+    combine(language.choice, language.gameLanguage) { choice, game -> language.resolve(choice, game) }
+      .collect { document.documentElement?.setAttribute("lang", it.code) }
+  }
   scope.launch {
     combine(
       repository.telemetry,
@@ -140,6 +152,7 @@ fun main() {
       display = display,
       theme = ThemeStore(settings, systemPrefersDark()),
       uiScale = UiScaleStore(settings),
+      language = language,
       onToggleWakeLock = {
         WakeLock.toggle()
         wakeLock.value = currentWakeStatus()

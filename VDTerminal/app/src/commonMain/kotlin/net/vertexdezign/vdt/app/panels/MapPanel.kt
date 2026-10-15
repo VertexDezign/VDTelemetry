@@ -121,6 +121,8 @@ import net.vertexdezign.vdt.app.components.SectionStrip
 import net.vertexdezign.vdt.app.components.ToolButton
 import net.vertexdezign.vdt.app.components.ToolButtonSize
 import net.vertexdezign.vdt.app.components.boomOf
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.state.LayerSubscriptions
 import net.vertexdezign.vdt.app.state.MapFocus
 import net.vertexdezign.vdt.app.theme.VdtColors
@@ -590,7 +592,7 @@ fun MapPanel(
   }
 
   Panel(
-    title = "Map",
+    title = LocalStrings.current.apps.map,
     icon = Icons.Filled.Map,
     modifier = modifier,
   ) {
@@ -725,7 +727,7 @@ fun MapPanel(
           bitmap?.let {
             Image(
               it,
-              contentDescription = "map",
+              contentDescription = LocalStrings.current.map.mapDescription,
               modifier = Modifier.fillMaxSize().graphicsLayer {
                 // About the box corner, the origin every other transform on this map works from.
                 transformOrigin = TransformOrigin(0f, 0f)
@@ -744,7 +746,7 @@ fun MapPanel(
           shownLayerBitmap?.let {
             Image(
               it,
-              contentDescription = "ground layer",
+              contentDescription = LocalStrings.current.map.groundLayerDescription,
               modifier = Modifier.fillMaxSize(),
               contentScale = ContentScale.FillBounds,
               filterQuality = FilterQuality.None,
@@ -813,7 +815,7 @@ fun MapPanel(
         ) {
           Icon(
             Icons.Filled.Navigation,
-            contentDescription = "player",
+            contentDescription = LocalStrings.current.map.player,
             tint = VdtColors.Red,
             modifier =
             Modifier
@@ -855,7 +857,7 @@ fun MapPanel(
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
               Text(
-                "Map image unavailable",
+                LocalStrings.current.map.imageUnavailable,
                 fontSize = 12.sp,
                 lineHeight = 14.sp,
                 fontWeight = FontWeight.Bold,
@@ -1025,6 +1027,7 @@ private fun BoxScope.MapControlRail(
   bottomInset: Dp,
   onWidth: (Dp) -> Unit,
 ) {
+  val s = LocalStrings.current.map
   BoxWithConstraints(Modifier.matchParentSize().padding(bottom = bottomInset).padding(RAIL_MARGIN)) {
     val gap = 6.dp
     val groupGap = 16.dp
@@ -1039,15 +1042,15 @@ private fun BoxScope.MapControlRail(
 
     val viewGroup =
       listOfNotNull(
-        RailButton(Icons.Filled.Tune, "filters & search", filterOpen, onClick = onToggleFilter).takeIf { showFilter },
-        RailButton(Icons.Filled.Explore, "course up", courseUp, onClick = onToggleCourseUp),
+        RailButton(Icons.Filled.Tune, s.filtersAndSearch, filterOpen, onClick = onToggleFilter).takeIf { showFilter },
+        RailButton(Icons.Filled.Explore, s.courseUp, courseUp, onClick = onToggleCourseUp),
         // Lit while following; tapping re-centres, and a drag is what turns following off again.
-        RailButton(Icons.Filled.CenterFocusStrong, "follow machine", autoCenter, setsOnly = true, onClick = onRecenter),
+        RailButton(Icons.Filled.CenterFocusStrong, s.followMachine, autoCenter, setsOnly = true, onClick = onRecenter),
       )
     val zoomGroup =
       listOf(
-        RailButton(Icons.Filled.Add, "zoom in", null) { onZoom(ZOOM_STEP) },
-        RailButton(Icons.Filled.Remove, "zoom out", null) { onZoom(1f / ZOOM_STEP) },
+        RailButton(Icons.Filled.Add, s.zoomIn, null) { onZoom(ZOOM_STEP) },
+        RailButton(Icons.Filled.Remove, s.zoomOut, null) { onZoom(1f / ZOOM_STEP) },
       )
 
     if (split) {
@@ -1575,6 +1578,7 @@ private fun BoxScope.MapDataOverlay(
       mapVehicles?.vehicles?.filter { it.isEntered }?.mapNotNull { it.id }?.toSet() ?: emptySet()
     }
 
+  val numbers = LocalStrings.current.numbers
   val labelStyle =
     remember {
       TextStyle(
@@ -1626,7 +1630,7 @@ private fun BoxScope.MapDataOverlay(
         if (!onCanvas(pos)) continue
         drawCenteredText(textMeasurer, field.name.ifBlank { field.id.toString() }, pos, labelStyle)
         if (scale >= DETAIL_ZOOM && field.areaHa > 0f) {
-          drawCenteredText(textMeasurer, "${field.areaHa} ha", pos + Offset(0f, 12.dp.toPx()), detailStyle)
+          drawCenteredText(textMeasurer, numbers.formatHa(field.areaHa), pos + Offset(0f, 12.dp.toPx()), detailStyle)
         }
       }
     }
@@ -2014,25 +2018,25 @@ private fun parseHexColor(hex: String?): Color? {
 private val PoiCategories = listOf("unloading", "loading", "production", "animal", "other")
 private val VehicleStates = listOf("ai", "player", "parked")
 
-private fun poiCategoryLabel(category: String): String = when (category) {
-  "unloading" -> "Unloading"
-  "loading" -> "Loading"
-  "production" -> "Production"
-  "animal" -> "Animals"
-  else -> "Other"
+private fun poiCategoryLabel(strings: Strings, category: String): String = when (category) {
+  "unloading" -> strings.map.poiUnloading
+  "loading" -> strings.map.poiLoading
+  "production" -> strings.map.poiProduction
+  "animal" -> strings.map.poiAnimals
+  else -> strings.map.poiOther
 }
 
-private fun vehicleStateLabel(state: String): String = when (state) {
-  "ai" -> "AI active"
-  "player" -> "Player-driven"
-  else -> "Parked"
+private fun vehicleStateLabel(strings: Strings, state: String): String = when (state) {
+  "ai" -> strings.map.vehicleAi
+  "player" -> strings.map.vehiclePlayer
+  else -> strings.map.vehicleParked
 }
 
 /** Fallback name for a plane the mod didn't label (an older mod version). */
-private fun groundLayerLabel(id: String): String = when (id) {
-  "crops" -> "Crops"
-  "growth" -> "Growth"
-  "soil" -> "Soil"
+private fun groundLayerLabel(strings: Strings, id: String): String = when (id) {
+  "crops" -> strings.map.layerCrops
+  "growth" -> strings.map.layerGrowth
+  "soil" -> strings.map.layerSoil
   else -> id
 }
 
@@ -2137,21 +2141,23 @@ private fun BoxScope.MapFilterPanel(
       .verticalScroll(rememberScrollState()),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
+    val strings = LocalStrings.current
+    val s = strings.map
     SearchField(
       value = query,
-      placeholder = "Search field / POI…",
+      placeholder = s.search,
       onValueChange = onQuery,
       modifier = Modifier.fillMaxWidth(),
     )
 
     if (query.isNotBlank()) {
       val hits =
-        remember(query, mapData, autoDrive) {
+        remember(query, mapData, autoDrive, strings) {
           val q = query.trim().lowercase()
           buildList {
             for (field in mapData?.fields ?: emptyList()) {
               val label = field.name.ifBlank { field.id.toString() }
-              if (label.lowercase().contains(q)) add(SearchHit("Field $label", Offset(field.labelX, field.labelZ)))
+              if (label.lowercase().contains(q)) add(SearchHit(s.field(label), Offset(field.labelX, field.labelZ)))
             }
             for (poi in mapData?.pois ?: emptyList()) {
               if (poi.name.lowercase().contains(q)) add(SearchHit(poi.name, Offset(poi.posX, poi.posZ)))
@@ -2160,13 +2166,13 @@ private fun BoxScope.MapFilterPanel(
             // answers "where is that destination" without switching the whole network on.
             for (destination in autoDrive?.destinations ?: emptyList()) {
               if (destination.name.lowercase().contains(q)) {
-                add(SearchHit("AD ${destination.name}", Offset(destination.posX, destination.posZ)))
+                add(SearchHit(s.autoDriveHit(destination.name), Offset(destination.posX, destination.posZ)))
               }
             }
           }.take(6)
         }
       if (hits.isEmpty()) {
-        Text("No matches", fontSize = 12.sp, color = VdtColors.DarkGray)
+        Text(s.noMatches, fontSize = 12.sp, color = VdtColors.DarkGray)
       }
       for (hit in hits) {
         Text(
@@ -2179,11 +2185,11 @@ private fun BoxScope.MapFilterPanel(
     }
 
     if (mapData != null) {
-      FilterRow("Fields", checked = showFields) { onShowFields(it) }
-      FilterSectionHeader("POIs", PoiCategories, poiCats, onPoiCats)
+      FilterRow(s.fields, checked = showFields) { onShowFields(it) }
+      FilterSectionHeader(s.pois, PoiCategories, poiCats, onPoiCats)
       for (category in PoiCategories) {
         FilterRow(
-          poiCategoryLabel(category),
+          poiCategoryLabel(strings, category),
           checked = category in poiCats,
           dot = poiCategoryColor(category),
         ) { on -> onPoiCats(if (on) poiCats + category else poiCats - category) }
@@ -2194,14 +2200,14 @@ private fun BoxScope.MapFilterPanel(
     // MapDataOverlay); this switches the rest of the network.
     // Under the POIs, because that is what a destination is: a named place on the map, not a machine.
     if (autoDrive != null && autoDrive.destinations.isNotEmpty()) {
-      FilterRow("AutoDrive destinations", checked = showAutoDrive, dot = VdtColors.ProgressBlue) { onShowAutoDrive(it) }
+      FilterRow(s.autoDriveDestinations, checked = showAutoDrive, dot = VdtColors.ProgressBlue) { onShowAutoDrive(it) }
     }
 
     // Only while this farm has contracts of its own: with none, the section would switch nothing. In
     // multiplayer it is what gets a colleague's contract markers off your map. A collected contract
     // keeps its row even though it is off the map by default — that row is how it is put back.
     if (missions.isNotEmpty()) {
-      FilterRow("Contracts", checked = showMissions, dot = VdtColors.ProgressBlue) { onShowMissions(it) }
+      FilterRow(s.contracts, checked = showMissions, dot = VdtColors.ProgressBlue) { onShowMissions(it) }
       // One row per contract under the switch that draws them all, the same way the course range sits
       // under the course. Each carries its marker's colour, so the row and the circle on the map are
       // obviously the same thing — which is the whole point of picking one out of three.
@@ -2219,34 +2225,34 @@ private fun BoxScope.MapFilterPanel(
 
     // Only while there is a course to hide: off a field the row would be a switch for nothing.
     if (hasCourse) {
-      FilterRow("Guidance course", checked = showCourse, dot = VdtColors.Red) { onShowCourse(it) }
+      FilterRow(s.guidanceCourse, checked = showCourse, dot = VdtColors.Red) { onShowCourse(it) }
       // Under the row it narrows, and only while the course is on — it is a property of what that
       // switch draws, not a filter of its own.
       if (showCourse) CourseRangeRow(courseNearby, onCourseNearby)
     }
 
     if (mapVehicles != null) {
-      FilterSectionHeader("Vehicles", VehicleStates, vehStates, onVehStates)
+      FilterSectionHeader(s.vehicles, VehicleStates, vehStates, onVehStates)
       for (state in VehicleStates) {
-        FilterRow(vehicleStateLabel(state), checked = state in vehStates) { on ->
+        FilterRow(vehicleStateLabel(strings, state), checked = state in vehStates) { on ->
           onVehStates(if (on) vehStates + state else vehStates - state)
         }
       }
       // Only in a session that has someone else in it: in singleplayer the row would switch nothing.
       if (mapVehicles.players.isNotEmpty()) {
-        FilterRow("Other players", checked = showPlayers) { onShowPlayers(it) }
+        FilterRow(s.otherPlayers, checked = showPlayers) { onShowPlayers(it) }
       }
     }
 
     // Single-select, unlike the sections above: FilterRow's checkbox is reused purely as a
     // "selected" indicator, and each row's tap sets groundLayer directly rather than toggling.
     if (mapLayers != null) {
-      Text("Ground layer", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
-      FilterRow("None", checked = groundLayer == NO_GROUND_LAYER) { onGroundLayer(NO_GROUND_LAYER) }
+      Text(s.groundLayer, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
+      FilterRow(s.none, checked = groundLayer == NO_GROUND_LAYER) { onGroundLayer(NO_GROUND_LAYER) }
       for (layer in mapLayers.layers) {
         // The mod labels each plane from the game's own overlay selector, so a plane this app has
         // never heard of (Precision Farming's) still gets a proper, localized name.
-        FilterRow(layer.label.ifBlank { groundLayerLabel(layer.id) }, checked = groundLayer == layer.id) {
+        FilterRow(layer.label.ifBlank { groundLayerLabel(strings, layer.id) }, checked = groundLayer == layer.id) {
           onGroundLayer(layer.id)
         }
         // Coverage is the one layer with something to clear, and the control belongs under the layer
@@ -2308,10 +2314,10 @@ private fun ResetCoverageRow(onReset: suspend () -> Boolean) {
     Icon(Icons.Filled.DeleteSweep, null, tint = tint, modifier = Modifier.size(14.dp))
     Text(
       when {
-        failed -> "Reset failed — tap to retry"
-        clearing -> "Clearing…"
-        confirming -> "Tap again to clear"
-        else -> "Reset coverage"
+        failed -> LocalStrings.current.map.resetFailed
+        clearing -> LocalStrings.current.map.clearing
+        confirming -> LocalStrings.current.map.tapAgain
+        else -> LocalStrings.current.map.resetCoverage
       },
       fontSize = 12.sp,
       fontWeight = if (confirming) FontWeight.Bold else FontWeight.Normal,
@@ -2346,7 +2352,7 @@ private fun FilterSectionHeader(
 }
 
 /** How much of the course to draw, as swaths either side of the machine — 0 being the whole field. */
-private val CourseRanges = listOf(0 to "All", 1 to "±1", 2 to "±2", 3 to "±3")
+private val CourseRanges = listOf(0 to null, 1 to "±1", 2 to "±2", 3 to "±3")
 
 /**
  * Narrow the course to the lines around the machine.
@@ -2363,11 +2369,13 @@ private fun CourseRangeRow(nearby: Int, onNearby: (Int) -> Unit) {
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(10.dp),
   ) {
-    Text("Lines", fontSize = 12.sp, color = VdtColors.DarkGray)
+    val s = LocalStrings.current.map
+    Text(s.lines, fontSize = 12.sp, color = VdtColors.DarkGray)
     for ((value, label) in CourseRanges) {
       val on = value == nearby
       Text(
-        label,
+        // 0 is the whole field, the one range that is a word rather than a figure.
+        label ?: s.allLines,
         fontSize = 12.sp,
         fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
         color = if (on) VdtColors.AccentText else VdtColors.DarkGray,
@@ -2443,16 +2451,18 @@ private fun BoxScope.FieldInfoPopup(
       .heightIn(max = 320.dp)
       .padding(8.dp),
   ) {
+    val strings = LocalStrings.current
+    val s = strings.map
     // Fixed header: stays pinned while the rows below scroll.
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
       Text(
-        "Field ${field.name.ifBlank { field.id.toString() }}",
+        s.field(field.name.ifBlank { field.id.toString() }),
         fontSize = 14.sp,
         fontWeight = FontWeight.Bold,
         color = VdtColors.TextDark,
         modifier = Modifier.weight(1f),
       )
-      ToolButton(Icons.Filled.Close, "close", onClick = onClose)
+      ToolButton(Icons.Filled.Close, s.close, onClick = onClose)
     }
 
     // Scrollable body: the value rows overflow into this region, the header stays put.
@@ -2460,21 +2470,21 @@ private fun BoxScope.FieldInfoPopup(
       Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 3.dp),
       verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-      InfoRow("Farmland", (field.farmlandId ?: field.id).toString())
-      InfoRow("Owner", ownerLabel(field.ownerFarmId, playerFarmId, farms))
-      if (field.areaHa > 0f) InfoRow("Area", "${field.areaHa} ha")
+      InfoRow(s.farmland, (field.farmlandId ?: field.id).toString())
+      InfoRow(s.owner, ownerLabel(strings, field.ownerFarmId, playerFarmId, farms))
+      if (field.areaHa > 0f) InfoRow(s.area, strings.numbers.formatHa(field.areaHa))
 
       if (info != null) {
-        if (info.crop.isNotBlank()) InfoRow("Crop", info.crop)
-        val growth = growthLabel(info.growth)
-        if (growth.isNotBlank()) InfoRow("Growth", growth)
-        if (info.maxGrowthState > 0) InfoRow("Stage", "${info.growthState} / ${info.maxGrowthState}")
-        info.yieldBonusPercent?.let { InfoRow("Yield bonus", "+ $it %") }
-        info.sprayLevelPercent?.let { InfoRow("Fertilized", "$it %") }
-        if (info.weed.isNotBlank()) InfoRow("Weeds", info.weed)
-        if (info.needsPlowing) InfoRow("Needs plowing", "", warning = true)
-        if (info.needsLime) InfoRow("Needs lime", "", warning = true)
-        if (info.needsRolling) InfoRow("Needs rolling", "", warning = true)
+        if (info.crop.isNotBlank()) InfoRow(s.crop, info.crop)
+        val growth = growthLabel(strings, info.growth)
+        if (growth.isNotBlank()) InfoRow(s.growth, growth)
+        if (info.maxGrowthState > 0) InfoRow(s.stage, "${info.growthState} / ${info.maxGrowthState}")
+        info.yieldBonusPercent?.let { InfoRow(s.yieldBonus, "+ $it %") }
+        info.sprayLevelPercent?.let { InfoRow(s.fertilized, "$it %") }
+        if (info.weed.isNotBlank()) InfoRow(s.weeds, info.weed)
+        if (info.needsPlowing) InfoRow(s.needsPlowing, "", warning = true)
+        if (info.needsLime) InfoRow(s.needsLime, "", warning = true)
+        if (info.needsRolling) InfoRow(s.needsRolling, "", warning = true)
         info.cropRotation?.let { CropRotationRows(it) }
       }
     }
@@ -2484,15 +2494,16 @@ private fun BoxScope.FieldInfoPopup(
 /** The FS25_CropRotation section of the popup: a header plus the mod's per-field history rows. */
 @Composable
 private fun CropRotationRows(cr: FieldCropRotation) {
+  val s = LocalStrings.current.map
   Column(
     Modifier.fillMaxWidth().padding(top = 4.dp),
     verticalArrangement = Arrangement.spacedBy(3.dp),
   ) {
-    Text("Crop Rotation", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
-    if (cr.lastCrop.isNotBlank()) InfoRow("Last crop", cr.lastCrop)
-    if (cr.prevCrop.isNotBlank()) InfoRow("Previous crop", cr.prevCrop)
-    cr.yieldPercent?.let { InfoRow("Rotation yield", "$it %") }
-    InfoRow("Catch crop", cr.catchCrop?.ifBlank { null } ?: "None")
+    Text(s.cropRotation, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VdtColors.TextDark)
+    if (cr.lastCrop.isNotBlank()) InfoRow(s.lastCrop, cr.lastCrop)
+    if (cr.prevCrop.isNotBlank()) InfoRow(s.previousCrop, cr.prevCrop)
+    cr.yieldPercent?.let { InfoRow(s.rotationYield, "$it %") }
+    InfoRow(s.catchCrop, cr.catchCrop?.ifBlank { null } ?: s.noCatchCrop)
   }
 }
 
@@ -2518,21 +2529,21 @@ private fun InfoRow(label: String, value: String, warning: Boolean = false) {
 }
 
 /** Game growth-map token -> readable label (mirrors `PlayerHUDUpdater`'s growth text ladder). */
-private fun growthLabel(token: String): String = when (token) {
-  "growing" -> "Growing"
-  "readyToPrepare" -> "Ready to prepare"
-  "readyToHarvest" -> "Ready to harvest"
-  "cut" -> "Cut"
-  "withered" -> "Withered"
+private fun growthLabel(strings: Strings, token: String): String = when (token) {
+  "growing" -> strings.map.growing
+  "readyToPrepare" -> strings.map.readyToPrepare
+  "readyToHarvest" -> strings.map.readyToHarvest
+  "cut" -> strings.map.cut
+  "withered" -> strings.map.withered
   else -> ""
 }
 
 /** Owner display: "You" for the player's farm, the farm name for another, "Not owned" for none. */
-private fun ownerLabel(ownerFarmId: Int?, playerFarmId: Int?, farms: List<MapFarm>): String {
-  if (ownerFarmId == null) return "Not owned"
-  if (playerFarmId != null && ownerFarmId == playerFarmId) return "You"
+private fun ownerLabel(strings: Strings, ownerFarmId: Int?, playerFarmId: Int?, farms: List<MapFarm>): String {
+  if (ownerFarmId == null) return strings.map.notOwned
+  if (playerFarmId != null && ownerFarmId == playerFarmId) return strings.map.you
   val name = farms.firstOrNull { it.id == ownerFarmId }?.name
-  return if (!name.isNullOrBlank()) name else "Farm $ownerFarmId"
+  return if (!name.isNullOrBlank()) name else strings.map.farm(ownerFarmId)
 }
 
 /**

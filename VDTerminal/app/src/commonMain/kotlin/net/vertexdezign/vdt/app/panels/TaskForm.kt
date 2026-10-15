@@ -35,13 +35,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.vertexdezign.vdt.TaskInput
 import net.vertexdezign.vdt.app.components.FilterChip
+import net.vertexdezign.vdt.app.i18n.LocalStrings
+import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.model.Task
 
 private const val MAX_DETAIL = 45 // matches the mod's Task.MAX_DETAIL_LENGTH
 
 // recurMode indices (Task.RECUR_MODE): 0 Once, 1 Monthly, 2 Daily, 3 Every N months, 4 Every N days.
-private val RECUR_LABELS = listOf("Once", "Monthly", "Daily", "Every N months", "Every N days")
-internal val MONTH_LABELS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+/** The recurrence modes' names, in the mod's mode order. */
+private fun recurLabels(strings: Strings): List<String> = with(strings.tasks) {
+  listOf(once, monthly, daily, everyNMonths, everyNDays)
+}
 
 private fun usesMonth(recurMode: Int) = recurMode == 0 || recurMode == 1 || recurMode == 3
 private fun usesN(recurMode: Int) = recurMode == 3 || recurMode == 4
@@ -124,6 +129,8 @@ fun TaskFormDialog(
   var recurMode by remember { mutableIntStateOf(initial.recurMode) }
   var n by remember { mutableIntStateOf(initial.n) }
   var month by remember { mutableIntStateOf(initial.month) }
+  val strings = LocalStrings.current
+  val s = strings.tasks
 
   AlertDialog(
     onDismissRequest = onDismiss,
@@ -132,9 +139,9 @@ fun TaskFormDialog(
       TextButton(
         enabled = detail.isNotBlank(),
         onClick = { onSave(TaskInput(detail.trim(), priority, effort, recurMode, n, month)) },
-      ) { Text("Save") }
+      ) { Text(strings.common.save) }
     },
-    dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(strings.common.cancel) } },
     text = {
       Column(
         Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -143,24 +150,34 @@ fun TaskFormDialog(
         OutlinedTextField(
           value = detail,
           onValueChange = { if (it.length <= MAX_DETAIL) detail = it },
-          label = { Text("Detail") },
+          label = { Text(s.detail) },
           singleLine = true,
           supportingText = { Text("${detail.length}/$MAX_DETAIL") },
           modifier = Modifier.fillMaxWidth(),
         )
-        Stepper("Priority", priority, 1..10) { priority = it }
-        Stepper("Effort", effort, 1..5) { effort = it }
-        DropdownField("Repeat", RECUR_LABELS, recurMode) { recurMode = it }
+        Stepper(s.priority, priority, 1..10) { priority = it }
+        Stepper(s.effort, effort, 1..5) { effort = it }
+        DropdownField(s.repeat, recurLabels(strings), recurMode) { recurMode = it }
         if (usesMonth(recurMode)) {
           if (todayPeriod != null) MonthOffsets(todayPeriod, month) { month = it }
-          DropdownField(if (recurMode == 3) "Start month" else "Month", MONTH_LABELS, month - 1) { month = it + 1 }
+          DropdownField(
+            if (recurMode ==
+              3
+            ) {
+              s.startMonth
+            } else {
+              s.month
+            },
+            strings.common.monthsShort,
+            month - 1,
+          ) { month = it + 1 }
         }
         if (usesN(recurMode)) {
           // Union with the current n so a value outside the mod's vocabulary (a task authored by some
           // other tool) stays selectable instead of being truncated away on save.
           val options = (nOptions(recurMode) + n).distinct().sorted()
           DropdownField(
-            if (recurMode == 3) "Every N months" else "Every N days",
+            if (recurMode == 3) s.everyNMonths else s.everyNDays,
             options.map { it.toString() },
             options.indexOf(n),
           ) { n = options[it] }
@@ -188,7 +205,7 @@ private fun DropdownField(label: String, options: List<String>, selectedIndex: I
         verticalAlignment = Alignment.CenterVertically,
       ) {
         Text(options.getOrElse(selectedIndex) { "" }, fontSize = 13.sp)
-        Icon(Icons.Filled.ArrowDropDown, "select $label")
+        Icon(Icons.Filled.ArrowDropDown, LocalStrings.current.tasks.select(label))
       }
       DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         options.forEachIndexed { index, option ->
@@ -222,11 +239,11 @@ private fun Stepper(
     Text(label, fontSize = 13.sp)
     Row(verticalAlignment = Alignment.CenterVertically) {
       IconButton(enabled = value > range.first, onClick = { onChange((value - 1).coerceIn(range)) }) {
-        Icon(Icons.Filled.Remove, "decrease $label")
+        Icon(Icons.Filled.Remove, LocalStrings.current.tasks.decrease(label))
       }
       Text(display(value), fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 96.dp))
       IconButton(enabled = value < range.last, onClick = { onChange((value + 1).coerceIn(range)) }) {
-        Icon(Icons.Filled.Add, "increase $label")
+        Icon(Icons.Filled.Add, LocalStrings.current.tasks.increase(label))
       }
     }
   }
@@ -240,6 +257,7 @@ private fun Stepper(
  */
 @Composable
 private fun MonthOffsets(todayPeriod: Int, month: Int, onPick: (Int) -> Unit) {
+  val strings = LocalStrings.current
   FlowRow(
     Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -247,7 +265,8 @@ private fun MonthOffsets(todayPeriod: Int, month: Int, onPick: (Int) -> Unit) {
   ) {
     MONTH_OFFSETS.forEach { offset ->
       val resolved = monthFromNow(todayPeriod, offset)
-      val label = if (offset == 0) "Now · ${MONTH_LABELS[resolved - 1]}" else "+$offset · ${MONTH_LABELS[resolved - 1]}"
+      val name = strings.common.monthsShort[resolved - 1]
+      val label = if (offset == 0) strings.tasks.nowMonth(name) else strings.tasks.inMonths(offset, name)
       FilterChip(label, month == resolved, { onPick(resolved) })
     }
   }

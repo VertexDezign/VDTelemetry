@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /** Below this the detail beside a list is too narrow to read, and the two take turns instead. */
@@ -88,7 +89,7 @@ private fun BackBar(label: String, onBack: () -> Unit) {
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    ToolButton(Icons.AutoMirrored.Filled.ArrowBack, "back to $label", onClick = onBack)
+    ToolButton(Icons.AutoMirrored.Filled.ArrowBack, LocalStrings.current.widgets.backTo(label), onClick = onBack)
     Text(
       label.uppercase(),
       fontSize = 10.sp,

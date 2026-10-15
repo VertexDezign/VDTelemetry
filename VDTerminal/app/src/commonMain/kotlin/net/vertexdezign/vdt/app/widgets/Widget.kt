@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.vertexdezign.vdt.app.i18n.Strings
 
 /**
  * A placeable dashboard tile — the panels ("widgets") an app arranges on its screen. A widget pulls
@@ -16,7 +17,9 @@ import androidx.compose.ui.unit.dp
  */
 interface Widget {
   val id: String
-  val title: String
+
+  /** The widget's name in [strings]' language, as the picker and its config dialog show it. */
+  fun title(strings: Strings): String
   val icon: ImageVector
 
   /**

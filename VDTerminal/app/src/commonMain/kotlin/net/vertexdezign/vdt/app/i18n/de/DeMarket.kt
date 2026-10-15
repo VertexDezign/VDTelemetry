@@ -1,0 +1,98 @@
+package net.vertexdezign.vdt.app.i18n.de
+
+import net.vertexdezign.vdt.app.i18n.MarketStrings
+
+internal object DeMarket : MarketStrings {
+  override val tabStock = "Bestand"
+  override val tabPrices = "Preise"
+  override val waitingBoard = "Warte auf die Preistafel…"
+  override val trendClimbing = "steigend"
+  override val trendFalling = "fallend"
+  override val trendSteady = "stabil"
+
+  override val formBulk = "Schüttgut"
+  override val formBales = "Ballen"
+  override val formPallets = "Paletten"
+  override val formBigBags = "Big Bags"
+  override val formObjects = "Objekte"
+  override val placeSilo = "Silo"
+  override val placeStore = "Objektlager"
+  override val placeBunker = "Fahrsilo"
+  override val placeOutside = "Draußen"
+  override val placeProduction = "Produktion"
+  override val placePen = "Stall"
+  override val noteStillFilling = "wird befüllt"
+  override val noteFermenting = "gärt"
+  override val noteReady = "fertig"
+  override val noteOpen = "offen"
+  override val noteAwaitingCollection = "wartet auf Abholung"
+  override fun noteBalesFermenting(count: Int): String = "$count gärend"
+
+  override val filterCategory = "Kategorie"
+  override val filterForm = "Form"
+  override val filterWhere = "Wo"
+  override val filterCommodity = "Ware"
+  override val filterSellsTo = "Verkauf an"
+  override val filterStation = "Station"
+  override val categoryCrops = "Feldfrüchte"
+  override val categoryProducts = "Produkte"
+  override val categoryNoBuyer = "Kein Käufer"
+  override val categoryDemand = "Große Nachfrage"
+  override val categoryFermenting = "Gärend"
+  override val categorySoldHere = "Hier verkauft"
+  override val categoryBoughtHere = "Hier gekauft"
+  override val categoryPallets = "Paletten"
+
+  override val waitingStock = "Warte auf Bestandsdaten…"
+  override val holdsNothing = "Dieser Hof hat keinen Bestand"
+  override val stockFilterHint = "Nach Ware, Form, Lager, Station filtern…"
+  override val noBoard = "keine Preistafel — nur Mengen"
+  override fun pricesPer1000(multiplier: String): String = "Preise pro 1000 l · Wirtschaft ×$multiplier"
+  override val columnName = "Name"
+  override val columnType = "Art"
+  override val columnAmount = "Menge"
+  override val columnPrice = "Preis"
+  override val columnValue = "Wert"
+  override val columnSellsTo = "Verkauf an"
+  override val columnBestPrice = "Bester Preis"
+  override val columnBestValue = "Bester Wert"
+  override val columnMonth = "Monat"
+  override fun fermentingBadge(count: Int): String = "$count GÄREND"
+  override val noBuyer = "kein Käufer"
+  override val demandBadge = "NACHFRAGE"
+  override fun noStationBuys(title: String): String =
+    "Keine Station auf dieser Karte kauft $title — das ist Bestand, kein Geld."
+  override val flatYear = "Keine saisonale Bewegung im Preis dieser Ware — das Jahr ist flach."
+  override fun places(count: Int): String = "$count Orte"
+  override fun bestOffer(price: String, station: String, trend: String): String =
+    "Bestes Angebot $price pro 1000 l bei $station ($trend)"
+  override fun greatDemand(premium: String, hoursLeft: Int?): String =
+    " · große Nachfrage" + (if (premium.isEmpty()) "" else " ×$premium") + (hoursLeft?.let { ", noch $it h" } ?: "")
+  override fun worth(value: String): String = ", Wert $value"
+  override fun projection(month: String, gain: String, station: String, price: String, value: String): String =
+    "Bester Monat $month: die Kurve liegt dann $gain% über heute, was bei $station $price pro 1000 l ergibt, Wert $value"
+  override fun total(rows: Int, unpriced: Int): String =
+    (if (rows == 1) "Summe · 1 Zeile" else "Summe · $rows Zeilen") +
+      (if (unpriced > 0) ", $unpriced ohne Preis" else "")
+
+  override val boardEmpty = "Die Preistafel ist leer"
+  override val boardFilterHint = "Nach Ware oder Station filtern…"
+  override fun boardUnit(multiplier: String): String = "pro 1000 l · Wirtschaft ×$multiplier"
+  override val commodities = "Waren"
+  override val selectCommodity = "Ware wählen"
+  override val buyOnly = "nur Kauf"
+  override val crop = "FRUCHT"
+  override val reference = "Referenz"
+  override val bestOfferLabel = "Bestes Angebot"
+  override val noStationBuysThis = "keine Station kauft das"
+  override val peakMonth = "Bester Monat"
+  override fun marketAverage(price: String): String = "Marktschnitt $price"
+  override val noSeasonalMovement = "keine saisonale Bewegung"
+  override fun sellsTo(count: Int): String = "Verkauf an ($count)"
+  override fun buyFrom(count: Int): String = "Kauf bei ($count)"
+  override val palletsNote = "Paletten (ganze Palette, nicht pro 1000 l)"
+  override val nothingTrades = "Nichts auf dieser Karte handelt damit."
+  override val train = "ZUG"
+  override val now = "JETZT"
+  override val peak = "SPITZE"
+}

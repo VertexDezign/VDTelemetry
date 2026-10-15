@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import net.vertexdezign.vdt.app.i18n.LocalStrings
 import net.vertexdezign.vdt.app.theme.VdtColors
 
 /**
@@ -87,7 +88,7 @@ private fun BoxScope.ScrollHint(state: ScrollState, up: Boolean, visible: Boolea
   ) {
     Icon(
       if (up) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-      contentDescription = if (up) "More above" else "More below",
+      contentDescription = if (up) LocalStrings.current.widgets.moreAbove else LocalStrings.current.widgets.moreBelow,
       tint = VdtColors.TextDark,
       modifier = Modifier.size(14.dp),
     )
