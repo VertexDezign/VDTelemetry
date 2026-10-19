@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.4.21"
-compose = "1.12.1"
+compose = "1.12.2"
 ktor = "3.6.0"
 kotlinxSerialization = "1.11.0"
 kotlinxCoroutines = "1.11.0"
