@@ -21,6 +21,8 @@ data class Vehicle(
   val speedSync: SpeedSync? = null,
   /** AutoDrive, when that mod is installed and drives this machine (mod version 34). */
   val autoDrive: AutoDrive? = null,
+  /** Variable Tire Pressure, when that mod is installed and this machine's wheels have it (mod version 36). */
+  val tirePressure: TirePressure? = null,
   val isTurnedOn: Boolean? = null,
   val foldable: FoldableState? = null,
   val lowered: Boolean? = null,
@@ -419,6 +421,74 @@ data class SpeedSync(
    */
   val available: Boolean = false,
 )
+
+// ---------------------------------------------------------------------------
+// Tyre pressure (mod version 36)
+// ---------------------------------------------------------------------------
+
+/**
+ * **Variable Tire Pressure**'s inflation system on one machine (FS25_VariableTirePressure, issue #193):
+ * the tyres run at a road pressure or a lower field pressure, and the compressor moves them between the
+ * two over a few seconds. Null when the mod isn't installed *or* this machine's wheels were not bought
+ * with the system — the mod rides on every wheeled machine but works only on those.
+ *
+ * Both a vehicle and its implements carry one; the tractor's key and the implements' key are the two
+ * scopes [net.vertexdezign.vdt.ClientMessage.SetTirePressure] switches. See the mod's
+ * `src/integrations/VariableTirePressure.lua`.
+ */
+@Serializable
+data class TirePressure(
+  val mode: TireMode = TireMode.ROAD,
+  /** Pressure now, in bar — the mean of the axles while they run apart ([front]/[rear]). */
+  val bar: Float = 0f,
+  /** Where the compressor is taking it; equal to [bar] once it has settled. */
+  val targetBar: Float = 0f,
+  /** The road setpoint, always the higher of the two — the axles' mean while they run apart. Null on a file that lacked it. */
+  val roadBar: Float? = null,
+  /** The field setpoint. */
+  val fieldBar: Float? = null,
+  /**
+   * Each axle, only while they run apart: the player gave front and rear different setpoints in the
+   * mod's window. Otherwise the mod moves both as one.
+   */
+  val front: TireAxle? = null,
+  val rear: TireAxle? = null,
+) {
+  /**
+   * Which way the pressure is moving, or null when it has settled. Off [bar] against [targetBar]
+   * rather than a flag of the mod's: the two meet exactly when the transition ends, and a pressure the
+   * player froze half-way (the mod's "pressure memory") has its target pulled to where it stopped.
+   */
+  val change: TireChange?
+    get() = when {
+      targetBar - bar > SETTLED_BAR -> TireChange.INFLATING
+      bar - targetBar > SETTLED_BAR -> TireChange.DEFLATING
+      else -> null
+    }
+
+  private companion object {
+    /** Below this the two are the same pressure, rounded apart (the mod writes two decimals). */
+    const val SETTLED_BAR = 0.015f
+  }
+}
+
+/** One axle of a tractor that runs them apart. */
+@Serializable
+data class TireAxle(val bar: Float = 0f, val mode: TireMode = TireMode.ROAD)
+
+@Serializable
+enum class TireMode {
+  ROAD,
+  FIELD,
+
+  /** A tractor's axles apart, one at each pressure. Never on an axle itself. */
+  MIXED,
+}
+
+enum class TireChange {
+  INFLATING,
+  DEFLATING,
+}
 
 // ---------------------------------------------------------------------------
 // Wear
@@ -1385,6 +1455,8 @@ data class Implement(
   /** A loader's cylinders, or a tool's own clamp (mod version 30). See [LoaderCylinder]. */
   val loaderCylinders: List<LoaderCylinder> = emptyList(),
   val precisionFarming: PrecisionFarming? = null,
+  /** Variable Tire Pressure, when this implement's wheels have it (mod version 36). See [TirePressure]. */
+  val tirePressure: TirePressure? = null,
   /** Index into the *parent's* [Schema.attacherJoint] list — where this implement hangs off it. */
   val jointDescIndex: Int? = null,
   /** Null unless the parent's joint lowers this implement. */

@@ -154,6 +154,10 @@ class CommandWriter(private val path: Path, private val ringSize: Int = 16) {
       """<command id="$id" type="setSpeedSync" active="${message.active}"/>"""
     }
 
+    is ClientMessage.SetTirePressure -> {
+      """<command id="$id" type="setTirePressure" scope="${message.scope.token}" road="${message.road}"/>"""
+    }
+
     is ClientMessage.SetAutoDriveActive -> {
       """<command id="$id" type="setAutoDriveActive" active="${message.active}"/>"""
     }

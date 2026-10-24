@@ -1,0 +1,330 @@
+{
+  "vehicle": {
+    "brand": {
+      "image": "Z:/home/benjamin/.local/share/Steam/steamapps/common/Farming Simulator 25/data/store/brands/brand_johnDeere.png",
+      "name": "JOHNDEERE",
+      "title": "John Deere"
+    },
+    "speedSync": {
+      "available": false,
+      "waiting": false,
+      "active": false
+    },
+    "implement": [
+      {
+        "brand": {
+          "name": "KAWECO",
+          "title": "Kaweco"
+        },
+        "type": "manureBarrel",
+        "tirePressure": {
+          "targetBar": 0.9,
+          "fieldBar": 0.9,
+          "mode": "FIELD",
+          "roadBar": 2.2,
+          "bar": 1.71
+        },
+        "precisionFarming": {
+          "auto": true,
+          "canToggleAuto": true,
+          "mode": "OTHER",
+          "spotSpray": false
+        },
+        "isTurnedOn": false,
+        "selection": {
+          "selectable": true,
+          "selected": true
+        },
+        "fillUnits": {
+          "fillUnit": [
+            {
+              "type": "",
+              "title": "",
+              "fillLevelPercentage": 0,
+              "value": 0,
+              "capacity": 20000,
+              "unit": ""
+            }
+          ]
+        },
+        "wearable": {
+          "wear": 0,
+          "damage": 0,
+          "dirt": 0,
+          "unit": "%"
+        },
+        "mass": {
+          "value": 7.402,
+          "empty": 5.95
+        },
+        "name": "Kaweco Profi II",
+        "position": "BACK",
+        "spraying": {
+          "doubledAmountAvailable": false,
+          "allowsSpraying": true,
+          "active": false,
+          "kind": "SLURRY_TANKER",
+          "doubledAmount": false
+        },
+        "discharge": {
+          "fillUnitIndex": 1,
+          "canToggle": true,
+          "hasObject": false,
+          "allowed": true,
+          "state": "OFF",
+          "nodeIndex": 1,
+          "hitTerrain": false
+        },
+        "jointDescIndex": 5,
+        "schema": {
+          "name": "IMPLEMENT",
+          "attacherJoint": [
+            {
+              "y": 0,
+              "x": 1,
+              "liftedOffsetY": 5,
+              "liftedOffsetX": 0,
+              "rotation": 0,
+              "invertX": false
+            }
+          ],
+          "borderLeft": 0.05,
+          "offsetY": 0,
+          "borderRight": 0.05,
+          "offsetX": 0
+        }
+      }
+    ],
+    "odometer": {
+      "value": 0.1,
+      "unit": "km"
+    },
+    "mass": {
+      "value": 15.343,
+      "empty": 6.365
+    },
+    "speed": {
+      "value": 0,
+      "direction": "STOPPED",
+      "unit": "km/h"
+    },
+    "cruiseControl": {
+      "active": false,
+      "targetSpeed": 53
+    },
+    "wearable": {
+      "wear": 0,
+      "damage": 0,
+      "dirt": 0,
+      "unit": "%"
+    },
+    "gps": {
+      "enabled": false,
+      "heading": 302,
+      "linesVisible": true,
+      "active": false,
+      "headingUnit": "°"
+    },
+    "type": "tractor",
+    "motor": {
+      "rpm": {
+        "value": 900,
+        "max": 2200,
+        "min": 0
+      },
+      "direction": "FORWARD",
+      "parkingBrake": false,
+      "temperatur": {
+        "value": 79,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "state": "ON",
+      "maxSpeed": {
+        "backward": 22,
+        "forward": 53
+      },
+      "awd": true,
+      "gear": {
+        "value": "D",
+        "isNeutral": false
+      },
+      "diffLock": {
+        "front": false,
+        "back": false
+      },
+      "load": {
+        "value": 9.63,
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      },
+      "fillUnits": {
+        "air": {
+          "fillLevelPercentage": 86,
+          "title": "Luft",
+          "value": 3431,
+          "capacity": 4000,
+          "unit": "l"
+        },
+        "fuel": {
+          "type": "diesel",
+          "title": "Diesel",
+          "fillLevelPercentage": 100,
+          "value": 322,
+          "usage": 5.7,
+          "capacity": 322,
+          "unit": "l"
+        },
+        "def": {
+          "fillLevelPercentage": 100,
+          "title": "Synthetische Harnstofflösung",
+          "value": 16,
+          "capacity": 16,
+          "unit": "l"
+        }
+      }
+    },
+    "tirePressure": {
+      "targetBar": 2.2,
+      "fieldBar": 0.9,
+      "mode": "ROAD",
+      "roadBar": 2.2,
+      "bar": 2.2
+    },
+    "lights": {
+      "beaconLight": false,
+      "indicator": {
+        "right": false,
+        "left": false,
+        "hazard": false
+      },
+      "workLight": {
+        "front": false,
+        "back": false
+      },
+      "light": {
+        "highBeam": false,
+        "lowBeam": false
+      }
+    },
+    "name": "John Deere 6R 145",
+    "ads": {
+      "electrical": {
+        "lowBelow": 12,
+        "unit": "V",
+        "systemVoltage": 14.1
+      },
+      "transmissionTemperatur": {
+        "value": 52,
+        "min": 20,
+        "max": 120,
+        "unit": "°C"
+      },
+      "lamps": {
+        "coolant": "OFF",
+        "warning": "OFF",
+        "oil": "OFF",
+        "transmission": "OFF",
+        "battery": "OFF",
+        "service": "OFF",
+        "engine": "OFF",
+        "brakes": "OFF"
+      },
+      "load": {
+        "value": 11,
+        "unit": "%",
+        "overloadAt": 85
+      },
+      "service": {
+        "interval": 5,
+        "hours": 0
+      }
+    },
+    "operatingTime": {
+      "value": "0.02",
+      "unit": "h"
+    },
+    "ai": {
+      "active": false
+    },
+    "schema": {
+      "name": "VEHICLE",
+      "attacherJoint": [
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": true
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        },
+        {
+          "y": 0,
+          "x": 1,
+          "liftedOffsetY": 5,
+          "liftedOffsetX": 0,
+          "rotation": 0,
+          "invertX": false
+        }
+      ],
+      "borderLeft": 0.05,
+      "offsetY": 0,
+      "borderRight": 0.05,
+      "offsetX": 0
+    },
+    "selection": {
+      "selectable": true,
+      "selected": false
+    }
+  },
+  "version": "36",
+  "environment": {
+    "time": "09:03",
+    "pda": {
+      "filename": "Z:/home/benjamin/.local/share/Steam/steamapps/common/Farming Simulator 25/data/maps/mapUS/textures/ui/overview.png",
+      "player": {
+        "heading": 302,
+        "posX": 0.29983726143837,
+        "farmId": 1,
+        "posZ": 0.32312412559986,
+        "headingUnit": "°"
+      }
+    },
+    "date": "01.09.2024",
+    "weather": {
+      "temperature": {
+        "min": 7,
+        "current": 11,
+        "max": 17,
+        "unit": "°C"
+      }
+    },
+    "language": "de"
+  }
+}

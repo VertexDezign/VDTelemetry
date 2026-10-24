@@ -23,11 +23,12 @@ import net.vertexdezign.vdt.app.widgets.LightingWidget
 import net.vertexdezign.vdt.app.widgets.NavigationWidget
 import net.vertexdezign.vdt.app.widgets.RigSlotWidget
 import net.vertexdezign.vdt.app.widgets.TelltaleWidget
+import net.vertexdezign.vdt.app.widgets.TirePressureWidget
 import net.vertexdezign.vdt.app.widgets.Widget
 
 /**
- * The vehicle itself: owns everything about the machine you're driving. Provides the engine, rig-slot
- * and lighting tiles, and a full page laying the rig out the way it sits: front, the machine, rear.
+ * The vehicle itself: owns everything about the machine you're driving. Provides the engine, rig-slot,
+ * lighting and tyre-pressure tiles, and a full page laying the rig out the way it sits: front, the machine, rear.
  */
 object VehicleApp : VdtApp {
   /** Below this the low-fuel alert fires… */
@@ -47,6 +48,8 @@ object VehicleApp : VdtApp {
       RigSlotWidget,
       NavigationWidget,
       LightingWidget,
+      // Only says anything with Variable Tire Pressure installed; without it, the tile says so.
+      TirePressureWidget,
       // The pillar-cluster four. They belong to the vehicle like everything else here; what makes them
       // a cluster is the page they are stacked on, not anything they know about each other.
       TelltaleWidget,

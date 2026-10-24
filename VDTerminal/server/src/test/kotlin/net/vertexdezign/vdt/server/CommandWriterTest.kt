@@ -8,6 +8,7 @@ import net.vertexdezign.vdt.CruiseAction
 import net.vertexdezign.vdt.InvoiceLineInput
 import net.vertexdezign.vdt.OutputMode
 import net.vertexdezign.vdt.TaskInput
+import net.vertexdezign.vdt.TirePressureScope
 import net.vertexdezign.vdt.model.AutoDriveMode
 import net.vertexdezign.vdt.model.BaleUnloadAction
 import java.nio.file.Files
@@ -61,6 +62,14 @@ class CommandWriterTest {
     CommandWriter(path).submit(ClientMessage.SetSpeedSync(active = true))
     val xml = path.readText()
     assertTrue(xml.contains("""type="setSpeedSync" active="true""""), xml)
+  }
+
+  @Test
+  fun `writes the tyre pressure as a scope and an absolute mode`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    CommandWriter(path).submit(ClientMessage.SetTirePressure(TirePressureScope.IMPLEMENTS, road = false))
+    val xml = path.readText()
+    assertTrue(xml.contains("""type="setTirePressure" scope="implements" road="false""""), xml)
   }
 
   @Test
