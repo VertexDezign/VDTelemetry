@@ -49,6 +49,13 @@ data class TireRig(val vehicle: TireMachine?, val implements: List<TireMachine>)
 
   val implementsMode: TireMode? get() = groupMode(implements)
 
+  /**
+   * Which way one tap on the whole rig goes, where there is no room for a pair: down to field from a rig
+   * all at road, and up to road from anything else — a rig whose parts disagree comes up together,
+   * since road is the pressure nothing is harmed by.
+   */
+  val switchesToRoad: Boolean get() = mode != TireMode.ROAD
+
   companion object {
     fun of(vehicle: Vehicle): TireRig? {
       val implements = mutableListOf<TireMachine>()

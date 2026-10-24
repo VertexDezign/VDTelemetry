@@ -16,4 +16,6 @@ internal object DeTirePressure : TirePressureStrings {
   override fun bar(value: String): String = "$value bar"
   override fun inflatingTo(value: String): String = "pumpt auf $value bar"
   override fun deflatingTo(value: String): String = "lässt ab auf $value bar"
+  override val switchRigToRoad = "Gespann auf Straßendruck"
+  override val switchRigToField = "Gespann auf Felddruck"
 }

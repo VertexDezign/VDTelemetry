@@ -6,7 +6,9 @@ import net.vertexdezign.vdt.model.TirePressure
 import net.vertexdezign.vdt.model.Vehicle
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class TireRigTest {
   private fun tyres(mode: TireMode) = TirePressure(mode = mode, bar = 1f, targetBar = 1f)
@@ -64,5 +66,16 @@ class TireRigTest {
     val rig = TireRig.of(Vehicle(implement = listOf(Implement(name = "Tanker", tirePressure = tyres(TireMode.ROAD)))))!!
     assertNull(rig.vehicle)
     assertEquals(TireMode.ROAD, rig.mode)
+  }
+
+  @Test
+  fun oneTapTakesARigAtRoadDownAndAnythingElseUp() {
+    fun rig(tractor: TireMode, tanker: TireMode) =
+      TireRig.of(Vehicle(tirePressure = tyres(tractor), implement = listOf(Implement(tirePressure = tyres(tanker)))))!!
+    assertFalse(rig(TireMode.ROAD, TireMode.ROAD).switchesToRoad)
+    assertTrue(rig(TireMode.FIELD, TireMode.FIELD).switchesToRoad)
+    // Parts that disagree come up together rather than being guessed at.
+    assertTrue(rig(TireMode.ROAD, TireMode.FIELD).switchesToRoad)
+    assertTrue(rig(TireMode.MIXED, TireMode.ROAD).switchesToRoad)
   }
 }

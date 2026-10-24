@@ -22,4 +22,8 @@ interface TirePressureStrings {
   /** Said for the arrow beside a pressure that is moving: where to, already formatted. */
   fun inflatingTo(value: String): String
   fun deflatingTo(value: String): String
+
+  /** What tapping the readout on the lighting schematic does: the whole rig to one pressure. */
+  val switchRigToRoad: String
+  val switchRigToField: String
 }
