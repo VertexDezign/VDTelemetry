@@ -675,8 +675,9 @@ class VdtModelTest {
 
   @Test
   fun decodesTheTirePressureBlock() {
-    // Variable Tire Pressure (mod version 36), the shape no capture has yet: a tractor whose axles sit in
-    // different modes (MIXED), deflating the rear, with a trailer hitched that has the system too.
+    // Variable Tire Pressure (mod version 36), the one shape no capture can have: a tractor whose axles sit
+    // in different modes (MIXED, unreachable in 1.0.0.13, see TireMode), deflating the rear, with a trailer
+    // hitched that has the system too.
     val data =
       VdtParser.parseJson(
         """

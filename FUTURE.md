@@ -688,11 +688,6 @@ them. (The schema and selection aspects were in this list until #116 and #119 ca
 - **AutoDrive (#97), two states no capture has yet.** Every command is checked in singleplayer and from a multiplayer
   client, and `examples/json/autodrive/` pins the reads. Not yet seen in a file: a round counter that is not endless
   (`loops` > 0 with `loopsDone` counting) and a moment where `heading` differs from `target`.
-- **Variable Tire Pressure (#193), from a multiplayer client.** Singleplayer is confirmed in game — the reads and all
-  three switches — and `examples/json/telemetry/modded/variableTirePressure/` pins a tanker mid-deflation and a tractor
-  with its axles split. Still wanted: the switches tried from a client, where the press has to travel through the
-  mod's own event, and ideally a capture with the axles in *different modes* (`MIXED`, covered by inline JSON in
-  `VdtModelTest.decodesTheTirePressureBlock` meanwhile) if the mod offers a way to get there.
 - **A tipping trailer.** It covers `tipping` and `discharge`, and would give `jointDescIndex` its first real chain.
   (The balers are captured, all singleplayer: `examples/json/telemetry/vanilla/baler/`.)
 - **A baler from a multiplayer client.** Every baler command was driven from a client and works, but no committed file

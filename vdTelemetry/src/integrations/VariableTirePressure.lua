@@ -45,7 +45,10 @@
 VDT = VDT or {}
 VDT.VariableTirePressure = {}
 
--- vtpGetDashboardMode's codes: 2 is front at road and rear at field, 3 the reverse.
+-- vtpGetDashboardMode's codes: 2 is front at road and rear at field, 3 the reverse. Kept although no
+-- player can get there in 1.0.0.13: the mod's handler has front-only and rear-only keys, but its modDesc
+-- binds neither, and every bound key moves both axles together. Mapped all the same, so a later version
+-- that binds them reads as mixed rather than as road.
 local MODES = { [0] = "ROAD", [1] = "FIELD", [2] = "MIXED", [3] = "MIXED" }
 
 ---The machine's spec when the mod works on it: installed, and the wheel configuration bought with it.

@@ -481,7 +481,12 @@ enum class TireMode {
   ROAD,
   FIELD,
 
-  /** A tractor's axles apart, one at each pressure. Never on an axle itself. */
+  /**
+   * A tractor's axles in different modes, one at road and one at field. Never on an axle itself. Not
+   * reachable in Variable Tire Pressure 1.0.0.13, whose bound keys move both axles together (see the mod's
+   * `src/integrations/VariableTirePressure.lua`); handled so a later version that binds its axle keys
+   * reads right.
+   */
   MIXED,
 }
 
