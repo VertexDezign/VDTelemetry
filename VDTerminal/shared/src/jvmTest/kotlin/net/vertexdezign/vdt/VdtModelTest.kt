@@ -18,6 +18,10 @@ import net.vertexdezign.vdt.model.SprayerKind
 import net.vertexdezign.vdt.model.SteeringLayout
 import net.vertexdezign.vdt.model.TillageKind
 import net.vertexdezign.vdt.model.TipState
+import net.vertexdezign.vdt.model.TireAxle
+import net.vertexdezign.vdt.model.TireChange
+import net.vertexdezign.vdt.model.TireMode
+import net.vertexdezign.vdt.model.TirePressure
 import net.vertexdezign.vdt.model.VdtData
 import net.vertexdezign.vdt.model.Vehicle
 import java.io.File
@@ -631,6 +635,75 @@ class VdtModelTest {
     // Without the mod there is no block at all, which is a different answer from "not synced".
     val without = VdtParser.parseJson("""{"version":"33","vehicle":{"name":"Valtra"}}""")
     assertNull(without.vehicle?.speedSync)
+  }
+
+  @Test
+  fun decodesTheTirePressureCapture() {
+    // Variable Tire Pressure 1.0.0.13, singleplayer: a John Deere 6R settled at road, and the Kaweco slurry
+    // tanker behind it caught on its way down to field after the implements key.
+    val data = model("telemetry/modded/variableTirePressure/tractor_withLiquidManureBarrel.json")
+    assertJsonRoundTrips(data)
+    assertEquals("36", data.version)
+    val tractor = assertNotNull(data.vehicle?.tirePressure)
+    assertEquals(TirePressure(TireMode.ROAD, bar = 2.2f, targetBar = 2.2f, roadBar = 2.2f, fieldBar = 0.9f), tractor)
+    assertNull(tractor.change)
+    val tanker = assertNotNull(data.vehicle.implement.single().tirePressure)
+    assertEquals(TireMode.FIELD, tanker.mode)
+    assertEquals(1.71f, tanker.bar)
+    assertEquals(0.9f, tanker.targetBar)
+    assertEquals(TireChange.DEFLATING, tanker.change)
+  }
+
+  @Test
+  fun decodesTheSplitAxleCapture() {
+    // The same rig with different front and rear road pressures set in the mod's window, which splits the
+    // tractor's axles: both at road, front 2.0 and rear 2.2, and the vehicle's own figures their means.
+    val data = model("telemetry/modded/variableTirePressure/tractor_withDifferentPressure.json")
+    assertJsonRoundTrips(data)
+    val tractor = assertNotNull(data.vehicle?.tirePressure)
+    assertEquals(TireMode.ROAD, tractor.mode)
+    assertEquals(TireAxle(bar = 2.0f, mode = TireMode.ROAD), tractor.front)
+    assertEquals(TireAxle(bar = 2.2f, mode = TireMode.ROAD), tractor.rear)
+    assertEquals(2.1f, tractor.bar)
+    assertEquals(2.1f, tractor.roadBar)
+    assertEquals(1.05f, tractor.fieldBar)
+    assertNull(tractor.change)
+    // The tanker settled at field, with no axles of its own to report.
+    val tanker = assertNotNull(data.vehicle.implement.single().tirePressure)
+    assertEquals(TirePressure(TireMode.FIELD, bar = 0.9f, targetBar = 0.9f, roadBar = 2.2f, fieldBar = 0.9f), tanker)
+  }
+
+  @Test
+  fun decodesTheTirePressureBlock() {
+    // Variable Tire Pressure (mod version 36), the one shape no capture can have: a tractor whose axles sit
+    // in different modes (MIXED, unreachable in 1.0.0.13, see TireMode), deflating the rear, with a trailer
+    // hitched that has the system too.
+    val data =
+      VdtParser.parseJson(
+        """
+        {"version":"36","vehicle":{"name":"Fendt",
+          "tirePressure":{"mode":"MIXED","bar":1.6,"targetBar":1.4,"roadBar":2.0,"fieldBar":0.8,
+            "front":{"bar":2.0,"mode":"ROAD"},"rear":{"bar":1.2,"mode":"FIELD"}},
+          "implement":[{"position":"BACK","name":"Joskin",
+            "tirePressure":{"mode":"ROAD","bar":2.2,"targetBar":2.2,"roadBar":2.2,"fieldBar":1.0}}]}}
+        """.trimIndent(),
+      )
+    assertJsonRoundTrips(data)
+    val tractor = assertNotNull(data.vehicle?.tirePressure)
+    assertEquals(TireMode.MIXED, tractor.mode)
+    assertEquals(TireAxle(bar = 1.2f, mode = TireMode.FIELD), tractor.rear)
+    assertEquals(TireChange.DEFLATING, tractor.change)
+    val trailer = assertNotNull(data.vehicle.implement.single().tirePressure)
+    assertNull(trailer.change)
+    assertNull(trailer.front)
+
+    assertEquals(TireChange.INFLATING, TirePressure(bar = 1.0f, targetBar = 2.0f).change)
+    // Two decimals apart is rounding, not a transition.
+    assertNull(TirePressure(bar = 1.21f, targetBar = 1.2f).change)
+
+    // Without the mod — or on wheels bought without it — there is no block at all.
+    val without = VdtParser.parseJson("""{"version":"36","vehicle":{"name":"Valtra"}}""")
+    assertNull(without.vehicle?.tirePressure)
   }
 
   @Test

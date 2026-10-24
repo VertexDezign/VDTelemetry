@@ -32,6 +32,7 @@ import net.vertexdezign.vdt.app.i18n.ShellStrings
 import net.vertexdezign.vdt.app.i18n.StorageStrings
 import net.vertexdezign.vdt.app.i18n.Strings
 import net.vertexdezign.vdt.app.i18n.TasksStrings
+import net.vertexdezign.vdt.app.i18n.TirePressureStrings
 import net.vertexdezign.vdt.app.i18n.VehicleStrings
 import net.vertexdezign.vdt.app.i18n.WidgetsStrings
 
@@ -59,6 +60,7 @@ object English : Strings {
   override val rotation: RotationStrings = EnRotation
   override val fields: FieldsStrings = EnFields
   override val autoDrive: AutoDriveStrings = EnAutoDrive
+  override val tirePressure: TirePressureStrings = EnTirePressure
   override val diagnostics: DiagnosticsStrings = EnDiagnostics
   override val vehicle: VehicleStrings = EnVehicle
   override val cluster: ClusterStrings = EnCluster

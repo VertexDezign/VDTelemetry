@@ -41,6 +41,7 @@ interface Strings {
   val rotation: RotationStrings
   val fields: FieldsStrings
   val autoDrive: AutoDriveStrings
+  val tirePressure: TirePressureStrings
   val diagnostics: DiagnosticsStrings
   val vehicle: VehicleStrings
   val cluster: ClusterStrings

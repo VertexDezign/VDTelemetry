@@ -120,6 +120,7 @@ local sourceFiles = {
   -- AutoDrive: the vehicle block (object stage) and the autoDrive.json destinations channel, which
   -- needs MapExporter's world-size helpers at collect time.
   "src/integrations/AutoDrive.lua",
+  "src/integrations/VariableTirePressure.lua",
   "src/integrations/registry.lua",
   "src/integrations/TaskList.lua",
   "src/integrations/CropRotation.lua",
@@ -169,6 +170,9 @@ local sourceFiles = {
   -- AutoDrive start/stop, mode, destinations, fill type and loop counter, through AutoDrive's own
   -- events; reads the integration sourced above.
   "src/command/AutoDriveControl.lua",
+  -- Variable Tire Pressure road/field, through that mod's own key handler; reads the integration
+  -- sourced above.
+  "src/command/TirePressureControl.lua",
   -- Precision Farming application rate (auto/manual + the manual step). Resolves which machine on the
   -- rig to drive through src/integrations/PrecisionFarming.lua, sourced above.
   "src/command/PrecisionFarmingControl.lua",
@@ -367,7 +371,11 @@ VDTelemetry.TELEMETRY_CHANNEL = "telemetry"
 --     itself is its own channel, autoDrive.json.
 -- 35: `environment.language` -- the game's language code, which the terminal follows by default (issue
 --     #132). Additive.
-VDTelemetry.VERSION = 35
+-- 36: `tirePressure` on the vehicle and on every implement Variable Tire Pressure works on (issue #193):
+--     the pressure now and where it is heading, road / field / mixed, the two setpoints, and each axle
+--     while a tractor runs them apart. Absent without the mod. Written to by the setTirePressure
+--     command (command/TirePressureControl.lua).
+VDTelemetry.VERSION = 36
 VDTelemetry.SETTINGS_XML = "vdTelemetrySettings.xml"
 VDTelemetry.SETTINGS_XML_VERSION = 3
 -- Everything lives under modSettings/<modName>/: the settings XML at its root and the telemetry

@@ -610,6 +610,16 @@ sealed interface ClientMessage {
   @SerialName("setSpeedSync")
   data class SetSpeedSync(val active: Boolean) : ClientMessage
 
+  /**
+   * Variable Tire Pressure to road (`road = true`) or field pressure, for the tractor, its implements,
+   * or both (issue #193). The mod's own keys toggle; this is an absolute state, and the mod presses a
+   * key only where the machine is not already there, so a resent command settles. See
+   * [net.vertexdezign.vdt.model.TirePressure].
+   */
+  @Serializable
+  @SerialName("setTirePressure")
+  data class SetTirePressure(val scope: TirePressureScope, val road: Boolean) : ClientMessage
+
   // ---- AutoDrive (issue #97). Every one is an absolute state; the mod drives AutoDrive's own events, and
   // works out the button presses where AutoDrive only offers a step (the mode, the loop counter).
 
@@ -1041,6 +1051,17 @@ data class TaskInput(
 enum class AutoDriveSlot(val token: String) {
   TARGET("target"),
   UNLOAD("unload"),
+}
+
+/**
+ * What a [ClientMessage.SetTirePressure] switches: the vehicle's own tyres, everything hitched to it, or
+ * both — the mod's tractor key, its implements key, and the two in turn. [token] is the wire vocabulary.
+ */
+@Serializable
+enum class TirePressureScope(val token: String) {
+  ALL("all"),
+  VEHICLE("vehicle"),
+  IMPLEMENTS("implements"),
 }
 
 /** AutoDrive's loop counter ceiling — `ADStateModule:changeLoopCounter` keeps it at 99. */

@@ -40,6 +40,8 @@ VDT.Integrations.all = {
   -- AutoDrive: its HUD's state on the machine, and the AI lamp while it drives. After the core AI
   -- collector by construction (every integration is), since it raises `ai.active` rather than setting it.
   "AutoDrive",
+  -- Variable Tire Pressure: the tyre pressure of the tractor and of every implement that has it.
+  "VariableTirePressure",
 }
 
 -- "<integration>.<stage>" -> true once its failure has been logged, so a hook that throws on every
