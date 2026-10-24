@@ -21,7 +21,10 @@
 --     the other one's mode first. A tap that asked for the other mode is then one tap short.
 --   * implements that disagree among themselves, the first already right: its key would turn them all
 --     the wrong way. On the server (single player, the host) the stragglers are set directly, the call
---     the mod's handler makes for each implement; a multiplayer client has no such call, and logs.
+--     the mod's handler makes for each implement. A multiplayer client presses the tractor key on each
+--     straggler instead, with the straggler as the machine: the handler sends that press to the server
+--     as its own event, and there the "tractor" is the implement, so it alone is toggled -- towards the
+--     mode asked for, since only one in the other mode is pressed.
 --
 -- The class is looked up off the vehicle's own type, under whatever folder name the mod was installed
 -- as, so nothing is read from the mod's environment.
@@ -122,11 +125,14 @@ function VDT.TirePressureControl.setTirePressure(vehicle, scope, road, debugger)
       for i = 2, #implements do
         local implement = implements[i]
         if (VDT.VariableTirePressure.specOf(implement).isRoadMode == true) ~= road then
+          local own = specClass(implement) or class
           if vehicle.isServer == true and type(implement.vtpSetRoadMode) == "function" then
             implement:vtpSetRoadMode(road, false)
             debugger:debug("setTirePressure: set a straggling implement to %s", wanted)
+          elseif vehicle.isServer ~= true then
+            press(own, implement, VDT.TirePressureControl.ACTION_TRACTOR, debugger)
           else
-            debugger:debug("setTirePressure: an implement disagrees and only the server can set it alone")
+            debugger:warn("setTirePressure: could not set a straggling implement to %s, the rig stays mixed", wanted)
           end
         end
       end

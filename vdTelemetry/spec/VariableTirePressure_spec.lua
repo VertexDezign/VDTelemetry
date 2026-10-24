@@ -92,9 +92,9 @@ local function withClass(vehicle, folder)
     wheels = {},
     [(folder or "FS25_VariableTirePressure") .. ".variableTirePressure"] = {
       actionEventTogglePressure = function(self, action, inputValue, callbackState)
-        assert.are.equal(vehicle, self)
         assert.are.equal(InputAction.CALLBACK_STATE_START, callbackState)
-        presses[#presses + 1] = action
+        -- A press on the vehicle is recorded by its action alone; on another machine, with that machine.
+        presses[#presses + 1] = self == vehicle and action or { on = self, action = action }
       end,
     },
   }
@@ -188,14 +188,15 @@ describe("TirePressureControl.setTirePressure", function()
     assert.are.same({ true }, behind.set)
   end)
 
-  it("leaves straggling implements alone on a multiplayer client", function()
+  it("presses the own-tyres key on each straggling implement from a multiplayer client", function()
     local behind = machine({ mode = "FIELD" })
     local trailer = machine({ mode = "ROAD", implements = { behind } })
     local tractor = machine({ implements = { trailer }, isServer = false })
     local presses = withClass(tractor)
 
     VDT.TirePressureControl.setTirePressure(tractor, "implements", true, debugger)
-    assert.are.same({}, presses)
+    -- Through the mod's handler, which sends the press to the server; never the server-only setter.
+    assert.are.same({ { on = behind, action = "VTP_SET_TIRE_PRESSURE_TRACTOR" } }, presses)
     assert.are.same({}, behind.set)
   end)
 
