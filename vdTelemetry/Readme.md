@@ -412,6 +412,16 @@ version renames costs you that panel, never a Lua error.
       copy nobody drives with. Where AutoDrive offers only a step (the mode button, the loop counter's +/-), the
       mod works out the presses from the state it finds. A destination travels with its name, and is refused if
       the marker list shifted under the tap
+* [FS25_VariableTirePressure](https://www.farming-simulator.com/mod.php?mod_id=347991&title=fs2025) `1.0.0.13` —
+  a central tyre inflation system: road or field pressure per machine, moved between by a compressor
+  (`src/integrations/VariableTirePressure.lua`). **Read and write:**
+    * `tirePressure` on the vehicle and on every implement whose wheels were bought with the system: the pressure
+      now and where it is heading, road / field / mixed, the two setpoints, and each axle while a tractor runs them
+      apart — read through the getters the mod registers for Dashboard Live, so the numbers are its HUD's
+    * One command, `setTirePressure` (`src/command/TirePressureControl.lua`) — road or field for the tractor, the
+      implements, or both. The mod only offers toggles; the command is absolute and presses the mod's own tractor or
+      implements key only where the machines are not already there, through the mod's key handler — so it works from
+      a multiplayer client the way the key does
 * [FS25_TaskList](https://www.farming-simulator.com/mod.php?mod_id=312938&title=fs2025) `1.2.0.1`
   ([source](https://github.com/Ozz-Modding/FS25_TaskList)) — the farm task list, in its own
   `taskList.json` channel (`src/integrations/TaskList.lua`). **Read and write:** VDTerminal can

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.TireRepair
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -44,6 +45,7 @@ import net.vertexdezign.vdt.app.panels.Navigation
 import net.vertexdezign.vdt.app.panels.RigSlot
 import net.vertexdezign.vdt.app.panels.RigSlotPanel
 import net.vertexdezign.vdt.app.panels.TaskListPanel
+import net.vertexdezign.vdt.app.panels.TirePressurePanel
 import net.vertexdezign.vdt.app.panels.WeatherIcons
 import net.vertexdezign.vdt.app.panels.WeatherSummary
 import net.vertexdezign.vdt.app.state.LocalVdtStore
@@ -342,6 +344,23 @@ object LightingWidget : Widget {
     } else {
       Lighting(vehicle, modifier, onCommand = store.onCommand)
     }
+  }
+}
+
+/**
+ * Variable Tire Pressure's road / field switch for the machine and its implements (issue #193); the
+ * panel renders its own empty states — off the vehicle, and a rig without the system.
+ */
+object TirePressureWidget : Widget {
+  override val id = "tirePressure"
+  override fun title(strings: Strings) = strings.tirePressure.title
+  override val icon: ImageVector = Icons.Filled.TireRepair
+
+  @Composable
+  override fun Content(modifier: Modifier, config: WidgetConfig) {
+    val store = LocalVdtStore.current
+    val telemetry by store.telemetry.collectAsState()
+    TirePressurePanel(telemetry?.vehicle, modifier, store.onCommand)
   }
 }
 
