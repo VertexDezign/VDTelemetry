@@ -358,9 +358,10 @@ private fun TyreStrip(tyres: TirePressure, toRoad: Boolean, onClick: () -> Unit)
   val s = strings.tirePressure
   val front = tyres.front
   val rear = tyres.rear
+  // Per axle, as the hubs are: one axle missing from the file falls back to the unified pressure alone.
   val figures =
-    if (front != null && rear != null) {
-      "${strings.numbers.fixed(front.bar, 1)} / ${strings.numbers.fixed(rear.bar, 1)}"
+    if (front != null || rear != null) {
+      "${strings.numbers.fixed(front?.bar ?: tyres.bar, 1)} / ${strings.numbers.fixed(rear?.bar ?: tyres.bar, 1)}"
     } else {
       strings.numbers.fixed(tyres.bar, 1)
     }
