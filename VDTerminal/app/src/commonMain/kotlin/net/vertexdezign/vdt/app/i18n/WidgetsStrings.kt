@@ -9,6 +9,7 @@ interface WidgetsStrings {
   val service: String
   val levelStrip: String
   val rigPosition: String
+  val actionButton: String
 
   /** Their settings. */
   val opens: String
@@ -21,6 +22,23 @@ interface WidgetsStrings {
   val off: String
   val on: String
   val unavailable: String
+
+  /** The action button's setting, and the actions it can be pointed at — short, for a thumb-sized tile. */
+  val action: String
+  val engine: String
+  val speedSync: String
+  val cruise: String
+  val beacon: String
+  val lowBeam: String
+  val highBeam: String
+  val workFront: String
+  val workRear: String
+  val hazard: String
+  val fold: String
+  val power: String
+  val lower: String
+  val slotSelected: String
+  fun actionAt(action: String, slot: String): String
 
   /** The picker and the config dialog. */
   val addWidget: String

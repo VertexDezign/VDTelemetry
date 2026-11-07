@@ -125,7 +125,12 @@ private data class RigSlotState(
   val broken: Boolean = false,
 )
 
-private fun findImplement(list: List<Implement>, pos: String): Implement? {
+/**
+ * The machine at export position [pos], searched depth-first so a chain's head wins over anything
+ * hitched behind it. Internal so the action buttons resolve a position to the same machine this
+ * panel shows for it — two tiles naming "Rear" must never be reading different implements.
+ */
+internal fun findImplement(list: List<Implement>, pos: String): Implement? {
   for (imp in list) {
     if (imp.position == pos) return imp
     findImplement(imp.implement, pos)?.let { return it }

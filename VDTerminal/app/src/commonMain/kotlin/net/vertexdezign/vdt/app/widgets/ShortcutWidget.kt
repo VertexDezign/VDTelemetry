@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -105,15 +106,7 @@ object ShortcutWidget : Widget {
   }
 }
 
-/**
- * The icon-and-label tile. It centres a square inside whatever tile it was given rather than
- * stretching to fill it: a tile is whatever share of a split it holds, so the same shortcut can be
- * square on one screen and tall and narrow on another, and an icon that tracked those bounds would
- * visibly distort on rotation. The square is also capped, so a shortcut someone has deliberately
- * given a big region stays an icon instead of becoming a billboard.
- *
- * A null [onClick] renders the tile inert — it has nothing to open.
- */
+/** The shortcut's tile: [IconTile], tappable when there is somewhere to go. A null [onClick] renders it inert. */
 @Composable
 private fun ShortcutTile(
   icon: ImageVector,
@@ -122,36 +115,87 @@ private fun ShortcutTile(
   modifier: Modifier = Modifier,
   tint: Color = VdtColors.Green,
 ) {
+  IconTile(
+    icon,
+    label,
+    modifier,
+    interactionModifier = if (onClick == null) Modifier else Modifier.clickable(onClick = onClick),
+    tint = tint,
+  )
+}
+
+/**
+ * The icon-and-label tile shared by the shortcut and the action button. It centres a square inside
+ * whatever tile it was given rather than stretching to fill it: a tile is whatever share of a split it
+ * holds, so the same shortcut can be square on one screen and tall and narrow on another, and an icon
+ * that tracked those bounds would visibly distort on rotation. The square is also capped, so a shortcut
+ * someone has deliberately given a big region stays an icon instead of becoming a billboard.
+ *
+ * [interactionModifier] is applied to the square, after the clip, so the ripple stays inside the rounded
+ * corners. [caption] is a third line under the label (the action button's state word). It is dropped
+ * when the square is too small for three lines, where it would push the icon out of the tile.
+ */
+@Composable
+internal fun IconTile(
+  icon: ImageVector,
+  label: String,
+  modifier: Modifier = Modifier,
+  interactionModifier: Modifier = Modifier,
+  tint: Color = VdtColors.Green,
+  labelColor: Color = VdtColors.DarkGray,
+  background: Color = VdtColors.Panel,
+  border: Color = VdtColors.PanelBorder,
+  caption: String? = null,
+) {
   BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
     val side = minOf(maxWidth, maxHeight).coerceAtMost(MAX_TILE_SIDE)
+    val showCaption = caption != null && side >= MIN_CAPTION_SIDE
     Column(
       Modifier
         .size(side)
         .clip(RoundedCornerShape(8.dp))
-        .background(VdtColors.Panel)
-        .border(1.dp, VdtColors.PanelBorder, RoundedCornerShape(8.dp))
-        .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
+        .background(background)
+        .border(1.dp, border, RoundedCornerShape(8.dp))
+        .then(interactionModifier)
         .padding(6.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+      verticalArrangement = Arrangement.spacedBy(if (showCaption) 2.dp else 6.dp, Alignment.CenterVertically),
     ) {
       Icon(
         icon,
         contentDescription = null,
         tint = tint,
-        modifier = Modifier.size((side * 0.42f).coerceIn(20.dp, 48.dp)),
+        modifier = Modifier.size((side * if (showCaption) 0.34f else 0.42f).coerceIn(20.dp, 48.dp)),
       )
       Text(
         label.uppercase(),
         fontSize = 10.sp,
-        color = VdtColors.DarkGray,
+        color = labelColor,
         textAlign = TextAlign.Center,
-        maxLines = 2,
+        // Two lines leave no room for the caption in a small square.
+        maxLines = if (showCaption && side < MAX_TILE_SIDE) 1 else 2,
         overflow = TextOverflow.Ellipsis,
       )
+      if (showCaption) {
+        Text(
+          caption.uppercase(),
+          fontSize = 10.sp,
+          fontWeight = FontWeight.Bold,
+          color = labelColor,
+          textAlign = TextAlign.Center,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
     }
   }
 }
+
+/**
+ * Below this an icon, a label and a caption cannot all fit in the square, so the caption is dropped.
+ * The square's fill still shows the state.
+ */
+private val MIN_CAPTION_SIDE = 76.dp
 
 /** Past this the icon stops reading as an icon and starts reading as a mistake. */
 private val MAX_TILE_SIDE = 140.dp
