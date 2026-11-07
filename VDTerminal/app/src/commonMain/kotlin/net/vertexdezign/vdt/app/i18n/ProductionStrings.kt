@@ -38,6 +38,9 @@ interface ProductionStrings {
   val utilization: String
   val noReading: String
 
+  /** A tank or bunker holding nothing at all. */
+  val tankEmpty: String
+
   /** A utilization reading's band, in a word; the torch has its own two. */
   val torchBurning: String
   val torchIdle: String

@@ -255,7 +255,9 @@ Tests: `ClientMessageTest`, `CommandWriterTest`, a Lua spec for clamping and the
 Done in single player: the steppers apply; two fermenters double the feed limits and the pooled
 volume behind one fermenter box; a connected separator reports flow and state (both captured under
 `examples/json/production/pnhControl/`). The second capture also showed a feed set against an empty
-bunker, so a feed connector now flows only with stock behind it.
+bunker, so a feed connector now flows only with stock behind it. A bunker reports a row for every substrate
+BGA Control lets it take, most at 0 L, so the plant card and the plant page list only the fills
+holding something.
 
 Still open:
 
@@ -263,5 +265,3 @@ Still open:
   server, and a write before that broadcast is refused rather than lost.
 - Separator state on an MP client (expected absent — the flags live on the server's object).
 - The pit: does `parts[]` miss a slurry pit the plant has? (The page does not depend on it.)
-- Fermenter storage rows under BGA Control's fifteen substrates: the fermenter's own production
-  entry lists every one, mostly at 0 L — worth grouping or hiding the empty ones.

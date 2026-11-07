@@ -35,6 +35,7 @@ internal object EnProduction : ProductionStrings {
   override val plant = "PLANT"
   override val utilization = "Utilization"
   override val noReading = "No reading"
+  override val tankEmpty = "Empty"
 
   override val torchBurning = "burning"
   override val torchIdle = "idle"

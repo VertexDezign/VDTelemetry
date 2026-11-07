@@ -35,6 +35,7 @@ internal object DeProduction : ProductionStrings {
   override val plant = "ANLAGE"
   override val utilization = "Auslastung"
   override val noReading = "Kein Messwert"
+  override val tankEmpty = "Leer"
 
   override val torchBurning = "brennt"
   override val torchIdle = "aus"

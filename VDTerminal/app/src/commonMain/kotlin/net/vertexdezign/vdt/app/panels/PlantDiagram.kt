@@ -541,14 +541,7 @@ private fun UtilizationBar(part: ConstructionPart?) {
 
 @Composable
 private fun PartFills(part: ConstructionPart?) {
-  val strings = LocalStrings.current
-  part?.fills?.forEach { fill ->
-    ProgressBar(
-      fraction = if (fill.capacity > 0) fill.level.toFloat() / fill.capacity.toFloat() else 0f,
-      leftLabel = fill.title,
-      rightLabel = strings.common.litres(strings.numbers.integer(fill.level), strings.numbers.integer(fill.capacity)),
-    )
-  }
+  if (part != null) PartFillBars(part)
 }
 
 private fun titled(label: String, part: ConstructionPart?): String =
