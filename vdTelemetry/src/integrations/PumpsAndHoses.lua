@@ -75,6 +75,8 @@
 ---@field kind string what sort of construction it is; "bga" is the only one the DLC builds
 ---@field name string display name ("BGA (1)")
 ---@field parts ConstructionPartModel[] one row per role present, in a fixed order
+---@field control BgaControlModel? the plant's process state, when PnH BGA Control is installed (see
+---  PnhBgaControl.lua)
 
 VDT = VDT or {}
 VDT.PumpsAndHoses = {}
@@ -324,6 +326,42 @@ function VDT.PumpsAndHoses.autoDistributionMode(pp)
   return highest + 1
 end
 
+-- Is this placeable the ROOT of a plant the farm owns? Roots only: one entry per plant, found by
+-- walking the farm's placeables rather than the DLC's own `placeableSystem.sandboxPlaceables`
+-- registry, which a game without the DLC does not have.
+---@param placeable table
+---@param farmId number
+---@return boolean
+local function isOwnedRoot(placeable, farmId)
+  if not isMember(placeable) or placeable.isSandboxRoot == nil then
+    return false
+  end
+  local ok, answer = pcall(placeable.isSandboxRoot, placeable)
+  if not ok or answer ~= true then
+    return false
+  end
+  local okOwner, owner = pcall(placeable.getOwnerFarmId, placeable)
+  return okOwner and owner == farmId
+end
+
+---The root placeable of the farm's plant with this construction id — the write side's way back from
+---the id the app was given to the live plant. Nil when the farm owns no such plant.
+---@param id string|nil
+---@param farmId number|nil
+---@return table|nil
+function VDT.PumpsAndHoses.rootById(id, farmId)
+  local system = g_currentMission ~= nil and g_currentMission.placeableSystem or nil
+  if id == nil or farmId == nil or system == nil or type(system.placeables) ~= "table" then
+    return nil
+  end
+  for _, placeable in ipairs(system.placeables) do
+    if isOwnedRoot(placeable, farmId) and plantId(placeable) == id then
+      return placeable
+    end
+  end
+  return nil
+end
+
 ---Every BGA the farm owns, for the production channel's `constructions` key. Empty (returns nil) in a
 ---game without the DLC, or one where the farm has not built a plant — the key is then omitted and the
 ---app falls back to its no-constructions rendering.
@@ -338,18 +376,7 @@ function VDT.PumpsAndHoses.collect(farmId)
 
   local out = {}
   for _, placeable in ipairs(placeables) do
-    -- Roots only: one entry per plant, found by walking the farm's placeables rather than the DLC's
-    -- own `placeableSystem.sandboxPlaceables` registry, which a game without the DLC does not have.
-    local isRoot = false
-    if isMember(placeable) and placeable.isSandboxRoot ~= nil then
-      local ok, answer = pcall(placeable.isSandboxRoot, placeable)
-      isRoot = ok and answer == true
-    end
-    local okOwner, owner = false, nil
-    if isRoot then
-      okOwner, owner = pcall(placeable.getOwnerFarmId, placeable)
-    end
-    if isRoot and okOwner and owner == farmId then
+    if isOwnedRoot(placeable, farmId) then
       local byRole = partsByRole(placeable)
       local parts = {}
       for _, role in ipairs(ROLE_ORDER) do
@@ -370,6 +397,7 @@ function VDT.PumpsAndHoses.collect(farmId)
         kind = "bga",
         name = plantName(placeable),
         parts = #parts > 0 and parts or nil,
+        control = VDT.PnhBgaControl ~= nil and VDT.PnhBgaControl.control(placeable) or nil,
       }
     end
   end

@@ -123,6 +123,25 @@ class CommandWriterTest {
   }
 
   @Test
+  fun `writes a biogas plant's setpoints, and leaves a missing separator off`() {
+    val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
+    val writer = CommandWriter(path)
+    writer.submit(
+      ClientMessage.SetBgaSettings("bga-1", 40, silage = 5400, liquid = 4000, agitator = 90, recirculation = 10),
+    )
+    writer.submit(ClientMessage.SetBgaSettings("bga-1", 42, 0, 0, 0, 0, separator = 1200))
+    val xml = path.readText()
+    assertTrue(
+      xml.contains(
+        """type="setBgaSettings" constructionId="bga-1" temperature="40" silage="5400" liquid="4000" """ +
+          """agitator="90" recirculation="10"/>""",
+      ),
+      xml,
+    )
+    assertTrue(xml.contains("""recirculation="0" separator="1200"/>"""), xml)
+  }
+
+  @Test
   fun `writes production control commands`() {
     val path = Files.createTempDirectory("vdt-cmd").resolve("commands.xml")
     val writer = CommandWriter(path)

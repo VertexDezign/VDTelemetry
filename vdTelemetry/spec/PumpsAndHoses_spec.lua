@@ -21,6 +21,9 @@ end
 if VDT.StorageExporter == nil then
   dofile("src/collect/StorageExporter.lua")
 end
+if VDT.PnhBgaControl == nil then
+  dofile("src/integrations/PnhBgaControl.lua")
+end
 
 local FILL_TYPES = {
   [1] = { name = "UNKNOWN", title = "Unknown" },
@@ -299,6 +302,23 @@ describe("PumpsAndHoses.collect", function()
     setupWorld(all, 1)
 
     assert.are.equal(1, #VDT.PumpsAndHoses.collect(1))
+  end)
+
+  it("hangs BGA Control's block on the plant it was asked about, and leaves it off without the mod", function()
+    local plant = fullPlant()
+    setupWorld(plant.parts, 1)
+    assert.is_nil(VDT.PumpsAndHoses.collect(1)[1].control)
+
+    local original = VDT.PnhBgaControl.control
+    local askedAbout
+    VDT.PnhBgaControl.control = function(root)
+      askedAbout = root
+      return { mode = "CO_FERMENTATION" }
+    end
+    local bga = VDT.PumpsAndHoses.collect(1)[1]
+    VDT.PnhBgaControl.control = original
+    assert.are.equal(plant.fermenterA, askedAbout)
+    assert.are.equal("CO_FERMENTATION", bga.control.mode)
   end)
 
   it("is nil without the DLC", function()

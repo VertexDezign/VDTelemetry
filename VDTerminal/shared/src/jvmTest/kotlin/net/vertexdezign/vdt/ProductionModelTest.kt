@@ -170,6 +170,99 @@ class ProductionModelTest {
   }
 
   @Test
+  fun parsesTheBgaControlCapture() {
+    // A single-player plant run by PnH BGA Control: the DLC's construction as before, plus the
+    // `control` block the mod's integrations/PnhBgaControl.lua hangs on it.
+    val data = VdtParser.parseProduction(example("pnhControl/production.json"))
+    assertEquals("3", data.version)
+
+    val plant = data.constructions.single()
+    val control = assertNotNull(plant.control)
+
+    // Tokens, not the mod's l10n — it works these out per frame and never stores them.
+    assertEquals("MULTI_SUBSTRATE", control.mode)
+    assertEquals("MESOPHILIC_OPTIMAL", control.status)
+    assertEquals("STABLE", control.biology.trend)
+    assertEquals(100, control.biology.activity)
+    assertEquals(0, control.biology.stress)
+    assertEquals(5400, control.biology.stressLimit)
+
+    // The six setpoints, in the app's units: degrees, L/h, whole percent.
+    assertEquals(38.0, control.temperature.target)
+    assertEquals(38.0, control.temperature.actual)
+    assertEquals(4200, control.feed.silage)
+    assertEquals(3000, control.feed.liquid)
+    // One fermenter, so the mod's per-fermenter limits stand as they are.
+    assertEquals(18000, control.feed.silageMax)
+    assertEquals(24000, control.feed.liquidMax)
+    assertEquals(70, control.agitator)
+    assertEquals(10, control.recirculation)
+    // No separator connected: the block is absent, not a zero.
+    assertNull(control.separator)
+
+    assertEquals(11.9, control.dryMatter)
+    assertEquals(7.6, control.ph)
+    assertEquals(100, control.efficiency)
+    assertEquals(983, control.methane)
+    assertEquals(4622, control.digestate)
+    assertEquals(90, control.chp.load)
+    assertEquals(2950, control.chp.income)
+    // A working plant, torch idle: the healthy state.
+    assertEquals(0, control.torch)
+
+    // The fermenter against BGA Control's POOLED capacity: the same 326 100 L the DLC reports per
+    // substrate, but here it is one volume all of them share, so the level is the sum.
+    assertEquals(326100, control.stock.fermenter.capacity)
+    assertEquals(245078, control.stock.fermenter.level)
+    // The solid stock is the bunker; the slurry is in the plant's tanks, as the mod's screen adds it.
+    assertEquals(115000, control.stock.solid.capacity)
+    assertEquals(76661, control.stock.solid.level)
+    assertEquals(72351, control.stock.liquid.level)
+    assertEquals(59138, control.stock.digestate.level)
+    assertEquals(40, control.costs.operating)
+    assertEquals(1475, control.costs.upkeep)
+
+    // BGA Control widens the fermenter to its fifteen substrates, which the point's storage now lists.
+    val fermenter = data.productionPoints.first { it.construction?.role == "FERMENTER" }
+    assertTrue(fermenter.storage.any { it.type == "CLOVER_FERMENTED" })
+
+    assertRoundTrips(data)
+  }
+
+  @Test
+  fun parsesTheBgaControlCaptureWithTwoFermentersAndASeparator() {
+    val data = VdtParser.parseProduction(example("pnhControl/double_fermenter_and_separator.json"))
+    val plant = data.constructions.single()
+    val control = assertNotNull(plant.control)
+
+    // Two fermenters behind one merged entry, and the mod's feed limits scale with them.
+    assertEquals(2, plant.parts.first { it.role == "FERMENTER" }.count)
+    assertEquals(36000, control.feed.silageMax)
+    assertEquals(48000, control.feed.liquidMax)
+    // The pooled fermenter volume doubles too.
+    assertEquals(652200, control.stock.fermenter.capacity)
+
+    // A connected separator, running, with its throughput setpoint.
+    val separator = assertNotNull(control.separator)
+    assertEquals(200, separator.flow)
+    assertEquals("OPERATING", separator.state)
+
+    // A feed can be set against an empty bunker — the app must not draw that line as flowing.
+    assertEquals(15200, control.feed.silage)
+    assertEquals(0, control.stock.solid.level)
+
+    // Efficiency can pass 100: it is the temperature and agitator factors times the culture.
+    assertEquals(104, control.efficiency)
+
+    assertRoundTrips(data)
+  }
+
+  @Test
+  fun aPlantWithoutBgaControlCarriesNoControlBlock() {
+    assertNull(VdtParser.parseProduction(example("mp_modded.json")).constructions.single().control)
+  }
+
+  @Test
   fun productionWithoutADlcCarriesNoConstruction() {
     val data = VdtParser.parseProduction(example("basic.json"))
     assertNull(data.productionPoints[0].construction)
