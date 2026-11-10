@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -86,7 +88,10 @@ private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessa
   // Selection is by id so it survives the ~2 s refreshes; falls back to the first entry when the
   // selected placeable disappears (sold / demolished) or on first render.
   var selectedId by remember { mutableStateOf<String?>(null) }
-  val ids = remember(data) { data.productionPoints.map { it.id } }
+  // A plant is an entry of its own, beside its production points; its key is prefixed so it can never
+  // collide with a point's id (the root fermenter's uniqueId is both the plant's id and, through the
+  // merged point, possibly a point's).
+  val ids = remember(data) { data.productionPoints.map { it.id } + data.constructions.map { plantKey(it.id) } }
   val currentId = selectedId.takeIf { it in ids } ?: ids.firstOrNull()
 
   // Standalone points first, then one titled section per construction. Sections come last because a
@@ -121,20 +126,34 @@ private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessa
         data.constructions.forEach { construction ->
           val members = grouped[construction.id].orEmpty()
           if (members.isNotEmpty()) {
-            GroupHeader(construction.name)
+            // The plant itself heads its section: the page that draws all of it as one process
+            // (PlantDiagram.kt). Its machines are indented beneath it.
+            Spacer(Modifier.height(6.dp))
+            OwnedRow(
+              name = construction.name,
+              subtitle =
+              construction.control?.let { bgaModeLabel(strings, it.mode) } ?: strings.production.plantOverview,
+              selected = plantKey(construction.id) == currentId,
+              onClick = {
+                selectedId = plantKey(construction.id)
+                detailOpen = true
+              },
+            )
             members.forEach { point ->
-              OwnedRow(
-                // The point's own name is the machine's ("BGA (1): Fermenter 30m"), which under the
-                // header would repeat the plant and then name one of the three machines the entry
-                // actually speaks for. Its role is the honest label.
-                name = point.construction?.role?.let { roleLabel(strings, it) } ?: point.name,
-                subtitle = strings.production.lines(point.lines.size),
-                selected = point.id == currentId,
-                onClick = {
-                  selectedId = point.id
-                  detailOpen = true
-                },
-              )
+              Box(Modifier.padding(start = 14.dp)) {
+                OwnedRow(
+                  // The point's own name is the machine's ("BGA (1): Fermenter 30m"), which under the
+                  // header would repeat the plant and then name one of the three machines the entry
+                  // actually speaks for. Its role is the honest label.
+                  name = point.construction?.role?.let { roleLabel(strings, it) } ?: point.name,
+                  subtitle = strings.production.lines(point.lines.size),
+                  selected = point.id == currentId,
+                  onClick = {
+                    selectedId = point.id
+                    detailOpen = true
+                  },
+                )
+              }
             }
           }
         }
@@ -142,13 +161,19 @@ private fun ProductionMasterDetail(data: ProductionData, onCommand: (ClientMessa
     },
   ) {
     val point = data.productionPoints.firstOrNull { it.id == currentId }
-    if (point != null) {
+    val plant = data.constructions.firstOrNull { plantKey(it.id) == currentId }
+    if (plant != null) {
+      PlantDetail(plant, grouped[plant.id].orEmpty(), onCommand)
+    } else if (point != null) {
       ProductionPointDetail(point, byId[point.construction?.id], onCommand)
     } else {
       Centered(strings.common.selectEntry)
     }
   }
 }
+
+/** The selection key of a plant's own entry — see the ids in ProductionMasterDetail. */
+private fun plantKey(constructionId: String) = "plant:$constructionId"
 
 // ---- Production point detail ---------------------------------------------------------------------
 
@@ -318,7 +343,7 @@ private fun IoRow(
 
 /** Tappable on/off chip for a production line — green ON / gray OFF; a tap requests the opposite. */
 @Composable
-private fun EnableToggle(enabled: Boolean, onToggle: (Boolean) -> Unit) {
+internal fun EnableToggle(enabled: Boolean, onToggle: (Boolean) -> Unit) {
   val strings = LocalStrings.current.production
   val bg = if (enabled) VdtColors.Green else VdtColors.TrackGray
   val fg = if (enabled) VdtColors.OnFill else VdtColors.DarkGray

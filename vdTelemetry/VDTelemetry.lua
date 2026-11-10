@@ -87,6 +87,9 @@ local sourceFiles = {
   -- helpers it reuses) and before StorageExporter; both call it at runtime, so the order only has to
   -- put it after the helpers it uses.
   "src/integrations/PumpsAndHoses.lua",
+  -- PnH BGA Control: the process state of a biogas plant, hung on PumpsAndHoses' construction entry
+  -- (called at runtime, so only after the helpers it uses)
+  "src/integrations/PnhBgaControl.lua",
   -- Storage channel: own-farm standalone silos + object storages (reuses ProductionExporter's id /
   -- storage-row helpers, so it is sourced after it)
   "src/collect/StorageExporter.lua",
@@ -182,6 +185,9 @@ local sourceFiles = {
   -- Productions write-back (line on/off + output mode); depends on ProductionExporter (own-farm +
   -- id helpers) sourced with the collectors above
   "src/command/ProductionControl.lua",
+  -- PnH BGA Control write-back (a biogas plant's setpoints); resolves the plant through PumpsAndHoses
+  -- and the mod through PnhBgaControl, both sourced with the collectors above
+  "src/command/BgaControl.lua",
   -- Object-storage unload (bales/pallets); same ProductionExporter helpers
   "src/command/ObjectStorageControl.lua",
   -- Contract accept/cancel/collect; drives the game's own mission events and reuses

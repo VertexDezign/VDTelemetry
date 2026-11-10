@@ -53,6 +53,13 @@ data class Construction(
    * works, input first: bunkers, fermenters, cogeneration, digestate tank, torch.
    */
   val parts: List<ConstructionPart> = emptyList(),
+  /**
+   * The plant's process state when **PnH BGA Control** is installed — temperatures, feed rates,
+   * biology, dry matter and pH, the mod's mode and status, and its four tanks. Null without the mod,
+   * and also with it until the mod has state for this plant (an MP client waits for the server's
+   * first broadcast).
+   */
+  val control: BgaControl? = null,
 )
 
 /** One part type of a [Construction], standing for every machine of that type in the plant. */
@@ -182,4 +189,121 @@ data class ProductionFill(
   val level: Int = 0,
   /** Storage capacity in liters. */
   val capacity: Int = 0,
+)
+
+/**
+ * A biogas plant's process as **PnH BGA Control** runs it (the mod's `integrations/PnhBgaControl.lua`).
+ * Percentages are whole percent; flows are L/h.
+ *
+ * The mode, status, biology trend and separator state are **tokens** the mod works out from the same
+ * rules as BGA Control's own control screen — that mod computes them per frame and never stores them,
+ * and its words are its own l10n. Unknown tokens render neutrally, so the mod may add some first.
+ */
+@Serializable
+data class BgaControl(
+  val temperature: BgaTemperature = BgaTemperature(),
+  val feed: BgaFeed = BgaFeed(),
+  /** Agitator intensity, 0..100 %. */
+  val agitator: Int = 0,
+  /** Share of the digestate fed back into the fermenters, 0..50 %. */
+  val recirculation: Int = 0,
+  /** Null when no separator is connected to the plant. */
+  val separator: BgaSeparator? = null,
+  val biology: BgaBiology = BgaBiology(),
+  /** Dry matter (the mod's TS content), %. Above 16.5 stresses the bacteria. */
+  val dryMatter: Double = 0.0,
+  /** Below 7.0 is an acid crash, above 8.05 ammonia inhibition. */
+  val ph: Double = 0.0,
+  /** The plant's biological efficiency, % — 0 while stopped, up to ~130 when thermophilic. */
+  val efficiency: Int = 0,
+  /**
+   * `INACTIVE`, `LIQUID_MONO`, `SOLID_MONO`, `SOLID_MULTI`, `RECIRCULATION`, `MULTI_SUBSTRATE`,
+   * `CO_FERMENTATION`, `MANURE_LIQUID` or `BEET_FERMENTATION`.
+   */
+  val mode: String = "",
+  /**
+   * `STOPPED`, `STARTUP`, `COLD`, `ECONOMICAL_STABLE`, `RECIRC_STABLE`, `DRY_OK`, `THERMOPHILIC`,
+   * `MESOPHILIC_OPTIMAL`, `BUFFERING`, `NO_FEED`, the agitator's `SCUM_DRY` / `HIGH_VISCOSITY` /
+   * `HIGH_SHEAR`, or the pH's `ACID_CRASH` / `AMMONIA_INHIBITION` — which override everything else.
+   */
+  val status: String = "",
+  /** Methane produced, L/h. */
+  val methane: Int = 0,
+  /** Digestate produced, L/h. */
+  val digestate: Int = 0,
+  val chp: BgaChp = BgaChp(),
+  /** Gas torch load, %. 0 is the healthy state: it burns only what the cogeneration cannot use. */
+  val torch: Int = 0,
+  val stock: BgaStock = BgaStock(),
+  val costs: BgaCosts = BgaCosts(),
+)
+
+/** Degrees Celsius. The setpoint is 30..55; the tank follows it slowly (about 0.45 °C per 10 in-game minutes). */
+@Serializable
+data class BgaTemperature(val target: Double = 0.0, val actual: Double = 0.0)
+
+/** The two feed rates, L/h, and their maximum — which scales with the plant's fermenter count. */
+@Serializable
+data class BgaFeed(
+  /** Solid feed out of the bunkers. */
+  val silage: Int = 0,
+  val silageMax: Int = 0,
+  /** Liquid feed (slurry). */
+  val liquid: Int = 0,
+  val liquidMax: Int = 0,
+)
+
+/** The connected manure separator. */
+@Serializable
+data class BgaSeparator(
+  /** Throughput setpoint, 0..3000 L/h. */
+  val flow: Int = 0,
+  /** `INACTIVE`, `OPERATING`, `FULL`, `NO_SILO` or `STANDBY`; null where this machine cannot tell (an MP client). */
+  val state: String? = null,
+)
+
+/** The bacterial culture. */
+@Serializable
+data class BgaBiology(
+  /** Activity, 10..100 %. Everything the plant makes scales with it. */
+  val activity: Int = 0,
+  /** `DYING`, `STRESSED`, `DECAY`, `DORMANT`, `STABLE` or `GROWING`. */
+  val trend: String = "",
+  /** Accumulated stress, in-game seconds. It drains again once the cause is gone. */
+  val stress: Int = 0,
+  /** The stress the culture absorbs before it starts dying (1.5 in-game hours). */
+  val stressLimit: Int = 0,
+)
+
+/** The cogeneration unit as BGA Control reports it. */
+@Serializable
+data class BgaChp(
+  /** Load, 0..100 %. */
+  val load: Int = 0,
+  /** Revenue at that load, per in-game hour. */
+  val income: Int = 0,
+)
+
+/** The four tanks of BGA Control's screen, each a level against a capacity in liters. */
+@Serializable
+data class BgaStock(
+  /** Solid feed stock in the bunkers. */
+  val solid: BgaLevel = BgaLevel(),
+  /** Liquid feed stock (slurry). */
+  val liquid: BgaLevel = BgaLevel(),
+  /** The fermenters, against BGA Control's pooled capacity (one volume shared by every substrate). */
+  val fermenter: BgaLevel = BgaLevel(),
+  /** The digestate store. */
+  val digestate: BgaLevel = BgaLevel(),
+)
+
+@Serializable
+data class BgaLevel(val level: Long = 0, val capacity: Long = 0)
+
+@Serializable
+data class BgaCosts(
+  /** Running cost (heating, agitator, base load), per in-game hour. */
+  val operating: Int = 0,
+  /** Every part's upkeep together, per day. */
+  val upkeep: Int = 0,
 )

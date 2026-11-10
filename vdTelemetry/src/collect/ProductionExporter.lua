@@ -35,7 +35,9 @@ VDT.ProductionExporter.FILE_NAME = "production.json"
 --    plant, not one per machine); storage rows resolve through the point's stations, so a merged
 --    plant's liters are the whole plant's; `construction` ties a point to its plant and the new
 --    `constructions` key describes the rest of it (see integrations/PumpsAndHoses.lua).
-VDT.ProductionExporter.VERSION = 2
+-- 3: a construction carries `control` -- the plant's process state -- when PnH BGA Control is
+--    installed (see integrations/PnhBgaControl.lua).
+VDT.ProductionExporter.VERSION = 3
 -- Write cadence in ms. Its own constant (not the main telemetry interval): production fill levels
 -- change on the order of seconds at most, so a 2 s refresh keeps the overview live without churn.
 VDT.ProductionExporter.INTERVAL_MS = 2000

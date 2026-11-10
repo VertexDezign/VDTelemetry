@@ -237,6 +237,15 @@ class CommandWriter(private val path: Path, private val ringSize: Int = 16) {
       )}" productionId="${esc(message.productionId)}" enabled="${message.enabled}"/>"""
     }
 
+    // constructionId is a placeable uniqueId (escaped); everything else is an int. The separator is
+    // left off when the plant has none, which the mod reads as "leave it alone".
+    is ClientMessage.SetBgaSettings -> {
+      val separator = message.separator?.let { """ separator="$it"""" } ?: ""
+      """<command id="$id" type="setBgaSettings" constructionId="${esc(message.constructionId)}" """ +
+        """temperature="${message.temperature}" silage="${message.silage}" liquid="${message.liquid}" """ +
+        """agitator="${message.agitator}" recirculation="${message.recirculation}"$separator/>"""
+    }
+
     is ClientMessage.SetProductionOutputMode -> {
       """<command id="$id" type="setProductionOutputMode" pointId="${esc(
         message.pointId,
