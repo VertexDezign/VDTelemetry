@@ -60,6 +60,8 @@ class ClientMessageTest {
         ClientMessage.SetProductionOutputMode("point-1", "MANURE", OutputMode.DIRECT_SELL),
         ClientMessage.SetProductionOutputMode("point-1", "FERMENTERMANURE", OutputMode.AUTO_DELIVER),
         ClientMessage.UnloadObjectStorage("barn-1", index = 2, title = "Round bale (Straw)", amount = 10),
+        ClientMessage.SetBgaSettings("bga-1", 40, silage = 5400, liquid = 4000, agitator = 90, recirculation = 10),
+        ClientMessage.SetBgaSettings("bga-1", 42, 0, 0, 0, 0, separator = 1200),
       )
     for (message in messages) {
       val encoded = json.encodeToString(ClientMessage.serializer(), message)

@@ -28,7 +28,7 @@ object ModFormat {
       "mapLayers" to 5,
       "gpsCourse" to 1,
       "fieldInfo" to 1,
-      "production" to 2,
+      "production" to 3,
       "storage" to 4,
       "husbandry" to 2,
       "fleet" to 3,
