@@ -1,0 +1,358 @@
+{
+  "productionPoints": [
+    {
+      "name": "BGA (1) : Fermenter 26m",
+      "id": "placeable030f39a6e7f2e2f1e57f5655012dc174",
+      "construction": {
+        "id": "placeable030f39a6e7f2e2f1e57f5655012dc174",
+        "role": "FERMENTER",
+        "name": "BGA (1)"
+      },
+      "storage": [
+        {
+          "capacity": 652200,
+          "type": "ALFALFA_FERMENTED",
+          "title": "Luzernesilage",
+          "level": 0
+        },
+        {
+          "capacity": 652200,
+          "type": "CLOVER_FERMENTED",
+          "title": "Kleesilage",
+          "level": 25188
+        },
+        {
+          "capacity": 3050,
+          "type": "DIGESTATE",
+          "title": "Gärreste",
+          "level": 0
+        },
+        {
+          "capacity": 652200,
+          "type": "GRASS_FERMENTED",
+          "title": "Grassilage",
+          "level": 0
+        },
+        {
+          "capacity": 652200,
+          "type": "GRASS_WINDROW",
+          "title": "Gras",
+          "level": 0
+        },
+        {
+          "capacity": 652200,
+          "type": "LIQUIDMANURE",
+          "title": "Gülle",
+          "level": 119848
+        },
+        {
+          "capacity": 652200,
+          "type": "MANURE",
+          "title": "Mist",
+          "level": 102255
+        },
+        {
+          "capacity": 1000,
+          "type": "METHANE",
+          "title": "Methan",
+          "level": 0
+        },
+        {
+          "capacity": 652200,
+          "type": "POTATO",
+          "title": "Kartoffeln",
+          "level": 0
+        },
+        {
+          "capacity": 652200,
+          "type": "SILAGE",
+          "title": "Silage",
+          "level": 82390
+        },
+        {
+          "capacity": 652200,
+          "type": "STRAW",
+          "title": "Stroh",
+          "level": 0
+        },
+        {
+          "capacity": 652200,
+          "type": "SUGARBEET",
+          "title": "Zuckerrüben",
+          "level": 0
+        },
+        {
+          "capacity": 652200,
+          "type": "SUGARBEET_CUT",
+          "title": "Zuckerrübenschnitzel",
+          "level": 9858
+        }
+      ],
+      "lines": [
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "SILAGE",
+              "title": "Silage",
+              "amount": 6043
+            },
+            {
+              "type": "CLOVER_FERMENTED",
+              "title": "Kleesilage",
+              "amount": 1847
+            },
+            {
+              "type": "MANURE",
+              "title": "Mist",
+              "amount": 1848
+            },
+            {
+              "type": "SUGARBEET_CUT",
+              "title": "Zuckerrübenschnitzel",
+              "amount": 934
+            },
+            {
+              "type": "LIQUIDMANURE",
+              "title": "Gülle",
+              "amount": 1848
+            }
+          ],
+          "name": "Line 1",
+          "status": "running",
+          "id": "FERMENTER",
+          "costsPerMonth": 936,
+          "cyclesPerMonth": 24,
+          "outputs": [
+            {
+              "type": "METHANE",
+              "title": "Methan",
+              "amount": 2060,
+              "mode": "autoDistribution",
+              "sellDirectly": false
+            },
+            {
+              "type": "DIGESTATE",
+              "title": "Gärreste",
+              "amount": 9624,
+              "mode": "autoDistribution",
+              "sellDirectly": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BGA (1) : avus 800 B",
+      "id": "placeableecaea64da093939e3dc885de9ee45886",
+      "construction": {
+        "id": "placeable030f39a6e7f2e2f1e57f5655012dc174",
+        "role": "POWERPLANT",
+        "name": "BGA (1)"
+      },
+      "storage": [
+        {
+          "capacity": 1000,
+          "type": "METHANE",
+          "title": "Methan",
+          "level": 2
+        }
+      ],
+      "lines": [
+        {
+          "enabled": true,
+          "inputs": [
+            {
+              "type": "METHANE",
+              "title": "Methan",
+              "amount": 2178
+            }
+          ],
+          "name": "Line 1",
+          "status": "running",
+          "id": "POWERPLANT",
+          "costsPerMonth": 60,
+          "cyclesPerMonth": 24,
+          "outputs": [
+            {
+              "type": "ELECTRICCHARGE",
+              "title": "Elektrische Ladung",
+              "amount": 18680,
+              "mode": "keep",
+              "sellDirectly": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "constructions": [
+    {
+      "name": "BGA (1)",
+      "control": {
+        "chp": {
+          "load": 95,
+          "income": 6184
+        },
+        "recirculation": 10,
+        "agitator": 70,
+        "biology": {
+          "trend": "STABLE",
+          "stressLimit": 5400,
+          "activity": 100,
+          "stress": 0
+        },
+        "status": "MESOPHILIC_OPTIMAL",
+        "mode": "MULTI_SUBSTRATE",
+        "feed": {
+          "liquidMax": 48000,
+          "silage": 15200,
+          "liquid": 22000,
+          "silageMax": 36000
+        },
+        "ph": 7.6,
+        "efficiency": 104,
+        "dryMatter": 11.7,
+        "temperature": {
+          "target": 38,
+          "actual": 38
+        },
+        "torch": 0,
+        "separator": {
+          "flow": 200,
+          "state": "OPERATING"
+        },
+        "costs": {
+          "operating": 79,
+          "upkeep": 2555
+        },
+        "stock": {
+          "solid": {
+            "capacity": 115000,
+            "level": 0
+          },
+          "fermenter": {
+            "capacity": 652200,
+            "level": 339542
+          },
+          "digestate": {
+            "capacity": 5757100,
+            "level": 83458
+          },
+          "liquid": {
+            "capacity": 5751000,
+            "level": 22892
+          }
+        },
+        "digestate": 9625,
+        "methane": 2060
+      },
+      "id": "placeable030f39a6e7f2e2f1e57f5655012dc174",
+      "kind": "bga",
+      "parts": [
+        {
+          "fills": [
+            {
+              "capacity": 115000,
+              "type": "ALFALFA_FERMENTED",
+              "title": "Luzernesilage",
+              "level": 0
+            },
+            {
+              "capacity": 115000,
+              "type": "CLOVER_FERMENTED",
+              "title": "Kleesilage",
+              "level": 0
+            },
+            {
+              "capacity": 115000,
+              "type": "GRASS_FERMENTED",
+              "title": "Grassilage",
+              "level": 0
+            },
+            {
+              "capacity": 115000,
+              "type": "GRASS_WINDROW",
+              "title": "Gras",
+              "level": 0
+            },
+            {
+              "capacity": 115000,
+              "type": "MANURE",
+              "title": "Mist",
+              "level": 0
+            },
+            {
+              "capacity": 115000,
+              "type": "POTATO",
+              "title": "Kartoffeln",
+              "level": 0
+            },
+            {
+              "capacity": 115000,
+              "type": "SILAGE",
+              "title": "Silage",
+              "level": 0
+            },
+            {
+              "capacity": 115000,
+              "type": "STRAW",
+              "title": "Stroh",
+              "level": 0
+            },
+            {
+              "capacity": 115000,
+              "type": "SUGARBEET",
+              "title": "Zuckerrüben",
+              "level": 0
+            },
+            {
+              "capacity": 115000,
+              "type": "SUGARBEET_CUT",
+              "title": "Zuckerrübenschnitzel",
+              "level": 0
+            }
+          ],
+          "role": "BUNKER",
+          "count": 1,
+          "utilization": 0
+        },
+        {
+          "role": "FERMENTER",
+          "count": 2,
+          "utilization": 100
+        },
+        {
+          "role": "POWERPLANT",
+          "count": 2,
+          "utilization": 95
+        },
+        {
+          "fills": [
+            {
+              "capacity": 5751000,
+              "type": "DIGESTATE",
+              "title": "Gärreste",
+              "level": 83457
+            },
+            {
+              "capacity": 5751000,
+              "type": "LIQUIDMANURE",
+              "title": "Gülle",
+              "level": 22891
+            }
+          ],
+          "role": "SILO",
+          "count": 2,
+          "utilization": 0
+        },
+        {
+          "role": "TORCH",
+          "count": 1,
+          "utilization": 0
+        }
+      ]
+    }
+  ],
+  "version": "3"
+}

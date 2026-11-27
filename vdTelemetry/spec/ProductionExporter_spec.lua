@@ -188,7 +188,7 @@ describe("ProductionExporter.collect", function()
 
     local model = VDT.ProductionExporter.collect()
 
-    assert.are.equal("2", model.version)
+    assert.are.equal("3", model.version)
     assert.are.equal(1, #model.productionPoints)
     local p = model.productionPoints[1]
     assert.are.equal("biogas-1", p.id)
@@ -353,7 +353,7 @@ describe("ProductionExporter.collect", function()
     setupWorld({ makePoint({ name = "X", owner = 1 }) }, nil)
 
     local model = VDT.ProductionExporter.collect()
-    assert.are.equal("2", model.version)
+    assert.are.equal("3", model.version)
     assert.is_nil(model.productionPoints)
   end)
 end)

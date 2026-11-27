@@ -106,7 +106,6 @@ internal fun ConstructionCard(construction: Construction) {
 @Composable
 private fun ConstructionPartRows(part: ConstructionPart) {
   val strings = LocalStrings.current
-  val numbers = strings.numbers
   val heading = if (part.count >
     1
   ) {
@@ -127,16 +126,33 @@ private fun ConstructionPartRows(part: ConstructionPart) {
         rightLabel = "$percent% · ${utilizationWord(strings, percent, part.role)}",
       )
     }
-    part.fills.forEach { fill ->
-      ProgressBar(
-        fraction = if (fill.capacity > 0) fill.level.toFloat() / fill.capacity.toFloat() else 0f,
-        leftLabel = fill.title,
-        rightLabel = strings.common.litres(numbers.integer(fill.level), numbers.integer(fill.capacity)),
-      )
-    }
+    PartFillBars(part)
     if (percent == null && part.fills.isEmpty()) {
       Text(strings.production.noReading, color = VdtColors.DarkGray, fontSize = 10.sp)
     }
+  }
+}
+
+/**
+ * What a part is holding, one bar per fill type — but only the ones holding something. A bunker
+ * reports a row for every fill type it accepts, and under PnH BGA Control that is ten substrates or
+ * more, most of them at 0 L; listing those buries the two that are actually there. A part holding
+ * nothing at all says so in a word rather than vanishing.
+ */
+@Composable
+internal fun PartFillBars(part: ConstructionPart) {
+  val strings = LocalStrings.current
+  val numbers = strings.numbers
+  val held = part.fills.filter { it.level > 0 }
+  held.forEach { fill ->
+    ProgressBar(
+      fraction = if (fill.capacity > 0) fill.level.toFloat() / fill.capacity.toFloat() else 0f,
+      leftLabel = fill.title,
+      rightLabel = strings.common.litres(numbers.integer(fill.level), numbers.integer(fill.capacity)),
+    )
+  }
+  if (held.isEmpty() && part.fills.isNotEmpty()) {
+    Text(strings.production.tankEmpty, color = VdtColors.DarkGray, fontSize = 10.sp)
   }
 }
 

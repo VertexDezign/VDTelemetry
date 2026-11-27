@@ -745,6 +745,28 @@ sealed interface ClientMessage {
   data class SetProductionOutputMode(val pointId: String, val fillType: String, val mode: OutputMode) : ClientMessage
 
   /**
+   * The six setpoints of a Pumps & Hoses biogas plant run by **PnH BGA Control**, all at once — that
+   * mod's own network event carries all six, so the app sends the full set with one value changed.
+   * [constructionId] is the plant's `Construction.id`; own-farm only, mod-side.
+   *
+   * Units are the app's: degrees Celsius ([temperature], 30..55), L/h for the two feeds and the
+   * separator, whole percent for the [agitator] (0..100) and the [recirculation] (0..50). The mod clamps
+   * to the same limits it applies in its own dialog. A null [separator] leaves the separator alone (a
+   * plant without one). Absolute state.
+   */
+  @Serializable
+  @SerialName("setBgaSettings")
+  data class SetBgaSettings(
+    val constructionId: String,
+    val temperature: Int,
+    val silage: Int,
+    val liquid: Int,
+    val agitator: Int,
+    val recirculation: Int,
+    val separator: Int? = null,
+  ) : ClientMessage
+
+  /**
    * Unload [amount] stored objects (bales/pallets) of one group out of object storage [storageId] —
    * the same action as the in-game trigger dialog (the mod spawns them at the storage's spawn area).
    * The group is addressed by its [index] (`objectInfoIndex`); [title] rides along so the mod can
